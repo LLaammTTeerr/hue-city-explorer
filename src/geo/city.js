@@ -236,14 +236,16 @@ function buildRoads(data, group, structures) {
     if (!r.bridge) continue;
     structures.span = span(r.era);
     const w = ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5);
-    const top = LAND_Y + 0.42;
+    // a bridge over a lake in the hills stands at that lake's level
+    const mp = r.pts[r.pts.length >> 1], lift = Math.min(rise(r.pts[0][0], r.pts[0][1]), rise(mp[0], mp[1]), rise(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]));
+    const top = LAND_Y + lift + 0.42;
     slab(structures, r.pts, w, top, r.c <= 2 ? 1.3 : 0.7, cols[Math.min(r.c, 3)], deckSide, r.c <= 4 ? 0.9 : 0.5);
     const len = pathLength(r.pts);
     if (len > 42 && r.c <= 3) {
       const n = Math.max(1, Math.round(len / 30) - 1);
       for (let i = 1; i <= n; i++) {
         const { p, a } = along(r.pts, (len * i) / (n + 1));
-        structures.box(p[0], p[1], -3, top - 1.2, 2.2, w - 2.5, a, pier);
+        structures.box(p[0], p[1], lift - 3, top - 1.2, 2.2, w - 2.5, a, pier);
       }
     }
   }
@@ -356,10 +358,11 @@ function buildBuildings(data, group) {
       B.kind = KIND.PLAIN;
       const cx = o.c[0], cz = o.c[1];
       const deck = ring.map((pt) => [cx + (pt[0] - cx) * 1.12, cz + (pt[1] - cz) * 1.12]);
-      B.prism(deck, LAND_Y - 0.7, LAND_Y - 0.02, hex('#8a7a66'), hex('#b3a48c'), { topKind: KIND.ROAD });
+      const dk = LAND_Y + floor;
+      B.prism(deck, dk - 0.7, dk - 0.02, hex('#8a7a66'), hex('#b3a48c'), { topKind: KIND.ROAD });
       const step = Math.max(1, Math.round(ring.length / 10));
-      for (let k = 0; k < ring.length; k += step) B.cyl(cx + (ring[k][0] - cx) * 0.94, cz + (ring[k][1] - cz) * 0.94, -2, LAND_Y - 0.7, 0.42, 0.42, 6, hex('#9c9488'), { cap: false });
-      B.cyl(cx, cz, -2, LAND_Y - 0.7, 0.6, 0.6, 6, hex('#9c9488'), { cap: false });
+      for (let k = 0; k < ring.length; k += step) B.cyl(cx + (ring[k][0] - cx) * 0.94, cz + (ring[k][1] - cz) * 0.94, dk - 6.6, dk - 0.7, 0.42, 0.42, 6, hex('#9c9488'), { cap: false });
+      B.cyl(cx, cz, dk - 6.6, dk - 0.7, 0.6, 0.6, 6, hex('#9c9488'), { cap: false });
     }
     B.kind = kind === 8 ? KIND.PLAIN : kind === 2 || trad ? KIND.TIMBER : colonial || quocHoc ? KIND.COLONIAL : kind === 3 || kind === 4 ? KIND.CIVIC : big ? KIND.MODERN : KIND.FACADE;
     if (pitched) {

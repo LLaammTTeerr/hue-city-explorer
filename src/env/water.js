@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { NOISE } from './sky.js';
 import { quality, POND_Y } from '../config.js';
+import { pondY } from '../geo/terrain.js';
 import { Buf } from '../geo/buf.js';
 
 // One sheet of river water under the slab; the land is cut out around the real banks. Lakes, ponds and the
@@ -125,13 +126,14 @@ export function buildWater(data) {
 
   // still water
   const P = new Buf(4096);
-  for (const poly of data.ponds || []) {
+  (data.ponds || []).forEach((poly, pi) => {
+    const Y = pondY(data, pi);
     const rings = poly.map((r) => { const o = []; for (let i = 0; i < r.length; i += 2) o.push(new THREE.Vector2(r[i] / 10, r[i + 1] / 10)); return o; });
     let faces;
-    try { faces = THREE.ShapeUtils.triangulateShape(rings[0], rings.slice(1)); } catch { continue; }
+    try { faces = THREE.ShapeUtils.triangulateShape(rings[0], rings.slice(1)); } catch { return; }
     const pts = rings[0].concat(...rings.slice(1));
-    for (const f of faces) P.tri([pts[f[0]].x, POND_Y, pts[f[0]].y], [pts[f[1]].x, POND_Y, pts[f[1]].y], [pts[f[2]].x, POND_Y, pts[f[2]].y], [1, 1, 1], [0, 1, 0]);
-  }
+    for (const f of faces) P.tri([pts[f[0]].x, Y, pts[f[0]].y], [pts[f[1]].x, Y, pts[f[1]].y], [pts[f[2]].x, Y, pts[f[2]].y], [1, 1, 1], [0, 1, 0]);
+  });
   const pu = THREE.UniformsUtils.clone(shader.uniforms);
   pu.textureMatrix.value = new THREE.Matrix4();
   pu.uReflect.value = 0;

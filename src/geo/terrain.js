@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { LAND_Y, PAL } from '../config.js';
+import { LAND_Y, POND_Y, PAL } from '../config.js';
 import { landMaterial } from './materials.js';
 
 // Height of the ground above the flat city floor, from the bundled grid (see scripts/build-data.mjs §9).
@@ -26,6 +26,11 @@ export function rise(x, z) {
   return fx > fz ? h00 + (h10 - h00) * fx + (h11 - h10) * fz : h00 + (h11 - h01) * fx + (h01 - h00) * fz;
 }
 export const groundY = (x, z) => LAND_Y + rise(x, z);
+// Surface of still-water body i: city ponds lie a little below the streets; lakes in the hills stand at their own
+// level, flush with the ground the terrain holds flat around them.
+export const pondY = (data, i) => { const lv = ((data.pondLv && data.pondLv[i]) || 0) / 10; return lv > 0 ? LAND_Y + lv + 0.08 : POND_Y; };
+// the same for any point known to be on still water
+export const waterY = (x, z) => { const r = rise(x, z); return r > 0 ? LAND_Y + r + 0.08 : POND_Y; };
 // lowest ground under a footprint, so buildings on a slope are bedded in rather than left floating
 export function baseUnder(ring) {
   let m = Infinity;

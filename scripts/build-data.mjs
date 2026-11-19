@@ -896,6 +896,7 @@ function readPng(file) {
   return { w, h, ch, px: out };
 }
 let terrain = null;
+let pondLv = ponds.map(() => 0); // metres above the city floor at which each still-water body stands (0: at city level)
 {
   const Z = 13, X0 = 6543, Y0 = 3715, NXT = 2, NYT = 4;
   const have = [0, 1].every((i) => [0, 1, 2, 3].every((j) => fs.existsSync(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`)));
@@ -957,6 +958,28 @@ let terrain = null;
       }
       return out;
     })();
+    // Lakes in the hills stand at their own height, not the city's: read each one's level off the elevation model
+    // and hold the ground flat at that level inside it and along its shore.
+    const nodeLv = new Float32Array(nx * nz);
+    ponds.forEach((poly, pi) => {
+      const ring = poly[0], c = centroid(ring);
+      if (inCitadel(c)) return;
+      const vals = [demAt(c[0], c[1])];
+      for (let i = 0; i < ring.length; i += Math.max(1, ring.length >> 4)) vals.push(demAt(ring[i][0], ring[i][1]));
+      vals.sort((a, b) => a - b);
+      const lv = vals[Math.floor(vals.length * 0.3)] - floor - 1;
+      if (lv < 2.5) return;
+      pondLv[pi] = lv;
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (const q0 of ring) { x0 = Math.min(x0, q0[0]); x1 = Math.max(x1, q0[0]); z0 = Math.min(z0, q0[1]); z1 = Math.max(z1, q0[1]); }
+      const near = (x, z) => { for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < 34) return true; } return false; };
+      for (let j = Math.max(0, Math.floor((z0 - 40 - MINZ) / STEP)); j <= Math.min(nz - 1, Math.ceil((z1 + 40 - MINZ) / STEP)); j++) for (let i = Math.max(0, Math.floor((x0 - 40 - MINX) / STEP)); i <= Math.min(nx - 1, Math.ceil((x1 + 40 - MINX) / STEP)); i++) {
+        const x = MINX + i * STEP, z = MINZ + j * STEP;
+        // islands inside the lake stand at its level too (they are holes in the water polygon)
+        if (pip([x, z], ring) || near(x, z)) nodeLv[j * nx + i] = Math.max(nodeLv[j * nx + i], lv);
+      }
+    });
+    console.log('raised lakes', pondLv.filter((v) => v > 0).length, 'of', ponds.length, '| highest', Math.max(0, ...pondLv).toFixed(1), 'm');
     const DEAD = 3.2, FULL = 9; // below DEAD above the floor: flat; from FULL up: the true height
     const nearWet = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx * STEP, z + dz * STEP) & WATER) return true; return false; };
     const lock = new Uint8Array(nx * nz);
@@ -965,6 +988,7 @@ let terrain = null;
       const x = MINX + i * STEP, z = MINZ + j * STEP, k = j * nx + i;
       // the slab's edge may stand high in the hills (it is cut like a model); only the city's own edges stay flat
       const edge = i === 0 || j === 0 || i === nx - 1 || j === nz - 1;
+      if (nodeLv[k] > 0) { h[k] = nodeLv[k]; lock[k] = 2; continue; }
       if ((edge && !inHills([x, z])) || nearWet(x, z) || inCitadel([x, z]) || wallBandTest([x, z])) { lock[k] = 1; continue; }
       const up = broad[k] - floor;
       const t = Math.max(0, Math.min(1, (up - DEAD) / (FULL - DEAD))), gate = t * t * (3 - 2 * t);
@@ -975,7 +999,7 @@ let terrain = null;
       const out = new Float32Array(h.length);
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
         const k = j * nx + i;
-        if (lock[k]) continue;
+        if (lock[k]) { if (lock[k] === 2) out[k] = h[k]; continue; }
         let sum = 0, wsum = 0;
         for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
           const a = i + di, b = j + dj;
@@ -987,7 +1011,7 @@ let terrain = null;
       }
       h = out;
     }
-    for (let k = 0; k < h.length; k++) if (lock[k] || h[k] < 0.35) h[k] = 0;
+    for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
     // Hà Khê hill, which carries chùa Thiên Mụ, is narrower than the smoothing above, so its crest is put back
     // from the unsmoothed samples, measured against the low end of the city floor (true ground, not rooftops).
     if (towerC) {
@@ -1036,6 +1060,7 @@ const out = {
   },
   land: land.map(flatPoly),
   ponds: ponds.map(flatPoly),
+  pondLv: pondLv.map((v) => Math.round(v * 10)),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
   roads: roads.map((r) => [r.c, r.bridge, flat(r.pts)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),

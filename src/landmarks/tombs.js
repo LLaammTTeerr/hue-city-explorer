@@ -210,7 +210,7 @@ function gate(S, cx, cz, a, w, d, { h = 5, openings = 3, roof = C.roofY, col = C
 // a pavilion on stilts standing in the water
 function stilts(S, cx, cz, w, d, a, { roof = C.roofTile, wall = C.lacquerOld } = {}) {
   if (w < d) { const t = w; w = d; d = t; a += Math.PI / 2; }
-  const deck = LAND_Y + 0.45, ux = Math.cos(a), uz = Math.sin(a);
+  const deck = LAND_Y + rise(cx, cz) + 0.45, ux = Math.cos(a), uz = Math.sin(a); // above the lake's own level
   const nx = clamp(Math.round(w / 3.5), 2, 6), nz = clamp(Math.round(d / 3.5), 2, 4);
   S.kind = KIND.TIMBER; S.base = 0;
   for (let i = 0; i < nx; i++) for (let j = 0; j < nz; j++) {
@@ -667,12 +667,12 @@ function thieuTri(S, st) {
   }
   {
     const sD = T.s(dp), dd = dhl ? Math.min(dhl.w, dhl.d) : 16.7, sI = sD - dd / 2 - 40, ip = T.at(sI), R = 16;
-    const wet = W.some((r) => inRing(ip, r));
+    const wet = W.some((r) => inRing(ip, r)), isle = LAND_Y + rise(ip[0], ip[1]) + 0.3;
     if (wet) {
       S.kind = KIND.MASONRY; S.base = 0;
-      S.cyl(ip[0], ip[1], POND_Y - 1, LAND_Y + 0.3, R + 2, R + 2, 22, C.stoneDark);
-      wallLine(S, circle(ip[0], ip[1], R, 22), 2.8, 1.0, { ground: LAND_Y + 0.3 });
-      mound(S, ip[0], ip[1], R * 0.62, 3.2, { trees: 6, ground: LAND_Y + 0.3 });
+      S.cyl(ip[0], ip[1], POND_Y - 1, isle, R + 2, R + 2, 22, C.stoneDark);
+      wallLine(S, circle(ip[0], ip[1], R, 22), 2.8, 1.0, { ground: isle });
+      mound(S, ip[0], ip[1], R * 0.62, 3.2, { trees: 6, ground: isle });
       const sh = spans(T, W, sI + R + 2, sD - dd / 2 - 1, 0, 0.5);
       const shore = sh.length ? sh[sh.length - 1][1] + 2 : sD - dd / 2 - 3;
       bridge(S, T.at(shore), T.at(sI + R + 1.5), 4, { arch: 0.4 });
@@ -680,7 +680,7 @@ function thieuTri(S, st) {
       wallLine(S, circle(ip[0], ip[1], R, 22), 2.8, 1.0);
       mound(S, ip[0], ip[1], R * 0.62, 3.2, { trees: 6 });
     }
-    const g = T.at(sI + R), gy = wet ? LAND_Y + 0.3 : null;
+    const g = T.at(sI + R), gy = wet ? isle : null;
     gate(S, g[0], g[1], T.av, 5, 2.2, { h: 3.6, openings: 1, roof: C.roofYOld, floor: gy });
   }
   leftovers(S, st);

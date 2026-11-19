@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { Buf, hex, shade, unflat } from '../geo/buf.js';
 import { cityMaterial, enc } from '../geo/materials.js';
-import { rise } from '../geo/terrain.js';
+import { rise, pondY } from '../geo/terrain.js';
 import { LAND_Y, POND_Y, quality } from '../config.js';
 import { era, onEra } from '../era.js';
 
@@ -22,7 +22,8 @@ export function buildLotus(data, group) {
   const rnd = rng(20261119);
   const pads = [], blooms = [];
   const MAX = quality.low ? 5000 : 14000;
-  for (const poly of data.ponds || []) {
+  (data.ponds || []).forEach((poly, pi) => {
+    const Y = pondY(data, pi);
     const rings = poly.map(unflat), outer = rings[0];
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, area = 0;
     for (let i = 0; i < outer.length; i++) {
@@ -31,7 +32,7 @@ export function buildLotus(data, group) {
       area += p[0] * q[1] - q[0] * p[1];
     }
     area = Math.abs(area) / 2;
-    if (area < 900) continue;
+    if (area < 900) return;
     const want = Math.min(1100, Math.round(area / 26));
     for (let k = 0, tries = 0; k < want && tries < want * 6 && pads.length < MAX; tries++) {
       const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
@@ -39,11 +40,11 @@ export function buildLotus(data, group) {
       if (Math.sin(x * 0.045) * Math.cos(z * 0.052) + Math.sin((x + z) * 0.021) < 0.15 - rnd() * 0.5) continue;
       if (!inRing(x, z, outer) || rings.slice(1).some((h) => inRing(x, z, h))) continue;
       // leaves are drawn about twice life size so the drifts read from the air
-      pads.push([x, z, 1.1 + rnd() * 1.2, rnd() * 6.28]);
-      if (rnd() < 0.2) blooms.push([x + (rnd() - 0.5) * 1.2, z + (rnd() - 0.5) * 1.2, 1.3 + rnd() * 0.9]);
+      pads.push([x, z, 1.1 + rnd() * 1.2, rnd() * 6.28, Y]);
+      if (rnd() < 0.2) blooms.push([x + (rnd() - 0.5) * 1.2, z + (rnd() - 0.5) * 1.2, 1.3 + rnd() * 0.9, Y]);
       k++;
     }
-  }
+  });
   if (!pads.length) return;
   const mat = cityMaterial();
   const padGeo = new Buf(16);
@@ -62,14 +63,14 @@ export function buildLotus(data, group) {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
   const greens = ['#5f9a58', '#6aa460', '#4f8a52', '#79a965', '#8fb06a'].map(hex), pinks = ['#f2a7bd', '#ee8fb0', '#f7c6d4', '#fbe9ec'].map(hex);
   const padMesh = new THREE.InstancedMesh(padGeo.geometry(), mat, pads.length);
-  pads.forEach(([x, z, r, a], i) => {
-    q.setFromAxisAngle(up, a); p.set(x, POND_Y + 0.05, z); s.set(r, r, r);
+  pads.forEach(([x, z, r, a, y], i) => {
+    q.setFromAxisAngle(up, a); p.set(x, y + 0.05, z); s.set(r, r, r);
     padMesh.setMatrixAt(i, m.compose(p, q, s));
     padMesh.setColorAt(i, enc(shade(greens[i % greens.length], 0.85 + ((i * 7) % 10) / 33), c));
   });
   const bloomMesh = new THREE.InstancedMesh(bloomGeo.geometry(), mat, Math.max(1, blooms.length));
-  blooms.forEach(([x, z, r], i) => {
-    q.setFromAxisAngle(up, i); p.set(x, POND_Y + 0.25, z); s.set(r, r, r);
+  blooms.forEach(([x, z, r, y], i) => {
+    q.setFromAxisAngle(up, i); p.set(x, y + 0.25, z); s.set(r, r, r);
     bloomMesh.setMatrixAt(i, m.compose(p, q, s));
     bloomMesh.setColorAt(i, enc(pinks[i % pinks.length], c));
   });

@@ -1,6 +1,6 @@
 import { KIND, hex, shade, mix, unflat, obb } from '../geo/buf.js';
 import { LAND_Y, POND_Y } from '../config.js';
-import { rise } from '../geo/terrain.js';
+import { rise, waterY } from '../geo/terrain.js';
 
 // Hồ Thủy Tiên — the water park that opened in 2004 and was left to the pines.
 //
@@ -96,7 +96,7 @@ function railing(S, cx, cz, r, y, h, seg, col, gaps) {
 
 // ------------------------------------------------------------------ the aquarium and its dragon
 function dragon(S, C, Rd, hd, bridgeAngles) {
-  const yb = POND_Y, yp = LAND_Y + 0.46; // water; the landing, level with the footbridges
+  const yb = waterY(C[0], C[1]), yp = LAND_Y + rise(C[0], C[1]) + 0.46; // the lake's own level; the landing, level with the footbridges
   const conc = hex('#a3a69b'), concD = hex('#7f847a'), pale = hex('#b9c4c2'), glass = hex('#2c444b');
   const r1 = Rd * 0.8, rS = Rd + 1.7, r2 = Rd * 0.7, Rp = Rd + 4.4;
   const yD = yp + 9.4, hD = 5.4; // spring of the dome, its height
@@ -248,7 +248,7 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
 function footbridge(S, from, to) {
   const dx = to[0] - from[0], dz = to[1] - from[1], len = Math.hypot(dx, dz);
   if (len < 4) return;
-  const d = [dx / len, dz / len], ac = [-d[1], d[0]], ang = Math.atan2(d[1], d[0]), y = LAND_Y + 0.5, wd = 3.0;
+  const d = [dx / len, dz / len], ac = [-d[1], d[0]], ang = Math.atan2(d[1], d[0]), lift = rise(from[0], from[1]), y = LAND_Y + lift + 0.5, wd = 3.0;
   const P = (s, o, h = 0) => [from[0] + d[0] * s + ac[0] * o, y + h, from[1] + d[1] * s + ac[1] * o];
   const mid = P(len / 2, 0);
   S.kind = KIND.ROAD;
@@ -257,7 +257,7 @@ function footbridge(S, from, to) {
   const bays = Math.max(1, Math.round(len / 8));
   for (let i = 0; i <= bays; i++) {
     const q = P((len * i) / bays, 0);
-    S.box(q[0], q[2], POND_Y - 1.6, y - 0.35, 0.7, wd - 0.5, ang, hex('#8f9186'));
+    S.box(q[0], q[2], y - 3.6, y - 0.35, 0.7, wd - 0.5, ang, hex('#8f9186'));
     S.box(q[0], q[2], y - 0.6, y - 0.35, 1.1, wd + 0.3, ang, hex('#a09f93'));
   }
   S.kind = KIND.PLAIN;
