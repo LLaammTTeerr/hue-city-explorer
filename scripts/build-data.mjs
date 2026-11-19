@@ -524,14 +524,23 @@ for (const e of els) {
 console.log('buildings', buildings.length, 'gates', gates.length, gates.map((g) => g.n + ':' + g.k).join(', '));
 for (const e of els) {
   const t = e.tags || {};
-  if (e.type === 'node' || t.building || !(t.natural === 'water' || t.historic || t.tourism === 'attraction' || t.landuse === 'religious' || t.barrier === 'wall')) continue;
+  if (e.type === 'node') {
+    // points of interest inside a site: sculptures, a slide, the entrance
+    const pk = t.tourism === 'artwork' ? 'art' : t['abandoned:leisure'] ? 'slide' : t.barrier === 'entrance' ? 'gate' : null;
+    const st = pk && e.lat != null ? siteOf(proj(e)) : null;
+    if (st) (st.points ||= []).push({ k: pk, x: q(proj(e)[0]), z: q(proj(e)[1]) });
+    continue;
+  }
+  const lk = t.leisure === 'bleachers' ? 's' : t.leisure === 'swimming_pool' ? 'p' : t.place === 'square' ? 'q' : null; // stands, pool, plaza
+  if (t.building || !(lk || t.natural === 'water' || t.historic || t.tourism === 'attraction' || t.landuse === 'religious' || t.barrier === 'wall')) continue;
   const rings = elementRings(e);
   if (!rings.length) continue;
   rings.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)));
   const ring = openRing(rings[0]);
   if (ring.length < 3) continue;
   const st = siteOf(centroid(ring));
-  if (st) st.items.push({ id: e.id, n: t.name || '', k: t.natural === 'water' ? 'w' : 'h', ring: flat(ring) });
+  if (st) st.items.push({ id: e.id, n: t.name || '', k: lk || (t.natural === 'water' ? 'w' : 'h'), ring: flat(ring) });
+  if (st && lk) fillPoly([ring], BLD); // nothing grows or gets built on the stands, pools and plazas
 }
 for (const id in sites) console.log('site', id, sites[id].items.length, 'items:', sites[id].items.filter((i) => i.n).map((i) => i.n).join(', '));
 console.log('special', Object.keys(special));
@@ -612,6 +621,8 @@ function plant(x, z, s, kind) {
   stamp(x, z, 3.2, TREE);
   return true;
 }
+// tree kinds: 0 broadleaf, 1 dark broadleaf, 2 flame tree, 3 hill pine
+const hillKind = () => (rnd() < 0.72 ? 3 : rnd() < 0.3 ? 1 : 0);
 const treeKind = (riverish) => { const r = rnd(); return r < (riverish ? 0.09 : 0.035) ? 2 : r < 0.3 ? 1 : 0; };
 for (const g of green) {
   const far = inHills(g.p[0][0]);
@@ -622,7 +633,7 @@ for (const g of green) {
   const n = Math.min(far ? 900 : 2500, Math.round(((x1 - x0) * (z1 - z0)) / (spacing * spacing)));
   for (let i = 0; i < n; i++) {
     const p = [rr(x0, x1), rr(z0, z1)];
-    if (pipPoly(p, g.p)) plant(p[0], p[1], rr(0.8, 1.5), treeKind(g.k === 'park'));
+    if (pipPoly(p, g.p)) plant(p[0], p[1], rr(0.8, 1.5), far && g.k === 'wood' ? hillKind() : treeKind(g.k === 'park'));
   }
 }
 for (const road of roads) {
@@ -655,7 +666,17 @@ for (const road of roads) {
     const imp = cit && inImperial(p);
     if (m & NOBUILD && !imp && !cit) continue;
     if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : 0.26)) continue;
-    plant(p[0], p[1], rr(0.7, 1.35), treeKind(false));
+    plant(p[0], p[1], rr(0.7, 1.35), inHills(p) && rnd() < 0.5 ? 3 : treeKind(false));
+  }
+}
+// the pine woods that have closed over hồ Thủy Tiên and cover Thiên An's hill
+for (const [id, , x, z, r] of SITE_DEFS) {
+  if (id !== 'thuytien' && id !== 'thienan') continue;
+  const cell = 15, R = r + (id === 'thienan' ? 80 : 0);
+  for (let i = -R; i <= R; i += cell) for (let j = -R; j <= R; j += cell) {
+    if (rnd() > 0.5) continue;
+    const px = x + i + rr(0, cell), pz = z + j + rr(0, cell);
+    if (Math.hypot(px - x, pz - z) <= R) plant(px, pz, rr(0.9, 1.5), 3);
   }
 }
 console.log('trees', trees.length / 4);

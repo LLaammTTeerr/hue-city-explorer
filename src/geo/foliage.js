@@ -106,16 +106,17 @@ function trunk(S, y0, y1, r0, r1, tint) {
 }
 
 // Broadleaf crown. `tall` stretches it for the upright trees that line streets and gardens.
-function crownGeometry(seed, cards, tall) {
+// pine: the hill pine of Huế — a tall bare trunk under a loose, flattened crown
+function crownGeometry(seed, cards, tall, pine = false) {
   const S = new Soup();
   let s = seed;
   const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
-  const sy = tall ? 1.32 : 1.0, sx = tall ? 0.8 : 1.0;
-  trunk(S, -1.75, -0.15, 0.1, 0.07, [0.36, 0.27, 0.2]);
+  const sy = pine ? 0.58 : tall ? 1.32 : 1.0, sx = pine ? 0.95 : tall ? 0.8 : 1.0, oy = pine ? 0.92 : 0.12;
+  if (pine) trunk(S, -1.75, 0.7, 0.07, 0.04, [0.42, 0.31, 0.25]); else trunk(S, -1.75, -0.15, 0.1, 0.07, [0.36, 0.27, 0.2]);
   // dark core so the crown never reads as see-through
   const ico = new THREE.OctahedronGeometry(0.56, 0), ip = ico.attributes.position.array;
   for (let i = 0; i < ip.length; i += 9) {
-    const v = [0, 1, 2].map((k) => [ip[i + k * 3] * sx, ip[i + k * 3 + 1] * sy + 0.12, ip[i + k * 3 + 2] * sx]);
+    const v = [0, 1, 2].map((k) => [ip[i + k * 3] * sx, ip[i + k * 3 + 1] * sy + oy, ip[i + k * 3 + 2] * sx]);
     S.tri(v, v.map((q) => [q[0], q[1] + 0.3, q[2]]), [SOLID, SOLID, SOLID], [0.2, 0.2, 0.2]);
   }
   for (let i = 0; i < cards; i++) {
@@ -123,7 +124,7 @@ function crownGeometry(seed, cards, tall) {
     const y = -0.4 + 1.35 * Math.pow(rnd(), 0.8), a = rnd() * Math.PI * 2, hr = Math.sqrt(Math.max(0, 1 - Math.min(1, y) ** 2));
     const d = norm([Math.cos(a) * Math.max(0.25, hr), y, Math.sin(a) * Math.max(0.25, hr)]);
     const rad = 0.44 + rnd() * 0.36;
-    const C = [d[0] * rad * sx, d[1] * rad * sy + 0.12, d[2] * rad * sx];
+    const C = [d[0] * rad * sx, d[1] * rad * sy + oy, d[2] * rad * sx];
     const n = norm([d[0] + (rnd() - 0.5) * 0.7, d[1] + (rnd() - 0.5) * 0.7, d[2] + (rnd() - 0.5) * 0.7]);
     let t = cross(n, [0, 1, 0]);
     if (Math.hypot(...t) < 0.1) t = [1, 0, 0];
@@ -135,8 +136,8 @@ function crownGeometry(seed, cards, tall) {
     const corner = (u, v) => [C[0] + (T[0] * u + B[0] * v) * hs, C[1] + (T[1] * u + B[1] * v) * hs, C[2] + (T[2] * u + B[2] * v) * hs];
     const P = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
     // puffball normals and a shade that falls off toward the underside and the inside
-    const N = P.map((q) => norm([q[0], (q[1] - 0.12) / sy + 0.42, q[2]]));
-    const L = P.map((q) => { const h = Math.max(0, Math.min(1, (q[1] / sy + 0.55) / 1.5)); return 0.38 + 0.62 * h * h * (3 - 2 * h); });
+    const N = P.map((q) => norm([q[0], (q[1] - oy) / sy + 0.42, q[2]]));
+    const L = P.map((q) => { const h = Math.max(0, Math.min(1, ((q[1] - oy + 0.12) / sy + 0.55) / 1.5)); return 0.38 + 0.62 * h * h * (3 - 2 * h); });
     const flip = rnd() < 0.5;
     const uv = flip ? [[0.49, 0.51], [0.01, 0.51], [0.01, 0.99], [0.49, 0.99]] : [[0.01, 0.51], [0.49, 0.51], [0.49, 0.99], [0.01, 0.99]];
     S.quad(P[0], P[1], P[2], P[3], N, uv, L);
@@ -190,12 +191,12 @@ export function buildTrees(data, group) {
   };
   mat.customProgramCacheKey = () => 'hue-foliage-cards';
   const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.4, side: THREE.DoubleSide });
-  const geos = { round: crownGeometry(11, quality.low ? 8 : 11, false), tall: crownGeometry(29, quality.low ? 9 : 12, true), palm: palmGeometry() };
+  const geos = { round: crownGeometry(11, quality.low ? 8 : 11, false), tall: crownGeometry(29, quality.low ? 9 : 12, true), palm: palmGeometry(), pine: crownGeometry(47, quality.low ? 6 : 9, false, true) };
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
   const greens = ['#4f8a3e', '#5a9445', '#467a3c', '#6a9c48', '#3f7038', '#588a4a', '#739f4c'].map(hex);
-  const dark = ['#2f6238', '#35693a', '#2b5a36', '#3a6e3c'].map(hex), flame = ['#d8452c', '#e2552b', '#c93c33'].map(hex), palmC = ['#5c8f47', '#4f8440', '#6a9a4c'].map(hex);
+  const dark = ['#2f6238', '#35693a', '#2b5a36', '#3a6e3c'].map(hex), flame = ['#d8452c', '#e2552b', '#c93c33'].map(hex), palmC = ['#5c8f47', '#4f8440', '#6a9a4c'].map(hex), pineC = ['#2f5a44', '#356148', '#3f6a45', '#2b5540', '#48703f'].map(hex);
   const meshes = [];
   const range = (start, end, layer) => {
     const span = end - start, n = Math.floor(span * quality.treeShare);
@@ -205,23 +206,23 @@ export function buildTrees(data, group) {
     for (let k = 0; k < n; k++) {
       const i = start + Math.floor(k * stride), sc = a[i * 4 + 2] / 10, kind = a[i * 4 + 3];
       const r = rand(i, 61);
-      const type = kind === 2 ? 'round' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'tall' : 'round';
+      const type = kind === 3 ? 'pine' : kind === 2 ? 'round' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'tall' : 'round';
       items.push({ i, x: a[i * 4] / 10, z: a[i * 4 + 1] / 10, sc, kind, type });
     }
     for (const list of chunked(items)) {
-      for (const type of ['round', 'tall', 'palm']) {
+      for (const type of ['round', 'tall', 'palm', 'pine']) {
         const sub = list.filter((t) => t.type === type);
         if (!sub.length) continue;
         const mesh = new THREE.InstancedMesh(geos[type], mat, sub.length);
         sub.forEach(({ i, x, z, sc, kind }, k) => {
           const r = 3.3 * sc * (0.75 + rand(i, 41) * 0.5);
-          const hgt = r * (0.95 + rand(i, 42) * 0.45) * (type === 'palm' ? 1.45 : 1);
+          const hgt = r * (0.95 + rand(i, 42) * 0.45) * (type === 'palm' ? 1.45 : type === 'pine' ? 1.42 : 1);
           const rr = type === 'palm' ? r * 0.85 : r;
           q.setFromAxisAngle(up, rand(i, 43) * 6.28);
           p.set(x, LAND_Y + rise(x, z) + hgt * 1.7, z);
           s.set(rr, hgt, rr);
           mesh.setMatrixAt(k, m.compose(p, q, s));
-          const col = type === 'palm' ? pick(palmC, i, 48) : kind === 2 ? pick(flame, i, 44) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
+          const col = type === 'pine' ? pick(pineC, i, 49) : type === 'palm' ? pick(palmC, i, 48) : kind === 2 ? pick(flame, i, 44) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
           mesh.setColorAt(k, enc(shade(col, 0.86 + rand(i, 47) * 0.28), c));
         });
         mesh.instanceMatrix.needsUpdate = true;

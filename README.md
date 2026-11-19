@@ -40,7 +40,8 @@ Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` time of day, `L` labels.
 `scripts/fetch-osm.sh` pulls one Overpass extract (bbox 16.4455–16.4965 N, 107.552–107.613 E) into
 `data/raw/hue-osm.json`; `scripts/fetch-osm-strip.sh` adds extra strips (the western one, out to chùa Thiên Mụ at
 107.5385 E, is `data/raw/hue-osm-west.json`; `scripts/fetch-osm-south.sh` fetches the southern hills down to lăng
-Minh Mạng at 16.382 N in six pieces) and the build merges them. `scripts/build-data.mjs` turns it into the ~5 MB
+Minh Mạng at 16.382 N in six pieces; `scripts/fetch-osm-detail.mjs` pulls the fine detail of one small area, used
+for the water park at hồ Thủy Tiên) and the build merges them. `scripts/build-data.mjs` turns it into the ~5 MB
 bundle the app loads:
 
 | From OSM, positions and proportions kept | Generated, shown as illustration |
