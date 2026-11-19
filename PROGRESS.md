@@ -57,16 +57,18 @@
 - Eras: every ordinary building is Nguyễn-period timber, Indochine or modern (`scripts/build-data.mjs` §4b decides by
   district; shader kinds COLONIAL/MODERN paint the facades; palettes and roof forms differ per family).
 - Performance: roof tanks lightened and chunked, small details culled beyond 1.5 km, tree and house chunks beyond
-  3.6–5.2 km (`src/geo/lod.js`). ~11 ms a frame at 1280×800 with the extended map.
+  3.6–5.2 km (`src/geo/lod.js`).
 - South extension: the bundle now runs 12.7 km north–south, down to lăng Minh Mạng (six extra Overpass pieces,
   `scripts/fetch-osm-south.sh`; eight elevation tiles). Terrain keeps true hill heights (25 m grid, soft dead zone).
   `data.sites` hands each southern site's footprints to its model: `src/landmarks/tombs.js` (Tự Đức, Minh Mạng,
   Khải Định, Thiệu Trị, Đồng Khánh) and `src/landmarks/south.js` (đàn Nam Giao, hồ Thủy Tiên and its dragon, Thiên An,
   Vọng Cảnh). Street life (lamp posts, pedestrians, more traffic, a train) is in `src/landmarks/life.js`.
-- Open: the Overpass piece holding lăng Khải Định kept timing out; rerun `sh scripts/fetch-osm-south.sh` then
-  `node scripts/build-data.mjs` (the tomb model falls back to the site centre without footprints).
+- Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified
+- The southern models were checked from the air only; causeway landing, the dragon's heading, Nam Giao's exact
+  alignment and the Đồng Khánh tomb's orientation are inferred, not surveyed.
+- Street life was checked in still frames (stepped), not watched in real time.
 - Real touch gestures on a physical phone (layout and logic checked in a 375×812 viewport only).
 - Frame rate on low-end phones (adaptive resolution is in place but untested on hardware).
 
