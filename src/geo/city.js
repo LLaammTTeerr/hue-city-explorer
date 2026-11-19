@@ -30,14 +30,21 @@ function buildLand(data, group) {
     const rings = poly.map(unflat);
     const shape = new THREE.Shape(rings[0].map((p) => new THREE.Vector2(p[0], p[1])));
     for (let i = 1; i < rings.length; i++) shape.holes.push(new THREE.Path(rings[i].map((p) => new THREE.Vector2(p[0], p[1]))));
-    const g = new THREE.ExtrudeGeometry(shape, { depth: LAND_Y + 4, bevelEnabled: false, curveSegments: 1 });
+    const g = new THREE.ExtrudeGeometry(shape, { depth: LAND_Y + 1.2, bevelEnabled: false, curveSegments: 1 });
     g.rotateX(Math.PI / 2);
     g.translate(0, LAND_Y, 0);
     const m = new THREE.Mesh(g, [top, side]);
     m.receiveShadow = true;
+    m.castShadow = true; // banks shade the water's edge
     m.name = 'land';
     group.add(m);
   }
+  // the block the diorama stands on: the city is one slab, cut clean at the edge of the bundled data
+  const b = data.meta.bounds.map((v) => v / 10);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(b[2] - b[0], 90, b[3] - b[1]), landMaterial(PAL.base));
+  base.position.set((b[0] + b[2]) / 2, -0.6 - 45, (b[1] + b[3]) / 2);
+  base.name = 'base';
+  group.add(base);
 }
 
 // flat polygon layers painted onto the land (no depth write, drawn in order)
@@ -240,6 +247,16 @@ function buildBuildings(data, group) {
     }
     wall = shade(wall, jitter);
     roof = shade(roof, 0.9 + rand(i, 9) * 0.2);
+    if (b[4] === 1) {
+      // mapped over the water: stand it on a deck carried by piles
+      B.kind = KIND.PLAIN;
+      const cx = o.c[0], cz = o.c[1];
+      const deck = ring.map((pt) => [cx + (pt[0] - cx) * 1.12, cz + (pt[1] - cz) * 1.12]);
+      B.prism(deck, LAND_Y - 0.7, LAND_Y - 0.02, hex('#8a7a66'), hex('#b3a48c'), { topKind: KIND.ROAD });
+      const step = Math.max(1, Math.round(ring.length / 10));
+      for (let k = 0; k < ring.length; k += step) B.cyl(cx + (ring[k][0] - cx) * 0.94, cz + (ring[k][1] - cz) * 0.94, -2, LAND_Y - 0.7, 0.42, 0.42, 6, hex('#9c9488'), { cap: false });
+      B.cyl(cx, cz, -2, LAND_Y - 0.7, 0.6, 0.6, 6, hex('#9c9488'), { cap: false });
+    }
     B.kind = kind === 8 ? KIND.PLAIN : kind === 2 ? KIND.TIMBER : KIND.FACADE;
     if (pitched) {
       B.prism(ring, y0, y1, wall, shade(roof, 0.85), { top: rectness < 0.96, topKind: KIND.TILE });
@@ -278,90 +295,114 @@ function buildBuildings(data, group) {
 
 // ---------- illustrated infill houses (instanced) ----------
 // Records arrive with the near-water ones first; those are also drawn into the river's reflection (layer 0),
-// the rest only into the main view (layer 1).
+// the rest only into the main view (layer 1). Houses on main streets mostly become row houses: gable roofs
+// with the ridge running along the street, so a block reads as one long tiled roofline.
 function buildInfill(data, group) {
-  const a = data.infill;
-  const n = a.length / 6;
+  const a = data.infill, S = 7;
+  const n = a.length / S;
   const nearCount = data.meta.counts.infillNear ?? n;
+  const W = [1, 1, 1];
+
   const wallGeo = new Buf(16);
   wallGeo.kind = KIND.FACADE;
-  wallGeo.box(0, 0, 0, 1, 1, 1, 0, [1, 1, 1], { top: [0.72, 0.72, 0.72], topKind: KIND.FLAT });
-  const makeRoof = (ridgeHalf) => {
-    const R = new Buf(24);
-    R.kind = KIND.TILE;
+  wallGeo.box(0, 0, 0, 1, 1, 1, 0, W, { top: [0.72, 0.72, 0.72], topKind: KIND.FLAT });
+
+  const hipGeo = new Buf(24);
+  {
+    hipGeo.kind = KIND.TILE;
     const e = [[-0.5, 0, -0.5], [0.5, 0, -0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5]];
-    const r0 = [-ridgeHalf, 1, 0], r1 = [ridgeHalf, 1, 0];
-    const w = [1, 1, 1];
-    R.quad(e[0], e[1], r1, r0, w, [0, 1, -1]);
-    R.quad(e[2], e[3], r0, r1, w, [0, 1, 1]);
-    R.tri(e[1], e[2], r1, w, [1, 1, 0]);
-    R.tri(e[3], e[0], r0, w, [-1, 1, 0]);
-    // fascia + soffit
-    R.kind = KIND.PLAIN;
+    const r0 = [-0.28, 1, 0], r1 = [0.28, 1, 0];
+    hipGeo.quad(e[0], e[1], r1, r0, W, [0, 1, -1]);
+    hipGeo.quad(e[2], e[3], r0, r1, W, [0, 1, 1]);
+    hipGeo.tri(e[1], e[2], r1, W, [1, 1, 0]);
+    hipGeo.tri(e[3], e[0], r0, W, [-1, 1, 0]);
+    hipGeo.kind = KIND.PLAIN;
     const lo = e.map((p) => [p[0], -0.1, p[2]]);
     const f = [0.62, 0.62, 0.62];
     const hints = [[0, 0, -1], [1, 0, 0], [0, 0, 1], [-1, 0, 0]];
-    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; R.quad(lo[i], lo[j], e[j], e[i], f, hints[i]); }
-    R.quad(lo[0], lo[1], lo[2], lo[3], [0.45, 0.45, 0.45], [0, -1, 0]);
-    return R.geometry();
-  };
+    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; hipGeo.quad(lo[i], lo[j], e[j], e[i], f, hints[i]); }
+    hipGeo.quad(lo[0], lo[1], lo[2], lo[3], [0.45, 0.45, 0.45], [0, -1, 0]);
+  }
+  const gableGeo = new Buf(16);
+  {
+    gableGeo.kind = KIND.TILE;
+    gableGeo.quad([-0.5, 0, -0.5], [0.5, 0, -0.5], [0.5, 1, 0], [-0.5, 1, 0], W, [0, 1, -1]);
+    gableGeo.quad([0.5, 0, 0.5], [-0.5, 0, 0.5], [-0.5, 1, 0], [0.5, 1, 0], W, [0, 1, 1]);
+    gableGeo.kind = KIND.PLAIN;
+    const f = [0.6, 0.6, 0.6];
+    gableGeo.quad([-0.5, -0.12, -0.5], [0.5, -0.12, -0.5], [0.5, 0, -0.5], [-0.5, 0, -0.5], f, [0, 0, -1]);
+    gableGeo.quad([-0.5, -0.12, 0.5], [0.5, -0.12, 0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5], f, [0, 0, 1]);
+    gableGeo.quad([-0.5, -0.12, -0.5], [0.5, -0.12, -0.5], [0.5, -0.12, 0.5], [-0.5, -0.12, 0.5], [0.42, 0.42, 0.42], [0, -1, 0]);
+  }
+  const endGeo = new Buf(4); // the two gable walls under a gable roof
+  endGeo.kind = KIND.PLAIN;
+  endGeo.tri([-0.5, -0.12, -0.5], [-0.5, -0.12, 0.5], [-0.5, 1, 0], W, [-1, 0, 0]);
+  endGeo.tri([0.5, -0.12, -0.5], [0.5, -0.12, 0.5], [0.5, 1, 0], W, [1, 0, 0]);
   const tankGeo = new Buf(64);
   waterTank(tankGeo, 0, 0, 0, 0, 1);
 
+  const geos = { wall: wallGeo.geometry(), hip: hipGeo.geometry(), gable: gableGeo.geometry(), end: endGeo.geometry() };
   const wallMat = cityMaterial({ windows: true }), roofMat = cityMaterial(), tankMat = cityMaterial();
-  const roofGeos = [makeRoof(0.3), makeRoof(0.12)];
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
   const meshes = [];
   const tanks = [];
 
-  const range = (start, end, layer) => {
-    if (end <= start) return;
+  const collect = (start, end) => {
     // break up the monotony of one box per plot: about half the houses get a lower rear wing
     const parts = [];
     for (let i = start; i < end; i++) {
-      const x = a[i * 6] / 10, z = a[i * 6 + 1] / 10;
-      const w = a[i * 6 + 2] / 10, d = a[i * 6 + 3] / 10, ang = a[i * 6 + 4] / 1000, h = a[i * 6 + 5] / 10;
+      const x = a[i * S] / 10, z = a[i * S + 1] / 10;
+      const w = a[i * S + 2] / 10, d = a[i * S + 3] / 10, ang = a[i * S + 4] / 1000, h = a[i * S + 5] / 10, main = a[i * S + 6] === 1;
       const wallCol = shade(mix(pick(PAL.walls, i, 31), [0.86, 0.8, 0.68], 0.08), 0.9 + rand(i, 32) * 0.18);
       const roofCol = shade(pick(PAL.roofs, i, 34), 0.84 + rand(i, 35) * 0.28);
       if (d > 9.5 && rand(i, 50) < 0.55) {
         const vx = -Math.sin(ang), vz = Math.cos(ang);
         const fd = d * (0.5 + rand(i, 51) * 0.14), rd = d - fd, sgn = rand(i, 52) < 0.5 ? 1 : -1;
         const o1 = sgn * (d / 2 - fd / 2), o2 = -sgn * (d / 2 - rd / 2);
-        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0 });
+        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0, main });
         const h2 = Math.max(3.3, h - 3.4 * (rand(i, 53) < 0.7 ? 1 : 2));
         const w2 = w * (0.72 + rand(i, 54) * 0.28);
-        parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7 });
-      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0 });
+        parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7, main });
+      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main });
     }
-    for (const list of chunked(parts)) place(list, layer);
+    return parts;
   };
-  const wallGeometry = wallGeo.geometry();
+
   const place = (parts, layer) => {
     const count = parts.length;
-    const walls = new THREE.InstancedMesh(wallGeometry, wallMat, count);
-    const roofs = roofGeos.map((g) => new THREE.InstancedMesh(g, roofMat, count));
+    const walls = new THREE.InstancedMesh(geos.wall, wallMat, count);
+    const hips = new THREE.InstancedMesh(geos.hip, roofMat, count);
+    const gables = new THREE.InstancedMesh(geos.gable, roofMat, count);
+    const ends = new THREE.InstancedMesh(geos.end, roofMat, count);
     parts.forEach((pt, k) => {
       const { i, x, z, salt } = pt;
       let { w, d, ang, h } = pt;
-      if (d > w) { [w, d] = [d, w]; ang += Math.PI / 2; }
-      const flatRoof = rand(i, 21 + salt) < 0.22;
+      const flatRoof = rand(i, 21 + salt) < 0.2;
+      const gable = !flatRoof && salt === 0 && rand(i, 60) < (pt.main ? 0.88 : 0.5);
       if (flatRoof) h += 0.7;
+      // walls keep the plot's own axes (width along the street)
       q.setFromAxisAngle(up, -ang);
       p.set(x, LAND_Y, z); s.set(w, h, d);
       walls.setMatrixAt(k, m.compose(p, q, s));
       walls.setColorAt(k, enc(pt.wallCol, c));
-      const variant = rand(i, 36 + salt) < 0.6 ? 0 : 1;
-      const rh = Math.min(3.2, Math.max(1.0, d * (0.24 + rand(i, 37 + salt) * 0.08)));
-      p.set(x, LAND_Y + h + 0.02, z); s.set(w + 0.9, rh, d + 0.9);
-      for (let v = 0; v < 2; v++) {
-        roofs[v].setMatrixAt(k, !flatRoof && v === variant ? m.compose(p, q, s) : zero);
-        roofs[v].setColorAt(k, enc(pt.roofCol, c));
-      }
-      if (flatRoof && rand(i, 38 + salt) < 0.75) tanks.push([x + (rand(i, 39) - 0.5) * w * 0.3, LAND_Y + h, z + (rand(i, 40) - 0.5) * d * 0.3, ang, 0.85 + rand(i, 41) * 0.3]);
+      hips.setMatrixAt(k, zero); gables.setMatrixAt(k, zero); ends.setMatrixAt(k, zero);
+      hips.setColorAt(k, enc(pt.roofCol, c)); gables.setColorAt(k, enc(pt.roofCol, c)); ends.setColorAt(k, enc(shade(pt.wallCol, 0.97), c));
+      if (gable) {
+        const rh = Math.min(3.4, Math.max(1.2, d * (0.2 + rand(i, 37) * 0.07)));
+        p.set(x, LAND_Y + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
+        gables.setMatrixAt(k, m.compose(p, q, s));
+        s.set(w, rh, d + 1.1);
+        ends.setMatrixAt(k, m.compose(p, q, s));
+      } else if (!flatRoof) {
+        if (d > w) { [w, d] = [d, w]; q.setFromAxisAngle(up, -(ang + Math.PI / 2)); }
+        const rh = Math.min(3.2, Math.max(1.0, d * (0.24 + rand(i, 37 + salt) * 0.08)));
+        p.set(x, LAND_Y + h + 0.02, z); s.set(w + 0.9, rh, d + 0.9);
+        hips.setMatrixAt(k, m.compose(p, q, s));
+      } else if (rand(i, 38 + salt) < 0.75) tanks.push([x + (rand(i, 39) - 0.5) * w * 0.3, LAND_Y + h, z + (rand(i, 40) - 0.5) * d * 0.3, ang, 0.85 + rand(i, 41) * 0.3]);
     });
-    for (const mesh of [walls, ...roofs]) {
+    for (const mesh of [walls, hips, gables, ends]) {
       mesh.instanceMatrix.needsUpdate = true;
       mesh.instanceColor.needsUpdate = true;
       mesh.castShadow = !quality.low || mesh === walls;
@@ -372,8 +413,8 @@ function buildInfill(data, group) {
       meshes.push(mesh);
     }
   };
-  range(0, nearCount, 0);
-  range(nearCount, n, 1);
+  for (const list of chunked(collect(0, nearCount))) place(list, 0);
+  for (const list of chunked(collect(nearCount, n))) place(list, 1);
 
   if (tanks.length) {
     const tm = new THREE.InstancedMesh(tankGeo.geometry(), tankMat, tanks.length);

@@ -193,6 +193,34 @@ export function buildCitadel(data, S, group) {
   };
 }
 
+// ---- Chùa Thiên Mụ: tháp Phước Duyên, seven octagonal storeys, 21 m (height from its OSM tag) ----
+export function buildThienMu(data, S) {
+  if (!data.special.phuocduyen) return;
+  const ring = unflat(data.special.phuocduyen.ring);
+  const c = ringCentre(ring);
+  const r = ring.reduce((s, p) => s + Math.hypot(p[0] - c[0], p[1] - c[1]), 0) / ring.length;
+  const brick = hex('#c7a590'), eave = hex('#6f5a52'), trim = hex('#e6dccb');
+  S.kind = KIND.MASONRY;
+  S.cyl(c[0], c[1], LAND_Y, LAND_Y + 1.1, r * 1.7, r * 1.6, 8, PAL.stone);
+  let y = LAND_Y + 1.1;
+  const tiers = 7, total = 21 - 1.1 - 2.4;
+  for (let i = 0; i < tiers; i++) {
+    const h = (total / tiers) * (i === 0 ? 1.25 : 0.96);
+    const ri = r * (1 - 0.072 * i), rn = r * (1 - 0.072 * (i + 1));
+    S.kind = KIND.MASONRY;
+    S.cyl(c[0], c[1], y, y + h - 0.5, ri, ri * 0.98, 8, brick, { cap: false });
+    S.kind = KIND.PLAIN;
+    S.cyl(c[0], c[1], y + h * 0.3, y + h * 0.34, ri * 1.03, ri * 1.03, 8, trim, { cap: false });
+    S.cyl(c[0], c[1], y + h - 0.5, y + h - 0.3, ri * 1.3, ri * 1.3, 8, eave); // eave slab
+    S.kind = KIND.TILE;
+    S.cyl(c[0], c[1], y + h - 0.3, y + h, ri * 1.3, rn * 1.02, 8, eave, { cap: false });
+    y += h;
+  }
+  S.kind = KIND.PLAIN;
+  S.cyl(c[0], c[1], y, y + 0.9, r * 0.32, r * 0.2, 8, trim);
+  S.cyl(c[0], c[1], y + 0.9, y + 2.4, 0.16, 0.04, 6, hex('#d9c27a'));
+}
+
 // ---- Chợ Đông Ba: the mapped main hall with its bell tower ----
 export function buildMarket(data, S) {
   if (!data.special.markethall) return;

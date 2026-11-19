@@ -14,7 +14,7 @@ export function createCamera(canvas, bounds) {
   controls.screenSpacePanning = false;
   controls.zoomToCursor = true;
   controls.minDistance = 28;
-  controls.maxDistance = 6500;
+  controls.maxDistance = 15000;
   controls.minPolarAngle = 0;
   controls.maxPolarAngle = THREE.MathUtils.degToRad(86.5);
   controls.rotateSpeed = 0.55;

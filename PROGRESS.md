@@ -24,6 +24,14 @@
 - Git identity for this repo is the GitHub noreply address (local config). The remote is HTTPS; pushes need the
   LLaammTTeerr credential (`gh auth switch --user LLaammTTeerr` or a per-command token), not the work account.
 
+- Diorama pass (branch `diorama-look`, after the Singapore and "Quack" references): the city is a finite slab on a
+  calm backdrop; river lowered between 4.6 m banks with lakes/moat on their own higher sheet; Trường Tiền deck raised
+  (tour no longer scrapes it); morning front light by default plus late-afternoon and evening; row houses with gable
+  roofs; wind in the trees; over-water buildings on piled decks; composer pixel-ratio bug fixed (was double-sizing
+  buffers on retina screens).
+- Places: 64 labelled, including Nghênh Lương Đình, Cửa Kẻ Trài, phố đi bộ Nguyễn Đình Chiểu, Phố Tây, cầu Nguyễn
+  Hoàng and chùa Thiên Mụ (extract widened west with a merged strip; tháp Phước Duyên modelled on its OSM octagon).
+
 ## Not verified
 - Real touch gestures on a physical phone (layout and logic checked in a 375×812 viewport only).
 - Frame rate on low-end phones (adaptive resolution is in place but untested on hardware).

@@ -59,7 +59,7 @@ class OcclusionPass extends Pass {
             float nv = dot( N, v ) * inversesqrt( l2 + 1e-4 );
             occ += max( 0.0, nv - 0.14 ) / ( 1.0 + l2 / ( R * R ) );
           }
-          float ao = 1.0 - clamp( occ / 12.0 * 2.3 * uStrength, 0.0, 0.92 );
+          float ao = 1.0 - clamp( occ / 12.0 * 2.9 * uStrength, 0.0, 0.92 );
           ao = mix( ao, 1.0, smoothstep( 2600.0, 6500.0, dist ) );
           gl_FragColor = vec4( ao, ao, ao, 1.0 );
         }`,
@@ -144,6 +144,7 @@ class OcclusionPass extends Pass {
 // Desktop render path: scene → occlusion + grade → bloom → tone map.
 export function createPost(renderer, scene, camera) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
+  size.set(Math.max(2, size.x), Math.max(2, size.y)); // a hidden window can report zero
   const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
   const composer = new EffectComposer(renderer, target);
   composer.addPass(new RenderPass(scene, camera));
@@ -152,11 +153,13 @@ export function createPost(renderer, scene, camera) {
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.55, 1.0);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
+  // The composer multiplies by its own pixel ratio; we hand it device pixels already, so pin that to 1.
+  composer.setPixelRatio(1);
   composer.setSize(size.x, size.y);
   return {
     occlusion, bloom,
     render: () => composer.render(),
-    resize() { renderer.getDrawingBufferSize(size); composer.setSize(size.x, size.y); },
+    resize() { renderer.getDrawingBufferSize(size); composer.setPixelRatio(1); composer.setSize(Math.max(2, size.x), Math.max(2, size.y)); },
     // night and rain want gentler occlusion and a touch more glow
     setMood(glow, rain) {
       occlusion.strength = 1 - 0.35 * Math.max(glow * 0.6, rain);

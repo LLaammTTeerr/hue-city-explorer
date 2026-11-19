@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { LAND_Y, quality } from './config.js';
 import { buildCity, finishStructures } from './geo/city.js';
 import { buildTruongTien } from './landmarks/truongtien.js';
-import { buildCitadel, buildMarket } from './landmarks/citadel.js';
+import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
 import { buildBoats } from './landmarks/boats.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
@@ -34,6 +34,7 @@ async function main() {
   let rig, ride, mood, labels;
   const ui = createUI(data, {
     pick: (id, fly) => pick(id, fly),
+    overview: () => { if (!ride.active) { ui.hideCard(); const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); } },
     lang: () => labels && labels.remeasure(),
     labels: () => toggleLabels(),
     osmOnly: (on) => { world.infill.forEach((m) => { m.visible = !on; }); },
@@ -42,7 +43,7 @@ async function main() {
     cardClosed: () => {},
     ride: () => ride.start(),
     rain: () => mood.setRain(!mood.state.rainTarget),
-    night: () => mood.setNight(!mood.state.nightTarget),
+    time: (i) => mood.setTime(i),
     exitRide: () => ride.exit(),
     seek: (t, scrubbing) => ride.seek(t, scrubbing),
   });
@@ -68,6 +69,7 @@ async function main() {
   const bridge = buildTruongTien(data, world.structures, dynamic);
   const citadel = buildCitadel(data, world.structures, dynamic);
   buildMarket(data, world.structures);
+  buildThienMu(data, world.structures);
   finishStructures(world.structures, world.group);
   const boats = buildBoats(data, dynamic);
   scene.add(world.group, dynamic);
@@ -75,9 +77,9 @@ async function main() {
   await frame();
 
   const sky = buildSky();
-  const water = buildWater();
+  const water = buildWater(data);
   const rain = buildRain();
-  scene.add(sky.mesh, water.mesh, rain.mesh);
+  scene.add(sky.mesh, water.mesh, water.ponds, rain.mesh);
 
   const hemi = new THREE.HemisphereLight(0xffffff, 0x887766, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 2);
@@ -88,7 +90,7 @@ async function main() {
   scene.add(hemi, sun, sun.target);
 
   mood = createMood({ scene, renderer, sun, hemi, sky, water, rain });
-  mood.onChange((s) => ui.setMood({ rain: s.rainTarget, night: s.nightTarget }));
+  mood.onChange((s) => ui.setMood({ rain: s.rainTarget, time: s.timeTarget }));
 
   // ---------- camera ----------
   const b = data.meta.bounds.map((v) => v / 10);
@@ -106,10 +108,16 @@ async function main() {
     // narrower windows step back and up so the whole bridge and the market still share the frame
     const t = Math.max(0, Math.min(1, (1.62 / (innerWidth / innerHeight) - 1) / 2.5));
     const mixv = (a, b) => a + (b - a) * t;
-    const back = mixv(640, 1060), side = mixv(190, 95), height = mixv(205, 350), ahead = mixv(90, 150), north = mixv(110, 55);
+    const back = mixv(640, 1060), side = mixv(120, 95), height = mixv(205, 350), ahead = mixv(90, 150), north = mixv(40, 55);
     const pos = new THREE.Vector3(c[0] - upR[0] * back - d[0] * side, height, c[1] - upR[1] * back - d[1] * side);
     const target = new THREE.Vector3(c[0] + upR[0] * ahead - d[0] * north, LAND_Y, c[1] + upR[1] * ahead - d[1] * north);
     return { pos, target };
+  }
+  // The whole slab from the south-east, the way one would stand over a model on a table.
+  function overviewView() {
+    const k = Math.pow(Math.max(1, 1.4 / (innerWidth / innerHeight)), 0.9);
+    const cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2;
+    return { pos: new THREE.Vector3(cx + 3300 * k, 2700 * k, cz + 4400 * k), target: new THREE.Vector3(cx, LAND_Y, cz) };
   }
   let hv = homeView();
   rig.setHome(hv.pos, hv.target);
@@ -192,7 +200,7 @@ async function main() {
     else if (k === 'h' || k === 'home') { if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } }
     else if (k === 'b') { if (!ride.active) ride.start(); }
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
-    else if (k === 'n') mood.setNight(!mood.state.nightTarget);
+    else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (k === 'l') toggleLabels();
     else if (k === '+' || k === '=') rig.zoomBy(0.65);
     else if (k === '-' || k === '_') rig.zoomBy(1.5);

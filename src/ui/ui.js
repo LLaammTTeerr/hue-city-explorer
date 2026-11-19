@@ -14,6 +14,11 @@ export function createUI(data, handlers) {
   // ---- place list ----
   const list = $('places');
   const listButtons = new Map();
+  const overview = document.createElement('button');
+  overview.type = 'button';
+  overview.dataset.t = 'overview';
+  overview.addEventListener('click', () => handlers.overview());
+  list.appendChild(overview);
   for (const id of QUICK) {
     const p = placeById.get(id);
     if (!p) continue;
@@ -30,8 +35,10 @@ export function createUI(data, handlers) {
     T = STR[lang];
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
+    if (innerWidth <= 720) $('btn-ride').querySelector('span').textContent = T.rideShort;
     $('btn-lang').textContent = T.lang;
-    const tips = { 'btn-labels': T.labels, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain, 'btn-night': T.night };
+    const tips = { 'btn-labels': T.labels, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain };
+    document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
     $('attrib').textContent = T.attrib;
     $('ride-exit').textContent = T.exitRide;
@@ -97,7 +104,7 @@ export function createUI(data, handlers) {
   $('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
   $('btn-ride').addEventListener('click', () => handlers.ride());
   $('btn-rain').addEventListener('click', () => handlers.rain());
-  $('btn-night').addEventListener('click', () => handlers.night());
+  document.querySelectorAll('#seg-time button').forEach((b) => b.addEventListener('click', () => handlers.time(+b.dataset.time)));
   $('ride-exit').addEventListener('click', () => handlers.exitRide());
   const scrub = $('ride-scrub');
   scrub.addEventListener('input', () => handlers.seek(scrub.value / 1000, true));
@@ -115,10 +122,10 @@ export function createUI(data, handlers) {
     get cardId() { return current && current.id; },
     firstHint() { hint(isCoarse() ? T.hintTouch : T.hintMouse, 7000); },
     setLabels(on) { $('btn-labels').classList.toggle('on', on); $('btn-labels').setAttribute('aria-pressed', on); if (!on) hint(T.hintLabels, 4200); },
-    setMood({ rain, night }) {
+    setMood({ rain, time }) {
       $('btn-rain').setAttribute('aria-pressed', !!rain);
       $('btn-rain').querySelector('span').textContent = rain ? T.rainOn : T.rain;
-      $('btn-night').setAttribute('aria-pressed', !!night);
+      document.querySelectorAll('#seg-time button').forEach((b) => b.setAttribute('aria-checked', +b.dataset.time === time));
     },
     setHeading(rad) { $('needle').style.transform = `rotate(${(-rad * 180) / Math.PI}deg)`; },
     setRide(active) {

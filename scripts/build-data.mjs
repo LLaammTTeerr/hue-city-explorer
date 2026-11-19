@@ -12,13 +12,23 @@ const OUT = 'public/data/hue.json';
 
 // Local frame: metres east (x) and south (z) of the middle of cầu Trường Tiền.
 const ORIGIN = { lat: 16.468896, lon: 107.588858 };
-const BBOX = { s: 16.4455, w: 107.552, n: 16.4965, e: 107.613 };
+const BBOX = { s: 16.4455, w: 107.5385, n: 16.4965, e: 107.613 }; // west edge reaches chùa Thiên Mụ
 const KX = Math.cos((ORIGIN.lat * Math.PI) / 180) * 111319.49;
 const KZ = 110574;
 const proj = (p) => [(p.lon - ORIGIN.lon) * KX, -(p.lat - ORIGIN.lat) * KZ];
 
 const raw = JSON.parse(fs.readFileSync(RAW, 'utf8'));
 const els = raw.elements;
+// extra strips fetched with scripts/fetch-osm-strip.sh (data/raw/hue-osm-<name>.json) are merged in
+{
+  const have = new Set(els.map((e) => e.type + e.id));
+  for (const f of fs.readdirSync('data/raw').filter((n) => /^hue-osm-.+\.json$/.test(n))) {
+    const extra = JSON.parse(fs.readFileSync('data/raw/' + f, 'utf8')).elements;
+    let added = 0;
+    for (const e of extra) if (!have.has(e.type + e.id)) { have.add(e.type + e.id); els.push(e); added++; }
+    console.log('merged', f, '+' + added, 'elements');
+  }
+}
 const byId = new Map(els.map((e) => [e.type + e.id, e]));
 const get = (type, id) => byId.get(type + id);
 
@@ -203,6 +213,27 @@ function rectFree(cx, cz, w, d, ang, bits) {
 const q = (v) => Math.round(v * 10); // decimetres
 const flat = (pts) => { const o = []; for (const p of pts) o.push(q(p[0]), q(p[1])); return o; };
 const flatPoly = (poly) => poly.map((r) => flat(openRing(r)));
+// Clip a polyline to the slab; returns the pieces that lie inside (Liang–Barsky per segment).
+function clipLine(pts) {
+  const out = [];
+  let cur = null;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const dx = b[0] - a[0], dz = b[1] - a[1];
+    let t0 = 0, t1 = 1, ok = true;
+    for (const [p, q] of [[-dx, a[0] - MINX], [dx, MAXX - a[0]], [-dz, a[1] - MINZ], [dz, MAXZ - a[1]]]) {
+      if (p === 0) { if (q < 0) { ok = false; break; } continue; }
+      const r = q / p;
+      if (p < 0) { if (r > t1) { ok = false; break; } if (r > t0) t0 = r; } else { if (r < t0) { ok = false; break; } if (r < t1) t1 = r; }
+    }
+    if (!ok) { cur = null; continue; }
+    const p0 = [a[0] + dx * t0, a[1] + dz * t0], p1 = [a[0] + dx * t1, a[1] + dz * t1];
+    if (!cur || t0 > 0) { cur = [p0]; out.push(cur); }
+    cur.push(p1);
+    if (t1 < 1) cur = null;
+  }
+  return out.filter((l) => l.length > 1);
+}
 const inBox = (p, m = 0) => p[0] >= MINX - m && p[0] <= MAXX + m && p[1] >= MINZ - m && p[1] <= MAXZ + m;
 
 // =====================================================================
@@ -216,12 +247,17 @@ for (const e of els) {
   if (!rings.length) { if (e.type === 'relation') console.warn('unclosed water relation', e.id, t.name); continue; }
   for (const poly of evenOdd(rings)) waterPolys.push(poly);
 }
-const MARGIN = 2600;
-const viewRect = rect(MINX - MARGIN, MINZ - MARGIN, MAXX + MARGIN, MAXZ + MARGIN);
+// The scene is a diorama: one rectangular slab of city, cut clean at the edge of the bundled data.
+const MARGIN = 0;
+const slabRect = rect(MINX, MINZ, MAXX, MAXZ);
 let water = pc.union(...waterPolys.map((p) => [p]));
-water = pc.intersection(water, [viewRect]);
-const FAR = 16000;
-const land = pc.difference([rect(MINX - FAR, MINZ - FAR, MAXX + FAR, MAXZ + FAR)], water);
+water = pc.intersection(water, [slabRect]);
+const land = pc.difference([slabRect], water);
+// Two water levels: the river system (anything that reaches the slab edge, or is large) sits low between
+// its banks; enclosed lakes, ponds and the moat stand close to ground level.
+const touchesEdge = (poly) => poly[0].some((p) => p[0] < MINX + 1 || p[0] > MAXX - 1 || p[1] < MINZ + 1 || p[1] > MAXZ - 1);
+const ponds = water.filter((poly) => !touchesEdge(poly) && Math.abs(ringArea(poly[0])) < 400000);
+console.log('river polygons', water.length - ponds.length, '| still-water polygons', ponds.length);
 for (const poly of water) fillPoly(poly, WATER);
 console.log('water polygons', waterPolys.length, '→ merged', water.length, '| land polygons', land.length, 'rings', land.reduce((s, p) => s + p.length, 0));
 
@@ -291,7 +327,10 @@ for (const e of els) {
   const k = GREEN_KINDS[t.leisure] || GREEN_KINDS[t.landuse] || GREEN_KINDS[t.natural];
   if (!k || e.type === 'node') continue;
   if (t.building) continue;
-  for (const poly of evenOdd(elementRings(e))) {
+  let polys = evenOdd(elementRings(e));
+  if (!polys.length) continue;
+  try { polys = pc.intersection(polys.map((p) => p), [slabRect]); } catch { continue; }
+  for (const poly of polys) {
     if (!poly[0].some((p) => inBox(p))) continue;
     green.push({ k, p: poly });
     if (k !== 'sacred') fillPoly(poly, GREEN);
@@ -315,27 +354,28 @@ for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
   if (e.id === TT_WAY) continue;
-  const pts = e.geometry.map(proj);
-  if (!pts.some((p) => inBox(p, 60))) continue;
   const c = ROAD_CLASS[t.highway];
   const bridge = t.bridge && t.bridge !== 'no' ? 1 : 0;
-  roads.push({ c, bridge, name: t.name || '', pts });
-  if (c < 5) stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD);
-  else stampLine(pts, 1.2, ROAD);
+  for (const pts of clipLine(e.geometry.map(proj))) {
+    roads.push({ c, bridge, name: t.name || '', pts });
+    if (c < 5) stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD);
+    else stampLine(pts, 1.2, ROAD);
+  }
 }
 const rails = [];
 for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || t.railway !== 'rail') continue;
-  const pts = e.geometry.map(proj);
-  rails.push({ main: t.service ? 0 : 1, bridge: t.bridge ? 1 : 0, pts });
-  stampLine(pts, 5, ROAD | NOBUILD);
+  for (const pts of clipLine(e.geometry.map(proj))) {
+    rails.push({ main: t.service ? 0 : 1, bridge: t.bridge ? 1 : 0, pts });
+    stampLine(pts, 5, ROAD | NOBUILD);
+  }
 }
 
 // =====================================================================
 // 5. Buildings
 // =====================================================================
-const SPECIAL = { 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall' };
+const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall' };
 const special = {};
 const gates = [];
 const buildings = [];
@@ -354,14 +394,14 @@ for (const e of els) {
   const area = Math.abs(ringArea(ring));
   if (area < 7 || ring.length < 3) continue;
   const c = centroid(ring);
-  if (!inBox(c, 30)) continue;
+  if (!ring.every((p) => inBox(p, -1))) continue;
   if (ringArea(ring) < 0) ring.reverse();
 
   if (SPECIAL[e.id]) { special[SPECIAL[e.id]] = { ring: flat(ring), name: t.name || '' }; fillPoly([ring], BLD); continue; }
   if (t.historic === 'city_gate') {
     const o = obb(ring);
     const onCitadel = wallBandTest(c);
-    gates.push({ n: t.name || '', c: [q(o.c[0]), q(o.c[1])], w: q(o.w), d: q(o.d), a: Math.round(o.a * 1000), k: onCitadel ? 'citadel' : 'imperial' });
+    gates.push({ n: t.name || (e.id === 1568259450 ? 'Cửa Kẻ Trài' : ''), c: [q(o.c[0]), q(o.c[1])], w: q(o.w), d: q(o.d), a: Math.round(o.a * 1000), k: onCitadel ? 'citadel' : 'imperial' });
     fillPoly([ring], BLD);
     continue;
   }
@@ -395,8 +435,9 @@ for (const e of els) {
   if (inCitadel(c) && !hTag && !lv && kind !== 2) h = Math.min(h, 11.5);
   if (h > 30) kind = 7;
 
-  const b = [flat(ring), q(h), kind];
-  if (t.name) b.push(t.name);
+  const b = [flat(ring), q(h), kind, t.name || 0];
+  // mapped over the water (floating restaurants, boat houses): drawn on a piled deck rather than rising from the river
+  if (at(c[0], c[1]) & WATER) { b.push(1); console.log('over water:', t.name || '(unnamed)', Math.round(area) + ' m²'); }
   buildings.push(b);
   fillPoly([ring], BLD);
 }
@@ -438,7 +479,7 @@ for (const road of roads) {
           if (cit) h = r < 0.6 ? rr(3.8, 4.8) : r < 0.96 ? rr(7.2, 8.2) : 11;
           else if (main) h = r < 0.15 ? 4.5 : r < 0.6 ? rr(7.4, 8.4) : r < 0.9 ? rr(10.8, 11.8) : rr(14, 15.5);
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
-          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h));
+          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0);
           fillPoly([rectCorners(cx, cz, w, d, ang)], BLD);
         }
         s += w + gap;
@@ -447,7 +488,7 @@ for (const road of roads) {
     }
   }
 }
-console.log('infill houses', infill.length / 6);
+console.log('infill houses', infill.length / 7);
 
 // =====================================================================
 // 7. Illustrated trees
@@ -524,7 +565,7 @@ for (const e of els) {
 const riverLine = [];
 for (const id of [1263060877, 52736210]) {
   const w = get('way', id);
-  if (w) for (const p of w.geometry.map(proj)) if (inBox(p, MARGIN)) riverLine.push(p);
+  if (w) for (const p of w.geometry.map(proj)) if (inBox(p, -20)) riverLine.push(p);
 }
 
 const wayCentre = (id, type = 'way') => {
@@ -538,7 +579,7 @@ const wayCentre = (id, type = 'way') => {
 const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 const findByName = (re, pred = () => true) => els.find((e) => e.tags && re.test(e.tags.name || '') && pred(e));
 const places = [];
-const addPlace = (id, n, c, tier, kind, h = 0) => { if (c && inBox(c, 200)) places.push({ id, n, x: q(c[0]), z: q(c[1]), t: tier, k: kind, h }); else console.warn('place skipped', id); };
+const addPlace = (id, n, c, tier, kind, h = 0) => { if (c && inBox(c, -20)) places.push({ id, n, x: q(c[0]), z: q(c[1]), t: tier, k: kind, h }); else console.warn('place skipped', id); };
 
 addPlace('truongtien', 'Cầu Trường Tiền', mid(tt[0], tt[tt.length - 1]), 1, 'bridge', 22);
 addPlace('dongba', 'Chợ Đông Ba', wayCentre(172641246), 1, 'market', 30);
@@ -565,6 +606,50 @@ addPlace('quochoc', 'Trường Quốc Học', wayCentre(695775622), 3, 'place', 
   const cath = els.find((e) => e.tags && e.tags.building === 'cathedral');
   if (cath && cath.geometry) addPlace('phucam', cath.tags.name || 'Nhà thờ Phủ Cam', centroid(openRing(cath.geometry.map(proj))), 3, 'place', 30);
 }
+// More named places, each anchored on its OSM element (names given with full diacritics)
+const EXTRA = [
+  ['nghenhluong', 'Nghênh Lương Đình', 'way', 239568224, 2, 'monument', 12],
+  ['themieu', 'Thế Miếu', 'way', 172657567, 4, 'monument', 14],
+  ['hungmieu', 'Hưng Miếu', 'way', 172657565, 4, 'monument', 12],
+  ['thaimieu', 'Thái Miếu', 'way', 172657566, 4, 'monument', 12],
+  ['trieumieu', 'Triệu Miếu', 'way', 172657570, 4, 'monument', 12],
+  ['dientho', 'Cung Diên Thọ', 'way', 172763420, 4, 'monument', 12],
+  ['truongsanh', 'Cung Trường Sanh', 'way', 172763427, 4, 'monument', 12],
+  ['duyetthi', 'Duyệt Thị Đường', 'way', 172657563, 4, 'monument', 14],
+  ['kientrung', 'Điện Kiến Trung', 'way', 285990348, 4, 'monument', 16],
+  ['canchanh', 'Nền điện Cần Chánh', 'way', 285990343, 4, 'monument', 8],
+  ['hiennhon', 'Cửa Hiển Nhơn', 'way', 264099611, 4, 'gate', 14],
+  ['chuongduc', 'Cửa Chương Đức', 'way', 531016858, 4, 'gate', 14],
+  ['tuphuong', 'Lầu Tứ Phương Vô Sự', 'way', 172802373, 4, 'monument', 14],
+  ['quoctugiam', 'Quốc Tử Giám', 'way', 531031518, 3, 'monument', 12],
+  ['baotangcovat', 'Bảo tàng Cổ vật Cung đình', 'way', 695810710, 3, 'place', 12],
+  ['tangthulau', 'Tàng Thư Lâu', 'way', 173151284, 3, 'monument', 12],
+  ['xatac', 'Đàn Xã Tắc', 'node', 6533792207, 3, 'monument', 8],
+  ['mangca', 'Trấn Bình Đài · Mang Cá', 'way', 367959083, 3, 'monument', 16],
+  ['thuyquan', 'Đông Thành Thủy Quan', 'way', 619851621, 3, 'monument', 10],
+  ['dieude', 'Chùa Diệu Đế', 'way', 771244228, 3, 'place', 14],
+  ['dcct', 'Nhà thờ Dòng Chúa Cứu Thế', 'way', 1172894102, 3, 'place', 30],
+  ['tudam', 'Chùa Từ Đàm', 'way', 631871502, 3, 'place', 14],
+  ['baoquoc', 'Chùa Báo Quốc', 'way', 1170979640, 3, 'place', 14],
+  ['baotanghcm', 'Bảo tàng Hồ Chí Minh', 'way', 240266284, 3, 'place', 14],
+  ['thuongbac', 'Thương Bạc', 'way', 239568223, 3, 'monument', 10],
+  ['hoquyen', 'Hổ Quyền', 'relation', 19381147, 3, 'monument', 10],
+  ['diemphungthi', 'Trung tâm Nghệ thuật Điềm Phùng Thị', 'way', 118540998, 3, 'place', 12],
+  ['quantuong', 'Quan Tượng Đài', 'node', 11212153237, 3, 'monument', 12],
+  ['tayloc', 'Chợ Tây Lộc', 'way', 372292672, 3, 'market', 10],
+  ['ancuu', 'Chợ An Cựu', 'way', 118541113, 3, 'market', 10],
+  ['benngu', 'Chợ Bến Ngự', 'way', 513649271, 3, 'market', 10],
+];
+for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
+addPlace('thienmu', 'Chùa Thiên Mụ', wayCentre(205795043), 1, 'monument', 26);
+addPlace('ndchieu', 'Phố đi bộ Nguyễn Đình Chiểu', wayCentre(39418535), 2, 'place', 8);
+addPlace('nguyenhoang', 'Cầu Nguyễn Hoàng', wayCentre(1431136610), 2, 'bridge', 14);
+{
+  // Phố Tây: the visitors' quarter on Phạm Ngũ Lão – Chu Văn An – Võ Thị Sáu
+  const streets = [39419092, 39413149, 39416766].map((id) => wayCentre(id)).filter(Boolean);
+  if (streets.length) addPlace('photay', 'Phố Tây', [streets.reduce((s, p) => s + p[0], 0) / streets.length, streets.reduce((s, p) => s + p[1], 0) / streets.length], 2, 'place', 14);
+}
+
 // Cồn Hến / Cồn Dã Viên: the two river islets (largest land islands inside the river)
 for (const e of els) {
   const t = e.tags || {};
@@ -595,17 +680,18 @@ const water_labels = [];
 // =====================================================================
 // write
 // =====================================================================
-const [infillOut, infillNear] = nearFirst(infill, 6);
+const [infillOut, infillNear] = nearFirst(infill, 7);
 const [treesOut, treesNear] = nearFirst(trees, 4);
-console.log('near water: infill', infillNear, 'of', infill.length / 6, '| trees', treesNear, 'of', trees.length / 4);
+console.log('near water: infill', infillNear, 'of', infill.length / 7, '| trees', treesNear, 'of', trees.length / 4);
 const out = {
   meta: {
     origin: ORIGIN,
     bounds: [q(MINX), q(MINZ), q(MAXX), q(MAXZ)],
     osmTimestamp: raw.osm3s && raw.osm3s.timestamp_osm_base,
-    counts: { buildings: buildings.length, infill: infill.length / 6, roads: roads.length, trees: trees.length / 4, infillNear, treesNear },
+    counts: { buildings: buildings.length, infill: infill.length / 7, roads: roads.length, trees: trees.length / 4, infillNear, treesNear },
   },
   land: land.map(flatPoly),
+  ponds: ponds.map(flatPoly),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
   roads: roads.map((r) => [r.c, r.bridge, flat(r.pts)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),

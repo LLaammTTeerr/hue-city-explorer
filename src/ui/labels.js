@@ -3,7 +3,7 @@ import { LAND_Y } from '../config.js';
 
 // HTML labels pinned to places. Nearer views reveal more of them, and overlapping labels yield to the more important one.
 export function createLabels(root, data, camera, onPick) {
-  const TIER_DIST = { 1: 9000, 2: 3000, 3: 1500 };
+  const TIER_DIST = { 1: 9000, 2: 3000, 3: 1500, 4: 750 };
   const items = [];
   const v = new THREE.Vector3();
 
@@ -22,7 +22,7 @@ export function createLabels(root, data, camera, onPick) {
   data.waterLabels.forEach((p) => add(p, true));
   items.sort((a, b) => a.pri - b.pri);
 
-  let enabled = true, dim = false;
+  let enabled = true, dim = false, frame = 0, blocked = [];
   const visited = new Set();
   let measured = false;
 
@@ -39,7 +39,17 @@ export function createLabels(root, data, camera, onPick) {
     get visited() { return visited; },
     update(width, height) {
       if (!measured) measure();
-      const placed = [];
+      // keep labels out from under the interface: its panels count as already-placed boxes
+      if (frame++ % 30 === 0) {
+        blocked = [];
+        for (const sel of ['#places', '#brand', '#tools', '#nav', '#actions', '#card', '#ride-hud']) {
+          const el = document.querySelector(sel);
+          if (!el || el.hidden) continue;
+          const r = el.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) blocked.push({ l: r.left - 6, r: r.right + 6, t: r.top - 4, b: r.bottom + 4 });
+        }
+      }
+      const placed = blocked.slice();
       for (const it of items) {
         let show = enabled && !dim;
         let x = 0, y = 0;

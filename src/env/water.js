@@ -1,11 +1,13 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { NOISE } from './sky.js';
-import { quality } from '../config.js';
+import { quality, POND_Y } from '../config.js';
+import { Buf } from '../geo/buf.js';
 
-// One sheet of water under the whole scene; the land slab is cut out around the real banks.
+// One sheet of river water under the slab; the land is cut out around the real banks. Lakes, ponds and the
+// moat get their own, higher sheet (no mirror pass: they are small and mostly seen from above).
 // Desktop gets a planar reflection (the bridge, its lights, the sky); phones get an analytic sky reflection.
-export function buildWater() {
+export function buildWater(data) {
   const shader = {
     name: 'HueWater',
     uniforms: {
@@ -93,7 +95,8 @@ export function buildWater() {
       }`,
   };
 
-  const geo = new THREE.PlaneGeometry(60000, 60000);
+  const b = data.meta.bounds.map((v) => v / 10);
+  const geo = new THREE.PlaneGeometry(b[2] - b[0], b[3] - b[1]);
   let mesh;
   if (quality.reflection) {
     const scale = 0.6;
@@ -106,13 +109,30 @@ export function buildWater() {
     });
     mesh.userData.resize = (w, h) => mesh.getRenderTarget().setSize(Math.round(w * quality.pixelRatio * scale), Math.round(h * quality.pixelRatio * scale));
   } else {
-    shader.uniforms.textureMatrix.value = new THREE.Matrix4();
-    mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial(shader));
+    const u = THREE.UniformsUtils.clone(shader.uniforms);
+    u.textureMatrix.value = new THREE.Matrix4();
+    mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({ ...shader, uniforms: u }));
     mesh.userData.resize = () => {};
   }
   mesh.rotation.x = -Math.PI / 2;
-  mesh.position.y = 0;
+  mesh.position.set((b[0] + b[2]) / 2, 0, (b[1] + b[3]) / 2);
   mesh.name = 'water';
   mesh.frustumCulled = false;
-  return { mesh, uniforms: mesh.material.uniforms };
+
+  // still water
+  const P = new Buf(4096);
+  for (const poly of data.ponds || []) {
+    const rings = poly.map((r) => { const o = []; for (let i = 0; i < r.length; i += 2) o.push(new THREE.Vector2(r[i] / 10, r[i + 1] / 10)); return o; });
+    let faces;
+    try { faces = THREE.ShapeUtils.triangulateShape(rings[0], rings.slice(1)); } catch { continue; }
+    const pts = rings[0].concat(...rings.slice(1));
+    for (const f of faces) P.tri([pts[f[0]].x, POND_Y, pts[f[0]].y], [pts[f[1]].x, POND_Y, pts[f[1]].y], [pts[f[2]].x, POND_Y, pts[f[2]].y], [1, 1, 1], [0, 1, 0]);
+  }
+  const pu = THREE.UniformsUtils.clone(shader.uniforms);
+  pu.textureMatrix.value = new THREE.Matrix4();
+  pu.uReflect.value = 0;
+  const ponds = new THREE.Mesh(P.geometry(), new THREE.ShaderMaterial({ ...shader, uniforms: pu }));
+  ponds.name = 'ponds';
+  ponds.frustumCulled = false;
+  return { mesh, ponds, uniforms: mesh.material.uniforms, sets: [mesh.material.uniforms, pu] };
 }

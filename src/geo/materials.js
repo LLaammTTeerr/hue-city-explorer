@@ -7,6 +7,7 @@ export const shared = {
   uTime: { value: 0 },
   uLandY: { value: LAND_Y },
   uWet: { value: 0 },
+  uWind: { value: 0.55 },
 };
 
 const COMMON = /* glsl */ `
@@ -40,9 +41,11 @@ vec2 hueCell = vec2( 0.0 );
   // leaf clumps: two scales of mottling, cooler in the hollows
   float leafA = hueNoise( vWPos.xz * 1.9 + vWPos.y * 1.3 );
   float leafB = hueNoise( vWPos.xz * 6.0 - vWPos.y * 4.0 );
-  float leaf = leafA * 0.65 + leafB * 0.35;
-  diffuseColor.rgb *= 0.7 + 0.55 * leaf;
-  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.82, 0.95, 1.08 ), ( 1.0 - leaf ) * 0.5 );
+  float leafC = hueNoise( vWPos.xz * 13.0 + vWPos.y * 9.0 );
+  float leaf = leafA * 0.5 + leafB * 0.3 + leafC * 0.2;
+  diffuseColor.rgb *= 0.6 + 0.78 * leaf;
+  // sunlit clumps go warmer and yellower, hollows cooler
+  diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.8, 0.94, 1.1 ), diffuseColor.rgb * vec3( 1.1, 1.06, 0.78 ), smoothstep( 0.35, 0.75, leaf ) );
 #else
 
 if ( vKind > 0.5 && vKind < 1.5 ) {
@@ -175,8 +178,27 @@ export function cityMaterial({ windows = false, foliage = false, ...opts } = {})
     sh.uniforms.uGlow = shared.uGlow;
     sh.uniforms.uLandY = shared.uLandY;
     sh.uniforms.uWet = shared.uWet;
+    sh.uniforms.uTime = shared.uTime;
+    sh.uniforms.uWind = shared.uWind;
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aKind;\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;')
+      .replace('#include <common>', '#include <common>\nattribute float aKind;\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nuniform float uTime;\nuniform float uWind;')
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+        #if defined( HUE_FOLIAGE ) && defined( USE_INSTANCING )
+        {
+          // wind: the whole crown leans and recovers, leaves shiver; one direction for the whole city
+          mat3 wim = mat3( instanceMatrix );
+          vec3 origin = instanceMatrix[ 3 ].xyz;
+          float ph = origin.x * 0.045 + origin.z * 0.06;
+          float gust = sin( uTime * 1.2 + ph ) + 0.5 * sin( uTime * 2.7 + ph * 1.7 ) + 0.25 * sin( uTime * 5.3 + ph * 2.9 );
+          float lift = clamp( ( transformed.y + 1.75 ) / 2.75, 0.0, 1.0 );
+          vec3 windL = ( vec3( 0.78, 0.0, -0.42 ) * wim ) / vec3( dot( wim[ 0 ], wim[ 0 ] ), dot( wim[ 1 ], wim[ 1 ] ), dot( wim[ 2 ], wim[ 2 ] ) );
+          transformed += windL * gust * 0.22 * lift * lift * uWind;
+          transformed += normal * sin( uTime * 6.0 + position.x * 11.0 + position.z * 9.0 + ph ) * 0.012 * uWind * lift;
+        }
+        #endif`,
+      )
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>
@@ -236,7 +258,7 @@ export function landMaterial(color, turf = false) {
         // gardens and bare earth: Huế's plots are more green than paved
         float lg = lNoise( vWPos.xz * 0.012 ) * 0.5 + lNoise( vWPos.xz * 0.09 ) * 0.3 + lNoise( vWPos.xz * 0.9 ) * 0.2;
         float grass = smoothstep( 0.38, 0.62, lNoise( vWPos.xz * 0.035 + 4.0 ) * 0.6 + lNoise( vWPos.xz * 0.21 ) * 0.4 );
-        vec3 turf = vec3( 0.36, 0.44, 0.2 ) * ( 0.8 + 0.4 * lNoise( vWPos.xz * 1.3 ) );
+        vec3 turf = vec3( 0.37, 0.5, 0.24 ) * ( 0.8 + 0.4 * lNoise( vWPos.xz * 1.3 ) );
         #ifdef HUE_TURF
           diffuseColor.rgb = mix( diffuseColor.rgb, turf, grass * 0.62 );
         #endif

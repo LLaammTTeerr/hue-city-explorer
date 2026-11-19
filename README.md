@@ -24,18 +24,21 @@ contacted at runtime.
   look around; scrub the bar; `Esc` leaves.
 - **Mưa rào / Passing shower** — a shower crosses for about a minute: rings on the river, haze over
   the far banks, lamps and the bridge lights coming on.
-- **Lên đèn / Lights on** — dusk, with the bridge cycling through its colours.
+- **Time of day** — morning (clear light from the east), late afternoon (low sun up-river), or lights on
+  (dusk, with the bridge cycling through its colours).
+- **Toàn cảnh / Whole model** — pulls back to show the city as one slab, the way a model sits on a table.
 - The **compass** (or `H`) returns to the opening view from anywhere.
 - The **label** button hides every name.
 
 Mouse: drag to pan, wheel to zoom at the cursor, right-drag (or Shift-drag) to turn and tilt,
 double-click to approach. Touch: one finger pans, two fingers pinch, twist and tilt.
-Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` lights, `L` labels.
+Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` time of day, `L` labels.
 
 ## Data
 
 `scripts/fetch-osm.sh` pulls one Overpass extract (bbox 16.4455–16.4965 N, 107.552–107.613 E) into
-`data/raw/hue-osm.json`. `scripts/build-data.mjs` turns it into the 2.3 MB bundle the app loads:
+`data/raw/hue-osm.json`; `scripts/fetch-osm-strip.sh` adds extra strips (the western one, out to chùa Thiên Mụ at
+107.5385 E, is `data/raw/hue-osm-west.json`) and the build merges them. `scripts/build-data.mjs` turns it into the 2.3 MB bundle the app loads:
 
 | From OSM, positions and proportions kept | Generated, shown as illustration |
 | --- | --- |
