@@ -9,19 +9,40 @@ export const hex = (h) => {
 export const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 export const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 
+// What a face is made of. The fragment shader paints the matching surface detail
+// (window bays, roof tiles, brick courses…) so geometry stays light.
+export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7 };
+
 export class Buf {
   constructor(tris = 4096) {
     this.cap = tris * 3;
     this.n = 0;
+    this.kind = KIND.PLAIN; // applied to faces added from now on
     this.pos = new Float32Array(this.cap * 3);
     this.nrm = new Int8Array(this.cap * 3);
     this.col = new Uint8Array(this.cap * 3);
+    this.knd = new Uint8Array(this.cap);
   }
   grow() {
     this.cap *= 2;
     const p = new Float32Array(this.cap * 3); p.set(this.pos); this.pos = p;
     const n = new Int8Array(this.cap * 3); n.set(this.nrm); this.nrm = n;
     const c = new Uint8Array(this.cap * 3); c.set(this.col); this.col = c;
+    const k = new Uint8Array(this.cap); k.set(this.knd); this.knd = k;
+  }
+  // Smooth-shaded triangle with explicit per-vertex normals and colours (used for foliage).
+  smoothTri(v, nrm, cols) {
+    if (this.n + 3 > this.cap) this.grow();
+    let i = this.n * 3;
+    for (let k = 0; k < 3; k++) {
+      const l = Math.hypot(nrm[k][0], nrm[k][1], nrm[k][2]) || 1;
+      this.pos[i] = v[k][0]; this.pos[i + 1] = v[k][1]; this.pos[i + 2] = v[k][2];
+      this.nrm[i] = (nrm[k][0] / l) * 127; this.nrm[i + 1] = (nrm[k][1] / l) * 127; this.nrm[i + 2] = (nrm[k][2] / l) * 127;
+      for (let c = 0; c < 3; c++) this.col[i + c] = Math.max(0, Math.min(255, Math.round(Math.sqrt(cols[k][c]) * 255)));
+      this.knd[this.n + k] = this.kind;
+      i += 3;
+    }
+    this.n += 3;
   }
   // a, b, c: [x,y,z]. hint: rough outward direction; winding is fixed to match it.
   tri(a, b, c, col, hint) {
@@ -47,6 +68,7 @@ export class Buf {
       C[i] = r; C[i + 1] = g; C[i + 2] = bl;
       i += 3;
     }
+    this.knd[this.n] = this.knd[this.n + 1] = this.knd[this.n + 2] = this.kind;
     this.n += 3;
   }
   quad(a, b, c, d, col, hint) {
@@ -55,7 +77,7 @@ export class Buf {
   }
 
   // Box rotated about Y. (cx,cz) centre, y0..y1, sx along local x, sz along local z.
-  box(cx, cz, y0, y1, sx, sz, ang, col, { top = col, bottom = false, taper = 1 } = {}) {
+  box(cx, cz, y0, y1, sx, sz, ang, col, { top = col, bottom = false, taper = 1, topKind = null } = {}) {
     const ux = Math.cos(ang), uz = Math.sin(ang);
     const P = (u, v, y, k = 1) => [cx + u * k * ux - v * k * uz, y, cz + u * k * uz + v * k * ux];
     const hx = sx / 2, hz = sz / 2;
@@ -67,7 +89,10 @@ export class Buf {
       const m = [(b[i][0] + b[j][0]) / 2 - mid[0], 0.2, (b[i][2] + b[j][2]) / 2 - mid[2]];
       this.quad(b[i], b[j], t[j], t[i], col, m);
     }
+    const k = this.kind;
+    if (topKind !== null) this.kind = topKind;
     this.quad(t[0], t[1], t[2], t[3], top, [0, 1, 0]);
+    this.kind = k;
     if (bottom) this.quad(b[0], b[1], b[2], b[3], col, [0, -1, 0]);
   }
 
@@ -92,7 +117,7 @@ export class Buf {
   }
 
   // Extrude a ring ([[x,z],...], any winding) from y0 to y1. holes: array of rings.
-  prism(ring, y0, y1, wallCol, topCol = wallCol, { holes = [], top = true, scaleTop = 1, centre = null } = {}) {
+  prism(ring, y0, y1, wallCol, topCol = wallCol, { holes = [], top = true, scaleTop = 1, centre = null, topKind = null, parapet = 0 } = {}) {
     const all = [ring, ...holes];
     const c = centre || ringCentre(ring);
     const up = (p) => (scaleTop === 1 ? p : [c[0] + (p[0] - c[0]) * scaleTop, c[1] + (p[1] - c[1]) * scaleTop]);
@@ -104,9 +129,13 @@ export class Buf {
         const tx = b[0] - a[0], tz = b[1] - a[1];
         if (tx * tx + tz * tz < 1e-6) continue;
         const ta = up(a), tb = up(b);
-        this.quad([a[0], y0, a[1]], [b[0], y0, b[1]], [tb[0], y1, tb[1]], [ta[0], y1, ta[1]], wallCol, [tz * out, 0.001, -tx * out]);
+        this.quad([a[0], y0, a[1]], [b[0], y0, b[1]], [tb[0], y1 + parapet, tb[1]], [ta[0], y1 + parapet, ta[1]], wallCol, [tz * out, 0.001, -tx * out]);
+        // inner face of the parapet, so flat roofs read as a tray rather than a lid
+        if (parapet) this.quad([ta[0], y1, ta[1]], [tb[0], y1, tb[1]], [tb[0], y1 + parapet, tb[1]], [ta[0], y1 + parapet, ta[1]], [wallCol[0] * 0.72, wallCol[1] * 0.72, wallCol[2] * 0.72], [-tz * out, 0.001, tx * out]);
       }
     });
+    const keep = this.kind;
+    if (topKind !== null) this.kind = topKind;
     if (top) {
       const contour = ring.map((p) => { const q = up(p); return new THREE.Vector2(q[0], q[1]); });
       const hs = holes.map((h) => h.map((p) => { const q = up(p); return new THREE.Vector2(q[0], q[1]); }));
@@ -117,12 +146,15 @@ export class Buf {
         this.tri([a.x, y1, a.y], [b.x, y1, b.y], [d.x, y1, d.y], topCol, [0, 1, 0]);
       }
     }
+    this.kind = keep;
   }
 
   // Hip roof on an oriented rectangle. w = long side (along ang), d = short side.
   // flare > 0 gives the swept, upturned-eave profile of Vietnamese palace roofs.
-  hip(cx, cz, w, d, ang, y0, h, col, { flare = 0, over = 0, ridgeCol = null } = {}) {
+  hip(cx, cz, w, d, ang, y0, h, col, { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false } = {}) {
     w += over * 2; d += over * 2;
+    const keep = this.kind;
+    this.kind = KIND.TILE;
     const ux = Math.cos(ang), uz = Math.sin(ang);
     const P = (u, v, y) => [cx + u * ux - v * uz, y, cz + u * uz + v * ux];
     const hw = w / 2, hd = d / 2;
@@ -156,7 +188,32 @@ export class Buf {
         else this.quad(eave[i], eave[j], ridge[rOf[j]], ridge[rOf[i]], col, hintOf[i]);
       }
     }
-    if (ridgeCol && rl > 0.5) this.beam([ridge[0][0], y0 + h + 0.15, ridge[0][2]], [ridge[1][0], y0 + h + 0.15, ridge[1][2]], 0.5, 0.5, ridgeCol);
+    this.kind = KIND.PLAIN;
+    // eave thickness: a fascia band and soffit under the roof edge
+    if (fascia > 0) {
+      const fc = fasciaCol || [col[0] * 0.7, col[1] * 0.7, col[2] * 0.7];
+      const lo = eave.map((e) => [e[0], y0 - fascia, e[2]]);
+      const hi = eave.map((e) => [e[0], y0, e[2]]);
+      for (let i = 0; i < 4; i++) {
+        const j = (i + 1) % 4;
+        this.quad(lo[i], lo[j], hi[j], hi[i], fc, hintOf[i]);
+      }
+      this.quad(lo[0], lo[1], lo[2], lo[3], [fc[0] * 0.8, fc[1] * 0.8, fc[2] * 0.8], [0, -1, 0]);
+    }
+    if (ridgeCol) {
+      const t = Math.max(0.3, Math.min(0.6, d * 0.035));
+      if (rl > 0.3) this.beam([ridge[0][0], y0 + h + t * 0.3, ridge[0][2]], [ridge[1][0], y0 + h + t * 0.3, ridge[1][2]], t, t * 1.3, ridgeCol);
+      // the four hip ridges, ending in upturned tips at the corners
+      if (hips) for (let i = 0; i < 4; i++) {
+        const r = ridge[rOf[i]], e = eave[i];
+        const m = [e[0] + (r[0] - e[0]) * 0.5, y0 + h * (flare > 0 ? 0.3 : 0.5) + t * 0.4, e[2] + (r[2] - e[2]) * 0.5];
+        this.beam([r[0], r[1] + t * 0.3, r[2]], m, t * 0.8, t, ridgeCol);
+        this.beam(m, [e[0], e[1] + t * 0.5, e[2]], t * 0.8, t, ridgeCol);
+        const ox = e[0] - cx, oz = e[2] - cz, ol = Math.hypot(ox, oz) || 1;
+        this.beam([e[0], e[1] + t * 0.5, e[2]], [e[0] + (ox / ol) * t * 2.2, e[1] + t * 2.4, e[2] + (oz / ol) * t * 2.2], t * 0.6, t * 0.7, ridgeCol);
+      }
+    }
+    this.kind = keep;
   }
 
   cyl(cx, cz, y0, y1, r0, r1, seg, col, { cap = true } = {}) {
@@ -174,6 +231,7 @@ export class Buf {
     g.setAttribute('position', new THREE.BufferAttribute(this.pos.slice(0, this.n * 3), 3));
     g.setAttribute('normal', new THREE.BufferAttribute(this.nrm.slice(0, this.n * 3), 3, true));
     g.setAttribute('color', new THREE.BufferAttribute(this.col.slice(0, this.n * 3), 3, true));
+    g.setAttribute('aKind', new THREE.BufferAttribute(this.knd.slice(0, this.n), 1));
     g.computeBoundingSphere();
     g.computeBoundingBox();
     return g;

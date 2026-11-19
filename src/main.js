@@ -15,6 +15,7 @@ import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
 import { buildRain } from './env/rain.js';
 import { createMood } from './env/mood.js';
+import { createPost } from './env/post.js';
 import { createCamera } from './camera/controls.js';
 import { createRide } from './camera/ride.js';
 import { createLabels } from './ui/labels.js';
@@ -50,7 +51,9 @@ async function main() {
 
   // ---------- renderer ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(quality.pixelRatio);
+  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows
+  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.max(1, Math.min(quality.pixelRatio, Math.sqrt(4.4e6 / (innerWidth * innerHeight)))));
+  renderer.setPixelRatio(fitRatio());
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.shadowMap.enabled = true;
@@ -81,6 +84,7 @@ async function main() {
   sun.castShadow = true;
   sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
   sun.shadow.bias = -0.0004;
+  sun.shadow.radius = 2.4;
   scene.add(hemi, sun, sun.target);
 
   mood = createMood({ scene, renderer, sun, hemi, sky, water, rain });
@@ -90,6 +94,9 @@ async function main() {
   const b = data.meta.bounds.map((v) => v / 10);
   rig = createCamera(canvas, { minX: b[0] + 250, minZ: b[1] + 250, maxX: b[2] - 250, maxZ: b[3] - 250 });
   const { camera, controls } = rig;
+  camera.layers.enable(1); // layer 1: things kept out of the water reflection
+  const post = quality.low ? null : createPost(renderer, scene, camera);
+  const draw = () => (post ? post.render() : renderer.render(scene, camera));
 
   // Opening frame: from above the river below the bridge, looking up-stream into the afternoon light.
   // Trường Tiền crosses the foreground, chợ Đông Ba sits at its right-hand end, the Citadel wall and Kỳ Đài run off behind.
@@ -196,7 +203,9 @@ async function main() {
   // ---------- resize ----------
   function resize() {
     const w = innerWidth, h = innerHeight;
+    renderer.setPixelRatio(fitRatio());
     renderer.setSize(w, h, false);
+    if (post) post.resize();
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
     water.mesh.userData.resize(w, h);
@@ -246,7 +255,8 @@ async function main() {
     if (slow > 2500 && pr > 0.8) {
       pr = Math.max(0.75, pr - 0.25); slow = 0;
       quality.pixelRatio = pr;
-      renderer.setPixelRatio(pr);
+      renderer.setPixelRatio(fitRatio());
+      if (post) post.resize();
       water.mesh.userData.resize(innerWidth, innerHeight);
     }
   }
@@ -266,14 +276,15 @@ async function main() {
     bridge.lamps.material.uniforms.uScale.value = pxScale;
     const lit = mood.cur.glow > 0.01;
     world.lamps.visible = lit; bridge.lamps.visible = lit; bridge.lights.forEach((l) => { l.visible = lit; });
-    renderer.render(scene, camera);
+    if (post) post.setMood(mood.cur.glow, mood.state.rain);
+    draw();
     labels.update(innerWidth, innerHeight);
     ui.setHeading(rig.heading());
   }
 
   mood.update(0, 0);
   updateShadow();
-  renderer.render(scene, camera); // compile shaders before the curtain lifts
+  draw(); // compile shaders before the curtain lifts
   console.debug(`[hue] ready in ${Math.round(performance.now() - t0)} ms`);
   ui.loaderProgress(1);
   await frame();
@@ -282,7 +293,7 @@ async function main() {
   setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
 
   // handle for debugging and automated checks
-  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, THREE };
+  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, post, THREE };
 }
 
 main().catch((err) => {

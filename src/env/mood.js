@@ -51,6 +51,7 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain }) {
     wu.uSunCol.value.copy(cur.sunColor); wu.uSunDisk.value = cur.sunDisk;
     wu.uFog.value.copy(cur.fog); wu.uFogDensity.value = cur.fogDensity; wu.uRain.value = r; wu.uGlow.value = cur.glow;
     shared.uGlow.value = cur.glow;
+    shared.uWet.value = r;
     rain.uniforms.uRain.value = r;
     rain.mesh.visible = r > 0.01;
     rain.uniforms.uTint.value.setRGB(0.8, 0.85, 0.92).lerp(a.setRGB(0.55, 0.6, 0.8), n);

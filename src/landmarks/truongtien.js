@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { hex, shade } from '../geo/buf.js';
+import { KIND, hex, shade } from '../geo/buf.js';
 import { glowPoints } from '../geo/materials.js';
 import { LAND_Y, PAL } from '../config.js';
 
@@ -42,12 +42,16 @@ export function buildTruongTien(data, S, group) {
     S.quad(p[0], p[1], p[2], p[3], PAL.deck, [0, 1, 0]);
     for (const side of [-1, 1]) {
       const q0 = at(s0, (side * W) / 2, deckTop), q1 = at(s1, (side * W) / 2, y1), q2 = at(s0, (side * W) / 2, LAND_Y - 0.5), q3 = at(s1, (side * W) / 2, LAND_Y - 0.5);
+      S.kind = KIND.MASONRY;
       S.quad(q0, q1, q3, q2, PAL.pier, [n[0] * side, 0, n[1] * side]);
+      S.kind = KIND.PLAIN;
       S.beam(at(s0, side * (W / 2 - 0.1), deckTop + 1.0), at(s1, side * (W / 2 - 0.1), y1 + 1.0), 0.16, 0.16, steel);
     }
     // abutment
     const m = at(s0 + end * 1.2, 0, 0);
+    S.kind = KIND.MASONRY;
     S.box(m[0], m[2], -3, deckTop - deckT, 3.4, W + 2.4, ang, PAL.pier);
+    S.kind = KIND.PLAIN;
   }
 
   // stone piers with pointed cutwaters and the little balconies that sit above them
@@ -55,7 +59,9 @@ export function buildTruongTien(data, S, group) {
   for (let i = 1; i < SPANS; i++) {
     const s = -L / 2 + i * span;
     const ring = [[-1.7, -W / 2 + 0.6], [0, -W / 2 - 2.6], [1.7, -W / 2 + 0.6], [1.7, W / 2 - 0.6], [0, W / 2 + 2.6], [-1.7, W / 2 - 0.6]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
+    S.kind = KIND.MASONRY;
     S.prism(ring, -3, deckTop - deckT - 0.7, PAL.pier, shade(PAL.pier, 1.08), { scaleTop: 0.92 });
+    S.kind = KIND.PLAIN;
     const m = at(s, 0, 0);
     S.box(m[0], m[2], deckTop - deckT - 0.7, deckTop - deckT, 3.8, W + 1.2, ang, shade(PAL.pier, 1.1), { bottom: true });
     for (const side of [-1, 1]) {

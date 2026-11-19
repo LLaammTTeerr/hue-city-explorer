@@ -225,6 +225,27 @@ const land = pc.difference([rect(MINX - FAR, MINZ - FAR, MAXX + FAR, MAXZ + FAR)
 for (const poly of water) fillPoly(poly, WATER);
 console.log('water polygons', waterPolys.length, '→ merged', water.length, '| land polygons', land.length, 'rings', land.reduce((s, p) => s + p.length, 0));
 
+// Coarse "is there water within ~80 m" grid. Things near water are drawn into the water's
+// reflection; everything else is skipped there, which keeps the mirror pass cheap.
+const NC = 26, NGW = Math.ceil((MAXX - MINX) / NC), NGH = Math.ceil((MAXZ - MINZ) / NC);
+let nearGrid = new Uint8Array(NGW * NGH);
+for (let r = 0; r < GH; r++) for (let c = 0; c < GW; c++) if (mask[r * GW + c] & WATER) nearGrid[Math.min(NGH - 1, Math.floor((r * CELL) / NC)) * NGW + Math.min(NGW - 1, Math.floor((c * CELL) / NC))] = 1;
+for (let pass = 0; pass < 3; pass++) {
+  const next = nearGrid.slice();
+  for (let r = 0; r < NGH; r++) for (let c = 0; c < NGW; c++) {
+    if (nearGrid[r * NGW + c]) continue;
+    if ((r > 0 && nearGrid[(r - 1) * NGW + c]) || (r < NGH - 1 && nearGrid[(r + 1) * NGW + c]) || (c > 0 && nearGrid[r * NGW + c - 1]) || (c < NGW - 1 && nearGrid[r * NGW + c + 1])) next[r * NGW + c] = 1;
+  }
+  nearGrid = next;
+}
+const nearWater = (x, z) => { const c = Math.floor((x - MINX) / NC), r = Math.floor((z - MINZ) / NC); return r >= 0 && c >= 0 && r < NGH && c < NGW && nearGrid[r * NGW + c] === 1; };
+// reorder a flat record array so near-water records come first; returns [array, nearCount]
+function nearFirst(arr, stride) {
+  const near = [], far = [];
+  for (let i = 0; i < arr.length; i += stride) (nearWater(arr[i] / 10, arr[i + 1] / 10) ? near : far).push(...arr.slice(i, i + stride));
+  return [near.concat(far), near.length / stride];
+}
+
 // river islands (for labels)
 const areaCentroid = (r) => { let a = 0, x = 0, z = 0; for (let i = 0, n = r.length; i < n; i++) { const p = r[i], q2 = r[(i + 1) % n]; const k = p[0] * q2[1] - q2[0] * p[1]; a += k; x += (p[0] + q2[0]) * k; z += (p[1] + q2[1]) * k; } return [x / (3 * a), z / (3 * a)]; };
 const islands = land.filter((p) => Math.abs(ringArea(p[0])) < 5e6).map((p) => ({ c: areaCentroid(openRing(p[0])), area: Math.abs(ringArea(p[0])) })).filter((i) => i.area > 20000 && inBox(i.c));
@@ -574,20 +595,23 @@ const water_labels = [];
 // =====================================================================
 // write
 // =====================================================================
+const [infillOut, infillNear] = nearFirst(infill, 6);
+const [treesOut, treesNear] = nearFirst(trees, 4);
+console.log('near water: infill', infillNear, 'of', infill.length / 6, '| trees', treesNear, 'of', trees.length / 4);
 const out = {
   meta: {
     origin: ORIGIN,
     bounds: [q(MINX), q(MINZ), q(MAXX), q(MAXZ)],
     osmTimestamp: raw.osm3s && raw.osm3s.timestamp_osm_base,
-    counts: { buildings: buildings.length, infill: infill.length / 6, roads: roads.length, trees: trees.length / 4 },
+    counts: { buildings: buildings.length, infill: infill.length / 6, roads: roads.length, trees: trees.length / 4, infillNear, treesNear },
   },
   land: land.map(flatPoly),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
   roads: roads.map((r) => [r.c, r.bridge, flat(r.pts)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),
   bld: buildings,
-  infill,
-  trees,
+  infill: infillOut,
+  trees: treesOut,
   wall: wall.map(flatPoly),
   iwalls: iwalls.map(flat),
   imperial: { c: [q(imperial.c[0]), q(imperial.c[1])], w: q(imperial.w), d: q(imperial.d), a: Math.round(imperial.a * 1000) },

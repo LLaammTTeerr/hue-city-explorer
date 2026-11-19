@@ -39,7 +39,7 @@ Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` lights, `L` labels.
 | river, canals, moats, lakes (→ land is cut around the real banks) | infill houses on streets that have no footprints yet (toggle in the info panel) |
 | streets, railway, bridges | trees, dragon boats, lamps, horizon ridges |
 | 5,159 building footprints; heights where tagged | building heights where untagged (estimated from type and area) |
-| Citadel wall polygon (height 6.6 m from its tag), Imperial City walls, gates | roof shapes |
+| Citadel wall polygon (height 6.6 m from its tag), Imperial City walls, gates | roof shapes, facades, rooftop water tanks, rear wings on infill houses |
 | footprints/axes of Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the market hall | the hand-built models standing on those footprints |
 
 To refresh: `npm run data:fetch && npm run data:build`.
@@ -48,9 +48,10 @@ To refresh: `npm run data:fetch && npm run data:build`.
 
 ## Layout
 
-- `src/geo/` — geometry kit, materials, city builder (land, roads, buildings, trees, walls)
+- `src/geo/` — geometry kit, city builder (land, roads, buildings, trees, walls), and the materials that paint
+  surface detail per face kind (window bays and shopfronts, roof tiles, brick courses, timber halls, turf)
 - `src/landmarks/` — Trường Tiền, Citadel monuments and gates, market, boats
-- `src/env/` — sky, water, rain, mood presets
+- `src/env/` — sky, water, rain, mood presets, and the desktop post pass (depth-based ambient occlusion, bloom, grade)
 - `src/camera/` — map controls and the boat ride
 - `src/ui/` — interface, labels, copy (Vietnamese and English)
 

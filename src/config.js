@@ -5,7 +5,8 @@ export const WALL_H = 6.6; // Citadel wall height, from the OSM tag on the wall 
 
 export const isCoarse = () => matchMedia('(pointer: coarse)').matches;
 export const quality = (() => {
-  const small = Math.min(innerWidth, innerHeight) < 560;
+  const side = Math.min(innerWidth, innerHeight);
+  const small = side > 0 && side < 560; // a zero-sized (hidden) window says nothing about the device
   const low = isCoarse() || small;
   return {
     low,
@@ -19,15 +20,15 @@ export const quality = (() => {
 
 // Colours are authored in sRGB and converted to linear once.
 export const PAL = {
-  land: '#d6cba6',
+  land: '#c9bb93',
   bank: '#9a917d',
   green: { park: '#a4b678', wood: '#8ba566', grass: '#b3bf86', farm: '#c3c58c', cemetery: '#bcb89c', pitch: '#9bb776', sacred: '#cdbf96' },
-  road: ['#f4ead2', '#f1e6cf', '#ecdfc6', '#e6d9bf', '#dccfb5', '#d5c8ad'],
-  casing: '#b3a584',
+  road: ['#dcd4c6', '#ddd5c7', '#ded6c8', '#dfd7c9', '#ddd4c2', '#e9dfc9'],
+  casing: '#f0e8d6',
   rail: '#544c58',
   ballast: '#b9ad9a',
-  roofs: ['#b4583a', '#c06a45', '#a84f38', '#cc7a52', '#9c4a3a', '#bd6248', '#b4583a', '#c87248', '#8496a4', '#93a096'].map(hex),
-  walls: ['#efe3c8', '#f3e9d2', '#e9d7b0', '#f0e0c0', '#e3e6d6', '#f0d9cb', '#ecdcb8', '#f5ecd9'].map(hex),
+  roofs: ['#a8563b', '#b0603f', '#9c4e39', '#b86a48', '#8f4a3a', '#a65a44', '#9a5540', '#b2674a', '#a8563b', '#7f8f9c', '#8d9890', '#6f5a50', '#a39a8e', '#8a3f33'].map(hex),
+  walls: ['#efe3c8', '#f3e9d2', '#e9d7b0', '#f0e0c0', '#e3e6d6', '#f0d9cb', '#ecdcb8', '#f5ecd9', '#e8d9a8', '#d9e2d0', '#d6e0e6', '#ecd2c4', '#dcc9a0', '#cfd6c4', '#e6c9a6'].map(hex),
   concrete: ['#ddd6c8', '#e4ded2', '#d6cfc1', '#e0d9cb'].map(hex),
   modernWall: ['#e6e1d6', '#dcd9d2', '#e9e2d0', '#d5dbe0'].map(hex),
   imperialRoof: hex('#e3a322'),
