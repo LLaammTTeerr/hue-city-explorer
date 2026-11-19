@@ -165,10 +165,21 @@ export function buildCitadel(data, S, group) {
       p = P(s * o.w * 0.405, o.d * 0.08);
       pavilion(S, p[0], p[1], o.d * 0.66, o.w * 0.15, o.a + Math.PI / 2, baseTop, { tiers: 2, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.6 });
     }
-    // the three gateways through the base
+    // the three gateways through the base (flat lintels: the emperor's in the middle, the mandarins' either side)
     for (const k of [-1, 0, 1]) {
       const q = P(k * o.w * 0.11, back + o.d * 0.2 + 0.2);
       S.box(q[0], q[1], LAND_Y, LAND_Y + (k === 0 ? 4.2 : 3.6), k === 0 ? 3.2 : 2.4, 0.4, o.a, dark);
+    }
+    // and the two arched side passages for soldiers, elephants and horses, opening in the inner faces of the wings
+    const inside = (p) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) if (ring[i][1] > p[1] !== ring[j][1] > p[1] && p[0] < ((ring[j][0] - ring[i][0]) * (p[1] - ring[i][1])) / (ring[j][1] - ring[i][1]) + ring[i][0]) c = !c; return c; };
+    for (const sd of [-1, 1]) {
+      const v = o.d * 0.18;
+      let u = 2;
+      while (u < o.w / 2 && !inside(P(sd * u, v))) u += 0.25; // walk out from the court to the wing's inner face
+      if (u >= o.w / 2) continue;
+      const q = P(sd * (u - 0.1), v);
+      S.box(q[0], q[1], LAND_Y, LAND_Y + 2.7, 0.5, 2.3, o.a, dark);
+      S.cyl(q[0], q[1], LAND_Y + 2.1, LAND_Y + 3.3, 1.15, 1.15, 8, dark, { rot: o.a });
     }
   }
 
@@ -188,7 +199,27 @@ export function buildCitadel(data, S, group) {
   for (const key of ['phuvanlau', 'nghenhluong']) {
     if (!data.special[key]) continue;
     const o = obb(unflat(data.special[key].ring));
-    pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: key === 'phuvanlau' ? 2 : 1, wallH: 3.2, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 2.6, platform: 0.9 });
+    if (key === 'phuvanlau') { pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 2.6, platform: 0.9 }); continue; }
+    // Nghênh Lương Đình: a square pavilion with a lower "crab-shell" porch before and behind, on a 0.9 m base,
+    // and steps down to a landing at the water (the axis runs from Kỳ Đài out to the river)
+    const kd = data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : [o.c[0] - 1, o.c[1] - 1];
+    let f = [o.c[0] - kd[0], o.c[1] - kd[1]];
+    { const l = Math.hypot(f[0], f[1]) || 1; f = [f[0] / l, f[1] / l]; }
+    const fa = Math.atan2(f[1], f[0]), side = Math.min(o.w, o.d) * 0.72, at = (a) => [o.c[0] + f[0] * a, o.c[1] + f[1] * a];
+    const wall = hex('#8f3b2a'), roof = PAL.imperialRoof2;
+    S.kind = KIND.MASONRY;
+    S.box(o.c[0], o.c[1], LAND_Y, LAND_Y + 0.9, side + 9.5, side + 3.2, fa, PAL.stone, { taper: 0.98, topKind: KIND.ROAD });
+    for (const sd of [-1, 1]) {
+      const q = at(sd * (side / 2 + 2.0));
+      S.kind = KIND.TIMBER;
+      S.box(q[0], q[1], LAND_Y + 0.9, LAND_Y + 3.5, 3.4, side * 0.7, fa, wall, { top: shade(roof, 0.8) });
+      S.hip(q[0], q[1], side * 0.7, 3.4, fa + Math.PI / 2, LAND_Y + 3.5, 1.5, roof, { flare: 0.4, over: 1.0, fascia: 0.25, fasciaCol: shade(wall, 0.75), glazed: true });
+    }
+    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 1, wallH: 3.6, roof, wall, over: 1.3, rh: 3.0 });
+    S.kind = KIND.MASONRY;
+    for (let i = 0; i < 13; i++) { const q = at(side / 2 + 5.2 + i * 0.42); S.box(q[0], q[1], LAND_Y - 2.4, LAND_Y + 0.86 - i * 0.2, 0.44, 6, fa, PAL.stone, { topKind: KIND.ROAD }); }
+    { const q = at(side / 2 + 5.2 + 13 * 0.42 + 2.2); S.box(q[0], q[1], LAND_Y - 3.2, LAND_Y - 1.75, 4.6, 16, fa, PAL.stone, { topKind: KIND.ROAD }); }
+    S.kind = KIND.PLAIN;
   }
 
   return {

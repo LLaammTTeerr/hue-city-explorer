@@ -82,8 +82,18 @@
   at the top; the canvas takes a light sepia wash in the older eras.
 - Bia Quốc Học (`src/landmarks/memorial.js`): the 1920 memorial screen opposite the school gate; the gate is now
   placed square to it. Dimensions are estimated (no source gives them).
-- In progress: `public/data/stories.json` (story, facts, free-licence image references per place) for a click-to-read
-  explorer panel; reference factsheets for a polish pass over every landmark, bridge and the ground levels.
+- Ground levels: lakes in the hills stand at their own height (55 of 171, read from the elevation model), with the
+  ground held flat at that level in the lake, on its islands and along its shore (`pondLv` in the data, `pondY` /
+  `waterY` in `src/geo/terrain.js`).
+- Explorer panel: the note card shows picture with credit, dates, summary, a line for the selected era, story,
+  facts and sources from `public/data/stories.json` (being written by a research pass; pictures are Wikimedia
+  Commons references, loaded online, not bundled).
+- Polish pass, started: `docs/reference/*.md` hold sourced factsheets for bridges, the Citadel, city landmarks, tombs
+  and the south. Applied so far: Trường Tiền without its pier balconies (removed 1991–95), cầu Dã Viên's six viewing
+  pavilions, Ngọ Môn's two arched side passages, Nghênh Lương Đình with porches. Still to do against the factsheets:
+  cầu Phú Xuân (374.65 m × 17 m), cầu Nguyễn Hoàng's arch (sources conflict: check a photograph), the An Cựu river
+  bridges and cầu Gia Hội (no facts found), đàn Nam Giao's red lower railing, Thiên Mụ's pavilions, each tomb's
+  axis sequence, Bia Quốc Học's true dimensions.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified
