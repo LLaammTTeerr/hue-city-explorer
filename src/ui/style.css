@@ -104,10 +104,25 @@ body.era-dip #scene { animation: era-dip 0.45s ease-in-out; }
 #hint.long { white-space: normal; width: max-content; max-width: min(560px, calc(100vw - 32px)); text-align: center; line-height: 1.45; }
 
 /* ---------- place card ---------- */
-#card { position: fixed; left: var(--edge); bottom: calc(var(--bottom) + 58px); width: min(340px, calc(100vw - 2 * var(--edge))); padding: 16px 18px 13px; border-radius: 6px; animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#card { position: fixed; left: var(--edge); bottom: calc(var(--bottom) + 58px); width: min(380px, calc(100vw - 2 * var(--edge))); max-height: min(74vh, 700px); display: flex; flex-direction: column; border-radius: 6px; animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#card-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 16px 18px 13px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+#card-media { margin: -6px -8px 12px; }
+#card-img { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 3px; background: rgba(42, 35, 48, 0.08); }
+#card-img.more { cursor: pointer; }
+#card-media figcaption { margin: 5px 2px 0; font-size: 10.5px; line-height: 1.4; color: var(--ink-soft); }
+#card-media a { color: inherit; text-decoration-color: var(--line); }
+#card-when { margin: -4px 0 9px; font-size: 12px; letter-spacing: 0.02em; color: var(--indigo); font-variant-numeric: tabular-nums; }
+#card-era { margin: 11px 0 0; padding: 8px 11px; border-left: 2px solid var(--seal); background: rgba(179, 40, 31, 0.06); font-size: 13px; line-height: 1.52; }
+#card-story p { margin: 10px 0 0; font-size: 13.5px; line-height: 1.64; color: rgba(42, 35, 48, 0.9); text-wrap: pretty; }
+#card-facts { margin: 13px 0 0; padding-top: 11px; border-top: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 12.5px; line-height: 1.45; }
+#card-facts dt { color: var(--ink-soft); }
+#card-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+#card-sources { margin: 11px 0 0; font-size: 11px; line-height: 1.5; color: var(--ink-soft); }
+#card-sources a { color: var(--indigo); text-decoration-color: var(--line); }
+#card [hidden] { display: none; }
 #card[hidden] { display: none; }
 #card::before { content: ''; position: absolute; inset: 4px; border: 1px solid var(--line); border-radius: 3px; pointer-events: none; }
-#card-close { position: absolute; right: 8px; top: 8px; opacity: 0.7; z-index: 1; }
+#card-close { position: absolute; right: 8px; top: 8px; opacity: 0.85; z-index: 1; background: var(--panel); border-radius: 50%; }
 #card-kind { margin: 0 0 4px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--seal); font-weight: 600; }
 #card-name { margin: 0 30px 8px 0; font-family: var(--serif); font-weight: 540; font-size: 25px; line-height: 1.12; font-variation-settings: 'opsz' 60; }
 #card-note { margin: 0; font-size: 14px; line-height: 1.58; color: rgba(42, 35, 48, 0.88); text-wrap: pretty; }
@@ -206,7 +221,7 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #actions .seg button { width: 34px; height: 40px; }
   #hint { bottom: calc(var(--bottom) + 120px); }
   #attrib { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) - 3px); font-size: 10px; white-space: nowrap; padding: 2px 6px; }
-  #card { left: 10px; right: 10px; width: auto; bottom: calc(var(--bottom) + 76px); z-index: 2; }
+  #card { left: 10px; right: 10px; width: auto; bottom: calc(var(--bottom) + 76px); z-index: 2; max-height: 56vh; }
   body.has-card #places { opacity: 0; pointer-events: none; }
   #ride-hud { bottom: calc(var(--bottom) + 18px); }
   dialog { padding: 22px 20px 18px; }

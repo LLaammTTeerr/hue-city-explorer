@@ -55,7 +55,7 @@ export function buildTruongTien(data, S, group) {
     S.kind = KIND.PLAIN;
   }
 
-  // stone piers with pointed cutwaters and the little balconies that sit above them
+  // stone piers with pointed cutwaters
   const lampPos = [], lampCol = [];
   for (let i = 1; i < SPANS; i++) {
     const s = -L / 2 + i * span;
@@ -66,12 +66,10 @@ export function buildTruongTien(data, S, group) {
     const m = at(s, 0, 0);
     S.box(m[0], m[2], deckTop - deckT - 0.7, deckTop - deckT, 3.8, W + 1.2, ang, shade(PAL.pier, 1.1), { bottom: true });
     for (const side of [-1, 1]) {
-      const bp = at(s, side * (W / 2 + 0.7), 0);
-      S.box(bp[0], bp[2], deckTop - 0.5, deckTop + 0.12, 5.2, 1.6, ang, hex('#b5aea4'), { bottom: true });
-      S.beam(at(s - 2.6, side * (W / 2 + 1.45), deckTop + 1.05), at(s + 2.6, side * (W / 2 + 1.45), deckTop + 1.05), 0.16, 0.16, steel);
-      // lamp post
-      S.beam(at(s, side * (W / 2 + 1.2), deckTop), at(s, side * (W / 2 + 1.2), deckTop + 4.2), 0.18, 0.18, steelD);
-      const lp = at(s, side * (W / 2 + 1.2), deckTop + 4.5);
+      // (the balconies that bulged out over each pier from 1937 were taken off in the 1991–95 restoration)
+      // lamp post at the rail, over the pier
+      S.beam(at(s, side * (W / 2 - 0.25), deckTop), at(s, side * (W / 2 - 0.25), deckTop + 4.2), 0.18, 0.18, steelD);
+      const lp = at(s, side * (W / 2 - 0.25), deckTop + 4.5);
       lampPos.push(...lp); lampCol.push(1.0, 0.8, 0.5);
     }
   }

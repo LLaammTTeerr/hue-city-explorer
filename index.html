@@ -56,10 +56,21 @@
 
     <aside id="card" hidden>
       <button id="card-close" class="icon small" type="button"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg></button>
-      <p id="card-kind"></p>
-      <h2 id="card-name"></h2>
-      <p id="card-note"></p>
-      <p id="card-meta"></p>
+      <div id="card-scroll">
+        <figure id="card-media" hidden>
+          <img id="card-img" alt="" decoding="async" />
+          <figcaption><span id="card-caption"></span> <span id="card-credit"></span></figcaption>
+        </figure>
+        <p id="card-kind"></p>
+        <h2 id="card-name"></h2>
+        <p id="card-when" hidden></p>
+        <p id="card-note"></p>
+        <p id="card-era" hidden></p>
+        <div id="card-story" hidden></div>
+        <dl id="card-facts" hidden></dl>
+        <p id="card-sources" hidden></p>
+        <p id="card-meta"></p>
+      </div>
     </aside>
 
     <div id="hint" role="status"></div>

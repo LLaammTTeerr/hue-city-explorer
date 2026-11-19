@@ -6,6 +6,7 @@ import { LAND_Y, WALL_H, PAL, quality } from '../config.js';
 import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
 import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
+import { pavilion } from '../landmarks/citadel.js';
 
 const rand = (i, salt = 0) => {
   let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
@@ -232,6 +233,7 @@ function buildRoads(data, group, structures) {
 
   // bridges: real slabs with piers, so they read from the water as well as from above
   const pier = PAL.pier, deckSide = hex('#a59c8b');
+  let vongDone = false;
   for (const r of roads) {
     if (!r.bridge) continue;
     structures.span = span(r.era);
@@ -241,6 +243,18 @@ function buildRoads(data, group, structures) {
     const top = LAND_Y + lift + 0.42;
     slab(structures, r.pts, w, top, r.c <= 2 ? 1.3 : 0.7, cols[Math.min(r.c, 3)], deckSide, r.c <= 4 ? 0.9 : 0.5);
     const len = pathLength(r.pts);
+    // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
+    const dv = vongDone ? null : data.places.find((q) => q.id === 'bachho');
+    if (dv && len > 250 && r.c <= 1 && Math.hypot(mp[0] - dv.x / 10, mp[1] - dv.z / 10) < 420) {
+      vongDone = true; // the two carriageways are mapped separately: once is enough
+      for (const f of [0.25, 0.5, 0.75]) for (const side of [-1, 1]) {
+        const { p, a } = along(r.pts, len * f), off = w / 2 + 1.6;
+        const x = p[0] - Math.sin(a) * side * off, z = p[1] + Math.cos(a) * side * off;
+        structures.kind = KIND.PLAIN;
+        structures.box(x, z, top - 0.9, top, 4.6, 4.6, a, deckSide, { bottom: true });
+        pavilion(structures, x, z, 3.4, 3.4, a, top, { wallH: 2.6, roof: hex('#8f4a36'), wall: hex('#c9b99a'), over: 0.9, rh: 1.5, ridge: hex('#d9c9a0') });
+      }
+    }
     if (len > 42 && r.c <= 3) {
       const n = Math.max(1, Math.round(len / 30) - 1);
       for (let i = 1; i <= n; i++) {
