@@ -18,10 +18,12 @@ export class Buf {
     this.cap = tris * 3;
     this.n = 0;
     this.kind = KIND.PLAIN; // applied to faces added from now on
+    this.base = 0; // floor level of what is being built, in metres above the flat city datum (for slopes)
     this.pos = new Float32Array(this.cap * 3);
     this.nrm = new Int8Array(this.cap * 3);
     this.col = new Uint8Array(this.cap * 3);
     this.knd = new Uint8Array(this.cap);
+    this.bas = new Float32Array(this.cap);
   }
   grow() {
     this.cap *= 2;
@@ -29,6 +31,7 @@ export class Buf {
     const n = new Int8Array(this.cap * 3); n.set(this.nrm); this.nrm = n;
     const c = new Uint8Array(this.cap * 3); c.set(this.col); this.col = c;
     const k = new Uint8Array(this.cap); k.set(this.knd); this.knd = k;
+    const bb = new Float32Array(this.cap); bb.set(this.bas); this.bas = bb;
   }
   // Smooth-shaded triangle with explicit per-vertex normals and colours (used for foliage).
   smoothTri(v, nrm, cols) {
@@ -40,6 +43,7 @@ export class Buf {
       this.nrm[i] = (nrm[k][0] / l) * 127; this.nrm[i + 1] = (nrm[k][1] / l) * 127; this.nrm[i + 2] = (nrm[k][2] / l) * 127;
       for (let c = 0; c < 3; c++) this.col[i + c] = Math.max(0, Math.min(255, Math.round(Math.sqrt(cols[k][c]) * 255)));
       this.knd[this.n + k] = this.kind;
+      this.bas[this.n + k] = this.base;
       i += 3;
     }
     this.n += 3;
@@ -69,6 +73,7 @@ export class Buf {
       i += 3;
     }
     this.knd[this.n] = this.knd[this.n + 1] = this.knd[this.n + 2] = this.kind;
+    this.bas[this.n] = this.bas[this.n + 1] = this.bas[this.n + 2] = this.base;
     this.n += 3;
   }
   quad(a, b, c, d, col, hint) {
@@ -232,6 +237,7 @@ export class Buf {
     g.setAttribute('normal', new THREE.BufferAttribute(this.nrm.slice(0, this.n * 3), 3, true));
     g.setAttribute('color', new THREE.BufferAttribute(this.col.slice(0, this.n * 3), 3, true));
     g.setAttribute('aKind', new THREE.BufferAttribute(this.knd.slice(0, this.n), 1));
+    g.setAttribute('aBase', new THREE.BufferAttribute(this.bas.slice(0, this.n), 1));
     g.computeBoundingSphere();
     g.computeBoundingBox();
     return g;

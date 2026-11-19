@@ -245,10 +245,14 @@ function buildBuildings(data, group) {
   data.bld.forEach((b, i) => {
     const ring = unflat(b[0]);
     const h = b[1] / 10, kind = b[2], flags = b[4] || 0;
-    const y0 = LAND_Y + baseUnder(ring);
+    const y0 = LAND_Y + baseUnder(ring) - 0.3;
     const area = Math.abs(signedArea(ring));
     const o = obb(ring);
-    const y1 = Math.max(y0 + h * 0.85, LAND_Y + rise(o.c[0], o.c[1]) + h);
+    // on a slope the floors start at the highest ground under the footprint; what shows below is plain foundation
+    let floor = rise(o.c[0], o.c[1]);
+    for (const pt of ring) floor = Math.max(floor, rise(pt[0], pt[1]));
+    B.base = floor;
+    const y1 = LAND_Y + floor + h;
     const rectness = area / Math.max(1, o.w * o.d);
     let wall, roof, pitched = false, flare = 0, over = 0.5, rh = 0, ridge = null, hips = false;
     const jitter = 0.92 + rand(i, 7) * 0.16;
@@ -388,10 +392,11 @@ function buildInfill(data, group) {
     for (let i = start; i < end; i++) {
       const x = a[i * S] / 10, z = a[i * S + 1] / 10;
       const w = a[i * S + 2] / 10, d = a[i * S + 3] / 10, ang = a[i * S + 4] / 1000, h = a[i * S + 5] / 10, main = a[i * S + 6] === 1;
-      const front = a[i * S + 7] === 1 ? -1 : 1; // which way the street lies along the plot's depth axis
+      const side = a[i * S + 7];
+      const front = side === 2 ? 0 : side === 1 ? -1 : 1; // which way the street lies along the plot's depth axis (0: a house behind the street row)
       const wallCol = shade(mix(pick(PAL.walls, i, 31), [0.86, 0.8, 0.68], 0.08), 0.9 + rand(i, 32) * 0.18);
       const roofCol = shade(pick(PAL.roofs, i, 34), 0.84 + rand(i, 35) * 0.28);
-      if (d > 9.5 && rand(i, 50) < 0.55) {
+      if (front !== 0 && d > 9.5 && rand(i, 50) < 0.55) {
         const vx = -Math.sin(ang), vz = Math.cos(ang);
         const fd = d * (0.5 + rand(i, 51) * 0.14), rd = d - fd, sgn = front; // the taller part faces the street
         const o1 = sgn * (d / 2 - fd / 2), o2 = -sgn * (d / 2 - rd / 2);
@@ -407,11 +412,18 @@ function buildInfill(data, group) {
   // Each chunk gets instanced meshes sized to exactly what it holds (no hidden zero-scale instances).
   const inst = (geo, mat, list, layer, shadow = true) => {
     if (!list.length) return;
-    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+    // walls carry each house's floor level, so windows line up with its own ground on a slope
+    let g = geo;
+    if (geo === geos.wall && list.some((e) => e[2] > 0)) {
+      g = geo.clone();
+      g.setAttribute('aBase', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[2] || 0), 1));
+    }
+    const mesh = new THREE.InstancedMesh(g, mat, list.length);
     for (let k = 0; k < list.length; k++) { mesh.setMatrixAt(k, list[k][0]); mesh.setColorAt(k, enc(list[k][1], c)); }
     mesh.instanceMatrix.needsUpdate = true;
     mesh.instanceColor.needsUpdate = true;
     mesh.castShadow = shadow && (!quality.low || geo === geos.wall);
+    if (g !== geo) mesh.geometry.boundingSphere = geo.boundingSphere;
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
     mesh.layers.set(layer);
@@ -429,15 +441,19 @@ function buildInfill(data, group) {
       if (flatRoof) h += 0.7;
       // bed the house into a slope: stand it on the lowest corner, keep the eaves where the centre would put them
       const ca = Math.cos(ang), sa = Math.sin(ang);
-      let lo = rise(x, z);
-      const top = lo;
-      if (lo > 0 || rise(x + ca * w, z + sa * w) > 0) for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) lo = Math.min(lo, rise(x + (ca * u * w - sa * v * d) / 2, z + (sa * u * w + ca * v * d) / 2));
-      const gy = LAND_Y + lo;
-      h += top - lo;
+      let lo = rise(x, z), hi = lo;
+      if (lo > 0 || rise(x + ca * w, z + sa * w) > 0 || rise(x - sa * d, z + ca * d) > 0 || rise(x + sa * d, z - ca * d) > 0) for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const r = rise(x + (ca * u * w - sa * v * d) / 2, z + (sa * u * w + ca * v * d) / 2);
+        lo = Math.min(lo, r); hi = Math.max(hi, r);
+      }
+      // floors start at the highest ground under the house; below that the wall is a plain foundation
+      const found = hi > lo ? hi - lo + 0.3 : 0;
+      const gy = LAND_Y + lo - (found ? 0.3 : 0);
+      h += found;
       // walls keep the plot's own axes (width along the street)
       q.setFromAxisAngle(up, -ang);
       p.set(x, gy, z); s.set(w, h, d);
-      walls.push([mk(), pt.wallCol]);
+      walls.push([mk(), pt.wallCol, hi]);
       if (gable) {
         const rh = Math.min(3.4, Math.max(1.2, d * (0.2 + rand(i, 37) * 0.07)));
         p.set(x, gy + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
@@ -456,11 +472,11 @@ function buildInfill(data, group) {
         const fx = -sa * pt.front, fz = ca * pt.front;
         q.setFromAxisAngle(up, -ang);
         if (rand(i, 70) < (pt.main ? 0.78 : 0.22)) {
-          p.set(x + fx * (d / 2 + 0.7), gy + 2.9, z + fz * (d / 2 + 0.7)); s.set(w * 0.94, 0.13, 1.5);
+          p.set(x + fx * (d / 2 + 0.7), LAND_Y + hi + 2.9, z + fz * (d / 2 + 0.7)); s.set(w * 0.94, 0.13, 1.5);
           extras.push([mk(), pick(AWNINGS, i, 71)]);
         }
         if (pt.h >= 7 && rand(i, 72) < 0.5) {
-          const by = gy + 3.42;
+          const by = LAND_Y + hi + 3.42;
           p.set(x + fx * (d / 2 + 0.5), by, z + fz * (d / 2 + 0.5)); s.set(w * 0.82, 0.14, 1.0);
           extras.push([mk(), shade(pt.wallCol, 0.9)]);
           p.set(x + fx * (d / 2 + 0.96), by + 0.14, z + fz * (d / 2 + 0.96)); s.set(w * 0.82, 0.86, 0.07);
@@ -469,8 +485,9 @@ function buildInfill(data, group) {
       }
     }
     inst(geos.wall, wallMat, walls, layer);
-    inst(geos.hip, roofMat, hips, layer);
-    inst(geos.gable, roofMat, gables, layer);
+    // roofs barely overhang their walls, so the walls alone cast the houses' shadows (halves the shadow pass)
+    inst(geos.hip, roofMat, hips, layer, false);
+    inst(geos.gable, roofMat, gables, layer, false);
     inst(geos.end, roofMat, ends, layer, false);
     inst(geos.slab, roofMat, extras, layer, false);
   };

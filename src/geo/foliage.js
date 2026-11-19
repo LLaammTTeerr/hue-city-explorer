@@ -86,6 +86,7 @@ class Soup {
     g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, 3));
     g.setAttribute('aKind', new THREE.Float32BufferAttribute(new Float32Array(this.p.length / 3), 1));
+    g.setAttribute('aBase', new THREE.Float32BufferAttribute(new Float32Array(this.p.length / 3), 1));
     g.computeBoundingSphere();
     return g;
   }

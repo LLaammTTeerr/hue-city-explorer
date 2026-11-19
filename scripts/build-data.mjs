@@ -491,11 +491,25 @@ for (const road of roads) {
         const w = main ? rr(4.5, 7.5) : rr(5.5, 10);
         const d = main ? rr(11, 19) : rr(8, 14);
         const sb = main ? rr(1.2, 2.6) : rr(1.8, 6);
-        const gap = main ? rr(0.2, 1.2) : cit ? rr(2, 12) : rr(0.6, 5);
+        const gap = main ? rr(0.2, 1.2) : cit ? rr(1.5, 8) : rr(0.5, 3.6);
         if (s + w > len + 3) break;
         const cx = px + tx * (w / 2) + nx * (half + sb + d / 2), cz = pz + tz * (w / 2) + nz * (half + sb + d / 2);
         const ang = Math.atan2(tz, tx);
-        if (inBox([cx, cz], -10) && rnd() < density * (cit ? 0.8 : 1) && rectFree(cx, cz, w + 1.2, d + 1.2, ang, BLOCK)) {
+        // rows behind the street front: Huế's blocks are built up well back from the road, along alleys OSM mostly lacks
+        if (road.c <= 3) {
+          let back = half + sb + d;
+          for (let row = 0; row < 2; row++) {
+            const d2 = rr(7, 12), w2 = w * rr(0.82, 1.12), gap2 = rr(1.4, 4.5);
+            const bx = px + tx * (w / 2) + nx * (back + gap2 + d2 / 2), bz = pz + tz * (w / 2) + nz * (back + gap2 + d2 / 2);
+            back += gap2 + d2;
+            if (!inBox([bx, bz], -10) || rnd() > (cit ? 0.38 : row === 0 ? 0.6 : 0.3) || !rectFree(bx, bz, w2 + 1.4, d2 + 1.4, ang, BLOCK)) continue;
+            const r2 = rnd();
+            const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
+            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(h2), 0, 2); // 2 = no street face
+            fillPoly([rectCorners(bx, bz, w2, d2, ang)], BLD);
+          }
+        }
+        if (inBox([cx, cz], -10) && rnd() < density * (cit ? 0.9 : 1) && rectFree(cx, cz, w + 1.2, d + 1.2, ang, BLOCK)) {
           const r = rnd();
           let h;
           if (cit) h = r < 0.6 ? rr(3.8, 4.8) : r < 0.96 ? rr(7.2, 8.2) : 11;

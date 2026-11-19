@@ -16,6 +16,7 @@ const COMMON = /* glsl */ `
 varying vec3 vWPos;
 varying vec3 vWNrm;
 varying float vKind;
+varying float vBase;
 uniform float uGlow;
 uniform float uLandY;
 uniform float uWet;
@@ -36,7 +37,7 @@ const SURFACE = /* glsl */ `
   diffuseColor.rgb *= vColor.rgb * vColor.rgb;
 #endif
 vec3 hueN = normalize( vWNrm );
-float hueH = vWPos.y - uLandY;
+float hueH = vWPos.y - uLandY - vBase; // height above this building's own floor level
 float hueWall = 1.0 - smoothstep( 0.25, 0.6, abs( hueN.y ) );
 float hueLit = 0.0;      // window light mask, used by the emissive term
 float hueGlass = 0.0;    // exposed glass, for sun glints
@@ -205,7 +206,7 @@ export function cityMaterial({ windows = false, foliage = false, ...opts } = {})
     sh.uniforms.uTime = shared.uTime;
     sh.uniforms.uWind = shared.uWind;
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aKind;\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nuniform float uTime;\nuniform float uWind;')
+      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
@@ -238,6 +239,7 @@ export function cityMaterial({ windows = false, foliage = false, ...opts } = {})
           vWPos = ( modelMatrix * wp ).xyz;
           vWNrm = normalize( mat3( modelMatrix ) * wn );
           vKind = aKind;
+          vBase = aBase;
         }`,
       );
     sh.fragmentShader = sh.fragmentShader

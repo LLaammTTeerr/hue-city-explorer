@@ -45,6 +45,11 @@
   Interface redrawn as paper, ink and a vermilion seal. Frame cost brought back to ~16 ms at 2190×1369 on an
   Apple M5 (4.3 M triangles, ~370 draw calls) after it had risen to ~27 ms.
 
+- Slopes and density (branch `restyle`): every building carries its own floor level (`aBase`), so on a hillside it
+  is bedded from the lowest ground but its doors and windows start at the highest — no more houses sunk into the
+  slope. Blocks are filled behind the street fronts with one or two back rows of houses (infill 34,727 → 63,859).
+  Roofs no longer cast shadows (walls do), keeping the frame at ~16–17.5 ms at 2190×1369.
+
 ## Not verified
 - Real touch gestures on a physical phone (layout and logic checked in a 375×812 viewport only).
 - Frame rate on low-end phones (adaptive resolution is in place but untested on hardware).
