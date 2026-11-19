@@ -38,6 +38,13 @@
   proportions, four pillars, steps, pavilions and triple gate; Quốc Học in dark red with its gate. Institutions no
   longer get shopfronts. Aged surface pass (damp, mould, moss, soot) and 76 moored sampans.
 
+- Restyle (branch `restyle`, on top of `landmark-shapes`): the model is presented as a miniature — long lens from
+  the air, tilt-shift focus, low river mist, timber plinth and floor shadow. Trees rebuilt as leaf-card foliage with
+  areca palms; windows read as recessed with sun glints; imperial tiles are glazed; street-facing awnings and
+  balconies; lotus on the still water; motorbikes and cars on main streets; click a dragon boat to travel with it.
+  Interface redrawn as paper, ink and a vermilion seal. Frame cost brought back to ~16 ms at 2190×1369 on an
+  Apple M5 (4.3 M triangles, ~370 draw calls) after it had risen to ~27 ms.
+
 ## Not verified
 - Real touch gestures on a physical phone (layout and logic checked in a 375×812 viewport only).
 - Frame rate on low-end phones (adaptive resolution is in place but untested on hardware).

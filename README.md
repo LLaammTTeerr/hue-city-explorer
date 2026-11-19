@@ -27,6 +27,7 @@ contacted at runtime.
 - **Time of day** — morning (clear light from the east), late afternoon (low sun up-river), or lights on
   (dusk, with the bridge cycling through its colours).
 - **Toàn cảnh / Whole model** — pulls back to show the city as one slab, the way a model sits on a table.
+- Click a **dragon boat** on the river to travel along with it.
 - The **compass** (or `H`) returns to the opening view from anywhere.
 - The **label** button hides every name.
 
@@ -60,8 +61,11 @@ To refresh: `npm run data:fetch && sh scripts/fetch-elevation.sh && npm run data
 
 - `src/geo/` — geometry kit, city builder (land, roads, buildings, trees, walls), and the materials that paint
   surface detail per face kind (window bays and shopfronts, roof tiles, brick courses, timber halls, turf)
-- `src/landmarks/` — Trường Tiền, Citadel monuments and gates, market, boats
-- `src/env/` — sky, water, rain, mood presets, and the desktop post pass (depth-based ambient occlusion, bloom, grade)
+- `src/geo/foliage.js` — leaf-card trees and areca palms; `src/geo/terrain.js` — ground height
+- `src/landmarks/` — Trường Tiền, Citadel monuments and gates, market, Thiên Mụ, cầu Nguyễn Hoàng, boats,
+  lotus ponds and street traffic
+- `src/env/` — sky, water, rain, mood presets, and the desktop post pass (ambient occlusion, river mist,
+  tilt-shift focus, bloom, grade)
 - `src/camera/` — map controls and the boat ride
 - `src/ui/` — interface, labels, copy (Vietnamese and English)
 

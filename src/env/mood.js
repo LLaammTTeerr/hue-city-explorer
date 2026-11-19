@@ -62,6 +62,8 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain }) {
     }
     shared.uGlow.value = cur.glow;
     shared.uWet.value = r;
+    shared.uSunDir.value.copy(sunDir);
+    shared.uSunI.value = cur.sunI * cur.sunDisk;
     shared.uWind.value = 0.55 + r * 1.1;
     rain.uniforms.uRain.value = r;
     rain.mesh.visible = r > 0.01;

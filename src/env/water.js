@@ -99,7 +99,7 @@ export function buildWater(data) {
   const geo = new THREE.PlaneGeometry(b[2] - b[0], b[3] - b[1]);
   let mesh;
   if (quality.reflection) {
-    const scale = 0.6;
+    const scale = 0.45;
     mesh = new Reflector(geo, {
       shader,
       textureWidth: Math.round(innerWidth * quality.pixelRatio * scale),
@@ -108,6 +108,10 @@ export function buildWater(data) {
       multisample: 0,
     });
     mesh.userData.resize = (w, h) => mesh.getRenderTarget().setSize(Math.round(w * quality.pixelRatio * scale), Math.round(h * quality.pixelRatio * scale));
+    // the mirror image is refreshed on alternate frames: it is soft and distorted anyway, and this halves its cost
+    const renderMirror = mesh.onBeforeRender;
+    let tick = 0;
+    mesh.onBeforeRender = function (...args) { if (tick++ % 2 === 0) renderMirror.apply(this, args); };
   } else {
     const u = THREE.UniformsUtils.clone(shader.uniforms);
     u.textureMatrix.value = new THREE.Matrix4();

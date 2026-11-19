@@ -12,6 +12,7 @@ import { buildTruongTien } from './landmarks/truongtien.js';
 import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
 import { buildBoats } from './landmarks/boats.js';
 import { buildNguyenHoang, buildQuocHocGate } from './landmarks/more.js';
+import { buildLotus, buildTraffic } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
 import { buildRain } from './env/rain.js';
@@ -22,6 +23,7 @@ import { createRide } from './camera/ride.js';
 import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
 import { VIEWS } from './ui/content.js';
+import { rise } from './geo/terrain.js';
 
 const canvas = document.getElementById('scene');
 // yield to the event loop between build steps (a message task is not throttled in background tabs, unlike rAF and timers)
@@ -39,10 +41,10 @@ async function main() {
     lang: () => labels && labels.remeasure(),
     labels: () => toggleLabels(),
     osmOnly: (on) => { world.infill.forEach((m) => { m.visible = !on; }); },
-    home: () => { if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } },
+    home: () => { follow = null; if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } },
     zoom: (k) => rig.zoomBy(k),
     cardClosed: () => {},
-    ride: () => ride.start(),
+    ride: () => { follow = null; ride.start(); },
     rain: () => mood.setRain(!mood.state.rainTarget),
     time: (i) => mood.setTime(i),
     exitRide: () => ride.exit(),
@@ -54,7 +56,7 @@ async function main() {
   // ---------- renderer ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows
-  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.max(1, Math.min(quality.pixelRatio, Math.sqrt(4.4e6 / (innerWidth * innerHeight)))));
+  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.max(1, Math.min(quality.pixelRatio, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
   renderer.setPixelRatio(fitRatio());
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -75,6 +77,8 @@ async function main() {
   buildQuocHocGate(data, world.structures);
   finishStructures(world.structures, world.group);
   const boats = buildBoats(data, dynamic);
+  buildLotus(data, dynamic);
+  const traffic = buildTraffic(data, dynamic);
   scene.add(world.group, dynamic);
   ui.loaderProgress(0.8);
   await frame();
@@ -111,7 +115,7 @@ async function main() {
     // narrower windows step back and up so the whole bridge and the market still share the frame
     const t = Math.max(0, Math.min(1, (1.62 / (innerWidth / innerHeight) - 1) / 2.5));
     const mixv = (a, b) => a + (b - a) * t;
-    const back = mixv(640, 1060), side = mixv(120, 95), height = mixv(205, 350), ahead = mixv(90, 150), north = mixv(40, 55);
+    const back = mixv(790, 1300), side = mixv(140, 110), height = mixv(250, 430), ahead = mixv(90, 150), north = mixv(40, 55);
     const pos = new THREE.Vector3(c[0] - upR[0] * back - d[0] * side, height, c[1] - upR[1] * back - d[1] * side);
     const target = new THREE.Vector3(c[0] + upR[0] * ahead - d[0] * north, LAND_Y, c[1] + upR[1] * ahead - d[1] * north);
     return { pos, target };
@@ -120,7 +124,7 @@ async function main() {
   function overviewView() {
     const k = Math.pow(Math.max(1, 1.4 / (innerWidth / innerHeight)), 0.9);
     const cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2;
-    return { pos: new THREE.Vector3(cx + 3300 * k, 2700 * k, cz + 4400 * k), target: new THREE.Vector3(cx, LAND_Y, cz) };
+    return { pos: new THREE.Vector3(cx + 4000 * k, 3300 * k, cz + 5300 * k), target: new THREE.Vector3(cx, LAND_Y, cz) };
   }
   let hv = homeView();
   rig.setHome(hv.pos, hv.target);
@@ -143,14 +147,37 @@ async function main() {
     const p = data.places.find((q) => q.id === id);
     if (!p) return;
     if (ride.active) return;
+    if (fly) follow = null;
     ui.showCard(id);
     labels.markVisited(id);
     if (fly) {
       const v = VIEWS[id] || VIEWS.default;
       const target = new THREE.Vector3(p.x / 10 + v.look[0], LAND_Y, p.z / 10 + v.look[1]);
-      const k = innerWidth / innerHeight < 1 ? 1.35 : 1;
-      rig.flyTo(new THREE.Vector3(p.x / 10 + v.off[0] * k, LAND_Y + v.off[1] * k, p.z / 10 + v.off[2] * k), target, { duration: 2.6 });
+      const k = (innerWidth / innerHeight < 1 ? 1.35 : 1) * 1.2;
+      const gy = LAND_Y + rise(p.x / 10, p.z / 10);
+      target.y = LAND_Y;
+      rig.flyTo(new THREE.Vector3(p.x / 10 + v.off[0] * k, gy + v.off[1] * k, p.z / 10 + v.off[2] * k), target, { duration: 2.6 });
     }
+  }
+
+  // following a boat: the camera's target rides on it; orbit and zoom still work
+  let follow = null;
+  const waterRay = new THREE.Raycaster(), waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5), waterHit = new THREE.Vector3();
+  function boatAt(cx, cy) {
+    const r = canvas.getBoundingClientRect();
+    waterRay.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
+    if (!waterRay.ray.intersectPlane(waterPlane, waterHit)) return null;
+    const reach = Math.max(16, camera.position.distanceTo(waterHit) * 0.03);
+    let best = null, bd = reach;
+    for (const b of boats.fleet) { const d = Math.hypot(b.mesh.position.x - waterHit.x, b.mesh.position.z - waterHit.z); if (d < bd) { bd = d; best = b; } }
+    return best;
+  }
+  const followDelta = new THREE.Vector3();
+  function updateFollow() {
+    if (!follow || ride.active || rig.flying) return;
+    followDelta.set(follow.mesh.position.x - controls.target.x, 0, follow.mesh.position.z - controls.target.z).multiplyScalar(0.12);
+    controls.target.add(followDelta);
+    camera.position.add(followDelta);
   }
 
   // tap / click on the ground near a landmark reveals it; drag during the ride turns the head
@@ -172,6 +199,10 @@ async function main() {
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
     down = null;
     if (moved > 6 || dt > 450 || ride.active || e.type === 'pointercancel') return;
+    // a click on a dragon boat rides along with it (the river plane is at y = 0, so test against that)
+    const hitBoat = boatAt(e.clientX, e.clientY);
+    if (hitBoat) { follow = hitBoat; ui.hideCard(); ui.hint(ui.T.hintFollow, 5000); return; }
+    if (follow) { follow = null; ui.hideHint(); }
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     let best = null, bd = Infinity;
@@ -199,7 +230,7 @@ async function main() {
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
     const k = e.key.toLowerCase();
-    if (k === 'escape') { if (ride.active) ride.exit(); else ui.hideCard(); }
+    if (k === 'escape') { if (ride.active) ride.exit(); else if (follow) { follow = null; ui.hideHint(); } else ui.hideCard(); }
     else if (k === 'h' || k === 'home') { if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } }
     else if (k === 'b') { if (!ride.active) ride.start(); }
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
@@ -274,11 +305,13 @@ async function main() {
   function step(dt) {
     time += dt;
     ride.update(dt);
+    updateFollow();
     rig.update(dt, !ride.active);
     mood.update(dt, time);
     bridge.update(time, mood.cur.glow, mood.state.rain);
     citadel.update(time, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
     boats.update(dt, time);
+    traffic.update(dt);
     updateShadow();
     sky.mesh.scale.setScalar(camera.far * 0.9);
     const pxScale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
@@ -288,7 +321,13 @@ async function main() {
     for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01; }
     const lit = mood.cur.glow > 0.01;
     world.lamps.visible = lit; bridge.lamps.visible = lit; bridge.lights.forEach((l) => { l.visible = lit; });
-    if (post) post.setMood(mood.cur.glow, mood.state.rain);
+    if (post) {
+      post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow, time);
+      // focus on what the camera is looking at; the higher the view, the shallower the focus (the model-on-a-table look)
+      const fd = ride.active ? 90 : camera.position.distanceTo(controls.target);
+      const hgt = camera.position.y - LAND_Y;
+      post.setFocus(fd, ride.active ? 0.12 : 0.18 + 0.5 * Math.min(1, Math.max(0, (hgt - 40) / 500)));
+    }
     draw();
     labels.update(innerWidth, innerHeight);
     ui.setHeading(rig.heading());

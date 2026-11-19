@@ -11,7 +11,7 @@ export const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 
 // What a face is made of. The fragment shader paints the matching surface detail
 // (window bays, roof tiles, brick courses…) so geometry stays light.
-export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8 };
+export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9 };
 
 export class Buf {
   constructor(tris = 4096) {
@@ -151,10 +151,10 @@ export class Buf {
 
   // Hip roof on an oriented rectangle. w = long side (along ang), d = short side.
   // flare > 0 gives the swept, upturned-eave profile of Vietnamese palace roofs.
-  hip(cx, cz, w, d, ang, y0, h, col, { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false } = {}) {
+  hip(cx, cz, w, d, ang, y0, h, col, { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false } = {}) {
     w += over * 2; d += over * 2;
     const keep = this.kind;
-    this.kind = KIND.TILE;
+    this.kind = glazed ? KIND.GLAZED : KIND.TILE;
     const ux = Math.cos(ang), uz = Math.sin(ang);
     const P = (u, v, y) => [cx + u * ux - v * uz, y, cz + u * uz + v * ux];
     const hw = w / 2, hd = d / 2;

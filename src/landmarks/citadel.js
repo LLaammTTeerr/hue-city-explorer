@@ -15,7 +15,7 @@ export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roo
   S.box(cx, cz, y, y + wallH, w, d, ang, wall, { top: shade(roof, 0.8) });
   y += wallH;
   const h1 = rh ?? clamp(d * 0.3, 1.5, 5.2);
-  const eave = { fascia: 0.3, fasciaCol: shade(wall, 0.75), ridgeCol: ridge, hips: true };
+  const eave = { fascia: 0.3, fasciaCol: shade(wall, 0.75), ridgeCol: ridge, hips: true, glazed: true };
   let top;
   if (tiers === 1) {
     S.hip(cx, cz, w, d, ang, y, h1, roof, { flare: 0.55, over, ...eave });

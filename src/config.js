@@ -58,9 +58,9 @@ export const PAL = {
 export const MOODS = {
   // Morning: clear light from the east, so the faces that look down-river toward the opening view are lit.
   day: {
-    skyTop: '#9db5d3', skyHorizon: '#e7ecf0', skyBelow: '#b3c2d2', sunGlow: '#fff0d2', fog: '#dde4ea', fogDensity: 0.00006,
+    skyTop: '#a9bbcf', skyHorizon: '#ece9e1', skyBelow: '#c3c6c6', sunGlow: '#fff0d2', fog: '#e6e4dc', fogDensity: 0.00004,
     sunColor: '#fff0da', sunI: 2.75, hemiSky: '#dde7f5', hemiGround: '#b8a88f', hemiI: 1.5, shadow: 0.62,
-    waterDeep: '#256c76', waterShallow: '#5fa199', glow: 0, rain: 0, exposure: 1.0, sunDisk: 1,
+    waterDeep: '#1e6a60', waterShallow: '#62a78f', glow: 0, rain: 0, exposure: 1.02, sunDisk: 1,
   },
   // Late afternoon: low sun up-river, the Hương carrying its reflection through the spans of Trường Tiền.
   afternoon: {

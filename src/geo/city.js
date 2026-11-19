@@ -3,6 +3,7 @@ import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea } from './buf.js';
 import { cityMaterial, landMaterial, enc, glowPoints } from './materials.js';
 import { LAND_Y, WALL_H, PAL, quality } from '../config.js';
 import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
+import { buildTrees } from './foliage.js';
 
 const rand = (i, salt = 0) => {
   let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
@@ -12,7 +13,7 @@ const rand = (i, salt = 0) => {
 const pick = (arr, i, salt = 0) => arr[Math.floor(rand(i, salt) * arr.length) % arr.length];
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 // Bucket instances into ~900 m tiles so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
-function chunked(items, size = 900) {
+function chunked(items, size = 1300) {
   const map = new Map();
   for (const it of items) {
     const key = Math.floor(it.x / size) + ',' + Math.floor(it.z / size);
@@ -40,12 +41,27 @@ function buildLand(data, group) {
     m.name = 'land';
     group.add(m);
   }
-  // the block the diorama stands on: the city is one slab, cut clean at the edge of the bundled data
+  // The model's base: a section of earth under the city, standing on a dark timber plinth, with a soft shadow
+  // beneath so the whole thing sits on something rather than floating.
   const b = data.meta.bounds.map((v) => v / 10);
-  const base = new THREE.Mesh(new THREE.BoxGeometry(b[2] - b[0], 90, b[3] - b[1]), landMaterial(PAL.base));
-  base.position.set((b[0] + b[2]) / 2, -0.6 - 45, (b[1] + b[3]) / 2);
-  base.name = 'base';
-  group.add(base);
+  const w = b[2] - b[0], d = b[3] - b[1], cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2;
+  const earth = new THREE.Mesh(new THREE.BoxGeometry(w, 46, d), landMaterial(PAL.base));
+  earth.position.set(cx, -0.6 - 23, cz);
+  const lip = new THREE.Mesh(new THREE.BoxGeometry(w + 44, 7, d + 44), new THREE.MeshLambertMaterial({ color: '#4a3528' }));
+  lip.position.set(cx, -46.6 - 3.5, cz);
+  const plinth = new THREE.Mesh(new THREE.BoxGeometry(w + 150, 62, d + 150), new THREE.MeshLambertMaterial({ color: '#2f211a' }));
+  plinth.position.set(cx, -53.6 - 31, cz);
+  for (const m of [earth, lip, plinth]) { m.receiveShadow = true; m.name = 'base'; group.add(m); }
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 256;
+  const g2 = cv.getContext('2d'), grad = g2.createRadialGradient(128, 128, 30, 128, 128, 128);
+  grad.addColorStop(0, 'rgba(30,22,30,0.5)'); grad.addColorStop(0.55, 'rgba(30,22,30,0.28)'); grad.addColorStop(1, 'rgba(30,22,30,0)');
+  g2.fillStyle = grad; g2.fillRect(0, 0, 256, 256);
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry((w + 150) * 1.9, (d + 150) * 1.9), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, fog: false }));
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.set(cx, -116, cz);
+  shadow.renderOrder = -5;
+  group.add(shadow);
 }
 
 // flat polygon layers painted onto the land (no depth write, drawn in order)
@@ -273,7 +289,7 @@ function buildBuildings(data, group) {
     B.kind = kind === 8 ? KIND.PLAIN : kind === 2 ? KIND.TIMBER : quocHoc || kind === 3 || kind === 4 || kind === 5 ? KIND.CIVIC : KIND.FACADE;
     if (pitched) {
       B.prism(ring, y0, y1, wall, shade(roof, 0.85), { top: rectness < 0.96, topKind: KIND.TILE });
-      B.hip(o.c[0], o.c[1], o.w, o.d, o.a, y1 + 0.02, rh, roof, { flare, over, fascia: flare ? 0.34 : 0.24, fasciaCol: flare ? shade(wall, 0.7) : shade(wall, 0.86), ridgeCol: ridge, hips });
+      B.hip(o.c[0], o.c[1], o.w, o.d, o.a, y1 + 0.02, rh, roof, { flare, over, fascia: flare ? 0.34 : 0.24, fasciaCol: flare ? shade(wall, 0.7) : shade(wall, 0.86), ridgeCol: ridge, hips, glazed: kind === 2 });
     } else {
       // tiled lid for small irregular houses; a concrete tray with a parapet for everything else
       const tiled = quocHoc || (kind === 0 && area < 300 && rand(i, 16) < 0.6) || kind === 8 || kind === 6 || kind === 2 || kind === 3 || kind === 4;
@@ -311,7 +327,7 @@ function buildBuildings(data, group) {
 // the rest only into the main view (layer 1). Houses on main streets mostly become row houses: gable roofs
 // with the ridge running along the street, so a block reads as one long tiled roofline.
 function buildInfill(data, group) {
-  const a = data.infill, S = 7;
+  const a = data.infill, S = 8;
   const n = a.length / S;
   const nearCount = data.meta.counts.infillNear ?? n;
   const W = [1, 1, 1];
@@ -346,6 +362,7 @@ function buildInfill(data, group) {
     gableGeo.quad([-0.5, -0.12, -0.5], [0.5, -0.12, -0.5], [0.5, 0, -0.5], [-0.5, 0, -0.5], f, [0, 0, -1]);
     gableGeo.quad([-0.5, -0.12, 0.5], [0.5, -0.12, 0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5], f, [0, 0, 1]);
     gableGeo.quad([-0.5, -0.12, -0.5], [0.5, -0.12, -0.5], [0.5, -0.12, 0.5], [-0.5, -0.12, 0.5], [0.42, 0.42, 0.42], [0, -1, 0]);
+    gableGeo.box(0, 0, 0.955, 1.07, 1.0, 0.085, 0, [0.52, 0.52, 0.52]); // ridge cap
   }
   const endGeo = new Buf(4); // the two gable walls under a gable roof
   endGeo.kind = KIND.PLAIN;
@@ -353,8 +370,11 @@ function buildInfill(data, group) {
   endGeo.tri([0.5, -0.12, -0.5], [0.5, -0.12, 0.5], [0.5, 1, 0], W, [1, 0, 0]);
   const tankGeo = new Buf(64);
   waterTank(tankGeo, 0, 0, 0, 0, 1);
+  const slabGeo = new Buf(16); // awnings, balcony slabs, railings
+  slabGeo.box(0, 0, 0, 1, 1, 1, 0, [0.82, 0.82, 0.82], { top: W, bottom: true });
 
-  const geos = { wall: wallGeo.geometry(), hip: hipGeo.geometry(), gable: gableGeo.geometry(), end: endGeo.geometry() };
+  const geos = { wall: wallGeo.geometry(), hip: hipGeo.geometry(), gable: gableGeo.geometry(), end: endGeo.geometry(), slab: slabGeo.geometry() };
+  const AWNINGS = ['#9c3a2c', '#2f5f73', '#b98a3a', '#3f6b4c', '#8a5a3a', '#c9b48a', '#6b3f4a'].map(hex), RAIL = hex('#4a4744');
   const wallMat = cityMaterial({ windows: true }), roofMat = cityMaterial(), tankMat = cityMaterial();
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
@@ -368,28 +388,40 @@ function buildInfill(data, group) {
     for (let i = start; i < end; i++) {
       const x = a[i * S] / 10, z = a[i * S + 1] / 10;
       const w = a[i * S + 2] / 10, d = a[i * S + 3] / 10, ang = a[i * S + 4] / 1000, h = a[i * S + 5] / 10, main = a[i * S + 6] === 1;
+      const front = a[i * S + 7] === 1 ? -1 : 1; // which way the street lies along the plot's depth axis
       const wallCol = shade(mix(pick(PAL.walls, i, 31), [0.86, 0.8, 0.68], 0.08), 0.9 + rand(i, 32) * 0.18);
       const roofCol = shade(pick(PAL.roofs, i, 34), 0.84 + rand(i, 35) * 0.28);
       if (d > 9.5 && rand(i, 50) < 0.55) {
         const vx = -Math.sin(ang), vz = Math.cos(ang);
-        const fd = d * (0.5 + rand(i, 51) * 0.14), rd = d - fd, sgn = rand(i, 52) < 0.5 ? 1 : -1;
+        const fd = d * (0.5 + rand(i, 51) * 0.14), rd = d - fd, sgn = front; // the taller part faces the street
         const o1 = sgn * (d / 2 - fd / 2), o2 = -sgn * (d / 2 - rd / 2);
-        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0, main });
+        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0, main, front });
         const h2 = Math.max(3.3, h - 3.4 * (rand(i, 53) < 0.7 ? 1 : 2));
         const w2 = w * (0.72 + rand(i, 54) * 0.28);
         parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7, main });
-      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main });
+      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front });
     }
     return parts;
   };
 
+  // Each chunk gets instanced meshes sized to exactly what it holds (no hidden zero-scale instances).
+  const inst = (geo, mat, list, layer, shadow = true) => {
+    if (!list.length) return;
+    const mesh = new THREE.InstancedMesh(geo, mat, list.length);
+    for (let k = 0; k < list.length; k++) { mesh.setMatrixAt(k, list[k][0]); mesh.setColorAt(k, enc(list[k][1], c)); }
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+    mesh.castShadow = shadow && (!quality.low || geo === geos.wall);
+    mesh.receiveShadow = true;
+    mesh.computeBoundingSphere();
+    mesh.layers.set(layer);
+    group.add(mesh);
+    meshes.push(mesh);
+  };
+  const mk = () => m.compose(p, q, s).clone();
   const place = (parts, layer) => {
-    const count = parts.length;
-    const walls = new THREE.InstancedMesh(geos.wall, wallMat, count);
-    const hips = new THREE.InstancedMesh(geos.hip, roofMat, count);
-    const gables = new THREE.InstancedMesh(geos.gable, roofMat, count);
-    const ends = new THREE.InstancedMesh(geos.end, roofMat, count);
-    parts.forEach((pt, k) => {
+    const walls = [], hips = [], gables = [], ends = [], extras = [];
+    for (const pt of parts) {
       const { i, x, z, salt } = pt;
       let { w, d, ang, h } = pt;
       const flatRoof = rand(i, 21 + salt) < 0.2;
@@ -405,33 +437,42 @@ function buildInfill(data, group) {
       // walls keep the plot's own axes (width along the street)
       q.setFromAxisAngle(up, -ang);
       p.set(x, gy, z); s.set(w, h, d);
-      walls.setMatrixAt(k, m.compose(p, q, s));
-      walls.setColorAt(k, enc(pt.wallCol, c));
-      hips.setMatrixAt(k, zero); gables.setMatrixAt(k, zero); ends.setMatrixAt(k, zero);
-      hips.setColorAt(k, enc(pt.roofCol, c)); gables.setColorAt(k, enc(pt.roofCol, c)); ends.setColorAt(k, enc(shade(pt.wallCol, 0.97), c));
+      walls.push([mk(), pt.wallCol]);
       if (gable) {
         const rh = Math.min(3.4, Math.max(1.2, d * (0.2 + rand(i, 37) * 0.07)));
         p.set(x, gy + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
-        gables.setMatrixAt(k, m.compose(p, q, s));
+        gables.push([mk(), pt.roofCol]);
         s.set(w, rh, d + 1.1);
-        ends.setMatrixAt(k, m.compose(p, q, s));
+        ends.push([mk(), shade(pt.wallCol, 0.97)]);
       } else if (!flatRoof) {
-        if (d > w) { [w, d] = [d, w]; q.setFromAxisAngle(up, -(ang + Math.PI / 2)); }
-        const rh = Math.min(3.2, Math.max(1.0, d * (0.24 + rand(i, 37 + salt) * 0.08)));
-        p.set(x, gy + h + 0.02, z); s.set(w + 0.9, rh, d + 0.9);
-        hips.setMatrixAt(k, m.compose(p, q, s));
+        let rw = w, rd = d;
+        if (rd > rw) { [rw, rd] = [rd, rw]; q.setFromAxisAngle(up, -(ang + Math.PI / 2)); }
+        const rh = Math.min(3.2, Math.max(1.0, rd * (0.24 + rand(i, 37 + salt) * 0.08)));
+        p.set(x, gy + h + 0.02, z); s.set(rw + 0.9, rh, rd + 0.9);
+        hips.push([mk(), pt.roofCol]);
       } else if (rand(i, 38 + salt) < 0.75) tanks.push([x + (rand(i, 39) - 0.5) * w * 0.3, gy + h, z + (rand(i, 40) - 0.5) * d * 0.3, ang, 0.85 + rand(i, 41) * 0.3]);
-    });
-    for (const mesh of [walls, hips, gables, ends]) {
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.instanceColor.needsUpdate = true;
-      mesh.castShadow = !quality.low || mesh === walls;
-      mesh.receiveShadow = true;
-      mesh.computeBoundingSphere();
-      mesh.layers.set(layer);
-      group.add(mesh);
-      meshes.push(mesh);
+      // street face: a fabric awning over the shopfront, a balcony with its railing on the floor above
+      if (salt === 0 && pt.front) {
+        const fx = -sa * pt.front, fz = ca * pt.front;
+        q.setFromAxisAngle(up, -ang);
+        if (rand(i, 70) < (pt.main ? 0.78 : 0.22)) {
+          p.set(x + fx * (d / 2 + 0.7), gy + 2.9, z + fz * (d / 2 + 0.7)); s.set(w * 0.94, 0.13, 1.5);
+          extras.push([mk(), pick(AWNINGS, i, 71)]);
+        }
+        if (pt.h >= 7 && rand(i, 72) < 0.5) {
+          const by = gy + 3.42;
+          p.set(x + fx * (d / 2 + 0.5), by, z + fz * (d / 2 + 0.5)); s.set(w * 0.82, 0.14, 1.0);
+          extras.push([mk(), shade(pt.wallCol, 0.9)]);
+          p.set(x + fx * (d / 2 + 0.96), by + 0.14, z + fz * (d / 2 + 0.96)); s.set(w * 0.82, 0.86, 0.07);
+          extras.push([mk(), RAIL]);
+        }
+      }
     }
+    inst(geos.wall, wallMat, walls, layer);
+    inst(geos.hip, roofMat, hips, layer);
+    inst(geos.gable, roofMat, gables, layer);
+    inst(geos.end, roofMat, ends, layer, false);
+    inst(geos.slab, roofMat, extras, layer, false);
   };
   for (const list of chunked(collect(0, nearCount))) place(list, 0);
   for (const list of chunked(collect(nearCount, n))) place(list, 1);
@@ -449,82 +490,6 @@ function buildInfill(data, group) {
     group.add(tm);
     meshes.push(tm);
   }
-  return meshes;
-}
-
-// ---------- illustrated trees (instanced) ----------
-function treeGeometry() {
-  const B = new Buf(128);
-  const lump = (d) => 1 + 0.26 * (Math.sin(d[0] * 7.3 + d[1] * 3.1) * Math.cos(d[2] * 5.7 + d[1] * 2.3));
-  // soft, lumpy canopy blob: smooth normals, darker toward its underside
-  const blob = (geo, cx, cy, cz, r, squash, lo, hi) => {
-    const pos = geo.toNonIndexed ? (geo.index ? geo.toNonIndexed() : geo).attributes.position.array : geo.attributes.position.array;
-    for (let i = 0; i < pos.length; i += 9) {
-      const v = [], nr = [], cl = [];
-      for (let k = 0; k < 3; k++) {
-        const d = [pos[i + k * 3], pos[i + k * 3 + 1], pos[i + k * 3 + 2]];
-        const l = Math.hypot(d[0], d[1], d[2]) || 1;
-        d[0] /= l; d[1] /= l; d[2] /= l;
-        const rr = r * lump(d);
-        v.push([cx + d[0] * rr, cy + d[1] * rr * squash, cz + d[2] * rr]);
-        nr.push([d[0], d[1] * 1.15 + 0.12, d[2]]);
-        const t = Math.max(0, Math.min(1, d[1] * 0.55 + 0.5));
-        const g = lo + (hi - lo) * t;
-        cl.push([g, g, g]);
-      }
-      B.smoothTri(v, nr, cl);
-    }
-  };
-  blob(new THREE.OctahedronGeometry(1, 1), 0, 0.15, 0, 1.0, 0.82, 0.42, 1.0);
-  blob(new THREE.IcosahedronGeometry(1, 0), 0.62, -0.12, 0.28, 0.62, 0.8, 0.4, 0.92);
-  B.cyl(0, 0, -1.75, -0.35, 0.12, 0.085, 5, [0.16, 0.12, 0.1], { cap: false });
-  return B.geometry();
-}
-
-function buildTrees(data, group) {
-  const a = data.trees;
-  const total = a.length / 4;
-  const nearCount = data.meta.counts.treesNear ?? total;
-  const geo = treeGeometry();
-  const mat = cityMaterial({ foliage: true });
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-  const c = new THREE.Color();
-  const greens = ['#6f9a55', '#63914f', '#7ba65c', '#5c8a50', '#86a85a'].map(hex), dark = ['#4c7a4a', '#527f4c', '#467249'].map(hex), flame = ['#d9482f', '#e0572f', '#cf4a38'].map(hex);
-  const meshes = [];
-  const range = (start, end, layer) => {
-    const span = end - start;
-    const n = Math.floor(span * quality.treeShare);
-    if (n <= 0) return;
-    const stride = span / n;
-    const items = [];
-    for (let k = 0; k < n; k++) { const i = start + Math.floor(k * stride); items.push({ i, x: a[i * 4] / 10, z: a[i * 4 + 1] / 10 }); }
-    for (const list of chunked(items)) {
-      const mesh = new THREE.InstancedMesh(geo, mat, list.length);
-      list.forEach(({ i, x, z }, k) => {
-        const j = i * 4;
-        const sc = a[j + 2] / 10, kind = a[j + 3];
-        const r = 3.1 * sc * (0.75 + rand(i, 41) * 0.5);
-        const hgt = r * (0.95 + rand(i, 42) * 0.45);
-        q.setFromAxisAngle(up, rand(i, 43) * 6.28);
-        p.set(x, LAND_Y + rise(x, z) + hgt * 1.7, z);
-        s.set(r, hgt, r);
-        mesh.setMatrixAt(k, m.compose(p, q, s));
-        const col = kind === 2 ? pick(flame, i, 44) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
-        mesh.setColorAt(k, enc(shade(col, 0.84 + rand(i, 47) * 0.3), c));
-      });
-      mesh.instanceMatrix.needsUpdate = true;
-      mesh.instanceColor.needsUpdate = true;
-      mesh.castShadow = !quality.low;
-      mesh.receiveShadow = true;
-      mesh.computeBoundingSphere();
-      mesh.layers.set(layer);
-      mesh.name = 'trees';
-      group.add(mesh);
-      meshes.push(mesh);
-    }
-  };
-  range(0, nearCount, 0);
-  range(nearCount, total, 1);
   return meshes;
 }
 

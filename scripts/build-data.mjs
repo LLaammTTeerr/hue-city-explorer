@@ -501,7 +501,7 @@ for (const road of roads) {
           if (cit) h = r < 0.6 ? rr(3.8, 4.8) : r < 0.96 ? rr(7.2, 8.2) : 11;
           else if (main) h = r < 0.15 ? 4.5 : r < 0.6 ? rr(7.4, 8.4) : r < 0.9 ? rr(10.8, 11.8) : rr(14, 15.5);
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
-          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0);
+          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, side > 0 ? 1 : 0);
           fillPoly([rectCorners(cx, cz, w, d, ang)], BLD);
         }
         s += w + gap;
@@ -510,7 +510,7 @@ for (const road of roads) {
     }
   }
 }
-console.log('infill houses', infill.length / 7);
+console.log('infill houses', infill.length / 8);
 
 // =====================================================================
 // 7. Illustrated trees
@@ -864,15 +864,15 @@ let terrain = null;
 // =====================================================================
 // write
 // =====================================================================
-const [infillOut, infillNear] = nearFirst(infill, 7);
+const [infillOut, infillNear] = nearFirst(infill, 8);
 const [treesOut, treesNear] = nearFirst(trees, 4);
-console.log('near water: infill', infillNear, 'of', infill.length / 7, '| trees', treesNear, 'of', trees.length / 4);
+console.log('near water: infill', infillNear, 'of', infill.length / 8, '| trees', treesNear, 'of', trees.length / 4);
 const out = {
   meta: {
     origin: ORIGIN,
     bounds: [q(MINX), q(MINZ), q(MAXX), q(MAXZ)],
     osmTimestamp: raw.osm3s && raw.osm3s.timestamp_osm_base,
-    counts: { buildings: buildings.length, infill: infill.length / 7, roads: roads.length, trees: trees.length / 4, infillNear, treesNear },
+    counts: { buildings: buildings.length, infill: infill.length / 8, roads: roads.length, trees: trees.length / 4, infillNear, treesNear },
   },
   land: land.map(flatPoly),
   ponds: ponds.map(flatPoly),

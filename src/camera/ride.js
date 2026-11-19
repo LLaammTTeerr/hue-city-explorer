@@ -14,7 +14,7 @@ export function createRide({ rig, bridge, boats, places }) {
   const eye = 3.0; // standing height on the foredeck; the span's underside is about three metres above
   const gate = places.thuongtu || [-498, -101];
 
-  const endPos = new THREE.Vector3(gate[0] - 330, 205, gate[1] + 175);
+  const endPos = new THREE.Vector3(gate[0] - 400, 250, gate[1] + 215);
   const endLook = new THREE.Vector3(c[0] - 150, LAND_Y, c[1] - 120);
 
   let state = null;

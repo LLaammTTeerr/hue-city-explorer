@@ -31,7 +31,7 @@ export function buildSky() {
         col = mix( col, uBelow, smoothstep( 0.0, -0.55, d.y ) );
         float sd = max( dot( d, uSunDir ), 0.0 );
         col += uGlow * ( pow( sd, 6.0 ) * 0.16 + pow( sd, 64.0 ) * 0.4 ) * uSunDisk;
-        col += vec3( 1.0, 0.95, 0.85 ) * smoothstep( 0.99925, 0.99965, sd ) * uSunDisk * 2.2;
+        col += vec3( 1.0, 0.93, 0.8 ) * smoothstep( 0.9988, 0.99965, sd ) * uSunDisk * 1.6; // soft-edged disc, so focus blur and bloom do not ring it
         gl_FragColor = vec4( col, 1.0 );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>

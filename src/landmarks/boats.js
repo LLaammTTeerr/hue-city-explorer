@@ -98,6 +98,7 @@ export function buildBoats(data, group) {
 
   return {
     rideBoat,
+    fleet,
     update(dt, time) {
       for (const b of fleet) {
         b.s += b.dir * b.speed * dt;

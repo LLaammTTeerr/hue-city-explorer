@@ -87,24 +87,79 @@ class OcclusionPass extends Pass {
         }`,
     });
     this.compMat = new THREE.ShaderMaterial({
-      uniforms: { tDiffuse: { value: null }, tAO: { value: null }, uTint: { value: new THREE.Color(0.34, 0.31, 0.44) }, uVignette: { value: 0.15 } },
+      uniforms: {
+        tDiffuse: { value: null }, tAO: { value: null }, tDepth: { value: null }, uTint: { value: new THREE.Color(0.34, 0.31, 0.44) }, uVignette: { value: 0.15 },
+        uInvProj: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() }, uCamPos: { value: new THREE.Vector3() },
+        uMistColor: { value: new THREE.Color(1, 1, 1) }, uMist: { value: 0.5 }, uTime: { value: 0 },
+      },
       vertexShader: VERT,
       depthTest: false, depthWrite: false,
       fragmentShader: /* glsl */ `
-        uniform sampler2D tDiffuse, tAO; uniform vec3 uTint; uniform float uVignette;
+        uniform sampler2D tDiffuse, tAO, tDepth; uniform vec3 uTint, uCamPos, uMistColor; uniform float uVignette, uMist, uTime;
+        uniform mat4 uInvProj, uCamWorld;
         varying vec2 vUv;
+        float mHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
+        float mNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
+          return mix( mix( mHash( i ), mHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( mHash( i + vec2( 0.0, 1.0 ) ), mHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ); }
         void main() {
           vec3 col = texture2D( tDiffuse, vUv ).rgb;
           float ao = texture2D( tAO, vUv ).r;
           col *= mix( uTint, vec3( 1.0 ), ao );
+          // river mist: thin haze that pools low over the water and the banks, drifting in soft patches
+          float dz = texture2D( tDepth, vUv ).x;
+          if ( dz < 0.999995 ) {
+            vec4 vp = uInvProj * vec4( vUv * 2.0 - 1.0, dz * 2.0 - 1.0, 1.0 );
+            vp /= vp.w;
+            vec3 wp = ( uCamWorld * vp ).xyz;
+            vec3 ray = wp - uCamPos;
+            float dist = length( ray );
+            // how much of the sight line runs inside the low mist layer: almost none looking straight down, a lot along the river
+            const float TOP = 30.0;
+            float inLayer = uCamPos.y > TOP ? ( TOP - min( wp.y, TOP ) ) / max( -ray.y / dist, 0.02 ) : dist * clamp( ( TOP - min( wp.y, uCamPos.y ) ) / TOP, 0.0, 1.0 );
+            inLayer = min( inLayer, dist );
+            float drift = 0.55 + 0.45 * mNoise( wp.xz * 0.0019 + vec2( uTime * 0.008, uTime * 0.003 ) );
+            float m = ( 1.0 - exp( -inLayer * 0.0021 ) ) * drift * uMist;
+            col = mix( col, uMistColor, clamp( m, 0.0, 0.82 ) );
+          }
           // grade: a little more separation, warm highlights against cool shade
           float l = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
           // grade toward old paper and patina: a little less chroma, warm lights, green-grey shade
-          col = mix( vec3( l ), col, 0.97 );
+          col = mix( vec3( l ), col, 1.04 );
+          col = mix( col, col * col * ( 3.0 - 2.0 * col ), 0.22 ); // gentle S-curve so the mist does not flatten the picture
           col *= mix( vec3( 0.95, 1.0, 0.98 ), vec3( 1.05, 1.0, 0.93 ), smoothstep( 0.05, 0.7, l ) );
           vec2 q = vUv - 0.5;
           col *= 1.0 - uVignette * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
           gl_FragColor = vec4( col, 1.0 );
+        }`,
+    });
+    // Tilt-shift focus: what lies nearer or further than the point of attention softens, which is most of what
+    // makes a large scene read as a small model.
+    this.focus = 800; this.aperture = 0.6;
+    this.compRT = new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, depthBuffer: false });
+    this.dofMat = new THREE.ShaderMaterial({
+      uniforms: { tColor: { value: null }, tDepth: { value: null }, uNearFar: { value: new THREE.Vector2() }, uPx: { value: new THREE.Vector2() }, uFocus: { value: 800 }, uAperture: { value: 0.6 }, uMaxPx: { value: 8 } },
+      vertexShader: VERT,
+      depthTest: false, depthWrite: false,
+      fragmentShader: /* glsl */ `
+        #include <packing>
+        uniform sampler2D tColor, tDepth; uniform vec2 uNearFar, uPx; uniform float uFocus, uAperture, uMaxPx;
+        varying vec2 vUv;
+        float dist( vec2 uv ) { return -perspectiveDepthToViewZ( texture2D( tDepth, uv ).x, uNearFar.x, uNearFar.y ); }
+        float coc( float d ) { return clamp( abs( d - uFocus ) / max( uFocus, 1.0 ) * uAperture, 0.0, 1.0 ); }
+        void main() {
+          vec3 base = texture2D( tColor, vUv ).rgb;
+          float d = dist( vUv ), c = coc( d ) * uMaxPx;
+          if ( c < 0.7 ) { gl_FragColor = vec4( base, 1.0 ); return; }
+          vec3 sum = base; float wsum = 1.0;
+          for ( int i = 1; i < 11; i++ ) {
+            float fi = float( i ), r = sqrt( fi / 11.0 ) * c, a = fi * 2.39996323;
+            vec2 uv = vUv + vec2( cos( a ), sin( a ) ) * r * uPx;
+            float ds = dist( uv );
+            // a sharp thing in front must not smear onto the blur behind it
+            float w = ( coc( ds ) * uMaxPx >= r * 0.55 || ds >= d ) ? 1.0 : 0.12;
+            sum += texture2D( tColor, uv ).rgb * w; wsum += w;
+          }
+          gl_FragColor = vec4( sum / wsum, 1.0 );
         }`,
     });
     this.quad = new FullScreenQuad(this.aoMat);
@@ -115,6 +170,9 @@ class OcclusionPass extends Pass {
     this.blurRT.setSize(hw, hh);
     this.aoMat.uniforms.uRes.value.set(hw, hh);
     this.blurMat.uniforms.uRes.value.set(hw, hh);
+    this.compRT.setSize(w, h);
+    this.dofMat.uniforms.uPx.value.set(1 / w, 1 / h);
+    this.dofMat.uniforms.uMaxPx.value = Math.max(4, h / 130);
   }
   render(renderer, writeBuffer, readBuffer) {
     const cam = this.camera;
@@ -133,13 +191,27 @@ class OcclusionPass extends Pass {
     this.quad.material = this.blurMat;
     renderer.setRenderTarget(this.blurRT);
     this.quad.render(renderer);
-    this.compMat.uniforms.tDiffuse.value = readBuffer.texture;
-    this.compMat.uniforms.tAO.value = this.blurRT.texture;
+    const cu = this.compMat.uniforms;
+    cu.tDiffuse.value = readBuffer.texture;
+    cu.tAO.value = this.blurRT.texture;
+    cu.tDepth.value = readBuffer.depthTexture;
+    cu.uInvProj.value.copy(cam.projectionMatrixInverse);
+    cu.uCamWorld.value.copy(cam.matrixWorld);
+    cu.uCamPos.value.copy(cam.position);
     this.quad.material = this.compMat;
+    renderer.setRenderTarget(this.compRT);
+    this.quad.render(renderer);
+    const du = this.dofMat.uniforms;
+    du.tColor.value = this.compRT.texture;
+    du.tDepth.value = readBuffer.depthTexture;
+    du.uNearFar.value.set(cam.near, cam.far);
+    du.uFocus.value = this.focus;
+    du.uAperture.value = this.aperture;
+    this.quad.material = this.dofMat;
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     this.quad.render(renderer);
   }
-  dispose() { this.aoRT.dispose(); this.blurRT.dispose(); this.aoMat.dispose(); this.blurMat.dispose(); this.compMat.dispose(); this.quad.dispose(); }
+  dispose() { this.compRT.dispose(); this.dofMat.dispose(); this.aoRT.dispose(); this.blurRT.dispose(); this.aoMat.dispose(); this.blurMat.dispose(); this.compMat.dispose(); this.quad.dispose(); }
 }
 
 // Desktop render path: scene → occlusion + grade → bloom → tone map.
@@ -161,11 +233,16 @@ export function createPost(renderer, scene, camera) {
     occlusion, bloom,
     render: () => composer.render(),
     resize() { renderer.getDrawingBufferSize(size); composer.setPixelRatio(1); composer.setSize(Math.max(2, size.x), Math.max(2, size.y)); },
-    // night and rain want gentler occlusion and a touch more glow
-    setMood(glow, rain) {
+    // night and rain want gentler occlusion and a touch more glow; mist takes the mood's haze colour
+    setMood(glow, rain, mistColor, mist, time) {
       occlusion.strength = 1 - 0.35 * Math.max(glow * 0.6, rain);
       bloom.strength = 0.3 + 0.35 * glow;
-      occlusion.compMat.uniforms.uVignette.value = 0.15 + 0.15 * glow;
+      const u = occlusion.compMat.uniforms;
+      u.uVignette.value = 0.15 + 0.15 * glow;
+      u.uMistColor.value.copy(mistColor);
+      u.uMist.value = mist;
+      u.uTime.value = time;
     },
+    setFocus(distance, aperture) { occlusion.focus = distance; occlusion.aperture = aperture; },
   };
 }

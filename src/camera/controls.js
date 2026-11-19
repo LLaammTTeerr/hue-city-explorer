@@ -15,7 +15,7 @@ export function createCamera(canvas, bounds) {
   controls.screenSpacePanning = false;
   controls.zoomToCursor = true;
   controls.minDistance = 28;
-  controls.maxDistance = 15000;
+  controls.maxDistance = 19000;
   controls.minPolarAngle = 0;
   controls.maxPolarAngle = THREE.MathUtils.degToRad(86.5);
   controls.rotateSpeed = 0.55;
@@ -100,9 +100,9 @@ export function createCamera(canvas, bounds) {
       }
       // wider lens near the ground, longer lens from the air
       const h = camera.position.y - LAND_Y;
-      const high = smooth(10, 190, h);
+      const high = smooth(10, 220, h);
       const portrait = camera.aspect < 1 ? (1 - camera.aspect) * 24 : 0; // tall screens need more sideways view at boat height
-      const fov = 48 + portrait * (1 - high) - 12 * high;
+      const fov = 46 + portrait * (1 - high) - 17 * high; // long lens from the air (flatter, model-like), wide at ground level
       if (Math.abs(fov - camera.fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
       // keep depth precision where the camera is
       const near = Math.max(0.6, Math.min(12, h * 0.04));

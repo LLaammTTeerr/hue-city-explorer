@@ -8,6 +8,8 @@ export const shared = {
   uLandY: { value: LAND_Y },
   uWet: { value: 0 },
   uWind: { value: 0.55 },
+  uSunDir: { value: new THREE.Vector3(0.7, 0.6, 0.3) },
+  uSunI: { value: 2.5 },
 };
 
 const COMMON = /* glsl */ `
@@ -17,6 +19,8 @@ varying float vKind;
 uniform float uGlow;
 uniform float uLandY;
 uniform float uWet;
+uniform vec3 uSunDir;
+uniform float uSunI;
 float hueHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
 float hueNoise( vec2 p ) {
   vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
@@ -35,6 +39,9 @@ vec3 hueN = normalize( vWNrm );
 float hueH = vWPos.y - uLandY;
 float hueWall = 1.0 - smoothstep( 0.25, 0.6, abs( hueN.y ) );
 float hueLit = 0.0;      // window light mask, used by the emissive term
+float hueGlass = 0.0;    // exposed glass, for sun glints
+float hueGlaze = 0.0;    // glazed tile, for sheen
+vec3 hueRib = hueN;      // tile-ribbed normal
 vec2 hueCell = vec2( 0.0 );
 
 #ifdef HUE_FOLIAGE
@@ -91,7 +98,12 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) ) {
     shutCol *= 0.8 + 0.2 * step( 0.5, fract( f.y * 22.0 ) );
     col = mix( col, base * 1.14, ( frame - win ) * 0.9 );
     col = mix( col, base * 0.62, sill );
+    // the opening is recessed: the lintel and one jamb throw a shadow onto the glass
+    float reveal = max( smoothstep( 0.7, 0.78, f.y ), 1.0 - smoothstep( 0.26, 0.33, f.x ) );
+    glass *= 1.0 - 0.5 * reveal;
+    shutCol *= 1.0 - 0.3 * reveal;
     col = mix( col, mix( glass, shutCol, shut ), win );
+    hueGlass = win * ( 1.0 - shut ) * detail;
     // floor line
     col *= 1.0 - 0.14 * ( 1.0 - smoothstep( 0.0, 0.035, f.y ) );
     hueLit = win * ( 1.0 - shut ) * step( seed, 0.44 );
@@ -102,8 +114,8 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) ) {
   float mould = hueNoise( vec2( uv.x * 1.3 + 5.0, uv.y * 0.35 ) ) * hueNoise( vec2( uv.x * 5.7, uv.y * 1.1 + 3.0 ) );
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.7, 0.56 ), clamp( damp * 0.75 + smoothstep( 0.22, 0.5, mould ) * 0.4, 0.0, 0.8 ) * hueWall );
   hueLit = mix( 0.1, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
-} else if ( vKind > 1.5 && vKind < 2.5 ) {
-  // ---------------- roof tiles ----------------
+} else if ( ( vKind > 1.5 && vKind < 2.5 ) || ( vKind > 8.5 && vKind < 9.5 ) ) {
+  // ---------------- roof tiles (kind 9: glazed imperial tiles, which catch the sun) ----------------
   vec3 e = hueN.y > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
   vec3 s = cross( e, hueN );
   vec2 uv = vec2( dot( vWPos, e ) / 1.15, dot( vWPos, s ) / 1.5 );
@@ -114,6 +126,8 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) ) {
   float jit = hueHash( floor( uv ) );
   float shade = ( 0.5 + 0.62 * ridge ) * ( 0.66 + 0.34 * course ) * ( 0.88 + 0.24 * jit );
   // age: darker patches, lighter where rain has washed the ridges
+  hueRib = normalize( hueN + e * cos( 3.14159 * uv.x ) * 0.55 * detail );
+  hueGlaze = vKind > 8.5 ? 1.0 : 0.1;
   float age = hueNoise( vWPos.xz * 0.45 ) * 0.6 + hueNoise( vWPos.xz * 1.7 ) * 0.4;
   diffuseColor.rgb *= mix( 0.9, shade, detail ) * ( 0.78 + 0.36 * age );
   // lichen and soot where tiles stay damp
@@ -186,6 +200,8 @@ export function cityMaterial({ windows = false, foliage = false, ...opts } = {})
     sh.uniforms.uGlow = shared.uGlow;
     sh.uniforms.uLandY = shared.uLandY;
     sh.uniforms.uWet = shared.uWet;
+    sh.uniforms.uSunDir = shared.uSunDir;
+    sh.uniforms.uSunI = shared.uSunI;
     sh.uniforms.uTime = shared.uTime;
     sh.uniforms.uWind = shared.uWind;
     sh.vertexShader = sh.vertexShader
@@ -230,6 +246,15 @@ export function cityMaterial({ windows = false, foliage = false, ...opts } = {})
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
+        #ifndef HUE_FOLIAGE
+        {
+          // sun on glass and on glazed tile: small, sharp highlights that move as the camera does
+          vec3 hueV = normalize( cameraPosition - vWPos );
+          float gl = pow( max( dot( reflect( -hueV, hueN ), uSunDir ), 0.0 ), 70.0 ) * hueGlass * 1.4;
+          float sh = pow( max( dot( reflect( -hueV, hueRib ), uSunDir ), 0.0 ), 16.0 ) * hueGlaze * 0.55;
+          totalEmissiveRadiance += vec3( 1.0, 0.94, 0.82 ) * ( gl + sh ) * uSunI * 0.4 * ( 1.0 - uWet );
+        }
+        #endif
         #ifdef HUE_WINDOWS
         if ( uGlow > 0.01 ) {
           vec3 warm = mix( vec3( 1.0, 0.62, 0.28 ), vec3( 1.0, 0.86, 0.62 ), hueHash( hueCell + 9.1 ) );
