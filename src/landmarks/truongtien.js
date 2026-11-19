@@ -124,6 +124,7 @@ export function buildTruongTien(data, S, group) {
     }
     const strip = new THREE.Mesh(LB.geometry(), lightMaterial(0xffffff, 1.5));
     strip.renderOrder = 19;
+    strip.userData.minEra = 2;
     group.add(strip);
     spanStrips.push(strip);
   }
@@ -138,6 +139,7 @@ export function buildTruongTien(data, S, group) {
     }
     const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xffd9a0, 0.75));
     edge.renderOrder = 19;
+    edge.userData.minEra = 2;
     group.add(edge);
   }
 

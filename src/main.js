@@ -15,6 +15,10 @@ import { buildNguyenHoang, buildQuocHocGate } from './landmarks/more.js';
 import { buildCivic } from './landmarks/civic.js';
 import { buildSouth } from './landmarks/south.js';
 import { buildTombs } from './landmarks/tombs.js';
+import { buildBiaQuocHoc } from './landmarks/memorial.js';
+import { era, onEra } from './era.js';
+import { shared } from './geo/materials.js';
+import { span } from './geo/buf.js';
 import { buildLotus, buildTraffic, buildStreetLife } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
@@ -72,13 +76,24 @@ async function main() {
   ui.loaderProgress(0.55);
   await frame();
   const dynamic = new THREE.Group();
-  const bridge = buildTruongTien(data, world.structures, dynamic);
-  const citadel = buildCitadel(data, world.structures, dynamic);
-  buildMarket(data, world.structures);
-  buildThienMu(data, world.structures);
-  const extraGlows = buildNguyenHoang(data, world.structures, dynamic);
-  buildQuocHocGate(data, world.structures);
+  // each landmark is tagged with the first era it stands in (src/era.js): Trường Tiền 1899, the market and
+  // Quốc Học's gate under the French, cầu Nguyễn Hoàng 2025; the Citadel and Thiên Mụ are older than all three
+  const S = world.structures;
+  S.span = span(1);
+  const bridge = buildTruongTien(data, S, dynamic);
+  S.span = 0;
+  const citadel = buildCitadel(data, S, dynamic);
+  S.span = span(1);
+  buildMarket(data, S);
+  S.span = 0;
+  buildThienMu(data, S);
+  S.span = span(2);
+  const extraGlows = buildNguyenHoang(data, S, dynamic);
+  S.span = span(1);
+  buildQuocHocGate(data, S);
+  S.span = 0;
   buildCivic(data, world.structures);
+  buildBiaQuocHoc(data, world.structures);
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);
   finishStructures(world.structures, world.group);
@@ -87,6 +102,16 @@ async function main() {
   const traffic = buildTraffic(data, dynamic);
   const street = buildStreetLife(data, dynamic);
   scene.add(world.group, dynamic);
+  // the era switcher: geometry hides itself in the shader; lights and lamp glows are switched here
+  const eraGated = [];
+  dynamic.traverse((o) => { if (o.userData.minEra != null) eraGated.push(o); });
+  const applyEra = (e) => {
+    shared.uEra.value = e;
+    for (const o of eraGated) o.visible = e >= o.userData.minEra;
+    world.lamps.material.uniforms.uBoost.value = e >= 2 ? 0.6 : 0.3; // thinner street lighting in the 1930s
+  };
+  applyEra(era.value);
+  onEra(applyEra);
   ui.loaderProgress(0.8);
   await frame();
 
@@ -327,9 +352,9 @@ async function main() {
     world.lamps.material.uniforms.uScale.value = pxScale;
     bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
     bridge.lamps.material.uniforms.uScale.value = pxScale;
-    for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01; }
+    for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= 2; }
     const lit = mood.cur.glow > 0.01;
-    world.lamps.visible = lit; bridge.lamps.visible = lit; bridge.lights.forEach((l) => { l.visible = lit; });
+    world.lamps.visible = lit && era.value >= 1; bridge.lamps.visible = lit && era.value >= 1; bridge.lights.forEach((l) => { l.visible = lit && era.value >= 2; });
     if (post) {
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow, time);
       // focus on what the camera is looking at; the higher the view, the shallower the focus (the model-on-a-table look)

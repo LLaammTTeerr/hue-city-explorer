@@ -74,6 +74,16 @@
   so the river mirrors them: Trường Tiền's six bows drift through neighbouring hues and gather into violet now and
   then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
   now thin railed walkways on piers.
+- Era switcher (branch `era-switcher`): three moments — about 1885 (triều Nguyễn), about 1935 (Pháp thuộc), today
+  (`src/era.js`). Every face carries the eras it exists in (`span()` / `aSpan` in `src/geo/buf.js`, clipped in the
+  vertex shader and in the shadow pass); `src/geo/eras.js` decides by district when each plot was first built on, and
+  earlier eras show the timber, thatched or small colonial house that stood there. Roads, bridges, the railway,
+  landmarks, lights, the Kỳ Đài flag, street life (`life.js`), labels and the place list all follow. Control: `#era`
+  at the top; the canvas takes a light sepia wash in the older eras.
+- Bia Quốc Học (`src/landmarks/memorial.js`): the 1920 memorial screen opposite the school gate; the gate is now
+  placed square to it. Dimensions are estimated (no source gives them).
+- In progress: `public/data/stories.json` (story, facts, free-licence image references per place) for a click-to-read
+  explorer panel; reference factsheets for a polish pass over every landmark, bridge and the ground levels.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

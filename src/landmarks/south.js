@@ -412,8 +412,11 @@ function vongCanh(S, data) {
 
 export function buildSouth(data, S) {
   if (!data || !S) return;
-  for (const fn of [(St, d) => buildThuyTien(d, St), thienAn, namGiao, vongCanh]) {
+  // each with the first era it stands in: the park (2004), the monastery (1940) and the lookout's bunkers are
+  // today's; the Nam Giao altar is Gia Long's
+  for (const [fn, since] of [[(St, d) => buildThuyTien(d, St), 2], [thienAn, 2], [namGiao, 0], [vongCanh, 2]]) {
+    S.span = since * 4;
     try { fn(S, data); } catch (e) { console.warn('south:', fn.name, e); }
-    S.kind = KIND.PLAIN; S.base = 0;
+    S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
   }
 }

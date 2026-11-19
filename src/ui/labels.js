@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { LAND_Y } from '../config.js';
 import { rise } from '../geo/terrain.js';
+import { onEra, existsIn } from '../era.js';
 
 // HTML labels pinned to places. Nearer views reveal more of them, and overlapping labels yield to the more important one.
 export function createLabels(root, data, camera, onPick) {
@@ -22,6 +23,10 @@ export function createLabels(root, data, camera, onPick) {
   data.places.forEach((p) => add(p));
   data.waterLabels.forEach((p) => add(p, true));
   items.sort((a, b) => a.pri - b.pri);
+  // places not yet built in the current period are skipped; gate:* and water labels always exist
+  const checkExists = () => { for (const it of items) it.exists = it.water || existsIn(it.p.id); };
+  checkExists();
+  onEra(checkExists);
 
   let enabled = true, dim = false, frame = 0, blocked = [];
   const visited = new Set();
@@ -43,7 +48,7 @@ export function createLabels(root, data, camera, onPick) {
       // keep labels out from under the interface: its panels count as already-placed boxes
       if (frame++ % 30 === 0) {
         blocked = [];
-        for (const sel of ['#places', '#brand', '#tools', '#nav', '#actions', '#card', '#ride-hud']) {
+        for (const sel of ['#places', '#brand', '#era', '#tools', '#nav', '#actions', '#card', '#ride-hud']) {
           const el = document.querySelector(sel);
           if (!el || el.hidden) continue;
           const r = el.getBoundingClientRect();
@@ -52,7 +57,7 @@ export function createLabels(root, data, camera, onPick) {
       }
       const placed = blocked.slice();
       for (const it of items) {
-        let show = enabled && !dim;
+        let show = enabled && !dim && it.exists;
         let x = 0, y = 0;
         if (show) {
           const dist = camera.position.distanceTo(it.pos);

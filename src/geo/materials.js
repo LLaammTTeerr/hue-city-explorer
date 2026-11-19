@@ -10,7 +10,11 @@ export const shared = {
   uWind: { value: 0.55 },
   uSunDir: { value: new THREE.Vector3(0.7, 0.6, 0.3) },
   uSunI: { value: 2.5 },
+  uEra: { value: 2 }, // 0 Nguyễn, 1 French period, 2 today (src/era.js)
 };
+
+// Hides a vertex whose face does not exist in the current era (see span() in buf.js).
+const ERA_CLIP = `{ float sSince = floor( aSpan * 0.25 + 0.01 ); float sGone = aSpan - sSince * 4.0; if ( uEra < sSince - 0.5 || uEra > 2.5 - sGone ) gl_Position = vec4( 0.0, 0.0, 2.0, 1.0 ); }`;
 
 const COMMON = /* glsl */ `
 varying vec3 vWPos;
@@ -18,6 +22,7 @@ varying vec3 vWNrm;
 varying float vKind;
 varying float vBase;
 uniform float uGlow;
+uniform float uEra;
 uniform float uLandY;
 uniform float uWet;
 uniform vec3 uSunDir;
@@ -77,6 +82,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   float hood = smoothstep( 0.25, 0.8, hueNoise( vWPos.xz * 0.013 ) );
   float litP = mix( 0.05, 0.3, hood ) * ( 0.55 + 0.9 * hueHash( vec2( side, 3.0 ) ) );
   float litK = 0.4 + 0.6 * hueHash( cell + 4.7 );
+  litP *= uEra > 1.5 ? 1.0 : uEra > 0.5 ? 0.55 : 0.32; // fewer lamps the further back we go
   vec3 base = diffuseColor.rgb;
   // plaster: soft blotches and rain streaks running down from the eaves
   float streak = hueNoise( vec2( uv.x * 9.0, uv.y * 0.7 ) );
@@ -267,10 +273,11 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     sh.uniforms.uWet = shared.uWet;
     sh.uniforms.uSunDir = shared.uSunDir;
     sh.uniforms.uSunI = shared.uSunI;
+    sh.uniforms.uEra = shared.uEra;
     sh.uniforms.uTime = shared.uTime;
     sh.uniforms.uWind = shared.uWind;
     sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
+      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\nattribute float aSpan;\nuniform float uEra;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
       .replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
@@ -308,7 +315,8 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
             vKind = aKind;
           #endif
           vBase = aBase;
-        }`,
+        }
+        ` + ERA_CLIP,
       );
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\n' + COMMON)
@@ -330,6 +338,7 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           // mostly warm bulbs, some greenish tube light, the odd blue of a television
           float tone = hueHash( hueCell + 9.1 );
           vec3 lamp = tone < 0.72 ? mix( vec3( 1.0, 0.56, 0.24 ), vec3( 1.0, 0.8, 0.5 ), tone / 0.72 ) : tone < 0.93 ? vec3( 0.76, 0.95, 0.86 ) : vec3( 0.5, 0.66, 1.0 );
+          if ( uEra < 1.5 ) lamp = mix( vec3( 1.0, 0.5, 0.2 ), vec3( 1.0, 0.72, 0.4 ), tone ); // oil and early electric light
           totalEmissiveRadiance += lamp * hueLit * uGlow * 1.05;
         }
         #endif`,
@@ -377,6 +386,21 @@ export function landMaterial(color, turf = false) {
 
 // sqrt-encode a linear [r,g,b] for instanceColor (the shader squares it back)
 export const enc = (c, target = new THREE.Color()) => target.setRGB(Math.sqrt(c[0]), Math.sqrt(c[1]), Math.sqrt(c[2]), THREE.LinearSRGBColorSpace);
+
+// Shadow-pass material that honours the era, so things hidden in a period do not leave their shadows behind.
+let eraDepth = null;
+export function eraDepthMaterial() {
+  if (eraDepth) return eraDepth;
+  eraDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+  eraDepth.onBeforeCompile = (sh) => {
+    sh.uniforms.uEra = shared.uEra;
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute float aSpan;\nuniform float uEra;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\n' + ERA_CLIP);
+  };
+  eraDepth.customProgramCacheKey = () => 'hue-era-depth';
+  return eraDepth;
+}
 
 // Architectural lighting: strips of light laid along a structure. Geometry, so the river mirrors them; they
 // follow the mood's glow and vanish by day. `boost` above 1 pushes them into the bloom.

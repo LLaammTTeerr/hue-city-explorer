@@ -443,6 +443,8 @@ const SITE_DEFS = [
   ['thuytien', 'Hồ Thủy Tiên', -1335, 6558, 420, 2, 24], ['thienan', 'Đan viện Thiên An', -714, 6438, 170, 3, 24],
 ];
 const sites = {};
+// Bia Quốc Học stands in an open riverside court: keep generated trees and houses off it
+{ const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; stamp(c[0], c[1], 26, TREE | NOBUILD); }
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
 const gates = [];
@@ -778,6 +780,7 @@ for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
 addPlace('vongcanh', 'Đồi Vọng Cảnh', [-3123, 4990], 3, 'place', 12);
 addPlace('ngubinh', 'Núi Ngự Bình', [1221, 2974], 2, 'place', 20);
+{ const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; special.biaquochoc = { c: [q(c[0]), q(c[1])], ring: [], name: 'Bia Quốc Học' }; addPlace('biaquochoc', 'Bia Quốc Học', c, 2, 'monument', 14); }
 addPlace('thienmu', 'Chùa Thiên Mụ', wayCentre(205795043), 1, 'monument', 26);
 addPlace('ndchieu', 'Phố đi bộ Nguyễn Đình Chiểu', wayCentre(39418535), 2, 'place', 8);
 addPlace('nguyenhoang', 'Cầu Nguyễn Hoàng', wayCentre(1431136610), 2, 'bridge', 14);
@@ -850,6 +853,11 @@ if (quocHoc) {
     const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     const score = m[0] * -0.68 + m[1] * -0.73;
     if (!best || score > best.score) best = { score, m, a: Math.atan2(b[1] - a[1], b[0] - a[0]), len };
+  }
+  // the gate stands square opposite Bia Quốc Học across Lê Lợi: slide it along the frontage to face the memorial
+  if (best) {
+    const bia = get('node', 5299153429);
+    if (bia) { const p = proj(bia), ux = Math.cos(best.a), uz = Math.sin(best.a), t = (p[0] - best.m[0]) * ux + (p[1] - best.m[1]) * uz; if (Math.abs(t) < 90) best.m = [best.m[0] + ux * t, best.m[1] + uz * t]; }
   }
   if (best) { quocHocGate = { c: [q(best.m[0]), q(best.m[1])], a: Math.round(best.a * 1000) }; console.log('quoc hoc gate at', best.m.map(Math.round), 'edge', Math.round(best.len), 'm'); }
 }

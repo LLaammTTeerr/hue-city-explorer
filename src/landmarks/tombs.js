@@ -774,9 +774,10 @@ export function buildTombs(data, S, stats = null) {
     const st = loadSite(data, id);
     const n0 = S.n;
     if (st) {
+      S.span = id === 'dongkhanh' || id === 'khaidinh' ? 4 : 0; // those two were built under the French (span(1)); the rest are older
       try { fn(S, st); } catch (e) { console.warn(`tombs: ${id} skipped`, e); }
     }
-    S.kind = KIND.PLAIN; S.base = 0;
+    S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
     if (stats) stats[id] = { from: n0, to: S.n };
   }
   S.kind = KIND.PLAIN; S.base = 0;

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { KIND, hex, shade, unflat, obb, ringCentre } from '../geo/buf.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
+import { shared } from '../geo/materials.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -87,15 +88,19 @@ function makeFlag() {
   const geo = new THREE.PlaneGeometry(1, 1, 14, 6);
   geo.translate(0.5, 0, 0);
   const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 } },
+    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 }, uEra: shared.uEra },
     side: THREE.DoubleSide,
     vertexShader: `uniform float uTime; varying vec2 vUv; varying float vSh;
       void main() { vUv = uv; vec3 p = position;
         float w = sin( p.x * 7.0 - uTime * 4.2 ) * 0.07 * p.x + sin( p.x * 3.0 - uTime * 2.6 + p.y * 2.0 ) * 0.05 * p.x;
         p.z += w; p.y -= p.x * p.x * 0.05; vSh = 0.86 + w * 2.4;
         gl_Position = projectionMatrix * modelViewMatrix * vec4( p, 1.0 ); }`,
-    fragmentShader: `uniform sampler2D map; uniform float uLight; varying vec2 vUv; varying float vSh;
-      void main() { vec4 c = texture2D( map, vUv ); gl_FragColor = vec4( c.rgb * vSh * uLight, 1.0 );
+    // the standard flown here in each era: the imperial yellow; from the 1920s yellow with a red band; today's flag
+    fragmentShader: `uniform sampler2D map; uniform float uLight, uEra; varying vec2 vUv; varying float vSh;
+      void main() { vec4 c = texture2D( map, vUv );
+        if ( uEra < 0.5 ) c.rgb = vec3( 0.93, 0.76, 0.16 );
+        else if ( uEra < 1.5 ) c.rgb = abs( vUv.y - 0.5 ) < 0.17 ? vec3( 0.78, 0.13, 0.1 ) : vec3( 0.93, 0.76, 0.16 );
+        gl_FragColor = vec4( c.rgb * vSh * uLight, 1.0 );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
