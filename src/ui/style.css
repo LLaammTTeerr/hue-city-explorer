@@ -195,6 +195,13 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #ride-hud { bottom: calc(var(--bottom) + 18px); }
   dialog { padding: 22px 20px 18px; }
 }
+/* Desktop: the place list has grown long, so the note card sits beside the panel instead of under it, and the
+   list scrolls inside the panel when the window is short. */
+@media (min-width: 721px) {
+  #brand { width: 256px; }
+  #places { max-height: calc(100vh - var(--top) - 196px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+  #card { left: calc(var(--edge) + 256px + 12px); }
+}
 @media (max-height: 560px) and (min-width: 721px) {
   #places { display: none; }
 }
