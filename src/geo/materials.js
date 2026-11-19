@@ -72,6 +72,11 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   float side = floor( hueN.x * 5.0 ) * 3.7 + floor( hueN.z * 5.0 ) * 1.9;
   float seed = hueHash( cell + side );
   float bay = hueHash( vec2( cell.x + side, 7.0 ) );
+  // after dark: whole neighbourhoods are awake or asleep, each facade has its own share of lit rooms,
+  // and every lit window its own strength — never a wall of identical bright panes
+  float hood = smoothstep( 0.25, 0.8, hueNoise( vWPos.xz * 0.013 ) );
+  float litP = mix( 0.05, 0.3, hood ) * ( 0.55 + 0.9 * hueHash( vec2( side, 3.0 ) ) );
+  float litK = 0.4 + 0.6 * hueHash( cell + 4.7 );
   vec3 base = diffuseColor.rgb;
   // plaster: soft blotches and rain streaks running down from the eaves
   float streak = hueNoise( vec2( uv.x * 9.0, uv.y * 0.7 ) );
@@ -99,7 +104,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
     col = mix( col, trim * 0.97, step( mod( cell.x, 3.0 ), 0.5 ) * ( 1.0 - smoothstep( 0.06, 0.08, f.x ) ) );
     col = mix( col, base * 0.7, ( 1.0 - upper ) * ( 1.0 - win ) * ( 1.0 - smoothstep( 0.1, 0.12, f.y ) ) * step( 0.07, f.y ) );
     hueGlass = win * upper * detail;
-    hueLit = win * step( seed, mix( 0.7, 0.4, upper ) );
+    hueLit = win * step( seed, mix( litP * 1.4, litP, upper ) ) * litK;
   } else if ( modern ) {
     if ( cell.y < 0.5 ) {
       // a glazed front under a sign board
@@ -111,7 +116,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
       col = mix( col, g, open );
       col = mix( col, signCol, sign );
       hueGlass = open * detail;
-      hueLit = open * 0.9;
+      hueLit = open * step( seed, 0.4 ) * 0.7;
     } else {
       float balc = step( bay, 0.3 );
       float band = step( 0.36, f.y ) * step( f.y, 0.8 ) * smoothstep( 0.02, 0.04, f.x ) * smoothstep( 0.98, 0.96, f.x );
@@ -130,7 +135,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
       col = mix( col, vec3( 0.78, 0.79, 0.78 ) * ( 0.8 + 0.2 * step( 0.5, fract( f.y * 30.0 ) ) ), ac );
       col *= 1.0 - 0.1 * ( 1.0 - smoothstep( 0.0, 0.03, f.y ) );
       hueGlass = win * ( 1.0 - balc * rail ) * detail;
-      hueLit = win * step( seed, 0.5 ) * ( 1.0 - balc * rail );
+      hueLit = win * step( seed, litP ) * litK * ( 1.0 - balc * rail );
     }
   } else if ( cell.y < 0.5 && !civic ) {
     // street level: a shopfront or doorway under an awning
@@ -141,7 +146,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
     vec3 inside = mix( vec3( 0.05, 0.045, 0.045 ), vec3( 0.2, 0.15, 0.11 ), smoothstep( 0.0, 0.7, f.y ) * 0.6 );
     col = mix( col, inside, open * step( 0.22, bay ) );
     col = mix( col, awnCol, awn * step( 0.4, bay ) );
-    hueLit = open * step( 0.22, bay ) * step( seed, 0.6 ) * 0.8;
+    hueLit = open * step( 0.22, bay ) * step( seed, 0.36 ) * 0.7;
   } else {
     float inX = smoothstep( 0.23, 0.26, f.x ) * smoothstep( 0.77, 0.74, f.x );
     float inY = smoothstep( 0.3, 0.33, f.y ) * smoothstep( 0.8, 0.77, f.y );
@@ -165,14 +170,14 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
     hueGlass = win * ( 1.0 - shut ) * detail;
     // floor line
     col *= 1.0 - 0.14 * ( 1.0 - smoothstep( 0.0, 0.035, f.y ) );
-    hueLit = win * ( 1.0 - shut ) * step( seed, 0.44 );
+    hueLit = win * ( 1.0 - shut ) * step( seed, litP ) * litK;
   }
   diffuseColor.rgb = mix( base * 0.9, col, detail );
   // age: damp rising from the ground and mould under the eaves — old lime-washed walls are never one colour
   float damp = ( 1.0 - smoothstep( 0.0, 1.6, hueH ) ) * ( 0.45 + 0.55 * hueNoise( vec2( uv.x * 3.1, 2.0 ) ) );
   float mould = hueNoise( vec2( uv.x * 1.3 + 5.0, uv.y * 0.35 ) ) * hueNoise( vec2( uv.x * 5.7, uv.y * 1.1 + 3.0 ) );
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.7, 0.56 ), clamp( damp * 0.75 + smoothstep( 0.22, 0.5, mould ) * 0.4, 0.0, 0.8 ) * hueWall * ( modern ? 0.3 : 1.0 ) );
-  hueLit = mix( 0.1, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
+  hueLit = mix( 0.02 + 0.045 * hood, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
 } else if ( ( vKind > 1.5 && vKind < 2.5 ) || ( vKind > 8.5 && vKind < 9.5 ) ) {
   // ---------------- roof tiles (kind 9: glazed imperial tiles, which catch the sun) ----------------
   vec3 e = hueN.y > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
@@ -235,7 +240,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   col = mix( col, base * 1.25 + vec3( 0.06, 0.03, 0.0 ), column );
   diffuseColor.rgb = mix( base * 0.82, col, detail );
   hueCell = vec2( floor( u ), 0.0 );
-  hueLit = panel * 0.35 * detail * step( 0.3, hueH );
+  hueLit = panel * 0.16 * detail * step( 0.3, hueH );
 } else if ( vKind > 2.5 && vKind < 3.5 ) {
   // ---------------- flat roofs ----------------
   float c = hueNoise( vWPos.xz * 0.5 ) * 0.6 + hueNoise( vWPos.xz * 3.0 ) * 0.4;
@@ -322,8 +327,10 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         #endif
         #ifdef HUE_WINDOWS
         if ( uGlow > 0.01 ) {
-          vec3 warm = mix( vec3( 1.0, 0.62, 0.28 ), vec3( 1.0, 0.86, 0.62 ), hueHash( hueCell + 9.1 ) );
-          totalEmissiveRadiance += warm * hueLit * uGlow * 1.9;
+          // mostly warm bulbs, some greenish tube light, the odd blue of a television
+          float tone = hueHash( hueCell + 9.1 );
+          vec3 lamp = tone < 0.72 ? mix( vec3( 1.0, 0.56, 0.24 ), vec3( 1.0, 0.8, 0.5 ), tone / 0.72 ) : tone < 0.93 ? vec3( 0.76, 0.95, 0.86 ) : vec3( 0.5, 0.66, 1.0 );
+          totalEmissiveRadiance += lamp * hueLit * uGlow * 1.05;
         }
         #endif`,
       );
@@ -370,6 +377,25 @@ export function landMaterial(color, turf = false) {
 
 // sqrt-encode a linear [r,g,b] for instanceColor (the shader squares it back)
 export const enc = (c, target = new THREE.Color()) => target.setRGB(Math.sqrt(c[0]), Math.sqrt(c[1]), Math.sqrt(c[2]), THREE.LinearSRGBColorSpace);
+
+// Architectural lighting: strips of light laid along a structure. Geometry, so the river mirrors them; they
+// follow the mood's glow and vanish by day. `boost` above 1 pushes them into the bloom.
+export function lightMaterial(color = 0xffffff, boost = 1.6) {
+  return new THREE.ShaderMaterial({
+    uniforms: { uGlow: shared.uGlow, uColor: { value: new THREE.Color(color) }, uBoost: { value: boost } },
+    vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }',
+    fragmentShader: `
+      uniform vec3 uColor; uniform float uGlow, uBoost;
+      void main() {
+        gl_FragColor = vec4( uColor * uBoost * uGlow, 1.0 );
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+  });
+}
 
 // Soft additive light points (street lamps, bridge lamps). Never smaller than ~2 px,
 // so lines of lamps stay readable from far above.

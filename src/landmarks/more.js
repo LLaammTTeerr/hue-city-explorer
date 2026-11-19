@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { KIND, hex, shade } from '../geo/buf.js';
-import { glowPoints } from '../geo/materials.js';
+import { glowPoints, lightMaterial } from '../geo/materials.js';
+import { Buf } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { pavilion } from './citadel.js';
 
@@ -63,6 +64,26 @@ export function buildNguyenHoang(data, S, group) {
     }
   }
   for (let k = 5; k <= N - 5; k += 2) S.beam(rib(k, -1), rib(k, 1), 0.5, 0.5, goldD);
+  // after dark the arch is washed in gold: a strip on the crown of each rib, the hangers as fine lines,
+  // the ties overhead, and a pale line along each edge of the deck
+  {
+    const LB = new Buf(400), EB = new Buf(64), W1 = [1, 1, 1];
+    const lift = (p, h) => [p[0], p[1] + h, p[2]];
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < N; k++) {
+        const a = rib(k, side), b = rib(k + 1, side);
+        LB.beam(lift(a, 0.72), lift(b, 0.72), 0.9, 0.26, W1);
+        LB.beam([a[0] + v[0] * side * 0.85, a[1], a[2] + v[1] * side * 0.85], [b[0] + v[0] * side * 0.85, b[1], b[2] + v[1] * side * 0.85], 0.16, 0.5, W1);
+        if (k >= 2 && k <= N - 2 && k % 2 === 0) LB.beam(a, at(-span / 2 + (k / N) * span, side * ribX, deckTop + 0.3), 0.1, 0.1, W1);
+      }
+      EB.beam(at(-L / 2, side * (W / 2 + 0.06), deckTop - 0.2), at(L / 2, side * (W / 2 + 0.06), deckTop - 0.2), 0.12, 0.2, W1);
+    }
+    for (let k = 5; k <= N - 5; k += 2) LB.beam(lift(rib(k, -1), -0.35), lift(rib(k, 1), -0.35), 0.14, 0.14, W1);
+    const arch = new THREE.Mesh(LB.geometry(), lightMaterial(0xffb637, 2.1));
+    const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xfff0d0, 1.0));
+    arch.renderOrder = edge.renderOrder = 19;
+    group.add(arch, edge);
+  }
 
   // "lọng" lamps: 64 parasols, from 4.6 m at the bridge ends up to about 14 m beside the arch
   const perRun = 16, run = L / 2 - span / 2 - 6;

@@ -236,7 +236,7 @@ export function createPost(renderer, scene, camera) {
     // night and rain want gentler occlusion and a touch more glow; mist takes the mood's haze colour
     setMood(glow, rain, mistColor, mist, time) {
       occlusion.strength = 1 - 0.35 * Math.max(glow * 0.6, rain);
-      bloom.strength = 0.3 + 0.35 * glow;
+      bloom.strength = 0.3 + 0.3 * glow;
       const u = occlusion.compMat.uniforms;
       u.uVignette.value = 0.15 + 0.15 * glow;
       u.uMistColor.value.copy(mistColor);

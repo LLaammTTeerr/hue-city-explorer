@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { KIND, hex, shade } from '../geo/buf.js';
-import { glowPoints } from '../geo/materials.js';
+import { glowPoints, lightMaterial } from '../geo/materials.js';
+import { Buf } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 
 // Cầu Trường Tiền. Position, axis, length and width come from the OSM bridge outline
@@ -76,7 +77,7 @@ export function buildTruongTien(data, S, group) {
   }
 
   // the bows
-  const spanLights = [];
+  const spanLights = [], spanStrips = [];
   for (let i = 0; i < SPANS; i++) {
     const s0 = -L / 2 + i * span;
     const lp = [], lc = [];
@@ -111,21 +112,51 @@ export function buildTruongTien(data, S, group) {
     const pts = glowPoints(lp, lc, 3.4);
     group.add(pts);
     spanLights.push(pts);
+    // the LED wash: a strip riding each bow, lines down the hangers and along the bottom chord, on the outer faces
+    const LB = new Buf(700), W1 = [1, 1, 1];
+    const out = (p, side, o = 0.5, up = 0) => [p[0] + n[0] * side * o, p[1] + up, p[2] + n[1] * side * o];
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < N; k++) {
+        LB.beam(out(top(k, side), side, 0.46, 0.2), out(top(k + 1, side), side, 0.46, 0.2), 0.2, 0.5, W1);
+        if (k >= 1) LB.beam(out(top(k, side), side, 0.3), out(bot(k, side), side, 0.3), 0.12, 0.12, W1);
+      }
+      LB.beam(out(bot(0, side), side, 0.36), out(bot(N, side), side, 0.36), 0.14, 0.28, W1);
+    }
+    const strip = new THREE.Mesh(LB.geometry(), lightMaterial(0xffffff, 1.5));
+    strip.renderOrder = 19;
+    group.add(strip);
+    spanStrips.push(strip);
   }
   const lamps = glowPoints(lampPos, lampCol, 8);
   group.add(lamps);
+  // a warm line under the handrail on both sides, and the piers lit from the water
+  {
+    const EB = new Buf(160), W1 = [1, 1, 1];
+    for (const side of [-1, 1]) {
+      EB.beam(at(-L / 2, side * (W / 2 + 0.08), deckTop - 0.12), at(L / 2, side * (W / 2 + 0.08), deckTop - 0.12), 0.1, 0.16, W1);
+      for (let i = 1; i < SPANS; i++) { const sx = -L / 2 + i * span; EB.beam(at(sx, side * (W / 2 + 2.2), 0.5), at(sx, side * (W / 2 + 1.5), deckTop - deckT - 1.0), 0.5, 0.2, W1); }
+    }
+    const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xffd9a0, 0.75));
+    edge.renderOrder = 19;
+    group.add(edge);
+  }
 
   const col = new THREE.Color();
   return {
     centre: c, dir: d, across: n, length: L, width: W, span, deckTop, deckBottom: deckTop - deckT, lights: spanLights, lamps,
     // The bridge's lighting drifts through colours after dark; in rain it settles on a warm white.
     update(time, glow, rain) {
+      // one colour drifts round the wheel and each bow runs a little ahead of the last, so the bridge is a slow
+      // band of neighbouring hues; now and then the whole bridge gathers into Huế's violet
+      const gather = Math.max(0, Math.sin(time * 0.045)) ** 6;
       for (let i = 0; i < spanLights.length; i++) {
-        const hue = (time * 0.035 + i * 0.05) % 1;
-        col.setHSL(hue, 0.9, 0.62);
+        const hue = (time * 0.022 + i * 0.07) % 1;
+        col.setHSL(hue + (0.76 - hue) * gather, 0.92, 0.56);
+        col.lerp(WARM, Math.min(1, rain * 0.85));
         const u = spanLights[i].material.uniforms;
-        u.uTint.value.copy(col).lerp(WARM, Math.min(1, rain * 0.85));
-        u.uBoost.value = 0.85 + rain * 0.25;
+        u.uTint.value.copy(col);
+        u.uBoost.value = 0.55 + rain * 0.25;
+        spanStrips[i].material.uniforms.uColor.value.copy(col);
       }
     },
   };

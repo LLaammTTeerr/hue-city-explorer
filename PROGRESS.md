@@ -68,6 +68,12 @@
   grandstand, show pool, slide pools, plazas, sculptures, entrance, and the three footbridges that meet at the
   dragon. The aquarium is a saucer-rimmed drum under a dome with the dragon coiled round it and reared over the
   lake. Trees gained a hill-pine type (kind 3, `src/geo/foliage.js`), planted across the southern hills.
+- Night lighting (branch `night-lighting`, on top of `card-overlap`): windows are lit by neighbourhood and by
+  facade (5–30 % of rooms, each its own strength and colour) instead of nearly all at full strength; bloom eased.
+  Trường Tiền and cầu Nguyễn Hoàng carry light strips as real geometry (`lightMaterial` in `src/geo/materials.js`),
+  so the river mirrors them: Trường Tiền's six bows drift through neighbouring hues and gather into violet now and
+  then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
+  now thin railed walkways on piers.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

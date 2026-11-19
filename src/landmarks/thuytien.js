@@ -242,6 +242,41 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
   S.kind = KIND.PLAIN;
 }
 
+// ------------------------------------------------------------------ the footbridges to the dragon
+// Mapped: where each bridge runs. Drawn: a narrow concrete walkway on slim piers, tube railings gone pale,
+// a few lamp standards — the real ones are long, low and thin, not road decks.
+function footbridge(S, from, to) {
+  const dx = to[0] - from[0], dz = to[1] - from[1], len = Math.hypot(dx, dz);
+  if (len < 4) return;
+  const d = [dx / len, dz / len], ac = [-d[1], d[0]], ang = Math.atan2(d[1], d[0]), y = LAND_Y + 0.5, wd = 3.0;
+  const P = (s, o, h = 0) => [from[0] + d[0] * s + ac[0] * o, y + h, from[1] + d[1] * s + ac[1] * o];
+  const mid = P(len / 2, 0);
+  S.kind = KIND.ROAD;
+  S.box(mid[0], mid[2], y - 0.35, y, len, wd, ang, hex('#b3b0a2'), { bottom: true });
+  S.kind = KIND.MASONRY;
+  const bays = Math.max(1, Math.round(len / 8));
+  for (let i = 0; i <= bays; i++) {
+    const q = P((len * i) / bays, 0);
+    S.box(q[0], q[2], POND_Y - 1.6, y - 0.35, 0.7, wd - 0.5, ang, hex('#8f9186'));
+    S.box(q[0], q[2], y - 0.6, y - 0.35, 1.1, wd + 0.3, ang, hex('#a09f93'));
+  }
+  S.kind = KIND.PLAIN;
+  const rail = hex('#9fb0b3'), post = hex('#8b9a9c');
+  for (const sd of [-1, 1]) {
+    const o = sd * (wd / 2 - 0.1);
+    S.beam(P(0, o, 1.05), P(len, o, 1.05), 0.09, 0.09, rail);
+    S.beam(P(0, o, 0.55), P(len, o, 0.55), 0.06, 0.06, rail);
+    const n = Math.max(2, Math.round(len / 2.2));
+    for (let i = 0; i <= n; i++) S.beam(P((len * i) / n, o, 0), P((len * i) / n, o, 1.05), 0.08, 0.08, post);
+  }
+  for (let i = 1; i < bays; i += 2) {
+    const sd = i % 4 === 1 ? 1 : -1, q = P((len * i) / bays, sd * (wd / 2 + 0.05));
+    S.beam(q, [q[0], y + 4.2, q[2]], 0.12, 0.12, post);
+    S.beam([q[0], y + 4.2, q[2]], [q[0] - ac[0] * sd * 0.9, y + 4.5, q[2] - ac[1] * sd * 0.9], 0.1, 0.1, post);
+    S.box(q[0] - ac[0] * sd * 1.0, q[2] - ac[1] * sd * 1.0, y + 4.3, y + 4.55, 0.5, 0.3, ang, hex('#d8d6c8'));
+  }
+}
+
 // ------------------------------------------------------------------ the amphitheatre
 // Tiers on the mapped grandstand outline, rising away from the show pool; blocks of blue and yellow seats.
 function stands(S, ring, focus) {
@@ -401,7 +436,13 @@ export function buildThuyTien(data, S) {
       if (!rd[1]) continue;
       const f = rd[2], ends = [[f[0] / 10, f[1] / 10], [f[f.length - 2] / 10, f[f.length - 1] / 10]];
       const d = ends.map((e) => Math.hypot(e[0] - C[0], e[1] - C[1]));
-      if (Math.min(d[0], d[1]) < Rd + 14) { const far = d[0] > d[1] ? ends[0] : ends[1]; angles.push(Math.atan2(far[1] - C[1], far[0] - C[0])); }
+      if (Math.min(d[0], d[1]) < Rd + 14) {
+        const far = d[0] > d[1] ? ends[0] : ends[1], a = Math.atan2(far[1] - C[1], far[0] - C[0]);
+        angles.push(a);
+        // from the edge of the landing out to the far bank
+        footbridge(S, [C[0] + Math.cos(a) * (Rd + 4.2), C[1] + Math.sin(a) * (Rd + 4.2)], [far[0] + Math.cos(a) * 1.5, far[1] + Math.sin(a) * 1.5]);
+        S.kind = KIND.PLAIN;
+      }
     }
     dragon(S, C, Rd, hd, angles);
   });

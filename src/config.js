@@ -77,7 +77,7 @@ export const MOODS = {
   },
   night: {
     skyTop: '#161a3e', skyHorizon: '#74598f', skyBelow: '#2b2749', sunGlow: '#e08a8c', fog: '#4a3f70', fogDensity: 0.00011,
-    sunColor: '#a9b0ea', sunI: 0.95, hemiSky: '#8088cc', hemiGround: '#4a3d5c', hemiI: 1.55, shadow: 0.5,
+    sunColor: '#a9b0ea', sunI: 0.8, hemiSky: '#7a84c8', hemiGround: '#453a58', hemiI: 1.32, shadow: 0.5,
     waterDeep: '#161d48', waterShallow: '#343c78', glow: 1, rain: 0, exposure: 1.05, sunDisk: 0.25,
   },
   rain: {
@@ -87,7 +87,7 @@ export const MOODS = {
   },
   nightRain: {
     skyTop: '#1a1c39', skyHorizon: '#46426b', skyBelow: '#2a2a48', sunGlow: '#55507a', fog: '#3a3860', fogDensity: 0.00038,
-    sunColor: '#8f9ad0', sunI: 0.55, hemiSky: '#7a82bc', hemiGround: '#453d58', hemiI: 1.5, shadow: 0.2,
+    sunColor: '#8f9ad0', sunI: 0.5, hemiSky: '#7480ba', hemiGround: '#423a56', hemiI: 1.34, shadow: 0.2,
     waterDeep: '#181e44', waterShallow: '#30386a', glow: 1, rain: 1, exposure: 1.05, sunDisk: 0,
   },
 };
