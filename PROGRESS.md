@@ -86,8 +86,9 @@
   ground held flat at that level in the lake, on its islands and along its shore (`pondLv` in the data, `pondY` /
   `waterY` in `src/geo/terrain.js`).
 - Explorer panel: the note card shows picture with credit, dates, summary, a line for the selected era, story,
-  facts and sources from `public/data/stories.json` (being written by a research pass; pictures are Wikimedia
-  Commons references, loaded online, not bundled).
+  facts and sources from `public/data/stories.json` (63 places, vi + en; 97 Wikimedia Commons picture references
+  under free licences, loaded online, not bundled; 12 places have no picture). About 30 entries were written by
+  helper agents and only spot-checked: dates and figures in the 18 sampled matched known history.
 - Polish pass, started: `docs/reference/*.md` hold sourced factsheets for bridges, the Citadel, city landmarks, tombs
   and the south. Applied so far: Trường Tiền without its pier balconies (removed 1991–95), cầu Dã Viên's six viewing
   pavilions, Ngọ Môn's two arched side passages, Nghênh Lương Đình with porches. Still to do against the factsheets:
