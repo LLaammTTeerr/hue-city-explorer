@@ -19,8 +19,8 @@
 
 - Deployed: public repo `LLaammTTeerr/hue-city-explorer`, GitHub Pages via `.github/workflows/deploy.yml`
   (push to `main` → build → publish). Custom domain `hue-city.lamter.cc` is set on the Pages site.
-  Pending on the DNS side (Cloudflare): `CNAME hue-city → llaammtteerr.github.io`, DNS only; then enable
-  "Enforce HTTPS" once GitHub has issued the certificate.
+  DNS: `CNAME hue-city → llaammtteerr.github.io` (Cloudflare, DNS only). HTTPS certificate issued and
+  enforced on 2026-11-19; https://hue-city.lamter.cc verified in the browser.
 - Git identity for this repo is the GitHub noreply address (local config). The remote is HTTPS; pushes need the
   LLaammTTeerr credential (`gh auth switch --user LLaammTTeerr` or a per-command token), not the work account.
 
