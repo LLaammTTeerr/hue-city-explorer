@@ -28,9 +28,9 @@ export const STR = {
     aboutBody: `
       <p>Một mô hình 3D của trung tâm Huế để bạn tự do bay lượn: sông Hương, cầu Trường Tiền, chợ Đông Ba và Kinh thành với tường, hào và các cửa.</p>
       <h3>Dữ liệu</h3>
-      <p>Bờ sông, hào, đường phố, đường sắt, vòng thành và {buildings} khối nhà được lấy từ <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© những người đóng góp OpenStreetMap, giấy phép ODbL), giữ nguyên vị trí và tỉ lệ. Toàn bộ dữ liệu được đóng gói sẵn — không cần dịch vụ bản đồ trực tuyến.</p>
+      <p>Bờ sông, hào, đường phố, đường sắt, vòng thành và {buildings} khối nhà được lấy từ <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© những người đóng góp OpenStreetMap, giấy phép ODbL), giữ nguyên vị trí và tỉ lệ. Độ cao địa hình (các đồi phía tây và tây nam, đồi Hà Khê dưới chùa Thiên Mụ) lấy từ bộ Terrain Tiles trên AWS Open Data. Toàn bộ dữ liệu được đóng gói sẵn — không cần dịch vụ bản đồ trực tuyến.</p>
       <h3>Phần minh họa</h3>
-      <p>Chiều cao nhà phần lớn là ước lượng theo loại và diện tích. Ở những con phố OSM chưa có khối nhà, {infill} căn nhà nhỏ được vẽ thêm để giữ nhịp phố; cây xanh, thuyền rồng, đèn và dãy núi phía chân trời cũng là minh họa. Cầu Trường Tiền, Kỳ Đài, Ngọ Môn, điện Thái Hòa, các cửa thành và lầu chuông chợ Đông Ba được dựng bằng tay trên đúng nền móng trong OSM.</p>
+      <p>Chiều cao nhà phần lớn là ước lượng theo loại và diện tích. Ở những con phố OSM chưa có khối nhà, {infill} căn nhà nhỏ được vẽ thêm để giữ nhịp phố; cây xanh, thuyền rồng, đèn và dãy núi phía chân trời cũng là minh họa. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, điện Thái Hòa, tháp Phước Duyên, cổng Quốc Học, các cửa thành và lầu chuông chợ Đông Ba được dựng bằng tay trên đúng nền móng trong OSM.</p>
       <h3>Điều khiển</h3>
       <p>Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng, chuột phải (hoặc xoay hai ngón) để đổi hướng nhìn. Nhấp đúp để lại gần. La bàn đưa bạn về góc nhìn ban đầu. Phím tắt: <kbd>H</kbd> về đầu, <kbd>B</kbd> lên thuyền, <kbd>R</kbd> mưa, <kbd>N</kbd> đổi buổi, <kbd>L</kbd> nhãn.</p>`,
     osmOnly: 'Chỉ hiện nhà có trong OSM',
@@ -63,9 +63,9 @@ export const STR = {
     aboutBody: `
       <p>A 3D model of central Huế to fly through: the Hương river, cầu Trường Tiền, chợ Đông Ba, and the Citadel with its walls, moat and gates.</p>
       <h3>Data</h3>
-      <p>Riverbanks, moats, streets, railway, the city wall and {buildings} building footprints come from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© OpenStreetMap contributors, ODbL), kept in their true positions and proportions. Everything is bundled — no live map service is needed.</p>
+      <p>Riverbanks, moats, streets, railway, the city wall and {buildings} building footprints come from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© OpenStreetMap contributors, ODbL), kept in their true positions and proportions. Ground height (the hills to the west and south-west, and Hà Khê hill under chùa Thiên Mụ) comes from the Terrain Tiles dataset on AWS Open Data. Everything is bundled — no live map service is needed.</p>
       <h3>What is illustration</h3>
-      <p>Most building heights are estimates from type and footprint. Where OSM has streets but no footprints yet, {infill} small houses are drawn in to keep the grain of the streets; trees, dragon boats, lights and the ridgeline on the horizon are illustrative too. Cầu Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, the Citadel gates and the bell tower of chợ Đông Ba are modelled by hand on their OSM footprints.</p>
+      <p>Most building heights are estimates from type and footprint. Where OSM has streets but no footprints yet, {infill} small houses are drawn in to keep the grain of the streets; trees, dragon boats, lights and the ridgeline on the horizon are illustrative too. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, tháp Phước Duyên, the Quốc Học gate, the Citadel gates and the bell tower of chợ Đông Ba are modelled by hand on their OSM footprints.</p>
       <h3>Controls</h3>
       <p>Drag to move, scroll or pinch to zoom, right-drag (or twist two fingers) to turn. Double-click to come closer. The compass returns you to the opening view. Keys: <kbd>H</kbd> home, <kbd>B</kbd> boat, <kbd>R</kbd> rain, <kbd>N</kbd> time of day, <kbd>L</kbd> labels.</p>`,
     osmOnly: 'Show only buildings mapped in OSM',
@@ -180,7 +180,8 @@ export const VIEWS = {
   ndchieu: { off: [150, 70, -200], look: [-30, 10] },
   thienmu: { off: [95, 48, 120], look: [-10, -22] },
   photay: { off: [190, 120, 230], look: [0, 0] },
-  nguyenhoang: { off: [520, 190, 420], look: [0, 0] },
+  nguyenhoang: { off: [330, 130, 330], look: [0, 0] },
+  quochoc: { off: [-150, 95, -210], look: [0, 0] },
   'gate:Cửa Kẻ Trài': { off: [150, 110, -230], look: [0, 20] },
   ngomon: { off: [120, 95, 190], look: [0, -30] },
   thaihoa: { off: [110, 90, 170], look: [0, -20] },

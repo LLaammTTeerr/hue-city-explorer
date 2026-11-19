@@ -11,6 +11,7 @@ import { buildCity, finishStructures } from './geo/city.js';
 import { buildTruongTien } from './landmarks/truongtien.js';
 import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
 import { buildBoats } from './landmarks/boats.js';
+import { buildNguyenHoang, buildQuocHocGate } from './landmarks/more.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
 import { buildRain } from './env/rain.js';
@@ -70,6 +71,8 @@ async function main() {
   const citadel = buildCitadel(data, world.structures, dynamic);
   buildMarket(data, world.structures);
   buildThienMu(data, world.structures);
+  const extraGlows = buildNguyenHoang(data, world.structures, dynamic);
+  buildQuocHocGate(data, world.structures);
   finishStructures(world.structures, world.group);
   const boats = buildBoats(data, dynamic);
   scene.add(world.group, dynamic);
@@ -282,6 +285,7 @@ async function main() {
     world.lamps.material.uniforms.uScale.value = pxScale;
     bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
     bridge.lamps.material.uniforms.uScale.value = pxScale;
+    for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01; }
     const lit = mood.cur.glow > 0.01;
     world.lamps.visible = lit; bridge.lamps.visible = lit; bridge.lights.forEach((l) => { l.visible = lit; });
     if (post) post.setMood(mood.cur.glow, mood.state.rain);

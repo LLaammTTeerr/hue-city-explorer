@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { MapControls } from 'three/addons/controls/MapControls.js';
 import { LAND_Y } from '../config.js';
+import { rise } from '../geo/terrain.js';
 
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
@@ -56,7 +57,8 @@ export function createCamera(canvas, bounds) {
       t.set(cx, LAND_Y, cz);
       camera.position.x += dx; camera.position.z += dz; camera.position.y += dy;
     }
-    if (camera.position.y < LAND_Y + 1.7) camera.position.y = LAND_Y + 1.7;
+    const floor = LAND_Y + rise(camera.position.x, camera.position.z) + 1.7; // stay above the hills too
+    if (camera.position.y < floor) camera.position.y = floor;
   }
 
   const dir = new THREE.Vector3();

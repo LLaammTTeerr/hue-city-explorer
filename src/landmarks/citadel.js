@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { KIND, hex, shade, unflat, obb, ringCentre } from '../geo/buf.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
+import { rise } from '../geo/terrain.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -193,32 +194,107 @@ export function buildCitadel(data, S, group) {
   };
 }
 
-// ---- Chùa Thiên Mụ: tháp Phước Duyên, seven octagonal storeys, 21 m (height from its OSM tag) ----
+// ---- Chùa Thiên Mụ on Hà Khê hill ----
+// Tháp Phước Duyên: seven octagonal storeys narrowing upward, 21 m (height from its OSM tag), on the mapped
+// octagon. In front, toward the river: the four entrance pillars and the steps down the slope. Around it: the
+// small stele and bell pavilions and the triple gate, each on its own OSM footprint.
 export function buildThienMu(data, S) {
   if (!data.special.phuocduyen) return;
   const ring = unflat(data.special.phuocduyen.ring);
   const c = ringCentre(ring);
-  const r = ring.reduce((s, p) => s + Math.hypot(p[0] - c[0], p[1] - c[1]), 0) / ring.length;
-  const brick = hex('#c7a590'), eave = hex('#6f5a52'), trim = hex('#e6dccb');
+  const rOsm = ring.reduce((s, p) => s + Math.hypot(p[0] - c[0], p[1] - c[1]), 0) / ring.length;
+  const small = (data.special.thienmuSmall || []).map(unflat);
+  // the compound's axis: from the triple gate (the widest small building, behind the tower) out to the river
+  let f = [0.23, 0.97];
+  const gateRing = small.slice().sort((a, b) => obb(b).w - obb(a).w)[0];
+  if (gateRing) { const g = ringCentre(gateRing); const l = Math.hypot(c[0] - g[0], c[1] - g[1]) || 1; f = [(c[0] - g[0]) / l, (c[1] - g[1]) / l]; }
+  const p = [-f[1], f[0]];
+  const fa = Math.atan2(f[1], f[0]);
+  const gy = (x, z) => LAND_Y + rise(x, z);
+  const brick = hex('#b8897a'), eave = hex('#5b5352'), trim = hex('#e9dfcd'), dark = hex('#2b2422'), stone = PAL.stone;
+
+  // terrace under the tower
+  const y0 = gy(c[0], c[1]);
   S.kind = KIND.MASONRY;
-  S.cyl(c[0], c[1], LAND_Y, LAND_Y + 1.1, r * 1.7, r * 1.6, 8, PAL.stone);
-  let y = LAND_Y + 1.1;
-  const tiers = 7, total = 21 - 1.1 - 2.4;
+  S.cyl(c[0], c[1], y0 - 1.5, y0 + 0.7, rOsm * 1.75, rOsm * 1.65, 8, stone, { rot: fa - Math.PI / 8 });
+  // the tower
+  const r = rOsm * 0.76, tiers = 7, total = 21 - 0.7 - 2.6;
+  const hs = Array.from({ length: tiers }, (_, i) => 1.22 - i * 0.07), sum = hs.reduce((a, v) => a + v, 0);
+  let y = y0 + 0.7;
   for (let i = 0; i < tiers; i++) {
-    const h = (total / tiers) * (i === 0 ? 1.25 : 0.96);
-    const ri = r * (1 - 0.072 * i), rn = r * (1 - 0.072 * (i + 1));
+    const h = (total * hs[i]) / sum;
+    const ri = r * (1 - 0.068 * i), rn = r * (1 - 0.068 * (i + 1));
+    const rot = fa - Math.PI / 8;
     S.kind = KIND.MASONRY;
-    S.cyl(c[0], c[1], y, y + h - 0.5, ri, ri * 0.98, 8, brick, { cap: false });
+    S.cyl(c[0], c[1], y, y + h - 0.42, ri, ri * 0.985, 8, brick, { cap: false, rot });
     S.kind = KIND.PLAIN;
-    S.cyl(c[0], c[1], y + h * 0.3, y + h * 0.34, ri * 1.03, ri * 1.03, 8, trim, { cap: false });
-    S.cyl(c[0], c[1], y + h - 0.5, y + h - 0.3, ri * 1.3, ri * 1.3, 8, eave); // eave slab
+    S.cyl(c[0], c[1], y, y + 0.22, ri * 1.05, ri * 1.05, 8, trim, { cap: false, rot });
+    S.cyl(c[0], c[1], y + h - 0.7, y + h - 0.42, ri * 1.04, ri * 1.04, 8, trim, { cap: false, rot });
+    // arched doorway on the face that looks down to the river, and its opposite
+    const ap = ri * Math.cos(Math.PI / 8);
+    for (const s of [1, -1]) {
+      const dx = c[0] + f[0] * s * (ap + 0.03), dz = c[1] + f[1] * s * (ap + 0.03);
+      S.box(dx, dz, y + 0.25, y + h * 0.56, 0.16, Math.max(0.7, ri * 0.34), fa, dark);
+    }
+    S.cyl(c[0], c[1], y + h - 0.42, y + h - 0.26, ri * 1.2, ri * 1.2, 8, eave, { rot });
     S.kind = KIND.TILE;
-    S.cyl(c[0], c[1], y + h - 0.3, y + h, ri * 1.3, rn * 1.02, 8, eave, { cap: false });
+    S.cyl(c[0], c[1], y + h - 0.26, y + h, ri * 1.2, rn * 1.03, 8, eave, { cap: false, rot });
     y += h;
   }
   S.kind = KIND.PLAIN;
-  S.cyl(c[0], c[1], y, y + 0.9, r * 0.32, r * 0.2, 8, trim);
-  S.cyl(c[0], c[1], y + 0.9, y + 2.4, 0.16, 0.04, 6, hex('#d9c27a'));
+  S.cyl(c[0], c[1], y, y + 0.5, r * 0.5, r * 0.26, 8, eave, { rot: fa - Math.PI / 8 });
+  S.cyl(c[0], c[1], y + 0.5, y + 1.3, r * 0.2, r * 0.13, 8, trim);
+  S.cyl(c[0], c[1], y + 1.3, y + 2.6, 0.13, 0.03, 6, hex('#d9c27a'));
+
+  // the four entrance pillars at the head of the steps
+  const front = rOsm * 1.75 + 6;
+  for (const off of [-7.6, -2.5, 2.5, 7.6]) {
+    const x = c[0] + f[0] * front + p[0] * off, z = c[1] + f[1] * front + p[1] * off, py = gy(x, z);
+    const tall = Math.abs(off) < 5 ? 7.4 : 6.6;
+    S.kind = KIND.MASONRY;
+    S.box(x, z, py - 1, py + 0.8, 1.5, 1.5, fa, stone);
+    S.box(x, z, py + 0.8, py + tall, 1.0, 1.0, fa, trim, { taper: 0.9 });
+    S.kind = KIND.PLAIN;
+    S.box(x, z, py + tall, py + tall + 0.35, 1.3, 1.3, fa, eave);
+    S.cyl(x, z, py + tall + 0.35, py + tall + 1.1, 0.34, 0.05, 6, trim);
+  }
+  // steps down the slope to the riverside road
+  S.kind = KIND.ROAD;
+  for (let d = front + 2; d < front + 46; d += 2.2) {
+    const x = c[0] + f[0] * d, z = c[1] + f[1] * d;
+    const sy = gy(x, z);
+    if (sy < LAND_Y + 0.25) break;
+    S.box(x, z, sy - 1.2, sy + 0.12, 2.3, 13, fa, shade(stone, 1.04));
+  }
+
+  // pavilions and gate on their mapped footprints
+  for (const rg of small) {
+    const o = obb(rg), cc = ringCentre(rg), py = gy(cc[0], cc[1]);
+    const rr = rg.reduce((s2, q) => s2 + Math.hypot(q[0] - cc[0], q[1] - cc[1]), 0) / rg.length;
+    if (rg === gateRing) {
+      // triple gate: three doorways under a two-tier roof
+      pavilion(S, o.c[0], o.c[1], o.w, Math.max(o.d, 4.5), o.a, py, { tiers: 2, wallH: 4.2, roof: PAL.templeRoof, wall: hex('#c9a27a'), over: 1.1, rh: 2.4, platform: 0.5, ridge: hex('#d8c9a0') });
+      const ux = Math.cos(o.a), uz = Math.sin(o.a);
+      S.kind = KIND.PLAIN;
+      for (const s of [1, -1]) for (const k of [-1, 0, 1]) {
+        const gx = o.c[0] + ux * k * o.w * 0.3 - uz * s * (Math.max(o.d, 4.5) / 2 + 0.05), gz = o.c[1] + uz * k * o.w * 0.3 + ux * s * (Math.max(o.d, 4.5) / 2 + 0.05);
+        S.box(gx, gz, py + 0.5, py + (k === 0 ? 3.6 : 3.0), k === 0 ? 2.2 : 1.6, 0.25, o.a, dark);
+      }
+    } else if (rg.length >= 6 && o.w / Math.max(0.1, o.d) < 1.3) {
+      // hexagonal pavilion (stele / great bell)
+      S.kind = KIND.MASONRY;
+      S.cyl(cc[0], cc[1], py - 0.6, py + 0.5, rr * 1.35, rr * 1.3, 6, stone);
+      S.kind = KIND.TIMBER;
+      S.cyl(cc[0], cc[1], py + 0.5, py + 3.4, rr * 0.9, rr * 0.9, 6, PAL.templeWall, { cap: false });
+      S.kind = KIND.TILE;
+      S.cyl(cc[0], cc[1], py + 3.4, py + 5.4, rr * 1.5, rr * 0.12, 6, PAL.templeRoof, { cap: false });
+      S.kind = KIND.PLAIN;
+      S.cyl(cc[0], cc[1], py + 5.4, py + 6.1, 0.2, 0.04, 5, hex('#d9c27a'));
+    } else {
+      pavilion(S, o.c[0], o.c[1], Math.max(o.w, 3), Math.max(o.d, 3), o.a, py, { tiers: 1, wallH: 3.0, roof: PAL.templeRoof, wall: PAL.templeWall, over: 0.8, rh: 1.8, platform: 0.5, ridge: hex('#d8c9a0') });
+    }
+  }
+  S.kind = KIND.PLAIN;
 }
 
 // ---- Chợ Đông Ba: the mapped main hall with its bell tower ----

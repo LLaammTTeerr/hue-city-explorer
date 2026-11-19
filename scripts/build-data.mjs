@@ -6,6 +6,7 @@
 // footprints yet, and trees.
 import fs from 'node:fs';
 import pc from 'polygon-clipping';
+import zlib from 'node:zlib';
 
 const RAW = 'data/raw/hue-osm.json';
 const OUT = 'public/data/hue.json';
@@ -346,6 +347,15 @@ for (const e of els) {
 // =====================================================================
 // 4. Roads & rail
 // =====================================================================
+// cầu Nguyễn Hoàng: outline way → oriented box; its carriageway ways are dropped (modelled by hand)
+const nhWay = get('way', 1431136610);
+const nhBox = nhWay ? obb(openRing(nhWay.geometry.map(proj))) : null;
+const inNH = (p) => {
+  if (!nhBox) return false;
+  const ux = Math.cos(nhBox.a), uz = Math.sin(nhBox.a), dx = p[0] - nhBox.c[0], dz = p[1] - nhBox.c[1];
+  return Math.abs(dx * ux + dz * uz) < nhBox.w / 2 + 6 && Math.abs(-dx * uz + dz * ux) < nhBox.d / 2 + 6;
+};
+if (nhBox) console.log('nguyen hoang box', nhBox.w.toFixed(0), 'x', nhBox.d.toFixed(0));
 const ROAD_CLASS = { trunk: 0, primary: 0, trunk_link: 0, primary_link: 0, secondary: 1, secondary_link: 1, tertiary: 2, tertiary_link: 2, residential: 3, unclassified: 3, living_street: 3, service: 4, pedestrian: 5, footway: 5, path: 5, cycleway: 5, steps: 5, track: 5 };
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 const TT_WAY = 174759688; // the truss spans; modelled by hand
@@ -357,6 +367,7 @@ for (const e of els) {
   const c = ROAD_CLASS[t.highway];
   const bridge = t.bridge && t.bridge !== 'no' ? 1 : 0;
   for (const pts of clipLine(e.geometry.map(proj))) {
+    if (bridge && inNH(pts[Math.floor(pts.length / 2)])) continue;
     roads.push({ c, bridge, name: t.name || '', pts });
     if (c < 5) stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD);
     else stampLine(pts, 1.2, ROAD);
@@ -375,6 +386,12 @@ for (const e of els) {
 // =====================================================================
 // 5. Buildings
 // =====================================================================
+// Quốc Học campus and the Thiên Mụ compound: buildings inside them are styled as a group
+const ringOf = (id) => { const e = get('way', id); return e ? openRing(e.geometry.map(proj)) : null; };
+const quocHoc = ringOf(695775622);
+const thienMu = ringOf(205794912);
+const towerC = (() => { const r = ringOf(205795043); return r ? centroid(r) : null; })();
+const thienMuSmall = [];
 const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall' };
 const special = {};
 const gates = [];
@@ -398,6 +415,8 @@ for (const e of els) {
   if (ringArea(ring) < 0) ring.reverse();
 
   if (SPECIAL[e.id]) { special[SPECIAL[e.id]] = { ring: flat(ring), name: t.name || '' }; fillPoly([ring], BLD); continue; }
+  // the small pavilions and gate standing with tháp Phước Duyên on its terrace are modelled with the tower
+  if (towerC && Math.hypot(c[0] - towerC[0], c[1] - towerC[1]) < 27) { thienMuSmall.push(flat(ring)); fillPoly([ring], BLD); continue; }
   if (t.historic === 'city_gate') {
     const o = obb(ring);
     const onCitadel = wallBandTest(c);
@@ -433,11 +452,14 @@ for (const e of els) {
   else if (area < 220) h = r < 0.45 ? 4.4 : r < 0.86 ? 7.8 : 11.2;
   else h = r < 0.3 ? 5 : r < 0.75 ? 8.2 : 11.6;
   if (inCitadel(c) && !hTag && !lv && kind !== 2) h = Math.min(h, 11.5);
+  let flags = 0;
+  if (thienMu && pip(c, thienMu) && t.historic !== 'city_gate') { kind = 3; if (!hTag && !lv) h = area > 300 ? 8 : 5.5; }
+  if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 9.2 : 5.2; }
   if (h > 30) kind = 7;
 
-  const b = [flat(ring), q(h), kind, t.name || 0];
-  // mapped over the water (floating restaurants, boat houses): drawn on a piled deck rather than rising from the river
-  if (at(c[0], c[1]) & WATER) { b.push(1); console.log('over water:', t.name || '(unnamed)', Math.round(area) + ' m²'); }
+  // flags: 1 = mapped over the water (drawn on a piled deck), 2 = Quốc Học campus
+  if (at(c[0], c[1]) & WATER) flags |= 1;
+  const b = [flat(ring), q(h), kind, t.name || 0, flags];
   buildings.push(b);
   fillPoly([ring], BLD);
 }
@@ -677,6 +699,168 @@ const water_labels = [];
   if (nh) { const c = wayCentre(21657724, 'relation'); water_labels.push({ n: 'Ngự Hà', x: q(c[0]), z: q(c[1]), t: 3 }); }
 }
 
+// Moorings: places along the central riverbanks where small sampans tie up (illustrative; positions on the real bank line)
+const moorings = [];
+for (const poly of water) {
+  if (!touchesEdge(poly) && Math.abs(ringArea(poly[0])) < 400000) continue;
+  for (const ring of poly) {
+    let acc = rr(0, 60);
+    for (let i = 0; i + 1 < ring.length; i++) {
+      const a = ring[i], b = ring[i + 1];
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 1) continue;
+      const tx = (b[0] - a[0]) / len, tz = (b[1] - a[1]) / len;
+      while (acc < len) {
+        const px = a[0] + tx * acc, pz = a[1] + tz * acc;
+        acc += rr(45, 130);
+        if (px < -2500 || px > 900 || pz < -1000 || pz > 1700 || rnd() < 0.35) continue;
+        for (const sgn of [1, -1]) {
+          const x = px - tz * sgn * 7, z = pz + tx * sgn * 7;
+          if (at(x, z) & WATER && at(px - tz * sgn * 16, pz + tx * sgn * 16) & WATER) { moorings.push(q(x), q(z), Math.round(Math.atan2(tz, tx) * 1000)); break; }
+        }
+      }
+      acc -= len;
+    }
+  }
+}
+console.log('moorings', moorings.length / 3);
+
+let quocHocGate = null;
+if (quocHoc) {
+  let best = null;
+  for (let i = 0; i < quocHoc.length; i++) {
+    const a = quocHoc[i], b = quocHoc[(i + 1) % quocHoc.length];
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 50) continue;
+    const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const score = m[0] * -0.68 + m[1] * -0.73;
+    if (!best || score > best.score) best = { score, m, a: Math.atan2(b[1] - a[1], b[0] - a[0]), len };
+  }
+  if (best) { quocHocGate = { c: [q(best.m[0]), q(best.m[1])], a: Math.round(best.a * 1000) }; console.log('quoc hoc gate at', best.m.map(Math.round), 'edge', Math.round(best.len), 'm'); }
+}
+special.thienmuSmall = thienMuSmall;
+console.log('thien mu small buildings', thienMuSmall.length);
+
+// =====================================================================
+// 9. Terrain: height above the flat city floor, from public elevation tiles
+// =====================================================================
+// Minimal PNG reader (8-bit RGB/RGBA, non-interlaced) — enough for terrarium tiles.
+function readPng(file) {
+  const buf = fs.readFileSync(file);
+  let pos = 8, w = 0, h = 0, ch = 3;
+  const idat = [];
+  while (pos < buf.length) {
+    const len = buf.readUInt32BE(pos), type = buf.toString('ascii', pos + 4, pos + 8);
+    const data = buf.subarray(pos + 8, pos + 8 + len);
+    if (type === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); ch = data[9] === 6 ? 4 : 3; if (data[8] !== 8 || (data[9] !== 2 && data[9] !== 6) || data[12] !== 0) throw new Error('unsupported PNG ' + file); }
+    if (type === 'IDAT') idat.push(data);
+    pos += 12 + len;
+  }
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  const out = new Uint8Array(w * h * ch), stride = w * ch;
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)];
+    for (let x = 0; x < stride; x++) {
+      const v = raw[y * (stride + 1) + 1 + x];
+      const a = x >= ch ? out[y * stride + x - ch] : 0, b = y ? out[(y - 1) * stride + x] : 0, c = x >= ch && y ? out[(y - 1) * stride + x - ch] : 0;
+      let r = v;
+      if (f === 1) r = v + a; else if (f === 2) r = v + b; else if (f === 3) r = v + ((a + b) >> 1);
+      else if (f === 4) { const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pcc = Math.abs(p - c); r = v + (pa <= pb && pa <= pcc ? a : pb <= pcc ? b : c); }
+      out[y * stride + x] = r & 255;
+    }
+  }
+  return { w, h, ch, px: out };
+}
+let terrain = null;
+{
+  const Z = 13, X0 = 6543, Y0 = 3715, N = 2;
+  const have = [0, 1].every((i) => [0, 1].every((j) => fs.existsSync(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`)));
+  if (!have) console.warn('no elevation tiles (run scripts/fetch-elevation.sh): terrain stays flat');
+  else {
+    const M = 256 * N, dem = new Float32Array(M * M);
+    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+      const t = readPng(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`);
+      for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) { const o = (y * 256 + x) * t.ch; dem[(j * 256 + y) * M + i * 256 + x] = t.px[o] * 256 + t.px[o + 1] + t.px[o + 2] / 256 - 32768; }
+    }
+    const demAt = (x, z) => {
+      const lon = ORIGIN.lon + x / KX, lat = ORIGIN.lat - z / KZ;
+      const n = 2 ** Z, fx = ((lon + 180) / 360) * n - X0, lr = (lat * Math.PI) / 180;
+      const fy = ((1 - Math.asinh(Math.tan(lr)) / Math.PI) / 2) * n - Y0;
+      const px = Math.max(0, Math.min(M - 1.001, fx * 256 - 0.5)), py = Math.max(0, Math.min(M - 1.001, fy * 256 - 0.5));
+      const ix = Math.floor(px), iy = Math.floor(py), ax = px - ix, ay = py - iy;
+      const g = (a, b) => dem[b * M + a];
+      return (g(ix, iy) * (1 - ax) + g(ix + 1, iy) * ax) * (1 - ay) + (g(ix, iy + 1) * (1 - ax) + g(ix + 1, iy + 1) * ax) * ay;
+    };
+    const STEP = 20, nx = Math.floor((MAXX - MINX) / STEP) + 1, nz = Math.floor((MAXZ - MINZ) / STEP) + 1;
+    let h = new Float32Array(nx * nz);
+    const flatSamples = [];
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const x = MINX + i * STEP, z = MINZ + j * STEP;
+      h[j * nx + i] = demAt(x, z);
+      if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(h[j * nx + i]);
+    }
+    flatSamples.sort((a, b) => a - b);
+    const floor = flatSamples[Math.floor(flatSamples.length * 0.6)];
+    const blur = (src) => {
+      const out = new Float32Array(src.length);
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        let s = 0, wsum = 0;
+        for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+          const a = i + di, b = j + dj;
+          if (a < 0 || b < 0 || a >= nx || b >= nz) continue;
+          const wgt = Math.exp(-(di * di + dj * dj) / 3);
+          s += src[b * nx + a] * wgt; wsum += wgt;
+        }
+        out[j * nx + i] = s / wsum;
+      }
+      return out;
+    };
+    h = blur(blur(h));
+    // Radar elevation picks up roofs and canopy, so the flat city floor reads a few metres of noise.
+    // Keep only what stands clearly above that floor; never lift ground at the water's edge or inside the Citadel.
+    const DEAD = 3.2;
+    const nearWet = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx * STEP, z + dz * STEP) & WATER) return true; return false; };
+    const lock = new Uint8Array(nx * nz);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const x = MINX + i * STEP, z = MINZ + j * STEP, k = j * nx + i;
+      if (i === 0 || j === 0 || i === nx - 1 || j === nz - 1 || nearWet(x, z) || inCitadel([x, z]) || wallBandTest([x, z])) lock[k] = 1;
+      h[k] = lock[k] ? 0 : Math.max(0, h[k] - floor - DEAD);
+    }
+    h = blur(h);
+    for (let k = 0; k < h.length; k++) if (lock[k] || h[k] < 0.35) h[k] = 0;
+    // Hà Khê hill, which carries chùa Thiên Mụ, is narrower than the smoothing above, so its crest is put back
+    // from the unsmoothed samples, measured against the low end of the city floor (true ground, not rooftops).
+    if (towerC) {
+      const low = flatSamples[Math.floor(flatSamples.length * 0.15)];
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        const x = MINX + i * STEP, z = MINZ + j * STEP, k = j * nx + i;
+        const d = Math.hypot(x - towerC[0], z - towerC[1]);
+        if (d > 130 || at(x, z) & WATER) continue;
+        const t = Math.max(0, Math.min(1, (130 - d) / 80)), fall = t * t * (3 - 2 * t);
+        // the bank itself stays at street level; the slope climbs from the riverside road
+        const bank = nearWet(x, z) ? 0.25 : 1;
+        h[k] = Math.max(h[k], Math.max(0, demAt(x, z) - low) * fall * bank);
+      }
+    }
+    // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
+    const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7 };
+    let cover = '', lifted = 0, peak = 0;
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      let c = 0;
+      if (h[k] > 0) {
+        lifted++; peak = Math.max(peak, h[k]);
+        const p = [MINX + i * STEP, MINZ + j * STEP];
+        for (const g of green) if (pipPoly(p, g.p)) { c = COVER[g.k] || 0; break; }
+      }
+      cover += c;
+    }
+    terrain = { x0: q(MINX), z0: q(MINZ), step: STEP, nx, nz, h: Array.from(h, (v) => Math.round(v * 10)), cover };
+    const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
+    console.log('terrain', nx + 'x' + nz, 'floor', floor.toFixed(1), 'm asl | lifted nodes', lifted, '| peak rise', peak.toFixed(1), 'm | Thiên Mụ', towerC ? probe(towerC[0], towerC[1]) : '-', '| raw DEM there', towerC ? demAt(towerC[0], towerC[1]).toFixed(1) : '-');
+  }
+}
+
 // =====================================================================
 // write
 // =====================================================================
@@ -705,6 +889,10 @@ const out = {
   special,
   market: flat(openRing(marketArea)),
   truongtien: { a: flat([tt[0]]), b: flat([tt[tt.length - 1]]), box: { c: [q(ttBox.c[0]), q(ttBox.c[1])], w: q(ttBox.w), d: q(ttBox.d), a: Math.round(ttBox.a * 1000) } },
+  terrain,
+  moorings,
+  nguyenhoang: nhBox ? { c: [q(nhBox.c[0]), q(nhBox.c[1])], w: q(nhBox.w), d: q(nhBox.d), a: Math.round(nhBox.a * 1000) } : null,
+  quocHocGate,
   bridges: bridgeOutlines,
   river: flat(riverLine),
   islands: islands.map((i) => [q(i.c[0]), q(i.c[1]), Math.round(i.area)]),

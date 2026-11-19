@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea } from './buf.js';
 import { cityMaterial, landMaterial, enc, glowPoints } from './materials.js';
 import { LAND_Y, WALL_H, PAL, quality } from '../config.js';
+import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
 
 const rand = (i, salt = 0) => {
   let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
@@ -96,9 +97,13 @@ function ribbonPoints(pts, width) {
   }
   return [L, R];
 }
-function ribbon(B, pts, width, y, col) {
+function ribbon(B, pts0, width, y, col) {
+  const pts = drape(pts0);
   const [L, R] = ribbonPoints(pts, width);
-  for (let i = 0; i + 1 < pts.length; i++) B.quad([L[i][0], y, L[i][1]], [R[i][0], y, R[i][1]], [R[i + 1][0], y, R[i + 1][1]], [L[i + 1][0], y, L[i + 1][1]], col, [0, 1, 0]);
+  // y is the height above the flat floor; on raised ground each edge point takes the terrain's own height
+  const lift = pts === pts0 ? 0 : 0.12;
+  const yL = L.map((p) => y + rise(p[0], p[1]) + lift), yR = R.map((p) => y + rise(p[0], p[1]) + lift);
+  for (let i = 0; i + 1 < pts.length; i++) B.quad([L[i][0], yL[i], L[i][1]], [R[i][0], yR[i], R[i][1]], [R[i + 1][0], yR[i + 1], R[i + 1][1]], [L[i + 1][0], yL[i + 1], L[i + 1][1]], col, [0, 1, 0]);
 }
 function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0) {
   const [L, R] = ribbonPoints(pts, width);
@@ -193,7 +198,8 @@ function buildRoads(data, group, structures) {
     for (let s = step / 2, k = 0; s < len; s += step, k++) {
       const { p, a } = along(r.pts, s);
       const off = (ROAD_W[r.c] / 2 + 0.5) * (k % 2 ? 1 : -1);
-      lp.push(p[0] - Math.sin(a) * off, LAND_Y + (r.bridge ? 8 : 7.5), p[1] + Math.cos(a) * off);
+      const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
+      lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 : 7.5), lz);
       const warm = 0.85 + rand(k, r.c) * 0.3;
       lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
     }
@@ -222,10 +228,11 @@ function buildBuildings(data, group) {
   const ridgeGold = hex('#f1d77a'), ridgeGrey = hex('#cfc4a4');
   data.bld.forEach((b, i) => {
     const ring = unflat(b[0]);
-    const h = b[1] / 10, kind = b[2];
-    const y0 = LAND_Y, y1 = y0 + h;
+    const h = b[1] / 10, kind = b[2], flags = b[4] || 0;
+    const y0 = LAND_Y + baseUnder(ring);
     const area = Math.abs(signedArea(ring));
     const o = obb(ring);
+    const y1 = Math.max(y0 + h * 0.85, LAND_Y + rise(o.c[0], o.c[1]) + h);
     const rectness = area / Math.max(1, o.w * o.d);
     let wall, roof, pitched = false, flare = 0, over = 0.5, rh = 0, ridge = null, hips = false;
     const jitter = 0.92 + rand(i, 7) * 0.16;
@@ -245,9 +252,15 @@ function buildBuildings(data, group) {
         wall = pick(P.walls, i, 1); roof = pick(P.roofs, i, 2);
         pitched = rectness > 0.8 && o.d < 15.5 && area < 520; rh = Math.min(3.6, Math.max(1.1, o.d * 0.26));
     }
-    wall = shade(wall, jitter);
+    const quocHoc = (flags & 2) !== 0;
+    if (quocHoc) {
+      // Quốc Học: the long dark-red French-period blocks under tiled roofs
+      wall = hex('#a3352c'); roof = pick([hex('#a65a44'), hex('#9a5540'), hex('#b0603f')], i, 2);
+      pitched = rectness > 0.6 && o.d < 30; over = 0.8; flare = 0; rh = Math.min(4.2, Math.max(1.6, o.d * 0.22));
+    }
+    wall = shade(wall, quocHoc ? 0.96 + rand(i, 7) * 0.08 : jitter);
     roof = shade(roof, 0.9 + rand(i, 9) * 0.2);
-    if (b[4] === 1) {
+    if (flags & 1) {
       // mapped over the water: stand it on a deck carried by piles
       B.kind = KIND.PLAIN;
       const cx = o.c[0], cz = o.c[1];
@@ -257,13 +270,13 @@ function buildBuildings(data, group) {
       for (let k = 0; k < ring.length; k += step) B.cyl(cx + (ring[k][0] - cx) * 0.94, cz + (ring[k][1] - cz) * 0.94, -2, LAND_Y - 0.7, 0.42, 0.42, 6, hex('#9c9488'), { cap: false });
       B.cyl(cx, cz, -2, LAND_Y - 0.7, 0.6, 0.6, 6, hex('#9c9488'), { cap: false });
     }
-    B.kind = kind === 8 ? KIND.PLAIN : kind === 2 ? KIND.TIMBER : KIND.FACADE;
+    B.kind = kind === 8 ? KIND.PLAIN : kind === 2 ? KIND.TIMBER : quocHoc || kind === 3 || kind === 4 || kind === 5 ? KIND.CIVIC : KIND.FACADE;
     if (pitched) {
       B.prism(ring, y0, y1, wall, shade(roof, 0.85), { top: rectness < 0.96, topKind: KIND.TILE });
       B.hip(o.c[0], o.c[1], o.w, o.d, o.a, y1 + 0.02, rh, roof, { flare, over, fascia: flare ? 0.34 : 0.24, fasciaCol: flare ? shade(wall, 0.7) : shade(wall, 0.86), ridgeCol: ridge, hips });
     } else {
       // tiled lid for small irregular houses; a concrete tray with a parapet for everything else
-      const tiled = (kind === 0 && area < 300 && rand(i, 16) < 0.6) || kind === 8 || kind === 6 || kind === 2 || kind === 3 || kind === 4;
+      const tiled = quocHoc || (kind === 0 && area < 300 && rand(i, 16) < 0.6) || kind === 8 || kind === 6 || kind === 2 || kind === 3 || kind === 4;
       if (tiled) B.prism(ring, y0, y1, wall, roof, { topKind: KIND.TILE });
       else {
         const lid = kind === 7 ? roof : pick(P.concrete, i, 17);
@@ -382,25 +395,32 @@ function buildInfill(data, group) {
       const flatRoof = rand(i, 21 + salt) < 0.2;
       const gable = !flatRoof && salt === 0 && rand(i, 60) < (pt.main ? 0.88 : 0.5);
       if (flatRoof) h += 0.7;
+      // bed the house into a slope: stand it on the lowest corner, keep the eaves where the centre would put them
+      const ca = Math.cos(ang), sa = Math.sin(ang);
+      let lo = rise(x, z);
+      const top = lo;
+      if (lo > 0 || rise(x + ca * w, z + sa * w) > 0) for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) lo = Math.min(lo, rise(x + (ca * u * w - sa * v * d) / 2, z + (sa * u * w + ca * v * d) / 2));
+      const gy = LAND_Y + lo;
+      h += top - lo;
       // walls keep the plot's own axes (width along the street)
       q.setFromAxisAngle(up, -ang);
-      p.set(x, LAND_Y, z); s.set(w, h, d);
+      p.set(x, gy, z); s.set(w, h, d);
       walls.setMatrixAt(k, m.compose(p, q, s));
       walls.setColorAt(k, enc(pt.wallCol, c));
       hips.setMatrixAt(k, zero); gables.setMatrixAt(k, zero); ends.setMatrixAt(k, zero);
       hips.setColorAt(k, enc(pt.roofCol, c)); gables.setColorAt(k, enc(pt.roofCol, c)); ends.setColorAt(k, enc(shade(pt.wallCol, 0.97), c));
       if (gable) {
         const rh = Math.min(3.4, Math.max(1.2, d * (0.2 + rand(i, 37) * 0.07)));
-        p.set(x, LAND_Y + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
+        p.set(x, gy + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
         gables.setMatrixAt(k, m.compose(p, q, s));
         s.set(w, rh, d + 1.1);
         ends.setMatrixAt(k, m.compose(p, q, s));
       } else if (!flatRoof) {
         if (d > w) { [w, d] = [d, w]; q.setFromAxisAngle(up, -(ang + Math.PI / 2)); }
         const rh = Math.min(3.2, Math.max(1.0, d * (0.24 + rand(i, 37 + salt) * 0.08)));
-        p.set(x, LAND_Y + h + 0.02, z); s.set(w + 0.9, rh, d + 0.9);
+        p.set(x, gy + h + 0.02, z); s.set(w + 0.9, rh, d + 0.9);
         hips.setMatrixAt(k, m.compose(p, q, s));
-      } else if (rand(i, 38 + salt) < 0.75) tanks.push([x + (rand(i, 39) - 0.5) * w * 0.3, LAND_Y + h, z + (rand(i, 40) - 0.5) * d * 0.3, ang, 0.85 + rand(i, 41) * 0.3]);
+      } else if (rand(i, 38 + salt) < 0.75) tanks.push([x + (rand(i, 39) - 0.5) * w * 0.3, gy + h, z + (rand(i, 40) - 0.5) * d * 0.3, ang, 0.85 + rand(i, 41) * 0.3]);
     });
     for (const mesh of [walls, hips, gables, ends]) {
       mesh.instanceMatrix.needsUpdate = true;
@@ -486,7 +506,7 @@ function buildTrees(data, group) {
         const r = 3.1 * sc * (0.75 + rand(i, 41) * 0.5);
         const hgt = r * (0.95 + rand(i, 42) * 0.45);
         q.setFromAxisAngle(up, rand(i, 43) * 6.28);
-        p.set(x, LAND_Y + hgt * 1.7, z);
+        p.set(x, LAND_Y + rise(x, z) + hgt * 1.7, z);
         s.set(r, hgt, r);
         mesh.setMatrixAt(k, m.compose(p, q, s));
         const col = kind === 2 ? pick(flame, i, 44) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
@@ -538,7 +558,10 @@ function buildWalls(data, structures) {
 export function buildCity(data) {
   const group = new THREE.Group();
   const structures = new Buf(160000); // walls, bridges, landmarks: one mesh, no window lights
+  initTerrain(data);
   buildLand(data, group);
+  const hills = buildTerrainMesh();
+  if (hills) group.add(hills);
   buildGreen(data, group);
   const { lamps } = buildRoads(data, group, structures);
   const buildings = buildBuildings(data, group);

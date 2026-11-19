@@ -99,8 +99,9 @@ class OcclusionPass extends Pass {
           col *= mix( uTint, vec3( 1.0 ), ao );
           // grade: a little more separation, warm highlights against cool shade
           float l = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
-          col = mix( vec3( l ), col, 1.1 );
-          col *= mix( vec3( 0.97, 0.99, 1.04 ), vec3( 1.03, 1.0, 0.96 ), smoothstep( 0.05, 0.7, l ) );
+          // grade toward old paper and patina: a little less chroma, warm lights, green-grey shade
+          col = mix( vec3( l ), col, 0.97 );
+          col *= mix( vec3( 0.95, 1.0, 0.98 ), vec3( 1.05, 1.0, 0.93 ), smoothstep( 0.05, 0.7, l ) );
           vec2 q = vUv - 0.5;
           col *= 1.0 - uVignette * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
           gl_FragColor = vec4( col, 1.0 );

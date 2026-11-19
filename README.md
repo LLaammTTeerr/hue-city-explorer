@@ -48,7 +48,11 @@ Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` time of day, `L` labels.
 | Citadel wall polygon (height 6.6 m from its tag), Imperial City walls, gates | roof shapes, facades, rooftop water tanks, rear wings on infill houses |
 | footprints/axes of Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the market hall | the hand-built models standing on those footprints |
 
-To refresh: `npm run data:fetch && npm run data:build`.
+Ground height comes from four zoom-13 tiles of the AWS Open Data [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/)
+set (`scripts/fetch-elevation.sh` → `data/raw/elev/`). The build keeps only what stands clearly above the flat city
+floor, so the hills rise and the plain stays level.
+
+To refresh: `npm run data:fetch && sh scripts/fetch-elevation.sh && npm run data:build`.
 
 © OpenStreetMap contributors, ODbL — https://www.openstreetmap.org/copyright
 

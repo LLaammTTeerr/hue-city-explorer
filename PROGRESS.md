@@ -32,6 +32,12 @@
 - Places: 64 labelled, including Nghênh Lương Đình, Cửa Kẻ Trài, phố đi bộ Nguyễn Đình Chiểu, Phố Tây, cầu Nguyễn
   Hoàng and chùa Thiên Mụ (extract widened west with a merged strip; tháp Phước Duyên modelled on its OSM octagon).
 
+- Terrain and landmark pass (branch `landmark-shapes`): real ground height from public elevation tiles (hills in
+  the west/south-west, Hà Khê hill restored under Thiên Mụ); land, roads, buildings, houses, trees and labels follow it.
+  Cầu Nguyễn Hoàng remodelled (five spans, wide deck, golden arch frame, parasol lamps); Thiên Mụ with its tower
+  proportions, four pillars, steps, pavilions and triple gate; Quốc Học in dark red with its gate. Institutions no
+  longer get shopfronts. Aged surface pass (damp, mould, moss, soot) and 76 moored sampans.
+
 ## Not verified
 - Real touch gestures on a physical phone (layout and logic checked in a 375×812 viewport only).
 - Frame rate on low-end phones (adaptive resolution is in place but untested on hardware).

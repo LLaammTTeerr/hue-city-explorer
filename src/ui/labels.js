@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { LAND_Y } from '../config.js';
+import { rise } from '../geo/terrain.js';
 
 // HTML labels pinned to places. Nearer views reveal more of them, and overlapping labels yield to the more important one.
 export function createLabels(root, data, camera, onPick) {
@@ -16,7 +17,7 @@ export function createLabels(root, data, camera, onPick) {
       el.addEventListener('click', (e) => { e.stopPropagation(); onPick(p.id); });
     }
     root.appendChild(el);
-    items.push({ p, el, water, pos: new THREE.Vector3(p.x / 10, water ? 1 : LAND_Y + (p.h || 10), p.z / 10), w: 0, h: 0, shown: false, pri: (water ? 3.5 : p.t) });
+    items.push({ p, el, water, pos: new THREE.Vector3(p.x / 10, water ? 1 : LAND_Y + rise(p.x / 10, p.z / 10) + (p.h || 10), p.z / 10), w: 0, h: 0, shown: false, pri: (water ? 3.5 : p.t) });
   };
   data.places.forEach((p) => add(p));
   data.waterLabels.forEach((p) => add(p, true));

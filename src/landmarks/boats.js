@@ -47,9 +47,41 @@ function makeTrack(pts) {
   };
 }
 
+// A small sampan with a woven arched roof, the kind tied up along the banks. Local +x is the bow.
+function sampanGeometry() {
+  const B = new Buf(64);
+  const wood = hex('#5f4433'), deck = hex('#8a6a4c'), mat = hex('#b89a6a'), matD = hex('#9a7f55');
+  const hull = [[-4.2, 0], [-3, -0.85], [2.6, -0.85], [4.4, 0], [2.6, 0.85], [-3, 0.85]];
+  B.prism(hull, -0.25, 0.45, wood, deck, { scaleTop: 1.08 });
+  // arched roof in five facets
+  const x0 = -2.2, x1 = 1.2, r = 0.95;
+  for (let i = 0; i < 5; i++) {
+    const a0 = (i / 5) * Math.PI, a1 = ((i + 1) / 5) * Math.PI;
+    const p0 = [Math.cos(a0) * r, 0.45 + Math.sin(a0) * r * 0.95], p1 = [Math.cos(a1) * r, 0.45 + Math.sin(a1) * r * 0.95];
+    B.quad([x0, p0[1], p0[0]], [x1, p0[1], p0[0]], [x1, p1[1], p1[0]], [x0, p1[1], p1[0]], i % 2 ? mat : matD, [0, Math.sin((a0 + a1) / 2), Math.cos((a0 + a1) / 2)]);
+  }
+  return B.geometry();
+}
+
 export function buildBoats(data, group) {
   const geo = dragonBoatGeometry();
   const mat = cityMaterial();
+  // sampans at the moorings
+  const mo = data.moorings || [];
+  if (mo.length) {
+    const im = new THREE.InstancedMesh(sampanGeometry(), mat, mo.length / 3);
+    const m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), ss = new THREE.Vector3(), pp = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    for (let i = 0; i < mo.length / 3; i++) {
+      const k = 0.85 + ((i * 37) % 10) / 25;
+      qq.setFromAxisAngle(up, -mo[i * 3 + 2] / 1000 + (i % 2 ? Math.PI : 0));
+      pp.set(mo[i * 3] / 10, 0, mo[i * 3 + 1] / 10); ss.set(k, k, k);
+      im.setMatrixAt(i, m4.compose(pp, qq, ss));
+    }
+    im.instanceMatrix.needsUpdate = true;
+    im.castShadow = true;
+    im.frustumCulled = false;
+    group.add(im);
+  }
   const make = () => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; group.add(m); return m; };
 
   // keep traffic on the stretch between Cồn Dã Viên and the head of Cồn Hến

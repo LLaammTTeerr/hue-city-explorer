@@ -11,7 +11,7 @@ export const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 
 // What a face is made of. The fragment shader paints the matching surface detail
 // (window bays, roof tiles, brick courses…) so geometry stays light.
-export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7 };
+export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8 };
 
 export class Buf {
   constructor(tris = 4096) {
@@ -216,9 +216,9 @@ export class Buf {
     this.kind = keep;
   }
 
-  cyl(cx, cz, y0, y1, r0, r1, seg, col, { cap = true } = {}) {
+  cyl(cx, cz, y0, y1, r0, r1, seg, col, { cap = true, rot = 0 } = {}) {
     for (let i = 0; i < seg; i++) {
-      const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
+      const a0 = rot + (i / seg) * Math.PI * 2, a1 = rot + ((i + 1) / seg) * Math.PI * 2;
       const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
       const hint = [c0 + c1, 0.1, s0 + s1];
       this.quad([cx + c0 * r0, y0, cz + s0 * r0], [cx + c1 * r0, y0, cz + s1 * r0], [cx + c1 * r1, y1, cz + s1 * r1], [cx + c0 * r1, y1, cz + s0 * r1], col, hint);

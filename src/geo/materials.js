@@ -48,8 +48,9 @@ vec2 hueCell = vec2( 0.0 );
   diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.8, 0.94, 1.1 ), diffuseColor.rgb * vec3( 1.1, 1.06, 0.78 ), smoothstep( 0.35, 0.75, leaf ) );
 #else
 
-if ( vKind > 0.5 && vKind < 1.5 ) {
-  // ---------------- facade ----------------
+if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) ) {
+  // ---------------- facade (kind 8: institutions — the same bays on every floor, no shopfronts) ----------------
+  bool civic = vKind > 7.5;
   diffuseColor.rgb *= mix( 1.0, mix( 0.74, 1.0, smoothstep( 0.0, 6.0, hueH ) ), hueWall );
   vec2 t = normalize( vec2( -hueN.z, hueN.x ) + 1e-5 );
   vec2 uv = vec2( dot( vWPos.xz, t ) / 2.9, hueH / 3.4 );
@@ -65,7 +66,7 @@ if ( vKind > 0.5 && vKind < 1.5 ) {
   float streak = hueNoise( vec2( uv.x * 9.0, uv.y * 0.7 ) );
   base *= 0.93 + 0.1 * hueNoise( uv * vec2( 1.7, 2.3 ) ) - 0.09 * streak * smoothstep( 0.2, 1.0, f.y );
   vec3 col = base;
-  if ( cell.y < 0.5 ) {
+  if ( cell.y < 0.5 && !civic ) {
     // street level: a shopfront or doorway under an awning
     float open = smoothstep( 0.1, 0.14, f.x ) * smoothstep( 0.9, 0.86, f.x ) * smoothstep( 0.02, 0.05, f.y ) * smoothstep( 0.72, 0.68, f.y );
     float awn = smoothstep( 0.04, 0.08, f.x ) * smoothstep( 0.96, 0.92, f.x ) * smoothstep( 0.7, 0.73, f.y ) * smoothstep( 0.86, 0.83, f.y );
@@ -96,6 +97,10 @@ if ( vKind > 0.5 && vKind < 1.5 ) {
     hueLit = win * ( 1.0 - shut ) * step( seed, 0.44 );
   }
   diffuseColor.rgb = mix( base * 0.9, col, detail );
+  // age: damp rising from the ground and mould under the eaves — old lime-washed walls are never one colour
+  float damp = ( 1.0 - smoothstep( 0.0, 1.6, hueH ) ) * ( 0.45 + 0.55 * hueNoise( vec2( uv.x * 3.1, 2.0 ) ) );
+  float mould = hueNoise( vec2( uv.x * 1.3 + 5.0, uv.y * 0.35 ) ) * hueNoise( vec2( uv.x * 5.7, uv.y * 1.1 + 3.0 ) );
+  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.7, 0.56 ), clamp( damp * 0.75 + smoothstep( 0.22, 0.5, mould ) * 0.4, 0.0, 0.8 ) * hueWall );
   hueLit = mix( 0.1, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
 } else if ( vKind > 1.5 && vKind < 2.5 ) {
   // ---------------- roof tiles ----------------
@@ -112,7 +117,10 @@ if ( vKind > 0.5 && vKind < 1.5 ) {
   float age = hueNoise( vWPos.xz * 0.45 ) * 0.6 + hueNoise( vWPos.xz * 1.7 ) * 0.4;
   diffuseColor.rgb *= mix( 0.9, shade, detail ) * ( 0.78 + 0.36 * age );
   // lichen and soot where tiles stay damp
-  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.7, 0.74, 0.66 ), smoothstep( 0.55, 0.9, hueNoise( vWPos.xz * 0.23 + 31.0 ) ) * 0.45 );
+  float moss = hueNoise( vWPos.xz * 0.23 + 31.0 ) * 0.65 + hueNoise( vWPos.xz * 1.1 + 7.0 ) * 0.35;
+  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.56, 0.66, 0.5 ), smoothstep( 0.42, 0.78, moss ) * 0.6 );
+  // soot-dark courses near the eaves, where old tiles hold water longest
+  diffuseColor.rgb *= 1.0 - 0.18 * smoothstep( 0.6, 0.95, hueNoise( vWPos.xz * 2.7 ) );
 } else if ( vKind > 3.5 && vKind < 4.5 ) {
   // ---------------- brick and stone ----------------
   diffuseColor.rgb *= mix( 1.0, mix( 0.76, 1.0, smoothstep( 0.0, 5.0, hueH ) ), hueWall );
