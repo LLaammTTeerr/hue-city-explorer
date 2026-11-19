@@ -17,6 +17,13 @@
   culling and kept out of the water reflection unless near water. Measured ~11–14 ms per frame at 1280×800
   on an Apple M5.
 
+- Deployed: public repo `LLaammTTeerr/hue-city-explorer`, GitHub Pages via `.github/workflows/deploy.yml`
+  (push to `main` → build → publish). Custom domain `hue-city.lamter.cc` is set on the Pages site.
+  Pending on the DNS side (Cloudflare): `CNAME hue-city → llaammtteerr.github.io`, DNS only; then enable
+  "Enforce HTTPS" once GitHub has issued the certificate.
+- Git identity for this repo is the GitHub noreply address (local config). The remote is HTTPS; pushes need the
+  LLaammTTeerr credential (`gh auth switch --user LLaammTTeerr` or a per-command token), not the work account.
+
 ## Not verified
 - Real touch gestures on a physical phone (layout and logic checked in a 375×812 viewport only).
 - Frame rate on low-end phones (adaptive resolution is in place but untested on hardware).
