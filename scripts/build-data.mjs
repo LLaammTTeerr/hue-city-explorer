@@ -392,7 +392,10 @@ const quocHoc = ringOf(695775622);
 const thienMu = ringOf(205794912);
 const towerC = (() => { const r = ringOf(205795043); return r ? centroid(r) : null; })();
 const thienMuSmall = [];
-const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall' };
+const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall',
+  // named places that get their own model instead of a generic extrusion (src/landmarks/civic.js)
+  175063593: 'gahue', 118792054: 'phucam', 1172894102: 'dcct', 1172897446: 'andinh', 771244228: 'dieude', 771244225: 'dieudeGate',
+  172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong' };
 const special = {};
 const gates = [];
 const buildings = [];
@@ -640,7 +643,7 @@ addPlace('quochoc', 'Trường Quốc Học', wayCentre(695775622), 3, 'place', 
   const vin = findByName(/Vincom Plaza/);
   if (vin && vin.geometry) addPlace('vincom', 'Vincom Plaza Huế', centroid(openRing(vin.geometry.map(proj))), 3, 'place', 165);
   const cath = els.find((e) => e.tags && e.tags.building === 'cathedral');
-  if (cath && cath.geometry) addPlace('phucam', cath.tags.name || 'Nhà thờ Phủ Cam', centroid(openRing(cath.geometry.map(proj))), 3, 'place', 30);
+  if (cath && cath.geometry) addPlace('phucam', 'Nhà thờ Phủ Cam', centroid(openRing(cath.geometry.map(proj))), 3, 'place', 46);
 }
 // More named places, each anchored on its OSM element (names given with full diacritics)
 const EXTRA = [
@@ -664,7 +667,8 @@ const EXTRA = [
   ['mangca', 'Trấn Bình Đài · Mang Cá', 'way', 367959083, 3, 'monument', 16],
   ['thuyquan', 'Đông Thành Thủy Quan', 'way', 619851621, 3, 'monument', 10],
   ['dieude', 'Chùa Diệu Đế', 'way', 771244228, 3, 'place', 14],
-  ['dcct', 'Nhà thờ Dòng Chúa Cứu Thế', 'way', 1172894102, 3, 'place', 30],
+  ['dcct', 'Nhà thờ Dòng Chúa Cứu Thế', 'way', 1172894102, 3, 'place', 56],
+  ['hienlam', 'Hiển Lâm Các', 'way', 172657564, 4, 'monument', 19],
   ['tudam', 'Chùa Từ Đàm', 'way', 631871502, 3, 'place', 14],
   ['baoquoc', 'Chùa Báo Quốc', 'way', 1170979640, 3, 'place', 14],
   ['baotanghcm', 'Bảo tàng Hồ Chí Minh', 'way', 240266284, 3, 'place', 14],
@@ -753,6 +757,7 @@ if (quocHoc) {
   if (best) { quocHocGate = { c: [q(best.m[0]), q(best.m[1])], a: Math.round(best.a * 1000) }; console.log('quoc hoc gate at', best.m.map(Math.round), 'edge', Math.round(best.len), 'm'); }
 }
 special.thienmuSmall = thienMuSmall;
+{ const r = ringOf(1172894104); if (r) special.andinhArea = { ring: flat(r), name: '' }; }
 console.log('thien mu small buildings', thienMuSmall.length);
 
 // =====================================================================

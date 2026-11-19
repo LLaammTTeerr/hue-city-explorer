@@ -137,6 +137,37 @@ function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0) {
     }
   }
 }
+// Cầu Bạch Hổ, the 1908 railway bridge: steel through-trusses with a bowed top chord, one per span.
+function railTruss(B, pts, len, deck, pier) {
+  const spans = Math.max(2, Math.round(len / 58)), sl = len / spans, N = 8, half = 3.1;
+  const steel = hex('#8f979b'), steelD = hex('#737b80');
+  const node = (s, side, y) => { const { p, a } = along(pts, Math.min(len - 0.01, Math.max(0.01, s))); return [p[0] - Math.sin(a) * side * half, y, p[1] + Math.cos(a) * side * half]; };
+  for (let k = 0; k <= spans; k++) {
+    const { p, a } = along(pts, Math.min(len - 0.01, Math.max(0.01, k * sl)));
+    if (k > 0 && k < spans) { B.kind = KIND.MASONRY; B.box(p[0], p[1], -3, deck - 1.3, 3.0, 8.4, a, pier, { taper: 0.9 }); B.kind = KIND.PLAIN; }
+  }
+  for (let k = 0; k < spans; k++) {
+    const s0 = k * sl + 0.5, pl = (sl - 1) / N;
+    const hOf = (i) => 4.4 + 3.4 * Math.sin((Math.PI * i) / N);
+    for (const side of [-1, 1]) {
+      const b = [], t = [];
+      for (let i = 0; i <= N; i++) { b.push(node(s0 + i * pl, side, deck + 0.25)); t.push(i === 0 || i === N ? null : node(s0 + i * pl, side, deck + hOf(i))); }
+      B.beam(b[0], b[N], 0.34, 0.5, steelD);
+      B.beam(b[0], t[1], 0.36, 0.4, steel); B.beam(t[N - 1], b[N], 0.36, 0.4, steel);
+      for (let i = 1; i < N; i++) {
+        B.beam(b[i], t[i], 0.2, 0.26, steel);
+        if (i < N - 1) B.beam(t[i], t[i + 1], 0.36, 0.4, steel);
+        if (i < N / 2) B.beam(t[i], b[i + 1], 0.18, 0.22, steelD); else if (i > N / 2) B.beam(t[i], b[i - 1], 0.18, 0.22, steelD);
+      }
+    }
+    // portal frames and bracing across the top, clear of the trains
+    for (let i = 1; i < N; i++) {
+      const l = node(s0 + i * pl, -1, deck + hOf(i)), r = node(s0 + i * pl, 1, deck + hOf(i));
+      B.beam(l, r, 0.2, 0.24, steelD);
+      if (i < N - 1) B.beam(l, node(s0 + (i + 1) * pl, 1, deck + hOf(i + 1)), 0.12, 0.14, steelD);
+    }
+  }
+}
 function pathLength(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
 function along(pts, dist) {
   let s = 0;
@@ -201,6 +232,7 @@ function buildRoads(data, group, structures) {
     const pts = unflat(flat);
     slab(structures, pts, 5.5, LAND_Y + 0.5, 1.4, hex(PAL.rail), hex('#6d6670'), 1.6);
     const len = pathLength(pts);
+    if (len > 150) { railTruss(structures, pts, len, LAND_Y + 0.5, pier); continue; }
     const n = Math.round(len / 34) - 1;
     for (let i = 1; i <= n; i++) { const { p, a } = along(pts, (len * i) / (n + 1)); structures.box(p[0], p[1], -3, LAND_Y - 0.9, 2.4, 6, a, pier); }
   }

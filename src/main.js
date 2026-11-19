@@ -12,6 +12,7 @@ import { buildTruongTien } from './landmarks/truongtien.js';
 import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
 import { buildBoats } from './landmarks/boats.js';
 import { buildNguyenHoang, buildQuocHocGate } from './landmarks/more.js';
+import { buildCivic } from './landmarks/civic.js';
 import { buildLotus, buildTraffic } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
@@ -75,6 +76,7 @@ async function main() {
   buildThienMu(data, world.structures);
   const extraGlows = buildNguyenHoang(data, world.structures, dynamic);
   buildQuocHocGate(data, world.structures);
+  buildCivic(data, world.structures);
   finishStructures(world.structures, world.group);
   const boats = buildBoats(data, dynamic);
   buildLotus(data, dynamic);
