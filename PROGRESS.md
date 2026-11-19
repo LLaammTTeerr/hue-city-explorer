@@ -50,9 +50,25 @@
   slope. Blocks are filled behind the street fronts with one or two back rows of houses (infill 34,727 → 63,859).
   Roofs no longer cast shadows (walls do), keeping the frame at ~16–17.5 ms at 2190×1369.
 
+- City landmarks (branch `restyle`): the named places that were generic boxes now have their own models on their OSM
+  footprints — Ga Huế, nhà thờ Phủ Cam, Dòng Chúa Cứu Thế, cung An Định (palace, Trung Lập pavilion, gate), chùa
+  Diệu Đế, Hiển Lâm Các with the nine urns, Vincom, Lầu Tứ Phương Vô Sự; steel trusses on cầu Bạch Hổ
+  (`src/landmarks/civic.js`).
+- Eras: every ordinary building is Nguyễn-period timber, Indochine or modern (`scripts/build-data.mjs` §4b decides by
+  district; shader kinds COLONIAL/MODERN paint the facades; palettes and roof forms differ per family).
+- Performance: roof tanks lightened and chunked, small details culled beyond 1.5 km, tree and house chunks beyond
+  3.6–5.2 km (`src/geo/lod.js`). ~11 ms a frame at 1280×800 with the extended map.
+- South extension: the bundle now runs 12.7 km north–south, down to lăng Minh Mạng (six extra Overpass pieces,
+  `scripts/fetch-osm-south.sh`; eight elevation tiles). Terrain keeps true hill heights (25 m grid, soft dead zone).
+  `data.sites` hands each southern site's footprints to its model: `src/landmarks/tombs.js` (Tự Đức, Minh Mạng,
+  Khải Định, Thiệu Trị, Đồng Khánh) and `src/landmarks/south.js` (đàn Nam Giao, hồ Thủy Tiên and its dragon, Thiên An,
+  Vọng Cảnh). Street life (lamp posts, pedestrians, more traffic, a train) is in `src/landmarks/life.js`.
+- Open: the Overpass piece holding lăng Khải Định kept timing out; rerun `sh scripts/fetch-osm-south.sh` then
+  `node scripts/build-data.mjs` (the tomb model falls back to the site centre without footprints).
+
 ## Not verified
 - Real touch gestures on a physical phone (layout and logic checked in a 375×812 viewport only).
 - Frame rate on low-end phones (adaptive resolution is in place but untested on hardware).
 
 ## Next (ideas)
-- Núi Ngự Bình and chùa Thiên Mụ lie outside the bundled extract; widening the bbox would bring them in.
+- Lăng Gia Long lies 3 km beyond the southern edge.

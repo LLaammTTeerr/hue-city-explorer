@@ -75,6 +75,22 @@ export function buildTerrainMesh() {
     idx.push(a, c, b, a, d, c);
   }
   if (!idx.length) return null;
+  // where raised ground reaches the edge of the slab, close it with a cut face down to the flat floor (a model's sawn edge)
+  {
+    const earth = new THREE.Color('#8a7a62');
+    const wall = (i0, j0, i1, j1) => {
+      const k0 = j0 * nx + i0, k1 = j1 * nx + i1;
+      if (h[k0] === 0 && h[k1] === 0) return;
+      const base = pos.length / 3;
+      for (const [i, j, k] of [[i0, j0, k0], [i1, j1, k1]]) {
+        pos.push(T.x0 + i * step, LAND_Y + h[k] + 0.03, T.z0 + j * step); col.push(earth.r, earth.g, earth.b);
+        pos.push(T.x0 + i * step, LAND_Y - 0.5, T.z0 + j * step); col.push(earth.r * 0.8, earth.g * 0.8, earth.b * 0.8);
+      }
+      idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3, base, base + 2, base + 1, base + 2, base + 3, base + 1); // both windings
+    };
+    for (let i = 0; i < nx - 1; i++) { wall(i, 0, i + 1, 0); wall(i, nz - 1, i + 1, nz - 1); }
+    for (let j = 0; j < nz - 1; j++) { wall(0, j, 0, j + 1); wall(nx - 1, j, nx - 1, j + 1); }
+  }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));

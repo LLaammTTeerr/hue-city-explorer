@@ -39,7 +39,9 @@ Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` time of day, `L` labels.
 
 `scripts/fetch-osm.sh` pulls one Overpass extract (bbox 16.4455–16.4965 N, 107.552–107.613 E) into
 `data/raw/hue-osm.json`; `scripts/fetch-osm-strip.sh` adds extra strips (the western one, out to chùa Thiên Mụ at
-107.5385 E, is `data/raw/hue-osm-west.json`) and the build merges them. `scripts/build-data.mjs` turns it into the 2.3 MB bundle the app loads:
+107.5385 E, is `data/raw/hue-osm-west.json`; `scripts/fetch-osm-south.sh` fetches the southern hills down to lăng
+Minh Mạng at 16.382 N in six pieces) and the build merges them. `scripts/build-data.mjs` turns it into the ~5 MB
+bundle the app loads:
 
 | From OSM, positions and proportions kept | Generated, shown as illustration |
 | --- | --- |
@@ -49,9 +51,14 @@ Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` time of day, `L` labels.
 | Citadel wall polygon (height 6.6 m from its tag), Imperial City walls, gates | roof shapes, facades, rooftop water tanks, rear wings on infill houses |
 | footprints/axes of Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the market hall | the hand-built models standing on those footprints |
 
-Ground height comes from four zoom-13 tiles of the AWS Open Data [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/)
+Ground height comes from eight zoom-13 tiles of the AWS Open Data [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/)
 set (`scripts/fetch-elevation.sh` → `data/raw/elev/`). The build keeps only what stands clearly above the flat city
-floor, so the hills rise and the plain stays level.
+floor, so the hills rise to their real height and the plain stays level.
+
+Which period an ordinary building belongs to (Nguyễn-period timber house, Indochine, modern) is not an OSM tag: the
+build assigns it by district — the French quarter along Lê Lợi, the old shophouse streets of Gia Hội, the garden-house
+wards of the Citadel, Kim Long and Vỹ Dạ — as an illustration of how those quarters read. The royal tombs, đàn Nam
+Giao, Thiên An and the Thủy Tiên dragon stand on their mapped footprints and axes; their forms are hand-built.
 
 To refresh: `npm run data:fetch && sh scripts/fetch-elevation.sh && npm run data:build`.
 

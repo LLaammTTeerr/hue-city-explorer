@@ -3,6 +3,7 @@ import { hex, shade } from './buf.js';
 import { cityMaterial, enc } from './materials.js';
 import { rise } from './terrain.js';
 import { LAND_Y, quality } from '../config.js';
+import { lodAdd } from './lod.js';
 
 // Trees are built the way stylised foliage usually is: a handful of leaf-cluster cards around a dark core,
 // lit with rounded "puffball" normals so the crown shades as one soft mass, cut out by an alpha texture.
@@ -231,6 +232,7 @@ export function buildTrees(data, group) {
         mesh.computeBoundingSphere();
         mesh.layers.set(layer);
         mesh.name = 'trees';
+        lodAdd(mesh, 3600);
         group.add(mesh);
         meshes.push(mesh);
       }

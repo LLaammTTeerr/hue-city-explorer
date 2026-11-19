@@ -13,7 +13,8 @@ const OUT = 'public/data/hue.json';
 
 // Local frame: metres east (x) and south (z) of the middle of cầu Trường Tiền.
 const ORIGIN = { lat: 16.468896, lon: 107.588858 };
-const BBOX = { s: 16.4455, w: 107.5385, n: 16.4965, e: 107.613 }; // west edge reaches chùa Thiên Mụ
+const BBOX = { s: 16.382, w: 107.5385, n: 16.4965, e: 107.613 }; // west edge reaches chùa Thiên Mụ; south edge takes in the royal tombs down to lăng Minh Mạng
+const CITY_S = 16.4455; // south of this line lie the hills: sparser houses and trees, real relief
 const KX = Math.cos((ORIGIN.lat * Math.PI) / 180) * 111319.49;
 const KZ = 110574;
 const proj = (p) => [(p.lon - ORIGIN.lon) * KX, -(p.lat - ORIGIN.lat) * KZ];
@@ -35,6 +36,8 @@ const get = (type, id) => byId.get(type + id);
 
 const [MINX, MAXZ] = proj({ lat: BBOX.s, lon: BBOX.w });
 const [MAXX, MINZ] = proj({ lat: BBOX.n, lon: BBOX.e });
+const CITY_MAXZ = proj({ lat: CITY_S, lon: BBOX.w })[1];
+const inHills = (p) => p[1] > CITY_MAXZ;
 
 // ---------- small geometry kit ----------
 let seed = 20261119;
@@ -384,6 +387,40 @@ for (const e of els) {
 }
 
 // =====================================================================
+// 4b. Eras. Three families of ordinary building, so a district reads as its period from the air:
+//   2 = Nguyễn-period timber houses (the garden houses of the Citadel wards, Kim Long, Vỹ Dạ)
+//   1 = Indochine (the French quarter along Lê Lợi; the old shophouse streets of Gia Hội and Đông Ba)
+//   0 = modern
+// Which streets carry which period is a judgement from the city's history, not an OSM tag; it is illustrative.
+// =====================================================================
+const streetPts = (re) => {
+  const out = [];
+  for (const e of els) {
+    if (e.type !== 'way' || !e.tags || !e.tags.highway || !e.geometry || !re.test(e.tags.name || '')) continue;
+    const g = e.geometry.map(proj);
+    for (let i = 0; i + 1 < g.length; i++) {
+      const n = Math.max(1, Math.ceil(Math.hypot(g[i + 1][0] - g[i][0], g[i + 1][1] - g[i][1]) / 20));
+      for (let k = 0; k <= n; k++) out.push([g[i][0] + ((g[i + 1][0] - g[i][0]) * k) / n, g[i][1] + ((g[i + 1][1] - g[i][1]) * k) / n]);
+    }
+  }
+  return out;
+};
+const nearPts = (pts, p, r) => { const r2 = r * r; for (const t of pts) { const dx = t[0] - p[0], dz = t[1] - p[1]; if (dx * dx + dz * dz < r2) return true; } return false; };
+const FRENCH = streetPts(/^Lê Lợi$/), OLDTOWN = streetPts(/^(Chi Lăng|Trần Hưng Đạo|Bạch Đằng|Huỳnh Thúc Kháng|Phan Đăng Lưu)$/), GARDEN = streetPts(/^(Kim Long|Phú Mộng|Nguyễn Sinh Cung|Vạn Xuân|Nguyễn Phúc Nguyên)$/);
+console.log('era streets: french', FRENCH.length, 'old town', OLDTOWN.length, 'garden', GARDEN.length);
+const hash2 = (i, j) => { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const vnoise = (x, z) => { const i = Math.floor(x), j = Math.floor(z); let fx = x - i, fz = z - j; fx = fx * fx * (3 - 2 * fx); fz = fz * fz * (3 - 2 * fz); return (hash2(i, j) * (1 - fx) + hash2(i + 1, j) * fx) * (1 - fz) + (hash2(i, j + 1) * (1 - fx) + hash2(i + 1, j + 1) * fx) * fz; };
+function eraOf(c, area) {
+  // clumps of a period, with single houses breaking rank
+  const k = vnoise(c[0] / 85 + 3.1, c[1] / 85 + 7.7) * 0.7 + hash2(Math.round(c[0] * 3), Math.round(c[1] * 3)) * 0.3;
+  if (nearPts(FRENCH, c, 290)) return k < 0.7 ? 1 : 0;
+  if (nearPts(OLDTOWN, c, 34)) return k < 0.56 ? 1 : 0;
+  if (area < 330 && nearPts(GARDEN, c, 75)) return k < 0.5 ? 2 : 0;
+  if (area < 330 && inCitadel(c) && !inImperial(c)) return k < 0.42 ? 2 : 0;
+  return 0;
+}
+
+// =====================================================================
 // 5. Buildings
 // =====================================================================
 // Quốc Học campus and the Thiên Mụ compound: buildings inside them are styled as a group
@@ -397,6 +434,17 @@ const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kyda
   175063593: 'gahue', 118792054: 'phucam', 1172894102: 'dcct', 1172897446: 'andinh', 771244228: 'dieude', 771244225: 'dieudeGate',
   172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong' };
 const special = {};
+// The southern sites (royal tombs, đàn Nam Giao, hồ Thủy Tiên, Thiên An): everything mapped inside each circle is
+// handed to the site's own model (src/landmarks/tombs.js, south.js) instead of being extruded as an ordinary building.
+const SITE_DEFS = [
+  ['tuduc', 'Lăng Tự Đức', -2440, 3980, 330, 2, 16], ['dongkhanh', 'Lăng Đồng Khánh', -2045, 4360, 280, 3, 12],
+  ['thieutri', 'Lăng Thiệu Trị', -1740, 5750, 380, 2, 14], ['minhmang', 'Lăng Minh Mạng', -2180, 8975, 480, 1, 18],
+  ['khaidinh', 'Lăng Khải Định', 154, 7729, 300, 1, 30], ['namgiao', 'Đàn Nam Giao', -675, 3458, 190, 2, 10],
+  ['thuytien', 'Hồ Thủy Tiên', -1335, 6558, 420, 2, 24], ['thienan', 'Đan viện Thiên An', -714, 6438, 170, 3, 24],
+];
+const sites = {};
+for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
+const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
 const gates = [];
 const buildings = [];
 const marketArea = get('way', 161714451).geometry.map(proj);
@@ -418,6 +466,7 @@ for (const e of els) {
   if (ringArea(ring) < 0) ring.reverse();
 
   if (SPECIAL[e.id]) { special[SPECIAL[e.id]] = { ring: flat(ring), name: t.name || '' }; fillPoly([ring], BLD); continue; }
+  { const st = siteOf(c); if (st) { st.items.push({ id: e.id, n: t.name || '', k: 'b', ring: flat(ring) }); fillPoly([ring], BLD); continue; } }
   // the small pavilions and gate standing with tháp Phước Duyên on its terrace are modelled with the tower
   if (towerC && Math.hypot(c[0] - towerC[0], c[1] - towerC[1]) < 27) { thienMuSmall.push(flat(ring)); fillPoly([ring], BLD); continue; }
   if (t.historic === 'city_gate') {
@@ -459,6 +508,12 @@ for (const e of els) {
   if (thienMu && pip(c, thienMu) && t.historic !== 'city_gate') { kind = 3; if (!hTag && !lv) h = area > 300 ? 8 : 5.5; }
   if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 9.2 : 5.2; }
   if (h > 30) kind = 7;
+  // flags 4 = Indochine, 8 = Nguyễn-period timber house
+  if ((kind === 0 || kind === 1 || kind === 5) && h <= 30) {
+    const era = eraOf(c, area);
+    if (era === 1) { flags |= 4; if (!hTag && !lv) h = area > 260 ? 9.8 : area > 70 ? 7.4 : 4.6; }
+    else if (era === 2 && kind === 0) { flags |= 8; if (!hTag && !lv) h = 3.7 + r * 0.9; }
+  }
 
   // flags: 1 = mapped over the water (drawn on a piled deck), 2 = Quốc Học campus
   if (at(c[0], c[1]) & WATER) flags |= 1;
@@ -467,6 +522,18 @@ for (const e of els) {
   fillPoly([ring], BLD);
 }
 console.log('buildings', buildings.length, 'gates', gates.length, gates.map((g) => g.n + ':' + g.k).join(', '));
+for (const e of els) {
+  const t = e.tags || {};
+  if (e.type === 'node' || t.building || !(t.natural === 'water' || t.historic || t.tourism === 'attraction' || t.landuse === 'religious' || t.barrier === 'wall')) continue;
+  const rings = elementRings(e);
+  if (!rings.length) continue;
+  rings.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)));
+  const ring = openRing(rings[0]);
+  if (ring.length < 3) continue;
+  const st = siteOf(centroid(ring));
+  if (st) st.items.push({ id: e.id, n: t.name || '', k: t.natural === 'water' ? 'w' : 'h', ring: flat(ring) });
+}
+for (const id in sites) console.log('site', id, sites[id].items.length, 'items:', sites[id].items.filter((i) => i.n).map((i) => i.n).join(', '));
 console.log('special', Object.keys(special));
 
 // =====================================================================
@@ -476,7 +543,9 @@ const infill = [];
 const BLOCK = WATER | GREEN | ROAD | BLD | NOBUILD;
 for (const road of roads) {
   if (road.bridge || road.c > 4) continue;
-  const density = road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86;
+  const hills = inHills(road.pts[0]);
+  if (hills && road.c > 3) continue;
+  const density = (road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86) * (hills ? 0.42 : 1);
   const half = ROAD_W[road.c] / 2;
   for (const side of [1, -1]) {
     let carry = rr(0, 6);
@@ -499,7 +568,7 @@ for (const road of roads) {
         const cx = px + tx * (w / 2) + nx * (half + sb + d / 2), cz = pz + tz * (w / 2) + nz * (half + sb + d / 2);
         const ang = Math.atan2(tz, tx);
         // rows behind the street front: Huế's blocks are built up well back from the road, along alleys OSM mostly lacks
-        if (road.c <= 3) {
+        if (road.c <= 3 && !hills) {
           let back = half + sb + d;
           for (let row = 0; row < 2; row++) {
             const d2 = rr(7, 12), w2 = w * rr(0.82, 1.12), gap2 = rr(1.4, 4.5);
@@ -508,7 +577,8 @@ for (const road of roads) {
             if (!inBox([bx, bz], -10) || rnd() > (cit ? 0.38 : row === 0 ? 0.6 : 0.3) || !rectFree(bx, bz, w2 + 1.4, d2 + 1.4, ang, BLOCK)) continue;
             const r2 = rnd();
             const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
-            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(h2), 0, 2); // 2 = no street face
+            const era2 = eraOf([bx, bz], w2 * d2);
+            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(h2, 4.4) : h2), 0, 2 | (era2 << 2)); // 2 = no street face; era in the upper bits
             fillPoly([rectCorners(bx, bz, w2, d2, ang)], BLD);
           }
         }
@@ -518,7 +588,9 @@ for (const road of roads) {
           if (cit) h = r < 0.6 ? rr(3.8, 4.8) : r < 0.96 ? rr(7.2, 8.2) : 11;
           else if (main) h = r < 0.15 ? 4.5 : r < 0.6 ? rr(7.4, 8.4) : r < 0.9 ? rr(10.8, 11.8) : rr(14, 15.5);
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
-          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, side > 0 ? 1 : 0);
+          const era = eraOf([cx, cz], w * d);
+          if (era === 2) h = Math.min(h, 4.4); else if (era === 1) h = Math.min(Math.max(h, 7.2), 11.4);
+          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2));
           fillPoly([rectCorners(cx, cz, w, d, ang)], BLD);
         }
         s += w + gap;
@@ -542,11 +614,12 @@ function plant(x, z, s, kind) {
 }
 const treeKind = (riverish) => { const r = rnd(); return r < (riverish ? 0.09 : 0.035) ? 2 : r < 0.3 ? 1 : 0; };
 for (const g of green) {
-  const spacing = g.k === 'wood' ? 9 : g.k === 'park' ? 13 : g.k === 'cemetery' ? 22 : g.k === 'sacred' ? 16 : g.k === 'grass' ? 24 : 0;
+  const far = inHills(g.p[0][0]);
+  const spacing = g.k === 'wood' ? (far ? 19 : 9) : g.k === 'park' ? 13 : g.k === 'cemetery' ? 22 : g.k === 'sacred' ? 16 : g.k === 'grass' ? 24 : 0;
   if (!spacing) continue;
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const p of g.p[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
-  const n = Math.min(2500, Math.round(((x1 - x0) * (z1 - z0)) / (spacing * spacing)));
+  const n = Math.min(far ? 900 : 2500, Math.round(((x1 - x0) * (z1 - z0)) / (spacing * spacing)));
   for (let i = 0; i < n; i++) {
     const p = [rr(x0, x1), rr(z0, z1)];
     if (pipPoly(p, g.p)) plant(p[0], p[1], rr(0.8, 1.5), treeKind(g.k === 'park'));
@@ -581,7 +654,7 @@ for (const road of roads) {
     const cit = inCitadel(p);
     const imp = cit && inImperial(p);
     if (m & NOBUILD && !imp && !cit) continue;
-    if (rnd() > (imp ? 0.75 : cit ? 0.7 : 0.26)) continue;
+    if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : 0.26)) continue;
     plant(p[0], p[1], rr(0.7, 1.35), treeKind(false));
   }
 }
@@ -681,6 +754,9 @@ const EXTRA = [
   ['benngu', 'Chợ Bến Ngự', 'way', 513649271, 3, 'market', 10],
 ];
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
+for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
+addPlace('vongcanh', 'Đồi Vọng Cảnh', [-3123, 4990], 3, 'place', 12);
+addPlace('ngubinh', 'Núi Ngự Bình', [1221, 2974], 2, 'place', 20);
 addPlace('thienmu', 'Chùa Thiên Mụ', wayCentre(205795043), 1, 'monument', 26);
 addPlace('ndchieu', 'Phố đi bộ Nguyễn Đình Chiểu', wayCentre(39418535), 2, 'place', 8);
 addPlace('nguyenhoang', 'Cầu Nguyễn Hoàng', wayCentre(1431136610), 2, 'bridge', 14);
@@ -792,12 +868,12 @@ function readPng(file) {
 }
 let terrain = null;
 {
-  const Z = 13, X0 = 6543, Y0 = 3715, N = 2;
-  const have = [0, 1].every((i) => [0, 1].every((j) => fs.existsSync(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`)));
+  const Z = 13, X0 = 6543, Y0 = 3715, NXT = 2, NYT = 4;
+  const have = [0, 1].every((i) => [0, 1, 2, 3].every((j) => fs.existsSync(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`)));
   if (!have) console.warn('no elevation tiles (run scripts/fetch-elevation.sh): terrain stays flat');
   else {
-    const M = 256 * N, dem = new Float32Array(M * M);
-    for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    const M = 256 * NXT, MH = 256 * NYT, dem = new Float32Array(M * MH);
+    for (let i = 0; i < NXT; i++) for (let j = 0; j < NYT; j++) {
       const t = readPng(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`);
       for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) { const o = (y * 256 + x) * t.ch; dem[(j * 256 + y) * M + i * 256 + x] = t.px[o] * 256 + t.px[o + 1] + t.px[o + 2] / 256 - 32768; }
     }
@@ -805,12 +881,12 @@ let terrain = null;
       const lon = ORIGIN.lon + x / KX, lat = ORIGIN.lat - z / KZ;
       const n = 2 ** Z, fx = ((lon + 180) / 360) * n - X0, lr = (lat * Math.PI) / 180;
       const fy = ((1 - Math.asinh(Math.tan(lr)) / Math.PI) / 2) * n - Y0;
-      const px = Math.max(0, Math.min(M - 1.001, fx * 256 - 0.5)), py = Math.max(0, Math.min(M - 1.001, fy * 256 - 0.5));
+      const px = Math.max(0, Math.min(M - 1.001, fx * 256 - 0.5)), py = Math.max(0, Math.min(MH - 1.001, fy * 256 - 0.5));
       const ix = Math.floor(px), iy = Math.floor(py), ax = px - ix, ay = py - iy;
       const g = (a, b) => dem[b * M + a];
       return (g(ix, iy) * (1 - ax) + g(ix + 1, iy) * ax) * (1 - ay) + (g(ix, iy + 1) * (1 - ax) + g(ix + 1, iy + 1) * ax) * ay;
     };
-    const STEP = 20, nx = Math.floor((MAXX - MINX) / STEP) + 1, nz = Math.floor((MAXZ - MINZ) / STEP) + 1;
+    const STEP = 25, nx = Math.floor((MAXX - MINX) / STEP) + 1, nz = Math.floor((MAXZ - MINZ) / STEP) + 1;
     let h = new Float32Array(nx * nz);
     const flatSamples = [];
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
@@ -834,18 +910,54 @@ let terrain = null;
       }
       return out;
     };
-    h = blur(blur(h));
-    // Radar elevation picks up roofs and canopy, so the flat city floor reads a few metres of noise.
-    // Keep only what stands clearly above that floor; never lift ground at the water's edge or inside the Citadel.
-    const DEAD = 3.2;
+    // Radar elevation picks up roofs and canopy, so the flat city floor reads a few metres of noise. A heavily
+    // smoothed copy decides WHERE the ground really rises; the height itself comes from a lightly smoothed copy,
+    // so hills keep their true height above the city floor instead of being shaved and flattened.
+    const raw = h;
+    const broad = blur(blur(raw)), fine = (() => {
+      const out = new Float32Array(raw.length);
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        let sum = 0, wsum = 0;
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+          const a = i + di, b = j + dj;
+          if (a < 0 || b < 0 || a >= nx || b >= nz) continue;
+          const wgt = di === 0 && dj === 0 ? 2 : 1;
+          sum += raw[b * nx + a] * wgt; wsum += wgt;
+        }
+        out[j * nx + i] = sum / wsum;
+      }
+      return out;
+    })();
+    const DEAD = 3.2, FULL = 9; // below DEAD above the floor: flat; from FULL up: the true height
     const nearWet = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx * STEP, z + dz * STEP) & WATER) return true; return false; };
     const lock = new Uint8Array(nx * nz);
+    h = new Float32Array(nx * nz);
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const x = MINX + i * STEP, z = MINZ + j * STEP, k = j * nx + i;
-      if (i === 0 || j === 0 || i === nx - 1 || j === nz - 1 || nearWet(x, z) || inCitadel([x, z]) || wallBandTest([x, z])) lock[k] = 1;
-      h[k] = lock[k] ? 0 : Math.max(0, h[k] - floor - DEAD);
+      // the slab's edge may stand high in the hills (it is cut like a model); only the city's own edges stay flat
+      const edge = i === 0 || j === 0 || i === nx - 1 || j === nz - 1;
+      if ((edge && !inHills([x, z])) || nearWet(x, z) || inCitadel([x, z]) || wallBandTest([x, z])) { lock[k] = 1; continue; }
+      const up = broad[k] - floor;
+      const t = Math.max(0, Math.min(1, (up - DEAD) / (FULL - DEAD))), gate = t * t * (3 - 2 * t);
+      h[k] = Math.max(0, fine[k] - floor) * gate;
     }
-    h = blur(h);
+    // one light pass to take the steps out of the gate; water and the Citadel stay at zero
+    {
+      const out = new Float32Array(h.length);
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        const k = j * nx + i;
+        if (lock[k]) continue;
+        let sum = 0, wsum = 0;
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+          const a = i + di, b = j + dj;
+          if (a < 0 || b < 0 || a >= nx || b >= nz) continue;
+          const wgt = di === 0 && dj === 0 ? 4 : 1;
+          sum += h[b * nx + a] * wgt; wsum += wgt;
+        }
+        out[k] = sum / wsum;
+      }
+      h = out;
+    }
     for (let k = 0; k < h.length; k++) if (lock[k] || h[k] < 0.35) h[k] = 0;
     // Hà Khê hill, which carries chùa Thiên Mụ, is narrower than the smoothing above, so its crest is put back
     // from the unsmoothed samples, measured against the low end of the city floor (true ground, not rooftops).
@@ -906,6 +1018,7 @@ const out = {
   imperial: { c: [q(imperial.c[0]), q(imperial.c[1])], w: q(imperial.w), d: q(imperial.d), a: Math.round(imperial.a * 1000) },
   gates,
   special,
+  sites,
   market: flat(openRing(marketArea)),
   truongtien: { a: flat([tt[0]]), b: flat([tt[tt.length - 1]]), box: { c: [q(ttBox.c[0]), q(ttBox.c[1])], w: q(ttBox.w), d: q(ttBox.d), a: Math.round(ttBox.a * 1000) } },
   terrain,

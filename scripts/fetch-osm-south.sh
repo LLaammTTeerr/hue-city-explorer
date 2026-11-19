@@ -12,4 +12,10 @@ for LAT in "16.4245,16.4455" "16.4035,16.4245" "16.3820,16.4035"; do
     sleep 6
   done
 done
+# the south-east piece (lăng Khải Định) is the one that tends to time out, so it can also be fetched as two halves
+if [ ! -s data/raw/hue-osm-south6.json ]; then
+  sh scripts/fetch-osm-strip.sh "16.3820,107.5760,16.4035,107.5945" south6a || echo "south6a FAILED"
+  sleep 6
+  sh scripts/fetch-osm-strip.sh "16.3820,107.5945,16.4035,107.6130" south6b || echo "south6b FAILED"
+fi
 ls -la data/raw/

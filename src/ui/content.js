@@ -166,11 +166,45 @@ export const NOTES = {
   ndchieu: { vi: 'Phố đi bộ Nguyễn Đình Chiểu — lối dạo ven sông Hương ở bờ nam, ngay chân cầu Trường Tiền.', en: 'Nguyễn Đình Chiểu walking street — the riverside promenade on the south bank, at the foot of Trường Tiền bridge.' },
   photay: { vi: 'Phố Tây — khu phố đêm của du khách quanh các đường Phạm Ngũ Lão, Chu Văn An và Võ Thị Sáu.', en: 'Phố Tây, the visitors’ night quarter around Phạm Ngũ Lão, Chu Văn An and Võ Thị Sáu streets.' },
   nguyenhoang: { vi: 'Cầu Nguyễn Hoàng — cây cầu mới bắc qua sông Hương ở phía thượng lưu, thông xe năm 2025.', en: 'Nguyễn Hoàng Bridge, the new crossing of the Hương upstream of the centre, opened in 2025.' },
+  tuduc: {
+    vi: 'Khiêm Lăng của vua Tự Đức (xây 1864–1867): một khu vườn thơ quanh hồ Lưu Khiêm, nơi nhà vua sống và làm việc trước khi yên nghỉ.',
+    en: 'Emperor Tự Đức’s Khiêm Lăng (built 1864–67): a poet’s garden around Lưu Khiêm lake, where he lived and worked long before he was buried here.',
+  },
+  minhmang: {
+    vi: 'Hiếu Lăng của vua Minh Mạng (1840–1843): một trục thẳng 700 m qua Đại Hồng Môn, Bi Đình, điện Sùng Ân, Minh Lâu tới Bửu Thành hình tròn, giữa hai hồ Trừng Minh và Tân Nguyệt.',
+    en: 'Emperor Minh Mạng’s Hiếu Lăng (1840–43): one 700 m axis through Đại Hồng Môn, the stele pavilion, Sùng Ân temple and Minh Lâu to the round Bửu Thành, between Trừng Minh and Tân Nguyệt lakes.',
+  },
+  khaidinh: {
+    vi: 'Ứng Lăng của vua Khải Định (1920–1931) trên sườn núi Châu Chữ: bê tông sẫm màu, bậc cấp dốc, và cung Thiên Định khảm sành sứ ở trên cùng.',
+    en: 'Emperor Khải Định’s Ứng Lăng (1920–31) on the slope of Châu Chữ: dark concrete, steep flights of steps, and Thiên Định palace with its porcelain mosaics at the top.',
+  },
+  thieutri: {
+    vi: 'Xương Lăng của vua Thiệu Trị (1848): hai trục song song — lăng và tẩm — không có la thành bao quanh.',
+    en: 'Emperor Thiệu Trị’s Xương Lăng (1848): two parallel axes, tomb and temple, with no surrounding wall.',
+  },
+  dongkhanh: {
+    vi: 'Tư Lăng của vua Đồng Khánh, xây qua bốn đời vua (1888–1917): điện thờ theo lối cổ, lăng mộ pha nét châu Âu.',
+    en: 'Emperor Đồng Khánh’s Tư Lăng, built across four reigns (1888–1917): a traditional temple and a tomb with European touches.',
+  },
+  namgiao: {
+    vi: 'Đàn Nam Giao (1806), nơi các vua Nguyễn tế Trời Đất: ba tầng đàn lộ thiên — tròn tượng Trời, vuông tượng Đất — giữa rừng thông.',
+    en: 'The Nam Giao esplanade (1806), where the Nguyễn emperors made offerings to Heaven and Earth: three open terraces — round for Heaven, square for Earth — in a pine wood.',
+  },
+  thuytien: {
+    vi: 'Hồ Thủy Tiên: công viên nước bỏ hoang giữa đồi thông, với con rồng khổng lồ quấn quanh nhà thủy cung giữa hồ.',
+    en: 'Thủy Tiên lake: the abandoned water park in the pine hills, its giant dragon coiled around the aquarium in the middle of the water.',
+  },
+  thienan: {
+    vi: 'Đan viện Thiên An (1940) của dòng Biển Đức trên đồi thông Thiên An.',
+    en: 'Thiên An, the Benedictine monastery founded in 1940 on its pine-covered hill.',
+  },
+  vongcanh: { vi: 'Đồi Vọng Cảnh — đồi thông nhìn xuống khúc sông Hương trước điện Hòn Chén.', en: 'Vọng Cảnh hill, the pine lookout over the bend of the Hương.' },
+  ngubinh: { vi: 'Núi Ngự Bình, cao 105 m — bức bình phong của Kinh thành. «Huế — sông Hương núi Ngự».', en: 'Ngự Bình, 105 m: the “royal screen” mountain that shields the Citadel from the south.' },
   gate: { vi: 'Một trong các cửa của Kinh thành, phía trên là vọng lâu.', en: 'One of the Citadel’s gates, with a watch pavilion on top.' },
 };
 
 // Places offered in the quick list, in the order a visitor might walk them.
-export const QUICK = ['truongtien', 'dongba', 'ndchieu', 'photay', 'kydai', 'nghenhluong', 'ngomon', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'nguyenhoang', 'thienmu', 'conhen'];
+export const QUICK = ['truongtien', 'dongba', 'ndchieu', 'photay', 'kydai', 'nghenhluong', 'ngomon', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'nguyenhoang', 'thienmu', 'conhen', 'namgiao', 'tuduc', 'thuytien', 'khaidinh', 'minhmang'];
 
 // Camera framing per place: offset from the place [east, up, south] in metres, plus where to look relative to it.
 // Views sit to the south-east so the morning light falls on what you are looking at.
@@ -191,5 +225,14 @@ export const VIEWS = {
   kinhthanh: { off: [900, 2500, 2200], look: [0, 150] },
   tinhtam: { off: [240, 300, 380], look: [0, 0] },
   conhen: { off: [500, 520, 850], look: [0, 0] },
+  namgiao: { off: [170, 150, 260], look: [0, 0] },
+  tuduc: { off: [330, 260, 380], look: [0, 0] },
+  dongkhanh: { off: [230, 190, 300], look: [0, 0] },
+  thieutri: { off: [330, 280, 420], look: [0, 0] },
+  minhmang: { off: [480, 330, 380], look: [-60, 0] },
+  khaidinh: { off: [170, 150, 240], look: [0, 0] },
+  thuytien: { off: [330, 230, 300], look: [200, 150] },
+  thienan: { off: [200, 150, 260], look: [0, 0] },
+  ngubinh: { off: [500, 420, 700], look: [0, 0] },
   default: { off: [170, 170, 280], look: [0, 0] },
 };

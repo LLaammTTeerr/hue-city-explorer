@@ -4,6 +4,7 @@ import { cityMaterial, landMaterial, enc, glowPoints } from './materials.js';
 import { LAND_Y, WALL_H, PAL, quality } from '../config.js';
 import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
 import { buildTrees } from './foliage.js';
+import { lodAdd, lodUpdate } from './lod.js';
 
 const rand = (i, salt = 0) => {
   let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
@@ -13,6 +14,11 @@ const rand = (i, salt = 0) => {
 const pick = (arr, i, salt = 0) => arr[Math.floor(rand(i, salt) * arr.length) % arr.length];
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 // Bucket instances into ~900 m tiles so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
+// Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
+// less. Whole chunks of houses and trees drop out much farther away, where the river mist has taken them anyway.
+export function updateDetail(camera, reach = 1500) {
+  lodUpdate(camera, reach / 1500);
+}
 function chunked(items, size = 1300) {
   const map = new Map();
   for (const it of items) {
@@ -310,6 +316,18 @@ function buildBuildings(data, group) {
       wall = hex('#a3352c'); roof = pick([hex('#a65a44'), hex('#9a5540'), hex('#b0603f')], i, 2);
       pitched = rectness > 0.6 && o.d < 30; over = 0.8; flare = 0; rh = Math.min(4.2, Math.max(1.6, o.d * 0.22));
     }
+    // the period of an ordinary building: Indochine, Nguyễn-period timber, or modern
+    const colonial = (flags & 4) !== 0 && !quocHoc, trad = (flags & 8) !== 0;
+    const big = (kind === 0 && (area > 240 || h > 12)) || kind === 1 || kind === 5;
+    if (colonial) {
+      wall = pick(P.indochine, i, 1); roof = pick(P.indochineRoof, i, 2);
+      pitched = rectness > 0.7 && o.d < 26; over = 1.0; flare = 0; rh = Math.min(4.4, Math.max(1.6, o.d * 0.24));
+    } else if (trad) {
+      wall = pick(P.tradWall, i, 1); roof = pick(P.tradRoof, i, 2);
+      pitched = rectness > 0.6 && o.d < 22; over = 1.2; flare = 0.3; rh = Math.min(3.4, Math.max(1.4, o.d * 0.27)); ridge = ridgeGrey;
+    } else if (kind === 0 || kind === 1 || kind === 5) {
+      if (!quocHoc) { wall = rand(i, 61) < 0.75 ? pick(P.pastel, i, 1) : wall; if (big) { pitched = false; } else if (rand(i, 62) < 0.25) roof = pick(P.metalRoof, i, 63); }
+    }
     wall = shade(wall, quocHoc ? 0.96 + rand(i, 7) * 0.08 : jitter);
     roof = shade(roof, 0.9 + rand(i, 9) * 0.2);
     if (flags & 1) {
@@ -322,13 +340,13 @@ function buildBuildings(data, group) {
       for (let k = 0; k < ring.length; k += step) B.cyl(cx + (ring[k][0] - cx) * 0.94, cz + (ring[k][1] - cz) * 0.94, -2, LAND_Y - 0.7, 0.42, 0.42, 6, hex('#9c9488'), { cap: false });
       B.cyl(cx, cz, -2, LAND_Y - 0.7, 0.6, 0.6, 6, hex('#9c9488'), { cap: false });
     }
-    B.kind = kind === 8 ? KIND.PLAIN : kind === 2 ? KIND.TIMBER : quocHoc || kind === 3 || kind === 4 || kind === 5 ? KIND.CIVIC : KIND.FACADE;
+    B.kind = kind === 8 ? KIND.PLAIN : kind === 2 || trad ? KIND.TIMBER : colonial || quocHoc ? KIND.COLONIAL : kind === 3 || kind === 4 ? KIND.CIVIC : big ? KIND.MODERN : KIND.FACADE;
     if (pitched) {
       B.prism(ring, y0, y1, wall, shade(roof, 0.85), { top: rectness < 0.96, topKind: KIND.TILE });
-      B.hip(o.c[0], o.c[1], o.w, o.d, o.a, y1 + 0.02, rh, roof, { flare, over, fascia: flare ? 0.34 : 0.24, fasciaCol: flare ? shade(wall, 0.7) : shade(wall, 0.86), ridgeCol: ridge, hips, glazed: kind === 2 });
+      B.hip(o.c[0], o.c[1], o.w, o.d, o.a, y1 + 0.02, rh, roof, { flare, over, fascia: flare ? 0.34 : 0.24, fasciaCol: colonial || quocHoc ? hex('#f1e7d2') : flare ? shade(wall, 0.7) : shade(wall, 0.86), ridgeCol: ridge, hips, glazed: kind === 2 });
     } else {
       // tiled lid for small irregular houses; a concrete tray with a parapet for everything else
-      const tiled = quocHoc || (kind === 0 && area < 300 && rand(i, 16) < 0.6) || kind === 8 || kind === 6 || kind === 2 || kind === 3 || kind === 4;
+      const tiled = quocHoc || colonial || trad || (kind === 0 && !big && rand(i, 16) < 0.45) || kind === 8 || kind === 6 || kind === 2 || kind === 3 || kind === 4;
       if (tiled) B.prism(ring, y0, y1, wall, roof, { topKind: KIND.TILE });
       else {
         const lid = kind === 7 ? roof : pick(P.concrete, i, 17);
@@ -398,25 +416,24 @@ function buildInfill(data, group) {
     gableGeo.quad([-0.5, -0.12, -0.5], [0.5, -0.12, -0.5], [0.5, 0, -0.5], [-0.5, 0, -0.5], f, [0, 0, -1]);
     gableGeo.quad([-0.5, -0.12, 0.5], [0.5, -0.12, 0.5], [0.5, 0, 0.5], [-0.5, 0, 0.5], f, [0, 0, 1]);
     gableGeo.quad([-0.5, -0.12, -0.5], [0.5, -0.12, -0.5], [0.5, -0.12, 0.5], [-0.5, -0.12, 0.5], [0.42, 0.42, 0.42], [0, -1, 0]);
-    gableGeo.box(0, 0, 0.955, 1.07, 1.0, 0.085, 0, [0.52, 0.52, 0.52]); // ridge cap
   }
   const endGeo = new Buf(4); // the two gable walls under a gable roof
   endGeo.kind = KIND.PLAIN;
   endGeo.tri([-0.5, -0.12, -0.5], [-0.5, -0.12, 0.5], [-0.5, 1, 0], W, [-1, 0, 0]);
   endGeo.tri([0.5, -0.12, -0.5], [0.5, -0.12, 0.5], [0.5, 1, 0], W, [1, 0, 0]);
-  const tankGeo = new Buf(64);
-  waterTank(tankGeo, 0, 0, 0, 0, 1);
+  const tankGeo = new Buf(32); // a lighter tank than the one on mapped buildings: there are thousands
+  tankGeo.box(0, 0, 0, 0.7, 1.1, 1.1, 0, SILVER_D, { top: SILVER_D });
+  tankGeo.cyl(0, 0, 0.7, 2.1, 0.58, 0.58, 6, SILVER);
   const slabGeo = new Buf(16); // awnings, balcony slabs, railings
   slabGeo.box(0, 0, 0, 1, 1, 1, 0, [0.82, 0.82, 0.82], { top: W, bottom: true });
 
-  const geos = { wall: wallGeo.geometry(), hip: hipGeo.geometry(), gable: gableGeo.geometry(), end: endGeo.geometry(), slab: slabGeo.geometry() };
+  const geos = { wall: wallGeo.geometry(), hip: hipGeo.geometry(), gable: gableGeo.geometry(), end: endGeo.geometry(), slab: slabGeo.geometry(), tank: tankGeo.geometry() };
   const AWNINGS = ['#9c3a2c', '#2f5f73', '#b98a3a', '#3f6b4c', '#8a5a3a', '#c9b48a', '#6b3f4a'].map(hex), RAIL = hex('#4a4744');
-  const wallMat = cityMaterial({ windows: true }), roofMat = cityMaterial(), tankMat = cityMaterial();
+  const wallMat = cityMaterial({ windows: true, styled: true }), roofMat = cityMaterial(), tankMat = cityMaterial();
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
   const meshes = [];
-  const tanks = [];
 
   const collect = (start, end) => {
     // break up the monotony of one box per plot: about half the houses get a lower rear wing
@@ -424,31 +441,38 @@ function buildInfill(data, group) {
     for (let i = start; i < end; i++) {
       const x = a[i * S] / 10, z = a[i * S + 1] / 10;
       const w = a[i * S + 2] / 10, d = a[i * S + 3] / 10, ang = a[i * S + 4] / 1000, h = a[i * S + 5] / 10, main = a[i * S + 6] === 1;
-      const side = a[i * S + 7];
+      const side = a[i * S + 7] & 3, era = a[i * S + 7] >> 2; // era: 0 modern, 1 Indochine, 2 Nguyễn-period timber
       const front = side === 2 ? 0 : side === 1 ? -1 : 1; // which way the street lies along the plot's depth axis (0: a house behind the street row)
-      const wallCol = shade(mix(pick(PAL.walls, i, 31), [0.86, 0.8, 0.68], 0.08), 0.9 + rand(i, 32) * 0.18);
-      const roofCol = shade(pick(PAL.roofs, i, 34), 0.84 + rand(i, 35) * 0.28);
-      if (front !== 0 && d > 9.5 && rand(i, 50) < 0.55) {
+      let wallCol, roofCol;
+      if (era === 1) { wallCol = shade(pick(PAL.indochine, i, 31), 0.93 + rand(i, 32) * 0.12); roofCol = shade(pick(PAL.indochineRoof, i, 34), 0.9 + rand(i, 35) * 0.18); }
+      else if (era === 2) { wallCol = shade(pick(PAL.tradWall, i, 31), 0.9 + rand(i, 32) * 0.2); roofCol = shade(pick(PAL.tradRoof, i, 34), 0.86 + rand(i, 35) * 0.26); }
+      else {
+        wallCol = shade(rand(i, 30) < 0.6 ? pick(PAL.pastel, i, 31) : mix(pick(PAL.walls, i, 31), [0.86, 0.8, 0.68], 0.08), 0.9 + rand(i, 32) * 0.18);
+        roofCol = shade(rand(i, 33) < 0.2 ? pick(PAL.metalRoof, i, 34) : pick(PAL.roofs, i, 34), 0.84 + rand(i, 35) * 0.28);
+      }
+      if (era === 2) parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front: 0, era });
+      else if (front !== 0 && d > 9.5 && rand(i, 50) < 0.55) {
         const vx = -Math.sin(ang), vz = Math.cos(ang);
         const fd = d * (0.5 + rand(i, 51) * 0.14), rd = d - fd, sgn = front; // the taller part faces the street
         const o1 = sgn * (d / 2 - fd / 2), o2 = -sgn * (d / 2 - rd / 2);
-        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0, main, front });
+        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0, main, front, era });
         const h2 = Math.max(3.3, h - 3.4 * (rand(i, 53) < 0.7 ? 1 : 2));
         const w2 = w * (0.72 + rand(i, 54) * 0.28);
-        parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7, main });
-      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front });
+        parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7, main, era });
+      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front, era });
     }
     return parts;
   };
 
   // Each chunk gets instanced meshes sized to exactly what it holds (no hidden zero-scale instances).
-  const inst = (geo, mat, list, layer, shadow = true) => {
+  const inst = (geo, mat, list, layer, shadow = true, detail = false) => {
     if (!list.length) return;
     // walls carry each house's floor level, so windows line up with its own ground on a slope
     let g = geo;
-    if (geo === geos.wall && list.some((e) => e[2] > 0)) {
+    if (geo === geos.wall) {
       g = geo.clone();
       g.setAttribute('aBase', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[2] || 0), 1));
+      g.setAttribute('aStyle', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[3] || 0), 1)); // added to the wall's face kind
     }
     const mesh = new THREE.InstancedMesh(g, mat, list.length);
     for (let k = 0; k < list.length; k++) { mesh.setMatrixAt(k, list[k][0]); mesh.setColorAt(k, enc(list[k][1], c)); }
@@ -459,17 +483,21 @@ function buildInfill(data, group) {
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
     mesh.layers.set(layer);
+    lodAdd(mesh, detail ? 1500 : 5200);
     group.add(mesh);
     meshes.push(mesh);
   };
   const mk = () => m.compose(p, q, s).clone();
   const place = (parts, layer) => {
-    const walls = [], hips = [], gables = [], ends = [], extras = [];
+    const walls = [], hips = [], gables = [], ends = [], extras = [], tanks = [];
     for (const pt of parts) {
       const { i, x, z, salt } = pt;
       let { w, d, ang, h } = pt;
-      const flatRoof = rand(i, 21 + salt) < 0.2;
-      const gable = !flatRoof && salt === 0 && rand(i, 60) < (pt.main ? 0.88 : 0.5);
+      const era = pt.era;
+      const flatRoof = era === 0 && rand(i, 21 + salt) < 0.34;
+      const gable = era === 0 && !flatRoof && salt === 0 && rand(i, 60) < (pt.main ? 0.88 : 0.5);
+      // facade family: timber hall, Indochine, or (for the larger modern blocks) ribbon glazing; else the plain shophouse
+      const style = era === 2 ? KIND.TIMBER - 1 : era === 1 ? KIND.COLONIAL - 1 : h > 9.5 && w > 6.5 ? KIND.MODERN - 1 : 0;
       if (flatRoof) h += 0.7;
       // bed the house into a slope: stand it on the lowest corner, keep the eaves where the centre would put them
       const ca = Math.cos(ang), sa = Math.sin(ang);
@@ -485,7 +513,7 @@ function buildInfill(data, group) {
       // walls keep the plot's own axes (width along the street)
       q.setFromAxisAngle(up, -ang);
       p.set(x, gy, z); s.set(w, h, d);
-      walls.push([mk(), pt.wallCol, hi]);
+      walls.push([mk(), pt.wallCol, hi, style]);
       if (gable) {
         const rh = Math.min(3.4, Math.max(1.2, d * (0.2 + rand(i, 37) * 0.07)));
         p.set(x, gy + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
@@ -495,12 +523,17 @@ function buildInfill(data, group) {
       } else if (!flatRoof) {
         let rw = w, rd = d;
         if (rd > rw) { [rw, rd] = [rd, rw]; q.setFromAxisAngle(up, -(ang + Math.PI / 2)); }
-        const rh = Math.min(3.2, Math.max(1.0, rd * (0.24 + rand(i, 37 + salt) * 0.08)));
-        p.set(x, gy + h + 0.02, z); s.set(rw + 0.9, rh, rd + 0.9);
+        const rh = Math.min(3.2, Math.max(1.0, rd * (era === 2 ? 0.3 : 0.24 + rand(i, 37 + salt) * 0.08)));
+        const ov = era === 2 ? 2.4 : era === 1 ? 1.8 : 0.9; // deep eaves on the timber houses and the colonial villas
+        p.set(x, gy + h + 0.02, z); s.set(rw + ov, rh, rd + ov);
         hips.push([mk(), pt.roofCol]);
-      } else if (rand(i, 38 + salt) < 0.75) tanks.push([x + (rand(i, 39) - 0.5) * w * 0.3, gy + h, z + (rand(i, 40) - 0.5) * d * 0.3, ang, 0.85 + rand(i, 41) * 0.3]);
+      } else if (rand(i, 38 + salt) < 0.6) {
+        const sc = 0.85 + rand(i, 41) * 0.3;
+        p.set(x + (rand(i, 39) - 0.5) * w * 0.3, gy + h, z + (rand(i, 40) - 0.5) * d * 0.3); s.set(sc, sc, sc);
+        tanks.push([mk(), W]);
+      }
       // street face: a fabric awning over the shopfront, a balcony with its railing on the floor above
-      if (salt === 0 && pt.front) {
+      if (salt === 0 && pt.front && era === 0) {
         const fx = -sa * pt.front, fz = ca * pt.front;
         q.setFromAxisAngle(up, -ang);
         if (rand(i, 70) < (pt.main ? 0.78 : 0.22)) {
@@ -521,24 +554,12 @@ function buildInfill(data, group) {
     inst(geos.hip, roofMat, hips, layer, false);
     inst(geos.gable, roofMat, gables, layer, false);
     inst(geos.end, roofMat, ends, layer, false);
-    inst(geos.slab, roofMat, extras, layer, false);
+    inst(geos.slab, roofMat, extras, layer, false, true);
+    inst(geos.tank, tankMat, tanks, layer, false, true);
   };
   for (const list of chunked(collect(0, nearCount))) place(list, 0);
   for (const list of chunked(collect(nearCount, n))) place(list, 1);
 
-  if (tanks.length) {
-    const tm = new THREE.InstancedMesh(tankGeo.geometry(), tankMat, tanks.length);
-    tanks.forEach(([x, y, z, ang, sc], k) => {
-      q.setFromAxisAngle(up, -ang); p.set(x, y, z); s.set(sc, sc, sc);
-      tm.setMatrixAt(k, m.compose(p, q, s));
-    });
-    tm.instanceMatrix.needsUpdate = true;
-    tm.castShadow = !quality.low;
-    tm.frustumCulled = false;
-    tm.layers.set(1);
-    group.add(tm);
-    meshes.push(tm);
-  }
   return meshes;
 }
 

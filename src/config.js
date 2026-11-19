@@ -32,6 +32,13 @@ export const PAL = {
   roofs: ['#9a5238', '#a55a3c', '#8f4a36', '#a8603f', '#84453a', '#96523f', '#8c4d3c', '#9f5a42', '#9a5238', '#7a4a3c', '#6f5a50', '#8a8378', '#77604f', '#7f8a8c', '#8a3f33'].map(hex),
   walls: ['#ead9b4', '#efe2c4', '#e3cc98', '#ecd9ae', '#dfd9c4', '#e6cdb8', '#e4d0a2', '#f0e4c8', '#e2c98c', '#d3d8c4', '#cfd8dc', '#e3c7b4', '#d6c092', '#c9cfba', '#dcbc92', '#e0c27e', '#d9b874'].map(hex),
   concrete: ['#ddd6c8', '#e4ded2', '#d6cfc1', '#e0d9cb'].map(hex),
+  // the three building families (see scripts/build-data.mjs §4b)
+  indochine: ['#e6c676', '#ddb863', '#ecd391', '#e2c06c', '#efdcab', '#dfb65e', '#e8caa0'].map(hex), // lime-wash ochres
+  indochineRoof: ['#b5553a', '#ad4f36', '#bb5c3e', '#a84a34'].map(hex), // Marseille tile
+  tradWall: ['#6a4737', '#5c3e31', '#74503c', '#7d4335', '#654a3c'].map(hex), // jackfruit-wood panels
+  tradRoof: ['#6d5a4d', '#77604f', '#62564c', '#7a6654', '#5f5f52'].map(hex), // old liệt tiles, weathered
+  pastel: ['#eef0ea', '#e4ebe6', '#dfe9ee', '#f1e9d8', '#e9dfd9', '#e6edd9', '#f3efe6', '#d9e4e6', '#efe0c9', '#e7e7e7'].map(hex),
+  metalRoof: ['#5c7f9c', '#4f6f8c', '#8c3f3a', '#6c8f86', '#9aa3a8'].map(hex), // painted sheet roofs
   modernWall: ['#e6e1d6', '#dcd9d2', '#e9e2d0', '#d5dbe0'].map(hex),
   imperialRoof: hex('#d69a26'),
   imperialRoof2: hex('#c2861f'),
