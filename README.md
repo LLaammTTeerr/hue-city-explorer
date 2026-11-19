@@ -11,6 +11,9 @@ npm run dev      # http://127.0.0.1:5183
 npm run build    # static site in dist/ (relative paths, host anywhere)
 ```
 
+Live at https://hue-city.lamter.cc — every push to `main` is built and published to GitHub Pages by
+`.github/workflows/deploy.yml`.
+
 Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). No map service is
 contacted at runtime.
 
