@@ -83,6 +83,12 @@ export function checkData(data) {
       check(top - foot >= 15 && top - foot <= 40, 'Khải Định rise to Cung Thiên Định', `${(top - foot).toFixed(1)} m above the lowest corner of the tomb outline (expected about 20–25)`);
     }
   }
+  // đàn Nam Giao stands on its mapped grid, square to Lê Ngô Cát (OSM's paths and lawns there run at 167.6°/77.6°,
+  // about 12° west of north), not on the compass
+  {
+    const s = data.sites?.namgiao, deg = s && s.g != null ? (s.g * 180) / Math.PI : NaN;
+    check(deg >= -14 && deg <= -10 && s.gk >= 0.8, 'Nam Giao on its mapped grid', `${deg.toFixed(1)}° (expected about -12), agreement ${s?.gk}`);
+  }
   // raised lakes lie flat at their own level, and the ground round them is not dragged down to it
   {
     let worst = 0, which = -1, lakes = 0;

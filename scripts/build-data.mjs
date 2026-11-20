@@ -642,6 +642,34 @@ for (const e of els) {
   if (st) st.items.push({ id: e.id, n: t.name || '', k: lk || (t.natural === 'water' ? 'w' : 'h'), ring: flat(ring) });
   if (st && lk) fillPoly([ring], BLD); // nothing grows or gets built on the stands, pools and plazas
 }
+// The grid each site is laid out on, from the paths, steps, lawns and walls mapped inside it: the length-weighted
+// mean direction of their straight runs, folded to a quarter turn (4θ), so a site whose own halls are not mapped
+// (đàn Nam Giao maps only its round top) still stands square to its real axes. `g` is the angle of the site's
+// local x axis in the model's frame (x east, z south), in (-π/4, π/4]; `gk` how strongly the runs agree (0-1).
+{
+  const LINE = (t) => /^(footway|path|steps|pedestrian|service|track)$/.test(t.highway || '') || /^(grass|forest|religious)$/.test(t.landuse || '') || t.barrier === 'wall' || t.leisure === 'garden';
+  const acc = {};
+  for (const e of els) {
+    const t = e.tags || {};
+    if (e.type !== 'way' || !e.geometry || t.building || !LINE(t)) continue;
+    const p = e.geometry.map(proj);
+    for (let i = 1; i < p.length; i++) {
+      const dx = p[i][0] - p[i - 1][0], dz = p[i][1] - p[i - 1][1], L = Math.hypot(dx, dz);
+      if (L < 8) continue;
+      const st = siteOf([(p[i][0] + p[i - 1][0]) / 2, (p[i][1] + p[i - 1][1]) / 2]);
+      if (!st) continue;
+      const a = acc[st.n] ||= { c: 0, s: 0, w: 0 }, th = 4 * Math.atan2(dz, dx);
+      a.c += Math.cos(th) * L; a.s += Math.sin(th) * L; a.w += L;
+    }
+  }
+  for (const id in sites) {
+    const a = acc[sites[id].n];
+    if (!a || a.w < 150) continue; // too little mapped to tell
+    sites[id].g = +(Math.atan2(a.s, a.c) / 4).toFixed(4);
+    sites[id].gk = +(Math.hypot(a.c, a.s) / a.w).toFixed(2);
+    console.log('site grid', id, ((sites[id].g * 180) / Math.PI).toFixed(1) + '°', 'agreement', sites[id].gk, 'over', Math.round(a.w), 'm');
+  }
+}
 for (const id in sites) console.log('site', id, sites[id].items.length, 'items:', sites[id].items.filter((i) => i.n).map((i) => i.n).join(', '));
 console.log('special', Object.keys(special));
 

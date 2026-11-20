@@ -342,3 +342,13 @@ became NaN and the bloom pass blanked the whole screen; tip rows now borrow the 
   against the previous `hue.json`, and exits 1 on a failure (the file is still written for inspection).
 - CI: `npm run check` runs before `npm run build` in `deploy.yml`, and on every PR in `check.yml`.
 - Proven: against the pre-fix `tombs.js` it fails 5 tomb halls; against the pre-fix `hue.json` it fails the Minh Mạng axis.
+
+## Issue pass with the user (2026-11-21, branch `claude/issues-review-resolution-ed21d6`)
+Open issues: #5 remodel the south bank, #6 Nam Giao orientation, #7 tree density at the tombs, #8 accurate landmarks,
+#11 segmented control, #14 craft villages. They are being worked one at a time. Rule: fix the root cause (the source data,
+the parser or a shared builder), then rebuild.
+- #6 done: the esplanade was drawn compass-aligned. OSM maps its paths, steps and lawns at 167.6°/77.6°, i.e. about 12°
+  west of north, but the build dropped them from sites. The build now derives a grid bearing per site from that linework
+  (`sites.<id>.g`, plus `gk` for agreement). `namGiao()` draws in that frame, and `check:data` guards the angle. Only
+  Nam Giao uses it: the tombs already orient from their mapped halls, and other sites' paths disagree too much (gk 0.1–0.6).
+- Next: the user picks the next issue.

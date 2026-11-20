@@ -259,11 +259,12 @@ function thienAn(S, data) {
 }
 
 // ---------------------------------------------------------------- Đàn Nam Giao
-// Mapped: the round top terrace (Viên đàn, centre and radius) and one small building to the north. Drawn
-// from the real esplanade around that centre, compass-aligned: the square lower terrace (165 m) inside its
-// wall with a three-arched gate at each cardinal point, the square middle terrace (Phương đàn, 83 m) with
-// its yellow balustrade, the round top with its blue one, stairs on four sides of each, and the Trai Cung
-// fasting palace to the south-west (its position and size are illustrative).
+// Mapped: the round top terrace (Viên đàn, centre and radius), one small building to the north, and the paths,
+// steps and lawns of the esplanade, which give its grid (`site.g`, scripts/build-data.mjs: about 12° west of
+// north, square to Lê Ngô Cát). Drawn from the real esplanade around that centre, on that grid: the square lower
+// terrace (165 m) inside its wall with a three-arched gate on each side, the square middle terrace (Phương đàn,
+// 83 m) with its yellow balustrade, the round top with its blue one, stairs on four sides of each, and the Trai
+// Cung fasting palace to the south-west (its position and size are illustrative).
 function namGiao(S, data) {
   const site = siteOf(data, 'namgiao');
   if (!site) return;
@@ -277,25 +278,29 @@ function namGiao(S, data) {
     C = polyCentroid(top.pts);
     Rt = Math.max(15, top.pts.reduce((s, p) => s + Math.hypot(p[0] - C[0], p[1] - C[1]), 0) / top.pts.length);
   }
-  const card = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // N E S W (z runs south)
-  const sq = (h) => [[C[0] - h, C[1] - h], [C[0] + h, C[1] - h], [C[0] + h, C[1] + h], [C[0] - h, C[1] + h], [C[0], C[1]], [C[0] - h, C[1]], [C[0] + h, C[1]], [C[0], C[1] - h], [C[0], C[1] + h]];
+  // the site's own frame: u along its x axis (east-ish), v along its z axis (south-ish); G turns a box onto it
+  const G = site.g || 0, cg = Math.cos(G), sg = Math.sin(G);
+  const R = (u, v, o = C) => [o[0] + u * cg - v * sg, o[1] + u * sg + v * cg];
+  const D = (u, v) => [u * cg - v * sg, u * sg + v * cg];
+  const card = [[0, -1], [1, 0], [0, 1], [-1, 0]]; // N E S W of the site's frame
+  const sq = (h, o = C) => [[-h, -h], [h, -h], [h, h], [-h, h], [0, 0], [-h, 0], [h, 0], [0, -h], [0, h]].map(([u, v]) => R(u, v, o));
 
   // lower terrace: 165 m square, its top just above the highest ground under it
   const h1 = 82.5;
   const y1 = maxG(sq(h1)) + 0.9, b1 = minG(sq(h1)) - 0.6;
   S.base = y1 - LAND_Y;
   S.kind = KIND.MASONRY;
-  S.box(C[0], C[1], b1, y1, h1 * 2, h1 * 2, 0, laterite, { top: grass, topKind: KIND.GROUND });
+  S.box(C[0], C[1], b1, y1, h1 * 2, h1 * 2, G, laterite, { top: grass, topKind: KIND.GROUND });
   S.kind = KIND.ROAD; // paved axes from the four gates
-  S.box(C[0], C[1], y1, y1 + 0.06, h1 * 2 - 0.4, 6, 0, stoneP);
-  S.box(C[0], C[1], y1, y1 + 0.06, 6, h1 * 2 - 0.4, 0, stoneP);
+  S.box(C[0], C[1], y1, y1 + 0.06, h1 * 2 - 0.4, 6, G, stoneP);
+  S.box(C[0], C[1], y1, y1 + 0.06, 6, h1 * 2 - 0.4, G, stoneP);
   // middle terrace: 83 m square, yellow balustrade (Earth)
   const h2 = 41.5, y2 = y1 + 1.65;
   S.kind = KIND.MASONRY;
-  S.box(C[0], C[1], y1 - 0.2, y2, h2 * 2, h2 * 2, 0, brick, { top: grass2, topKind: KIND.GROUND });
+  S.box(C[0], C[1], y1 - 0.2, y2, h2 * 2, h2 * 2, G, brick, { top: grass2, topKind: KIND.GROUND });
   S.kind = KIND.ROAD;
-  S.box(C[0], C[1], y2, y2 + 0.05, h2 * 2 - 0.6, 5, 0, stoneP);
-  S.box(C[0], C[1], y2, y2 + 0.05, 5, h2 * 2 - 0.6, 0, stoneP);
+  S.box(C[0], C[1], y2, y2 + 0.05, h2 * 2 - 0.6, 5, G, stoneP);
+  S.box(C[0], C[1], y2, y2 + 0.05, 5, h2 * 2 - 0.6, G, stoneP);
   // top: the round Viên đàn, blue balustrade (Heaven)
   const y3 = y2 + 2.85;
   S.kind = KIND.MASONRY;
@@ -304,13 +309,13 @@ function namGiao(S, data) {
   S.cyl(C[0], C[1], y3 - 0.01, y3, Rt, Rt, 40, stoneP, { cap: true });
   S.cyl(C[0], C[1], y3, y3 + 0.18, Rt * 0.32, Rt * 0.32, 16, shade(stoneP, 1.06));
   S.kind = KIND.PLAIN;
-  ringWall(S, C[0], C[1], Rt, y3, 0.85, 0.32, 40, blue, card.map(([x, z]) => [Math.atan2(z, x), 4.4 / Rt]));
+  ringWall(S, C[0], C[1], Rt, y3, 0.85, 0.32, 40, blue, card.map(([x, z]) => [Math.atan2(z, x) + G, 4.4 / Rt]));
   // balustrades of the square terraces, open at the stairs
   const rail = (h, y, col, gap, hgt = 0.85) => {
     for (const [dx, dz] of card) for (const sd of [-1, 1]) {
       const len = h - gap / 2, along = gap / 2 + len / 2;
-      const x = C[0] + dx * (h - 0.2) + (dz ? sd * along : 0), z = C[1] + dz * (h - 0.2) + (dx ? sd * along : 0);
-      S.box(x, z, y, y + hgt, dz ? len : 0.35, dz ? 0.35 : len, 0, col);
+      const [x, z] = R(dx * (h - 0.2) + (dz ? sd * along : 0), dz * (h - 0.2) + (dx ? sd * along : 0));
+      S.box(x, z, y, y + hgt, dz ? len : 0.35, dz ? 0.35 : len, G, col);
     }
   };
   rail(h2, y2, yellow, 10);
@@ -318,10 +323,10 @@ function namGiao(S, data) {
   // stairs on the four sides of each terrace (the north flights, toward the city, a little wider)
   S.kind = KIND.MASONRY;
   for (const [i, [dx, dz]] of card.entries()) {
-    const wide = i === 0 ? 1.3 : 1;
-    flight(S, [C[0] + dx * Rt, C[1] + dz * Rt], [dx, dz], y3, y2, 7 * wide, stoneP);
-    flight(S, [C[0] + dx * h2, C[1] + dz * h2], [dx, dz], y2, y1, 8 * wide, stoneP);
-    flight(S, [C[0] + dx * h1, C[1] + dz * h1], [dx, dz], y1, null, 10 * wide, stoneP);
+    const wide = i === 0 ? 1.3 : 1, dir = D(dx, dz);
+    flight(S, R(dx * Rt, dz * Rt), dir, y3, y2, 7 * wide, stoneP);
+    flight(S, R(dx * h2, dz * h2), dir, y2, y1, 8 * wide, stoneP);
+    flight(S, R(dx * h1, dz * h1), dir, y1, null, 10 * wide, stoneP);
   }
   // the wall round the lower terrace, following the ground, and the four three-arched gates
   const hw = 92, wallH = 1.9;
@@ -330,11 +335,11 @@ function namGiao(S, data) {
     for (let t = -hw; t < hw - 0.1; t += 11.5) {
       const tm = t + 5.75;
       if (Math.abs(tm) < 10) continue;
-      const x = C[0] + dx * hw + (dz ? tm : 0), z = C[1] + dz * hw + (dx ? tm : 0), g = gy(x, z);
-      S.box(x, z, g - 0.8, g + wallH, dz ? 11.6 : 0.6, dz ? 0.6 : 11.6, 0, brick, { top: shade(gateC, 0.85) });
+      const [x, z] = R(dx * hw + (dz ? tm : 0), dz * hw + (dx ? tm : 0)), g = gy(x, z);
+      S.box(x, z, g - 0.8, g + wallH, dz ? 11.6 : 0.6, dz ? 0.6 : 11.6, G, brick, { top: shade(gateC, 0.85) });
     }
-    const gx = C[0] + dx * hw, gz = C[1] + dz * hw, g = gy(gx, gz), ang = dz ? 0 : Math.PI / 2;
-    const P = (along, out) => [gx + (dz ? along : dx * out), gz + (dx ? along : dz * out)];
+    const [gx, gz] = R(dx * hw, dz * hw), g = gy(gx, gz), ang = (dz ? 0 : Math.PI / 2) + G;
+    const P = (along, out) => R(dx * hw + (dz ? along : dx * out), dz * hw + (dx ? along : dz * out));
     S.kind = KIND.MASONRY;
     S.box(gx, gz, g - 0.6, g + 4.4, 15.5, 1.4, ang, gateC);
     S.box(gx, gz, g + 4.4, g + 6.0, 6.0, 1.4, ang, gateC);
@@ -346,11 +351,11 @@ function namGiao(S, data) {
     S.kind = KIND.MASONRY;
   }
   // Liệu sở, the small burning altar at the south-east of the middle terrace
-  S.box(C[0] + h2 - 6, C[1] + h2 - 6, y2, y2 + 1.6, 3, 3, 0, brick, { top: hex('#3d3532') });
+  { const [x, z] = R(h2 - 6, h2 - 6); S.box(x, z, y2, y2 + 1.6, 3, 3, G, brick, { top: hex('#3d3532') }); }
 
   // Trai Cung: walled square compound with the main hall, two side houses and the gate toward the altar
   {
-    const tc = [C[0] - 120, C[1] + 70], half = 26;
+    const tc = R(-120, 70), half = 26;
     const d = Math.hypot(tc[0] - site.cm[0], tc[1] - site.cm[1]);
     if (d < site.r - half * 0.8) {
       const g = gy(tc[0], tc[1]);
@@ -358,18 +363,19 @@ function namGiao(S, data) {
       S.kind = KIND.MASONRY;
       for (const [dx, dz] of card) for (const sd of [-1, 1]) {
         const len = half - (dx === 1 ? 3 : 0), along = (dx === 1 ? 3 : 0) + len / 2;
-        const x = tc[0] + dx * half + (dz ? sd * along : 0), z = tc[1] + dz * half + (dx ? sd * along : 0), gg = gy(x, z);
-        S.box(x, z, gg - 0.8, gg + 2.4, dz ? len : 0.6, dz ? 0.6 : len, 0, brick, { top: shade(gateC, 0.85) });
+        const [x, z] = R(dx * half + (dz ? sd * along : 0), dz * half + (dx ? sd * along : 0), tc), gg = gy(x, z);
+        S.box(x, z, gg - 0.8, gg + 2.4, dz ? len : 0.6, dz ? 0.6 : len, G, brick, { top: shade(gateC, 0.85) });
       }
       S.kind = KIND.ROAD;
       // the paved court lies on the highest ground inside the walls, so the slope does not show through it, and the
       // halls stand on the court
-      const cq = [[tc[0] - half, tc[1] - half], [tc[0] + half, tc[1] - half], [tc[0] + half, tc[1] + half], [tc[0] - half, tc[1] + half]], cy = maxG(cq);
-      S.box(tc[0], tc[1], minG(cq) - 0.4, cy + 0.08, half * 2 - 1, half * 2 - 1, 0, hex('#b8ae96'));
+      const cq = sq(half, tc).slice(0, 4), cy = maxG(cq);
+      S.box(tc[0], tc[1], minG(cq) - 0.4, cy + 0.08, half * 2 - 1, half * 2 - 1, G, hex('#b8ae96'));
       S.kind = KIND.PLAIN;
-      pavilion(S, tc[0] - 6, tc[1], 12, 22, 0, cy, { tiers: 1, wallH: 3.8, roof: PAL.templeRoof, wall: PAL.lacquer, over: 1.2, rh: 3.2, platform: 0.9, ridge: hex('#d8c9a0') });
-      for (const sd of [-1, 1]) pavilion(S, tc[0] + 8, tc[1] + sd * 15, 14, 7, 0, cy, { tiers: 1, wallH: 3.0, roof: PAL.templeRoof, wall: hex('#b58a5c'), over: 0.9, rh: 2.2, platform: 0.5, ridge: hex('#d8c9a0') });
-      pavilion(S, tc[0] + half, tc[1], 4.5, 8, Math.PI / 2, gy(tc[0] + half, tc[1]), { tiers: 2, wallH: 3.0, roof: PAL.templeRoof, wall: hex('#c9a27a'), over: 0.9, rh: 1.8, ridge: hex('#d8c9a0') });
+      const at = (u, v) => R(u, v, tc);
+      { const [x, z] = at(-6, 0); pavilion(S, x, z, 12, 22, G, cy, { tiers: 1, wallH: 3.8, roof: PAL.templeRoof, wall: PAL.lacquer, over: 1.2, rh: 3.2, platform: 0.9, ridge: hex('#d8c9a0') }); }
+      for (const sd of [-1, 1]) { const [x, z] = at(8, sd * 15); pavilion(S, x, z, 14, 7, G, cy, { tiers: 1, wallH: 3.0, roof: PAL.templeRoof, wall: hex('#b58a5c'), over: 0.9, rh: 2.2, platform: 0.5, ridge: hex('#d8c9a0') }); }
+      { const [x, z] = at(half, 0); pavilion(S, x, z, 4.5, 8, Math.PI / 2 + G, gy(x, z), { tiers: 2, wallH: 3.0, roof: PAL.templeRoof, wall: hex('#c9a27a'), over: 0.9, rh: 1.8, ridge: hex('#d8c9a0') }); }
     }
   }
   // other mapped buildings (a guard house by the north gate): small tiled houses
