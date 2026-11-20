@@ -245,6 +245,7 @@ function buildRoads(data, group, structures) {
     const P = profiles.get(r.flat);
     if (!P) continue; // too short to profile (bridges.js skipped it): one bad entry must not abort the city
     if (P.name === 'Cầu Phú Xuân' && replaced('phuxuan')) continue; // modelled in landmarks/places/phuxuan.js
+    if (P.name === 'Đông Thành Thủy Quan' && replaced('thuyquan')) continue; // modelled in landmarks/places/thuyquan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
     if (P.rise > 0) {
@@ -638,6 +639,7 @@ export function buildWalls(data, structures) {
   if (data.special && data.special.ngomon) { const o = obb(unflat(data.special.ngomon.ring)); clear.push(rectRing(o.c[0], o.c[1], o.w + 0.4, o.d + 0.4, o.a)); }
   for (const poly of data.wall || []) {
     if (poly === data.wall[0] && replaced('kinhthanh')) continue; // the main rampart: src/landmarks/places/kinhthanh.js
+    if (poly !== data.wall[0] && replaced('mangca')) continue; // the other pieces are Trấn Bình Đài: places/mangca.js
     let parts = [poly.map(unflat)];
     if (slots.length) {
       try { parts = polygonClipping.difference(parts[0].map(close), ...slots).map((pg) => pg.map((r) => r.slice(0, -1))); } catch { /* keep the wall whole */ }

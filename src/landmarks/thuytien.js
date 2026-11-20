@@ -1,6 +1,7 @@
 import { KIND, hex, shade, mix, unflat, obb, inRing } from '../geo/buf.js';
 import { LAND_Y } from '../config.js';
 import { rise, waterY } from '../geo/terrain.js';
+import { glowPoints } from '../geo/materials.js';
 
 // Hồ Thủy Tiên — the water park that opened in 2004 and was left to the pines.
 //
@@ -94,7 +95,7 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
   const yb = waterY(C[0], C[1]), yp = LAND_Y + rise(C[0], C[1]) + 0.46; // the lake's own level; the landing, level with the footbridges
   const conc = hex('#a3a69b'), concD = hex('#7f847a'), pale = hex('#b9c4c2'), glass = hex('#2c444b');
   const r1 = Rd * 0.8, rS = Rd + 1.7, r2 = Rd * 0.7, Rp = Rd + 4.4;
-  const yD = yp + 9.4, hD = 5.4; // spring of the dome, its height
+  const yD = yp + 9.0, hD = 3.6; // spring of the dome, its height: three storeys under a low dome, ~12.6 m (VnExpress: the whole dragon 20 m tall)
   S.base = yp - LAND_Y;
 
   // landing on piles, railed, open where the three bridges arrive
@@ -131,23 +132,25 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
   }
   const surf = (y) => (y <= yD ? r2 : r2 * Math.sqrt(Math.max(0.03, 1 - ((y - yD) / hD) ** 2)));
 
-  // ---- the dragon: two turns round the dome from a tail hanging over the saucer, then a reared neck
-  const R = 2.45;
-  const hAng = Math.atan2(hd[1], hd[0]), th1 = hAng + Math.PI, turns = 2.1, coilN = 240;
-  const yStart = yp + 6.5 + R * 0.8, yEnd = yD + hD * 0.8;
+  // ---- the dragon: a turn and a bit round the upper floor and dome from a tail hanging over the saucer, then a reared neck
+  const R = 2.15;
+  const hAng = Math.atan2(hd[1], hd[0]), th1 = hAng + Math.PI, turns = 1.3, coilN = 200;
+  const yStart = yp + 5.6 + R * 0.8, yEnd = yD + hD * 0.85;
   const pts = [], rad = [], dors = [];
   for (let i = 0; i <= coilN; i++) {
     const t = i / coilN, th = th1 - turns * Math.PI * 2 * (1 - t);
     const k = t < 0.14 ? (0.14 - t) / 0.14 : 0;
-    const y = yStart + (yEnd - yStart) * Math.pow(t, 1.12) - k * k * 6.2;
-    const rr = surf(y - R * 0.2) + R * 0.8 + k * k * 8.5;
+    const y = yStart + (yEnd - yStart) * Math.pow(t, 1.12) - k * k * 5.6; // the tail dips to the water
+    const rr = surf(y - R * 0.2) + R * 0.8 + k * k * 11;
     pts.push([C[0] + Math.cos(th) * rr, y, C[1] + Math.sin(th) * rr]);
     rad.push(R * Math.min(1, 0.07 + t / 0.2) * (0.95 + 0.05 * Math.sin(t * 11)));
     dors.push(nrm([Math.cos(th) * 0.7, 1, Math.sin(th) * 0.7]));
   }
   const yT = yD + hD, E = pts[pts.length - 1];
   const W = (a, y, side = 0) => [C[0] + hd[0] * a - hd[1] * side, y, C[1] + hd[1] * a + hd[0] * side];
-  const neck = catmull([pts[pts.length - 8], E, W(-4.4, yT + 2.4, 1.6), W(-5.2, yT + 6.6, 0.8), W(-2.8, yT + 11.4, 0), W(3.2, yT + 13.2, 0), W(8.2, yT + 12.3, 0), W(12.5, yT + 11.2, 0)], 0.85).slice(1);
+  // the neck rears to put the crown of the head ~20 m over the water and the snout ~25 m out from the axis, so the
+  // dragon spans ~50 m tail to snout (VnExpress 2024: 20 m tall, 50 m long)
+  const neck = catmull([pts[pts.length - 8], E, W(-4.4, yT + 1.4, 1.6), W(-5.0, yT + 3.6, 0.8), W(-2.2, yT + 5.6, 0), W(3.8, yT + 6.4, 0), W(9.4, yT + 5.6, 0), W(14.2, yT + 4.6, 0)], 0.85).slice(1);
   neck.forEach((p, i) => {
     const t = i / Math.max(1, neck.length - 1);
     pts.push(p); rad.push(R * (1 - 0.2 * t));
@@ -199,6 +202,13 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
   block(S, pv, fL, uL, s, 0, 6.8, 4.0, 2.5, 1.3, 0.8, headC, -0.65); // lower jaw
   block(S, H(0.4, 0.1, 0), f, u, s, 0, 2.8, 3.6, 3.3, 2.5, 2.1, red); // the mouth, where people stand
   block(S, lin([pv, 1], [fL, 0.6], [uL, 0.12]), fL, uL, s, 0, 5.2, 2.0, 1.0, 0.25, 0.2, shade(red, 1.25)); // tongue
+  // the viewing deck in the mouth (the stair inside the neck comes up here; its steps were redone in 2025): a railing
+  const rl = hex('#9aa3a0');
+  for (const sd of [-1, 1]) {
+    S.beam(H(0.5, 0.2, sd * 1.55), H(3.1, 0.0, sd * 1.55), 0.1, 0.1, rl);
+    for (const a of [0.5, 1.8, 3.1]) S.beam(H(a, -1.0 + (3.1 - a) * 0.08, sd * 1.55), H(a, 0.2 - a * 0.065, sd * 1.55), 0.08, 0.08, rl);
+  }
+  S.beam(H(3.1, 0.0, -1.55), H(3.1, 0.0, 1.55), 0.1, 0.1, rl);
   const tooth = hex('#e3dcc8');
   for (const sd of [-1, 1]) for (let k = 0; k < 6; k++) {
     const l = 1.4 + k * 1.08, fang = k === 5 ? 1.9 : 1;
@@ -305,7 +315,8 @@ function stands(S, ring, focus) {
   S.box(bc[0], bc[1], g0 - 0.4, topY + 1.6, 0.6, (v1 - v0) * 0.9, ang, shade(conc, 0.92));
   S.kind = KIND.PLAIN;
   // the stage arch on the far side of the pool
-  const sc = [focus[0] - up[0] * 16, focus[1] - up[1] * 16], gs = gy(sc[0], sc[1]);
+  // the music-fountain stage stood in the show pool, across the water from the seats (2,500 places: VnExpress)
+  const sc = [focus[0] - up[0] * 8, focus[1] - up[1] * 8], gs = gy(sc[0], sc[1]);
   for (const sd of [-1, 1]) S.box(sc[0] + ac[0] * sd * 9, sc[1] + ac[1] * sd * 9, gs - 0.3, gs + 7.5, 1.1, 1.1, ang, hex('#b4b2a6'));
   S.box(sc[0], sc[1], gs + 6.6, gs + 7.7, 1.0, 20, ang, hex('#8f6f5a'));
   S.box(sc[0] + up[0] * 2, sc[1] + up[1] * 2, gs - 0.3, gs + 0.7, 7, 16, ang, hex('#a6a498'), { topKind: KIND.ROAD });
@@ -347,15 +358,6 @@ function sculpture(S, x, z, seed) {
   if (kind === 0) for (let k = 0; k < 4; k++) S.box(x, z, g + 0.9 + k * 0.8, g + 1.7 + k * 0.8, 1.2 - k * 0.2, 0.7, a + k * 0.5, shade(stone, 1 - k * 0.04)); // a twisting stack
   else if (kind === 1) { S.cyl(x, z, g + 0.9, g + 3.4, 0.55, 0.3, 6, stone); S.cyl(x, z, g + 3.4, g + 4.2, 0.7, 0.2, 6, shade(stone, 0.92)); } // a figure
   else { S.beam([x - 0.9, g + 0.9, z], [x, g + 3.6, z + 0.3], 0.5, 0.5, stone); S.beam([x + 0.9, g + 0.9, z], [x, g + 3.6, z + 0.3], 0.5, 0.5, shade(stone, 0.93)); } // an arch
-}
-function gate(S, x, z, toward) {
-  const d = nrm([toward[0] - x, 0, toward[1] - z]), ang = Math.atan2(d[2], d[0]), ac = [-d[2], d[0]], g = gy(x, z);
-  S.kind = KIND.MASONRY;
-  for (const sd of [-1, 1]) S.box(x + ac[0] * sd * 5, z + ac[1] * sd * 5, g - 0.3, g + 7, 1.6, 1.6, ang, hex('#b3b0a3'), { taper: 0.9 });
-  S.kind = KIND.PLAIN;
-  S.box(x, z, g + 5.6, g + 7.2, 1.0, 12.4, ang, hex('#a09d90'));
-  S.box(x + d[0] * 0.55, z + d[2] * 0.55, g + 5.9, g + 6.9, 0.1, 8.5, ang, hex('#5f7f8c')); // the sign, its letters long gone
-  S.box(x + ac[0] * 8.5, z + ac[1] * 8.5, g - 0.3, g + 2.8, 3, 3, ang, hex('#a8a79b'), { top: hex('#7c7f72') }); // ticket booth
 }
 
 // ------------------------------------------------------------------ the slides
@@ -399,8 +401,9 @@ function slides(S, tower, pools) {
   if (!big) return;
   const cb = centroid(big), cs = centroid(small);
   S.kind = KIND.PLAIN;
-  trough(run(cb, 44, (t) => [3.5 + Math.sin(t * Math.PI * 3.2) * 5.5 * Math.sin(t * Math.PI), 0]), hex('#d2b04a'));
-  for (const [off, col] of [[-3.4, hex('#5b8fb0')], [-5.2, hex('#d9dcd6')]]) trough(run(cb, 26, (t) => [off, 0], yTop - 3), col, 0.75);
+  const weather = (c) => mix(c, hex('#6f7a58'), 0.28); // twenty years of sun, rust and creeper (Saigoneer: "rusted")
+  trough(run(cb, 44, (t) => [3.5 + Math.sin(t * Math.PI * 3.2) * 5.5 * Math.sin(t * Math.PI), 0]), weather(hex('#d2b04a')));
+  for (const [off, col] of [[-3.4, hex('#5b8fb0')], [-5.2, hex('#d9dcd6')]]) trough(run(cb, 26, (t) => [off, 0], yTop - 3), weather(col), 0.75);
   // the closed tube: a dark green corkscrew down to the smaller pool
   const tube = run(cs, 60, (t) => [Math.sin(t * Math.PI * 5) * 4.2 * (1 - t * 0.4), Math.cos(t * Math.PI * 5) * 4.2 * (1 - t * 0.4) - 4.2]);
   sweep(S, tube, tube.map(() => 0.85), tube.map(() => [0, 1, 0]), 8, (i) => [i % 6 < 3 ? hex('#4c6f5b') : hex('#3f5f4f'), KIND.PLAIN]);
@@ -433,7 +436,7 @@ export function thuyTienBridgeRoads(data) {
   return new Set(aquariumBridges(data.roads, C, Rd).map((b) => b.f));
 }
 
-export function buildThuyTien(data, S) {
+export function buildThuyTien(data, S, group) {
   const st = data.sites && data.sites.thuytien;
   if (!st) return;
   const items = (st.items || []).map((it) => ({ ...it, pts: unflat(it.ring) }));
@@ -468,15 +471,17 @@ export function buildThuyTien(data, S) {
   for (const it of items.filter((i) => i.k === 's')) part(() => {
     const c = centroid(it.pts);
     const pools = waters.map((w) => centroid(w)).filter((q) => Math.hypot(q[0] - c[0], q[1] - c[1]) < 90).sort((a, b) => Math.hypot(a[0] - c[0], a[1] - c[1]) - Math.hypot(b[0] - c[0], b[1] - c[1]));
+    const n0 = S.n;
     stands(S, it.pts, pools[0] || cm);
+    (S.paved = S.paved || []).push([n0, S.n]);
+    scrubAlong(S, it.pts, wet, +it.id % 97);
   });
   const poolRings = items.filter((i) => i.k === 'p').map((i) => i.pts).sort((a, b) => b.length - a.length);
-  for (const p of poolRings) part(() => { pool(S, p); });
-  for (const it of items.filter((i) => i.k === 'q')) part(() => { plaza(S, it.pts); });
+  for (const p of poolRings) part(() => { pool(S, p); scrubAlong(S, p, wet, p.length * 13); });
+  for (const it of items.filter((i) => i.k === 'q')) part(() => { const n0 = S.n; plaza(S, it.pts); (S.paved = S.paved || []).push([n0, S.n]); });
   (st.points || []).forEach((p, i) => part(() => {
     const x = p.x / 10, z = p.z / 10;
-    if (p.k === 'art') sculpture(S, x, z, i * 7 + 3);
-    else if (p.k === 'gate') { gate(S, x, z, cm); }
+    if (p.k === 'art') sculpture(S, x, z, i * 7 + 3); // (the old entrance gate was pulled down in the 2024-25 clean-up)
   }));
 
   // the slides: the building nearest the mapped slide point is the tower
@@ -517,5 +522,64 @@ export function buildThuyTien(data, S) {
       const ux = Math.cos(o.a), uz = Math.sin(o.a), n = Math.max(1, Math.floor(o.w / 3.2));
       for (const sd of [-1, 1]) for (let i = 0; i < n; i++) { const uu = (i + 0.5 - n / 2) * (o.w / n); S.box(o.c[0] + ux * uu - uz * sd * (o.d / 2 + 0.04), o.c[1] + uz * uu + ux * sd * (o.d / 2 + 0.04), hi + 0.9, hi + Math.min(h - 0.5, 2.3), 1.1, 0.1, o.a, dark); }
     });
+  }
+  // the lakeside walk relaid in 2024-25 (2 km of granite, 82 LED lamp posts: báo Văn Hóa, 16 Apr 2025)
+  const lake = waters.slice().sort((a, b) => b.length - a.length)[0];
+  if (lake && group) part(() => {
+    const L = lakeLamps(S, lake, wet);
+    if (!L.length) return;
+    const pts = glowPoints(L, L.map((_, k) => [0.86, 0.93, 1][k % 3]), 4);
+    pts.userData.glow = true;
+    pts.userData.landmark = 'thuytien';
+    group.add(pts);
+  });
+}
+
+// LED lamp posts round the lake, a few metres up the bank from the water's edge, one every ~26 m (2 km and 82 lamps would be ~24 m; the mapped shore is longer, ~2.4 km); returns the lamp
+// heads as a flat [x, y, z, ...] list for the night glow.
+function lakeLamps(S, ring, wet) {
+  let A = 0;
+  for (let i = 0, n = ring.length; i < n; i++) { const a = ring[i], b = ring[(i + 1) % n]; A += a[0] * b[1] - b[0] * a[1]; }
+  const out = [], post = hex('#5d6466'), head = hex('#d9dcd8'), step = 26;
+  let carry = step / 2;
+  for (let i = 0, n = ring.length; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 0.01) continue;
+    const d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len], o = A > 0 ? [-d[1], d[0]] : [d[1], -d[0]]; // outward, away from the water
+    for (let s = carry; s < len; s += step) {
+      carry = s + step - len;
+      const bx = a[0] + d[0] * s, bz = a[1] + d[1] * s;
+      const side = [1, -1].find((k) => !wet(bx + o[0] * k * 3.5, bz + o[1] * k * 3.5) && !wet(bx + o[0] * k * 5.5, bz + o[1] * k * 5.5));
+      if (!side) continue;
+      const x = bx + o[0] * side * 3.5, z = bz + o[1] * side * 3.5;
+      const g = gy(x, z);
+      S.kind = KIND.PLAIN;
+      S.cyl(x, z, g - 0.2, g + 4.2, 0.09, 0.07, 5, post, { cap: false });
+      S.box(x, z, g + 4.2, g + 4.45, 0.5, 0.5, Math.atan2(d[1], d[0]), head);
+      out.push(x, g + 4.1, z);
+    }
+    if (carry >= len) carry -= len;
+  }
+  return out;
+}
+// scrub, saplings and creeper coming up round a ruin: low clumps every few metres along its outline, outside it
+function scrubAlong(S, ring, wet, seed) {
+  const c = centroid(ring), greens = [hex('#4f6b3a'), hex('#5f7a43'), hex('#3f5a35'), hex('#6d7f4a')];
+  let k = 0;
+  for (let i = 0, n = ring.length; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    for (let s = 0; s < len; s += 4.5) {
+      const h = hash(seed * 31 + k++);
+      if (h < 0.35) continue;
+      const px = a[0] + (b[0] - a[0]) * (s / len), pz = a[1] + (b[1] - a[1]) * (s / len);
+      const dl = Math.hypot(px - c[0], pz - c[1]) || 1, out = 1.2 + h * 1.6;
+      const x = px + ((px - c[0]) / dl) * out, z = pz + ((pz - c[1]) / dl) * out;
+      if (wet(x, z)) continue;
+      const g = gy(x, z), r = 0.7 + h * 1.1, col = greens[Math.floor(h * 97) % greens.length];
+      S.kind = KIND.PLAIN;
+      S.cyl(x, z, g - 0.2, g + r * 0.45, r * 0.8, r, 7, shade(col, 0.9), { cap: false });
+      S.cyl(x, z, g + r * 0.45, g + r * (0.9 + h * 0.5), r, r * 0.15, 7, col);
+      if (h > 0.7) S.cyl(x + r * 0.7, z - r * 0.5, g - 0.2, g + r * 1.6, r * 0.55, r * 0.1, 5, shade(col, 0.85)); // a sapling
+    }
   }
 }

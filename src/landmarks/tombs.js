@@ -384,6 +384,7 @@ function leftovers(S, st, { roof = C.roofYOld, small = C.roofTile, wall = C.lacq
 // terraces, the Sùng Ân enclosure wall, Hoàng Trạch Môn, Minh Lâu's three terraces, the trụ biểu, the Bửu Thành gate
 // and stair, the tumulus. The outer La Thành wall is left out.
 function minhMang(S, st) {
+  if (replaced('minhmang')) return; // drawn by places/minhmang.js
   const dhm = named(st, /dai hong mon/), bt = named(st, /buu thanh/), ml = named(st, /minh lau/);
   const sa = named(st, /sung an/), hdm = named(st, /hien duc mon/), bd = named(st, /bi dinh/);
   const o = dhm ? dhm.c : add(st.c, [243, 30]);
@@ -868,7 +869,7 @@ const TOMBS = { minhmang: minhMang, tuduc: tuDuc, khaidinh: khaiDinh, thieutri: 
 export function buildTombs(data, S, stats = null) {
   loadPaths(data);
   for (const [id, fn] of Object.entries(TOMBS)) {
-    const st = loadSite(data, id);
+    const st = replaced(id) ? null : loadSite(data, id);
     const n0 = S.n;
     if (replaced(id)) { if (stats) stats[id] = { from: n0, to: n0 }; continue; } // a replica in places/ draws this tomb
     if (st) {
@@ -879,3 +880,6 @@ export function buildTombs(data, S, stats = null) {
   }
   S.kind = KIND.PLAIN; S.base = 0;
 }
+
+// shared with the per-place replicas (places/minhmang.js)
+export { C as TOMB_COL, gY, groundSpan, rectPts, terrace, levelTop, pav, hallAt, flight, balustrade, wallLine, gate, bridge, mandarin, beast, statueCourt, obelisk };

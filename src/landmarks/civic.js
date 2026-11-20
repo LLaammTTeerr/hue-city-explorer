@@ -407,6 +407,7 @@ function anDinh(S, data) {
 
 // ---- Chùa Diệu Đế: the main hall, and on the canal side the triple gate under its tower, between bell and drum towers ----
 function dieuDe(S, data) {
+  if (replaced('dieude')) return; // drawn by places/dieude.js
   const yellow = hex('#e3c377'), tile = hex('#a9523a'), ridge = hex('#e8dcc0'), lacq = hex('#a33a2a');
   const sp = data.special.dieude;
   let hall = null;
@@ -485,7 +486,7 @@ function templeWalls(S, data, c = [-1300, 180]) {
 // ---- Hiển Lâm Các, three storeys of timber, and before it the nine dynastic urns facing Thế Miếu ----
 function hienLam(S, data) {
   const sp = data.special.hienlam;
-  if (!sp) return;
+  if (!sp || replaced('hienlam')) return;
   const o = obb(unflat(sp.ring)), y0 = LAND_Y;
   const eave = { fascia: 0.3, fasciaCol: shade(PAL.lacquer, 0.75), hips: true, glazed: true, ridgeCol: hex('#f1d77a') };
   S.base = 0;
@@ -548,7 +549,7 @@ function vincom(S, data) {
 // ---- Lầu Tứ Phương Vô Sự on the north bastion of the Imperial City ----
 function tuPhuong(S, data) {
   const sp = data.special.tuphuong;
-  if (!sp) return;
+  if (!sp || replaced('tuphuong')) return;
   const o = obb(unflat(sp.ring));
   S.base = 0;
   pavilion(S, o.c[0], o.c[1], o.w * 0.72, o.d * 0.72, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof, wall: hex('#ead9b4'), over: 1.2, rh: 2.4, platform: 4.6 });
