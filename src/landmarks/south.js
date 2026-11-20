@@ -254,6 +254,7 @@ function thienAn(S, data) {
 // 83 m) with its yellow balustrade, the round top with its blue one, stairs on four sides of each, and the Trai Cung
 // fasting palace to the south-west (its position and size are illustrative).
 function namGiao(S, data) {
+  if (replaced('namgiao')) return;
   const site = siteOf(data, 'namgiao');
   if (!site) return;
   const top = site.items.find((it) => it.k === 'h' && /nam giao/i.test(it.n || '')) || site.items.find((it) => it.k === 'h');
@@ -410,7 +411,7 @@ function vongCanh(S, data) {
 
 export function buildSouth(data, S) {
   if (!data || !S) return;
-  for (const fn of [(St, d) => buildThuyTien(d, St), thienAn, namGiao, vongCanh]) {
+  for (const fn of [(St, d) => { if (!replaced('thuytien')) buildThuyTien(d, St); }, thienAn, namGiao, vongCanh]) {
     const n0 = S.n; // a place that throws halfway is dropped whole, not left half-built in the shared buffer
     try { fn(S, data); } catch (e) { S.n = n0; console.warn('south:', fn.name, e); }
     S.kind = KIND.PLAIN; S.base = 0;
