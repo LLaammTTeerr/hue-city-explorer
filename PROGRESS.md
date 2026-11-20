@@ -278,3 +278,26 @@ Known weak points:
 - Ground lower than the city floor (paddies, river flats) is still drawn at the floor.
 - No lidar pass crosses the Ngự Bình or Vọng Cảnh summits; they rest on published figures.
 - Not merged to `main`, not deployed.
+
+## Wrong heights at the tombs and lakeside hills (2026-11-21, branch `claude/lang-minh-mang-height-69ee42`)
+Lăng Minh Mạng looked wrong; the sweep found two root causes, each affecting many places.
+- **Terrain, raised lakes** (`scripts/build-data.mjs` §9): the shore ring and islands of every raised lake were held
+  flat at the water's level, which sheared any hill that rose from a lake (Bửu Thành's mound lost 10 m on its lake
+  side and the ring wall stood on a ramp). Now only the water is held flat. Shore and islands stand no lower than it
+  (`shoreLv`), which frees 449 nodes (~28 ha) at 73 lakes. Terrain error against lidar is unchanged.
+- **Tomb halls** (`src/landmarks/tombs.js`): `pavilion()` pitches roofs for the Citadel's great halls (up to 5.2 m,
+  ×1.27 for two tiers), which stood tomb halls 4–6 m over their documented height. `pav()` now takes `h`
+  (ridge over floor) and caps the default roof at 3.8 m. Heights from `docs/reference/heights.md`, measured from
+  the lowest ground (before → after):
+  - Sùng Ân 15.5 → 10.8
+  - Đại Hồng Môn 11.3 → 9.1
+  - Minh Lâu 15.9 → 14.6
+  - Hòa Khiêm 11.7 → 9.9
+  - Biểu Đức 14.8 → 9.5
+  - Ngưng Hy 12.8 → 10.8
+  - Bửu Thành wall 3.2 → 3.5 m
+  - Hiển Đức Môn, Khiêm Cung Môn and Hồng Trạch Môn are also lowered.
+- Checked: satellite building heights outside the drone survey are not inflated by tree canopy (median 7 m outside,
+  9.4 m inside).
+- Left as is: halls on steep ground still stand on tall downhill podiums, because floors level to the highest
+  ground under them (a Tự Đức outbuilding sits 6 m up on a 5 m slope).
