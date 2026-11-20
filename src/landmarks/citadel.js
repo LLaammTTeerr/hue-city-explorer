@@ -913,6 +913,7 @@ function facePlane(group, mat, w, h, at, n, order = 0) {
 }
 
 export function buildMarket(data, S, group = null) {
+  if (replaced('dongba')) return;
   if (!data.special?.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
   // which way is the street front: toward the nearest edge of the river (Trần Hưng Đạo runs along the bank)
