@@ -3,8 +3,12 @@ import { KIND, hex, shade, Buf } from '../geo/buf.js';
 import { glowPoints, lightMaterial } from '../geo/materials.js';
 import { LAND_Y, PAL } from '../config.js';
 
-// Cầu Trường Tiền. Position, axis, length and width come from the OSM bridge outline
-// (way 1431129413); the six bow-string steel spans — "sáu vài mười hai nhịp" — are modelled by hand.
+// Cầu Trường Tiền. Position, axis and width come from the OSM bridge outline (way 1431129413); the six bow-string
+// steel spans — "sáu vài mười hai nhịp" — are modelled by hand to the published figures (docs/places/truongtien.md):
+// 402.6 m long, six spans of 67 m, a 6 m carriageway between the trusses and a 1.95 m walkway outside each, the bows
+// 5.45 m high (vi.wikipedia "Cao 5m45"; a side-on 2024 panorama on Commons measures 5.5–5.7 m over the bottom chord).
+// The OSM outline is 388 m, a little short of the real length, so the deck is centred on it and drawn at 402.6 m.
+export const TT_LENGTH = 402.6;
 export function buildTruongTien(data, S, group) {
   const tt = data.truongtien;
   const pt = (p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]);
@@ -16,7 +20,7 @@ export function buildTruongTien(data, S, group) {
     return { centre: [0, 0], dir: [1, 0], across: [0, 1], length: 0, width: 0, span: 0, deckTop: 0, deckBottom: 0, lights: [], lamps, update() {} };
   }
   const a = [tt.a[0] / 10, tt.a[1] / 10], b = [tt.b[0] / 10, tt.b[1] / 10]; // north end, south end
-  const L = tt.box.w / 10, W = tt.box.d / 10;
+  const L = TT_LENGTH, W = tt.box.d / 10;
   const c = [tt.box.c[0] / 10, tt.box.c[1] / 10];
   const dl = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const d = [(b[0] - a[0]) / dl, (b[1] - a[1]) / dl]; // along the bridge, north → south bank
@@ -25,20 +29,25 @@ export function buildTruongTien(data, S, group) {
   const SPANS = 6, span = L / SPANS;
   // the deck stands on the river, not on the bank: its underside about 5.5 m above the water, room for a dragon boat
   // and its roof, and the approaches climb to it from the streets
-  const deckTop = 6.4, deckT = 0.9;
-  const trussX = W / 2 - 2.35; // truss planes; walkways are cantilevered outside them
-  const H = 10.4; // crown of each bow above the deck
-  const N = 14; // panels per span
+  // The deck girder reads as a dark band about 1.2 m deep; the stone piers stop short of it, the girders sitting on
+  // steel bearing trestles about 1.5 m tall (Commons panorama, 2024).
+  const deckTop = 6.4, deckT = 1.2, trestle = 1.5;
+  const trussX = W / 2 - 2.35; // truss planes (6 m carriageway + truss); 1.95 m walkways are cantilevered outside them
+  const H = 5.45; // crown of each bow above the bottom chord
+  const E = 1.3; // the bow ends on a short end post over the pier, not on the chord
+  const N = 16; // panels per span (about 4.2 m, counted on the panorama)
   const steel = PAL.steel, steelD = PAL.steelDark;
 
   const at = (s, off, y) => [c[0] + d[0] * s + n[0] * off, y, c[1] + d[1] * s + n[1] * off];
 
   // deck + walkway edge
-  S.box(c[0], c[1], deckTop - deckT, deckTop, L, W, ang, hex('#8d8782'), { top: PAL.deck, bottom: true });
+  S.box(c[0], c[1], deckTop - deckT, deckTop, L, W, ang, hex('#716e6b'), { top: PAL.deck, bottom: true });
   for (const side of [-1, 1]) {
     S.beam(at(-L / 2, side * (W / 2 - 0.1), deckTop + 1.05), at(L / 2, side * (W / 2 - 0.1), deckTop + 1.05), 0.16, 0.16, steel);
     S.beam(at(-L / 2, side * (W / 2 - 0.1), deckTop + 0.55), at(L / 2, side * (W / 2 - 0.1), deckTop + 0.55), 0.1, 0.1, steelD);
     for (let s = -L / 2; s <= L / 2 + 0.01; s += span / 10) S.beam(at(s, side * (W / 2 - 0.1), deckTop), at(s, side * (W / 2 - 0.1), deckTop + 1.05), 0.14, 0.14, steelD);
+    // the two guard pipes on the carriageway side of each truss, added in the 1991–95 restoration
+    for (const y of [0.45, 0.85]) S.beam(at(-L / 2, side * (trussX - 0.55), deckTop + y), at(L / 2, side * (trussX - 0.55), deckTop + y), 0.12, 0.12, steelD);
     // walkway surface slightly lighter than the carriageway
     const mid = at(0, side * (trussX + (W / 2 - trussX) / 2), 0);
     S.box(mid[0], mid[2], deckTop, deckTop + 0.12, L, W / 2 - trussX - 0.3, ang, hex('#b5aea4'));
@@ -69,14 +78,14 @@ export function buildTruongTien(data, S, group) {
   for (let i = 1; i < SPANS; i++) {
     const s = -L / 2 + i * span;
     const pr = (hu, tip) => [[-hu, -W / 2 + 0.6], [0, -W / 2 - tip], [hu, -W / 2 + 0.6], [hu, W / 2 - 0.6], [0, W / 2 + tip], [-hu, W / 2 - 0.6]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
-    const yT = deckTop - deckT - 0.7, yB = deckTop - deckT;
+    const yB = deckTop - deckT - trestle, yT = yB - 0.6;
     S.kind = KIND.MASONRY;
     // the battered body with its pointed cutwaters, then a projecting coping course, chamfered back on top
-    S.prism(pr(1.7, 2.6), -3, yT - 0.45, PAL.pier, PAL.pier, { scaleTop: 0.92, top: false });
-    S.prism(pr(1.86, 2.85), yT - 0.45, yT, shade(PAL.pier, 1.06), shade(PAL.pier, 1.12), { scaleTop: 0.96 });
+    S.prism(pr(2.1, 2.6), -3, yT - 0.45, PAL.pier, PAL.pier, { scaleTop: 0.92, top: false });
+    S.prism(pr(2.26, 2.85), yT - 0.45, yT, shade(PAL.pier, 1.06), shade(PAL.pier, 1.12), { scaleTop: 0.96 });
     S.kind = KIND.PLAIN;
     // the cap under the deck: corners chamfered, its underside shown where it overhangs the coping
-    const hu = 1.9, hv = W / 2 + 0.6, ch = 0.4;
+    const hu = 2.3, hv = W / 2 - 0.4, ch = 0.4;
     const cap = [[-hu + ch, -hv], [hu - ch, -hv], [hu, -hv + ch], [hu, hv - ch], [hu - ch, hv], [-hu + ch, hv], [-hu, hv - ch], [-hu, -hv + ch]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
     const capCol = shade(PAL.pier, 1.1);
     S.prism(cap, yT, yB, capCol, capCol);
@@ -84,6 +93,13 @@ export function buildTruongTien(data, S, group) {
     for (let k = 0; k < cap.length; k++) { const a = cap[k], b = cap[(k + 1) % cap.length]; S.tri(cm, [a[0], yT, a[1]], [b[0], yT, b[1]], shade(capCol, 0.7), [0, -1, 0]); }
     // a moulded string course round the cap
     S.prism(cap.map(([x, z]) => [x + (x - cm[0]) * 0.03, z + (z - cm[2]) * 0.03]), yB - 0.22, yB - 0.08, shade(capCol, 0.92), capCol, { top: false });
+    // the steel bearing trestles between the pier cap and the girders: a post and two raking struts under each truss
+    for (const side of [-1, 1]) {
+      for (const u of [-1.2, 1.2]) S.beam(at(s + u, side * trussX, yB), at(s + u, side * trussX, deckTop - deckT), 0.35, 0.35, steelD);
+      S.beam(at(s - 1.6, side * trussX, yB), at(s, side * trussX, deckTop - deckT), 0.22, 0.22, steelD);
+      S.beam(at(s + 1.6, side * trussX, yB), at(s, side * trussX, deckTop - deckT), 0.22, 0.22, steelD);
+      S.beam(at(s, -trussX, yB + 0.2), at(s, trussX, yB + 0.2), 0.25, 0.25, steelD);
+    }
     for (const side of [-1, 1]) {
       // (the balconies that bulged out over each pier from 1937 were taken off in the 1991–95 restoration)
       // lamp post at the rail, over the pier
@@ -100,13 +116,13 @@ export function buildTruongTien(data, S, group) {
     const lp = [], lc = [];
     // The bows are fuller than a parabola: they leave the piers steeply (about 45° over the first panel) and flatten
     // only near the crown, the rounded "comb" outline of the bridge seen from the river.
-    const top = (k, side) => { const t = k / N, u = 2 * t - 1; return at(s0 + t * span, side * trussX, deckTop + 0.25 + H * Math.pow(Math.max(0, 1 - u * u), 0.62)); };
+    const top = (k, side) => { const t = k / N, u = 2 * t - 1; return at(s0 + t * span, side * trussX, deckTop + 0.25 + E + (H - E) * Math.pow(Math.max(0, 1 - u * u), 0.62)); };
     const bot = (k, side) => at(s0 + (k / N) * span, side * trussX, deckTop + 0.25);
     for (const side of [-1, 1]) {
       S.beam(bot(0, side), bot(N, side), 0.55, 0.5, steelD);
       for (let k = 0; k < N; k++) {
         S.beam(top(k, side), top(k + 1, side), 0.78, 0.8, steel);
-        if (k >= 1) S.beam(top(k, side), bot(k, side), 0.4, 0.4, steel);
+        S.beam(top(k, side), bot(k, side), k === 0 ? 0.6 : 0.4, 0.4, steel);
         // diagonals lean toward mid-span
         if (k >= 1 && k < N / 2) S.beam(top(k, side), bot(k + 1, side), 0.3, 0.3, steelD);
         if (k >= N / 2 && k < N - 1) S.beam(top(k + 1, side), bot(k, side), 0.3, 0.3, steelD);
@@ -123,7 +139,7 @@ export function buildTruongTien(data, S, group) {
     let prev = null;
     for (let k = 2; k <= N - 2; k++) {
       const l = top(k, -1), r = top(k, 1);
-      if (l[1] < deckTop + 5.6) continue;
+      if (l[1] < deckTop + 4.6) continue; // headroom: the struts start where the bow clears about 4.3 m
       S.beam(l, r, 0.34, 0.34, steel);
       if (prev) { S.beam(prev[0], r, 0.2, 0.2, steelD); S.beam(prev[1], l, 0.2, 0.2, steelD); }
       prev = [l, r];
@@ -137,7 +153,7 @@ export function buildTruongTien(data, S, group) {
     for (const side of [-1, 1]) {
       for (let k = 0; k < N; k++) {
         LB.beam(out(top(k, side), side, 0.46, 0.2), out(top(k + 1, side), side, 0.46, 0.2), 0.2, 0.5, W1);
-        if (k >= 1) LB.beam(out(top(k, side), side, 0.3), out(bot(k, side), side, 0.3), 0.12, 0.12, W1);
+        LB.beam(out(top(k, side), side, 0.3), out(bot(k, side), side, 0.3), 0.12, 0.12, W1);
       }
       LB.beam(out(bot(0, side), side, 0.36), out(bot(N, side), side, 0.36), 0.14, 0.28, W1);
     }
@@ -154,7 +170,7 @@ export function buildTruongTien(data, S, group) {
     const EB = new Buf(160), W1 = [1, 1, 1];
     for (const side of [-1, 1]) {
       EB.beam(at(-L / 2, side * (W / 2 + 0.08), deckTop - 0.12), at(L / 2, side * (W / 2 + 0.08), deckTop - 0.12), 0.1, 0.16, W1);
-      for (let i = 1; i < SPANS; i++) { const sx = -L / 2 + i * span; EB.beam(at(sx, side * (W / 2 + 2.2), 0.5), at(sx, side * (W / 2 + 1.5), deckTop - deckT - 1.0), 0.5, 0.2, W1); }
+      for (let i = 1; i < SPANS; i++) { const sx = -L / 2 + i * span; EB.beam(at(sx, side * (W / 2 + 1.2), 0.5), at(sx, side * (W / 2 + 0.5), deckTop - deckT - trestle - 0.8), 0.5, 0.2, W1); }
     }
     const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xffd9a0, 0.75));
     edge.renderOrder = 19;
