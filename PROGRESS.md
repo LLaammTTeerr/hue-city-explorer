@@ -401,3 +401,12 @@ Merged in that order; each later branch took `main` first and was reconciled bef
 - Checked: `npm run check` (8/8 data, 24/24 heights), `npm run build`, and in the browser the day and night views,
   the Trường Tiền show, the floating restaurant and Chợ Đông Ba, with no console errors.
 - Not seen in the browser after the merge: the tombs, Thái Hòa, the churches, An Định, the Quốc Học gate.
+- Buildings off streets and yards (branch `claude/zombie-housing-issue-cefb73`, 2026-11-21):
+  - Mapped buildings are trimmed back to the kerb (carriageway + 0.3 m; bridges and footpaths excepted) in
+    `build-data.mjs`, after the inside-landmark pass. A building the street runs through (under half its plan left, a
+    sliver under 2.5 m, or under 12 m²) is dropped: OSM still maps houses pulled down for newer streets. Rebuild:
+    919 trimmed, 40 dropped (6,070 → 6,030); before, 640 overlapped a carriageway, now none.
+  - Landmark yards (`yard` in `src/landmarks/enclosure.js`) step around mapped buildings as they do round streets: a
+    building the fence would cut is put outside by pulling in the nearest side that clears the core. Seen at Dòng
+    Chúa Cứu Thế, whose fence ran through the monastery blocks.
+  - Checked: `npm run check`, `npm run build`, browser views of DCCT and a west-side street, no console errors.

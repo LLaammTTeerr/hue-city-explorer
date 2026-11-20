@@ -188,7 +188,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
 // An oriented yard around a building where OSM maps no grounds: a rectangle in frame terms (a along the front
 // direction f, b along the facade p) between [a0, a1] x [b0, b1], pulled in wherever a street (class 0-3) runs
 // through it, but never into the core [ca0, ca1] x [cb0, cb1] the building and its forecourt need.
-export function yard(F, roads, a0, a1, b0, b1, ca0, ca1, cb0, cb1) {
+export function yard(F, roads, a0, a1, b0, b1, ca0, ca1, cb0, cb1, blds = []) {
   const loc = (x, z) => { const dx = x - F.c[0], dz = z - F.c[1]; return [dx * F.f[0] + dz * F.f[1], dx * F.p[0] + dz * F.p[1]]; };
   for (const [ax, az, bx, bz, w, cl] of roads) {
     if (cl > 3) continue;
@@ -204,6 +204,32 @@ export function yard(F, roads, a0, a1, b0, b1, ca0, ca1, cb0, cb1) {
       if (!moves.length) continue; // a street through the core: the fence opens for it instead
       moves.sort((p, q) => p[0] - q[0])[0][1]();
     }
+  }
+  // mapped buildings: one standing wholly inside the yard or wholly outside it is left alone; one the fence line would
+  // cut through is put outside, by pulling in the nearest side that clears the core (a building that reaches into the
+  // core stays cut: the fence breaks at its walls)
+  const PAD = 1.2;
+  for (let pass = 0; pass < 4; pass++) {
+    let moved = false;
+    for (const ring of blds) {
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity, inside = 0;
+      for (const [x, z] of ring) {
+        const [a, b] = loc(x, z);
+        u0 = Math.min(u0, a); u1 = Math.max(u1, a); v0 = Math.min(v0, b); v1 = Math.max(v1, b);
+        if (a > a0 && a < a1 && b > b0 && b < b1) inside++;
+      }
+      if (u1 <= a0 || u0 >= a1 || v1 <= b0 || v0 >= b1) continue; // clear of the yard
+      if (inside === ring.length && u0 > a0 + PAD && u1 < a1 - PAD && v0 > b0 + PAD && v1 < b1 - PAD) continue; // within it
+      const moves = [];
+      if (u0 - PAD >= ca1) moves.push([a1 - (u0 - PAD), () => (a1 = u0 - PAD)]);
+      if (u1 + PAD <= ca0) moves.push([u1 + PAD - a0, () => (a0 = u1 + PAD)]);
+      if (v0 - PAD >= cb1) moves.push([b1 - (v0 - PAD), () => (b1 = v0 - PAD)]);
+      if (v1 + PAD <= cb0) moves.push([v1 + PAD - b0, () => (b0 = v1 + PAD)]);
+      if (!moves.length) continue;
+      moves.sort((p, q) => p[0] - q[0])[0][1]();
+      moved = true;
+    }
+    if (!moved) break;
   }
   return { a0, a1, b0, b1, ring: [F.at(a0, b0), F.at(a1, b0), F.at(a1, b1), F.at(a0, b1)] };
 }
