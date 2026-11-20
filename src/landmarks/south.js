@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { buildThuyTien } from './thuytien.js';
+import { replaced } from './places/index.js';
 
 // The southern hills: đan viện Thiên An, (the water park at hồ Thủy Tiên is in thuytien.js),
 // đàn Nam Giao and the lookout on đồi Vọng Cảnh. Each place says below what comes from OSM (position,
@@ -408,7 +409,7 @@ function vongCanh(S, data) {
 
 export function buildSouth(data, S) {
   if (!data || !S) return;
-  for (const fn of [(St, d) => buildThuyTien(d, St), thienAn, namGiao, vongCanh]) {
+  for (const fn of [(St, d) => { if (!replaced('thuytien')) buildThuyTien(d, St); }, thienAn, namGiao, vongCanh]) {
     const n0 = S.n; // a place that throws halfway is dropped whole, not left half-built in the shared buffer
     try { fn(S, data); } catch (e) { S.n = n0; console.warn('south:', fn.name, e); }
     S.kind = KIND.PLAIN; S.base = 0;
