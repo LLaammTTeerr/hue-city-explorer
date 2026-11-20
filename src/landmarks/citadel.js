@@ -4,6 +4,7 @@ import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
+import { replaced } from './places/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -531,7 +532,7 @@ function citadel(data, S, group) {
   }
 
   // ---- Ngọ Môn: U-shaped masonry base from OSM, Lầu Ngũ Phụng on top ----
-  if (data.special?.ngomon) {
+  if (data.special?.ngomon && !replaced('ngomon')) {
     const ring = unflat(data.special?.ngomon.ring);
     const o = obb(ring);
     const baseTop = LAND_Y + 5.4;
