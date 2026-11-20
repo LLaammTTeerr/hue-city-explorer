@@ -19,7 +19,7 @@ export function buildTruongTien(data, S, group) {
   const deckTop = LAND_Y + 2.4, deckT = 0.9; // underside ~6 m above the river: room for a dragon boat and its roof
   const trussX = W / 2 - 2.35; // truss planes; walkways are cantilevered outside them
   const H = 10.4; // crown of each bow above the deck
-  const N = 10; // panels per span
+  const N = 14; // panels per span
   const steel = PAL.steel, steelD = PAL.steelDark;
 
   const at = (s, off, y) => [c[0] + d[0] * s + n[0] * off, y, c[1] + d[1] * s + n[1] * off];
@@ -29,7 +29,7 @@ export function buildTruongTien(data, S, group) {
   for (const side of [-1, 1]) {
     S.beam(at(-L / 2, side * (W / 2 - 0.1), deckTop + 1.05), at(L / 2, side * (W / 2 - 0.1), deckTop + 1.05), 0.16, 0.16, steel);
     S.beam(at(-L / 2, side * (W / 2 - 0.1), deckTop + 0.55), at(L / 2, side * (W / 2 - 0.1), deckTop + 0.55), 0.1, 0.1, steelD);
-    for (let s = -L / 2; s <= L / 2 + 0.01; s += span / N) S.beam(at(s, side * (W / 2 - 0.1), deckTop), at(s, side * (W / 2 - 0.1), deckTop + 1.05), 0.14, 0.14, steelD);
+    for (let s = -L / 2; s <= L / 2 + 0.01; s += span / 10) S.beam(at(s, side * (W / 2 - 0.1), deckTop), at(s, side * (W / 2 - 0.1), deckTop + 1.05), 0.14, 0.14, steelD);
     // walkway surface slightly lighter than the carriageway
     const mid = at(0, side * (trussX + (W / 2 - trussX) / 2), 0);
     S.box(mid[0], mid[2], deckTop, deckTop + 0.12, L, W / 2 - trussX - 0.3, ang, hex('#b5aea4'));
@@ -59,12 +59,22 @@ export function buildTruongTien(data, S, group) {
   const lampPos = [], lampCol = [];
   for (let i = 1; i < SPANS; i++) {
     const s = -L / 2 + i * span;
-    const ring = [[-1.7, -W / 2 + 0.6], [0, -W / 2 - 2.6], [1.7, -W / 2 + 0.6], [1.7, W / 2 - 0.6], [0, W / 2 + 2.6], [-1.7, W / 2 - 0.6]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
+    const pr = (hu, tip) => [[-hu, -W / 2 + 0.6], [0, -W / 2 - tip], [hu, -W / 2 + 0.6], [hu, W / 2 - 0.6], [0, W / 2 + tip], [-hu, W / 2 - 0.6]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
+    const yT = deckTop - deckT - 0.7, yB = deckTop - deckT;
     S.kind = KIND.MASONRY;
-    S.prism(ring, -3, deckTop - deckT - 0.7, PAL.pier, shade(PAL.pier, 1.08), { scaleTop: 0.92 });
+    // the battered body with its pointed cutwaters, then a projecting coping course, chamfered back on top
+    S.prism(pr(1.7, 2.6), -3, yT - 0.45, PAL.pier, PAL.pier, { scaleTop: 0.92, top: false });
+    S.prism(pr(1.86, 2.85), yT - 0.45, yT, shade(PAL.pier, 1.06), shade(PAL.pier, 1.12), { scaleTop: 0.96 });
     S.kind = KIND.PLAIN;
-    const m = at(s, 0, 0);
-    S.box(m[0], m[2], deckTop - deckT - 0.7, deckTop - deckT, 3.8, W + 1.2, ang, shade(PAL.pier, 1.1), { bottom: true });
+    // the cap under the deck: corners chamfered, its underside shown where it overhangs the coping
+    const hu = 1.9, hv = W / 2 + 0.6, ch = 0.4;
+    const cap = [[-hu + ch, -hv], [hu - ch, -hv], [hu, -hv + ch], [hu, hv - ch], [hu - ch, hv], [-hu + ch, hv], [-hu, hv - ch], [-hu, -hv + ch]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
+    const capCol = shade(PAL.pier, 1.1);
+    S.prism(cap, yT, yB, capCol, capCol);
+    const cm = at(s, 0, yT);
+    for (let k = 0; k < cap.length; k++) { const a = cap[k], b = cap[(k + 1) % cap.length]; S.tri(cm, [a[0], yT, a[1]], [b[0], yT, b[1]], shade(capCol, 0.7), [0, -1, 0]); }
+    // a moulded string course round the cap
+    S.prism(cap.map(([x, z]) => [x + (x - cm[0]) * 0.03, z + (z - cm[2]) * 0.03]), yB - 0.22, yB - 0.08, shade(capCol, 0.92), capCol, { top: false });
     for (const side of [-1, 1]) {
       // (the balconies that bulged out over each pier from 1937 were taken off in the 1991–95 restoration)
       // lamp post at the rail, over the pier
