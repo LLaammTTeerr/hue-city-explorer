@@ -21,7 +21,8 @@ const NAMED = {
   'Cầu Trung Đạo': { own: true },
   'Cầu Ngoại Kim Thuỷ': { rise: 1.4, arches: 1 },
   'Cầu Ngoại Kim Thủy': { rise: 1.4, arches: 1 },
-  'Đông Thành Thủy Quan': { rise: 0.9, arches: 3 },
+  // one 8.4 m vault in a 71.7 m masonry dam, 8.05 m high; the deck crowns over the vault (landmarks/places/thuyquan.js)
+  'Đông Thành Thủy Quan': { rise: 4.3, ramp: 0.45 },
   'Cầu Gia Hội': { rise: 1.1 },
   'Cầu Nhà Đồ': { rise: 1.0 },
   'Cầu Cửa Ngăn': { rise: 1.0 },
