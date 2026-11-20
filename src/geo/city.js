@@ -11,6 +11,7 @@ import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
+import { replaced } from '../landmarks/places/index.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -637,7 +638,7 @@ export function buildWalls(data, structures) {
   }
   // the Imperial City's own wall is mapped as lines: brick, with a tiled coping
   const cap = hex('#7a5a45'), body = hex('#8f7c69');
-  for (const flat of data.iwalls || []) {
+  for (const flat of replaced('dainoi') ? [] : data.iwalls || []) { // drawn by places/dainoi.js
     const pts = unflat(flat);
     for (let i = 0; i + 1 < pts.length; i++) {
       const a = pts[i], b = pts[i + 1];
