@@ -9,6 +9,7 @@ import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain
 import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
+import { bridgeProfiles, resample } from './bridges.js';
 
 const rand = (i, salt = 0) => {
   let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
@@ -131,17 +132,22 @@ function ribbon(B, pts0, width, y, col) {
   const yL = L.map((p) => y + rise(p[0], p[1]) + lift), yR = R.map((p) => y + rise(p[0], p[1]) + lift);
   for (let i = 0; i + 1 < pts.length; i++) B.quad([L[i][0], yL[i], L[i][1]], [R[i][0], yR[i], R[i][1]], [R[i + 1][0], yR[i + 1], R[i + 1][1]], [L[i + 1][0], yL[i + 1], L[i + 1][1]], col, [0, 1, 0]);
 }
-// yTop: one height for a level deck, or [start, end] for a deck that climbs from one bank to the other
-function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0) {
+// yTop: one height for a level deck, [start, end] for a deck that climbs from one bank to the other, or a function
+// of the distance along the path (a humped deck: pass points dense enough to follow it). bottom(s, top), if given,
+// is the underside instead of top - thick: a vaulted bridge's arches.
+function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0, bottom = null) {
   const [L, R] = ribbonPoints(pts, width);
-  const ys = pts.map(() => yTop);
-  if (Array.isArray(yTop)) {
-    const len = pathLength(pts) || 1;
-    let s = 0;
-    for (let i = 0; i < pts.length; i++) { if (i) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); ys[i] = yTop[0] + ((yTop[1] - yTop[0]) * s) / len; }
+  const ys = pts.map(() => yTop), bs = [];
+  const len = pathLength(pts) || 1;
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    if (i) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    if (typeof yTop === 'function') ys[i] = yTop(s);
+    else if (Array.isArray(yTop)) ys[i] = yTop[0] + ((yTop[1] - yTop[0]) * s) / len;
+    bs[i] = bottom ? bottom(s, ys[i]) : ys[i] - thick;
   }
   for (let i = 0; i + 1 < pts.length; i++) {
-    const j = i + 1, ti = ys[i], tj = ys[j], bi = ti - thick, bj = tj - thick;
+    const j = i + 1, ti = ys[i], tj = ys[j], bi = bs[i], bj = bs[j];
     B.quad([L[i][0], ti, L[i][1]], [R[i][0], ti, R[i][1]], [R[j][0], tj, R[j][1]], [L[j][0], tj, L[j][1]], col, [0, 1, 0]);
     B.quad([L[i][0], bi, L[i][1]], [R[i][0], bi, R[i][1]], [R[j][0], bj, R[j][1]], [L[j][0], bj, L[j][1]], sideCol, [0, -1, 0]);
     const nx = L[i][0] - R[i][0], nz = L[i][1] - R[i][1];
@@ -200,7 +206,8 @@ function along(pts, dist) {
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = data.roads.map(([c, bridge, flat]) => ({ c, bridge, pts: unflat(flat) }));
+  const roads = data.roads.map(([c, bridge, flat]) => ({ c, bridge, flat, pts: unflat(flat) }));
+  const profiles = bridgeProfiles(data);
   const casing = hex(PAL.casing);
   const cols = PAL.road.map(hex);
   const y = LAND_Y + 0.05;
@@ -257,14 +264,17 @@ function buildRoads(data, group, structures) {
     if (!r.bridge) continue;
     structures.span = span(r.era);
     const w = ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5);
-    // a bridge over a lake in the hills stands at that lake's level
-    const mp = r.pts[r.pts.length >> 1], lift = Math.min(rise(r.pts[0][0], r.pts[0][1]), rise(mp[0], mp[1]), rise(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]));
-    const top = LAND_Y + lift + 0.42;
-    // between banks of different height the deck climbs from one to the other, instead of lying level at the lower
-    // bank and running into the ground of the higher one
-    const e0 = rise(r.pts[0][0], r.pts[0][1]), e1 = rise(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]);
-    const deck = Math.abs(e0 - e1) > 0.25 ? [LAND_Y + e0 + 0.42, LAND_Y + e1 + 0.42] : LAND_Y + Math.min(e0, e1) + 0.42;
-    slab(structures, r.pts, w, Math.abs(e0 - e1) > 0.25 || Math.min(e0, e1) - lift < 0.25 ? deck : top, r.c <= 2 ? 1.3 : 0.7, cols[Math.min(r.c, 3)], deckSide, r.c <= 4 ? 0.9 : 0.5);
+    // the deck: level at the banks (or climbing between banks of different height, or at a hill lake's level), and
+    // on all but the long river bridges rising to a crown at mid-span (geo/bridges.js)
+    const P = profiles.get(r.flat), top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
+    const parapet = r.c <= 4 ? 0.9 : 0.5;
+    if (P.rise > 0) {
+      const R = resample(r.pts, P.arches ? 0.5 : Math.min(2, P.len / 16), P.breaks);
+      const k0 = structures.kind;
+      if (P.arches) structures.kind = KIND.MASONRY; // old brick-and-stone vaults read as masonry
+      slab(structures, R.pts, w, P.y, P.thick, cols[Math.min(r.c, 3)], P.arches ? hex('#b3a58c') : deckSide, parapet, P.bottom || null);
+      structures.kind = k0;
+    } else slab(structures, r.pts, w, P.y, P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
     const len = pathLength(r.pts);
     // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
     const dv = vongDone ? null : data.places.find((q) => q.id === 'bachho');
@@ -278,11 +288,12 @@ function buildRoads(data, group, structures) {
         pavilion(structures, x, z, 3.4, 3.4, a, top, { wallH: 2.6, roof: hex('#8f4a36'), wall: hex('#c9b99a'), over: 0.9, rh: 1.5, ridge: hex('#d9c9a0') });
       }
     }
-    if (len > 42 && r.c <= 3) {
+    if (len > 42 && r.c <= 3 && !P.arches) {
       const n = Math.max(1, Math.round(len / 30) - 1);
       for (let i = 1; i <= n; i++) {
-        const { p, a } = along(r.pts, (len * i) / (n + 1));
-        structures.box(p[0], p[1], lift - 3, top - 1.2, 2.2, w - 2.5, a, pier);
+        const si = (len * i) / (n + 1), { p, a } = along(r.pts, si);
+        // each pier ends just inside the deck above it, wherever the curve puts that
+        structures.box(p[0], p[1], lift - 3, P.y(si) - P.thick + 0.1, 2.2, w - 2.5, a, pier);
       }
     }
   }
@@ -309,7 +320,7 @@ function buildRoads(data, group, structures) {
       const { p, a } = along(r.pts, s);
       const off = (ROAD_W[r.c] / 2 + 0.5) * (k % 2 ? 1 : -1);
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
-      lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 : 7.5), lz);
+      lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 + profiles.get(r.flat).bump(s) : 7.5), lz);
       const warm = 0.85 + rand(k, r.c) * 0.3;
       lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
     }
