@@ -24,16 +24,16 @@ const ref = JSON.parse(fs.readFileSync(new URL('docs/heights-reference.json', ro
 const showAll = process.argv.includes('--all');
 
 const { initTerrain, groundY, rise } = await import(src('geo/terrain.js'));
-const { initEras } = await import(src('geo/eras.js'));
+const { initDistricts } = await import(src('geo/districts.js'));
 const { buildWalls } = await import(src('geo/city.js'));
-const { Buf, span } = await import(src('geo/buf.js'));
+const { Buf } = await import(src('geo/buf.js'));
 const L = (m) => import(src('landmarks/' + m + '.js'));
 const [truongtien, citadel, more, civic, memorial, boardwalk, restaurant, south, tombs] = await Promise.all(
   ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'restaurant', 'south', 'tombs'].map(L));
 
 // ---- the scene, in the order src/main.js builds it ----
 initTerrain(data);
-initEras(data);
+initDistricts(data);
 const S = new Buf(160000), dyn = new THREE.Group();
 const errors = [];
 const step = (name, f) => { try { f(); } catch (e) { errors.push(`${name} threw: ${e.message}`); } };
@@ -42,13 +42,12 @@ step('walls', () => buildWalls(data, S));
 const wallRange = [w0, S.n];
 const ri = data.bld.findIndex(restaurant.isRestaurant), rec = data.bld[ri];
 if (rec) { const last = data.bld.pop(); if (last !== rec) data.bld[ri] = last; }
-S.span = span(1); step('truongtien', () => truongtien.buildTruongTien(data, S, dyn));
-S.span = 0; step('citadel', () => citadel.buildCitadel(data, S, dyn));
-S.span = span(1); step('market', () => citadel.buildMarket(data, S));
-S.span = 0; step('thienmu', () => citadel.buildThienMu(data, S, dyn));
-S.span = span(2); step('nguyenhoang', () => more.buildNguyenHoang(data, S, dyn));
-S.span = span(1); step('quochocgate', () => more.buildQuocHocGate(data, S));
-S.span = 0;
+step('truongtien', () => truongtien.buildTruongTien(data, S, dyn));
+step('citadel', () => citadel.buildCitadel(data, S, dyn));
+step('market', () => citadel.buildMarket(data, S));
+step('thienmu', () => citadel.buildThienMu(data, S, dyn));
+step('nguyenhoang', () => more.buildNguyenHoang(data, S, dyn));
+step('quochocgate', () => more.buildQuocHocGate(data, S));
 step('civic', () => civic.buildCivic(data, S));
 step('biaquochoc', () => memorial.buildBiaQuocHoc(data, S));
 step('boardwalk', () => boardwalk.buildBoardwalk(data, S, dyn));
