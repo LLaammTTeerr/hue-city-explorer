@@ -1,5 +1,4 @@
 import { NOTES, PLACE_GROUPS } from './content.js';
-import { existsIn } from '../era.js';
 
 // The search box: a map-style bar whose panel lists the places of the model. Nothing is looked up online: the
 // index is the place list in hue.json plus the titles, kinds and summaries of stories.json and the short notes.
@@ -135,7 +134,7 @@ export function createSearch(ctx) {
       rows[0].el.classList.add('ov');
       const byId = new Map(ctx.places.map((p) => [p.id, p]));
       PLACE_GROUPS.forEach((g, gi) => {
-        const ps = g.ids.map((id) => byId.get(id)).filter((p) => p && existsIn(p.id));
+        const ps = g.ids.map((id) => byId.get(id)).filter(Boolean);
         if (!ps.length) return;
         const h = document.createElement('div'); h.className = 'rgroup'; h.textContent = T.groups[gi]; h.setAttribute('role', 'presentation');
         results.append(h);
@@ -143,11 +142,10 @@ export function createSearch(ctx) {
       });
     } else {
       const want = FILTERS[filter];
-      let found = ctx.places.filter((p) => !want || want.includes(p.k)).map((p) => ({ p, s: tokens.length ? score(p, tokens) : 1 })).filter((r) => r.s > 0);
-      const here = found.filter((r) => existsIn(r.p.id));
-      here.sort((a, b) => b.s - a.s || a.p.t - b.p.t || a.p.n.localeCompare(b.p.n, 'vi'));
-      here.forEach((r) => placeRow(r.p, tokens));
-      if (!here.length) message = !tokens.length ? T.noneOfKind : found.length ? T.noResultsEra : T.noResults.replace('{q}', q);
+      const found = ctx.places.filter((p) => !want || want.includes(p.k)).map((p) => ({ p, s: tokens.length ? score(p, tokens) : 1 })).filter((r) => r.s > 0);
+      found.sort((a, b) => b.s - a.s || a.p.t - b.p.t || a.p.n.localeCompare(b.p.n, 'vi'));
+      found.forEach((r) => placeRow(r.p, tokens));
+      if (!found.length) message = !tokens.length ? T.noneOfKind : T.noResults.replace('{q}', q);
     }
     none.textContent = message; none.hidden = !message;
     results.hidden = !rows.length;

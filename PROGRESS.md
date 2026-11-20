@@ -74,9 +74,10 @@
   so the river mirrors them: Trường Tiền's six bows drift through neighbouring hues and gather into violet now and
   then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
   now thin railed walkways on piers.
-- Eras: the switcher control was removed (2026-11-21); the model always shows today. The engine behind it is still
-  in the code, fixed at era 2: `src/era.js`, `span()` / `aSpan` in `src/geo/buf.js` (clipped in the vertex shader and
-  the shadow pass), `src/geo/eras.js`, the older houses in `city.js`, the era roles in `life.js`.
+- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
+  the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
+  `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and
+  unused: the `eras` texts in `public/data/stories.json` (43 places).
 - Bia Quốc Học (`src/landmarks/memorial.js`): the 1920 memorial screen opposite the school gate; the gate is now
   placed square to it. Dimensions are estimated (no source gives them).
 - Ground levels: lakes in the hills stand at their own height (55 of 171, read from the elevation model), with the
