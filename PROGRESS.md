@@ -332,9 +332,7 @@ became NaN and the bloom pass blanked the whole screen; tip rows now borrow the 
   globals, same order as `main.js`) and measures each model's top above the ground against
   `docs/heights-reference.json` (24 landmarks; ±15 % for sourced figures, ±25 % for estimates). `--all` prints every
   row, `--diag` the rise and both bases. Fails on an out-of-range model, a locator that finds nothing, or a builder
-  that throws or warns (tombs swallow errors with `console.warn`). Entries with a `known` note only WARN: Đông Ba clock
-  tower 22.1 m, Diệu Đế 12.9 m, Bia Quốc Học 10.7 m. Borderline: the Citadel gates measure 17.2 m vs an estimated
-  13–14 m (passes only on the 25 %). To add a landmark: an entry with `name`, `h` (m or [lo, hi]), `confidence`,
+  that throws or warns (tombs swallow errors with `console.warn`). Entries with a `known` note only WARN (none left). The three that were known were fixed: Bia Quốc Học is sourced at 10.95 m and its pillars at 9.85 m, so the pillars went up from 8.8 m; the Đông Ba clock tower came down from 22.1 to 16.4 m, since the old model comment misread heights.md; the Diệu Đế Đại Giác hall came down from 12.9 to 9.8 m. The gate reference is now sourced at 16–17 m (model 17.2). To add a landmark: an entry with `name`, `h` (m or [lo, hi]), `confidence`,
   `source`, and `at` = `special` | `site`+`name` | `site`+`rel`(+`tol`) | `point`+`r` | `gate`; `base: "model"` for
   buildings on a terrace the model builds.
 - `npm run check:data` (`scripts/check-data.mjs`): terrain sanity on `public/data/hue.json` (grid size, no NaN or
