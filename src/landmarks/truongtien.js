@@ -91,7 +91,9 @@ export function buildTruongTien(data, S, group) {
   for (let i = 0; i < SPANS; i++) {
     const s0 = -L / 2 + i * span;
     const lp = [], lc = [];
-    const top = (k, side) => { const t = k / N; return at(s0 + t * span, side * trussX, deckTop + 0.25 + H * (1 - (2 * t - 1) * (2 * t - 1))); };
+    // The bows are fuller than a parabola: they leave the piers steeply (about 45° over the first panel) and flatten
+    // only near the crown, the rounded "comb" outline of the bridge seen from the river.
+    const top = (k, side) => { const t = k / N, u = 2 * t - 1; return at(s0 + t * span, side * trussX, deckTop + 0.25 + H * Math.pow(Math.max(0, 1 - u * u), 0.62)); };
     const bot = (k, side) => at(s0 + (k / N) * span, side * trussX, deckTop + 0.25);
     for (const side of [-1, 1]) {
       S.beam(bot(0, side), bot(N, side), 0.55, 0.5, steelD);
@@ -156,21 +158,43 @@ export function buildTruongTien(data, S, group) {
   const col = new THREE.Color();
   return {
     centre: c, dir: d, across: n, length: L, width: W, span, deckTop, deckBottom: deckTop - deckT, lights: spanLights, lamps,
-    // The bridge's lighting drifts through colours after dark; in rain it settles on a warm white.
+    // After dark the bridge runs a light programme like the real one's: it changes colour every few seconds,
+    // cycling through scenes — the whole bridge in one colour stepping round Huế's palette, a chase running bow to
+    // bow, a slow rainbow drift, and a pulse of the city's violet. In rain it settles on a warm white.
     update(time, glow, rain) {
-      // one colour drifts round the wheel and each bow runs a little ahead of the last, so the bridge is a slow
-      // band of neighbouring hues; now and then the whole bridge gathers into Huế's violet
-      const gather = Math.max(0, Math.sin(time * 0.045)) ** 6;
+      const SCENE = 24, k = Math.floor(time / SCENE), f = (time % SCENE) / SCENE, scene = k % 4;
       for (let i = 0; i < spanLights.length; i++) {
-        const hue = (time * 0.022 + i * 0.07) % 1;
-        col.setHSL(hue + (0.76 - hue) * gather, 0.92, 0.56);
+        let boost = 0.55;
+        if (scene === 0) {
+          // solid colour, stepping every 4 s with a short crossfade
+          const step = time / 4, a = Math.floor(step), m = Math.min(1, (step - a) / 0.25);
+          col.copy(PALETTE[(a + PALETTE.length - 1) % PALETTE.length]).lerp(PALETTE[a % PALETTE.length], m);
+        } else if (scene === 1) {
+          // chase: each bow takes the next colour a beat after its neighbour, north to south
+          const beat = time * 1.6 - i, a = Math.floor(beat);
+          col.copy(PALETTE[((a % PALETTE.length) + PALETTE.length) % PALETTE.length]);
+          boost = 0.4 + 0.35 * Math.max(0, 1 - (beat - a) * 1.5);
+        } else if (scene === 2) {
+          const hue = (time * 0.06 + i * 0.09) % 1;
+          col.setHSL(hue, 0.92, 0.56);
+        } else {
+          // the violet breathing in and out, a white pulse running across it
+          col.copy(VIOLET);
+          const run = Math.max(0, 1 - Math.abs(((f * 3) % 1) * 7 - i) * 0.8);
+          col.lerp(WHITE, run * 0.7);
+          boost = 0.45 + 0.2 * Math.sin(time * 1.3) ** 2 + run * 0.2;
+        }
+        // scenes cross-fade into each other over their last second
+        if (f > 1 - 1 / SCENE) col.lerp(VIOLET, (f - (1 - 1 / SCENE)) * SCENE * 0.5);
         col.lerp(WARM, Math.min(1, rain * 0.85));
         const u = spanLights[i].material.uniforms;
         u.uTint.value.copy(col);
-        u.uBoost.value = 0.55 + rain * 0.25;
+        u.uBoost.value = boost + rain * 0.25;
         spanStrips[i].material.uniforms.uColor.value.copy(col);
       }
     },
   };
 }
-const WARM = new THREE.Color(1.0, 0.82, 0.55);
+const WARM = new THREE.Color(1.0, 0.82, 0.55), VIOLET = new THREE.Color('#8a3cff'), WHITE = new THREE.Color(1, 1, 1);
+// the colours the bridge steps through: Huế violet, blue, cyan, green, gold, red, magenta, white
+const PALETTE = ['#8a3cff', '#2f5bff', '#19c6ff', '#2fe07a', '#ffc21a', '#ff3b2f', '#ff3fb4', '#f4f0ff'].map((c) => new THREE.Color(c));

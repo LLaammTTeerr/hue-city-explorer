@@ -1,7 +1,8 @@
-import { KIND, hex, shade, unflat, obb, ringCentre, signedArea, span } from '../geo/buf.js';
+import { KIND, Buf, hex, shade, unflat, obb, ringCentre, signedArea, span } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
+import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
 
 // Named places of the modern and colonial city, each built on its own OSM footprint: position, size and
 // orientation are mapped; the forms follow what stands there (see README for what is illustrative).
@@ -48,6 +49,24 @@ function cross(S, x, z, y, h, F, col = cream) {
   S.beam([x - F.p[0] * w, y + h * 0.68, z - F.p[1] * w], [x + F.p[0] * w, y + h * 0.68, z + F.p[1] * w], 0.26, 0.26, col);
 }
 const ground = (c) => LAND_Y + rise(c[0], c[1]);
+// a cross outlined in light (today's floodlit crosses on the church towers)
+function litCross(L, x, z, y, h, F) {
+  const W = [1, 1, 1], w = h * 0.3;
+  L.beam([x, y, z], [x, y + h, z], 0.34, 0.34, W);
+  L.beam([x - F.p[0] * w, y + h * 0.68, z - F.p[1] * w], [x + F.p[0] * w, y + h * 0.68, z + F.p[1] * w], 0.32, 0.32, W);
+}
+// a fenced yard round a building, with its gate on the front axis (frame F, front toward +f): iron leaves between
+// the gate piers, lamps on the piers after dark
+function yardFence(S, data, F, box, core, st, { gateHalf = 3.5, lampCol = [1, 0.85, 0.6], gateLamps = 2, lampEvery = 0 } = {}) {
+  const roads = roadsNear(data, F.c, 160);
+  const Y = yard(F, roads, box[0], box[1], box[2], box[3], core[0], core[1], core[2], core[3]);
+  const g = F.at(Y.a1, 0);
+  fence(S, Y.ring, st, { roads, openings: [[g[0], g[1], gateHalf]], solid: buildingsNear(data, F.c, 120), lampEvery, lampCol });
+  const p = F.at(Y.a1, -gateHalf), q = F.at(Y.a1, gateHalf), y = ground(g);
+  leaves(S, p, q, y, st.h + 0.3, st.iron || dark);
+  for (const e of [p, q]) for (let k = 0; k < gateLamps; k++) lamp(e[0], ground(e) + st.h + st.pierUp + 0.9, e[1], lampCol, 2, 4);
+  return Y;
+}
 
 // ---- Ga Huế (1908): the long pink colonial station, a tall middle pavilion between two wings ----
 function station(S, data) {
@@ -58,7 +77,7 @@ function station(S, data) {
   for (const r of data.rails) { const pts = unflat(r[2]); for (const q of pts) { const d = Math.hypot(q[0] - o.c[0], q[1] - o.c[1]); if (d < bd) { bd = d; best = q; } } }
   if (best && (o.c[0] - best[0]) * n[0] + (o.c[1] - best[1]) * n[1] < 0) n = [-n[0], -n[1]]; // the front looks away from the tracks
   const F = frame(o.c, n), L = o.w, D = Math.max(o.d * 0.8, 9), y0 = ground(o.c);
-  const pink = hex('#d58a80'), tile = hex('#a2553d');
+  const pink = hex('#d0796d'), tile = hex('#9a4a36'); // painted the pink of Quốc Học (VnExpress), red-brown tiles
   S.base = y0 - LAND_Y;
   S.kind = KIND.MASONRY;
   S.box(o.c[0], o.c[1], y0 - 0.4, y0 + 0.5, D + 3, L + 2, F.a, stone, { topKind: KIND.ROAD });
@@ -87,6 +106,19 @@ function station(S, data) {
     const q = F.at(s * (D / 2 + 1.74), 0);
     S.cyl(q[0], q[1], y + 10.3, y + 11.6, 0.7, 0.7, 8, hex('#efe9dc')); // the clock in the pediment
   }
+  // white pilasters between the bays of the wings, tall arched windows (drawn as dark bays) between them
+  S.kind = KIND.PLAIN;
+  for (const s of [-1, 1]) {
+    const nB = Math.max(3, Math.round((L / 2 - cw / 2 - L * 0.14) / 4.2));
+    for (let i = 0; i <= nB; i++) {
+      const b = cw / 2 + ((L / 2 - L * 0.14 - cw / 2) * i) / nB;
+      for (const side of [-1, 1]) {
+        const q = F.at(side * (D / 2 + 0.08), s * b);
+        S.box(q[0], q[1], y, y + 5.9, 0.16, 0.55, F.a, cream);
+        if (i < nB) { const w = F.at(side * (D / 2 + 0.06), s * (b + (L / 2 - L * 0.14 - cw / 2) / nB / 2)); S.box(w[0], w[1], y + 0.9, y + 4.4, 0.14, 1.5, F.a, dark); }
+      }
+    }
+  }
   // street canopy in front, platform roof behind
   for (const [s, dep, len, h, col] of [[1, 4.2, cw + 8, 4.0, cream], [-1, 6.5, L * 0.94, 4.5, hex('#8d968c')]]) {
     const m = F.at(s * (D / 2 + 1.7 + dep / 2), 0);
@@ -96,6 +128,22 @@ function station(S, data) {
       S.cyl(q[0], q[1], y0, y + h, 0.14, 0.14, 5, hex('#5f6862'), { cap: false });
     }
   }
+  // the forecourt toward Bùi Thị Xuân: a knee-high railing on three sides, open where the streets come in and at the
+  // middle (the square itself stays open to the street)
+  const roads = roadsNear(data, F.at(D / 2 + 20, 0), 120);
+  const front = D / 2 + 1.8 + 4.2;
+  const Y = yard(F, roads, front, D / 2 + 42, -(L / 2 + 6), L / 2 + 6, front, D / 2 + 16, -(cw / 2 + 6), cw / 2 + 6);
+  if (Y.a1 - front > 8) {
+    const g = F.at(Y.a1, 0);
+    fence(S, [F.at(front, Y.b0), F.at(Y.a1, Y.b0), F.at(Y.a1, Y.b1), F.at(front, Y.b1)], FENCE.station, { closed: false, roads, openings: [[g[0], g[1], 7]], solid: buildingsNear(data, o.c, 120) });
+  }
+  // after dark: the clock face, lamps under the canopy, the doors warm
+  S.base = 0;
+  for (const s of [-1, 1]) { const q = F.at(s * (D / 2 + 1.9), 0); lamp(q[0], y + 10.95, q[1], [1, 0.97, 0.85], 1, 6); }
+  for (let b = -cw / 2 - 2; b <= cw / 2 + 2.01; b += (cw + 4) / 4) { const q = F.at(D / 2 + 4.2, b); lamp(q[0], y + 3.7, q[1], [1, 0.82, 0.5], 1, 4); }
+  const LB = new Buf(64);
+  for (const b of [-cw * 0.3, 0, cw * 0.3]) { const q = F.at(D / 2 + 1.82, b); LB.box(q[0], q[1], y + 0.2, y + 3.9, 0.06, cw * 0.15, F.a, [1, 1, 1]); }
+  strips(LB, 0xffc982, 0.9, 1);
 }
 
 // ---- Nhà thờ Phủ Cam (Ngô Viết Thụ, begun 1963): a concrete cross plan, ribs rising up the nave, twin towers ----
@@ -106,7 +154,7 @@ function phuCam(S, data) {
   let f = [Math.cos(o.a), Math.sin(o.a)];
   if ((pc[0] - o.c[0]) * f[0] + (pc[1] - o.c[1]) * f[1] > 0) f = [-f[0], -f[1]]; // transept and apse weigh toward the back
   const F = frame(o.c, f), L = o.w, W = o.d, nw = Math.min(W * 0.5, 22), y0 = ground(o.c);
-  const conc = hex('#d3cfc6'), rib = hex('#bdb9b0'), roof = hex('#5b6068'), glass = hex('#34465c');
+  const conc = hex('#e0dcd2'), rib = hex('#c4c0b6'), roof = hex('#4f565f'), glass = hex('#34465c');
   S.base = y0 - LAND_Y;
   S.kind = KIND.MASONRY;
   S.box(o.c[0], o.c[1], y0 - 1.5, y0 + 0.6, L + 6, nw + 10, F.a, stone, { topKind: KIND.ROAD });
@@ -159,6 +207,18 @@ function phuCam(S, data) {
   }
   // steps down the hill in front
   for (let i = 0; i < 4; i++) { q = F.at(fa + 3.2 + i * 1.5, 0); S.box(q[0], q[1], y0 - 1.5, y0 + 0.45 - i * 0.3, 1.6, nw + 4 + i * 2, F.a, stone, { topKind: KIND.ROAD }); }
+  // the church yard on its hill: a rendered wall with railings, the gate on the axis at the foot of the forecourt
+  const hw = Math.max(W / 2, nw / 2 + 9);
+  yardFence(S, data, F, [-L / 2 - 10, L / 2 + 30, -hw - 12, hw + 12], [-L / 2 - 1, fa + 11, -hw - 1, hw + 1], FENCE.church, { gateHalf: 4 });
+  // after dark: the three crosses lit white, the rose window and the portal glowing
+  const LB = new Buf(96);
+  q = F.at(fa + 0.5, 0);
+  litCross(LB, q[0] + F.f[0] * 0.85, q[1] + F.f[1] * 0.85, y + 25.5, 4.2, F);
+  for (const s of [-1, 1]) { const t = F.at(fa - 0.6, s * (nw / 2 + 3.4)); litCross(LB, t[0], t[1], y + 39.9, 3.0, F); }
+  strips(LB, 0xf4f1ff, 1.5, 2);
+  q = F.at(fa + 1.45, 0);
+  lamp(q[0], y + 16, q[1], [0.95, 0.8, 0.55], 2, 7);
+  lamp(q[0], y + 5, q[1], [1, 0.8, 0.5], 2, 6);
 }
 
 // ---- Nhà thờ Dòng Chúa Cứu Thế (Nguyễn Mỹ Lộc, 1959–62): grey-blue stone, tiled eastern roofs, one tall spire ----
@@ -236,6 +296,20 @@ function redemptorist(S, data) {
     const d = F.at(L * 0.43 - 5.4 + 2.26, s * (bw / 2 + 2.6)); S.box(d[0], d[1], y, y + 4.6, 0.14, 1.8, F.a, dark);
   }
   for (let i = 0; i < 3; i++) { q = F.at(L * 0.43 + 1.2 + i * 1.3, 0); S.box(q[0], q[1], y0 - 0.5, y0 + 0.5 - i * 0.25, 1.4, bw + 12, F.a, stone, { topKind: KIND.ROAD }); }
+  // the yard on Nguyễn Huệ: a wall with railings, the gate in line with the tower
+  const hw = Math.max(W / 2, nw / 2 + 8);
+  yardFence(S, data, F, [-L / 2 - 10, L / 2 + 24, -hw - 10, hw + 10], [-L / 2 - 1, L / 2 + 6, -hw - 1, hw + 1], FENCE.church, { gateHalf: 3.6 });
+  // after dark: the spire lit from below (a line up each of its eight arrises would be too much: four), the cross white
+  const LB = new Buf(96);
+  litCross(LB, t[0], t[1], y + 49.4, 2.9, F);
+  for (let i = 0; i < 4; i++) {
+    const a = F.a + Math.PI / 8 + (i * Math.PI) / 2, r0 = bw * 0.3 + 0.08;
+    LB.beam([t[0] + Math.cos(a) * r0, y + 38.4, t[1] + Math.sin(a) * r0], [t[0] + Math.cos(a) * 0.2, y + 49.4, t[1] + Math.sin(a) * 0.2], 0.12, 0.12, [1, 1, 1]);
+  }
+  strips(LB, 0xf4f1ff, 1.3, 2);
+  for (const k of [-1, 1]) for (const j of [-1, 1]) { const l = F.at(L * 0.43 - 4.6 + k * (bw / 2 + 2), j * (bw / 2 + 2)); lamp(l[0], y0 + 1.0, l[1], [1, 0.9, 0.7], 2, 5); } // floodlights at the tower's feet
+  q = F.at(L * 0.43 - 4.6 + bw / 2 + 0.2, 0);
+  lamp(q[0], y + 11.2, q[1], [0.9, 0.75, 0.55], 2, 5);
 }
 
 // ---- Cung An Định: Khải Tường Lâu (1917–18), its octagonal Trung Lập pavilion and the riverside gate ----
@@ -280,7 +354,7 @@ function anDinh(S, data) {
 
   // distance from the palace to the edge of its ground, along the axis
   let reach = D / 2 + 40;
-  if (area) for (let t = D / 2 + 8; t < 120; t += 1) { const p = F.at(t, 0); if (!inRing(p[0], p[1], area)) { reach = Math.max(D / 2 + 26, t - 2.5); break; } }
+  if (area) for (let t = D / 2 + 8; t < 120; t += 0.5) { const p = F.at(t, 0); if (!inRing(p[0], p[1], area)) { reach = Math.max(D / 2 + 26, t - 0.6); break; } }
   // Trung Lập pavilion
   const tp = F.at(D / 2 + (reach - D / 2) * 0.52, 0);
   S.base = 0;
@@ -303,28 +377,106 @@ function anDinh(S, data) {
   S.box(g[0], g[1], y0 + 10.4, y0 + 11.6, 1.2, 3.0, F.a, cream);
   for (const b of [-6.5, -3.7, 3.7, 6.5]) { const c = F.at(reach, b); S.cyl(c[0], c[1], y0 + (Math.abs(b) > 5 ? 6.7 : 10.4), y0 + (Math.abs(b) > 5 ? 8.8 : 12.2), 0.34, 0.06, 6, cream); }
   for (const s of [-1, 1]) for (const [b, w, h] of [[0, 2.9, 4.8], [-4.4, 1.9, 3.7], [4.4, 1.9, 3.7]]) { const d = F.at(reach + s * 0.98, b); S.box(d[0], d[1], y0, y0 + h, 0.14, w, F.a, dark); }
+  // the gate's porcelain-mosaic panels and the two dragon-crested end piers
+  const mosaic = hex('#5f8f86'), red = hex('#b5462f');
+  for (const s of [-1, 1]) {
+    for (const b of [-2.2, 2.2]) { const d = F.at(reach + s * 0.9, b); S.box(d[0], d[1], y0 + 7.2, y0 + 9.6, 0.14, 1.3, F.a, mosaic); }
+    const d = F.at(reach + s * 0.9, 0); S.box(d[0], d[1], y0 + 5.2, y0 + 6.1, 0.14, 2.6, F.a, red); // the name board
+    const e = F.at(reach, s * 7.5);
+    S.box(e[0], e[1], y0 - 0.2, y0 + 7.8, 1.5, 1.5, F.a, ochre, { top: cream });
+    S.box(e[0], e[1], y0 + 7.8, y0 + 8.2, 1.9, 1.9, F.a, cream);
+    S.cyl(e[0], e[1], y0 + 8.2, y0 + 9.4, 0.5, 0.08, 6, gold);
+  }
+  // the wall round the grounds: ochre, cream-capped piers, railing panels; it opens at the gate and the lanes
+  if (area) {
+    const roads = roadsNear(data, polyCentroid(area), 200);
+    fence(S, area, FENCE.andinh, { roads, openings: [[g[0], g[1], 8.3]], solid: buildingsNear(data, polyCentroid(area), 150) });
+  }
+  // after dark (today): the gate washed in warm light, lamps on its piers, the palace front floodlit from the garden
+  const LB = new Buf(64), W = [1, 1, 1];
+  for (const s of [-1, 1]) {
+    const a = F.at(reach + s * 1.3, -6.9), b = F.at(reach + s * 1.3, 6.9);
+    LB.beam([a[0], y0 + 6.45, a[1]], [b[0], y0 + 6.45, b[1]], 0.14, 0.14, W);
+    const a2 = F.at(reach + s * 1.2, -3.8), b2 = F.at(reach + s * 1.2, 3.8);
+    LB.beam([a2[0], y0 + 10.2, a2[1]], [b2[0], y0 + 10.2, b2[1]], 0.12, 0.12, W);
+    const e = F.at(reach, s * 7.5); lamp(e[0], y0 + 9.8, e[1], [1, 0.82, 0.5], 2, 4);
+  }
+  strips(LB, 0xffcf8a, 1.2, 2);
+  for (let b = -L / 2 + 2; b <= L / 2 - 1.99; b += (L - 4) / 5) { const q = F.at(D / 2 + 9, b); lamp(q[0], y0 + 0.6, q[1], [1, 0.86, 0.62], 2, 6); }
 }
 
 // ---- Chùa Diệu Đế: the main hall, and on the canal side the triple gate under its tower, between bell and drum towers ----
 function dieuDe(S, data) {
-  const yellow = hex('#e3c377'), tile = hex('#a9523a'), ridge = hex('#e8dcc0');
+  const yellow = hex('#e3c377'), tile = hex('#a9523a'), ridge = hex('#e8dcc0'), lacq = hex('#a33a2a');
   const sp = data.special.dieude;
+  let hall = null;
   if (sp) {
-    const o = obb(unflat(sp.ring));
-    S.base = 0;
-    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, LAND_Y, { tiers: 2, wallH: 4.2, roof: tile, wall: yellow, over: 1.5, rh: 3.6, platform: 1.0, ridge });
+    const o = obb(unflat(sp.ring)), y0 = ground(o.c);
+    hall = o;
+    S.base = y0 - LAND_Y;
+    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, y0, { tiers: 2, wallH: 4.2, roof: tile, wall: yellow, over: 1.5, rh: 3.6, platform: 1.0, ridge });
   }
   const gp = data.special.dieudeGate;
-  if (gp) {
-    const o = obb(unflat(gp.ring)), u = [Math.cos(o.a), Math.sin(o.a)], y0 = LAND_Y;
-    const at = (b) => [o.c[0] + u[0] * b, o.c[1] + u[1] * b];
-    S.kind = KIND.PLAIN;
-    S.box(o.c[0], o.c[1], y0, y0 + 5.4, o.w * 0.46, 2.0, o.a, yellow, { top: stone });
-    S.box(o.c[0], o.c[1], y0 + 5.0, y0 + 5.5, o.w * 0.46 + 0.5, 2.5, o.a, ridge);
-    for (const s of [-1, 1]) for (const [b, w, h] of [[0, 3.0, 4.2], [-o.w * 0.14, 2.0, 3.3], [o.w * 0.14, 2.0, 3.3]]) { const d = at(b); S.box(d[0] - u[1] * s * 1.02, d[1] + u[0] * s * 1.02, y0, y0 + h, w, 0.14, o.a, dark); }
-    pavilion(S, o.c[0], o.c[1], 7.4, 4.6, o.a, y0 + 5.5, { tiers: 2, wallH: 2.6, roof: tile, wall: yellow, over: 1.1, rh: 2.0, ridge });
-    for (const s of [-1, 1]) { const t = at(s * o.w * 0.38); pavilion(S, t[0], t[1], Math.min(6.5, o.d * 0.8), Math.min(6.5, o.d * 0.8), o.a, y0, { tiers: 2, wallH: 3.2, roof: tile, wall: yellow, over: 1.1, rh: 2.2, platform: 0.8, ridge }); }
+  if (!gp) return;
+  // the gate on Bạch Đằng, facing the Đông Ba canal: a two-storey gate tower over three openings, joined by short
+  // walls to the bell tower and the drum tower at its ends (all within the mapped outline)
+  const o = obb(unflat(gp.ring)), u = [Math.cos(o.a), Math.sin(o.a)], y0 = ground(o.c);
+  let n = [-u[1], u[0]];
+  if (hall && (hall.c[0] - o.c[0]) * n[0] + (hall.c[1] - o.c[1]) * n[1] > 0) n = [-n[0], -n[1]]; // front looks away from the hall
+  const F = frame(o.c, n), at = (b, a = 0) => F.at(a, b);
+  S.base = y0 - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(o.c[0], o.c[1], y0 - 0.3, y0 + 0.3, 3.4, o.w * 0.5, F.a, stone, { topKind: KIND.ROAD });
+  const y1 = y0 + 0.3;
+  S.kind = KIND.CIVIC;
+  S.box(o.c[0], o.c[1], y1, y1 + 5.1, 2.0, o.w * 0.46, F.a, yellow, { top: stone });
+  S.kind = KIND.PLAIN;
+  S.box(o.c[0], o.c[1], y1 + 4.7, y1 + 5.2, 2.5, o.w * 0.46 + 0.5, F.a, ridge);
+  for (const s of [-1, 1]) for (const [b, w, h] of [[0, 3.0, 3.9], [-o.w * 0.14, 2.0, 3.0], [o.w * 0.14, 2.0, 3.0]]) { const d = at(b, s * 1.02); S.box(d[0], d[1], y1, y1 + h, 0.14, w, F.a, dark); }
+  // lacquered columns of the gate front and the name board over the middle opening
+  for (const b of [-o.w * 0.21, -o.w * 0.07, o.w * 0.07, o.w * 0.21]) { const d = at(b, 1.15); S.box(d[0], d[1], y1, y1 + 4.7, 0.4, 0.4, F.a, lacq); }
+  { const d = at(0, 1.1); S.box(d[0], d[1], y1 + 4.0, y1 + 4.6, 0.12, 2.6, F.a, hex('#3b2a1e')); }
+  S.kind = KIND.PLAIN;
+  // single small roofs over the side openings, the gate tower over the middle
+  for (const s of [-1, 1]) { const d = at(s * o.w * 0.14); S.hip(d[0], d[1], o.w * 0.14, 2.6, F.a + Math.PI / 2, y1 + 5.2, 0.9, tile, { flare: 0.4, over: 0.6, fascia: 0.16, fasciaCol: ridge, ridgeCol: ridge, hips: true }); }
+  pavilion(S, o.c[0], o.c[1], 7.4, 4.6, F.a + Math.PI / 2, y1 + 5.2, { tiers: 2, wallH: 2.6, roof: tile, wall: yellow, over: 1.1, rh: 2.0, ridge });
+  for (const s of [-1, 1]) { const t = at(s * o.w * 0.38); const tw = Math.min(6.5, o.d * 0.8); pavilion(S, t[0], t[1], tw, tw, F.a, ground(t), { tiers: 2, wallH: 3.2, roof: tile, wall: yellow, over: 1.1, rh: 2.2, platform: 0.8, ridge }); }
+  S.kind = KIND.PLAIN;
+  // the pagoda's wall: back from the gate line round the hall, yellow under a tile coping
+  const roads = roadsNear(data, o.c, 160);
+  let back = -40, side = o.w / 2 + 6;
+  if (hall) {
+    const hc = [hall.c[0] - o.c[0], hall.c[1] - o.c[1]], ha = hc[0] * F.f[0] + hc[1] * F.f[1], hb = hc[0] * F.p[0] + hc[1] * F.p[1];
+    const ext = Math.max(hall.w, hall.d) / 2 + 3;
+    back = Math.min(back, ha - ext - 14);
+    side = Math.max(side, Math.abs(hb) + ext + 8);
   }
+  const Y = yard(F, roads, back, 0, -side, side, back + 20, 0, -o.w / 2 - 1, o.w / 2 + 1);
+  fence(S, Y.ring, FENCE.pagoda, { roads, openings: [[o.c[0], o.c[1], o.w * 0.5 + 0.5]], solid: buildingsNear(data, o.c, 100) });
+  // lanterns: red silk lanterns under the gate's eaves in every era; the hall's eaves lit today
+  for (const b of [-o.w * 0.21, -o.w * 0.07, o.w * 0.07, o.w * 0.21]) { const d = at(b, 1.5); lamp(d[0], y1 + 4.3, d[1], [1, 0.42, 0.22], 0, 3.5); }
+  for (const s of [-1, 1]) { const t = at(s * o.w * 0.38, 3.6); lamp(t[0], y1 + 3.3, t[1], [1, 0.45, 0.25], 0, 3.2); }
+  if (hall) {
+    const hy = ground(hall.c) + 1.0 + 4.2, hu = [Math.cos(hall.a), Math.sin(hall.a)], hv = [-hu[1], hu[0]];
+    for (let i = -3; i <= 3; i++) for (const k of [-1, 1]) {
+      const x = hall.c[0] + hu[0] * i * hall.w * 0.15 + hv[0] * k * (hall.d * 0.42 + 1.3), z = hall.c[1] + hu[1] * i * hall.w * 0.15 + hv[1] * k * (hall.d * 0.42 + 1.3);
+      lamp(x, hy - 0.4, z, [1, 0.5, 0.26], 2, 3);
+    }
+  }
+}
+
+// The walls of the Thế Miếu and Hưng Miếu compounds (OSM barrier=wall ways 695810851, 695810804 and the dividing
+// line 695810842), not in hue.json: copied here in decimetres; `data.special.themieuWalls` (a list of
+// { ring, closed }) wins when exported. Nothing else draws them (data.iwalls carries only barrier=city_wall).
+const TM_WALLS = [
+  [true, [-12468, 2632, -12924, 2971, -13127, 2701, -13546, 2143, -13868, 1716, -13569, 1494, -13160, 1191, -12875, 979, -12553, 1407, -12137, 1960, -11934, 2230, -12384, 2564]],
+  [false, [-13352, 1999, -13251, 1923, -12835, 1615, -12728, 1536]],
+  [true, [-13395, 1218, -12938, 881, -13064, 712, -13372, 298, -13613, 474, -14373, 1032, -13934, 1622, -13499, 1295]],
+];
+function templeWalls(S, data, c) {
+  const list = Array.isArray(data.special.themieuWalls) ? data.special.themieuWalls.map((w) => [w.closed !== false, w.ring]) : TM_WALLS;
+  const roads = roadsNear(data, c, 220), solid = buildingsNear(data, c, 200);
+  for (const [closed, flat] of list) fence(S, unflat(flat), FENCE.imperial, { closed, roads, solid });
 }
 
 // ---- Hiển Lâm Các, three storeys of timber, and before it the nine dynastic urns facing Thế Miếu ----
@@ -332,6 +484,7 @@ function hienLam(S, data) {
   const sp = data.special.hienlam;
   if (!sp) return;
   const o = obb(unflat(sp.ring)), y0 = LAND_Y;
+  templeWalls(S, data, o.c);
   const eave = { fascia: 0.3, fasciaCol: shade(PAL.lacquer, 0.75), hips: true, glazed: true, ridgeCol: hex('#f1d77a') };
   S.base = 0;
   S.kind = KIND.MASONRY;
@@ -381,6 +534,13 @@ function vincom(S, data) {
   S.box(c[0], c[1], top, top + 1.4, tw + 0.5, td + 0.5, o.a, band);
   S.box(c[0], c[1], top + 1.4, top + 6.5, tw * 0.5, td * 0.6, o.a, hex('#c9cdd0'));
   S.cyl(c[0], c[1], top + 6.5, top + 14, 0.3, 0.06, 5, hex('#d8dadb'));
+  // after dark: the crown band and the four corner lines lit, a red light on the mast
+  const LB = new Buf(64), W = [1, 1, 1];
+  const corner = (s, k, y) => [c[0] + u[0] * s * (tw / 2 + 0.3) - u[1] * k * (td / 2 + 0.3), y, c[1] + u[1] * s * (tw / 2 + 0.3) + u[0] * k * (td / 2 + 0.3)];
+  for (const [s, k, s2, k2] of [[-1, -1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1], [-1, 1, -1, -1]]) LB.beam(corner(s, k, top + 0.8), corner(s2, k2, top + 0.8), 0.25, 0.25, W);
+  for (const s of [-1, 1]) for (const k of [-1, 1]) LB.beam(corner(s, k, y0 + 24), corner(s, k, top + 0.6), 0.16, 0.16, W);
+  strips(LB, 0xcfe6ff, 1.3, 2);
+  lamp(c[0], top + 14.2, c[1], [1, 0.15, 0.1], 2, 5);
 }
 
 // ---- Lầu Tứ Phương Vô Sự on the north bastion of the Imperial City ----
@@ -397,7 +557,12 @@ export function buildCivic(data, S) {
   // with the first era each stands in: 0 Nguyễn, 1 French period, 2 today (the churches as they stand are 1960s)
   for (const [fn, since] of [[station, 1], [phuCam, 2], [redemptorist, 2], [anDinh, 1], [dieuDe, 0], [hienLam, 0], [vincom, 2], [tuPhuong, 1]]) {
     S.span = span(since);
-    fn(S, data);
+    try {
+      fn(S, data);
+    } catch (e) {
+      console.warn('civic landmark not built:', fn.name, e);
+    }
     S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
   }
+  flushLamps();
 }

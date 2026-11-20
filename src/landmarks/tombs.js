@@ -14,7 +14,8 @@ const C = {
   lacquer: hex('#86362a'), lacquerOld: hex('#6f3c30'),
   roofY: PAL.imperialRoof, roofYOld: hex('#b48b3e'), roofG: PAL.jadeRoof, roofTile: hex('#7a6552'),
   door: hex('#2b2422'), iron: hex('#262423'), bronze: hex('#4a3a26'),
-  kdWall: hex('#6f6c68'), kdRoof: hex('#55524f'), kdTrim: hex('#cbc6ba'),
+  // Khải Định: concrete weathered grey-black by the rain, darker roofs of ardoise slate, paler cornices and trim
+  kdWall: hex('#5e5c59'), kdRoof: hex('#474543'), kdTrim: hex('#a9a59c'),
   moss: PAL.moss, pine: hex('#3d5734'),
 };
 const RIDGE = hex('#e9d27e');
@@ -146,15 +147,26 @@ function flight(S, p0, y0, p1, y1, w, { col = C.stone, rail = 0, railCol = null,
     S.box(cx, cz, Math.min(lo, top - 0.3), top, len / n + 0.03, w, a, col, { topKind: KIND.ROAD });
   }
   if (rail) {
-    const rc = railCol || shade(col, 0.92), rw = dragon ? 0.7 : 0.4, rh = dragon ? 1.3 : 0.9;
-    for (const sd of [-1, 1]) {
-      const ox = -uz * sd * (w / 2 + rw / 2), oz = ux * sd * (w / 2 + rw / 2);
-      S.beam([p0[0] + ox, y0 + rh / 2, p0[1] + oz], [p1[0] + ox, y1 + rh / 2, p1[1] + oz], rw, rh, rc);
-      if (dragon) { // the dragon's head rearing at the foot of the balustrade
-        S.box(p0[0] + ox - ux * 0.6, p0[1] + oz - uz * 0.6, y0 - 0.2, y0 + 2.0, 1.6, rw + 0.3, a, rc, { taper: 0.75 });
-        S.box(p0[0] + ox - ux * 1.2, p0[1] + oz - uz * 1.2, y0 + 1.5, y0 + 2.4, 1.1, rw + 0.1, a, shade(rc, 0.9));
-      }
-    }
+    const rc = railCol || shade(col, 0.92), rw = dragon ? 0.7 : 0.4;
+    for (const sd of [-1, 1]) balustrade(S, p0, y0, p1, y1, sd * (w / 2 + rw / 2), { col: rc, dragon });
+  }
+}
+// one balustrade along a stair p0 (y0) → p1 (y1, the upper end), offset t to the left of the climb; a dragon's body
+// rides a dragon balustrade, its head rearing at the foot (Khải Định's stairs)
+function balustrade(S, p0, y0, p1, y1, t, { col, dragon = false } = {}) {
+  if (y1 < y0) { [p0, p1] = [p1, p0]; [y0, y1] = [y1, y0]; }
+  const dx = p1[0] - p0[0], dz = p1[1] - p0[1], len = Math.hypot(dx, dz);
+  if (len < 0.4) return;
+  const a = Math.atan2(dz, dx), ux = dx / len, uz = dz / len, rw = dragon ? 0.7 : 0.4, rh = dragon ? 1.3 : 0.9;
+  const ox = -uz * t, oz = ux * t;
+  S.kind = KIND.MASONRY;
+  S.beam([p0[0] + ox, y0 + rh / 2, p0[1] + oz], [p1[0] + ox, y1 + rh / 2, p1[1] + oz], rw, rh, col);
+  if (dragon) {
+    S.box(p0[0] + ox - ux * 0.6, p0[1] + oz - uz * 0.6, y0 - 0.2, y0 + 2.0, 1.6, rw + 0.3, a, col, { taper: 0.75 });
+    S.box(p0[0] + ox - ux * 1.2, p0[1] + oz - uz * 1.2, y0 + 1.5, y0 + 2.4, 1.1, rw + 0.1, a, shade(col, 0.9));
+    // the coils of the body humping along the rail, a newel at the top
+    for (const f of [0.3, 0.62]) S.beam([p0[0] + ox + dx * (f - 0.08), y0 + (y1 - y0) * (f - 0.08) + rh, p0[1] + oz + dz * (f - 0.08)], [p0[0] + ox + dx * (f + 0.08), y0 + (y1 - y0) * (f + 0.08) + rh, p0[1] + oz + dz * (f + 0.08)], rw * 0.8, 0.5, shade(col, 0.95));
+    S.box(p1[0] + ox, p1[1] + oz, y1 - 0.2, y1 + 1.7, 0.9, 0.9, a, col, { top: shade(col, 1.1) });
   }
 }
 
@@ -381,7 +393,13 @@ function minhMang(S, st) {
   if (dhm) dhm.used = true;
   gate(S, o[0], o[1], F.av, gw, gd, { h: 6.2, openings: 1, upper: true, col: C.brickMoss });
   for (const sd of [-1, 1]) { const p = F.at(0, sd * (gw / 2 + 3.6)); gate(S, p[0], p[1], F.av, 6.6, gd - 0.8, { h: 4.8, openings: 1, col: C.brickMoss }); }
-  for (const sd of [-1, 1]) wallLine(S, [F.at(0, sd * (gw / 2 + 7)), F.at(0, sd * 34)], 3.2, 1.0, { closed: false });
+  // the front of the precinct wall, with Tả Hồng Môn and Hữu Hồng Môn (the gates in use; Đại Hồng Môn opened once,
+  // for the funeral) either side of the great gate
+  for (const sd of [-1, 1]) {
+    wallLine(S, [F.at(0, sd * (gw / 2 + 7)), F.at(0, sd * 23)], 3.2, 1.0, { closed: false });
+    const g = F.at(0, sd * 26); gate(S, g[0], g[1], F.av, 6, gd - 1.2, { h: 4.4, openings: 1, col: C.brickMoss, roof: C.roofY });
+    wallLine(S, [F.at(0, sd * 29), F.at(0, sd * 48)], 3.2, 1.0, { closed: false });
+  }
 
   // Bái Đình: the salutation court with its rows of mandarins, elephants and horses
   const sBD = bd ? F.s(bd.c) : 51;
@@ -603,7 +621,13 @@ function khaiDinh(S, st) {
   ter(A[0], A[1], 44, T1); ter(B[0], B[1], 40, T2); ter(L1[0], L1[1], 16, TL1); ter(L2[0], L2[1], 16, TL2); ter(P[0], P[1], 46, T3);
 
   // the great stair with dragon balustrades, the triple iron gate at its head
-  { const f = F.at(-14 * k); flight(S, f, gY(f[0], f[1]), F.at(A[0]), T1, 11, { ...rail, dragon: true }); }
+  // the 37 steps from the road climb in three paths (a wide middle one, two narrow ones) between four dragon
+  // balustrades
+  {
+    const f0 = -14 * k, f = F.at(f0), y0 = gY(f[0], f[1]);
+    for (const [t, w] of [[0, 4.6], [-4.4, 2.6], [4.4, 2.6]]) flight(S, F.at(f0, t), y0, F.at(A[0], t), T1, w, { col: C.kdWall });
+    for (const t of [-6.05, -2.65, 2.65, 6.05]) balustrade(S, F.at(f0, t), y0, F.at(A[0], t), T1, 0, { col: C.kdTrim, dragon: true });
+  }
   {
     S.kind = KIND.MASONRY; S.base = T1 - LAND_Y;
     for (const t of [-8.5, -3, 3, 8.5]) { const p = F.at(A[0] + 1.5, t); S.box(p[0], p[1], T1, T1 + 6.2, 1.5, 1.5, F.a, C.kdWall, { top: C.kdTrim }); S.box(p[0], p[1], T1 + 6.2, T1 + 7.2, 1.9, 1.9, F.a, C.kdTrim, { taper: 0.4 }); }
@@ -633,9 +657,20 @@ function khaiDinh(S, st) {
     for (const sd of [-1, 1]) { const q = F.at(F.s(sp), sd * 14); obelisk(S, q[0], q[1], 12, C.kdWall); }
   }
   // three more flights over two landings to the palace
-  flight(S, F.at(B[1]), T2, F.at(L1[0]), TL1, 7, rail);
-  flight(S, F.at(L1[1]), TL1, F.at(L2[0]), TL2, 7, rail);
-  flight(S, F.at(L2[1]), TL2, F.at(P[0]), T3, 7, rail);
+  // the three upper flights (13 steps each) also run between dragon balustrades
+  const drail = { ...rail, dragon: true };
+  flight(S, F.at(B[1]), T2, F.at(L1[0]), TL1, 7, drail);
+  flight(S, F.at(L1[1]), TL1, F.at(L2[0]), TL2, 7, drail);
+  flight(S, F.at(L2[1]), TL2, F.at(P[0]), T3, 7, drail);
+  // the two concrete flagpoles on the middle landing
+  S.kind = KIND.MASONRY; S.base = TL2 - LAND_Y;
+  for (const sd of [-1, 1]) {
+    const q = F.at((L2[0] + L2[1]) / 2, sd * 6.5);
+    S.box(q[0], q[1], TL2, TL2 + 1.2, 1.6, 1.6, F.a, C.kdTrim);
+    S.box(q[0], q[1], TL2 + 1.2, TL2 + 13, 0.5, 0.5, F.a, C.kdWall, { taper: 0.6 });
+  }
+  // the fence round the whole 117 × 48.5 m precinct, from the foot of the great stair to behind the palace
+  { const s0 = -14 * k + 1, s1 = P[1] + 2; wallLine(S, [F.at(s0, -7.6), F.at(s0, -24.25), F.at(s1, -24.25), F.at(s1, 24.25), F.at(s0, 24.25), F.at(s0, 7.6)], 2.0, 0.6, { col: C.kdWall, cap: C.kdTrim, closed: false }); }
   // Cung Thiên Định: front hall, raised central hall, rear sanctuary; dark roofs, pale columns
   {
     const pc = pal ? pal.c : F.at(sPal), pw = pal ? Math.max(pal.w, pal.d) : 34;
@@ -801,7 +836,8 @@ function dongKhanh(S, st) {
     statueCourt(S, T, cs0 + 2, cs1 - 2, { inner: 4, outer: 6.5 });
     // Bửu Thành: a low wall round the grave on the slope above
     const b0 = w / 2 + 6, b1 = b0 + 18;
-    wallLine(S, rectRing(T, b0, b1, -9, 9), 1.8, 0.7);
+    wallLine(S, [T.at(b0, 1.6), T.at(b0, 9), T.at(b1, 9), T.at(b1, -9), T.at(b0, -9), T.at(b0, -1.6)], 1.8, 0.7, { closed: false });
+    { const g = T.at(b0); gate(S, g[0], g[1], T.av, 3.2, 1.0, { h: 2.6, openings: 1, roof: C.roofY, col: C.brickMoss, rh: 0.9 }); }
     const gp = T.at((b0 + b1) / 2), gy = gY(gp[0], gp[1]);
     S.kind = KIND.MASONRY; S.base = gy - LAND_Y;
     S.box(gp[0], gp[1], gy - 0.6, gy + 1.1, 5, 3.2, T.a, C.stoneGrey, { top: C.stoneDark });

@@ -207,7 +207,9 @@ function rectCorners(cx, cz, w, d, ang) {
 }
 function rectFree(cx, cz, w, d, ang, bits) {
   const ux = Math.cos(ang), uz = Math.sin(ang);
-  for (let u = -w / 2; u <= w / 2 + 0.01; u += Math.min(1.6, w / 2)) for (let v = -d / 2; v <= d / 2 + 0.01; v += Math.min(1.6, d / 2)) {
+  // sampled finer than a cell, so a corner cannot slip between two marked cells
+  const su = w / Math.max(1, Math.ceil(w / 0.9)), sv = d / Math.max(1, Math.ceil(d / 0.9));
+  for (let u = -w / 2; u <= w / 2 + 0.01; u += su) for (let v = -d / 2; v <= d / 2 + 0.01; v += sv) {
     if (at(cx + u * ux - v * uz, cz + u * uz + v * ux) & bits) return false;
   }
   return true;
@@ -364,19 +366,32 @@ const ROAD_CLASS = { trunk: 0, primary: 0, trunk_link: 0, primary_link: 0, secon
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 const TT_WAY = 174759688; // the truss spans; modelled by hand
 const roads = [];
+let nDryBridges = 0;
+function overWater(pts) {
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.5));
+    for (let k = 0; k <= n; k++) if (at(a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n) & WATER) return true;
+  }
+  return false;
+}
 for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
   if (e.id === TT_WAY) continue;
   const c = ROAD_CLASS[t.highway];
-  const bridge = t.bridge && t.bridge !== 'no' ? 1 : 0;
+  const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
   for (const pts of clipLine(e.geometry.map(proj))) {
-    if (bridge && inNH(pts[Math.floor(pts.length / 2)])) continue;
+    if (tagged && inNH(pts[Math.floor(pts.length / 2)])) continue;
+    // A way tagged as a bridge that crosses no drawn water is laid as ordinary road: the moat before cửa Chánh Tây
+    // and several canals have been filled in, and a raised deck with piers there stands on dry land.
+    const bridge = tagged && overWater(pts) ? 1 : 0;
+    if (tagged && !bridge) nDryBridges++;
     roads.push({ c, bridge, name: t.name || '', pts });
     if (c < 5) stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD);
     else stampLine(pts, 1.2, ROAD);
   }
 }
+console.log('bridge ways over dry land laid as road:', nDryBridges);
 const rails = [];
 for (const e of els) {
   const t = e.tags || {};
@@ -593,6 +608,7 @@ for (const e of els) {
   if (src === 2) smeared.add(b); else if (src === 1) surveyed.add(b);
   buildings.push(b);
   fillPoly([ring], BLD);
+  stampLine([...ring, ring[0]], 1.2, BLD); // its eaves: generated houses keep clear of them
 }
 // A building mapped inside a landmark's own outline (Lầu Ngũ Phụng on Ngọ Môn, the block inside Kỳ Đài) belongs to
 // that landmark's model: drawn as well, it would stand inside it.
@@ -657,6 +673,38 @@ const houseH = (cx, cz, w, d, ang, rule) => {
   return Math.max(3.4, Math.min(m - 1.2, 18)) + (rule % 1) * 0.4;
 };
 const BLOCK = WATER | GREEN | ROAD | BLD | NOBUILD;
+// Generated houses are drawn with roofs wider than their walls (src/geo/city.js, buildInfill: hip eaves 0.9 m modern,
+// 1.8 m Indochine, 2.4 m timber, in total across). Each house reserves its walls plus half its eaves on every side and a
+// small gap, and is tested exactly against every house already placed (separating axes on the two rectangles), not
+// only on the 2 m grid, where two turned rectangles could overlap by a metre. INFILL_PAD is mirrored in city.js.
+const INFILL_PAD = [0.55, 0.9, 1.2], INFILL_GAP = 0.3;
+const placed = new Map(), PCELL = 24;
+const obbCorners = (o) => rectCorners(o.cx, o.cz, o.w, o.d, o.a);
+function obbOverlap(A, B) {
+  const ca = obbCorners(A), cb = obbCorners(B);
+  for (const o of [A, B]) for (const ax of [[Math.cos(o.a), Math.sin(o.a)], [-Math.sin(o.a), Math.cos(o.a)]]) {
+    let a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+    for (const p of ca) { const t = p[0] * ax[0] + p[1] * ax[1]; a0 = Math.min(a0, t); a1 = Math.max(a1, t); }
+    for (const p of cb) { const t = p[0] * ax[0] + p[1] * ax[1]; b0 = Math.min(b0, t); b1 = Math.max(b1, t); }
+    if (a1 <= b0 || b1 <= a0) return false;
+  }
+  return true;
+}
+function houseFits(cx, cz, w, d, ang, era) {
+  const pad = INFILL_PAD[era] + INFILL_GAP / 2;
+  const o = { cx, cz, w: w + pad * 2, d: d + pad * 2, a: ang };
+  if (!rectFree(cx, cz, o.w, o.d, ang, BLOCK)) return null;
+  const gx = Math.floor(cx / PCELL), gz = Math.floor(cz / PCELL);
+  for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const p of placed.get(gx + i + ',' + (gz + j)) || []) if (obbOverlap(o, p)) return null;
+  return o;
+}
+function housePlace(o) {
+  const k = Math.floor(o.cx / PCELL) + ',' + Math.floor(o.cz / PCELL);
+  let l = placed.get(k);
+  if (!l) placed.set(k, (l = []));
+  l.push(o);
+  fillPoly([obbCorners(o)], BLD);
+}
 for (const road of roads) {
   if (road.bridge || road.c > 4) continue;
   const hills = inHills(road.pts[0]);
@@ -690,26 +738,29 @@ for (const road of roads) {
             const d2 = rr(7, 12), w2 = w * rr(0.82, 1.12), gap2 = rr(1.4, 4.5);
             const bx = px + tx * (w / 2) + nx * (back + gap2 + d2 / 2), bz = pz + tz * (w / 2) + nz * (back + gap2 + d2 / 2);
             back += gap2 + d2;
-            if (!inBox([bx, bz], -10) || rnd() > (cit ? 0.38 : row === 0 ? 0.6 : 0.3) || !rectFree(bx, bz, w2 + 1.4, d2 + 1.4, ang, BLOCK)) continue;
+            if (!inBox([bx, bz], -10) || rnd() > (cit ? 0.38 : row === 0 ? 0.6 : 0.3)) continue;
+            const era2 = eraOf([bx, bz], w2 * d2);
+            const o2 = houseFits(bx, bz, w2, d2, ang, era2);
+            if (!o2) continue;
             const r2 = rnd();
             const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
-            const era2 = eraOf([bx, bz], w2 * d2);
             const m2 = houseH(bx, bz, w2, d2, ang, h2);
             infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2)); // 2 = no street face; era in the upper bits
-            fillPoly([rectCorners(bx, bz, w2, d2, ang)], BLD);
+            housePlace(o2);
           }
         }
-        if (inBox([cx, cz], -10) && rnd() < density * (cit ? 0.9 : 1) && rectFree(cx, cz, w + 1.2, d + 1.2, ang, BLOCK)) {
+        const era = inBox([cx, cz], -10) && rnd() < density * (cit ? 0.9 : 1) ? eraOf([cx, cz], w * d) : -1;
+        const o1 = era >= 0 ? houseFits(cx, cz, w, d, ang, era) : null;
+        if (o1) {
           const r = rnd();
           let h;
           if (cit) h = r < 0.6 ? rr(3.8, 4.8) : r < 0.96 ? rr(7.2, 8.2) : 11;
           else if (main) h = r < 0.15 ? 4.5 : r < 0.6 ? rr(7.4, 8.4) : r < 0.9 ? rr(10.8, 11.8) : rr(14, 15.5);
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
-          const era = eraOf([cx, cz], w * d);
           h = houseH(cx, cz, w, d, ang, h);
           if (era === 2) h = Math.min(h, 4.4); else if (era === 1) h = Math.min(Math.max(h, 7.2), 11.4);
           infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2));
-          fillPoly([rectCorners(cx, cz, w, d, ang)], BLD);
+          housePlace(o1);
         }
         s += w + gap;
       }

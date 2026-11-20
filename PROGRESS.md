@@ -278,3 +278,31 @@ Known weak points:
 - Ground lower than the city floor (paddies, river flats) is still drawn at the floor.
 - No lidar pass crosses the Ngự Bình or Vọng Cảnh summits; they rest on published figures.
 - Not merged to `main`, not deployed.
+
+## Landmark re-work (2026-11-21, branch `claude/landscape-models-realism-cd02d4`)
+- **Trường Tiền:** rounder bows (`H·(1-u²)^0.62`, leaving the piers at about 45°). The night light show is a 24 s cycle: solid colours stepping, a bow-to-bow chase, a rainbow drift, and a violet pulse with a white run. Rain fades it to warm white.
+- **Generator fixes (build-data.mjs + city.js):**
+  - Infill houses are tested against each other with an OBB check, padded for each era's roof overhang, and mapped buildings are dilated 1.2 m for eaves. Result: 54.9k houses (was 63.9k), 0 roof overlaps.
+  - Old roofs are clamped to the plot.
+  - OSM "bridge" ways over dry land are laid as road. That is 81 ways, Cửa Chánh Tây among them.
+- **Chợ Đông Ba:** clock tower on the Trần Hưng Đạo front, a "CHỢ ĐÔNG BA" canvas sign that glows red at night, clock dials and eave light strips. The sign, clocks and lights show in today's era only.
+- **Citadel:**
+  - Hiển Nhơn / Chương Đức gates have yellow tiles.
+  - Kinh Thành gates have a crenellated parapet and name tablets.
+  - Thái Hòa has two unequal halls and the Đại Triều Nghi esplanade.
+  - Nghênh Lương Đình has a two-tier roof; Phước Duyên has openings on all eight faces.
+- **Civic (new `enclosure.js`):**
+  - Fences and gates at Quốc Học (OSM campus outline), Ga Huế, Phủ Cam, DCCT, An Định and Diệu Đế.
+  - Thế Miếu / Hưng Miếu walls.
+  - Night lamps, lit crosses, and the Vincom crown.
+- **Floating restaurant (new `floating.js`):** Nhà hàng nổi Sông Hương is modelled as the real lotus-shaped restaurant, with pontoon, glass halls, petal roof, gangway and sign, plus pink petal LEDs at night.
+- **Tombs and south:**
+  - Khải Định has dark weathered concrete, a three-path dragon stair, flagpoles and a precinct fence.
+  - Minh Mạng has its side gates; Đồng Khánh has a gate in the Bửu Thành wall.
+  - Nam Giao terraces read blue, yellow and red.
+- **Checked in the browser:** night show, Đông Ba sign, Quốc Học fence, Chánh Tây with no bridge, floating restaurant by day and night.
+- **Not yet seen in the browser:** the tombs, Thái Hòa, the churches, An Định.
+- **Still to do:**
+  - Tự Đức's La Thành wall and Vụ Khiêm gate, and the pavilions on Minh Mạng's lake (positions unknown).
+  - The yards at Ga Huế, Phủ Cam, DCCT and Diệu Đế are estimated rectangles.
+  - A small mapped building stands in front of the Đông Ba clock tower.

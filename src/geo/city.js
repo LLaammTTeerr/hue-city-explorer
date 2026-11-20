@@ -17,6 +17,7 @@ const rand = (i, salt = 0) => {
 };
 const pick = (arr, i, salt = 0) => arr[Math.floor(rand(i, salt) * arr.length) % arr.length];
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
+const INFILL_PAD = [0.55, 0.9, 1.2]; // half the eaves of a generated house, by era (as in scripts/build-data.mjs)
 // Bucket instances into ~900 m tiles so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
 // less. Whole chunks of houses and trees drop out much farther away, where the river mist has taken them anyway.
@@ -554,8 +555,11 @@ function buildInfill(data, group, off = null) {
       if (born < from) {
         const old = (fam, sp) => {
           const thatch = fam === 2 && rand(i, 94) < 0.45;
+          // the older house keeps under the roof extent its plot reserved (INFILL_PAD in build-data.mjs), so its
+          // deeper eaves cannot reach the neighbours
+          const room = 2 * INFILL_PAD[era] - (fam === 2 ? 2.4 : 1.8);
           parts.push({
-            i, x, z, w: fam === 2 ? Math.min(w * 1.15, 11) : w, d: Math.min(d, fam === 2 ? 9.5 : 12), ang, salt: 0, main, front: 0, era: fam, span: sp, old: true,
+            i, x, z, w: Math.max(3, w + Math.min(0, room)), d: Math.max(3, Math.min(d + Math.min(0, room), fam === 2 ? 9.5 : 12)), ang, salt: 0, main, front: 0, era: fam, span: sp, old: true,
             h: fam === 2 ? 3.5 + rand(i, 91) * 0.9 : 7.0 + rand(i, 91) * 1.2,
             wallCol: fam === 2 ? shade(pick(thatch ? PAL.thatchWall : PAL.tradWall, i, 31), 0.9 + rand(i, 32) * 0.2) : shade(pick(PAL.indochine, i, 31), 0.93 + rand(i, 32) * 0.12),
             roofCol: fam === 2 ? shade(pick(thatch ? PAL.thatch : PAL.tradRoof, i, 34), 0.86 + rand(i, 35) * 0.26) : shade(pick(PAL.indochineRoof, i, 34), 0.9 + rand(i, 35) * 0.18),
