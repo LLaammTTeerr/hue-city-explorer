@@ -278,3 +278,28 @@ Known weak points:
 - Ground lower than the city floor (paddies, river flats) is still drawn at the floor.
 - No lidar pass crosses the Ngự Bình or Vọng Cảnh summits; they rest on published figures.
 - Not merged to `main`, not deployed.
+
+**Humped bridges (2026-11-21).** Generic road bridges now follow a vertical profile from `src/geo/bridges.js`
+(shared by `geo/city.js` and `landmarks/life.js`): bank level as before plus a crown `rise·(1−cos 2πt)/2`, so the
+deck meets the road level and rounds at mid-span. Named table: Trung Đạo 1.3 m on 5 brick vaults, the three Ngoại
+Kim Thủy 1.4 m on one vault, Đông Thành Thủy Quan 0.9 m on 3 vaults (masonry kind, arches cut by a variable
+underside in `slab()`), Gia Hội 1.1, Nhà Đồ / Cửa Ngăn / Cửa Thượng Tứ 1.0; Phú Xuân, Dã Viên, any run over 150 m
+or mapped in pieces stay level. Default: footways/lanes `len/14` (0.5–1.5 m), roads `0.02·len` (0.4–1.1 m). Piers
+end just inside the curved deck (also fixes the gap under class-3 slabs); traffic and lamp posts/glows ride the
+curve; tomb `bridge()` is a smooth hump instead of ramp–flat–ramp. Rises are illustrative (no surveyed sections
+found; sources: Huế Univ. paper on Ngự Hà vaulted bridges, rise/span ≈ 1/6; mia.vn on Trung Đạo's vaults). Looks:
+`docs/looks/bridges-arched-trungdao.jpg`, `-kimthuy.jpg`. Not checked in the browser: tomb bridges, traffic on a
+humped deck, the ink look.
+
+**Lotus floating restaurant** (`src/landmarks/restaurant.js`, wired in `src/main.js`). Nhà hàng nổi Sông Hương is now a
+hand model instead of a 6.6 m block on its round OSM footprint: a dark pontoon at river level (river y = 0), three
+rings of lofted, cupped, pointed petals (12 low outer petals curling out over the water, 12 taller ones between them,
+8 upright inner ones), white blushing to pink at the tips, round two-storey glazed pavilion with a balcony slab, two
+flared red roof tiers and a lotus-bud finial. Today only (`span(2)`). At night: pink light lines on the rims of the
+two inner rings and warm light from the dining rooms, the roof lantern and round the pontoon (`lightMaterial`, `minEra 2`).
+OSM's two footbridges already join it to the park, so it has no gangway of its own. `main.js` takes the record out of
+`data.bld` before `buildCity` (the last record moves into its slot so other buildings keep their seeded details).
+Sources: only "lotus-shaped" is confirmed (khamphahue.com.vn, wanderlog, a foody.vn review); petal counts, colours,
+tiers and lights are a plausible fill-in, noted in the file header. Gotcha found: a zero normal at a pointed petal tip
+became NaN and the bloom pass blanked the whole screen; tip rows now borrow the row below. Looks:
+`docs/looks/restaurant-lotus.jpg`, `-night.jpg` (checked in both looks, day and night, on a `vite preview` of the build).

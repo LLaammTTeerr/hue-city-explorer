@@ -4,6 +4,7 @@ import { cityMaterial, enc } from '../geo/materials.js';
 import { rise, pondY } from '../geo/terrain.js';
 import { LAND_Y, POND_Y, quality } from '../config.js';
 import { era, onEra } from '../era.js';
+import { bridgeProfiles, resample } from '../geo/bridges.js';
 
 // Small living things that make the model feel inhabited. All illustrative.
 
@@ -113,7 +114,7 @@ function readRoads(data) {
     const pts = unflat(r[2]);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1]; }
-    out.push({ c: Math.max(0, Math.min(5, r[0] | 0)), bridge: !!r[1], pts, len: pathLength(pts), x0, x1, z0, z1 });
+    out.push({ c: Math.max(0, Math.min(5, r[0] | 0)), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), x0, x1, z0, z1 });
   }
   return out;
 }
@@ -218,12 +219,14 @@ function chain(lines, tol, canJoin) {
           if (Math.hypot(p[0] - l[0], p[1] - l[1]) < (k === 0 ? tol + 0.01 : 0.05)) continue;
         }
         pts.push(p);
-        hs.push(lines[s.i].h);
+        hs.push(lines[s.i].hs ? lines[s.i].hs[s.rev ? n - 1 - k : k] : lines[s.i].h);
       }
     }
     if (pts.length < 2) continue;
-    const ya = Float32Array.from(hs);
-    const path = mkPath(pts, ya, ya);
+    // segment i runs from height ya[i] to yb[i]; across a humped deck that follows its curve, while a segment
+    // leaving a bridge for the road keeps to the ground as before
+    const yb = Float32Array.from(hs), ya = Float32Array.from(hs, (h, i) => (i && h === h && hs[i - 1] === hs[i - 1] ? hs[i - 1] : h));
+    const path = mkPath(pts, ya, yb);
     path.c = lines[i0].c;
     out.push(path);
   }
@@ -358,7 +361,14 @@ function freeRange(s0, s1, s, runs, pad = 15, minLen = 40) {
 export function buildTraffic(data, group) {
   const rnd = rng(1899);
   const roads = readRoads(data);
-  const lines = roads.filter((r) => r.c <= 2 && r.len > 1).map((r) => ({ pts: r.pts, len: r.len, c: r.c, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN }));
+  const profiles = bridgeProfiles(data);
+  const lines = roads.filter((r) => r.c <= 2 && r.len > 1).map((r) => {
+    const P = r.bridge && profiles.get(r.flat);
+    if (!P || !(P.rise > 0)) return { pts: r.pts, len: r.len, c: r.c, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN };
+    // a humped deck: points close enough together to ride its curve
+    const R = resample(r.pts, 2);
+    return { pts: R.pts, len: r.len, c: r.c, h: BRIDGE_TOP + 0.02, hs: R.s.map((s) => Math.max(BRIDGE_TOP, P.base(s)) + P.bump(s) + 0.02) };
+  });
   const paths = chain(lines, 1.5, (a, b) => Math.abs(a.c - b.c) <= 1).filter((p) => p.len > 160);
   const tt = truongTienFrame(data);
   if (!paths.length && !tt) return { update() {} };
@@ -580,6 +590,7 @@ export function buildStreetLife(data, group) {
 const LAMP_MAX = () => (quality.low ? 800 : 3000);
 function buildLampPosts(data, group) {
   const roads = readRoads(data);
+  const profiles = bridgeProfiles(data);
   const kd = placeById(data).get('kydai') || [0, 0];
   const ARM = 0.9; // pole stands this far behind the lantern, away from the carriageway
   const spots = [];
@@ -590,8 +601,9 @@ function buildLampPosts(data, group) {
       const { p, a } = along(r.pts, s);
       const side = k % 2 ? 1 : -1, off = (ROAD_W[r.c] / 2 + 0.5) * side;
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
-      const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 : 7.5);
-      const baseY = r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) : LAND_Y + rise(lx, lz);
+      const P = r.bridge && profiles.get(r.flat), up = P ? P.bump(s) : 0; // on a humped deck the post rides the curve
+      const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 + up : 7.5);
+      const baseY = r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) + up : LAND_Y + rise(lx, lz);
       const ox = -Math.sin(a) * side, oz = Math.cos(a) * side; // outward, away from the road
       const far = Math.min(Math.hypot(lx, lz), Math.hypot(lx - kd[0], lz - kd[1]));
       spots.push([lx, lz, baseY, (glowY - baseY) / 7.5, Math.atan2(-oz, ox), far, r.bridge && r.len > LONG_BRIDGE]);
