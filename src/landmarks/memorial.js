@@ -1,4 +1,4 @@
-import { KIND, hex, shade, span } from '../geo/buf.js';
+import { KIND, hex, shade } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 
@@ -23,9 +23,11 @@ import { rise } from '../geo/terrain.js';
 //  - vietnammonpaysnatal.fr/stele-commemorative-bia-tuong-niem/: "grand paravent doté d'un toit", two levels,
 //    raised base with steps, faces the school.
 //
+//  - tapchisonghuong.com.vn/tap-chi/c371/n25392 and dangquangarch.com (Nov 2026): 10.95 m in all ("cao tổng cộng
+//    10,95m"), the two trụ biểu 9.85 m, balustrade nearly 1.4 m.
+//
 // NOT confirmed, filled in from the form described above and general knowledge of Huế screens:
-//  - all dimensions (no source gives any): ~20 m across the pillars, central bay ~6 m wide and ~10.5 m to the
-//    ridge crown, pillars ~8.8 m, side bays lower; the split into a tall middle bay and two lower side bays; roof tier heights;
+//  - the other dimensions: ~20 m across the pillars, central bay ~6 m wide, crown ~10.7 m, side bays lower; the split into a tall middle bay and two lower side bays; roof tier heights;
 //  - the tile colour (only "glazed" is known; drawn a deep yellow-ochre so it reads against the yellow walls);
 //  - the pillar heads (lantern box + lotus-bud finial, the usual Huế trụ biểu);
 //  - the balustrade layout and the size of the paved forecourt.
@@ -42,7 +44,6 @@ export function buildBiaQuocHoc(data, S) {
     S.n = n0;
     console.warn('Bia Quốc Học not built:', e);
   }
-  S.span = 0;
   S.kind = KIND.PLAIN;
   S.base = 0;
 }
@@ -73,7 +74,6 @@ function build(data, S) {
 
   const y0 = LAND_Y + rise(c[0], c[1]);
   if (!Number.isFinite(y0)) return;
-  S.span = span(1);
   S.base = y0 - LAND_Y;
 
   const yellow = hex('#e8bf4a'), yellowD = hex('#d3a83c'), trim = hex('#f3e6c4'), panel = hex('#dcb04a');
@@ -186,26 +186,26 @@ function build(data, S) {
   S.cyl(c[0], c[1], r0 + 0.6, r0 + 1.0, 0.28, 0.04, 6, ridge);
 
   // ---- the two trụ biểu at the ends: square shafts, lantern heads, lotus-bud finials ----
-  const pB = 9.5, pY = y0 + H2;
+  const pB = 9.5, pY = y0 + H2, hd = pY + 6.45; // shaft top: the pillars stand 9.85 m (Tạp chí Sông Hương)
   for (const s of [-1, 1]) {
     const q = at(0.3, s * pB);
     S.kind = KIND.MASONRY;
     S.box(q[0], q[1], pY, pY + 0.7, 1.35, 1.35, A, slab);
     S.kind = KIND.CIVIC;
-    S.box(q[0], q[1], pY + 0.7, pY + 5.4, 0.95, 0.95, A, yellow, { taper: 0.94 });
+    S.box(q[0], q[1], pY + 0.7, hd, 0.95, 0.95, A, yellow, { taper: 0.94 });
     S.kind = KIND.PLAIN;
-    S.box(q[0], q[1], pY + 1.8, pY + 4.7, 1.0, 0.6, A, panel); // couplet panels front/back
-    S.box(q[0], q[1], pY + 5.4, pY + 5.7, 1.25, 1.25, A, trim);
-    S.box(q[0], q[1], pY + 5.7, pY + 6.5, 0.85, 0.85, A, yellowD); // the lantern
+    S.box(q[0], q[1], pY + 2.0, hd - 0.7, 1.0, 0.6, A, panel); // couplet panels front/back
+    S.box(q[0], q[1], hd, hd + 0.3, 1.25, 1.25, A, trim);
+    S.box(q[0], q[1], hd + 0.3, hd + 1.1, 0.85, 0.85, A, yellowD); // the lantern
     for (const k of [-1, 1]) {
-      S.box(q[0] + f[0] * k * 0.44, q[1] + f[1] * k * 0.44, pY + 5.85, pY + 6.35, 0.04, 0.45, A, dark);
-      S.box(q[0] + p[0] * k * 0.44, q[1] + p[1] * k * 0.44, pY + 5.85, pY + 6.35, 0.45, 0.04, A, dark);
+      S.box(q[0] + f[0] * k * 0.44, q[1] + f[1] * k * 0.44, hd + 0.45, hd + 0.95, 0.04, 0.45, A, dark);
+      S.box(q[0] + p[0] * k * 0.44, q[1] + p[1] * k * 0.44, hd + 0.45, hd + 0.95, 0.45, 0.04, A, dark);
     }
     S.kind = KIND.GLAZED;
-    S.box(q[0], q[1], pY + 6.5, pY + 6.75, 1.2, 1.2, A, roof, { taper: 0.6 });
+    S.box(q[0], q[1], hd + 1.1, hd + 1.35, 1.2, 1.2, A, roof, { taper: 0.6 });
     S.kind = KIND.PLAIN;
-    S.cyl(q[0], q[1], pY + 6.75, pY + 7.1, 0.22, 0.42, 6, trim, { cap: false, rot: A });
-    S.cyl(q[0], q[1], pY + 7.1, pY + 7.9, 0.42, 0.05, 6, trim, { rot: A });
+    S.cyl(q[0], q[1], hd + 1.35, hd + 1.7, 0.22, 0.42, 6, trim, { cap: false, rot: A });
+    S.cyl(q[0], q[1], hd + 1.7, hd + 2.5, 0.42, 0.05, 6, trim, { rot: A });
   }
 
   // ---- two low lamp posts flanking the front stairs (restoration lighting) ----

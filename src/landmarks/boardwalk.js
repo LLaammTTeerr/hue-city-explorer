@@ -1,4 +1,4 @@
-import { KIND, hex, shade, span, unflat, inRing } from '../geo/buf.js';
+import { KIND, hex, shade, unflat, inRing } from '../geo/buf.js';
 import { glowPoints } from '../geo/materials.js';
 import { LAND_Y } from '../config.js';
 
@@ -199,7 +199,6 @@ export function buildBoardwalk(data, S, group) {
   try {
     const path = boardwalkPath(data);
     if (!path || path.length < 10) { console.warn('boardwalk: no bank found'); return { glows }; }
-    S.span = span(2);
     S.base = 0;
 
     const wood = hex('#7d5336'), woodShades = [1, 0.88, 0.95, 0.84, 0.92], fascia = shade(wood, 0.7);
@@ -300,14 +299,12 @@ export function buildBoardwalk(data, S, group) {
     for (let i = 0; i < pos.length; i += 3) S.box(pos[i], pos[i + 2], DECK_Y, DECK_Y + 0.5, 0.18, 0.18, 0, bronze);
     const pts = glowPoints(pos, cols, 4);
     pts.userData.glow = true;
-    pts.userData.minEra = 2;
     group.add(pts);
     glows.push(pts);
 
   } catch (e) {
     console.warn('boardwalk:', e);
   } finally {
-    S.span = 0;
     S.kind = KIND.PLAIN;
     S.base = 0;
   }

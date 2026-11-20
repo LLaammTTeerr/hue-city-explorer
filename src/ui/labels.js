@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { LAND_Y } from '../config.js';
 import { rise } from '../geo/terrain.js';
-import { onEra, existsIn } from '../era.js';
 
 // HTML labels pinned to places. Nearer views reveal more of them, and overlapping labels yield to the more important one.
 // Highest point of the built model above each place, so a tag sits just over the roof, spire or flagpole it names
@@ -19,8 +18,8 @@ function modelTops(scene, places) {
   const v = new THREE.Vector3();
   scene.traverse((o) => {
     // the merged city and landmark meshes, plus the landmarks' own static parts (bridge bows, light strips), which
-    // carry their first era; boats, traffic and trees are left out. Hidden parts count: the era may change later.
-    if (!o.isMesh || o.isInstancedMesh || (o.name !== 'buildings' && o.name !== 'structures' && o.userData.minEra == null)) return;
+    // are flagged as landmark parts; boats, traffic and trees are left out.
+    if (!o.isMesh || o.isInstancedMesh || (o.name !== 'buildings' && o.name !== 'structures' && !o.userData.landmark)) return;
     const pos = o.geometry.attributes.position, n = pos.count, P = new Float32Array(n * 3);
     o.updateWorldMatrix(true, false);
     for (let i = 0; i < n; i++) {
@@ -85,18 +84,14 @@ export function createLabels(root, data, camera, onPick, scene) {
   data.places.forEach((p, i) => add(p, false, i));
   data.waterLabels.forEach((p) => add(p, true));
   items.sort((a, b) => a.pri - b.pri);
-  // places not yet built in the current period are skipped; gate:* and water labels always exist
-  const checkExists = () => { for (const it of items) it.exists = it.water || existsIn(it.p.id); };
-  checkExists();
-  onEra(checkExists);
 
-  let enabled = true, dim = false, frame = 0, blocked = [];
+  let enabled = true, frame = 0, blocked = [];
   const visited = new Set();
   let measured = false;
   // widths taken with a fallback font are wrong once the web fonts (and their Vietnamese subsets) arrive
   if (document.fonts) { document.fonts.ready.then(() => { measured = false; }); document.fonts.addEventListener('loadingdone', () => { measured = false; }); }
   // the interface panels whose boxes labels keep clear of; the elements are fixed, only their boxes change
-  const panels = ['#places', '#search .bar', '#panel', '#era', '#tools', '#nav', '#actions', '#card', '#ride-hud'].map((sel) => document.querySelector(sel)).filter(Boolean);
+  const panels = ['#places', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card'].map((sel) => document.querySelector(sel)).filter(Boolean);
 
   function measure() {
     for (const it of items) { const span = it.el.querySelector('span'); it.w = span.offsetWidth; it.h = span.offsetHeight + (it.water ? 0 : STEM - 2); }
@@ -105,7 +100,6 @@ export function createLabels(root, data, camera, onPick, scene) {
 
   return {
     setEnabled(on) { enabled = on; root.classList.toggle('off', !on); },
-    setDim(on) { dim = on; root.classList.toggle('dim', on); },
     markVisited(id) { visited.add(id); const it = items.find((i) => i.p.id === id); if (it) it.el.classList.add('seen'); },
     remeasure() { measured = false; },
     get visited() { return visited; },
@@ -123,7 +117,7 @@ export function createLabels(root, data, camera, onPick, scene) {
       }
       const placed = blocked.slice();
       for (const it of items) {
-        let show = enabled && !dim && it.exists;
+        let show = enabled;
         let x = 0, y = 0;
         if (show) {
           const dist = camera.position.distanceTo(it.pos);

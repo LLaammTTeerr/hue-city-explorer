@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { Buf, hex, unflat, inRing } from '../geo/buf.js';
 import { cityMaterial, lightMaterial, shared } from '../geo/materials.js';
 import { quality } from '../config.js';
-import { era } from '../era.js';
 
 // A smooth hull lofted through stations along x (local +x is the bow): each station's section runs from the keel
 // up a rounded bilge to the sheer. bands: [t, colour] rows up the side (t 0 keel … 1 sheer); the deck closes it.
@@ -273,7 +272,7 @@ function makeWake(group, time, { bow = 9.8, stern = 20.5, len = 110 } = {}) {
     cur.copy(boat.position);
     if (has && dt > 1e-4) {
       const v = Math.hypot(cur.x - last.x, cur.z - last.z) / dt;
-      if (v < 40) spd += (v - spd) * Math.min(1, dt * 2.5); // a jump (a teleport, a new ride) is not speed
+      if (v < 40) spd += (v - spd) * Math.min(1, dt * 2.5); // a jump (a teleport) is not speed
     } else spd = 0;
     last.copy(cur); has = true;
     const amt = Math.min(1, Math.max(0, (spd - 0.4) / 4.0));
@@ -332,20 +331,15 @@ export function buildBoats(data, group) {
     const n = 5;
     for (let i = 0; i < n; i++) fleet.push({ mesh: make(), s: (track.total * (i + 0.5)) / n, dir: i % 2 ? 1 : -1, speed: 3.2 + (i % 3) * 0.9, lane: 26 + (i % 3) * 16, phase: i * 1.7, turn: -1 });
   }
-  const rideBoat = make();
-  rideBoat.visible = false;
 
-  // wakes: one per boat, fleet and the ride boat alike
+  // wakes: one per boat
   const wakeTime = { value: 0 }, pt = { x: 0, z: 0, tx: 1, tz: 0 };
   let wakes = [];
-  try { wakes = [...fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]), [rideBoat, makeWake(group, wakeTime)]]; } catch (e) { wakes = []; }
+  try { wakes = fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]); } catch (e) { wakes = []; }
 
   return {
-    rideBoat,
-    fleet,
     update(dt, time) {
-      // lit windows are electric (none in 1885); the string lanterns are candle-lit paper and hang in every era
-      const lit = shared.uGlow.value >= 0.01, winOn = lit && era.value >= 1;
+      const lit = shared.uGlow.value >= 0.01, winOn = lit;
       for (let i = 0; i < winMeshes.length; i++) { winMeshes[i].visible = winOn; lanMeshes[i].visible = lit; }
       for (const b of fleet) {
         // keep right: the lateral offset is lat along the track's left normal (-tz, tx), dir * lane on the straight.

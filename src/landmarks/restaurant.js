@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Buf, KIND, hex, mix, shade, span } from '../geo/buf.js';
+import { Buf, KIND, hex, mix, shade } from '../geo/buf.js';
 import { lightMaterial } from '../geo/materials.js';
 
 // ---- Nhà hàng nổi Sông Hương: the lotus-shaped floating restaurant beside cầu Trường Tiền, south bank ----
@@ -34,7 +34,6 @@ export function buildRestaurant(rec, data, S, group) {
     console.warn('Nhà hàng nổi not built:', e);
     return null;
   } finally {
-    S.span = 0;
     S.kind = KIND.PLAIN;
     S.base = 0;
   }
@@ -47,7 +46,6 @@ function build(rec, data, S, group) {
   const c = ring.reduce((a, p) => [a[0] + p[0] / ring.length, a[1] + p[1] / ring.length], [0, 0]);
   const R = ring.reduce((a, p) => a + Math.hypot(p[0] - c[0], p[1] - c[1]), 0) / ring.length; // ~14.5 m
 
-  S.span = span(2);
   S.kind = KIND.PLAIN;
   S.base = 0;
 
@@ -119,9 +117,9 @@ function build(rec, data, S, group) {
     if (!B.n) continue;
     const m = new THREE.Mesh(B.geometry(), lightMaterial(colr, boost));
     m.renderOrder = 19;
-    m.userData.minEra = 2;
-    // flagged as a glow so main.js hides it by day (uGlow 0: an additive draw of black) as well as before 2025; its
-    // per-frame loop also writes uScale, which this material does not use but must have
+    m.userData.landmark = true;
+    // flagged as a glow so main.js hides it by day (uGlow 0: an additive draw of black); its per-frame loop also
+    // writes uScale, which this material does not use but must have
     m.userData.glow = true;
     m.material.uniforms.uScale = { value: 1 };
     group.add(m);

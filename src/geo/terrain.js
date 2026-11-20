@@ -25,6 +25,7 @@ export function rise(x, z) {
   if (h00 === 0 && h10 === 0 && h01 === 0 && h11 === 0) return 0;
   return fx > fz ? h00 + (h10 - h00) * fx + (h11 - h10) * fz : h00 + (h11 - h01) * fx + (h01 - h00) * fz;
 }
+export const groundY = (x, z) => LAND_Y + rise(x, z); // used by scripts/check-heights.mjs
 // Surface of still-water body i: city ponds lie a little below the streets; lakes in the hills stand at their own
 // level, flush with the ground the terrain holds flat around them.
 export const pondY = (data, i) => { const lv = ((data.pondLv && data.pondLv[i]) || 0) / 10; return lv > 0 ? LAND_Y + lv + 0.08 : POND_Y; };

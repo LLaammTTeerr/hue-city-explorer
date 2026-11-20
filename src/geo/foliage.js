@@ -4,7 +4,7 @@ import { cityMaterial, enc, foliageDepthMaterial, patch } from './materials.js';
 import { rise } from './terrain.js';
 import { LAND_Y, quality } from '../config.js';
 import { lodAdd } from './lod.js';
-import { inCitadel, inHills } from './eras.js';
+import { inCitadel, inHills } from './districts.js';
 
 // Trees are built the way stylised foliage usually is: leaf-cluster cards gathered into a few clumps on forked
 // limbs, lit with rounded "puffball" normals so each crown shades as one soft mass, cut out by an alpha texture.

@@ -3,7 +3,7 @@
 // historic outlines ('h'). Mapped buildings sit on their own footprints; the axes are taken from pairs of mapped
 // buildings; courts, terraces, stairs, statues, walls and bridges are laid out along those axes from the known plan
 // of each tomb (illustrative where nothing is mapped). Water itself is drawn elsewhere (POND_Y), never here.
-import { KIND, hex, shade, unflat, obb, inRing, span } from '../geo/buf.js';
+import { KIND, hex, shade, unflat, obb, inRing } from '../geo/buf.js';
 import { LAND_Y, POND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
@@ -834,10 +834,9 @@ export function buildTombs(data, S, stats = null) {
     const st = loadSite(data, id);
     const n0 = S.n;
     if (st) {
-      S.span = id === 'dongkhanh' || id === 'khaidinh' ? span(1) : 0; // those two were built under the French; the rest are older
       try { fn(S, st); } catch (e) { S.n = n0; console.warn(`tombs: ${id} skipped`, e); } // drop the half-built tomb, not just the rest of it
     }
-    S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
+    S.kind = KIND.PLAIN; S.base = 0;
     if (stats) stats[id] = { from: n0, to: S.n };
   }
   S.kind = KIND.PLAIN; S.base = 0;

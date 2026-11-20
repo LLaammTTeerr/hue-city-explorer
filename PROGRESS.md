@@ -6,9 +6,9 @@
 - Hand-modelled landmarks on OSM footprints: cầu Trường Tiền, Citadel wall and gates, Kỳ Đài, Ngọ Môn,
   Điện Thái Hòa, Phu Văn Lâu, chợ Đông Ba hall and bell tower, dragon boats.
 - Atmosphere: afternoon / shower / lights-on moods, planar water reflection (desktop), rain.
-- Interaction: map controls, boat ride under the bridge, place list and cards, labels toggle, compass home.
+- Interaction: map controls, place list and cards, labels toggle, compass home.
 - UI in Vietnamese and English; phone layout.
-- Checked in the browser: opening view, ride start to finish and early exit, rain, night, recovery from
+- Checked in the browser: opening view, rain, night, recovery from
   an edge-of-map street-level camera, labels off, OSM-only toggle, phone viewport, production build.
 
 - Visual upgrade (branch `visual-upgrade`): procedural facades, roof tiles, masonry and timber-hall shading;
@@ -41,7 +41,7 @@
 - Restyle (branch `restyle`, on top of `landmark-shapes`): the model is presented as a miniature — long lens from
   the air, tilt-shift focus, low river mist, timber plinth and floor shadow. Trees rebuilt as leaf-card foliage with
   areca palms; windows read as recessed with sun glints; imperial tiles are glazed; street-facing awnings and
-  balconies; lotus on the still water; motorbikes and cars on main streets; click a dragon boat to travel with it.
+  balconies; lotus on the still water; motorbikes and cars on main streets.
   Interface redrawn as paper, ink and a vermilion seal. Frame cost brought back to ~16 ms at 2190×1369 on an
   Apple M5 (4.3 M triangles, ~370 draw calls) after it had risen to ~27 ms.
 
@@ -74,18 +74,18 @@
   so the river mirrors them: Trường Tiền's six bows drift through neighbouring hues and gather into violet now and
   then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
   now thin railed walkways on piers.
-- Era switcher (branch `era-switcher`): three moments — about 1885 (triều Nguyễn), about 1935 (Pháp thuộc), today
-  (`src/era.js`). Every face carries the eras it exists in (`span()` / `aSpan` in `src/geo/buf.js`, clipped in the
-  vertex shader and in the shadow pass); `src/geo/eras.js` decides by district when each plot was first built on, and
-  earlier eras show the timber, thatched or small colonial house that stood there. Roads, bridges, the railway,
-  landmarks, lights, the Kỳ Đài flag, street life (`life.js`), labels and the place list all follow. Control: `#era`
-  at the top; the canvas takes a light sepia wash in the older eras.
+- Boat ride: the guided ride under cầu Trường Tiền was removed (2026-11-21). Gone: `src/camera/ride.js`, the ride
+  button, HUD and scrub bar, the `B` key, the spare ride boat, and click-a-boat-to-follow. Kept: the dragon-boat fleet as scenery.
+- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
+  the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
+  `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and
+  unused: the `eras` texts in `public/data/stories.json` (43 places).
 - Bia Quốc Học (`src/landmarks/memorial.js`): the 1920 memorial screen opposite the school gate; the gate is now
   placed square to it. Dimensions are estimated (no source gives them).
 - Ground levels: lakes in the hills stand at their own height (55 of 171, read from the elevation model), with the
   ground held flat at that level in the lake, on its islands and along its shore (`pondLv` in the data, `pondY` /
   `waterY` in `src/geo/terrain.js`).
-- Explorer panel: the note card shows picture with credit, dates, summary, a line for the selected era, story,
+- Explorer panel: the note card shows picture with credit, dates, summary, story,
   facts and sources from `public/data/stories.json` (63 places, vi + en; 97 Wikimedia Commons picture references
   under free licences, loaded online, not bundled; 12 places have no picture). About 30 entries were written by
   helper agents and only spot-checked: dates and figures in the 18 sampled matched known history.
@@ -327,6 +327,21 @@ tiers and lights are a plausible fill-in, noted in the file header. Gotcha found
 became NaN and the bloom pass blanked the whole screen; tip rows now borrow the row below. Looks:
 `docs/looks/restaurant-lotus.jpg`, `-night.jpg` (checked in both looks, day and night, on a `vite preview` of the build).
 
+**Height and terrain checks** (branch `claude/height-checks`). So a wrong height is caught before deploy:
+- `npm run check:heights` (`scripts/check-heights.mjs`): builds every landmark headless in node (stubbed browser
+  globals, same order as `main.js`) and measures each model's top above the ground against
+  `docs/heights-reference.json` (24 landmarks; ±15 % for sourced figures, ±25 % for estimates). `--all` prints every
+  row, `--diag` the rise and both bases. Fails on an out-of-range model, a locator that finds nothing, or a builder
+  that throws or warns (tombs swallow errors with `console.warn`). Entries with a `known` note only WARN (none left). The three that were known were fixed: Bia Quốc Học is sourced at 10.95 m and its pillars at 9.85 m, so the pillars went up from 8.8 m; the Đông Ba clock tower came down from 22.1 to 16.4 m, since the old model comment misread heights.md; the Diệu Đế Đại Giác hall came down from 12.9 to 9.8 m. The gate reference is now sourced at 16–17 m (model 17.2). To add a landmark: an entry with `name`, `h` (m or [lo, hi]), `confidence`,
+  `source`, and `at` = `special` | `site`+`name` | `site`+`rel`(+`tol`) | `point`+`r` | `gate`; `base: "model"` for
+  buildings on a terrace the model builds.
+- `npm run check:data` (`scripts/check-data.mjs`): terrain sanity on `public/data/hue.json` (grid size, no NaN or
+  negatives, Hà Khê plateau ~9.8 m, Minh Mạng mound and axis climbing, Khải Định rise 15–40 m, raised lakes flat,
+  building heights 0–180 m). `--against old.json` diffs terrain (≥2 m, grouped by nearest place) and building heights.
+- `npm run data:build` now runs the same checks plus lidar/peak rms limits (1.5 m; now 1.31/1.17), prints the diff
+  against the previous `hue.json`, and exits 1 on a failure (the file is still written for inspection).
+- CI: `npm run check` runs before `npm run build` in `deploy.yml`, and on every PR in `check.yml`.
+- Proven: against the pre-fix `tombs.js` it fails 5 tomb halls; against the pre-fix `hue.json` it fails the Minh Mạng axis.
 - Review pass (branch `claude/repo-comprehensive-review-f8f9c2`, 2026-11-21): whole-repo review, then fixes for its
   findings. Runtime: storage guards, key handling in form fields, ride/zoom/follow races, labels out of the tab order
   when hidden, reduced motion, adaptive resolution on 1x screens. Geometry: terrain edge normals, shader patches warn

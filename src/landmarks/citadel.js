@@ -3,7 +3,7 @@ import { Buf, KIND, hex, shade, unflat, obb, ringCentre, signedArea, inRing } fr
 import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
-import { shared, lightMaterial, glowPoints } from '../geo/materials.js';
+import { lightMaterial, glowPoints } from '../geo/materials.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -137,19 +137,18 @@ function faceToward(o, dir) {
   const s = Math.sign(dv) || 1;
   return { n: [-uz * s, ux * s], t: [ux, uz], half: o.d / 2, side: o.w / 2 };
 }
-function lightMesh(group, L, color, boost, minEra) {
+function lightMesh(group, L, color, boost) {
   if (!group || !L || L.n === 0) return null;
   const m = new THREE.Mesh(L.geometry(), lightMaterial(color, boost));
   m.renderOrder = 19;
-  m.userData.minEra = minEra;
+  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
   group.add(m);
   return m;
 }
-function lampPoints(group, pos, col, size, minEra, glows) {
+function lampPoints(group, pos, col, size, glows) {
   if (!group || !pos.length) return null;
   const p = glowPoints(pos, col, size);
   p.userData.glow = true;
-  p.userData.minEra = minEra;
   group.add(p);
   glows.push(p);
   return p;
@@ -400,18 +399,15 @@ function makeFlag() {
   const geo = new THREE.PlaneGeometry(1, 1, 14, 6);
   geo.translate(0.5, 0, 0);
   const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 }, uEra: shared.uEra },
+    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 } },
     side: THREE.DoubleSide,
     vertexShader: `uniform float uTime; varying vec2 vUv; varying float vSh;
       void main() { vUv = uv; vec3 p = position;
         float w = sin( p.x * 7.0 - uTime * 4.2 ) * 0.07 * p.x + sin( p.x * 3.0 - uTime * 2.6 + p.y * 2.0 ) * 0.05 * p.x;
         p.z += w; p.y -= p.x * p.x * 0.05; vSh = 0.86 + w * 2.4;
         gl_Position = projectionMatrix * modelViewMatrix * vec4( p, 1.0 ); }`,
-    // the standard flown here in each era: the imperial yellow; from the 1920s yellow with a red band; today's flag
-    fragmentShader: `uniform sampler2D map; uniform float uLight, uEra; varying vec2 vUv; varying float vSh;
+    fragmentShader: `uniform sampler2D map; uniform float uLight; varying vec2 vUv; varying float vSh;
       void main() { vec4 c = texture2D( map, vUv );
-        if ( uEra < 0.5 ) c.rgb = vec3( 0.93, 0.76, 0.16 );
-        else if ( uEra < 1.5 ) c.rgb = abs( vUv.y - 0.5 ) < 0.17 ? vec3( 0.78, 0.13, 0.1 ) : vec3( 0.93, 0.76, 0.16 );
         gl_FragColor = vec4( c.rgb * vSh * uLight, 1.0 );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -437,8 +433,8 @@ function citadel(data, S, group) {
   const impCentre = [data.imperial.c[0] / 10, data.imperial.c[1] / 10];
   const cityCentre = place('kinhthanh') || impCentre; // the Imperial City stands near enough the middle to aim the gates by
 
-  // night lighting: A = Kỳ Đài and Ngọ Môn, B = the halls, riverside pavilions and the two south gates (both electric,
-  // today only); lanterns at doorways in every era, floodlights at the flagpole's foot today only
+  // night lighting: A = Kỳ Đài and Ngọ Môn, B = the halls, riverside pavilions and the two south gates (both electric);
+  // lanterns at doorways, floodlights at the flagpole's foot
   const LA = new Buf(800), LB = new Buf(800);
   const lanPos = [], lanCol = [], floodPos = [], floodCol = [], glows = [];
   const lantern = (x, y, z) => { lanPos.push(x, y, z); lanCol.push(...LANTERN); };
@@ -619,10 +615,10 @@ function citadel(data, S, group) {
     S.kind = KIND.PLAIN;
   }
 
-  lightMesh(group, LA, 0xffb64c, 1.4, 2);
-  lightMesh(group, LB, 0xffae42, 1.2, 2);
-  lampPoints(group, lanPos, lanCol, 7, 0, glows);
-  lampPoints(group, floodPos, floodCol, 8, 2, glows);
+  lightMesh(group, LA, 0xffb64c, 1.4);
+  lightMesh(group, LB, 0xffae42, 1.2);
+  lampPoints(group, lanPos, lanCol, 7, glows);
+  lampPoints(group, floodPos, floodCol, 8, glows);
 
   return {
     flag,
@@ -781,8 +777,8 @@ export function buildThienMu(data, S, group = null) {
   }
   S.kind = KIND.PLAIN; S.base = 0;
   if (group) {
-    lightMesh(group, LT, 0xffba52, 1.5, 2);
-    lampPoints(group, lanPos, lanCol, 6.5, 0, glows);
+    lightMesh(group, LT, 0xffba52, 1.5);
+    lampPoints(group, lanPos, lanCol, 6.5, glows);
   }
   return { glows };
 }
@@ -791,7 +787,8 @@ export function buildThienMu(data, S, group = null) {
 export function buildMarket(data, S) {
   if (!data.special?.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
-  // the hall stands about 10 m to its ridge and the three-tier clock tower about twice that (docs/reference/heights.md)
+  // the hall stands about 10 m to its ridge; the three-tier clock tower about 14–16 m with its finial
+  // (docs/reference/heights.md: estimated, only the three tiers are sourced)
   const y0 = LAND_Y, body = 7.4;
   const wall = PAL.marketWall, roof = PAL.marketRoof;
   S.kind = KIND.FACADE;
@@ -801,13 +798,13 @@ export function buildMarket(data, S) {
   S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + body, 3.4, roof, { over: 1.4, flare: 0.4, fascia: 0.4, fasciaCol: shade(wall, 0.8), ridgeCol: hex('#d9c9a0'), hips: true });
   // bell tower rising through the middle of the hall
   const cx = o.c[0], cz = o.c[1];
-  let y = y0 + body + 1.2;
-  S.box(cx, cz, y0 + body, y + 3.4, 7.4, 7.4, o.a, wall); y += 3.4;
-  S.hip(cx, cz, 7.4, 7.4, o.a, y, 1.4, roof, { over: 1.5, flare: 0.4 }); y += 0.8;
-  S.box(cx, cz, y, y + 2.8, 5.4, 5.4, o.a, wall); y += 2.8;
-  S.hip(cx, cz, 5.4, 5.4, o.a, y, 1.2, roof, { over: 1.3, flare: 0.4 }); y += 0.7;
-  S.box(cx, cz, y, y + 2.2, 3.8, 3.8, o.a, wall); y += 2.2;
-  S.hip(cx, cz, 3.8, 3.8, o.a, y, 2.4, roof, { over: 1.0, flare: 0.3 });
+  S.box(cx, cz, y0 + body, y0 + 11.2, 7.4, 7.4, o.a, wall);
+  let y = y0 + 11.2;
+  S.hip(cx, cz, 7.4, 7.4, o.a, y, 1.0, roof, { over: 1.4, flare: 0.4 }); y += 0.5;
+  S.box(cx, cz, y, y + 1.4, 5.4, 5.4, o.a, wall); y += 1.4;
+  S.hip(cx, cz, 5.4, 5.4, o.a, y, 0.8, roof, { over: 1.2, flare: 0.4 }); y += 0.4;
+  S.box(cx, cz, y, y + 1.1, 3.8, 3.8, o.a, wall); y += 1.1;
+  S.hip(cx, cz, 3.8, 3.8, o.a, y, 1.2, roof, { over: 1.0, flare: 0.3 });
   S.kind = KIND.PLAIN;
-  S.cyl(cx, cz, y + 2.2, y + 3.6, 0.16, 0.05, 5, hex('#d9c27a'));
+  S.cyl(cx, cz, y + 1.0, y + 1.8, 0.14, 0.05, 5, hex('#d9c27a'));
 }

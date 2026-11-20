@@ -82,7 +82,7 @@ export function buildNguyenHoang(data, S, group) {
     const arch = new THREE.Mesh(LB.geometry(), lightMaterial(0xffb637, 2.1));
     const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xfff0d0, 1.0));
     arch.renderOrder = edge.renderOrder = 19;
-    arch.userData.minEra = edge.userData.minEra = 2;
+    arch.userData.landmark = edge.userData.landmark = true;
     group.add(arch, edge);
   }
 

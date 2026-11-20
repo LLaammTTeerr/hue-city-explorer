@@ -17,6 +17,7 @@ const missing = (msg) => {
   if (!ALLOW_MISSING) { console.error('missing input:', msg, '\n(pass --allow-missing to build without it)'); process.exit(1); }
   console.warn(msg);
 };
+const quality = {}; // calibration errors, checked at the end
 
 // Local frame: metres east (x) and south (z) of the middle of cầu Trường Tiền. Shared with the raw-data fetchers
 // through scripts/frame.json. The west edge reaches chùa Thiên Mụ; the south edge takes in the royal tombs down to
@@ -1135,6 +1136,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       };
       console.log('lidar ground points:', land.length, 'on land,', wet.length, 'on open water (river level', river === null ? '-' : river.toFixed(2), 'm) | error in m rms (median), each overpass predicted from the others');
       row('plain, under 8 m', (p) => p.ele < 8); row('rising ground, 8-25 m', (p) => p.ele >= 8 && p.ele < 25); row('hills, over 25 m', (p) => p.ele >= 25); row('all', () => true);
+      quality.lidarRms = +rms(land.map((p) => field(p.x, p.z, p.pass) - p.r));
       lidar = land;
     }
     const demAt = (x, z) => baseAt(x, z) + fieldAt(x, z);
@@ -1329,6 +1331,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
         console.log('  ' + (c.name + (c.doubt ? ' (doubtful)' : '')).padEnd(34), String(c.ele).padStart(5), '|', v.bare.toFixed(1).padStart(6), '|', v.surface.toFixed(1).padStart(6), '|', v.calibrated.toFixed(1).padStart(6), '|', Number.isFinite(v.model) ? v.model.toFixed(1).padStart(6) : '     -');
       }
       const stat = (a) => (a.reduce((s2, e) => s2 + e, 0) / a.length).toFixed(1) + ' mean, ' + Math.sqrt(a.reduce((s2, e) => s2 + e * e, 0) / a.length).toFixed(1) + ' rms';
+      quality.peakRms = Math.sqrt(err.model.reduce((s2, e) => s2 + e * e, 0) / (err.model.length || 1));
       console.log('  error: bare', stat(err.bare), '| surface', stat(err.surface), '| calibrated', stat(err.calibrated), '| model', stat(err.model));
     }
     const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
@@ -1383,7 +1386,25 @@ const out = {
   places,
   waterLabels: water_labels,
 };
+const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT)) : null;
 fs.mkdirSync('public/data', { recursive: true });
 fs.writeFileSync(OUT, JSON.stringify(out));
 console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB', '| extent m', Math.round(MAXX - MINX), 'x', Math.round(MAXZ - MINZ));
 console.log('truong tien obb', ttBox.w.toFixed(1), 'x', ttBox.d.toFixed(1), 'centre', ttBox.c.map((v) => v.toFixed(1)), 'centreline', tt.map((p) => p.map((v) => v.toFixed(1))));
+
+// ---- checks: the terrain must not get worse without anyone noticing (see scripts/check-data.mjs) ----
+{
+  const { checkData, diffData } = await import('./check-data.mjs');
+  const { fails, notes } = checkData(JSON.parse(JSON.stringify(out)));
+  // the calibration against the laser and the named summits, against the figures of November 2026 (1.31 and 1.2 m)
+  const limit = { lidarRms: 1.5, peakRms: 1.5 };
+  for (const [k, v] of Object.entries(limit)) {
+    const got = quality[k];
+    if (got == null) notes.push(`skip ${k}: not measured (raw data missing)`);
+    else (got <= v ? notes : fails).push(`${got <= v ? 'ok  ' : 'FAIL'} terrain ${k === 'lidarRms' ? 'error against the laser ground points' : 'error at the named summits'}: ${got.toFixed(2)} m rms (limit ${v})`);
+  }
+  console.log('checks:');
+  for (const l of [...notes, ...fails]) console.log('  ' + l);
+  if (previous) { console.log('changes against the previous ' + OUT + ':'); for (const l of diffData(previous, out)) console.log('  ' + l); }
+  if (fails.length) { console.error(`build-data: ${fails.length} check(s) failed; ${OUT} was written so it can be inspected, but do not ship it`); process.exit(1); }
+}

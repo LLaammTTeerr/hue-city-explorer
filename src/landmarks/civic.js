@@ -1,4 +1,4 @@
-import { KIND, hex, shade, unflat, obb, ringCentre, span, inRing } from '../geo/buf.js';
+import { KIND, hex, shade, unflat, obb, ringCentre, inRing } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
@@ -305,9 +305,10 @@ function dieuDe(S, data) {
   const yellow = hex('#e3c377'), tile = hex('#a9523a'), ridge = hex('#e8dcc0');
   const sp = data.special.dieude;
   if (sp) {
+    // Đại Giác hall: about 9 m to the ridge (docs/reference/heights.md, estimated; no source gives a figure)
     const o = obb(unflat(sp.ring));
     S.base = 0;
-    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, LAND_Y, { tiers: 2, wallH: 4.2, roof: tile, wall: yellow, over: 1.5, rh: 3.6, platform: 1.0, ridge });
+    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: tile, wall: yellow, over: 1.5, rh: 2.6, platform: 0.8, ridge });
   }
   const gp = data.special.dieudeGate;
   if (gp) {
@@ -389,11 +390,9 @@ function tuPhuong(S, data) {
 
 export function buildCivic(data, S) {
   if (!data.special) return;
-  // with the first era each stands in: 0 Nguyễn, 1 French period, 2 today (the churches as they stand are 1960s)
-  for (const [fn, since] of [[station, 1], [phuCam, 2], [redemptorist, 2], [anDinh, 1], [dieuDe, 0], [hienLam, 0], [vincom, 2], [tuPhuong, 1]]) {
-    S.span = span(since);
+  for (const fn of [station, phuCam, redemptorist, anDinh, dieuDe, hienLam, vincom, tuPhuong]) {
     const n0 = S.n; // a place that throws is dropped whole (the buffer rolled back) and the rest still load
     try { fn(S, data); } catch (e) { S.n = n0; console.warn('civic:', fn.name, e); }
-    S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
+    S.kind = KIND.PLAIN; S.base = 0;
   }
 }

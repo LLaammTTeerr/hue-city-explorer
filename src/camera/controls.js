@@ -83,7 +83,7 @@ export function createCamera(canvas, bounds) {
     flyTo,
     cancelFly() { fly = null; },
     zoomBy(k) {
-      if (!controls.enabled) return; // the boat ride owns the camera (it disables the controls)
+      if (!controls.enabled) return;
       const off = camera.position.clone().sub(controls.target).multiplyScalar(k);
       const len = off.length();
       if (len < controls.minDistance || len > controls.maxDistance) off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, len)));

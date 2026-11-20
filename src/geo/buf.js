@@ -13,9 +13,6 @@ export const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 // (window bays, roof tiles, brick courses…) so geometry stays light.
 export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11, LINE: 12 };
 
-// When a piece of the model exists: from era `since` through era `until` (0 Nguyễn, 1 French period, 2 today).
-// Encoded so that 0 means "always", which is also what geometry without the attribute reads as.
-export const span = (since = 0, until = 2) => since * 4 + (2 - until);
 
 export class Buf {
   constructor(tris = 4096) {
@@ -23,13 +20,11 @@ export class Buf {
     this.n = 0;
     this.kind = KIND.PLAIN; // applied to faces added from now on
     this.base = 0; // floor level of what is being built, in metres above the flat city datum (for slopes)
-    this.span = 0; // which eras the faces added from now on exist in (see span())
     this.pos = new Float32Array(this.cap * 3);
     this.nrm = new Int8Array(this.cap * 3);
     this.col = new Uint8Array(this.cap * 3);
     this.knd = new Uint8Array(this.cap);
     this.bas = new Float32Array(this.cap);
-    this.spn = new Uint8Array(this.cap);
   }
   grow() {
     this.cap *= 2;
@@ -38,7 +33,6 @@ export class Buf {
     const c = new Uint8Array(this.cap * 3); c.set(this.col); this.col = c;
     const k = new Uint8Array(this.cap); k.set(this.knd); this.knd = k;
     const bb = new Float32Array(this.cap); bb.set(this.bas); this.bas = bb;
-    const sp = new Uint8Array(this.cap); sp.set(this.spn); this.spn = sp;
   }
   // Smooth-shaded triangle with explicit per-vertex normals and colours (used for foliage).
   smoothTri(v, nrm, cols) {
@@ -51,7 +45,6 @@ export class Buf {
       for (let c = 0; c < 3; c++) this.col[i + c] = Math.max(0, Math.min(255, Math.round(Math.sqrt(cols[k][c]) * 255)));
       this.knd[this.n + k] = this.kind;
       this.bas[this.n + k] = this.base;
-      this.spn[this.n + k] = this.span;
       i += 3;
     }
     this.n += 3;
@@ -82,7 +75,6 @@ export class Buf {
     }
     this.knd[this.n] = this.knd[this.n + 1] = this.knd[this.n + 2] = this.kind;
     this.bas[this.n] = this.bas[this.n + 1] = this.bas[this.n + 2] = this.base;
-    this.spn[this.n] = this.spn[this.n + 1] = this.spn[this.n + 2] = this.span;
     this.n += 3;
   }
   quad(a, b, c, d, col, hint) {
@@ -283,7 +275,6 @@ export class Buf {
     g.setAttribute('color', new THREE.BufferAttribute(this.col.slice(0, this.n * 3), 3, true));
     g.setAttribute('aKind', new THREE.BufferAttribute(this.knd.slice(0, this.n), 1));
     g.setAttribute('aBase', new THREE.BufferAttribute(this.bas.slice(0, this.n), 1));
-    g.setAttribute('aSpan', new THREE.BufferAttribute(Float32Array.from(this.spn.subarray(0, this.n)), 1));
     g.computeBoundingSphere();
     g.computeBoundingBox();
     return g;
