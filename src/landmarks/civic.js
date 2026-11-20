@@ -221,6 +221,7 @@ function phuCam(S, data) {
 
 // ---- Nhà thờ Dòng Chúa Cứu Thế (Nguyễn Mỹ Lộc, 1959–62): grey-blue stone, tiled eastern roofs, one tall spire ----
 function redemptorist(S, data) {
+  if (replaced('dcct')) return; // drawn by places/dcct.js
   const sp = data.special.dcct;
   if (!sp) return;
   const ring = unflat(sp.ring), o = obb(ring), pc = polyCentroid(ring);
