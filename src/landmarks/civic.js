@@ -1,4 +1,4 @@
-import { KIND, hex, shade, unflat, obb, ringCentre, signedArea, span } from '../geo/buf.js';
+import { KIND, hex, shade, unflat, obb, ringCentre, signedArea } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
@@ -395,10 +395,8 @@ function tuPhuong(S, data) {
 
 export function buildCivic(data, S) {
   if (!data.special) return;
-  // with the first era each stands in: 0 Nguyễn, 1 French period, 2 today (the churches as they stand are 1960s)
-  for (const [fn, since] of [[station, 1], [phuCam, 2], [redemptorist, 2], [anDinh, 1], [dieuDe, 0], [hienLam, 0], [vincom, 2], [tuPhuong, 1]]) {
-    S.span = span(since);
+  for (const fn of [station, phuCam, redemptorist, anDinh, dieuDe, hienLam, vincom, tuPhuong]) {
     fn(S, data);
-    S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
+    S.kind = KIND.PLAIN; S.base = 0;
   }
 }

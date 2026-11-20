@@ -1,7 +1,6 @@
 import { STR, NOTES, QUICK } from './content.js';
 import { createSearch } from './search.js';
 import { isCoarse } from '../config.js';
-import { era, setEra, onEra, existsIn } from '../era.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -54,23 +53,13 @@ export function createUI(data, handlers) {
     document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
     list.setAttribute('aria-label', T.places);
     search.refresh(current);
-    if (innerWidth <= 720) $('btn-ride').querySelector('span').textContent = T.rideShort;
     $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
     $('btn-lang').textContent = innerWidth <= 720 ? T.langShort : T.lang;
     $('btn-lang').title = T.lang; $('btn-lang').setAttribute('aria-label', T.lang);
-    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain };
-    $('era').setAttribute('aria-label', T.era);
-    document.querySelectorAll('#era button').forEach((b) => {
-      const i = +b.dataset.era;
-      b.querySelector('.long').textContent = T.eras[i];
-      b.querySelector('.short').textContent = T.erasShort[i];
-      b.querySelector('small').textContent = T.eraYears[i];
-      b.setAttribute('aria-label', T.eras[i] + (T.eraYears[i] ? ' ' + T.eraYears[i] : ''));
-    });
+    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
     document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
     $('attrib').textContent = T.attrib;
-    $('ride-exit').textContent = T.exitRide;
     $('about-title').textContent = T.aboutTitle;
     const n = (v) => v.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
     $('about-body').innerHTML = T.aboutBody.replace('{buildings}', n(data.meta.counts.buildings)).replace('{infill}', n(data.meta.counts.infill));
@@ -117,8 +106,6 @@ export function createUI(data, handlers) {
     $('card-name').textContent = (lang === 'en' && st && tx(st.title)) || p.n;
     $('card-when').textContent = tx(st && st.when); show('card-when', !!(st && st.when));
     $('card-note').textContent = tx(st && st.summary) || (note ? note[lang] : '');
-    const then = st && st.eras && era.value < 2 ? tx(st.eras[era.value]) : '';
-    $('card-era').textContent = then ? `${T.then[era.value]}: ${then}` : ''; show('card-era', !!then);
     const story = $('card-story'); story.textContent = '';
     for (const para of tx(st && st.story).split(/\n\s*\n/)) if (para.trim()) { const el = document.createElement('p'); el.textContent = para.trim(); story.append(el); }
     show('card-story', story.childElementCount > 0);
@@ -165,7 +152,6 @@ export function createUI(data, handlers) {
   function hint(text, ms = 5200) {
     const el = $('hint');
     el.textContent = text;
-    el.classList.remove('long');
     el.classList.add('show');
     clearTimeout(hintTimer);
     if (ms) hintTimer = setTimeout(() => el.classList.remove('show'), ms);
@@ -186,43 +172,8 @@ export function createUI(data, handlers) {
   $('btn-zout').addEventListener('click', () => handlers.zoom(1.6));
   $('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
   $('card-img').addEventListener('click', () => { if (current) { shot++; fillMedia(stories && stories[current.id]); } });
-  onEra(() => { if (current) fillCard(current); });
-  $('btn-ride').addEventListener('click', () => handlers.ride());
   $('btn-rain').addEventListener('click', () => handlers.rain());
   document.querySelectorAll('#seg-time button').forEach((b) => b.addEventListener('click', () => handlers.time(+b.dataset.time)));
-  $('ride-exit').addEventListener('click', () => handlers.exitRide());
-
-  // ---- period: the switcher calls setEra itself; everything here follows onEra ----
-  const eraButtons = [...document.querySelectorAll('#era button')];
-  eraButtons.forEach((b) => b.addEventListener('click', () => setEra(+b.dataset.era)));
-  $('era').addEventListener('keydown', (e) => {
-    const d = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
-    if (!d) return;
-    e.preventDefault(); e.stopPropagation();
-    setEra((era.value + d + 3) % 3);
-    eraButtons[era.value].focus();
-  });
-  const calm = matchMedia('(prefers-reduced-motion: reduce)');
-  let dipTimer = 0;
-  function applyEra(e, dip) {
-    document.body.dataset.era = e;
-    eraButtons.forEach((b) => { const on = +b.dataset.era === e; b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; });
-    listButtons.forEach((b, id) => { b.hidden = !existsIn(id, e); });
-    if (current && !existsIn(current.id, e)) { hideCard(); handlers.cardClosed(); }
-    search.refresh(current);
-    if (dip && !calm.matches) {
-      const body = document.body;
-      body.classList.remove('era-dip'); void body.offsetWidth; body.classList.add('era-dip');
-      clearTimeout(dipTimer); dipTimer = setTimeout(() => body.classList.remove('era-dip'), 450);
-    }
-  }
-  onEra((e) => { applyEra(e, true); hint(T.eraHints[e], 4500); $('hint').classList.add('long'); });
-  applyEra(era.value, false);
-  const scrub = $('ride-scrub');
-  scrub.addEventListener('input', () => handlers.seek(scrub.value / 1000, true));
-  const release = () => handlers.seek(scrub.value / 1000, false);
-  scrub.addEventListener('change', release);
-  scrub.addEventListener('pointerup', release);
 
   applyText();
   // the short wordings (phone) and the placeholder follow the window across its breakpoints
@@ -233,7 +184,6 @@ export function createUI(data, handlers) {
     applyText();
   });
 
-  let capIndex = -1;
   return {
     get lang() { return lang; },
     get T() { return T; },
@@ -249,23 +199,6 @@ export function createUI(data, handlers) {
       document.querySelectorAll('#seg-time button').forEach((b) => b.setAttribute('aria-checked', +b.dataset.time === time));
     },
     setHeading(rad) { $('needle').style.transform = `rotate(${(-rad * 180) / Math.PI}deg)`; },
-    setRide(active) {
-      document.body.classList.toggle('riding', active);
-      $('ride-hud').hidden = !active;
-      capIndex = -1;
-      if (active) { search.close(); hideCard(); hint(T.hintRide, 4500); } else hideHint();
-    },
-    setRideProgress(t) {
-      if (document.activeElement !== scrub || !scrub.matches(':active')) scrub.value = Math.round(t * 1000);
-      scrub.style.setProperty('--p', (t * 100).toFixed(1) + '%');
-      const i = t < 0.2 ? 0 : t < 0.4 ? 1 : t < 0.56 ? 2 : t < 0.78 ? 3 : 4;
-      if (i !== capIndex) {
-        capIndex = i;
-        const cap = $('ride-cap');
-        cap.style.opacity = 0;
-        setTimeout(() => { cap.textContent = T.caps[i]; cap.style.opacity = 1; }, capIndex === 0 ? 0 : 320);
-      }
-    },
     loaderProgress(p) { $('loader-bar').style.width = Math.round(p * 100) + '%'; },
     loaderDone() { $('loader').classList.add('done'); },
   };

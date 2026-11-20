@@ -19,21 +19,17 @@ contacted at runtime.
 
 ## What to try
 
-- **Xuôi thuyền qua cầu / Ride under the bridge** — the camera comes down onto a dragon boat, passes
-  beneath a span of Trường Tiền heading up-river, then turns and lifts over the north bank. Drag to
-  look around; scrub the bar; `Esc` leaves.
 - **Mưa rào / Passing shower** — a shower crosses for about a minute: rings on the river, haze over
   the far banks, lamps and the bridge lights coming on.
 - **Time of day** — morning (clear light from the east), late afternoon (low sun up-river), or lights on
   (dusk, with the bridge cycling through its colours).
 - **Toàn cảnh / Whole model** — pulls back to show the city as one slab, the way a model sits on a table.
-- Click a **dragon boat** on the river to travel along with it.
 - The **compass** (or `H`) returns to the opening view from anywhere.
 - The **label** button hides every name.
 
 Mouse: drag to pan, wheel to zoom at the cursor, right-drag (or Shift-drag) to turn and tilt,
 double-click to approach. Touch: one finger pans, two fingers pinch, twist and tilt.
-Keys: arrows pan, `+`/`-` zoom, `B` boat, `R` rain, `N` time of day, `L` labels.
+Keys: arrows pan, `+`/`-` zoom, `R` rain, `N` time of day, `L` labels.
 
 ## Data
 
@@ -114,7 +110,7 @@ Data credits and licences:
   lotus ponds and street traffic
 - `src/env/` — sky, water, rain, mood presets, and the desktop post pass (ambient occlusion, river mist,
   tilt-shift focus, bloom, grade)
-- `src/camera/` — map controls and the boat ride
+- `src/camera/` — map controls
 - `src/ui/` — interface, labels, copy (Vietnamese and English)
 
 `window.__hue` exposes the scene for debugging; `__hue.step(dt)` advances one frame by hand.

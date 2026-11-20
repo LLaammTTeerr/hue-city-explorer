@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre, span } from './buf.js';
-import { cityMaterial, landMaterial, enc, glowPoints, eraDepthMaterial } from './materials.js';
-import { initEras, inCitadel, southBank, inHills, frenchQuarter, plotBorn } from './eras.js';
+import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre } from './buf.js';
+import { cityMaterial, landMaterial, enc, glowPoints } from './materials.js';
+import { initDistricts } from './districts.js';
 import { LAND_Y, WALL_H, PAL, quality } from '../config.js';
 import polygonClipping from 'polygon-clipping';
 import { gateAxis, rectRing, inRing, CITADEL_PASSAGE } from './gates.js';
@@ -212,29 +212,19 @@ function buildRoads(data, group, structures) {
   const cols = PAL.road.map(hex);
   const y = LAND_Y + 0.05;
   // painter's order: pavements, then minor → major carriageways, then lane markings
-  // when each street was laid out: the Citadel's grid and the old highways north of the river are Gia Long's;
-  // Lê Lợi and the roads of the south bank came with the French; lanes follow the plots they serve
-  roads.forEach((r, i) => {
-    const m = r.pts[r.pts.length >> 1], x = m[0], z = m[1];
-    if (r.bridge) r.era = inHills(x, z) || pathLength(r.pts) > 250 ? 2 : 0;
-    else if (inCitadel(x, z)) r.era = 0;
-    else if (r.c <= 1) r.era = southBank(x, z) || inHills(x, z) ? 1 : 0;
-    else { const b = plotBorn(x, z, 7 + (i % 5)); r.era = r.c === 2 ? Math.min(b, 1) : b; }
-  });
   // Edges are drawn the way a map draws them: every outline first, then the fills from minor to major, so a side
   // street opens into the road it meets and no line runs across a junction. KIND.LINE is a kerb joint in the
   // realistic look and the pen in the drawn one.
   const pavW = (c) => ROAD_W[c] + (c <= 2 ? 3.6 : 2.4);
   const kerb = shade(casing, 0.8), verge = shade(casing, 0.9);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 3) { B.span = span(r.era); ribbon(B, r.pts, pavW(r.c) + 0.5, y - 0.005, verge); }
+  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r.c) + 0.5, y - 0.005, verge);
   B.kind = KIND.ROAD;
-  for (const r of roads) if (!r.bridge && r.c <= 3) { B.span = span(r.era); ribbon(B, r.pts, pavW(r.c), y, casing); }
+  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r.c), y, casing);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 4) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[r.c] + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85)); }
+  for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, ROAD_W[r.c] + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85));
   B.kind = KIND.ROAD;
-  for (let c = 5; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[c], y + 0.01, cols[c]); }
-  B.span = span(2); // painted lane markings are today's
+  for (let c = 5; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, ROAD_W[c], y + 0.01, cols[c]);
   const paint = hex('#f4eedd');
   for (const r of roads) {
     if (r.bridge || r.c > 1) continue;
@@ -244,14 +234,12 @@ function buildRoads(data, group, structures) {
       ribbon(B, [p0, p1], 0.32, y + 0.02, paint);
     }
   }
-  B.span = span(1); // the railway reached Huế in 1906–08
   for (const [main, bridge, flat] of data.rails) {
     const pts = unflat(flat);
     if (bridge) continue;
     ribbon(B, pts, main ? 5.4 : 4, y + 0.02, hex(PAL.ballast));
     ribbon(B, pts, main ? 1.9 : 1.4, y + 0.03, hex(PAL.rail));
   }
-  B.span = 0;
   const mesh = new THREE.Mesh(B.geometry(), overlayMaterial(1));
   mesh.receiveShadow = true;
   mesh.renderOrder = 2;
@@ -262,7 +250,6 @@ function buildRoads(data, group, structures) {
   let vongDone = false;
   for (const r of roads) {
     if (!r.bridge) continue;
-    structures.span = span(r.era);
     const w = ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5);
     // the deck: level at the banks (or climbing between banks of different height, or at a hill lake's level), and
     // on all but the long river bridges rising to a crown at mid-span (geo/bridges.js)
@@ -297,7 +284,6 @@ function buildRoads(data, group, structures) {
       }
     }
   }
-  structures.span = span(1);
   for (const [main, bridge, flat] of data.rails) {
     if (!bridge) continue;
     const pts = unflat(flat);
@@ -307,8 +293,6 @@ function buildRoads(data, group, structures) {
     const n = Math.round(len / 34) - 1;
     for (let i = 1; i <= n; i++) { const { p, a } = along(pts, (len * i) / (n + 1)); structures.box(p[0], p[1], -3, LAND_Y - 0.9, 2.4, 6, a, pier); }
   }
-
-  structures.span = 0;
 
   // street lamps along the main streets (drawn only when the mood calls for light)
   const lp = [], lc = [];
@@ -347,8 +331,7 @@ function buildBuildings(data, group, off = null) {
   const B = new Buf(420000);
   const P = PAL;
   const ridgeGold = hex('#f1d77a'), ridgeGrey = hex('#cfc4a4');
-  // form: null = as mapped; 'trad' / 'colonial' = the older house that stood on the plot. sp: the eras it stands in.
-  const draw = (b, i, form, sp) => {
+  const draw = (b, i) => {
     const ring = unflat(b[0]);
     let h = b[1] / 10, kind = b[2], flags = b[4] || 0;
     const y0 = LAND_Y + baseUnder(ring) - 0.3;
@@ -358,9 +341,6 @@ function buildBuildings(data, group, off = null) {
     let floor = rise(o.c[0], o.c[1]);
     for (const pt of ring) floor = Math.max(floor, rise(pt[0], pt[1]));
     B.base = floor;
-    B.span = sp;
-    if (form === 'trad') { kind = 0; flags = (flags & 1) | 8; h = 3.7 + rand(i, 90) * 0.9; }
-    else if (form === 'colonial') { kind = 0; flags = (flags & 1) | 4; h = area > 70 ? 7.4 : 4.6; }
     let y1 = LAND_Y + floor + h;
     const rectness = area / Math.max(1, o.w * o.d);
     let wall, roof, pitched = false, flare = 0, over = 0.5, rh = 0, ridge = null, hips = false;
@@ -400,7 +380,7 @@ function buildBuildings(data, group, off = null) {
       if (!quocHoc) { wall = rand(i, 61) < 0.75 ? pick(P.pastel, i, 1) : wall; if (big) { pitched = false; } else if (rand(i, 62) < 0.25) roof = pick(P.metalRoof, i, 63); }
     }
     // a building whose height is known (b[5], to the top: measured, or a monument's): the eave is what is left under its roof
-    const known = b[5] && form !== 'trad' && form !== 'colonial';
+    const known = b[5];
     if (known) { h = Math.max(2.6, b[5] / 10 - (pitched ? rh + 0.3 : 0.8)); y1 = LAND_Y + floor + h; }
     wall = shade(wall, quocHoc ? 0.96 + rand(i, 7) * 0.08 : jitter);
     roof = shade(roof, 0.9 + rand(i, 9) * 0.2);
@@ -444,25 +424,12 @@ function buildBuildings(data, group, off = null) {
     }
   };
   data.bld.forEach((b, i) => {
-    const kind = b[2], flags = b[4] || 0, ring = unflat(b[0]), c = ringCentre(ring), area = Math.abs(signedArea(ring));
-    if (off && off(ring, c)) return; // a landmark model already stands on this footprint
-    // from: the first era the mapped building stands in; born: the first era anything stood on its plot
-    let from, born;
-    if (kind === 2 || kind === 3 || flags & 8) from = born = 0; // palaces, pagodas, timber houses
-    else if (flags & 2 || kind === 4 || kind === 6) from = born = 1; // Quốc Học, churches, the market
-    else if (flags & 4) { from = 1; born = frenchQuarter(c[0], c[1]) ? 1 : Math.min(1, plotBorn(c[0], c[1], 3)); }
-    else if (kind === 7 || kind === 8 || flags & 1) from = born = 2; // towers, sheds, and what stands out over the water
-    else { from = 2; born = area > 700 ? 2 : plotBorn(c[0], c[1], 3); }
-    draw(b, i, null, span(from));
-    if (born < from && area < 420) {
-      if (from === 2 && frenchQuarter(c[0], c[1])) { draw(b, i, 'colonial', span(1, 1)); if (born === 0) draw(b, i, 'trad', span(0, 0)); }
-      else draw(b, i, 'trad', span(born, from - 1));
-    }
+    const ring = unflat(b[0]);
+    if (off && off(ring, ringCentre(ring))) return; // a landmark model already stands on this footprint
+    draw(b, i);
   });
-  B.span = 0;
   const mesh = new THREE.Mesh(B.geometry(), cityMaterial({ windows: true }));
   mesh.castShadow = true;
-  mesh.customDepthMaterial = eraDepthMaterial();
   mesh.receiveShadow = true;
   mesh.name = 'buildings';
   group.add(mesh);
@@ -555,37 +522,15 @@ function buildInfill(data, group, off = null) {
         const w2 = w * (0.72 + rand(i, 54) * 0.28);
         parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7, main, era });
       } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front, era });
-      // the house as it stands exists from `from`; the plot itself was first built on in `born`, and until the
-      // present house an older one stood there: a timber house, thatched as often as tiled, or under the French
-      // in their quarter a small colonial one
-      const from = era === 2 ? 0 : era === 1 ? 1 : 2, fq = frenchQuarter(x, z);
-      let born = era === 2 ? 0 : era === 1 ? (fq ? 1 : Math.min(1, plotBorn(x, z, 1))) : plotBorn(x, z, 1);
-      if (side === 2 && born < 2 && rand(i, 93) < 0.5) born++; // the backs of the blocks filled in later
-      for (let k = p0; k < parts.length; k++) parts[k].span = span(from);
-      if (born < from) {
-        const old = (fam, sp) => {
-          const thatch = fam === 2 && rand(i, 94) < 0.45;
-          parts.push({
-            i, x, z, w: fam === 2 ? Math.min(w * 1.15, 11) : w, d: Math.min(d, fam === 2 ? 9.5 : 12), ang, salt: 0, main, front: 0, era: fam, span: sp, old: true,
-            h: fam === 2 ? 3.5 + rand(i, 91) * 0.9 : 7.0 + rand(i, 91) * 1.2,
-            wallCol: fam === 2 ? shade(pick(thatch ? PAL.thatchWall : PAL.tradWall, i, 31), 0.9 + rand(i, 32) * 0.2) : shade(pick(PAL.indochine, i, 31), 0.93 + rand(i, 32) * 0.12),
-            roofCol: fam === 2 ? shade(pick(thatch ? PAL.thatch : PAL.tradRoof, i, 34), 0.86 + rand(i, 35) * 0.26) : shade(pick(PAL.indochineRoof, i, 34), 0.9 + rand(i, 35) * 0.18),
-          });
-        };
-        if (from === 2 && fq) { old(1, span(1, 1)); if (born === 0) old(2, span(0, 0)); }
-        else old(2, span(born, from - 1));
-      }
     }
     return parts;
   };
 
   // Each chunk gets instanced meshes sized to exactly what it holds (no hidden zero-scale instances).
-  // old: houses that only stand in the earlier eras go in meshes of their own, switched off outright today
-  const inst = (geo, mat, list, layer, shadow = true, detail = false, old = false) => {
+  const inst = (geo, mat, list, layer, shadow = true, detail = false) => {
     if (!list.length) return;
     // walls carry each house's floor level, so windows line up with its own ground on a slope
     const g = geo.clone();
-    g.setAttribute('aSpan', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[4] || 0), 1)); // the eras each house stands in
     if (geo === geos.wall) {
       g.setAttribute('aBase', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[2] || 0), 1));
       g.setAttribute('aStyle', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[3] || 0), 1)); // added to the wall's face kind
@@ -596,17 +541,16 @@ function buildInfill(data, group, off = null) {
     mesh.instanceColor.needsUpdate = true;
     mesh.castShadow = shadow && (!quality.low || geo === geos.wall);
     mesh.geometry.boundingSphere = geo.boundingSphere;
-    if (mesh.castShadow) mesh.customDepthMaterial = eraDepthMaterial();
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
     mesh.layers.set(layer);
-    lodAdd(mesh, detail ? 1500 : 5200, detail ? 2 : 0, old ? 1 : 2); // awnings, balconies and tanks are today's
+    lodAdd(mesh, detail ? 1500 : 5200);
     group.add(mesh);
     meshes.push(mesh);
   };
   const mk = () => m.compose(p, q, s).clone();
   const place = (parts, layer) => {
-    const walls = [], hips = [], gables = [], ends = [], extras = [], tanks = [], wallsOld = [], hipsOld = [];
+    const walls = [], hips = [], gables = [], ends = [], extras = [], tanks = [];
     for (const pt of parts) {
       const { i, x, z, salt } = pt;
       let { w, d, ang, h } = pt;
@@ -630,20 +574,20 @@ function buildInfill(data, group, off = null) {
       // walls keep the plot's own axes (width along the street)
       q.setFromAxisAngle(up, -ang);
       p.set(x, gy, z); s.set(w, h, d);
-      (pt.old ? wallsOld : walls).push([mk(), pt.wallCol, hi, style, pt.span]);
+      walls.push([mk(), pt.wallCol, hi, style]);
       if (gable) {
         const rh = Math.min(3.4, Math.max(1.2, d * (0.2 + rand(i, 37) * 0.07)));
         p.set(x, gy + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
-        gables.push([mk(), pt.roofCol, 0, 0, pt.span]);
+        gables.push([mk(), pt.roofCol]);
         s.set(w, rh, d + 1.1);
-        ends.push([mk(), shade(pt.wallCol, 0.97), 0, 0, pt.span]);
+        ends.push([mk(), shade(pt.wallCol, 0.97)]);
       } else if (!flatRoof) {
         let rw = w, rd = d;
         if (rd > rw) { [rw, rd] = [rd, rw]; q.setFromAxisAngle(up, -(ang + Math.PI / 2)); }
         const rh = Math.min(3.2, Math.max(1.0, rd * (era === 2 ? 0.3 : 0.24 + rand(i, 37 + salt) * 0.08)));
         const ov = era === 2 ? 2.4 : era === 1 ? 1.8 : 0.9; // deep eaves on the timber houses and the colonial villas
         p.set(x, gy + h + 0.02, z); s.set(rw + ov, rh, rd + ov);
-        (pt.old ? hipsOld : hips).push([mk(), pt.roofCol, 0, 0, pt.span]);
+        hips.push([mk(), pt.roofCol]);
       } else if (rand(i, 38 + salt) < 0.6) {
         const sc = 0.85 + rand(i, 41) * 0.3;
         p.set(x + (rand(i, 39) - 0.5) * w * 0.3, gy + h, z + (rand(i, 40) - 0.5) * d * 0.3); s.set(sc, sc, sc);
@@ -667,8 +611,6 @@ function buildInfill(data, group, off = null) {
       }
     }
     inst(geos.wall, wallMat, walls, layer);
-    inst(geos.wall, wallMat, wallsOld, layer, true, false, true);
-    inst(geos.hip, roofMat, hipsOld, layer, false, false, true);
     // roofs barely overhang their walls, so the walls alone cast the houses' shadows (halves the shadow pass)
     inst(geos.hip, roofMat, hips, layer, false);
     inst(geos.gable, roofMat, gables, layer, false);
@@ -744,7 +686,7 @@ export function buildCity(data) {
   const group = new THREE.Group();
   const structures = new Buf(160000); // walls, bridges, landmarks: one mesh, no window lights
   initTerrain(data);
-  initEras(data);
+  initDistricts(data);
   buildLand(data, group);
   const hills = buildTerrainMesh();
   if (hills) group.add(hills);
@@ -818,7 +760,6 @@ export function populate(world, data) {
 export function finishStructures(structures, group) {
   const mesh = new THREE.Mesh(structures.geometry(), cityMaterial({ windows: true }));
   mesh.castShadow = true;
-  mesh.customDepthMaterial = eraDepthMaterial();
   mesh.receiveShadow = true;
   mesh.name = 'structures';
   group.add(mesh);

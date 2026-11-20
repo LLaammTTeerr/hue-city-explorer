@@ -43,12 +43,6 @@
       </button>
     </div>
 
-    <div id="era" class="seg" role="radiogroup">
-      <button type="button" role="radio" data-era="0" aria-checked="false"><span class="long"></span><span class="short"></span><small></small></button>
-      <button type="button" role="radio" data-era="1" aria-checked="false"><span class="long"></span><span class="short"></span><small></small></button>
-      <button type="button" role="radio" data-era="2" aria-checked="true"><span class="long"></span><span class="short"></span><small></small></button>
-    </div>
-
     <div id="nav">
       <button id="btn-home" class="icon compass" type="button">
         <svg viewBox="0 0 48 48" id="compass-rose">
@@ -75,7 +69,6 @@
         <h2 id="card-name"></h2>
         <p id="card-when" hidden></p>
         <p id="card-note"></p>
-        <p id="card-era" hidden></p>
         <div id="card-story" hidden></div>
         <dl id="card-facts" hidden></dl>
         <p id="card-sources" hidden></p>
@@ -86,10 +79,6 @@
     <div id="hint" role="status"></div>
 
     <div id="actions">
-      <button id="btn-ride" class="cta" type="button">
-        <svg viewBox="0 0 24 24"><path d="M2.5 15h19l-2.6 4H5.1z" /><path d="M7 15v-4h9v4M5.5 11h12l-1.5-2.5H7z" /><path d="M19 15l2.5-3.5" /></svg>
-        <span data-t="ride"></span>
-      </button>
       <button id="btn-rain" class="tog" type="button" aria-pressed="false">
         <svg viewBox="0 0 24 24"><path d="M7 14.5a4 4 0 01.6-7.95A5 5 0 0117.3 8a3.3 3.3 0 01-.3 6.5z" /><path d="M9 17.5l-1 2.5M13 17.5l-1 2.5M17 17.5l-1 2.5" /></svg>
         <span data-t="rain"></span>
@@ -104,14 +93,6 @@
         <button type="button" role="radio" data-time="2" aria-checked="false">
           <svg viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 019.5 5a7.5 7.5 0 109.5 9.5z" /></svg>
         </button>
-      </div>
-    </div>
-
-    <div id="ride-hud" hidden>
-      <p id="ride-cap"></p>
-      <div class="row">
-        <input id="ride-scrub" type="range" min="0" max="1000" value="0" aria-label="Hành trình" />
-        <button id="ride-exit" class="chip" type="button"></button>
       </div>
     </div>
 

@@ -1,4 +1,4 @@
-import { KIND, hex, shade, span } from '../geo/buf.js';
+import { KIND, hex, shade } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 
@@ -42,7 +42,6 @@ export function buildBiaQuocHoc(data, S) {
   } catch (e) {
     console.warn('Bia Quốc Học not built:', e);
   }
-  S.span = 0;
   S.kind = KIND.PLAIN;
   S.base = 0;
 }
@@ -73,7 +72,6 @@ function build(data, S) {
 
   const y0 = LAND_Y + rise(c[0], c[1]);
   if (!Number.isFinite(y0)) return;
-  S.span = span(1);
   S.base = y0 - LAND_Y;
 
   const yellow = hex('#e8bf4a'), yellowD = hex('#d3a83c'), trim = hex('#f3e6c4'), panel = hex('#dcb04a');

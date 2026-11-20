@@ -56,16 +56,11 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 svg .fill { fill: currentColor; stroke: none; }
 
-#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; transition: filter 0.6s ease; }
-/* period wash: an old print for the Nguyễn years, a lighter tint for the French period; a short dip covers the swap */
-body[data-era='0'] #scene { filter: sepia(0.32) saturate(0.82) contrast(0.97); }
-body[data-era='1'] #scene { filter: sepia(0.16) saturate(0.92); }
-body.era-dip #scene { animation: era-dip 0.45s ease-in-out; }
-@keyframes era-dip { 45% { opacity: 0.35; } }
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
 #scene.dragging { cursor: grabbing; }
 
 /* paper surface shared by every panel: a faint fibre texture laid over the flat tone */
-#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint {
+#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #hint {
   background-color: var(--panel);
   background-image: radial-gradient(rgba(44, 36, 30, 0.035) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1.3px);
   background-size: 7px 7px, 11px 11px;
@@ -76,7 +71,7 @@ body.era-dip #scene { animation: era-dip 0.45s ease-in-out; }
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   transition: background-color 0.45s ease, border-color 0.45s ease, color 0.45s ease;
 }
-body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint) {
+body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #hint) {
   background-image: radial-gradient(rgba(207, 168, 98, 0.03) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.016) 1px, transparent 1.3px);
 }
 
@@ -135,30 +130,21 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #places button.active::before { border-color: var(--accent-ink); }
 
 /* ---------- controls ---------- */
-.icon, .chip, .tog, .cta { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 42px; border-radius: 6px; transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s, opacity 0.3s; white-space: nowrap; }
+.icon, .chip, .tog { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 42px; border-radius: 6px; transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s, opacity 0.3s; white-space: nowrap; }
 .icon { width: 42px; }
 .icon.small { width: 32px; height: 32px; background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .chip { padding: 0 14px; font-size: 13px; font-weight: 500; }
-.tog, .cta { padding: 0 17px 0 14px; font-size: 14px; font-weight: 500; }
+.tog { padding: 0 17px 0 14px; font-size: 14px; font-weight: 500; }
 .icon:hover, .chip:hover, .tog:hover { background-color: var(--paper); }
-.icon:active, .chip:active, .tog:active, .cta:active { transform: translateY(1px); }
+.icon:active, .chip:active, .tog:active { transform: translateY(1px); }
 /* switched on: crimson. The rain toggle fills; the label icon only takes the colour, so the top bar stays calm */
 .tog[aria-pressed='true'] { color: var(--cream); background-color: var(--seal); background-image: none; border-color: var(--seal-deep); }
 .icon.on { color: var(--accent-ink); }
-.cta { background: var(--seal); color: var(--cream); border: 1px solid var(--seal-deep); font-weight: 600; letter-spacing: 0.01em; box-shadow: 0 8px 22px rgba(122, 30, 31, 0.32), 0 0 0 3px rgba(248, 238, 222, 0.55) inset, 0 0 0 4px rgba(122, 30, 31, 0.5) inset; }
-.cta:hover { background: #ae3132; }
-.cta svg { stroke-width: 1.8; }
 .seg { display: inline-flex; align-items: center; gap: 2px; height: 42px; padding: 3px; border-radius: 6px; }
 .seg button { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 34px; border-radius: 4px; color: var(--ink-soft); transition: background 0.2s, color 0.2s; }
 .seg button:hover { background: var(--wash); color: var(--ink); }
 .seg button[aria-checked='true'] { color: var(--cream); background: var(--seal); }
 
-/* period switcher: the .seg control with words instead of icons, top centre */
-#era { position: fixed; left: 50%; top: var(--top); transform: translateX(-50%); transition: opacity 0.4s; }
-#era button { flex-direction: column; width: auto; padding: 0 15px; font-size: 13px; font-weight: 500; line-height: 1.1; white-space: nowrap; }
-#era .short { display: none; }
-#era small { display: none; margin-top: 1px; font-size: 9.5px; letter-spacing: 0.08em; font-weight: 400; opacity: 0.9; font-variant-numeric: tabular-nums; }
-#era button[aria-checked='true'] small:not(:empty) { display: block; }
 #tools { position: fixed; right: var(--edge); top: var(--top); display: flex; gap: 8px; }
 #nav { position: fixed; right: var(--edge); bottom: calc(var(--bottom) + 34px); display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .compass { width: 50px; height: 50px; border-radius: 50%; }
@@ -172,7 +158,6 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #actions { position: fixed; left: 50%; bottom: var(--bottom); transform: translateX(-50%); display: flex; gap: 8px; align-items: center; transition: opacity 0.4s, transform 0.4s; }
 #hint { position: fixed; left: 50%; bottom: calc(var(--bottom) + 60px); transform: translate(-50%, 6px); padding: 6px 13px; font-size: 12.5px; letter-spacing: 0.02em; border-radius: 4px; opacity: 0; pointer-events: none; transition: opacity 0.6s, transform 0.6s, background-color 0.45s ease, color 0.45s ease; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); }
 #hint.show { opacity: 1; transform: translate(-50%, 0); }
-#hint.long { white-space: normal; width: max-content; max-width: min(560px, calc(100vw - 32px)); text-align: center; line-height: 1.45; }
 
 /* ---------- place card ---------- */
 #card { position: fixed; left: var(--edge); bottom: calc(var(--bottom) + 58px); width: min(380px, calc(100vw - 2 * var(--edge))); max-height: min(74vh, 700px); display: flex; flex-direction: column; border-radius: 6px; animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -183,7 +168,6 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #card-media figcaption { margin: 5px 2px 0; font-size: 10.5px; line-height: 1.4; color: var(--ink-soft); }
 #card-media a { color: inherit; text-decoration-color: var(--line); }
 #card-when { margin: -4px 0 9px; font-size: 12px; letter-spacing: 0.02em; color: var(--indigo); font-variant-numeric: tabular-nums; }
-#card-era { margin: 11px 0 0; padding: 8px 11px; border-left: 2px solid var(--accent-ink); background: var(--accent-wash); font-size: 13px; line-height: 1.52; }
 #card-story p { margin: 10px 0 0; font-size: 13.5px; line-height: 1.64; color: color-mix(in srgb, var(--ink) 90%, transparent); text-wrap: pretty; }
 #card-facts { margin: 13px 0 0; padding-top: 11px; border-top: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 12.5px; line-height: 1.45; }
 #card-facts dt { color: var(--ink-soft); }
@@ -200,18 +184,6 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #card-meta { margin: 10px 0 0; font-size: 11px; letter-spacing: 0.04em; color: var(--indigo); opacity: 0.8; font-variant-numeric: tabular-nums; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
-/* ---------- ride HUD ---------- */
-#ride-hud { position: fixed; left: 50%; bottom: var(--bottom); transform: translateX(-50%); width: min(560px, calc(100vw - 2 * var(--edge))); text-align: center; animation: rise 0.5s; }
-#ride-hud[hidden] { display: none; }
-#ride-cap { margin: 0 0 12px; font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2.3vw, 24px); font-variation-settings: 'opsz' 40; color: var(--cream); text-shadow: 0 1px 14px rgba(44, 36, 30, 0.85), 0 0 3px rgba(44, 36, 30, 0.7); min-height: 1.3em; transition: opacity 0.4s; }
-#ride-hud .row { display: flex; gap: 10px; align-items: center; padding: 0 5px 0 16px; height: 44px; border-radius: 6px; }
-#ride-hud .chip { height: 34px; background: var(--ink); color: var(--paper); border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-input[type='range'] { flex: 1; min-width: 0; height: 24px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
-input[type='range']::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(90deg, var(--seal) var(--p, 0%), color-mix(in srgb, var(--ink) 28%, transparent) var(--p, 0%)); }
-input[type='range']::-moz-range-track { height: 2px; background: color-mix(in srgb, var(--ink) 28%, transparent); }
-input[type='range']::-moz-range-progress { height: 2px; background: var(--seal); }
-input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -6px; border-radius: 2px; background: var(--seal); border: 0; transform: rotate(45deg); box-shadow: 0 1px 4px rgba(44, 36, 30, 0.4); }
-input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius: 2px; background: var(--seal); border: 0; transform: rotate(45deg); }
 
 /* ---------- attribution ---------- */
 #attrib { position: fixed; right: var(--edge); bottom: var(--bottom); padding: 3px 8px; border-radius: 3px; font-size: 11px; letter-spacing: 0.02em; color: var(--ink); background: var(--panel); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent); text-underline-offset: 3px; transition: background-color 0.45s ease, color 0.45s ease; }
@@ -219,8 +191,8 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
 
 /* ---------- labels: small paper slips pinned to the model ---------- */
 #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; transition: opacity 0.5s; }
-#labels.off, #labels.dim { opacity: 0; }
-#labels.off .label, #labels.dim .label { pointer-events: none !important; }
+#labels.off { opacity: 0; }
+#labels.off .label { pointer-events: none !important; }
 .label { position: absolute; left: 0; top: 0; opacity: 0; transition: opacity 0.35s; will-change: transform; white-space: nowrap; pointer-events: none; }
 .label.show { opacity: 1; }
 .label-place.show { pointer-events: auto; }
@@ -261,12 +233,6 @@ dialog kbd { font: 600 11px var(--ui); padding: 1px 6px; border-radius: 3px; bor
 #loader .bar { width: 180px; height: 2px; margin: 0 auto; background: rgba(44, 36, 30, 0.14); overflow: hidden; }
 #loader .bar i { display: block; height: 100%; width: 0%; background: var(--seal); transition: width 0.3s; }
 
-/* ---------- riding: clear the stage ---------- */
-body.riding #places, body.riding #actions, body.riding #card, body.riding #nav .desk { opacity: 0; pointer-events: none; }
-body.riding #actions { transform: translate(-50%, 12px); }
-body.riding #search, body.riding #era { opacity: 0; pointer-events: none; }
-body.riding #scene { cursor: move; }
-body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
 
 /* ---------- phones ---------- */
 @media (max-width: 720px) {
@@ -275,13 +241,10 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #search h1 { display: none; }
   #q { font-size: 16px; } /* below 16px iOS zooms the page when the box takes focus */
   #panel { max-height: 46vh; }
-  /* under the search box: the period row on the left, the tools and the compass in a column on the right */
+  /* under the search box: the tools and the compass in a column on the right */
   #tools { top: calc(var(--top) + 58px); flex-direction: column; align-items: flex-end; gap: 6px; }
   #tools .chip { width: 42px; padding: 0; font-size: 12px; letter-spacing: 0.04em; }
   #nav { bottom: auto; top: calc(var(--top) + 58px + 144px); }
-  /* period row under the title, clear of the compass at the top right */
-  #era { left: var(--edge); top: calc(var(--top) + 58px); transform: none; height: 48px; max-width: calc(100vw - 2 * var(--edge) - 52px); }
-  #era button { height: 40px; padding: 0 11px; font-size: 12.5px; }
   .desk { display: none; }
   .compass { width: 42px; height: 42px; }
   .compass svg { width: 36px; height: 36px; }
@@ -289,10 +252,7 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #places::-webkit-scrollbar { display: none; }
   #places button.ov { order: -1; }
   #places button { flex: none; height: 34px; padding: 0 12px 0 24px; background: var(--panel); border: 1px solid var(--gold-line); border-radius: 4px; box-shadow: 0 4px 12px rgba(44, 36, 30, 0.16); font-size: 13px; }
-  #actions { left: var(--edge); right: var(--edge); bottom: calc(var(--bottom) + 20px); transform: none; }
-  body.riding #actions { transform: translateY(12px); }
-  #actions .cta { flex: 1; height: 48px; padding: 0 12px; font-size: 13.5px; min-width: 0; }
-  #actions .cta span { overflow: hidden; text-overflow: ellipsis; }
+  #actions { left: var(--edge); right: var(--edge); bottom: calc(var(--bottom) + 20px); transform: none; justify-content: center; }
   #actions .tog { width: 48px; height: 48px; padding: 0; }
   #actions .tog span { display: none; }
   #actions .tog, #actions .seg { flex: none; }
@@ -302,22 +262,12 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #attrib { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) - 3px); font-size: 10px; white-space: nowrap; padding: 2px 6px; }
   #card { left: 10px; right: 10px; width: auto; bottom: calc(var(--bottom) + 76px); z-index: 2; max-height: 56vh; }
   body.has-card #places { opacity: 0; pointer-events: none; }
-  #ride-hud { bottom: calc(var(--bottom) + 18px); }
   dialog { padding: 22px 20px 18px; }
 }
 /* Desktop: the card is the map's side panel, hung under the search box; the top row centres on the taller box */
 @media (min-width: 721px) {
-  #era, #tools { top: calc(var(--top) + 2px); }
+  #tools { top: calc(var(--top) + 2px); }
   #card { top: calc(var(--top) + 56px); bottom: auto; width: 380px; max-height: calc(100vh - var(--top) - 56px - var(--bottom) - 58px); }
-}
-/* until the window is wide enough for a centred period switcher to clear the search box, it sits beside the box */
-@media (min-width: 721px) and (max-width: 1159px) {
-  #era { left: calc(var(--edge) + var(--sw) + 10px); transform: none; }
-  #era button { padding: 0 10px; font-size: 12.5px; }
-}
-@media (max-width: 979px) {
-  #era .long, #era button[aria-checked='true'] small:not(:empty) { display: none; }
-  #era .short { display: inline; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

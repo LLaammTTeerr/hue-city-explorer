@@ -6,9 +6,9 @@
 - Hand-modelled landmarks on OSM footprints: cầu Trường Tiền, Citadel wall and gates, Kỳ Đài, Ngọ Môn,
   Điện Thái Hòa, Phu Văn Lâu, chợ Đông Ba hall and bell tower, dragon boats.
 - Atmosphere: afternoon / shower / lights-on moods, planar water reflection (desktop), rain.
-- Interaction: map controls, boat ride under the bridge, place list and cards, labels toggle, compass home.
+- Interaction: map controls, place list and cards, labels toggle, compass home.
 - UI in Vietnamese and English; phone layout.
-- Checked in the browser: opening view, ride start to finish and early exit, rain, night, recovery from
+- Checked in the browser: opening view, rain, night, recovery from
   an edge-of-map street-level camera, labels off, OSM-only toggle, phone viewport, production build.
 
 - Visual upgrade (branch `visual-upgrade`): procedural facades, roof tiles, masonry and timber-hall shading;
@@ -41,7 +41,7 @@
 - Restyle (branch `restyle`, on top of `landmark-shapes`): the model is presented as a miniature — long lens from
   the air, tilt-shift focus, low river mist, timber plinth and floor shadow. Trees rebuilt as leaf-card foliage with
   areca palms; windows read as recessed with sun glints; imperial tiles are glazed; street-facing awnings and
-  balconies; lotus on the still water; motorbikes and cars on main streets; click a dragon boat to travel with it.
+  balconies; lotus on the still water; motorbikes and cars on main streets.
   Interface redrawn as paper, ink and a vermilion seal. Frame cost brought back to ~16 ms at 2190×1369 on an
   Apple M5 (4.3 M triangles, ~370 draw calls) after it had risen to ~27 ms.
 
@@ -74,18 +74,18 @@
   so the river mirrors them: Trường Tiền's six bows drift through neighbouring hues and gather into violet now and
   then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
   now thin railed walkways on piers.
-- Era switcher (branch `era-switcher`): three moments — about 1885 (triều Nguyễn), about 1935 (Pháp thuộc), today
-  (`src/era.js`). Every face carries the eras it exists in (`span()` / `aSpan` in `src/geo/buf.js`, clipped in the
-  vertex shader and in the shadow pass); `src/geo/eras.js` decides by district when each plot was first built on, and
-  earlier eras show the timber, thatched or small colonial house that stood there. Roads, bridges, the railway,
-  landmarks, lights, the Kỳ Đài flag, street life (`life.js`), labels and the place list all follow. Control: `#era`
-  at the top; the canvas takes a light sepia wash in the older eras.
+- Boat ride: the guided ride under cầu Trường Tiền was removed (2026-11-21). Gone: `src/camera/ride.js`, the ride
+  button, HUD and scrub bar, the `B` key, the spare ride boat, and click-a-boat-to-follow. Kept: the dragon-boat fleet as scenery.
+- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
+  the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
+  `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and
+  unused: the `eras` texts in `public/data/stories.json` (43 places).
 - Bia Quốc Học (`src/landmarks/memorial.js`): the 1920 memorial screen opposite the school gate; the gate is now
   placed square to it. Dimensions are estimated (no source gives them).
 - Ground levels: lakes in the hills stand at their own height (55 of 171, read from the elevation model), with the
   ground held flat at that level in the lake, on its islands and along its shore (`pondLv` in the data, `pondY` /
   `waterY` in `src/geo/terrain.js`).
-- Explorer panel: the note card shows picture with credit, dates, summary, a line for the selected era, story,
+- Explorer panel: the note card shows picture with credit, dates, summary, story,
   facts and sources from `public/data/stories.json` (63 places, vi + en; 97 Wikimedia Commons picture references
   under free licences, loaded online, not bundled; 12 places have no picture). About 30 entries were written by
   helper agents and only spot-checked: dates and figures in the 18 sampled matched known history.
