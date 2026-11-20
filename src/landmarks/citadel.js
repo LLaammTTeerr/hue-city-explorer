@@ -1,14 +1,14 @@
 import * as THREE from 'three';
-import { KIND, hex, shade, unflat, obb, ringCentre } from '../geo/buf.js';
+import { Buf, KIND, hex, shade, unflat, obb, ringCentre, signedArea } from '../geo/buf.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
-import { shared } from '../geo/materials.js';
+import { shared, lightMaterial, glowPoints } from '../geo/materials.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
 
 // Timber hall under a swept tiled roof; tiers = 2 gives the stacked roofs of gate towers and pavilions.
-export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roof = PAL.imperialRoof, wall = PAL.lacquer, over = 1.5, rh = null, platform = 0, ridge = RIDGE } = {}) {
+export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roof = PAL.imperialRoof, wall = PAL.lacquer, over = 1.5, rh = null, platform = 0, ridge = RIDGE, eaves = null } = {}) {
   let y = y0;
   const keep = S.kind;
   if (platform) { S.kind = KIND.MASONRY; S.box(cx, cz, y, y + platform, w + 3.4, d + 3.4, ang, PAL.stone, { taper: 0.97, topKind: KIND.ROAD }); y += platform; }
@@ -20,6 +20,7 @@ export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roo
   let top;
   if (tiers === 1) {
     S.hip(cx, cz, w, d, ang, y, h1, roof, { flare: 0.55, over, ...eave });
+    if (eaves) eaves.push({ cx, cz, w, d, ang, y, over, fascia: eave.fascia });
     top = y + h1;
   } else {
     S.hip(cx, cz, w, d, ang, y, h1 * 0.8, roof, { flare: 0.5, over, ...eave, ridgeCol: null });
@@ -27,6 +28,7 @@ export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roo
     S.box(cx, cz, y2, y2 + wallH * 0.62, w2, d2, ang, wall);
     const y3 = y2 + wallH * 0.62;
     S.hip(cx, cz, w2, d2, ang, y3, h1 * 0.85, roof, { flare: 0.5, over: over * 0.85, ...eave });
+    if (eaves) eaves.push({ cx, cz, w, d, ang, y, over, fascia: eave.fascia }, { cx, cz, w: w2, d: d2, ang, y: y3, over: over * 0.85, fascia: eave.fascia });
     top = y3 + h1 * 0.85;
   }
   S.kind = keep;
@@ -34,7 +36,60 @@ export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roo
 }
 const RIDGE = hex('#f1d77a');
 
-function gate(S, g, centre) {
+// ---- night lighting: thin strips of additive light laid just proud of the stone and timber they wash ----
+const W1 = [1, 1, 1];
+const LANTERN = [1.0, 0.72, 0.34];
+// a strip along every edge of a ring (any winding), pushed out from each face by `out`
+function ringStrip(L, ring, y, out = 0.12, w = 0.16, h = 0.26) {
+  const s = signedArea(ring) > 0 ? 1 : -1;
+  for (let i = 0, n = ring.length; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n];
+    const tx = b[0] - a[0], tz = b[1] - a[1], l = Math.hypot(tx, tz);
+    if (l < 0.3) continue;
+    const nx = (tz * s) / l, nz = (-tx * s) / l;
+    L.beam([a[0] + nx * out, y, a[1] + nz * out], [b[0] + nx * out, y, b[1] + nz * out], w, h, W1);
+  }
+}
+// a strip just under the soffit of a pavilion roof (an entry recorded by pavilion()), near the eave's edge.
+// sides: any of 'v-', 'v+' (the long sides, running along the roof's axis) and 'u-', 'u+' (the gable ends).
+function eaveStrip(L, e, sides = ['v-', 'v+', 'u-', 'u+'], w = 0.14, h = 0.1) {
+  const ux = Math.cos(e.ang), uz = Math.sin(e.ang);
+  const y = e.y - e.fascia - 0.07;
+  const P = (u, v) => [e.cx + u * ux - v * uz, y, e.cz + u * uz + v * ux];
+  const hu = e.w / 2 + e.over - 0.3, hv = e.d / 2 + e.over - 0.3;
+  for (const sd of sides) {
+    const sg = sd[1] === '+' ? 1 : -1;
+    if (sd[0] === 'v') L.beam(P(-hu, sg * hv), P(hu, sg * hv), w, h, W1);
+    else L.beam(P(sg * hu, -hv), P(sg * hu, hv), w, h, W1);
+  }
+}
+// which face of an oriented box looks most toward `dir`: its outward normal, half-depth and half-width along it
+function faceToward(o, dir) {
+  const ux = Math.cos(o.a), uz = Math.sin(o.a);
+  const du = dir[0] * ux + dir[1] * uz, dv = -dir[0] * uz + dir[1] * ux;
+  if (Math.abs(du) > Math.abs(dv)) { const s = Math.sign(du) || 1; return { n: [ux * s, uz * s], t: [-uz, ux], half: o.w / 2, side: o.d / 2 }; }
+  const s = Math.sign(dv) || 1;
+  return { n: [-uz * s, ux * s], t: [ux, uz], half: o.d / 2, side: o.w / 2 };
+}
+function lightMesh(group, L, color, boost, minEra) {
+  if (!group || !L || L.n === 0) return null;
+  const m = new THREE.Mesh(L.geometry(), lightMaterial(color, boost));
+  m.renderOrder = 19;
+  m.userData.minEra = minEra;
+  group.add(m);
+  return m;
+}
+function lampPoints(group, pos, col, size, minEra, glows) {
+  if (!group || !pos.length) return null;
+  const p = glowPoints(pos, col, size);
+  p.userData.glow = true;
+  p.userData.minEra = minEra;
+  group.add(p);
+  glows.push(p);
+  return p;
+}
+
+function gate(S, g, centre, eaves = null) {
   const cx = g.c[0] / 10, cz = g.c[1] / 10, w = g.w / 10, d = g.d / 10, a = g.a / 1000;
   const ux = Math.cos(a), uz = Math.sin(a);
   // which footprint axis runs through the wall?
@@ -55,7 +110,7 @@ function gate(S, g, centre) {
       S.box(fx, fz, LAND_Y, LAND_Y + 4.4, 0.3, 4.2, pa, dark);
       S.box(fx, fz, LAND_Y + 4.4, LAND_Y + 5.3, 0.3, 3.0, pa, dark);
     }
-    pavilion(S, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, top + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270') });
+    pavilion(S, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, top + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270'), eaves });
   } else {
     // Imperial City gates: lower, brightly tiled, three bays. The same form serves the gates of chùa Thiên Mụ, which
     // stand up on Hà Khê hill, so they take the height of their own ground.
@@ -69,9 +124,10 @@ function gate(S, g, centre) {
       const fx = cx + px * s * (plen / 2 + 0.1) - pz * o * pwid * 0.28, fz = cz + pz * s * (plen / 2 + 0.1) + px * o * pwid * 0.28;
       S.box(fx, fz, G, G + (o === 0 ? 3.8 : 3.0), 0.3, o === 0 ? 2.6 : 2.0, pa, dark);
     }
-    pavilion(S, cx, cz, Math.min(pwid * 0.8, 14), Math.max(3.5, plen * 0.7), pa + Math.PI / 2, top, { tiers: 2, wallH: 2.2, roof: PAL.jadeRoof, wall: hex('#b9452e'), over: 1.1, rh: 2.2 });
+    pavilion(S, cx, cz, Math.min(pwid * 0.8, 14), Math.max(3.5, plen * 0.7), pa + Math.PI / 2, top, { tiers: 2, wallH: 2.2, roof: PAL.jadeRoof, wall: hex('#b9452e'), over: 1.1, rh: 2.2, eaves });
     S.base = 0;
   }
+  return { cx, cz, px, pz, plen };
 }
 
 // Flag for Kỳ Đài: red field, yellow star, moved by a small vertex wave.
@@ -119,7 +175,22 @@ export function buildCitadel(data, S, group) {
   const cityCentre = place('kinhthanh');
   const impCentre = [data.imperial.c[0] / 10, data.imperial.c[1] / 10];
 
-  for (const g of data.gates) gate(S, g, g.k === 'citadel' ? cityCentre : impCentre);
+  // night lighting: A = Kỳ Đài and Ngọ Môn, B = the halls, riverside pavilions and the two south gates (both electric,
+  // today only); lanterns at doorways in every era, floodlights at the flagpole's foot today only
+  const LA = new Buf(800), LB = new Buf(800);
+  const lanPos = [], lanCol = [], floodPos = [], floodCol = [], glows = [];
+  const lantern = (x, y, z) => { lanPos.push(x, y, z); lanCol.push(...LANTERN); };
+  const LIT_GATES = ['Cửa Ngăn', 'Cửa Thượng Tứ'].map((n) => n.normalize('NFC'));
+
+  for (const g of data.gates || []) {
+    const lit = LIT_GATES.includes(String(g.n || '').normalize('NFC'));
+    const eaves = lit ? [] : null;
+    const gi = gate(S, g, g.k === 'citadel' ? cityCentre : impCentre, eaves);
+    if (!lit) continue;
+    // the watch pavilion's lower eave, all round, and a lamp in the passage on each face
+    if (eaves[0]) eaveStrip(LB, eaves[0]);
+    for (const s of [-1, 1]) lantern(gi.cx + gi.px * s * (gi.plen / 2 + 1.2), LAND_Y + 2.6, gi.cz + gi.pz * s * (gi.plen / 2 + 1.2));
+  }
 
   // ---- Kỳ Đài: three brick terraces on the Nam Chánh bastion, and the flag ----
   let flag = null;
@@ -133,7 +204,14 @@ export function buildCitadel(data, S, group) {
     for (const [k, h] of tiers) {
       S.prism(scale(k), y, y + h, PAL.brick, PAL.stone, { scaleTop: 0.94, centre: c, topKind: KIND.ROAD });
       S.prism(scale(k * 0.94), y + h, y + h + 0.9, shade(PAL.brickLight, 1.05), PAL.stone, { holes: [scale(k * 0.9).reverse()], centre: c, top: true, topKind: KIND.ROAD });
+      ringStrip(LA, scale(k * 0.94), y + h + 0.9 - 0.16, 0.1, 0.18, 0.28); // along the parapet's outer top edge
       y += h;
+    }
+    // a ring of floodlights at the foot of the pole, so pole and flag read against the night sky
+    for (let i = 0; i < 7; i++) {
+      const t = (i / 7) * Math.PI * 2;
+      floodPos.push(c[0] + Math.cos(t) * 2.2, y + 0.35, c[1] + Math.sin(t) * 2.2);
+      floodCol.push(1.0, 0.76, 0.42);
     }
     S.kind = KIND.PLAIN;
     const poleH = 37;
@@ -154,6 +232,8 @@ export function buildCitadel(data, S, group) {
     S.kind = KIND.MASONRY;
     S.prism(ring, LAND_Y, baseTop, hex('#8e8172'), PAL.stone, { topKind: KIND.ROAD, parapet: 0.7 });
     S.kind = KIND.PLAIN;
+    ringStrip(LA, ring, baseTop + 0.7 - 0.16, 0.12, 0.18, 0.28); // the top of the base, on its outer faces
+    const eaves = []; // Lầu Ngũ Phụng's roofs, washed from under every eave
     const ux = Math.cos(o.a), uz = Math.sin(o.a);
     let vx = -uz, vz = ux; // short axis, pointed out of the Imperial City (the arms of the U reach this way)
     if ((o.c[0] - impCentre[0]) * vx + (o.c[1] - impCentre[1]) * vz < 0) { vx = -vx; vz = -vz; }
@@ -161,18 +241,21 @@ export function buildCitadel(data, S, group) {
     const back = -o.d * 0.2;
     // centre hall: yellow glazed tiles (the emperor's), two tiers
     let p = P(0, back);
-    pavilion(S, p[0], p[1], o.w * 0.4, o.d * 0.4, o.a, baseTop, { tiers: 2, wallH: 3.6, roof: PAL.imperialRoof, over: 1.5, rh: 3.6 });
+    pavilion(S, p[0], p[1], o.w * 0.4, o.d * 0.4, o.a, baseTop, { tiers: 2, wallH: 3.6, roof: PAL.imperialRoof, over: 1.5, rh: 3.6, eaves });
     // flanking galleries and the two wing pavilions: green tiles
     for (const s of [-1, 1]) {
       p = P(s * o.w * 0.3, back);
-      pavilion(S, p[0], p[1], o.w * 0.2, o.d * 0.3, o.a, baseTop, { tiers: 1, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.4 });
+      pavilion(S, p[0], p[1], o.w * 0.2, o.d * 0.3, o.a, baseTop, { tiers: 1, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.4, eaves });
       p = P(s * o.w * 0.405, o.d * 0.08);
-      pavilion(S, p[0], p[1], o.d * 0.66, o.w * 0.15, o.a + Math.PI / 2, baseTop, { tiers: 2, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.6 });
+      pavilion(S, p[0], p[1], o.d * 0.66, o.w * 0.15, o.a + Math.PI / 2, baseTop, { tiers: 2, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.6, eaves });
     }
+    for (const e of eaves) eaveStrip(LA, e);
     // the three gateways through the base (flat lintels: the emperor's in the middle, the mandarins' either side)
     for (const k of [-1, 0, 1]) {
       const q = P(k * o.w * 0.11, back + o.d * 0.2 + 0.2);
       S.box(q[0], q[1], LAND_Y, LAND_Y + (k === 0 ? 4.2 : 3.6), k === 0 ? 3.2 : 2.4, 0.4, o.a, dark);
+      const l = P(k * o.w * 0.11, back + o.d * 0.2 + 1.0); // a lamp just inside each gateway
+      lantern(l[0], LAND_Y + (k === 0 ? 2.5 : 2.2), l[1]);
     }
     // and the two arched side passages for soldiers, elephants and horses, opening in the inner faces of the wings
     const inside = (p) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) if (ring[i][1] > p[1] !== ring[j][1] > p[1] && p[0] < ((ring[j][0] - ring[i][0]) * (p[1] - ring[i][1])) / (ring[j][1] - ring[i][1]) + ring[i][0]) c = !c; return c; };
@@ -195,7 +278,19 @@ export function buildCitadel(data, S, group) {
     S.box(o.c[0], o.c[1], LAND_Y, LAND_Y + 1.4, o.w + 7, o.d + 7, o.a, PAL.stone, { taper: 0.97, topKind: KIND.ROAD });
     S.kind = KIND.PLAIN;
     for (const [off, dep] of [[-0.24, 0.5], [0.25, 0.46]]) {
-      pavilion(S, o.c[0] + vx * o.d * off, o.c[1] + vz * o.d * off, o.w, o.d * dep, o.a, LAND_Y + 1.4, { tiers: 1, wallH: 4.6, roof: PAL.imperialRoof, over: 1.6, rh: 4.6 });
+      const eaves = [];
+      pavilion(S, o.c[0] + vx * o.d * off, o.c[1] + vz * o.d * off, o.w, o.d * dep, o.a, LAND_Y + 1.4, { tiers: 1, wallH: 4.6, roof: PAL.imperialRoof, over: 1.6, rh: 4.6, eaves });
+      // only the outer long side of each roof: the inner ones meet in the valley between them
+      if (eaves[0]) eaveStrip(LB, eaves[0], [off < 0 ? 'v-' : 'v+'], 0.12, 0.09);
+    }
+    // two lamps before the doors, on the side that faces Ngọ Môn (or Kỳ Đài)
+    const tgt = data.special.ngomon ? obb(unflat(data.special.ngomon.ring)).c : data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : null;
+    if (tgt) {
+      const s = (tgt[0] - o.c[0]) * vx + (tgt[1] - o.c[1]) * vz < 0 ? -1 : 1;
+      for (const k of [-1, 1]) {
+        const v = s * (o.d * 0.5 + 0.9), u = k * o.w * 0.14;
+        lantern(o.c[0] + ux * u + vx * v, LAND_Y + 1.4 + 1.7, o.c[1] + uz * u + vz * v);
+      }
     }
   }
 
@@ -203,7 +298,21 @@ export function buildCitadel(data, S, group) {
   for (const key of ['phuvanlau', 'nghenhluong']) {
     if (!data.special[key]) continue;
     const o = obb(unflat(data.special[key].ring));
-    if (key === 'phuvanlau') { pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 2.6, platform: 0.9 }); continue; }
+    if (key === 'phuvanlau') {
+      const eaves = [];
+      pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 2.6, platform: 0.9, eaves });
+      if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
+      // two lamps on the river face (away from Kỳ Đài)
+      if (data.special.kydai) {
+        const kd = ringCentre(unflat(data.special.kydai.ring));
+        const fc = faceToward({ ...o, w: o.w * 0.86, d: o.d * 0.86 }, [o.c[0] - kd[0], o.c[1] - kd[1]]);
+        for (const k of [-1, 1]) {
+          const a = fc.half + 0.9, b = k * Math.min(1.6, fc.side * 0.4);
+          lantern(o.c[0] + fc.n[0] * a + fc.t[0] * b, LAND_Y + 0.9 + 1.6, o.c[1] + fc.n[1] * a + fc.t[1] * b);
+        }
+      }
+      continue;
+    }
     // Nghênh Lương Đình: a square pavilion with a lower "crab-shell" porch before and behind, on a 0.9 m base,
     // and steps down to a landing at the water (the axis runs from Kỳ Đài out to the river)
     const kd = data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : [o.c[0] - 1, o.c[1] - 1];
@@ -219,15 +328,28 @@ export function buildCitadel(data, S, group) {
       S.box(q[0], q[1], LAND_Y + 0.9, LAND_Y + 3.5, 3.4, side * 0.7, fa, wall, { top: shade(roof, 0.8) });
       S.hip(q[0], q[1], side * 0.7, 3.4, fa + Math.PI / 2, LAND_Y + 3.5, 1.5, roof, { flare: 0.4, over: 1.0, fascia: 0.25, fasciaCol: shade(wall, 0.75), glazed: true });
     }
-    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 1, wallH: 3.6, roof, wall, over: 1.3, rh: 3.0 });
+    const eaves = [];
+    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 1, wallH: 3.6, roof, wall, over: 1.3, rh: 3.0, eaves });
+    // the two open sides (the porches cover the front and back), and two lamps at the river porch
+    if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
+    for (const k of [-1, 1]) {
+      const q = at(side / 2 + 2.0 + 1.7 + 0.6);
+      lantern(q[0] - f[1] * k * 1.3, LAND_Y + 0.9 + 1.6, q[1] + f[0] * k * 1.3);
+    }
     S.kind = KIND.MASONRY;
     for (let i = 0; i < 13; i++) { const q = at(side / 2 + 5.2 + i * 0.42); S.box(q[0], q[1], LAND_Y - 2.4, LAND_Y + 0.86 - i * 0.2, 0.44, 6, fa, PAL.stone, { topKind: KIND.ROAD }); }
     { const q = at(side / 2 + 5.2 + 13 * 0.42 + 2.2); S.box(q[0], q[1], LAND_Y - 3.2, LAND_Y - 1.75, 4.6, 16, fa, PAL.stone, { topKind: KIND.ROAD }); }
     S.kind = KIND.PLAIN;
   }
 
+  lightMesh(group, LA, 0xffb64c, 1.4, 2);
+  lightMesh(group, LB, 0xffae42, 1.2, 2);
+  lampPoints(group, lanPos, lanCol, 7, 0, glows);
+  lampPoints(group, floodPos, floodCol, 8, 2, glows);
+
   return {
     flag,
+    glows,
     update(time, light) {
       if (flag) { flag.material.uniforms.uTime.value = time; flag.material.uniforms.uLight.value = light; }
     },
@@ -238,8 +360,11 @@ export function buildCitadel(data, S, group) {
 // Tháp Phước Duyên: seven octagonal storeys narrowing upward, 21 m (height from its OSM tag), on the mapped
 // octagon. In front, toward the river: the four entrance pillars and the steps down the slope. Around it: the
 // small stele and bell pavilions and the triple gate, each on its own OSM footprint.
-export function buildThienMu(data, S) {
-  if (!data.special.phuocduyen) return;
+export function buildThienMu(data, S, group = null) {
+  const glows = [];
+  if (!data.special || !data.special.phuocduyen) return { glows };
+  const LT = group ? new Buf(800) : null; // rings of light under the seven eaves (today only)
+  const lanPos = [], lanCol = [];
   const ring = unflat(data.special.phuocduyen.ring);
   const c = ringCentre(ring);
   const rOsm = ring.reduce((s, p) => s + Math.hypot(p[0] - c[0], p[1] - c[1]), 0) / ring.length;
@@ -277,6 +402,14 @@ export function buildThienMu(data, S) {
       S.box(dx, dz, y + 0.25, y + h * 0.56, 0.16, Math.max(0.7, ri * 0.34), fa, dark);
     }
     S.cyl(c[0], c[1], y + h - 0.42, y + h - 0.26, ri * 1.2, ri * 1.2, 8, eave, { rot });
+    if (LT) {
+      // an octagon of light tucked under the eave slab, between the trim band and the eave's edge
+      const ly = y + h - 0.42 - 0.06, lr = ri * 1.13;
+      for (let k = 0; k < 8; k++) {
+        const a0 = rot + (k / 8) * Math.PI * 2, a1 = rot + ((k + 1) / 8) * Math.PI * 2;
+        LT.beam([c[0] + Math.cos(a0) * lr, ly, c[1] + Math.sin(a0) * lr], [c[0] + Math.cos(a1) * lr, ly, c[1] + Math.sin(a1) * lr], 0.12, 0.09, W1);
+      }
+    }
     S.kind = KIND.TILE;
     S.cyl(c[0], c[1], y + h - 0.26, y + h, ri * 1.2, rn * 1.03, 8, eave, { cap: false, rot });
     y += h;
@@ -297,6 +430,8 @@ export function buildThienMu(data, S) {
     S.kind = KIND.PLAIN;
     S.box(x, z, py + tall, py + tall + 0.35, 1.3, 1.3, fa, eave);
     S.cyl(x, z, py + tall + 0.35, py + tall + 1.1, 0.34, 0.05, 6, trim);
+    lanPos.push(x + f[0] * 0.85, py + tall - 0.6, z + f[1] * 0.85); // a lamp on the pillar's river face
+    lanCol.push(...LANTERN);
   }
   // steps down the slope to the riverside road
   S.kind = KIND.ROAD;
@@ -335,6 +470,11 @@ export function buildThienMu(data, S) {
     }
   }
   S.kind = KIND.PLAIN;
+  if (group) {
+    lightMesh(group, LT, 0xffba52, 1.5, 2);
+    lampPoints(group, lanPos, lanCol, 6.5, 0, glows);
+  }
+  return { glows };
 }
 
 // ---- Chợ Đông Ba: the mapped main hall with its bell tower ----

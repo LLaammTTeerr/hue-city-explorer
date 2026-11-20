@@ -86,7 +86,7 @@ async function main() {
   S.span = span(1);
   buildMarket(data, S);
   S.span = 0;
-  buildThienMu(data, S);
+  buildThienMu(data, S, dynamic);
   S.span = span(2);
   const extraGlows = buildNguyenHoang(data, S, dynamic);
   S.span = span(1);
@@ -103,8 +103,8 @@ async function main() {
   const street = buildStreetLife(data, dynamic);
   scene.add(world.group, dynamic);
   // the era switcher: geometry hides itself in the shader; lights and lamp glows are switched here
-  const eraGated = [];
-  dynamic.traverse((o) => { if (o.userData.minEra != null) eraGated.push(o); });
+  const eraGated = [], lanternGlows = []; // lanternGlows: glow points that landmarks flagged for the per-frame update
+  dynamic.traverse((o) => { if (o.userData.minEra != null) eraGated.push(o); if (o.userData.glow) lanternGlows.push(o); });
   const applyEra = (e) => {
     shared.uEra.value = e;
     for (const o of eraGated) o.visible = e >= o.userData.minEra;
@@ -354,6 +354,7 @@ async function main() {
     bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
     bridge.lamps.material.uniforms.uScale.value = pxScale;
     for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= 2; }
+    for (const g of lanternGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= (g.userData.minEra ?? 0); }
     const lit = mood.cur.glow > 0.01;
     world.lamps.visible = lit && era.value >= 1; bridge.lamps.visible = lit && era.value >= 1; bridge.lights.forEach((l) => { l.visible = lit && era.value >= 2; });
     if (post) {

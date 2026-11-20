@@ -258,7 +258,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   col = mix( col, base * 1.25 + vec3( 0.06, 0.03, 0.0 ), column );
   diffuseColor.rgb = mix( base * 0.82, col, detail );
   hueCell = vec2( floor( u ), 0.0 );
-  hueLit = panel * 0.16 * detail * step( 0.3, hueH );
+  hueLit = panel * 0.16 * detail * step( 0.3, hueH ) * step( hueHash( hueCell + 2.3 ), 0.38 ); // a lamp behind some of the doors, not all
 } else if ( vKind > 2.5 && vKind < 3.5 ) {
   // ---------------- flat roofs ----------------
   float c = hueNoise( vWPos.xz * 0.5 ) * 0.6 + hueNoise( vWPos.xz * 3.0 ) * 0.4;
