@@ -74,18 +74,15 @@
   so the river mirrors them: Trường Tiền's six bows drift through neighbouring hues and gather into violet now and
   then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
   now thin railed walkways on piers.
-- Era switcher (branch `era-switcher`): three moments — about 1885 (triều Nguyễn), about 1935 (Pháp thuộc), today
-  (`src/era.js`). Every face carries the eras it exists in (`span()` / `aSpan` in `src/geo/buf.js`, clipped in the
-  vertex shader and in the shadow pass); `src/geo/eras.js` decides by district when each plot was first built on, and
-  earlier eras show the timber, thatched or small colonial house that stood there. Roads, bridges, the railway,
-  landmarks, lights, the Kỳ Đài flag, street life (`life.js`), labels and the place list all follow. Control: `#era`
-  at the top; the canvas takes a light sepia wash in the older eras.
+- Eras: the switcher control was removed (2026-11-21); the model always shows today. The engine behind it is still
+  in the code, fixed at era 2: `src/era.js`, `span()` / `aSpan` in `src/geo/buf.js` (clipped in the vertex shader and
+  the shadow pass), `src/geo/eras.js`, the older houses in `city.js`, the era roles in `life.js`.
 - Bia Quốc Học (`src/landmarks/memorial.js`): the 1920 memorial screen opposite the school gate; the gate is now
   placed square to it. Dimensions are estimated (no source gives them).
 - Ground levels: lakes in the hills stand at their own height (55 of 171, read from the elevation model), with the
   ground held flat at that level in the lake, on its islands and along its shore (`pondLv` in the data, `pondY` /
   `waterY` in `src/geo/terrain.js`).
-- Explorer panel: the note card shows picture with credit, dates, summary, a line for the selected era, story,
+- Explorer panel: the note card shows picture with credit, dates, summary, story,
   facts and sources from `public/data/stories.json` (63 places, vi + en; 97 Wikimedia Commons picture references
   under free licences, loaded online, not bundled; 12 places have no picture). About 30 entries were written by
   helper agents and only spot-checked: dates and figures in the 18 sampled matched known history.

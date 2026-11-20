@@ -7,7 +7,7 @@ export const STR = {
     rain: 'Mưa rào',
     rainOn: 'Đang mưa',
     times: ['Buổi sáng', 'Chiều tà', 'Lên đèn'],
-    sources: 'Nguồn', photoBy: 'Ảnh', nextPhoto: 'Ảnh kế tiếp', then: ['Khoảng năm 1885', 'Khoảng năm 1935'],
+    sources: 'Nguồn', photoBy: 'Ảnh', nextPhoto: 'Ảnh kế tiếp',
     labels: 'Nhãn địa danh',
     look: 'Nét mực · tả thực (V)',
     about: 'Giới thiệu & nguồn dữ liệu',
@@ -41,11 +41,6 @@ export const STR = {
       <h3>Điều khiển</h3>
       <p>Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng, chuột phải (hoặc xoay hai ngón) để đổi hướng nhìn. Nhấp đúp để lại gần. Nhấp vào một chiếc thuyền rồng để đi theo nó. La bàn đưa bạn về góc nhìn ban đầu. Phím tắt: <kbd>H</kbd> về đầu, <kbd>B</kbd> lên thuyền, <kbd>R</kbd> mưa, <kbd>N</kbd> đổi buổi, <kbd>L</kbd> nhãn, <kbd>/</kbd> tìm địa danh.</p>`,
     osmOnly: 'Chỉ hiện nhà có trong OSM',
-    era: 'Thời kỳ',
-    eras: ['Triều Nguyễn', 'Pháp thuộc', 'Hôm nay'],
-    erasShort: ['Nguyễn', 'Pháp thuộc', 'Nay'],
-    eraYears: ['≈ 1885', '≈ 1935', ''],
-    eraHints: ['Khoảng năm 1885: chưa có cầu Trường Tiền, chưa có đường sắt, bờ nam còn là làng và ruộng.', 'Khoảng năm 1935: cầu Trường Tiền, ga Huế và khu phố Pháp bên bờ nam.', 'Huế hôm nay.'],
   },
   en: {
     tagline: 'on the Perfume River',
@@ -54,7 +49,7 @@ export const STR = {
     rain: 'Passing shower',
     rainOn: 'Raining',
     times: ['Morning', 'Late afternoon', 'Lights on'],
-    sources: 'Sources', photoBy: 'Photo', nextPhoto: 'Next photo', then: ['About 1885', 'About 1935'],
+    sources: 'Sources', photoBy: 'Photo', nextPhoto: 'Next photo',
     labels: 'Place labels',
     look: 'Ink drawing · realistic (V)',
     about: 'About & data sources',
@@ -88,11 +83,6 @@ export const STR = {
       <h3>Controls</h3>
       <p>Drag to move, scroll or pinch to zoom, right-drag (or twist two fingers) to turn. Double-click to come closer. Click a dragon boat to travel with it. The compass returns you to the opening view. Keys: <kbd>H</kbd> home, <kbd>B</kbd> boat, <kbd>R</kbd> rain, <kbd>N</kbd> time of day, <kbd>L</kbd> labels, <kbd>/</kbd> search.</p>`,
     osmOnly: 'Show only buildings mapped in OSM',
-    era: 'Period',
-    eras: ['Nguyễn dynasty', 'French period', 'Today'],
-    erasShort: ['Nguyễn', 'French', 'Today'],
-    eraYears: ['≈ 1885', '≈ 1935', ''],
-    eraHints: ['About 1885: no bridge at Trường Tiền yet, no railway, and the south bank is still villages and fields.', 'About 1935: Trường Tiền bridge, the railway station and the French quarter on the south bank.', 'Huế today.'],
   },
 };
 

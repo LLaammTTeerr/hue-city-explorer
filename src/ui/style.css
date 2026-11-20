@@ -56,12 +56,7 @@ button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid 
 svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 svg .fill { fill: currentColor; stroke: none; }
 
-#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; transition: filter 0.6s ease; }
-/* period wash: an old print for the Nguyễn years, a lighter tint for the French period; a short dip covers the swap */
-body[data-era='0'] #scene { filter: sepia(0.32) saturate(0.82) contrast(0.97); }
-body[data-era='1'] #scene { filter: sepia(0.16) saturate(0.92); }
-body.era-dip #scene { animation: era-dip 0.45s ease-in-out; }
-@keyframes era-dip { 45% { opacity: 0.35; } }
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
 #scene.dragging { cursor: grabbing; }
 
 /* paper surface shared by every panel: a faint fibre texture laid over the flat tone */
@@ -153,12 +148,6 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 .seg button:hover { background: var(--wash); color: var(--ink); }
 .seg button[aria-checked='true'] { color: var(--cream); background: var(--seal); }
 
-/* period switcher: the .seg control with words instead of icons, top centre */
-#era { position: fixed; left: 50%; top: var(--top); transform: translateX(-50%); transition: opacity 0.4s; }
-#era button { flex-direction: column; width: auto; padding: 0 15px; font-size: 13px; font-weight: 500; line-height: 1.1; white-space: nowrap; }
-#era .short { display: none; }
-#era small { display: none; margin-top: 1px; font-size: 9.5px; letter-spacing: 0.08em; font-weight: 400; opacity: 0.9; font-variant-numeric: tabular-nums; }
-#era button[aria-checked='true'] small:not(:empty) { display: block; }
 #tools { position: fixed; right: var(--edge); top: var(--top); display: flex; gap: 8px; }
 #nav { position: fixed; right: var(--edge); bottom: calc(var(--bottom) + 34px); display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .compass { width: 50px; height: 50px; border-radius: 50%; }
@@ -172,7 +161,6 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #actions { position: fixed; left: 50%; bottom: var(--bottom); transform: translateX(-50%); display: flex; gap: 8px; align-items: center; transition: opacity 0.4s, transform 0.4s; }
 #hint { position: fixed; left: 50%; bottom: calc(var(--bottom) + 60px); transform: translate(-50%, 6px); padding: 6px 13px; font-size: 12.5px; letter-spacing: 0.02em; border-radius: 4px; opacity: 0; pointer-events: none; transition: opacity 0.6s, transform 0.6s, background-color 0.45s ease, color 0.45s ease; white-space: nowrap; max-width: calc(100vw - 32px); overflow: hidden; text-overflow: ellipsis; color: var(--ink-soft); }
 #hint.show { opacity: 1; transform: translate(-50%, 0); }
-#hint.long { white-space: normal; width: max-content; max-width: min(560px, calc(100vw - 32px)); text-align: center; line-height: 1.45; }
 
 /* ---------- place card ---------- */
 #card { position: fixed; left: var(--edge); bottom: calc(var(--bottom) + 58px); width: min(380px, calc(100vw - 2 * var(--edge))); max-height: min(74vh, 700px); display: flex; flex-direction: column; border-radius: 6px; animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
@@ -183,7 +171,6 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #card-media figcaption { margin: 5px 2px 0; font-size: 10.5px; line-height: 1.4; color: var(--ink-soft); }
 #card-media a { color: inherit; text-decoration-color: var(--line); }
 #card-when { margin: -4px 0 9px; font-size: 12px; letter-spacing: 0.02em; color: var(--indigo); font-variant-numeric: tabular-nums; }
-#card-era { margin: 11px 0 0; padding: 8px 11px; border-left: 2px solid var(--accent-ink); background: var(--accent-wash); font-size: 13px; line-height: 1.52; }
 #card-story p { margin: 10px 0 0; font-size: 13.5px; line-height: 1.64; color: color-mix(in srgb, var(--ink) 90%, transparent); text-wrap: pretty; }
 #card-facts { margin: 13px 0 0; padding-top: 11px; border-top: 1px solid var(--line); display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 12.5px; line-height: 1.45; }
 #card-facts dt { color: var(--ink-soft); }
@@ -264,7 +251,7 @@ dialog kbd { font: 600 11px var(--ui); padding: 1px 6px; border-radius: 3px; bor
 /* ---------- riding: clear the stage ---------- */
 body.riding #places, body.riding #actions, body.riding #card, body.riding #nav .desk { opacity: 0; pointer-events: none; }
 body.riding #actions { transform: translate(-50%, 12px); }
-body.riding #search, body.riding #era { opacity: 0; pointer-events: none; }
+body.riding #search { opacity: 0; pointer-events: none; }
 body.riding #scene { cursor: move; }
 body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
 
@@ -275,13 +262,10 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #search h1 { display: none; }
   #q { font-size: 16px; } /* below 16px iOS zooms the page when the box takes focus */
   #panel { max-height: 46vh; }
-  /* under the search box: the period row on the left, the tools and the compass in a column on the right */
+  /* under the search box: the tools and the compass in a column on the right */
   #tools { top: calc(var(--top) + 58px); flex-direction: column; align-items: flex-end; gap: 6px; }
   #tools .chip { width: 42px; padding: 0; font-size: 12px; letter-spacing: 0.04em; }
   #nav { bottom: auto; top: calc(var(--top) + 58px + 144px); }
-  /* period row under the title, clear of the compass at the top right */
-  #era { left: var(--edge); top: calc(var(--top) + 58px); transform: none; height: 48px; max-width: calc(100vw - 2 * var(--edge) - 52px); }
-  #era button { height: 40px; padding: 0 11px; font-size: 12.5px; }
   .desk { display: none; }
   .compass { width: 42px; height: 42px; }
   .compass svg { width: 36px; height: 36px; }
@@ -307,17 +291,8 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
 }
 /* Desktop: the card is the map's side panel, hung under the search box; the top row centres on the taller box */
 @media (min-width: 721px) {
-  #era, #tools { top: calc(var(--top) + 2px); }
+  #tools { top: calc(var(--top) + 2px); }
   #card { top: calc(var(--top) + 56px); bottom: auto; width: 380px; max-height: calc(100vh - var(--top) - 56px - var(--bottom) - 58px); }
-}
-/* until the window is wide enough for a centred period switcher to clear the search box, it sits beside the box */
-@media (min-width: 721px) and (max-width: 1159px) {
-  #era { left: calc(var(--edge) + var(--sw) + 10px); transform: none; }
-  #era button { padding: 0 10px; font-size: 12.5px; }
-}
-@media (max-width: 979px) {
-  #era .long, #era button[aria-checked='true'] small:not(:empty) { display: none; }
-  #era .short { display: inline; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
