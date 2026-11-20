@@ -1,7 +1,7 @@
 # Cửa Thượng Tứ (Đông Nam Môn), south-east gate of the Kinh thành
 
 Model: `src/landmarks/places/gate-cua-thuong-tu.js`, id `gate:Cửa Thượng Tứ`. The Citadel gates loop in
-`src/landmarks/citadel.js` skips this gate with a one-line `replaced(...)` guard.
+`src/landmarks/citadel.js` skips it through the shared `replaced('gate:' + name)` guard on the integration branch.
 
 ## Sources
 - tapchidongnama.vn, "Các loại hình cổng cửa trong kiến trúc cung đình Huế" (after Phan Thuận An):
