@@ -546,7 +546,7 @@ function vincom(S, data) {
 // ---- Lầu Tứ Phương Vô Sự on the north bastion of the Imperial City ----
 function tuPhuong(S, data) {
   const sp = data.special.tuphuong;
-  if (!sp) return;
+  if (!sp || replaced('tuphuong')) return;
   const o = obb(unflat(sp.ring));
   S.base = 0;
   pavilion(S, o.c[0], o.c[1], o.w * 0.72, o.d * 0.72, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof, wall: hex('#ead9b4'), over: 1.2, rh: 2.4, platform: 4.6 });
