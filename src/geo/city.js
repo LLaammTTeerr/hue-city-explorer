@@ -129,19 +129,25 @@ function ribbon(B, pts0, width, y, col) {
   const yL = L.map((p) => y + rise(p[0], p[1]) + lift), yR = R.map((p) => y + rise(p[0], p[1]) + lift);
   for (let i = 0; i + 1 < pts.length; i++) B.quad([L[i][0], yL[i], L[i][1]], [R[i][0], yR[i], R[i][1]], [R[i + 1][0], yR[i + 1], R[i + 1][1]], [L[i + 1][0], yL[i + 1], L[i + 1][1]], col, [0, 1, 0]);
 }
+// yTop: one height for a level deck, or [start, end] for a deck that climbs from one bank to the other
 function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0) {
   const [L, R] = ribbonPoints(pts, width);
-  const yb = yTop - thick;
+  const ys = pts.map(() => yTop);
+  if (Array.isArray(yTop)) {
+    const len = pathLength(pts) || 1;
+    let s = 0;
+    for (let i = 0; i < pts.length; i++) { if (i) s += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); ys[i] = yTop[0] + ((yTop[1] - yTop[0]) * s) / len; }
+  }
   for (let i = 0; i + 1 < pts.length; i++) {
-    const j = i + 1;
-    B.quad([L[i][0], yTop, L[i][1]], [R[i][0], yTop, R[i][1]], [R[j][0], yTop, R[j][1]], [L[j][0], yTop, L[j][1]], col, [0, 1, 0]);
-    B.quad([L[i][0], yb, L[i][1]], [R[i][0], yb, R[i][1]], [R[j][0], yb, R[j][1]], [L[j][0], yb, L[j][1]], sideCol, [0, -1, 0]);
+    const j = i + 1, ti = ys[i], tj = ys[j], bi = ti - thick, bj = tj - thick;
+    B.quad([L[i][0], ti, L[i][1]], [R[i][0], ti, R[i][1]], [R[j][0], tj, R[j][1]], [L[j][0], tj, L[j][1]], col, [0, 1, 0]);
+    B.quad([L[i][0], bi, L[i][1]], [R[i][0], bi, R[i][1]], [R[j][0], bj, R[j][1]], [L[j][0], bj, L[j][1]], sideCol, [0, -1, 0]);
     const nx = L[i][0] - R[i][0], nz = L[i][1] - R[i][1];
-    B.quad([L[i][0], yb, L[i][1]], [L[j][0], yb, L[j][1]], [L[j][0], yTop + parapet, L[j][1]], [L[i][0], yTop + parapet, L[i][1]], sideCol, [nx, 0, nz]);
-    B.quad([R[i][0], yb, R[i][1]], [R[j][0], yb, R[j][1]], [R[j][0], yTop + parapet, R[j][1]], [R[i][0], yTop + parapet, R[i][1]], sideCol, [-nx, 0, -nz]);
+    B.quad([L[i][0], bi, L[i][1]], [L[j][0], bj, L[j][1]], [L[j][0], tj + parapet, L[j][1]], [L[i][0], ti + parapet, L[i][1]], sideCol, [nx, 0, nz]);
+    B.quad([R[i][0], bi, R[i][1]], [R[j][0], bj, R[j][1]], [R[j][0], tj + parapet, R[j][1]], [R[i][0], ti + parapet, R[i][1]], sideCol, [-nx, 0, -nz]);
     if (parapet) {
-      B.quad([L[i][0], yTop + parapet, L[i][1]], [L[j][0], yTop + parapet, L[j][1]], [L[j][0], yTop, L[j][1]], [L[i][0], yTop, L[i][1]], sideCol, [-nx, 0, -nz]);
-      B.quad([R[i][0], yTop + parapet, R[i][1]], [R[j][0], yTop + parapet, R[j][1]], [R[j][0], yTop, R[j][1]], [R[i][0], yTop, R[i][1]], sideCol, [nx, 0, nz]);
+      B.quad([L[i][0], ti + parapet, L[i][1]], [L[j][0], tj + parapet, L[j][1]], [L[j][0], tj, L[j][1]], [L[i][0], ti, L[i][1]], sideCol, [-nx, 0, -nz]);
+      B.quad([R[i][0], ti + parapet, R[i][1]], [R[j][0], tj + parapet, R[j][1]], [R[j][0], tj, R[j][1]], [R[i][0], ti, R[i][1]], sideCol, [nx, 0, nz]);
     }
   }
 }
@@ -241,7 +247,11 @@ function buildRoads(data, group, structures) {
     // a bridge over a lake in the hills stands at that lake's level
     const mp = r.pts[r.pts.length >> 1], lift = Math.min(rise(r.pts[0][0], r.pts[0][1]), rise(mp[0], mp[1]), rise(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]));
     const top = LAND_Y + lift + 0.42;
-    slab(structures, r.pts, w, top, r.c <= 2 ? 1.3 : 0.7, cols[Math.min(r.c, 3)], deckSide, r.c <= 4 ? 0.9 : 0.5);
+    // between banks of different height the deck climbs from one to the other, instead of lying level at the lower
+    // bank and running into the ground of the higher one
+    const e0 = rise(r.pts[0][0], r.pts[0][1]), e1 = rise(r.pts[r.pts.length - 1][0], r.pts[r.pts.length - 1][1]);
+    const deck = Math.abs(e0 - e1) > 0.25 ? [LAND_Y + e0 + 0.42, LAND_Y + e1 + 0.42] : LAND_Y + Math.min(e0, e1) + 0.42;
+    slab(structures, r.pts, w, Math.abs(e0 - e1) > 0.25 || Math.min(e0, e1) - lift < 0.25 ? deck : top, r.c <= 2 ? 1.3 : 0.7, cols[Math.min(r.c, 3)], deckSide, r.c <= 4 ? 0.9 : 0.5);
     const len = pathLength(r.pts);
     // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
     const dv = vongDone ? null : data.places.find((q) => q.id === 'bachho');
@@ -309,7 +319,7 @@ function waterTank(B, x, z, y, ang, s = 1) {
   B.kind = k;
 }
 
-function buildBuildings(data, group) {
+function buildBuildings(data, group, off = null) {
   const B = new Buf(420000);
   const P = PAL;
   const ridgeGold = hex('#f1d77a'), ridgeGrey = hex('#cfc4a4');
@@ -327,7 +337,7 @@ function buildBuildings(data, group) {
     B.span = sp;
     if (form === 'trad') { kind = 0; flags = (flags & 1) | 8; h = 3.7 + rand(i, 90) * 0.9; }
     else if (form === 'colonial') { kind = 0; flags = (flags & 1) | 4; h = area > 70 ? 7.4 : 4.6; }
-    const y1 = LAND_Y + floor + h;
+    let y1 = LAND_Y + floor + h;
     const rectness = area / Math.max(1, o.w * o.d);
     let wall, roof, pitched = false, flare = 0, over = 0.5, rh = 0, ridge = null, hips = false;
     const jitter = 0.92 + rand(i, 7) * 0.16;
@@ -365,6 +375,9 @@ function buildBuildings(data, group) {
     } else if (kind === 0 || kind === 1 || kind === 5) {
       if (!quocHoc) { wall = rand(i, 61) < 0.75 ? pick(P.pastel, i, 1) : wall; if (big) { pitched = false; } else if (rand(i, 62) < 0.25) roof = pick(P.metalRoof, i, 63); }
     }
+    // a named place with a known height (b[5], to the ridge): the eave is whatever is left under its roof
+    const known = b[5] && form !== 'trad' && form !== 'colonial';
+    if (known) { h = Math.max(2.6, b[5] / 10 - (pitched ? rh + 0.3 : 0.8)); y1 = LAND_Y + floor + h; }
     wall = shade(wall, quocHoc ? 0.96 + rand(i, 7) * 0.08 : jitter);
     roof = shade(roof, 0.9 + rand(i, 9) * 0.2);
     if (flags & 1) {
@@ -389,7 +402,7 @@ function buildBuildings(data, group) {
       else {
         const lid = kind === 7 ? roof : pick(P.concrete, i, 17);
         B.prism(ring, y0, y1, wall, shade(lid, 0.92), { topKind: KIND.FLAT, parapet: kind === 7 ? 1.6 : 0.8 });
-        if (area > 70 && kind !== 7) {
+        if (area > 70 && kind !== 7 && !known) { // no stair heads or water tanks on a named monument
           const ux = Math.cos(o.a), uz = Math.sin(o.a);
           if (area > 140 && rand(i, 11) < 0.65) {
             // stair head
@@ -408,6 +421,7 @@ function buildBuildings(data, group) {
   };
   data.bld.forEach((b, i) => {
     const kind = b[2], flags = b[4] || 0, ring = unflat(b[0]), c = ringCentre(ring), area = Math.abs(signedArea(ring));
+    if (off && off(ring, c)) return; // a landmark model already stands on this footprint
     // from: the first era the mapped building stands in; born: the first era anything stood on its plot
     let from, born;
     if (kind === 2 || kind === 3 || flags & 8) from = born = 0; // palaces, pagodas, timber houses
@@ -435,7 +449,7 @@ function buildBuildings(data, group) {
 // Records arrive with the near-water ones first; those are also drawn into the river's reflection (layer 0),
 // the rest only into the main view (layer 1). Houses on main streets mostly become row houses: gable roofs
 // with the ridge running along the street, so a block reads as one long tiled roofline.
-function buildInfill(data, group) {
+function buildInfill(data, group, off = null) {
   const a = data.infill, S = 8;
   const n = a.length / S;
   const nearCount = data.meta.counts.infillNear ?? n;
@@ -496,6 +510,7 @@ function buildInfill(data, group) {
     for (let i = start; i < end; i++) {
       const x = a[i * S] / 10, z = a[i * S + 1] / 10;
       const w = a[i * S + 2] / 10, d = a[i * S + 3] / 10, ang = a[i * S + 4] / 1000, h = a[i * S + 5] / 10, main = a[i * S + 6] === 1;
+      if (off && off(x, z, w, d, ang)) continue; // a landmark model stands here
       const side = a[i * S + 7] & 3, era = a[i * S + 7] >> 2; // era: 0 modern, 1 Indochine, 2 Nguyễn-period timber
       const front = side === 2 ? 0 : side === 1 ? -1 : 1; // which way the street lies along the plot's depth axis (0: a house behind the street row)
       let wallCol, roofCol;
@@ -680,11 +695,68 @@ export function buildCity(data) {
   if (hills) group.add(hills);
   buildGreen(data, group);
   const { lamps } = buildRoads(data, group, structures);
-  const buildings = buildBuildings(data, group);
-  const infill = buildInfill(data, group);
-  const trees = buildTrees(data, group);
+  const w0 = structures.n;
   buildWalls(data, structures);
-  return { group, structures, lamps, buildings, infill, trees };
+  structures.wallRange = [w0, structures.n];
+  return { group, structures, lamps, infill: [], trees: [] };
+}
+
+// Ground the landmark models stand on: every 1 m cell under a face of theirs that looks up and stands clear of the
+// ground (platforms, terraces, stairs, roofs with their eaves). The Citadel's rampart is left out: it is planted.
+const SUB = [[0.5, 0.5], [0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
+function coverOf(structures) {
+  const cells = new Set(), tall = new Set(), P = structures.pos, [w0, w1] = structures.wallRange || [0, 0];
+  const key = (ix, iz) => (ix + 32768) * 65536 + (iz + 32768);
+  for (let i = 0; i < structures.n; i += 3) {
+    if (i >= w0 && i < w1) continue;
+    const k = i * 3;
+    const ax = P[k], ay = P[k + 1], az = P[k + 2], bx = P[k + 3], by = P[k + 4], bz = P[k + 5], cx = P[k + 6], cy = P[k + 7], cz = P[k + 8];
+    const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az); // twice the footprint area (signed)
+    const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay), nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    if (ny < 0.35 * Math.hypot(nx, ny, nz) || ny < 0.2) continue;
+    const up = Math.min(ay, by, cy) - LAND_Y - rise((ax + bx + cx) / 3, (az + bz + cz) / 3);
+    if (up < 0.7) continue;
+    const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.floor(Math.max(ax, bx, cx)), z0 = Math.floor(Math.min(az, bz, cz)), z1 = Math.floor(Math.max(az, bz, cz));
+    const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+    for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
+      // five points per cell, so a face narrower than a cell (the top of a wall) is not missed
+      for (const [ox, oz] of SUB) {
+        const px = ix + ox, pz = iz + oz;
+        const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
+        if (l1 > -0.02 && l2 > -0.02 && 1 - l1 - l2 > -0.02) { cells.add(key(ix, iz)); if (up >= 2.2) tall.add(key(ix, iz)); break; }
+      }
+    }
+  }
+  // houses keep off all of it; trees only off roofs and tall platforms (a tree may stand on a low lawn terrace, as the
+  // pines do on đàn Nam Giao)
+  return { hit: (x, z) => cells.has(key(Math.floor(x), Math.floor(z))), hitTall: (x, z) => tall.has(key(Math.floor(x), Math.floor(z))) };
+}
+
+// Buildings, houses and trees go in last, once every landmark is modelled, and stay off whatever a model covers: the data only
+// keeps the mapped outline clear, but a model reaches past it with its platform, terraces, stairs and eaves.
+export function populate(world, data) {
+  const cover = coverOf(world.structures);
+  const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
+  // a tree: its trunk and the reach of its lower branches
+  const treeOff = (x, z, r) => { if (cover.hitTall(x, z)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
+  // a house: its plan sampled 3 x 3
+  const houseOff = (x, z, w, d, ang) => {
+    const ux = Math.cos(ang), uz = Math.sin(ang);
+    for (const u of [-0.5, 0, 0.5]) for (const v of [-0.5, 0, 0.5]) if (cover.hit(x + ux * u * w - uz * v * d, z + uz * u * w + ux * v * d)) return true;
+    return false;
+  };
+  world.cover = cover;
+  // a mapped building: gone when a model covers its middle and most of its outline (the pavilion in front of cung An
+  // Định is mapped as a building and modelled with the palace)
+  const buildingOff = (ring, c) => {
+    if (!cover.hit(c[0], c[1])) return false;
+    let n = 0;
+    for (const q of ring) if (cover.hit(c[0] + (q[0] - c[0]) * 0.8, c[1] + (q[1] - c[1]) * 0.8)) n++;
+    return n >= ring.length * 0.7;
+  };
+  world.buildings = buildBuildings(data, world.group, buildingOff);
+  world.infill = buildInfill(data, world.group, houseOff);
+  world.trees = buildTrees(data, world.group, treeOff);
 }
 
 export function finishStructures(structures, group) {

@@ -177,7 +177,7 @@ function chunked(items, size = 1300) {
   return map.values();
 }
 
-export function buildTrees(data, group) {
+export function buildTrees(data, group, off = null) {
   const a = data.trees;
   const total = a.length / 4;
   const nearCount = data.meta.counts.treesNear ?? total;
@@ -211,7 +211,9 @@ export function buildTrees(data, group) {
       const i = start + Math.floor(k * stride), sc = a[i * 4 + 2] / 10, kind = a[i * 4 + 3];
       const r = rand(i, 61);
       const type = kind === 3 ? 'pine' : kind === 2 ? 'round' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'tall' : 'round';
-      items.push({ i, x: a[i * 4] / 10, z: a[i * 4 + 1] / 10, sc, kind, type });
+      const x = a[i * 4] / 10, z = a[i * 4 + 1] / 10;
+      if (off && off(x, z, 2.2 * sc)) continue; // a landmark model stands here
+      items.push({ i, x, z, sc, kind, type });
     }
     for (const list of chunked(items)) {
       for (const type of ['round', 'tall', 'palm', 'pine']) {

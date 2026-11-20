@@ -42,10 +42,16 @@ function rectPts(cx, cz, w, d, a) {
   for (const i of [-1, 0, 1]) for (const j of [-1, 0, 1]) out.push([cx + (ux * i * w) / 2 - (uz * j * d) / 2, cz + (uz * i * w) / 2 + (ux * j * d) / 2]);
   return out;
 }
+// Lowest and highest ground under a footprint: the points given and the whole box round them, every few metres. The
+// corners alone miss a rise in the middle (Minh Lâu stands on a hillock that buried its three terraces).
 function span(pts) {
-  let lo = Infinity, hi = -Infinity;
-  for (const p of pts) { const y = gY(p[0], p[1]); lo = Math.min(lo, y); hi = Math.max(hi, y); }
-  return lo === Infinity ? { lo: LAND_Y, hi: LAND_Y } : { lo, hi };
+  let lo = Infinity, hi = -Infinity, x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  const take = (x, z) => { const y = gY(x, z); lo = Math.min(lo, y); hi = Math.max(hi, y); };
+  for (const p of pts) { take(p[0], p[1]); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  if (lo === Infinity) return { lo: LAND_Y, hi: LAND_Y };
+  const nx = Math.min(30, Math.ceil((x1 - x0) / 5)), nz = Math.min(30, Math.ceil((z1 - z0) / 5));
+  for (let i = 1; i < nx; i++) for (let j = 1; j < nz; j++) take(x0 + ((x1 - x0) * i) / nx, z0 + ((z1 - z0) * j) / nz);
+  return { lo, hi };
 }
 // an axis: s runs along u, t to its left (v = u rotated +90° in x/z)
 function frame(o, dir) {
@@ -153,6 +159,37 @@ function flight(S, p0, y0, p1, y1, w, { col = C.stone, rail = 0, railCol = null,
 }
 
 // a wall following a ring (or an open line), each segment from its own ground
+// Footpaths and lanes near the tombs, as segments [ax, az, bx, bz, width]: where one crosses a wall, the wall opens.
+let PATHS = [];
+function loadPaths(data) {
+  PATHS = [];
+  const sites = Object.values(data.sites || {}).map((st) => [st.c[0] / 10, st.c[1] / 10, (st.r || 300) + 60]);
+  const W = [15, 12, 9.5, 6.5, 4, 2.2];
+  for (const [c, bridge, flat] of data.roads || []) {
+    if (bridge) continue;
+    for (let i = 0; i + 3 < flat.length; i += 2) {
+      const ax = flat[i] / 10, az = flat[i + 1] / 10, bx = flat[i + 2] / 10, bz = flat[i + 3] / 10;
+      if (sites.some(([x, z, r]) => Math.hypot((ax + bx) / 2 - x, (az + bz) / 2 - z) < r)) PATHS.push([ax, az, bx, bz, W[c] || 2.2]);
+    }
+  }
+}
+// where along a -> b (0..1) paths cross, as [from, to] gaps wide enough for the path, merged
+function crossings(a, b, len) {
+  const dx = b[0] - a[0], dz = b[1] - a[1], gaps = [];
+  for (const [px, pz, qx, qz, w] of PATHS) {
+    const ex = qx - px, ez = qz - pz, den = dx * ez - dz * ex;
+    if (Math.abs(den) < 1e-9) continue;
+    const f = ((px - a[0]) * ez - (pz - a[1]) * ex) / den, g = ((px - a[0]) * dz - (pz - a[1]) * dx) / den;
+    if (f < 0 || f > 1 || g < 0 || g > 1) continue;
+    // a path meeting the wall at a slant needs a wider opening
+    const sin = Math.abs(den) / (len * Math.hypot(ex, ez)), half = Math.min(6, (w / 2 + 0.5) / Math.max(0.35, sin)) / len;
+    gaps.push([f - half, f + half]);
+  }
+  gaps.sort((p, q) => p[0] - q[0]);
+  const out = [];
+  for (const g of gaps) { const l = out[out.length - 1]; if (l && g[0] <= l[1] + 1.2 / len) l[1] = Math.max(l[1], g[1]); else out.push(g.slice()); }
+  return out;
+}
 function wallLine(S, pts, h, t, { col = C.brickMoss, cap = C.stoneDark, closed = true, maxSeg = 10, ground = null } = {}) {
   S.kind = KIND.MASONRY;
   const n = pts.length, m = closed ? n : n - 1;
@@ -160,18 +197,35 @@ function wallLine(S, pts, h, t, { col = C.brickMoss, cap = C.stoneDark, closed =
     const a = pts[i], b = pts[(i + 1) % n];
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     if (len < 0.3) continue;
-    const ns = Math.ceil(len / maxSeg), ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
-    for (let k = 0; k < ns; k++) {
-      const f0 = k / ns, f1 = (k + 1) / ns;
-      const p = [a[0] + (b[0] - a[0]) * f0, a[1] + (b[1] - a[1]) * f0], q = [a[0] + (b[0] - a[0]) * f1, a[1] + (b[1] - a[1]) * f1];
-      const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2;
-      let lo, hi;
-      if (ground != null) { lo = ground - 0.5; hi = ground; } else {
-        const g = [gY(p[0], p[1]), gY(q[0], q[1]), gY(mx, mz)];
-        lo = Math.min(...g) - 0.6; hi = Math.max(...g);
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const at = (f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+    const level = (p, q) => {
+      if (ground != null) return [ground - 0.5, ground];
+      const g = [gY(p[0], p[1]), gY(q[0], q[1]), gY((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)];
+      return [Math.min(...g) - 0.6, Math.max(...g)];
+    };
+    // the standing stretches between the doorways
+    const gaps = crossings(a, b, len), runs = [];
+    let f = 0;
+    for (const [g0, g1] of gaps) { if (g0 > f) runs.push([f, Math.min(1, g0)]); f = Math.max(f, g1); }
+    if (f < 1) runs.push([f, 1]);
+    for (const [r0, r1] of runs) {
+      const rl = (r1 - r0) * len;
+      if (rl < 0.2) continue;
+      const ns = Math.ceil(rl / maxSeg);
+      for (let k = 0; k < ns; k++) {
+        const p = at(r0 + ((r1 - r0) * k) / ns), q = at(r0 + ((r1 - r0) * (k + 1)) / ns);
+        const [lo, hi] = level(p, q);
+        S.base = lo - LAND_Y;
+        S.box((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, lo, hi + h, rl / ns + (gaps.length ? 0 : t * 0.6), t, ang, col, { top: cap });
       }
+    }
+    // a post either side of each doorway
+    for (const [g0, g1] of gaps) for (const fp of [g0, g1]) {
+      if (fp <= 0.01 || fp >= 0.99) continue;
+      const p = at(fp), [lo, hi] = level(p, p);
       S.base = lo - LAND_Y;
-      S.box(mx, mz, lo, hi + h, len / ns + t * 0.6, t, ang, col, { top: cap });
+      S.box(p[0], p[1], lo, hi + h + 0.5, t + 0.35, t + 0.35, ang, col, { top: cap });
     }
   }
 }
@@ -770,6 +824,7 @@ const TOMBS = { minhmang: minhMang, tuduc: tuDuc, khaidinh: khaiDinh, thieutri: 
 
 // Adds all five tombs to S. `stats` (optional) receives the triangle range each tomb wrote.
 export function buildTombs(data, S, stats = null) {
+  loadPaths(data);
   for (const [id, fn] of Object.entries(TOMBS)) {
     const st = loadSite(data, id);
     const n0 = S.n;
