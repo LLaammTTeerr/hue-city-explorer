@@ -12,6 +12,7 @@ import { replaced } from './places/index.js';
 // frame over 20 m tall at mid-bridge, and parasol-shaped lamps ("lọng") stepping up toward it from both ends.
 export function buildNguyenHoang(data, S, group) {
   group.add(night); // the night lighting of the landmarks in civic.js, more.js and memorial.js (enclosure.js)
+  if (replaced('nguyenhoang')) return []; // modelled in places/nguyenhoang.js
   const nh = data.nguyenhoang;
   if (!nh) return [];
   const c = [nh.c[0] / 10, nh.c[1] / 10], L = nh.w / 10, W = Math.min(nh.d / 10, 43), ang = nh.a / 1000;
