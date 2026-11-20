@@ -7,6 +7,7 @@ import { KIND, hex, shade, unflat, obb, inRing } from '../geo/buf.js';
 import { LAND_Y, POND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
+import { replaced } from './places/index.js';
 
 const C = {
   brick: hex('#6e6253'), brickMoss: hex('#5e6249'), brickWarm: hex('#8a5c46'),
@@ -869,6 +870,7 @@ export function buildTombs(data, S, stats = null) {
   for (const [id, fn] of Object.entries(TOMBS)) {
     const st = loadSite(data, id);
     const n0 = S.n;
+    if (replaced(id)) { if (stats) stats[id] = { from: n0, to: n0 }; continue; } // a replica in places/ draws this tomb
     if (st) {
       try { fn(S, st); } catch (e) { S.n = n0; console.warn(`tombs: ${id} skipped`, e); } // drop the half-built tomb, not just the rest of it
     }

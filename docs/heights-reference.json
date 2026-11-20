@@ -27,7 +27,7 @@
     { "name": "Tự Đức, Xung Khiêm tạ", "at": { "site": "tuduc", "name": "Xung Khiêm Tạ" }, "h": [ 5, 6 ], "confidence": "estimated" },
     { "name": "Khải Định, cung Thiên Định", "at": { "site": "khaidinh", "name": "Cung Thiên Định" }, "h": [ 11, 12 ], "confidence": "estimated", "base": "model" },
     { "name": "Thiệu Trị, điện Biểu Đức", "at": { "site": "thieutri", "rel": [ -57, 42 ], "tol": 10 }, "h": 9, "confidence": "estimated" },
-    { "name": "Thiệu Trị, Minh Lâu", "at": { "site": "thieutri", "rel": [ 28, -85 ], "tol": 10 }, "h": 12, "confidence": "estimated" },
+    { "name": "Thiệu Trị, Đức Hinh lâu (ruin, foundation only)", "at": { "site": "thieutri", "rel": [ 28, -85 ], "tol": 10 }, "h": 3.2, "confidence": "estimated", "source": "https://vi.wikipedia.org/wiki/L%C4%83ng_Thi%E1%BB%87u_Tr%E1%BB%8B (Đức Hinh lâu: only the 18.5 x 18.5 m foundation and the two trụ biểu remain); the old 12 m was a standing Minh Lâu that no longer exists. Height = low hill terrace + foundation + stone column bases, estimated. See docs/places/thieutri.md" },
     { "name": "Đồng Khánh, điện Ngưng Hy", "at": { "site": "dongkhanh", "rel": [ -11, -93 ], "tol": 12 }, "h": [ 8, 9 ], "confidence": "estimated" }
   ]
 }
