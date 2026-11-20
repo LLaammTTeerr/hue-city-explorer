@@ -781,7 +781,8 @@ export function buildThienMu(data, S, group = null) {
 export function buildMarket(data, S) {
   if (!data.special.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
-  // the hall stands about 10 m to its ridge and the three-tier clock tower about twice that (docs/reference/heights.md)
+  // the hall stands about 10 m to its ridge; the three-tier clock tower about 14–16 m with its finial
+  // (docs/reference/heights.md: estimated, only the three tiers are sourced)
   const y0 = LAND_Y, body = 7.4;
   const wall = PAL.marketWall, roof = PAL.marketRoof;
   S.kind = KIND.FACADE;
@@ -791,13 +792,13 @@ export function buildMarket(data, S) {
   S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + body, 3.4, roof, { over: 1.4, flare: 0.4, fascia: 0.4, fasciaCol: shade(wall, 0.8), ridgeCol: hex('#d9c9a0'), hips: true });
   // bell tower rising through the middle of the hall
   const cx = o.c[0], cz = o.c[1];
-  let y = y0 + body + 1.2;
-  S.box(cx, cz, y0 + body, y + 3.4, 7.4, 7.4, o.a, wall); y += 3.4;
-  S.hip(cx, cz, 7.4, 7.4, o.a, y, 1.4, roof, { over: 1.5, flare: 0.4 }); y += 0.8;
-  S.box(cx, cz, y, y + 2.8, 5.4, 5.4, o.a, wall); y += 2.8;
-  S.hip(cx, cz, 5.4, 5.4, o.a, y, 1.2, roof, { over: 1.3, flare: 0.4 }); y += 0.7;
-  S.box(cx, cz, y, y + 2.2, 3.8, 3.8, o.a, wall); y += 2.2;
-  S.hip(cx, cz, 3.8, 3.8, o.a, y, 2.4, roof, { over: 1.0, flare: 0.3 });
+  S.box(cx, cz, y0 + body, y0 + 11.2, 7.4, 7.4, o.a, wall);
+  let y = y0 + 11.2;
+  S.hip(cx, cz, 7.4, 7.4, o.a, y, 1.0, roof, { over: 1.4, flare: 0.4 }); y += 0.5;
+  S.box(cx, cz, y, y + 1.4, 5.4, 5.4, o.a, wall); y += 1.4;
+  S.hip(cx, cz, 5.4, 5.4, o.a, y, 0.8, roof, { over: 1.2, flare: 0.4 }); y += 0.4;
+  S.box(cx, cz, y, y + 1.1, 3.8, 3.8, o.a, wall); y += 1.1;
+  S.hip(cx, cz, 3.8, 3.8, o.a, y, 1.2, roof, { over: 1.0, flare: 0.3 });
   S.kind = KIND.PLAIN;
-  S.cyl(cx, cz, y + 2.2, y + 3.6, 0.16, 0.05, 5, hex('#d9c27a'));
+  S.cyl(cx, cz, y + 1.0, y + 1.8, 0.14, 0.05, 5, hex('#d9c27a'));
 }

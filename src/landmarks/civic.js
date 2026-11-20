@@ -310,9 +310,10 @@ function dieuDe(S, data) {
   const yellow = hex('#e3c377'), tile = hex('#a9523a'), ridge = hex('#e8dcc0');
   const sp = data.special.dieude;
   if (sp) {
+    // Đại Giác hall: about 9 m to the ridge (docs/reference/heights.md, estimated; no source gives a figure)
     const o = obb(unflat(sp.ring));
     S.base = 0;
-    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, LAND_Y, { tiers: 2, wallH: 4.2, roof: tile, wall: yellow, over: 1.5, rh: 3.6, platform: 1.0, ridge });
+    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: tile, wall: yellow, over: 1.5, rh: 2.6, platform: 0.8, ridge });
   }
   const gp = data.special.dieudeGate;
   if (gp) {

@@ -1,0 +1,19 @@
+# Height and terrain checks on every pull request, so a regression is seen before it reaches main.
+# (deploy.yml runs the same checks again before it builds the site.)
+name: Check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
