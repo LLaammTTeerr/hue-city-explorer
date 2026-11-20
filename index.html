@@ -12,19 +12,23 @@
     <canvas id="scene" aria-label="Mô hình 3D trung tâm Huế"></canvas>
     <div id="labels" aria-hidden="false"></div>
 
-    <header id="brand">
-      <div class="mast">
+    <header id="search" role="search">
+      <div class="bar">
         <span class="seal" lang="zh-Hant" title="Thuận Hóa">順化</span>
-        <div>
-          <h1>Huế</h1>
-          <p data-t="tagline"></p>
-        </div>
+        <h1>Huế</h1>
+        <input id="q" type="text" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list" />
+        <button id="q-clear" class="icon small" type="button" hidden><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg></button>
+        <button id="q-toggle" class="icon small" type="button" aria-controls="panel" aria-expanded="false">
+          <svg viewBox="0 0 24 24" class="glass"><circle cx="10.5" cy="10.5" r="6" /><path d="M15 15l5 5" /></svg>
+        </button>
       </div>
-      <button id="brand-fold" class="icon small" type="button" aria-controls="places" aria-expanded="true">
-        <svg viewBox="0 0 24 24"><path d="M7 14.5l5-5 5 5" /></svg>
-      </button>
-      <nav id="places" aria-label="Địa danh"></nav>
+      <div id="panel" hidden>
+        <div id="kinds" role="toolbar"></div>
+        <div id="results" role="listbox"></div>
+        <p id="no-results" hidden></p>
+      </div>
     </header>
+    <nav id="places" aria-label="Địa danh"></nav>
 
     <div id="tools">
       <button id="btn-lang" class="chip" type="button"></button>
