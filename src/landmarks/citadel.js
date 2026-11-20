@@ -382,6 +382,7 @@ function gate(S, g, centre, eaves = null, coverAt = null) {
     }
     pavilion(S, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, top + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270'), eaves, colonnade: true });
   } else {
+    if (replaced('chuongduc') && String(g.n || '').normalize('NFC') === 'Chương Đức'.normalize('NFC')) return { cx, cz, px, pz, plen }; // drawn by places/chuongduc.js
     // Imperial City gates: lower, brightly tiled, three bays. The same form serves the gates of chùa Thiên Mụ, which
     // stand up on Hà Khê hill, so they take the height of their own ground.
     const G = LAND_Y + rise(cx, cz);
