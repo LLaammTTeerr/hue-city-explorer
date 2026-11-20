@@ -352,5 +352,16 @@ the parser or a shared builder), then rebuild.
   (`sites.<id>.g`, plus `gk` for agreement). `namGiao()` draws in that frame, and `check:data` guards the angle. Only
   Nam Giao uses it: the tombs already orient from their mapped halls, and other sites' paths disagree too much (gk 0.1–0.6).
 - #11 done: the language control was a lone button labelled with the *other* language; it is now a VI | EN radiogroup on the shared `.seg` component (the dead `.chip` style is gone). The same pass fixed the phone compass, which was pinned at a hard-coded +144px and overlapped the tool column; `ui.js` now publishes the column's measured height as `--tools-h`.
-- Remaining: #14 (craft villages), #7 (trees around heritage sites), #5 (south bank remodel), #8 (landmark accuracy, large).
+- #14 craft villages (partly done, "Refs #14"):
+  - The model now reaches Sình: `BBOX.n` is 16.530.
+    - Four new OSM strips came from `scripts/fetch-osm-north.sh` into `data/raw/hue-osm-north1..4.json`.
+    - The terrain was refetched up to 16.537 N (`fetch-terrain.py`).
+    - North of `CITY_N` = 16.4965 is a village zone (`inVillages`): roadside houses ×0.6 and random trees 0.2.
+  - New kind `craft` with group, filter chip, icon and notes:
+    - Thủy Xuân (way 1473275556)
+    - Phường Đúc (node 9960090217)
+    - Sình (node 9960092017)
+  - The `craft villages` data check covers all three, and that Sình lies inside the bounds.
+  - Thanh Tiên paper flowers is not in OSM. We asked sleepyluno for a pin in issue #14 (comment 7048587422). Once a pin arrives, add it to `EXTRA` and widen the BBOX if needed.
+- Remaining: #7 (trees around heritage sites), #5 (south bank remodel), #8 (landmark accuracy, large).
 - Next: the user picks the next issue.

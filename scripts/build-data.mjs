@@ -14,8 +14,9 @@ const quality = {}; // calibration errors, checked at the end
 
 // Local frame: metres east (x) and south (z) of the middle of cầu Trường Tiền.
 const ORIGIN = { lat: 16.468896, lon: 107.588858 };
-const BBOX = { s: 16.382, w: 107.5385, n: 16.4965, e: 107.613 }; // west edge reaches chùa Thiên Mụ; south edge takes in the royal tombs down to lăng Minh Mạng
+const BBOX = { s: 16.382, w: 107.5385, n: 16.530, e: 107.613 }; // west edge reaches chùa Thiên Mụ; south edge takes in the royal tombs down to lăng Minh Mạng; north edge reaches làng Sình at the Hương–Bồ fork
 const CITY_S = 16.4455; // south of this line lie the hills: sparser houses and trees, real relief
+const CITY_N = 16.4965; // north of this line lie the riverside villages (Hương Sơ, Hương Vinh, Sình): looser houses on the flat plain
 const KX = Math.cos((ORIGIN.lat * Math.PI) / 180) * 111319.49;
 const KZ = 110574;
 const proj = (p) => [(p.lon - ORIGIN.lon) * KX, -(p.lat - ORIGIN.lat) * KZ];
@@ -39,6 +40,8 @@ const [MINX, MAXZ] = proj({ lat: BBOX.s, lon: BBOX.w });
 const [MAXX, MINZ] = proj({ lat: BBOX.n, lon: BBOX.e });
 const CITY_MAXZ = proj({ lat: CITY_S, lon: BBOX.w })[1];
 const inHills = (p) => p[1] > CITY_MAXZ;
+const CITY_MINZ = proj({ lat: CITY_N, lon: BBOX.w })[1];
+const inVillages = (p) => p[1] < CITY_MINZ;
 
 // ---------- small geometry kit ----------
 let seed = 20261119;
@@ -690,7 +693,7 @@ for (const road of roads) {
   if (road.bridge || road.c > 4) continue;
   const hills = inHills(road.pts[0]);
   if (hills && road.c > 3) continue;
-  const density = (road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86) * (hills ? 0.42 : 1);
+  const density = (road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86) * (hills ? 0.42 : inVillages(road.pts[0]) ? 0.6 : 1);
   const half = ROAD_W[road.c] / 2;
   for (const side of [1, -1]) {
     let carry = rr(0, 6);
@@ -803,7 +806,7 @@ for (const road of roads) {
     const cit = inCitadel(p);
     const imp = cit && inImperial(p);
     if (m & NOBUILD && !imp && !cit) continue;
-    if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : 0.26)) continue;
+    if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : inVillages(p) ? 0.2 : 0.26)) continue;
     plant(p[0], p[1], rr(0.7, 1.35), inHills(p) && rnd() < 0.5 ? 3 : treeKind(false));
   }
 }
@@ -911,6 +914,10 @@ const EXTRA = [
   ['tayloc', 'Chợ Tây Lộc', 'way', 372292672, 3, 'market', 10],
   ['ancuu', 'Chợ An Cựu', 'way', 118541113, 3, 'market', 10],
   ['benngu', 'Chợ Bến Ngự', 'way', 513649271, 3, 'market', 10],
+  // làng nghề (#14). Thanh Tiên's paper-flower village is not in OSM yet.
+  ['thuyxuan', 'Làng hương Thủy Xuân', 'way', 1473275556, 2, 'craft', 6],
+  ['phuongduc', 'Làng đúc đồng Phường Đúc', 'node', 9960090217, 2, 'craft', 8],
+  ['sinh', 'Làng tranh Sình', 'node', 9960092017, 2, 'craft', 8],
 ];
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
