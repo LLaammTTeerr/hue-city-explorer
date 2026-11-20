@@ -276,7 +276,7 @@ function placeById(data) {
   return m;
 }
 
-// Cầu Trường Tiền's deck, rebuilt from the same numbers as landmarks/truongtien.js (deck top LAND_Y + 2.4,
+// Cầu Trường Tiền's deck, rebuilt from the same numbers as landmarks/truongtien.js (deck top 6.4 m above the river,
 // 34 m ramps at each end, walkways cantilevered outside the trusses).
 function truongTienFrame(data) {
   const tt = data.truongtien;
@@ -286,7 +286,7 @@ function truongTienFrame(data) {
   if (!(dl > 1)) return null;
   const d = [(b[0] - a[0]) / dl, (b[1] - a[1]) / dl], n = [-d[1], d[0]];
   const c = [tt.box.c[0] / 10, tt.box.c[1] / 10], L = tt.box.w / 10, W = tt.box.d / 10;
-  const deckTop = LAND_Y + 2.4, trussX = W / 2 - 2.35;
+  const deckTop = 6.4, trussX = W / 2 - 2.35;
   const at = (s, off) => [c[0] + d[0] * s + n[0] * off, c[1] + d[1] * s + n[1] * off];
   // a path along the bridge at lateral offset `off`, `dy` above the deck, down the ramps to `reach` metres beyond the deck
   const lane = (off, dy, reach = 33) => {

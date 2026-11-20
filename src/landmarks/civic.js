@@ -147,13 +147,14 @@ function phuCam(S, data) {
     q = F.at(fa + 1.34, s * 5.6);
     S.box(q[0], q[1], y, y + 6.2, 0.14, 2.5, F.a, dark);
     const t = F.at(fa - 0.6, s * (nw / 2 + 3.4));
-    S.box(t[0], t[1], y, y + 27, 5.2, 5.2, F.a, conc, { taper: 0.84 });
-    S.box(t[0], t[1], y + 27, y + 37, 4.2, 4.2, F.a, rib, { taper: 0.72 });
-    S.cyl(t[0], t[1], y + 37, y + 43.5, 2.2, 0.14, 4, roof, { cap: false, rot: F.a + Math.PI / 4 });
-    cross(S, t[0], t[1], y + 43.3, 3.0, F);
+    // the towers stand 43.5 m to the top of their crosses (VietNamNet; docs/reference/heights-sourced.md)
+    S.box(t[0], t[1], y, y + 25, 5.2, 5.2, F.a, conc, { taper: 0.84 });
+    S.box(t[0], t[1], y + 25, y + 34, 4.2, 4.2, F.a, rib, { taper: 0.72 });
+    S.cyl(t[0], t[1], y + 34, y + 40.1, 2.2, 0.14, 4, roof, { cap: false, rot: F.a + Math.PI / 4 });
+    cross(S, t[0], t[1], y + 39.9, 3.0, F);
     for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const l = F.at(fa - 0.6 + dx * 2.36, s * (nw / 2 + 3.4) + dz * 2.36);
-      S.box(l[0], l[1], y + 18, y + 25, dx ? 0.14 : 1.5, dx ? 1.5 : 0.14, F.a, dark);
+      S.box(l[0], l[1], y + 16.5, y + 23, dx ? 0.14 : 1.5, dx ? 1.5 : 0.14, F.a, dark);
     }
   }
   // steps down the hill in front

@@ -196,3 +196,39 @@
 
 ## Next (ideas)
 - Lăng Gia Long lies 3 km beyond the southern edge.
+
+## Lidar-calibrated terrain and surveyed building heights (2026-11-21, branch `lidar-calibration`)
+
+Asked where the height data came from and whether a reliable source exists; then "rebuild both". Research notes are
+in `docs/reference/` (`elevation-survey-sources.md`, `heights-sourced.md`, `building-heights-sources.md`).
+
+Done:
+- **Ground: ICESat-2 lidar** (`scripts/fetch-lidar.py` → `data/raw/lidar/icesat2-ground.json`; NASA, open; read
+  through SlideRule's public service). 7,419 land points and 945 river points used.
+  - Terrain = FABDEM + summit rule (toward Copernicus + 2 m where the land is convex) + a smooth field of lidar
+    residuals (150 m bell, falling back on a 900 m one). The old "blend to the surface model as ground rises" is
+    gone: it ran 2.2 m high on slopes.
+  - Fit: plain 0.83 m rms (FABDEM 1.13), each overpass predicted from the others; documented summits 1.0 m rms;
+    drawn model 1.2 m rms on them.
+  - City floor 3.47 m asl and river 0.87 m are lidar readings, so `LAND_Y` is 2.6 (was 4.6). The build warns if the
+    constant and the data drift apart.
+  - Hà Khê: 38 lidar points inside the compound, 13.3 m asl, 9.8 m above the city (was drawn 10.1 above a floor that
+    was itself 0.6 m too high).
+  - Flat-plain gate loosened to 1.2 / 3.0 m (was 2.5 / 5.0).
+- **Buildings: GISHue city survey** (`scripts/fetch-gishue-heights.py` → `data/raw/heights/gishue.*`), field
+  `percentile90z`. 5,259 of 6,070 buildings take it; 558 fall back to Google Open Buildings; the rest keep tags or
+  rules. Estimated landmark heights give way to the survey's reading; điện Kiến Trung (rebuilt after the survey) is
+  set to its published 14 m.
+- **Landmarks:** Phủ Cam towers 43.5 m (were about 47). Trường Tiền and Nguyễn Hoàng decks are now fixed above the
+  water (6.4 m, 6.8 m) instead of above the bank.
+
+Known weak points:
+- GISHue states no licence. It is credited in the README and the info panel; whether to keep it in a public repo is
+  the owner's call.
+- The survey's drone flight covers only the urban core (about 12.6 km²); outside it the same field comes from a
+  coarser surface model. Its readings for the Vincom tower (57 m) are wrong, so the tower keeps its own model.
+- Ordinary road and rail bridges lie level with the bank, so with the bank at its true 2.6 m their decks are about
+  3 m above the water; the real Phú Xuân and Dã Viên decks are higher.
+- Ground lower than the city floor (paddies, river flats) is still drawn at the floor.
+- No lidar pass crosses the Ngự Bình or Vọng Cảnh summits; they rest on published figures.
+- Not merged to `main`, not deployed.
