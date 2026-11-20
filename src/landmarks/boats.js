@@ -324,7 +324,6 @@ export function buildBoats(data, group) {
   try { wakes = fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]); } catch (e) { wakes = []; }
 
   return {
-    fleet,
     update(dt, time) {
       for (const b of fleet) {
         b.s += b.dir * b.speed * dt;

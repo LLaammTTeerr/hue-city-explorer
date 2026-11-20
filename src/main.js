@@ -49,7 +49,7 @@ async function main() {
     lang: () => labels && labels.remeasure(),
     labels: () => toggleLabels(),
     osmOnly: (on) => { world.infill.forEach((m) => { m.visible = !on; }); },
-    home: () => { follow = null; rig.goHome(); ui.hideCard(); },
+    home: () => { rig.goHome(); ui.hideCard(); },
     zoom: (k) => rig.zoomBy(k),
     cardClosed: () => {},
     rain: () => mood.setRain(!mood.state.rainTarget),
@@ -163,7 +163,6 @@ async function main() {
   function pick(id, fly) {
     const p = data.places.find((q) => q.id === id);
     if (!p) return;
-    if (fly) follow = null;
     ui.showCard(id);
     labels.markVisited(id);
     if (fly) {
@@ -174,26 +173,6 @@ async function main() {
       target.y = LAND_Y;
       rig.flyTo(new THREE.Vector3(p.x / 10 + v.off[0] * k, gy + v.off[1] * k, p.z / 10 + v.off[2] * k), target, { duration: 2.6 });
     }
-  }
-
-  // following a boat: the camera's target rides on it; orbit and zoom still work
-  let follow = null;
-  const waterRay = new THREE.Raycaster(), waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5), waterHit = new THREE.Vector3();
-  function boatAt(cx, cy) {
-    const r = canvas.getBoundingClientRect();
-    waterRay.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
-    if (!waterRay.ray.intersectPlane(waterPlane, waterHit)) return null;
-    const reach = Math.max(16, camera.position.distanceTo(waterHit) * 0.03);
-    let best = null, bd = reach;
-    for (const b of boats.fleet) { const d = Math.hypot(b.mesh.position.x - waterHit.x, b.mesh.position.z - waterHit.z); if (d < bd) { bd = d; best = b; } }
-    return best;
-  }
-  const followDelta = new THREE.Vector3();
-  function updateFollow() {
-    if (!follow || rig.flying) return;
-    followDelta.set(follow.mesh.position.x - controls.target.x, 0, follow.mesh.position.z - controls.target.z).multiplyScalar(0.12);
-    controls.target.add(followDelta);
-    camera.position.add(followDelta);
   }
 
   // tap / click on the ground near a landmark reveals it
@@ -212,10 +191,6 @@ async function main() {
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
     down = null;
     if (moved > 6 || dt > 450 || e.type === 'pointercancel') return;
-    // a click on a dragon boat rides along with it (the river plane is at y = 0, so test against that)
-    const hitBoat = boatAt(e.clientX, e.clientY);
-    if (hitBoat) { follow = hitBoat; ui.hideCard(); ui.hint(ui.T.hintFollow, 5000); return; }
-    if (follow) { follow = null; ui.hideHint(); }
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     let best = null, bd = Infinity;
@@ -242,7 +217,7 @@ async function main() {
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
     const k = e.key.toLowerCase();
-    if (k === 'escape') { if (follow) { follow = null; ui.hideHint(); } else ui.hideCard(); }
+    if (k === 'escape') ui.hideCard();
     else if (k === 'h' || k === 'home') { rig.goHome(); ui.hideCard(); }
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
     else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
@@ -323,7 +298,6 @@ async function main() {
   }
   function step(dt) {
     time += dt;
-    updateFollow();
     rig.update(dt);
     mood.update(dt, time);
     bridge.update(time, mood.cur.glow, mood.state.rain);

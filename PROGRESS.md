@@ -41,7 +41,7 @@
 - Restyle (branch `restyle`, on top of `landmark-shapes`): the model is presented as a miniature — long lens from
   the air, tilt-shift focus, low river mist, timber plinth and floor shadow. Trees rebuilt as leaf-card foliage with
   areca palms; windows read as recessed with sun glints; imperial tiles are glazed; street-facing awnings and
-  balconies; lotus on the still water; motorbikes and cars on main streets; click a dragon boat to travel with it.
+  balconies; lotus on the still water; motorbikes and cars on main streets.
   Interface redrawn as paper, ink and a vermilion seal. Frame cost brought back to ~16 ms at 2190×1369 on an
   Apple M5 (4.3 M triangles, ~370 draw calls) after it had risen to ~27 ms.
 
@@ -75,7 +75,7 @@
   then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
   now thin railed walkways on piers.
 - Boat ride: the guided ride under cầu Trường Tiền was removed (2026-11-21). Gone: `src/camera/ride.js`, the ride
-  button, HUD and scrub bar, the `B` key, the spare ride boat. Kept: the dragon-boat fleet and click-to-follow.
+  button, HUD and scrub bar, the `B` key, the spare ride boat, and click-a-boat-to-follow. Kept: the dragon-boat fleet as scenery.
 - Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
   the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
   `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and

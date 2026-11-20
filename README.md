@@ -24,7 +24,6 @@ contacted at runtime.
 - **Time of day** — morning (clear light from the east), late afternoon (low sun up-river), or lights on
   (dusk, with the bridge cycling through its colours).
 - **Toàn cảnh / Whole model** — pulls back to show the city as one slab, the way a model sits on a table.
-- Click a **dragon boat** on the river to travel along with it.
 - The **compass** (or `H`) returns to the opening view from anywhere.
 - The **label** button hides every name.
 
