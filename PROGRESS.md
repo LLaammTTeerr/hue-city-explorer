@@ -155,6 +155,28 @@
     The cover map samples five points per cell, so trees also keep off wall tops.
   - Left as it is: footpaths end at hall platforms and resume behind them (they are mapped through the halls); the
     burial mounds are bedded into their hills.
+- Measured terrain and building heights (branch `real-terrain`; sources compared in `docs/reference/data-sources.md`):
+  - Terrain is bare earth: FABDEM v1-2 (CC BY-NC-SA 4.0), cut to the box by `scripts/fetch-terrain.py` →
+    `data/raw/dem/fabdem.json`; the terrarium tiles and `fetch-elevation.sh` are gone. Checked against Copernicus
+    GLO-30 and GEDTM30 at known heights: FABDEM reads the flat city at 2.0-4.9 m (Copernicus 1.8-8.0 m) and shows Hà
+    Khê as a level spur about 10.5 m asl, 240 m long. `build-data.mjs` §9: city floor 4.1 m asl; ground under 2.5 m
+    above it stays flat, from 5 m it stands at true height; summits are not shaved by the smoothing; a hill standing
+    straight over the water keeps its height at the bank. Núi Ngự Bình is 92 m above the floor (96 m asl, real 103-105).
+  - Chùa Thiên Mụ: the walled ground is one level, 6.5 m above the floor (`data.hakhe`: outline and level). The model
+    stands the compound on a stone-faced terrace with the tower at its brow and one straight stair, 13 m wide, down
+    to the riverside road (`buildThienMu`). The terrace is ground: it is exempt from the cover map (`S.noCover`).
+    The terrace and stair are shaped by hand; no open survey of the pagoda was found.
+  - Đồi Vọng Cảnh was on the wrong hill: it is the 41 m hill straight over the river bend (FABDEM), now at
+    (-2776, 5148). The 25 m grid shows it 30 m above the floor.
+  - Building heights: Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0), `scripts/fetch-heights.py` →
+    `data/raw/heights/` (2 m grid, half-metre steps). 5,696 of 6,070 mapped buildings take a measured height (sixth
+    field of a `bld` record: height to the top; the builder fits the eave under its roof), generated houses take the
+    reading on their plot. Against the 19 known places the raster reads 10-20 % low, so readings are raised by a
+    tenth; large footprints are read by their bulk (65th-80th percentile), a reading is capped at four times the
+    footprint's width, and measured buildings within 220 m of Vincom are held to 20 m (its 160 m smears onto its
+    neighbours). Monuments (`TRUE_H`, seventh field) and hand models keep their documented heights.
+  - Both fetch scripts need Python with `rasterio` (a throwaway venv); the build itself still needs only Node.
+  - Not checked: individual measured heights against photographs; the raster is known to read narrow shophouses low.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

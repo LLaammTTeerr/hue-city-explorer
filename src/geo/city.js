@@ -375,7 +375,7 @@ function buildBuildings(data, group, off = null) {
     } else if (kind === 0 || kind === 1 || kind === 5) {
       if (!quocHoc) { wall = rand(i, 61) < 0.75 ? pick(P.pastel, i, 1) : wall; if (big) { pitched = false; } else if (rand(i, 62) < 0.25) roof = pick(P.metalRoof, i, 63); }
     }
-    // a named place with a known height (b[5], to the ridge): the eave is whatever is left under its roof
+    // a building whose height is known (b[5], to the top: measured, or a monument's): the eave is what is left under its roof
     const known = b[5] && form !== 'trad' && form !== 'colonial';
     if (known) { h = Math.max(2.6, b[5] / 10 - (pitched ? rh + 0.3 : 0.8)); y1 = LAND_Y + floor + h; }
     wall = shade(wall, quocHoc ? 0.96 + rand(i, 7) * 0.08 : jitter);
@@ -402,7 +402,7 @@ function buildBuildings(data, group, off = null) {
       else {
         const lid = kind === 7 ? roof : pick(P.concrete, i, 17);
         B.prism(ring, y0, y1, wall, shade(lid, 0.92), { topKind: KIND.FLAT, parapet: kind === 7 ? 1.6 : 0.8 });
-        if (area > 70 && kind !== 7 && !known) { // no stair heads or water tanks on a named monument
+        if (area > 70 && kind !== 7 && !b[6]) { // no stair heads or water tanks on a named monument
           const ux = Math.cos(o.a), uz = Math.sin(o.a);
           if (area > 140 && rand(i, 11) < 0.65) {
             // stair head
@@ -705,10 +705,11 @@ export function buildCity(data) {
 // ground (platforms, terraces, stairs, roofs with their eaves). The Citadel's rampart is left out: it is planted.
 const SUB = [[0.5, 0.5], [0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
 function coverOf(structures) {
-  const cells = new Set(), tall = new Set(), P = structures.pos, [w0, w1] = structures.wallRange || [0, 0];
+  const cells = new Set(), tall = new Set(), P = structures.pos;
+  const skip = [structures.wallRange || [0, 0], ...(structures.noCover || [])]; // the rampart, and terraces that are ground
   const key = (ix, iz) => (ix + 32768) * 65536 + (iz + 32768);
   for (let i = 0; i < structures.n; i += 3) {
-    if (i >= w0 && i < w1) continue;
+    if (skip.some(([f, t]) => i >= f && i < t)) continue;
     const k = i * 3;
     const ax = P[k], ay = P[k + 1], az = P[k + 2], bx = P[k + 3], by = P[k + 4], bz = P[k + 5], cx = P[k + 6], cy = P[k + 7], cz = P[k + 8];
     const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az); // twice the footprint area (signed)
