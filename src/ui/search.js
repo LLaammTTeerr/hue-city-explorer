@@ -183,6 +183,7 @@ export function createSearch(ctx) {
   input.addEventListener('focus', () => { setOpen(true); if (shown !== null && input.value === shown) input.select(); });
   input.addEventListener('input', () => { if (open) render(); else setOpen(true); });
   input.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229) return; // an IME (Telex, VNI) is still composing: its Enter commits the word, not a pick
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (!open) { setOpen(true); return; }
@@ -236,6 +237,7 @@ export function createSearch(ctx) {
       clearBtn.title = T.clear; clearBtn.setAttribute('aria-label', T.clear);
       toggle.title = T.browse; toggle.setAttribute('aria-label', T.browse);
       results.setAttribute('aria-label', T.places);
+      kinds.setAttribute('aria-label', T.filterBy);
       [...kinds.children].forEach((b, i) => { b.textContent = T.filters[i]; });
       if (current && shown !== null) { const keep = input.value === shown; shown = nameOf(current); if (keep) input.value = shown; }
       if (open) render();

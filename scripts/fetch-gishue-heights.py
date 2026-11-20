@@ -34,10 +34,8 @@ SKIP = ('Urban Random Buildings', 'Countryside Random Buildings', 'Can not be qu
 RANK = ['Overlap', 'Google AI', 'The footprint is covered', 'The height is below', 'Hue delivered', 'Deep Learning Buildings',
         'Manually created', 'The footprint is checked and is correct']
 rank = lambda rel: max([i for i, k in enumerate(RANK) if (rel or '').startswith(k)], default=1)
-ORIGIN = (16.468896, 107.588858)  # lat, lon: scripts/build-data.mjs
-KX = math.cos(math.radians(ORIGIN[0])) * 111319.49
-KZ = 110574
-x0, z0, x1, z1 = [v / 10 for v in json.load(open('public/data/hue.json'))['meta']['bounds']]
+from frame import ORIGIN, KX, KZ, BOUNDS  # scripts/frame.json, shared with scripts/build-data.mjs
+x0, z0, x1, z1 = BOUNDS
 STEP = 2.0
 nx, nz = int(math.ceil((x1 - x0) / STEP)), int(math.ceil((z1 - z0) / STEP))
 W, E, N, S = ORIGIN[1] + x0 / KX, ORIGIN[1] + x1 / KX, ORIGIN[0] - z0 / KZ, ORIGIN[0] - z1 / KZ

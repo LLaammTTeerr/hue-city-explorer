@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { Buf, hex, shade, unflat } from '../geo/buf.js';
-import { cityMaterial, enc } from '../geo/materials.js';
+import { Buf, hex, shade, unflat, inRing, pathLength } from '../geo/buf.js';
+import { cityMaterial, enc, glowPoints } from '../geo/materials.js';
 import { rise, pondY } from '../geo/terrain.js';
-import { LAND_Y, POND_Y, quality } from '../config.js';
+import { LAND_Y, quality, ROAD_W, ROAD_MAX } from '../config.js';
 import { bridgeProfiles, resample } from '../geo/bridges.js';
+import { landTest } from './boats.js';
 
 // Small living things that make the model feel inhabited. All illustrative.
 
@@ -11,11 +12,6 @@ function rng(seed) {
   let s = seed >>> 0;
   return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-const inRing = (x, z, r) => {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
-  return c;
-};
 
 // Lotus on the still water: the moat and the lakes of the Citadel are full of it in summer.
 export function buildLotus(data, group) {
@@ -69,6 +65,7 @@ export function buildLotus(data, group) {
     padMesh.setColorAt(i, enc(shade(greens[i % greens.length], 0.85 + ((i * 7) % 10) / 33), c));
   });
   const bloomMesh = new THREE.InstancedMesh(bloomGeo.geometry(), mat, Math.max(1, blooms.length));
+  bloomMesh.count = blooms.length; // with no blooms, no stray identity instance at the origin
   blooms.forEach(([x, z, r, y], i) => {
     q.setFromAxisAngle(up, i); p.set(x, y + 0.25, z); s.set(r, r, r);
     bloomMesh.setMatrixAt(i, m.compose(p, q, s));
@@ -86,12 +83,10 @@ export function buildLotus(data, group) {
 
 // ---------- shared helpers for things that move along polylines ----------
 
-const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2]; // carriageway widths by road class; must match ROAD_W in geo/city.js
 const BRIDGE_TOP = LAND_Y + 0.42; // road bridge slab top (geo/city.js)
 const RAIL_BRIDGE_TOP = LAND_Y + 0.5; // rail bridge deck (geo/city.js)
 const ON_GROUND = 0.06; // things on the ground stand on the road overlay, not under it
 
-function pathLength(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
 // Same as `along` in geo/city.js, so lamp posts land exactly where the night glows are.
 function along(pts, dist) {
   let s = 0;
@@ -113,7 +108,7 @@ function readRoads(data) {
     const pts = unflat(r[2]);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1]; }
-    out.push({ c: Math.max(0, Math.min(5, r[0] | 0)), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), x0, x1, z0, z1 });
+    out.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), x0, x1, z0, z1 });
   }
   return out;
 }
@@ -222,9 +217,9 @@ function chain(lines, tol, canJoin) {
       }
     }
     if (pts.length < 2) continue;
-    // segment i runs from height ya[i] to yb[i]; across a humped deck that follows its curve, while a segment
-    // leaving a bridge for the road keeps to the ground as before
-    const yb = Float32Array.from(hs), ya = Float32Array.from(hs, (h, i) => (i && h === h && hs[i - 1] === hs[i - 1] ? hs[i - 1] : h));
+    // segment i runs from height ya[i] to yb[i]; across a humped deck that follows its curve, while the segments
+    // entering and leaving a bridge from the road keep to the ground (NaN), so neither rides at deck height
+    const yb = Float32Array.from(hs), ya = Float32Array.from(hs, (h, i) => (i && h === h && hs[i - 1] === hs[i - 1] ? hs[i - 1] : NaN));
     const path = mkPath(pts, ya, yb);
     path.c = lines[i0].c;
     out.push(path);
@@ -247,29 +242,6 @@ function clipRuns(pts, keep, step, minLen) {
   }
   flush();
   return runs;
-}
-
-// Dry land: inside a land polygon, outside its holes and outside every pond. Without land data, everywhere is land.
-function landTest(data) {
-  const polys = [];
-  for (const poly of data.land || []) {
-    if (!Array.isArray(poly) || !poly.length) continue;
-    const rings = poly.map(unflat);
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-    for (const p of rings[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
-    polys.push({ rings, x0, x1, z0, z1 });
-  }
-  const ponds = [];
-  for (const poly of data.ponds || []) if (Array.isArray(poly) && poly[0]) ponds.push(unflat(poly[0]));
-  if (!polys.length) return () => true;
-  return (x, z) => {
-    let on = false;
-    for (const p of polys) {
-      if (x < p.x0 || x > p.x1 || z < p.z0 || z > p.z1) continue;
-      if (inRing(x, z, p.rings[0]) && !p.rings.slice(1).some((h) => inRing(x, z, h))) { on = true; break; }
-    }
-    return on && !ponds.some((r) => inRing(x, z, r));
-  };
 }
 
 function placeById(data) {
@@ -314,9 +286,11 @@ export function buildTraffic(data, group) {
   const profiles = bridgeProfiles(data);
   const lines = roads.filter((r) => r.c <= 2 && r.len > 1).map((r) => {
     const P = r.bridge && profiles.get(r.flat);
-    if (!P || !(P.rise > 0)) return { pts: r.pts, len: r.len, c: r.c, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN };
-    // a humped deck: points close enough together to ride its curve
-    const R = resample(r.pts, 2);
+    if (!P) return { pts: r.pts, len: r.len, c: r.c, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN };
+    // a humped deck: points close enough together to ride its curve; a flat one keeps its vertices, where
+    // geo/city.js lays the deck at the profile's height (which may sit above BRIDGE_TOP, or climb between banks)
+    let acc = 0;
+    const R = P.rise > 0 ? resample(r.pts, 2) : { pts: r.pts, s: r.pts.map((q, i) => (acc += i ? Math.hypot(q[0] - r.pts[i - 1][0], q[1] - r.pts[i - 1][1]) : 0)) };
     return { pts: R.pts, len: r.len, c: r.c, h: BRIDGE_TOP + 0.02, hs: R.s.map((s) => Math.max(BRIDGE_TOP, P.base(s)) + P.bump(s) + 0.02) };
   });
   const paths = chain(lines, 1.5, (a, b) => Math.abs(a.c - b.c) <= 1).filter((p) => p.len > 160);
@@ -444,17 +418,19 @@ export function buildTraffic(data, group) {
 // ---------- street lamps, pedestrians, the train ----------
 
 export function buildStreetLife(data, group) {
-  const updates = [];
+  const updates = [], out = {};
   const parts = [buildLampPosts, buildPedestrians, buildTrain];
   for (const build of parts) {
     try {
-      const u = build(data, group);
+      const u = build(data, group, out);
       if (u) updates.push(u);
     } catch (e) {
       console.warn('street life: skipped', build.name, e); // one missing data field should not take the city down
     }
   }
-  return { update(dt, time) { dt = Math.min(dt, 0.1); for (const u of updates) u(dt, time); } };
+  // lampGlows1935: the glows of the 1935 lamp posts only (hidden; main.js shows it in 1935 at night instead of the
+  // full world.lamps set, and feeds its uScale like the other glow points)
+  return { update(dt, time) { dt = Math.min(dt, 0.1); for (const u of updates) u(dt, time); }, lampGlows1935: out.lampGlows1935 || null };
 }
 
 // Lamp posts. Real: each stands where geo/city.js puts a night-time glow (every 30–36 m along OSM class 0–2
@@ -462,7 +438,7 @@ export function buildStreetLife(data, group) {
 // To stay inside the triangle budget only the posts nearest the centre and the Citadel are built
 // (LAMP_MAX); glows further out keep shining without a post.
 const LAMP_MAX = () => (quality.low ? 800 : 3000);
-function buildLampPosts(data, group) {
+function buildLampPosts(data, group, out = {}) {
   const roads = readRoads(data);
   const profiles = bridgeProfiles(data);
   const kd = placeById(data).get('kydai') || [0, 0];
@@ -519,7 +495,7 @@ function buildPedestrians(data, group) {
   const rnd = rng(1945);
   const roads = readRoads(data).filter((r) => !r.bridge && r.pts.length >= 2);
   const places = placeById(data);
-  const onLand = landTest(data);
+  const onLand = landTest(data, { ponds: true });
   const tt = truongTienFrame(data);
   const N = quality.low ? 300 : 900;
 
@@ -688,8 +664,9 @@ function buildPedestrians(data, group) {
     mesh.visible = mesh.count > 0;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
   }
-  const TURN = 0.8;
+  const TURN = 0.8, pmeshes = [bodies, hats, bares];
   const update = (dt) => {
+    if (!bodies.visible) return;
     for (let i = 0; i < walkers.length; i++) {
       const w = walkers[i];
       let moving = false;
@@ -709,7 +686,7 @@ function buildPedestrians(data, group) {
       bodies.setMatrixAt(w.i, m);
       w.head.setMatrixAt(w.j, m);
     }
-    bodies.instanceMatrix.needsUpdate = hats.instanceMatrix.needsUpdate = bares.instanceMatrix.needsUpdate = true;
+    for (let k = 0; k < 3; k++) if (pmeshes[k].visible) pmeshes[k].instanceMatrix.needsUpdate = true; // no upload while hidden
   };
   update(0);
   return update;

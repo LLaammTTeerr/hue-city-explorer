@@ -16,14 +16,7 @@ export const rectRing = (cx, cz, w, d, a) => {
   return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => [cx + (ux * i * w) / 2 - (uz * j * d) / 2, cz + (uz * i * w) / 2 + (ux * j * d) / 2]);
 };
 
-export const inRing = (x, z, ring) => {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i], b = ring[j];
-    if ((a[1] > z) !== (b[1] > z) && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
-  }
-  return inside;
-};
+export { inRing } from './buf.js';
 
 // The Citadel gates' passage: how wide the slot through the rampart is, and the opening inside it
 export const CITADEL_PASSAGE = { w: 4.2, h: 5.4, slot: 5.6 };

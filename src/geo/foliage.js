@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { hex, shade } from './buf.js';
-import { cityMaterial, enc } from './materials.js';
+import { hex, shade, chunked, rand, pick } from './buf.js';
+import { cityMaterial, enc, foliageDepthMaterial, patch } from './materials.js';
 import { rise } from './terrain.js';
 import { LAND_Y, quality } from '../config.js';
 import { lodAdd } from './lod.js';
@@ -17,12 +17,6 @@ import { inCitadel, inHills } from './districts.js';
 //   palm       — cây cau in the garden houses: a slender curved trunk and arched fronds
 // All illustrative (OSM maps almost no individual trees here). Local units: ground at y ≈ −1.7, crown radius ≈ 1.
 
-const rand = (i, salt = 0) => {
-  let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
-  h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
-  return (h >>> 0) / 4294967296;
-};
-const pick = (arr, i, salt = 0) => arr[Math.floor(rand(i, salt) * arr.length) % arr.length];
 
 // ---------------------------------------------------------------------------------------------------------------
 // Leaf atlas, 1024², greyscale (the instance and vertex colours give the hue). Canvas layout (y down):
@@ -461,23 +455,12 @@ function waterNear(data) {
   };
 }
 
-function chunked(items, size = 1300) {
-  const map = new Map();
-  for (const it of items) {
-    const key = Math.floor(it.x / size) + ',' + Math.floor(it.z / size);
-    let list = map.get(key);
-    if (!list) map.set(key, (list = []));
-    list.push(it);
-  }
-  return map.values();
-}
-
 const TYPES = ['spreading', 'upright', 'flamboyant', 'willow', 'pine', 'palm'];
 
 export function buildTrees(data, group, off = null) {
-  const a = data.trees;
+  const a = data.trees || [];
   const total = a.length / 4;
-  const nearCount = data.meta.counts.treesNear ?? total;
+  const nearCount = data.meta?.counts?.treesNear ?? total;
   const tex = leafAtlas();
   const mat = cityMaterial({ foliage: true, map: tex, alphaTest: 0.42, side: THREE.DoubleSide });
   mat.alphaToCoverage = true;
@@ -485,10 +468,10 @@ export function buildTrees(data, group, off = null) {
   mat.onBeforeCompile = (sh, ...rest) => {
     base(sh, ...rest);
     // cards are double-sided but share one rounded normal field: do not flip it for back faces
-    sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_begin>', 'float faceDirection = 1.0;\nvec3 normal = normalize( vNormal );\nvec3 nonPerturbedNormal = normal;');
+    sh.fragmentShader = patch(sh.fragmentShader).replace('#include <normal_fragment_begin>', 'float faceDirection = 1.0;\nvec3 normal = normalize( vNormal );\nvec3 nonPerturbedNormal = normal;').src;
     // keep the fine branchlets from thinning out in the small mip levels: alpha grows with the mip level, so a
     // far crown stays as full as a near one
-    sh.fragmentShader = sh.fragmentShader.replace('#include <alphatest_fragment>', `
+    sh.fragmentShader = patch(sh.fragmentShader).replace('#include <alphatest_fragment>', `
       #ifdef USE_MAP
       {
         vec2 hueTx = vMapUv * 1024.0;
@@ -496,15 +479,15 @@ export function buildTrees(data, group, off = null) {
         diffuseColor.a *= 1.0 + hueMip * 0.3;
       }
       #endif
-      #include <alphatest_fragment>`);
+      #include <alphatest_fragment>`).src;
   };
   mat.customProgramCacheKey = () => 'hue-foliage-cards-2';
-  const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: tex, alphaTest: 0.4, side: THREE.DoubleSide });
+  const depthMat = foliageDepthMaterial({ map: tex, alphaTest: 0.4, side: THREE.DoubleSide }); // shadows sway with the crowns
   const low = quality.low;
   const geos = { spreading: spreadingGeometry(low), upright: uprightGeometry(low), flamboyant: flamboyantGeometry(low), willow: willowGeometry(low), pine: pineGeometry(low), palm: palmGeometry(low) };
   const nearWater = waterNear(data);
   // illustrative planting must not stand between the visitor and the monuments of the central axis
-  const forecourts = data.places.filter((p) => ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'].includes(p.id)).map((p) => [p.x / 10, p.z / 10]);
+  const forecourts = (data.places || []).filter((p) => ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'].includes(p.id)).map((p) => [p.x / 10, p.z / 10]);
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();

@@ -293,7 +293,7 @@ export function ringCentre(r) {
 }
 // flat decimetre int array → [[x,z],...] in metres
 export function unflat(a) {
-  const o = new Array(a.length / 2);
+  const o = new Array(a.length >> 1); // a stray odd trailing value is dropped, not a RangeError
   for (let i = 0; i < o.length; i++) o[i] = [a[i * 2] / 10, a[i * 2 + 1] / 10];
   return o;
 }
@@ -326,3 +326,33 @@ export function obb(points) {
   }
   return best;
 }
+
+// even-odd point-in-polygon test; ring is [[x,z],...] (closed or open)
+export const inRing = (x, z, ring) => {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i], b = ring[j];
+    if ((a[1] > z) !== (b[1] > z) && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+  }
+  return inside;
+};
+// length of a polyline [[x,z],...]
+export function pathLength(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
+// group items ({x,z}) by grid cell of `size` metres, so each group becomes one cullable mesh
+export function chunked(items, size = 1300) {
+  const map = new Map();
+  for (const it of items) {
+    const key = Math.floor(it.x / size) + ',' + Math.floor(it.z / size);
+    let list = map.get(key);
+    if (!list) map.set(key, (list = []));
+    list.push(it);
+  }
+  return map.values();
+}
+// deterministic hash of an index to [0, 1), and a pick from a list by it (the same planting on every load)
+export const rand = (i, salt = 0) => {
+  let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
+  h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
+  return (h >>> 0) / 4294967296;
+};
+export const pick = (arr, i, salt = 0) => arr[Math.floor(rand(i, salt) * arr.length) % arr.length];

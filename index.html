@@ -2,14 +2,14 @@
 <html lang="vi">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f5efe2" />
     <meta name="description" content="Huế, bên dòng Hương — khám phá trung tâm Huế trong không gian 3D dựng từ dữ liệu OpenStreetMap." />
     <title>Huế · bên dòng Hương</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d1620'/%3E%3Cpath d='M3 21h26M5 21c2-9 6-9 8 0m0 0c2-9 6-9 8 0m0 0c2-9 4-9 6 0' fill='none' stroke='%23f0bd4a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
   </head>
   <body>
-    <canvas id="scene" aria-label="Mô hình 3D trung tâm Huế"></canvas>
+    <canvas id="scene" role="img" aria-label="Mô hình 3D trung tâm Huế"></canvas>
     <div id="labels" aria-hidden="false"></div>
 
     <header id="search" role="search">
@@ -23,7 +23,7 @@
         </button>
       </div>
       <div id="panel" hidden>
-        <div id="kinds" role="toolbar"></div>
+        <div id="kinds" role="group"></div>
         <div id="results" role="listbox"></div>
         <p id="no-results" hidden></p>
       </div>
@@ -58,15 +58,15 @@
       <button id="btn-zout" class="icon desk" type="button"><svg viewBox="0 0 24 24"><path d="M6 12h12" /></svg></button>
     </div>
 
-    <aside id="card" hidden>
+    <aside id="card" aria-labelledby="card-name" hidden>
       <button id="card-close" class="icon small" type="button"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg></button>
       <div id="card-scroll">
         <figure id="card-media" hidden>
-          <img id="card-img" alt="" decoding="async" />
+          <button id="card-shot" type="button" disabled><img id="card-img" alt="" decoding="async" /></button>
           <figcaption><span id="card-caption"></span> <span id="card-credit"></span></figcaption>
         </figure>
         <p id="card-kind"></p>
-        <h2 id="card-name"></h2>
+        <h2 id="card-name" tabindex="-1"></h2>
         <p id="card-when" hidden></p>
         <p id="card-note"></p>
         <div id="card-story" hidden></div>
@@ -98,7 +98,7 @@
 
     <button id="attrib" type="button"></button>
 
-    <dialog id="about">
+    <dialog id="about" aria-labelledby="about-title">
       <button id="about-close" class="icon small" type="button"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" /></svg></button>
       <h2 id="about-title"></h2>
       <div id="about-body"></div>

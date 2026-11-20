@@ -1,5 +1,5 @@
-import { KIND, hex, shade, mix, unflat, obb, ringCentre } from '../geo/buf.js';
-import { LAND_Y, POND_Y, PAL } from '../config.js';
+import { KIND, hex, shade, unflat, obb, ringCentre, inRing } from '../geo/buf.js';
+import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { buildThuyTien } from './thuytien.js';
@@ -26,20 +26,8 @@ const spread = (pts) => {
 };
 const minG = (pts) => spread(pts).reduce((m, p) => Math.min(m, gy(p[0], p[1])), Infinity);
 const maxG = (pts) => spread(pts).reduce((m, p) => Math.max(m, gy(p[0], p[1])), -Infinity);
-const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
-const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
-const lin = (...terms) => terms.reduce((acc, [v, k]) => add(acc, scl(v, k)), [0, 0, 0]);
-const hash = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
 
-const inRing = (x, z, r) => {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
-  return c;
-};
 function polyCentroid(r) {
   let x = 0, z = 0, A = 0;
   for (let i = 0, n = r.length; i < n; i++) { const a = r[i], b = r[(i + 1) % n], k = a[0] * b[1] - b[0] * a[1]; A += k; x += (a[0] + b[0]) * k; z += (a[1] + b[1]) * k; }
@@ -178,7 +166,7 @@ function thienAn(S, data) {
   const site = siteOf(data, 'thienan');
   if (!site) return;
   const stoneW = hex('#d9d1bf'), stoneW2 = hex('#cfc6b2'), tile = hex('#8f4a36'), tile2 = hex('#9a5238'), ridge = hex('#d8cdb4'), plinth = hex('#a59c88');
-  const main = site.items.filter((it) => it.k === 'b').sort((a, b) => obb(b.pts).w * obb(b.pts).d - obb(a.pts).w * obb(a.pts).d)[0];
+  const main = site.items.filter((it) => it.k === 'b').map((it) => { const o = obb(it.pts); return [o.w * o.d, it]; }).sort((a, b) => b[0] - a[0]).map((e) => e[1])[0]; // box areas worked out once, not in the comparator
   const used = new Set();
   if (main && obb(main.pts).w > 40) {
     used.add(main.id);
@@ -352,7 +340,7 @@ function namGiao(S, data) {
   {
     const tc = [C[0] - 120, C[1] + 70], half = 26;
     const d = Math.hypot(tc[0] - site.cm[0], tc[1] - site.cm[1]);
-    if (d < site.r - half * 0.8) {
+    if (d < (site.r ?? 300) - half * 0.8) { // a site without a radius gets the tombs' default, rather than a NaN that hides the Trai Cung
       const g = gy(tc[0], tc[1]);
       S.base = g - LAND_Y;
       S.kind = KIND.MASONRY;
@@ -419,7 +407,8 @@ function vongCanh(S, data) {
 export function buildSouth(data, S) {
   if (!data || !S) return;
   for (const fn of [(St, d) => buildThuyTien(d, St), thienAn, namGiao, vongCanh]) {
-    try { fn(S, data); } catch (e) { console.warn('south:', fn.name, e); }
+    const n0 = S.n; // a place that throws halfway is dropped whole, not left half-built in the shared buffer
+    try { fn(S, data); } catch (e) { S.n = n0; console.warn('south:', fn.name, e); }
     S.kind = KIND.PLAIN; S.base = 0;
   }
 }

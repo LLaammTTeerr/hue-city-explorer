@@ -1,0 +1,7 @@
+# Python packages for the raw-data fetchers (fetch-terrain.py, fetch-heights.py, fetch-gishue-heights.py,
+# fetch-lidar.py). UNPINNED: the versions that produced the committed grids were not recorded and no .venv survives
+# to read them from. Pin them (pip freeze) the next time the data is fetched. fetch-lidar.py uses SlideRule's
+# icesat2.atl06p / atl08_class interface, which changes between client releases.
+numpy
+rasterio
+sliderule

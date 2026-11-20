@@ -70,7 +70,10 @@ export function createLabels(root, data, camera, onPick, scene) {
   const add = (p, water = false, i = -1) => {
     const el = document.createElement(water ? 'div' : 'button');
     el.className = 'label ' + (water ? 'label-water' : 'label-place t' + p.t);
-    el.innerHTML = water ? `<span>${p.n}</span>` : `<i></i><span>${p.n}</span>`;
+    // built node by node: the names come from OSM, so none of them is ever parsed as markup
+    if (!water) el.append(document.createElement('i'));
+    const name = document.createElement('span'); name.textContent = p.n; el.append(name);
+    el.setAttribute('aria-hidden', 'true'); // hidden until shown (with visibility, style.css), so off-screen tags are not tabbed through
     if (!water) {
       el.type = 'button';
       el.addEventListener('click', (e) => { e.stopPropagation(); onPick(p.id); });
@@ -85,6 +88,10 @@ export function createLabels(root, data, camera, onPick, scene) {
   let enabled = true, frame = 0, blocked = [];
   const visited = new Set();
   let measured = false;
+  // widths taken with a fallback font are wrong once the web fonts (and their Vietnamese subsets) arrive
+  if (document.fonts) { document.fonts.ready.then(() => { measured = false; }); document.fonts.addEventListener('loadingdone', () => { measured = false; }); }
+  // the interface panels whose boxes labels keep clear of; the elements are fixed, only their boxes change
+  const panels = ['#places', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card'].map((sel) => document.querySelector(sel)).filter(Boolean);
 
   function measure() {
     for (const it of items) { const span = it.el.querySelector('span'); it.w = span.offsetWidth; it.h = span.offsetHeight + (it.water ? 0 : STEM - 2); }
@@ -102,9 +109,8 @@ export function createLabels(root, data, camera, onPick, scene) {
       // keep labels out from under the interface: its panels count as already-placed boxes
       if (frame++ % 30 === 0) {
         blocked = [];
-        for (const sel of ['#places', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card']) {
-          const el = document.querySelector(sel);
-          if (!el || el.hidden) continue;
+        for (const el of panels) {
+          if (el.hidden) continue;
           const r = el.getBoundingClientRect();
           if (r.width > 0 && r.height > 0) blocked.push({ l: r.left - 6, r: r.right + 6, t: r.top - 4, b: r.bottom + 4 });
         }
@@ -132,7 +138,7 @@ export function createLabels(root, data, camera, onPick, scene) {
           }
         }
         if (show) it.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-        if (show !== it.shown) { it.shown = show; it.el.classList.toggle('show', show); }
+        if (show !== it.shown) { it.shown = show; it.el.classList.toggle('show', show); it.el.setAttribute('aria-hidden', !show); }
       }
     },
   };

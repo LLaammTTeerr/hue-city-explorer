@@ -1,0 +1,7 @@
+{
+  "_": "The model's frame, shared by scripts/build-data.mjs and the raw-data fetchers. origin: the middle of cầu Trường Tiền (x metres east, z metres south of it). bbox: the slab, south/west/north/east in degrees. kx = cos(origin.lat) * 111319.49 m per degree of longitude; kz = 110574 m per degree of latitude (the equatorial value; at 16.47 N the true one is about 110663, so north-south distances read about 0.08 % short — negligible here and kept so every committed grid stays aligned).",
+  "origin": { "lat": 16.468896, "lon": 107.588858 },
+  "bbox": { "s": 16.382, "w": 107.5385, "n": 16.4965, "e": 107.613 },
+  "citySouth": 16.4455,
+  "kz": 110574
+}

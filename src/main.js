@@ -27,7 +27,7 @@ import { createMood } from './env/mood.js';
 import { createPost } from './env/post.js';
 import { createIBL } from './env/ibl.js';
 import { createCascades } from './env/csm.js';
-import { createCamera } from './camera/controls.js';
+import { createCamera, fromForm } from './camera/controls.js';
 import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
 import { VIEWS } from './ui/content.js';
@@ -61,8 +61,9 @@ async function main() {
 
   // ---------- renderer ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows
-  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.max(1, Math.min(quality.pixelRatio, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
+  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
+  // at 1, but the adaptive fallback (adapt) may still take quality.pixelRatio below 1 on a slow 1x screen
+  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.min(quality.pixelRatio, Math.max(1, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
   renderer.setPixelRatio(fitRatio());
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -175,22 +176,27 @@ async function main() {
     }
   }
 
-  // tap / click on the ground near a landmark reveals it
-  let down = null;
+  // tap / click on the ground near a landmark reveals it.
+  // Every pointer is tracked: a second finger neither ends the first one's drag nor counts as a tap.
+  const downs = new Map();
   canvas.addEventListener('pointerdown', (e) => {
-    down = { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, id: e.pointerId };
+    const multi = downs.size > 0;
+    if (multi) downs.forEach((d) => { d.multi = true; });
+    downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, multi });
     canvas.classList.add('dragging');
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!down || down.id !== e.pointerId) return;
+    const down = downs.get(e.pointerId);
+    if (!down) return;
     down.lx = e.clientX; down.ly = e.clientY;
   });
   const up = (e) => {
-    canvas.classList.remove('dragging');
-    if (!down || down.id !== e.pointerId) return;
+    const down = downs.get(e.pointerId);
+    downs.delete(e.pointerId);
+    if (!downs.size) canvas.classList.remove('dragging');
+    if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
-    down = null;
-    if (moved > 6 || dt > 450 || e.type === 'pointercancel') return;
+    if (down.multi || moved > 6 || dt > 450 || e.type === 'pointercancel') return;
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     let best = null, bd = Infinity;
@@ -215,7 +221,7 @@ async function main() {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
+    if (fromForm(e) || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
     const k = e.key.toLowerCase();
     if (k === 'escape') ui.hideCard();
     else if (k === 'h' || k === 'home') { rig.goHome(); ui.hideCard(); }
@@ -260,7 +266,9 @@ async function main() {
     rig.setHome(hv.pos, hv.target);
     if (!rig.touched && !rig.flying) rig.jumpHome();
   }
-  addEventListener('resize', resize);
+  // one resize per frame at most: each one reallocates the multisampled post targets and the mirror's
+  let resizeQueued = false;
+  addEventListener('resize', () => { if (!resizeQueued) { resizeQueued = true; requestAnimationFrame(() => { resizeQueued = false; resize(); }); } });
 
   // ---------- frame loop ----------
   let last = performance.now();
@@ -289,7 +297,8 @@ async function main() {
     if (ft > 250 || document.visibilityState !== 'visible') { slow = 0; return; }
     slow = ft > 36 ? slow + ft : Math.max(0, slow - ft * 2);
     if (slow > 2500 && pr > 0.8) {
-      pr = Math.max(0.75, pr - 0.25); slow = 0;
+      // step down from the ratio actually in use, so the first steps are not swallowed by the pixel cap in fitRatio
+      pr = Math.max(0.75, Math.min(pr, renderer.getPixelRatio()) - 0.25); slow = 0;
       quality.pixelRatio = pr;
       renderer.setPixelRatio(fitRatio());
       if (post) post.resize();

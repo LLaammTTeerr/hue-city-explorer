@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { KIND, hex, shade } from '../geo/buf.js';
+import { KIND, hex, shade, Buf } from '../geo/buf.js';
 import { glowPoints, lightMaterial } from '../geo/materials.js';
-import { Buf } from '../geo/buf.js';
-import { LAND_Y, PAL } from '../config.js';
+import { LAND_Y } from '../config.js';
+import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 
 // Cầu Nguyễn Hoàng (opened 2025). Axis, length and position come from the OSM bridge outline; the form
@@ -111,7 +111,8 @@ export function buildQuocHocGate(data, S) {
   const c = [g.c[0] / 10, g.c[1] / 10], ang = g.a / 1000;
   const u = [Math.cos(ang), Math.sin(ang)], v = [-u[1], u[0]];
   const red = hex('#a8322a'), redD = hex('#8c2a24'), cream = hex('#ead9b8'), dark = hex('#2b2422'), roof = hex('#77695b');
-  const y = LAND_Y;
+  const y = LAND_Y + rise(c[0], c[1]); // on the street's own ground, as the Bia Quốc Học across it is
+  S.base = y - LAND_Y;
   S.kind = KIND.MASONRY;
   S.box(c[0], c[1], y, y + 5.6, 15, 1.6, ang, red, { top: cream });
   for (const s of [-1, 1]) {
@@ -126,5 +127,5 @@ export function buildQuocHocGate(data, S) {
   }
   S.box(c[0], c[1], y + 4.5, y + 5.3, 7.5, 1.72, ang, cream); // name board band
   pavilion(S, c[0], c[1], 9.5, 2.6, ang, y + 5.6, { tiers: 2, wallH: 1.9, roof, wall: red, over: 1.0, rh: 1.9, ridge: hex('#d8c9a0') });
-  S.kind = KIND.PLAIN;
+  S.kind = KIND.PLAIN; S.base = 0;
 }

@@ -342,3 +342,12 @@ became NaN and the bloom pass blanked the whole screen; tip rows now borrow the 
   against the previous `hue.json`, and exits 1 on a failure (the file is still written for inspection).
 - CI: `npm run check` runs before `npm run build` in `deploy.yml`, and on every PR in `check.yml`.
 - Proven: against the pre-fix `tombs.js` it fails 5 tomb halls; against the pre-fix `hue.json` it fails the Minh Mạng axis.
+- Review pass (branch `claude/repo-comprehensive-review-f8f9c2`, 2026-11-21): whole-repo review, then fixes for its
+  findings. Runtime: storage guards, key handling in form fields, ride/zoom/follow races, labels out of the tab order
+  when hidden, reduced motion, adaptive resolution on 1x screens. Geometry: terrain edge normals, shader patches warn
+  when a three.js chunk is missing, shared helpers in `geo/buf.js`. Landmarks: missing data skips one landmark instead
+  of the load, fleet boats turn round in a continuous sweep, 1935 lamp glows match their posts, Thủy Tiên footbridges
+  drawn once. Data: survey heights above a period cap are kept, newest extract wins at seams, fetch scripts validate
+  before replacing, `data:fetch` covers every extract; `hue.json` rebuilt (272 buildings, 4 roads changed).
+  Left open: a code licence (none chosen), binary bundle format for infill/trees, courtyard holes, explicit building
+  ids for the quoctugiam and tudam height anchors, pinned python versions, tests and lint.
