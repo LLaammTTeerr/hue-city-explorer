@@ -3,7 +3,7 @@ import { MOODS, SUN_DIRS } from '../config.js';
 import { shared } from '../geo/materials.js';
 
 const COLOR_KEYS = ['skyTop', 'skyHorizon', 'skyBelow', 'sunGlow', 'fog', 'sunColor', 'hemiSky', 'hemiGround', 'waterDeep', 'waterShallow'];
-const NUM_KEYS = ['fogDensity', 'sunI', 'hemiI', 'shadow', 'glow', 'exposure', 'sunDisk'];
+const NUM_KEYS = ['fogDensity', 'sunI', 'hemiI', 'hemiEnv', 'envI', 'shadow', 'glow', 'exposure', 'sunDisk'];
 const presets = {};
 for (const [name, m] of Object.entries(MOODS)) {
   presets[name] = { ...m };
@@ -11,9 +11,9 @@ for (const [name, m] of Object.entries(MOODS)) {
 }
 
 // Two independent dials: time of day (0 morning → 1 afternoon → 2 evening) and rain (0..1).
-export function createMood({ scene, renderer, sun, hemi, sky, water, rain }) {
+export function createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl = null }) {
   // the model opens at golden hour (1); 0 is the morning, 2 the evening
-  const state = { time: 1, rain: 0, timeTarget: 1, rainTarget: 0, showerEnds: 0 };
+  const state = { time: 1, rain: 0, timeTarget: 1, rainTarget: 0, showerEnds: 0, look: 0 }; // look: 0 realistic, 1 illustrated
   const cur = {};
   for (const k of COLOR_KEYS) cur[k] = new THREE.Color();
   const a = new THREE.Color(), b = new THREE.Color();
@@ -46,11 +46,14 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain }) {
     scene.fog.color.copy(cur.fog);
     scene.fog.density = cur.fogDensity;
     sun.color.copy(cur.sunColor);
-    sun.intensity = cur.sunI;
-    sun.shadow.intensity = cur.shadow;
+    // the illustrated look is lit evenly, like a drawing: less sun, more fill, shade laid in as a light wash
+    const ink = state.look;
+    sun.intensity = cur.sunI * (1 - 0.22 * ink);
+    sun.shadow.intensity = cur.shadow * (1 - 0.25 * ink);
     hemi.color.copy(cur.hemiSky);
     hemi.groundColor.copy(cur.hemiGround);
-    hemi.intensity = cur.hemiI;
+    hemi.intensity = (ibl ? cur.hemiEnv : cur.hemiI) * (1 + 0.45 * ink);
+    if (ibl) scene.environmentIntensity = cur.envI;
     renderer.toneMappingExposure = cur.exposure;
     const su = sky.uniforms;
     su.uTop.value.copy(cur.skyTop); su.uHorizon.value.copy(cur.skyHorizon); su.uBelow.value.copy(cur.skyBelow); su.uGlow.value.copy(cur.sunGlow); su.uFog.value.copy(cur.fog);
@@ -59,7 +62,7 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain }) {
       wu.uDeep.value.copy(cur.waterDeep); wu.uShallow.value.copy(cur.waterShallow);
       wu.uSkyTop.value.copy(cur.skyTop); wu.uSkyHorizon.value.copy(cur.skyHorizon);
       wu.uSunCol.value.copy(cur.sunColor); wu.uSunDisk.value = cur.sunDisk;
-      wu.uFog.value.copy(cur.fog); wu.uFogDensity.value = cur.fogDensity; wu.uRain.value = r; wu.uGlow.value = cur.glow;
+      wu.uFog.value.copy(cur.fog); wu.uFogDensity.value = cur.fogDensity; wu.uRain.value = r; wu.uGlow.value = cur.glow; wu.uLook.value = ink;
     }
     shared.uGlow.value = cur.glow;
     shared.uWet.value = r;
@@ -90,6 +93,7 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain }) {
       rain.uniforms.uTime.value = time;
       shared.uTime.value = time;
       apply();
+      if (ibl) ibl.update(cur, sunDir, dt);
     },
   };
 }

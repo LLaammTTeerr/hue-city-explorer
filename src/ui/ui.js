@@ -58,7 +58,7 @@ export function createUI(data, handlers) {
     $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
     $('btn-lang').textContent = innerWidth <= 720 ? T.langShort : T.lang;
     $('btn-lang').title = T.lang; $('btn-lang').setAttribute('aria-label', T.lang);
-    const tips = { 'btn-labels': T.labels, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain };
+    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain };
     $('era').setAttribute('aria-label', T.era);
     document.querySelectorAll('#era button').forEach((b) => {
       const i = +b.dataset.era;
@@ -175,6 +175,7 @@ export function createUI(data, handlers) {
   // ---- wiring ----
   $('btn-lang').addEventListener('click', () => { lang = lang === 'vi' ? 'en' : 'vi'; localStorage.setItem('hue-lang', lang); applyText(); if (current) fillCard(current); handlers.lang(lang); });
   $('btn-labels').addEventListener('click', () => handlers.labels());
+  $('btn-look').addEventListener('click', () => handlers.look());
   $('btn-about').addEventListener('click', () => $('about').showModal());
   $('attrib').addEventListener('click', () => $('about').showModal());
   $('about-close').addEventListener('click', () => $('about').close());
@@ -240,6 +241,7 @@ export function createUI(data, handlers) {
     get cardId() { return current && current.id; },
     firstHint() { hint(isCoarse() ? T.hintTouch : T.hintMouse, 7000); },
     setLabels(on) { $('btn-labels').classList.toggle('on', on); $('btn-labels').setAttribute('aria-pressed', on); if (!on) hint(T.hintLabels, 4200); },
+    setLook(ink) { $('btn-look').classList.toggle('on', !!ink); $('btn-look').setAttribute('aria-pressed', !!ink); },
     setMood({ rain, time }) {
       document.body.dataset.time = time; // the sheets turn to dark lacquer once the lights are on (style.css)
       $('btn-rain').setAttribute('aria-pressed', !!rain);

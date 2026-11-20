@@ -186,6 +186,52 @@
   - Both fetch scripts need Python with `rasterio` (a throwaway venv); the build itself still needs only Node.
   - Not checked: individual measured heights against photographs; the raster is known to read narrow shophouses low.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
+- Realism handoff (branch `claude/hue-3d-realism-handoff-ba1946`, 2026-11-21), from a five-track specification another
+  agent wrote (`hue-3d-realism-handoff.zip`). The user then asked to see two renderings of the same model, so there
+  is a switch (pencil button, key `V`, `?look=ink`; `__hue.setLook(0|1)`, `shared.uLook`):
+  - Realistic (default). `cityMaterial` / `landMaterial` are `MeshStandardMaterial` with per-kind roughness and
+    metalness, relief normals (tile ribs and laps, brick joints, plaster, reveals), rooms behind window glass
+    (`hueRoom`, interior mapping), and rain as a low-roughness film. The mood's sky is the environment light
+    (`src/env/ibl.js`, rebuilt only while the mood changes; desktop only, phones keep the old fill and painted
+    glints via `#ifndef USE_ENVMAP`). `MOODS` carry `hemiEnv` / `envI` beside `hemiI`. Focus blur is off below 120 m.
+  - Illustrated, the user's choice and now the default (`?look=real` or the pencil button for the other; the choice
+    is kept in `localStorage` as `hue-look`). After the Pocket City reference (april-zhu.com/pocketcity).
+    `post.js`: an ink line from the second difference of the depth buffer (`uInk`, `uInkEdge`), a paper wash with the
+    sheet's tooth, a paper backdrop with a faint dot grid in place of the sky, lines lighter with distance. Trees:
+    leaves write zero alpha (alpha-to-coverage is switched off for them in this look), the blurred mask is the crown
+    as one shape, so the pen goes round it. `materials.js`: `hueNoise` / `lNoise` settle toward their middle tone so
+    weathering becomes flat wash; tile roofs are hatched down the slope; surfaces are matt. `water.js` (`uLook`): one
+    jade wash, a faint mirror, pale strokes on the crests. `mood.js` (`state.look`): less sun, more fill.
+    Roads and ground: `KIND.LINE` (12) is a face that is a kerb joint in the realistic look and the pen in the drawn
+    one; `buildRoads` lays outlines under the pavements and carriageways map-fashion (all outlines, then fills from
+    minor to major), so side streets open into the roads they meet. Open land is two washes, grass and earth, with
+    an edge between them (`grassN` in `landMaterial`), and grass carries small pen marks (also on parks, kind 5).
+    Trees keep 46 m clear of Ngọ Môn, Thái Hòa, Kỳ Đài, Phu Văn Lâu and Nghênh Lương Đình (`forecourts` in
+    `foliage.js`).
+    Checked: opening view, Thái Hòa, Phố Tây, Nguyễn Đình Chiểu, Ngọ Môn (also in rain), Trường Tiền at night, the
+    1885 era. Not checked: the boat ride, the 1935 era. Not drawn: paving joints on pavements, crossings; footpaths
+    (class 5) have no edge line.
+  - Shadows (`src/env/csm.js`): boxes centred on the point of attention, not view-frustum slices. The sun keeps the
+    wide map; a second unlit directional light carries a tight map (27 % of the width, 2048), chosen in the shader
+    (`LIGHTS` in `materials.js`; the sun must stay directional light 0). Depth ranges hug the model, so the bias is
+    under a texel instead of ~2.5 m and shadows meet their casters. The two maps are drawn on alternate frames.
+  - Track 2, by a helper agent (`buf.js`, `citadel.js`, `truongtien.js`): curved hip roofs with lifted corners
+    (`segs` / `horns`), `pavilion({ colonnade })` with free-standing columns, `passages()` through Ngọ Môn and the
+    gates, 14 panels per Trường Tiền span.
+  - Gates open through the walls (`src/geo/gates.js` shared by `city.js` and `citadel.js`): `buildWalls` cuts a
+    5.6 m slot out of the rampart at each Citadel gate (`polygon-clipping`, now a runtime dependency) and stops the
+    Imperial City's wall at the footprints of its gates and at Ngọ Môn's whole box; the Citadel gate block reaches
+    to both rampart faces (`reach` in `gate()`), so the tunnel runs the wall's full thickness. The porch workaround
+    in `passages()` (`covers`) is no longer used by any caller. Seen: Thượng Tứ and Đông Ba from outside, Hiển Nhơn,
+    Ngọ Môn from both sides. The inner mouths of the Citadel gates were not seen clearly (trees in the way).
+  - Track 4, by a helper agent (`foliage.js`, `water.js`, `boats.js`): six tree species picked in `foliage.js`,
+    cross wavelets and current on the river, V-wakes (layer 1), lofted hulls. No shoreline darkening.
+  - Not done: track 3 (asphalt roads, kerbs, ground textures, street dressing), `KIND.METAL` for the steel bridges,
+    `.glb` hero models (none exist), the diorama-blur checkbox. Willows are planted by any water, so one stands on
+    Ngọ Môn's axis. Comparison frames: `docs/looks/`.
+  - Frame cost at 1024×768 on this machine: about 13 ms before, 19 ms with both maps drawn every frame, 60 fps
+    (16.3 ms by `requestAnimationFrame`) with alternate maps; about 15.5 ms in either look at 1280×800 (render plus a
+    forced read-back), 16.8 ms once the road outlines were added. Not measured on a phone.
 
 ## Not verified
 - The southern models were checked from the air only; causeway landing, the dragon's heading, Nam Giao's exact

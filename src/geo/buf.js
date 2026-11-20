@@ -11,7 +11,7 @@ export const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 
 // What a face is made of. The fragment shader paints the matching surface detail
 // (window bays, roof tiles, brick courses…) so geometry stays light.
-export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11 };
+export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11, LINE: 12 };
 
 // When a piece of the model exists: from era `since` through era `until` (0 Nguyễn, 1 French period, 2 today).
 // Encoded so that 0 means "always", which is also what geometry without the attribute reads as.
@@ -165,7 +165,14 @@ export class Buf {
 
   // Hip roof on an oriented rectangle. w = long side (along ang), d = short side.
   // flare > 0 gives the swept, upturned-eave profile of Vietnamese palace roofs.
-  hip(cx, cz, w, d, ang, y0, h, col, { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false } = {}) {
+  //
+  // With flare the roof is the curved Huế form: each slope is a concave profile (steep at the ridge, shallow at the
+  // eave), the eave line sags in the middle of each side and lifts toward the four corners (mái đao), and with hips
+  // the corner ridges end in upturned horns (đầu đao) and the main ridge in raised ends (kìm nóc).
+  // segs: rows from eave to ridge. Default 1 without flare (the plain pyramid-hip), 2 with flare (about the old
+  // cost; mapped houses use this), 3 for decorated palace roofs (flare + hips). Landmarks ask for 4.
+  hip(cx, cz, w, d, ang, y0, h, col, { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false, segs = null, horns = null } = {}) {
+    const wallW = w, wallD = d;
     w += over * 2; d += over * 2;
     const keep = this.kind;
     this.kind = glazed ? KIND.GLAZED : KIND.TILE;
@@ -173,58 +180,87 @@ export class Buf {
     const P = (u, v, y) => [cx + u * ux - v * uz, y, cz + u * uz + v * ux];
     const hw = w / 2, hd = d / 2;
     const rl = Math.max(0, hw - hd * 0.92); // half ridge length
-    const eave = [P(-hw, -hd, y0 + flare), P(hw, -hd, y0 + flare), P(hw, hd, y0 + flare), P(-hw, hd, y0 + flare)];
-    const ridge = [P(-rl, 0, y0 + h), P(rl, 0, y0 + h)];
+    const rows = Math.max(1, Math.round(segs ?? (flare > 0 && hips && ridgeCol ? 2 : 1)));
+    const cols = flare > 0 ? (rows <= 2 ? 2 : rows + 2) : 1; // columns along each eave (even, so one falls mid-side)
+    const gamma = flare > 0 && rows > 1 ? 1 + Math.min(0.8, flare * 1.25) : 1; // concavity of the slope
+    const lift = (s) => (flare > 0 ? Math.abs(2 * s - 1) ** (cols > 2 ? 2.2 : 1) : 0);
+    // plan corners (eave and ridge ends) of each side; side i runs from corner i to corner i+1
+    const E = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
+    const R = [[-rl, 0], [rl, 0]];
     const rOf = [0, 1, 1, 0];
     const hintOf = [P(0, -1, 0.9), P(1, 0, 0.9), P(0, 1, 0.9), P(-1, 0, 0.9)].map((p) => [p[0] - cx, 0.9, p[2] - cz]);
-    if (flare > 0) {
-      // lower, shallower skirt + steeper upper roof
-      const t = 0.5;
-      const midp = eave.map((e, i) => {
-        const r = ridge[rOf[i]];
-        return [e[0] + (r[0] - e[0]) * t, y0 + h * 0.3, e[2] + (r[2] - e[2]) * t];
-      });
-      // eave corners dip in the middle of each side: emulate by lifting corners only
-      const sideMid = (i, j) => [(eave[i][0] + eave[j][0]) / 2, y0, (eave[i][2] + eave[j][2]) / 2];
-      for (let i = 0; i < 4; i++) {
-        const j = (i + 1) % 4;
-        const m = sideMid(i, j);
-        const mm = [(midp[i][0] + midp[j][0]) / 2, midp[i][1], (midp[i][2] + midp[j][2]) / 2];
-        this.quad(eave[i], m, mm, midp[i], col, hintOf[i]);
-        this.quad(m, eave[j], midp[j], mm, col, hintOf[i]);
-        if (rOf[i] === rOf[j]) this.tri(midp[i], midp[j], ridge[rOf[i]], col, hintOf[i]);
-        else this.quad(midp[i], midp[j], ridge[rOf[j]], ridge[rOf[i]], col, hintOf[i]);
-      }
-    } else {
-      for (let i = 0; i < 4; i++) {
-        const j = (i + 1) % 4;
-        if (rOf[i] === rOf[j]) this.tri(eave[i], eave[j], ridge[rOf[i]], col, hintOf[i]);
-        else this.quad(eave[i], eave[j], ridge[rOf[j]], ridge[rOf[i]], col, hintOf[i]);
-      }
+    // a point on side i: s along the eave (0..1), t from eave (0) to ridge (1)
+    const at = (i, s, t) => {
+      const j = (i + 1) % 4, ei = E[i], ej = E[j], ri = R[rOf[i]], rj = R[rOf[j]];
+      const eu = ei[0] + (ej[0] - ei[0]) * s, ev = ei[1] + (ej[1] - ei[1]) * s;
+      const ru = ri[0] + (rj[0] - ri[0]) * s, rv = ri[1] + (rj[1] - ri[1]) * s;
+      const y = y0 + h * t ** gamma + flare * lift(s) * (1 - t) ** 2;
+      return P(eu + (ru - eu) * t, ev + (rv - ev) * t, y);
+    };
+    const eaveY = (s) => y0 + flare * lift(s);
+    for (let i = 0; i < 4; i++) {
+      const g = [];
+      for (let k = 0; k <= rows; k++) { const row = []; for (let c = 0; c <= cols; c++) row.push(at(i, c / cols, k / rows)); g.push(row); }
+      for (let k = 0; k < rows; k++) for (let c = 0; c < cols; c++) this.quad(g[k][c], g[k][c + 1], g[k + 1][c + 1], g[k + 1][c], col, hintOf[i]);
     }
     this.kind = KIND.PLAIN;
-    // eave thickness: a fascia band and soffit under the roof edge
+    const fc = fasciaCol || [col[0] * 0.7, col[1] * 0.7, col[2] * 0.7];
+    // eave thickness: a fascia band that follows the eave's curve, and under it the dark soffit running back to the
+    // wall line (an old flat lid when there is no overhang to speak of)
     if (fascia > 0) {
-      const fc = fasciaCol || [col[0] * 0.7, col[1] * 0.7, col[2] * 0.7];
-      const lo = eave.map((e) => [e[0], y0 - fascia, e[2]]);
-      const hi = eave.map((e) => [e[0], y0, e[2]]);
+      for (let i = 0; i < 4; i++) for (let c = 0; c < cols; c++) {
+        const a = at(i, c / cols, 0), b = at(i, (c + 1) / cols, 0);
+        this.quad([a[0], a[1] - fascia, a[2]], [b[0], b[1] - fascia, b[2]], b, a, fc, hintOf[i]);
+      }
+    }
+    if (flare > 0 && over > 0.3 && (fascia > 0 || over >= 0.8)) {
+      const sc = shade(fc, 0.45);
+      const iw = wallW / 2, id = wallD / 2;
+      const I = [[-iw, -id], [iw, -id], [iw, id], [-iw, id]];
       for (let i = 0; i < 4; i++) {
         const j = (i + 1) % 4;
-        this.quad(lo[i], lo[j], hi[j], hi[i], fc, hintOf[i]);
+        for (let c = 0; c < cols; c++) {
+          const s0 = c / cols, s1 = (c + 1) / cols;
+          const a = at(i, s0, 0), b = at(i, s1, 0);
+          const ia = P(I[i][0] + (I[j][0] - I[i][0]) * s0, I[i][1] + (I[j][1] - I[i][1]) * s0, y0);
+          const ib = P(I[i][0] + (I[j][0] - I[i][0]) * s1, I[i][1] + (I[j][1] - I[i][1]) * s1, y0);
+          this.quad([a[0], a[1] - fascia, a[2]], [b[0], b[1] - fascia, b[2]], ib, ia, sc, [0, -1, 0]);
+        }
       }
-      this.quad(lo[0], lo[1], lo[2], lo[3], [fc[0] * 0.8, fc[1] * 0.8, fc[2] * 0.8], [0, -1, 0]);
+    } else if (fascia > 0) {
+      const lo = E.map(([u, v]) => P(u, v, y0 - fascia));
+      this.quad(lo[0], lo[1], lo[2], lo[3], shade(fc, 0.8), [0, -1, 0]);
     }
     if (ridgeCol) {
       const t = Math.max(0.3, Math.min(0.6, d * 0.035));
-      if (rl > 0.3) this.beam([ridge[0][0], y0 + h + t * 0.3, ridge[0][2]], [ridge[1][0], y0 + h + t * 0.3, ridge[1][2]], t, t * 1.3, ridgeCol);
-      // the four hip ridges, ending in upturned tips at the corners
+      const r0 = P(R[0][0], 0, y0 + h + t * 0.3), r1 = P(R[1][0], 0, y0 + h + t * 0.3);
+      if (rl > 0.3) {
+        this.beam(r0, r1, t, t * 1.3, ridgeCol);
+        // kìm nóc: the ridge ends rise a little and curl outward
+        if (rows >= 3) for (const [p, sg] of [[r0, -1], [r1, 1]]) {
+          const q = [p[0] + ux * sg * t * 1.3, p[1] + t * 0.75, p[2] + uz * sg * t * 1.3];
+          this.beam([p[0] - ux * sg * t * 0.4, p[1], p[2] - uz * sg * t * 0.4], q, t * 0.9, t * 1.1, ridgeCol);
+        }
+      }
+      // the four hip ridges follow the curve of the roof and end in upturned horns at the corners
       if (hips) for (let i = 0; i < 4; i++) {
-        const r = ridge[rOf[i]], e = eave[i];
-        const m = [e[0] + (r[0] - e[0]) * 0.5, y0 + h * (flare > 0 ? 0.3 : 0.5) + t * 0.4, e[2] + (r[2] - e[2]) * 0.5];
-        this.beam([r[0], r[1] + t * 0.3, r[2]], m, t * 0.8, t, ridgeCol);
-        this.beam(m, [e[0], e[1] + t * 0.5, e[2]], t * 0.8, t, ridgeCol);
-        const ox = e[0] - cx, oz = e[2] - cz, ol = Math.hypot(ox, oz) || 1;
-        this.beam([e[0], e[1] + t * 0.5, e[2]], [e[0] + (ox / ol) * t * 2.2, e[1] + t * 2.4, e[2] + (oz / ol) * t * 2.2], t * 0.6, t * 0.7, ridgeCol);
+        let prev = null;
+        for (let k = rows; k >= 0; k--) {
+          const p = at(i, 0, k / rows);
+          const q = [p[0], p[1] + t * (k === rows ? 0.3 : 0.45), p[2]];
+          if (prev) this.beam(prev, q, t * 0.8, t, ridgeCol);
+          prev = q;
+        }
+        const e = prev, ox = e[0] - cx, oz = e[2] - cz, ol = Math.hypot(ox, oz) || 1, dx = ox / ol, dz = oz / ol;
+        if (horns ?? (flare > 0 && rows >= 3)) {
+          // đầu đao: a two-piece horn sweeping out along the diagonal and curling up
+          const m = [e[0] + dx * t * 1.6, e[1] + t * 0.8, e[2] + dz * t * 1.6];
+          const tip = [m[0] + dx * t * 1.1, m[1] + t * 1.9, m[2] + dz * t * 1.1];
+          this.beam(e, m, t * 0.7, t * 0.85, ridgeCol);
+          this.beam(m, tip, t * 0.5, t * 0.6, ridgeCol);
+        } else {
+          this.beam(e, [e[0] + dx * t * 2.2, e[1] + t * 1.9, e[2] + dz * t * 2.2], t * 0.6, t * 0.7, ridgeCol);
+        }
       }
     }
     this.kind = keep;

@@ -11,10 +11,44 @@ export const shared = {
   uSunDir: { value: new THREE.Vector3(0.7, 0.6, 0.3) },
   uSunI: { value: 2.5 },
   uEra: { value: 2 }, // 0 Nguyễn, 1 French period, 2 today (src/era.js)
+  uLook: { value: 0 }, // 0 realistic (reflections, relief, rooms behind glass), 1 illustrated (flat washes; the ink is drawn in post.js)
 };
 
 // Hides a vertex whose face does not exist in the current era (see span() in buf.js).
 const ERA_CLIP = `{ float sSince = floor( aSpan * 0.25 + 0.01 ); float sGone = aSpan - sSince * 4.0; if ( uEra < sSince - 0.5 || uEra > 2.5 - sGone ) gl_Position = vec4( 0.0, 0.0, 2.0, 1.0 ); }`;
+
+// One sun, more than one shadow map: light 0 lights the scene and carries the wide map; a second shadow-casting
+// directional light (zero intensity, see src/env/csm.js) is a tight map round the point of attention, used wherever
+// it reaches and blended into the wide one at its edge.
+const lfb = THREE.ShaderChunk.lights_fragment_begin;
+const lfbA = lfb.indexOf('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )'), lfbB = lfb.indexOf('#if ( NUM_RECT_AREA_LIGHTS > 0 )');
+const hueShadowOf = (i) => `getShadow( directionalShadowMap[ ${i} ], directionalLightShadows[ ${i} ].shadowMapSize, directionalLightShadows[ ${i} ].shadowIntensity, directionalLightShadows[ ${i} ].shadowBias, directionalLightShadows[ ${i} ].shadowRadius, vDirectionalShadowCoord[ ${i} ] )`;
+const LIGHTS = lfbA < 0 || lfbB < lfbA ? null : lfb.slice(0, lfbA) + /* glsl */ `
+#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )
+  getDirectionalLightInfo( directionalLights[ 0 ], directLight );
+  #if defined( USE_SHADOWMAP ) && NUM_DIR_LIGHT_SHADOWS > 0
+  if ( receiveShadow ) {
+    float hueSh = 0.0, hueRest = 1.0;
+    #if NUM_DIR_LIGHT_SHADOWS > 1
+    {
+      vec3 sc = vDirectionalShadowCoord[ 1 ].xyz / vDirectionalShadowCoord[ 1 ].w;
+      vec2 se = abs( sc.xy - 0.5 ) * 2.0;
+      float sw = ( 1.0 - smoothstep( 0.8, 0.96, max( se.x, se.y ) ) ) * step( sc.z, 1.0 ) * step( 0.0, sc.z );
+      if ( sw > 0.0 ) { hueSh += sw * ${hueShadowOf(1)}; hueRest -= sw; }
+    }
+    #endif
+    if ( hueRest > 0.0 ) hueSh += hueRest * ${hueShadowOf(0)};
+    #ifdef HUE_FOLIAGE
+    hueSh = mix( 1.0, hueSh, 0.5 ); // leaves pass light on: the shade inside a crown is never full
+    #endif
+    directLight.color *= hueSh;
+  }
+  #endif
+  RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );
+#endif
+` + lfb.slice(lfbB);
+if (!LIGHTS) console.warn('[hue] three.js light loop changed; shadow cascades are off');
+const cascades = (sh) => { if (LIGHTS) sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_begin>', LIGHTS); };
 
 const COMMON = /* glsl */ `
 varying vec3 vWPos;
@@ -27,10 +61,34 @@ uniform float uLandY;
 uniform float uWet;
 uniform vec3 uSunDir;
 uniform float uSunI;
+uniform float uLook;
 float hueHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
-float hueNoise( vec2 p ) {
+float hueNoiseRaw( vec2 p ) {
   vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
   return mix( mix( hueHash( i ), hueHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( hueHash( i + vec2( 0.0, 1.0 ) ), hueHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
+}
+// the drawn look lays flat washes: weathering and mottling settle most of the way to their middle tone
+float hueNoise( vec2 p ) { return mix( hueNoiseRaw( p ), 0.5, uLook * 0.78 ); }
+// The room behind a pane (interior mapping): p is the place in the bay (0..1 across and up), d the sight line as
+// (along the wall, up, into the wall), size the bay in metres. The ray is run to the back wall, a side wall, the floor
+// or the ceiling of a box as wide and tall as the bay, so the room shifts behind the glass as the camera moves.
+vec3 hueRoom( vec2 p, vec3 d, vec2 size, float depth, float seed ) {
+  vec3 dd = vec3( d.x / size.x, d.y / size.y, max( d.z, 0.02 ) / depth );
+  dd.x = abs( dd.x ) < 1e-4 ? 1e-4 : dd.x; dd.y = abs( dd.y ) < 1e-4 ? 1e-4 : dd.y;
+  vec3 t3 = vec3( ( step( 0.0, dd.x ) - p.x ) / dd.x, ( step( 0.0, dd.y ) - p.y ) / dd.y, 1.0 / dd.z );
+  float t = min( t3.x, min( t3.y, t3.z ) );
+  vec3 h = vec3( p, 0.0 ) + dd * t;
+  vec3 wall = seed < 0.4 ? vec3( 0.66, 0.6, 0.48 ) : seed < 0.75 ? vec3( 0.56, 0.62, 0.6 ) : vec3( 0.7, 0.62, 0.56 );
+  vec3 c;
+  if ( t == t3.z ) {
+    // back wall: a door or a cabinet, and a picture
+    c = wall * 0.82;
+    float door = step( abs( h.x - 0.3 - 0.4 * fract( seed * 7.3 ) ), 0.13 ) * step( h.y, 0.62 );
+    c = mix( c, vec3( 0.24, 0.16, 0.11 ), door * 0.85 );
+    c = mix( c, vec3( 0.75, 0.7, 0.6 ), step( abs( h.x - 0.72 + 0.4 * fract( seed * 3.1 ) ), 0.07 ) * step( abs( h.y - 0.66 ), 0.07 ) * ( 1.0 - door ) );
+  } else if ( t == t3.y ) c = dd.y > 0.0 ? vec3( 0.86, 0.84, 0.78 ) : vec3( 0.34, 0.25, 0.18 ) * ( 0.85 + 0.3 * step( 0.5, fract( h.x * 7.0 ) ) );
+  else c = wall * 0.62;
+  return c * mix( 1.0, 0.42, clamp( h.z, 0.0, 1.0 ) );
 }
 `;
 
@@ -49,6 +107,11 @@ float hueGlass = 0.0;    // exposed glass, for sun glints
 float hueGlaze = 0.0;    // glazed tile, for sheen
 vec3 hueRib = hueN;      // tile-ribbed normal
 vec2 hueCell = vec2( 0.0 );
+float hueRough = 0.86;   // per-kind roughness and metalness, handed to the PBR lighting
+float hueMetal = 0.0;
+float hueHgt = 0.0;      // relief in metres (joints, reveals); turned into a normal at the end
+vec3 hueNp = hueN;       // the normal after relief
+vec3 hueRoomC = vec3( 1.0 ); // the room seen through a lit window
 
 #ifdef HUE_FOLIAGE
   // leaf clumps: two scales of mottling, cooler in the hollows
@@ -59,9 +122,12 @@ vec2 hueCell = vec2( 0.0 );
   diffuseColor.rgb *= 0.6 + 0.78 * leaf;
   // sunlit clumps go warmer and yellower, hollows cooler
   diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.8, 0.94, 1.1 ), diffuseColor.rgb * vec3( 1.1, 1.06, 0.78 ), smoothstep( 0.35, 0.75, leaf ) );
+  // drawn: one clear wash per crown
+  if ( uLook > 0.5 ) diffuseColor.rgb = mix( diffuseColor.rgb, vColor.rgb * vColor.rgb * 1.5, 0.75 );
+  hueRough = 0.8;
 #else
 
-if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind > 9.5 ) {
+if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind > 9.5 && vKind < 11.5 ) ) {
   // ---------------- facade (kind 8: institutions — the same bays on every floor, no shopfronts) ----------------
   // kind 10: Indochine — arched openings, louvred shutters, white trim. kind 11: modern — ribbon glazing, balconies
   bool colonial = vKind > 9.5 && vKind < 10.5;
@@ -153,6 +219,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
     col = mix( col, inside, open * step( 0.22, bay ) );
     col = mix( col, awnCol, awn * step( 0.4, bay ) );
     hueLit = open * step( 0.22, bay ) * step( seed, 0.36 ) * 0.7;
+    hueHgt -= 0.2 * open * step( 0.22, bay ) * detail;
   } else {
     float inX = smoothstep( 0.23, 0.26, f.x ) * smoothstep( 0.77, 0.74, f.x );
     float inY = smoothstep( 0.3, 0.33, f.y ) * smoothstep( 0.8, 0.77, f.y );
@@ -184,6 +251,21 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   float mould = hueNoise( vec2( uv.x * 1.3 + 5.0, uv.y * 0.35 ) ) * hueNoise( vec2( uv.x * 5.7, uv.y * 1.1 + 3.0 ) );
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.7, 0.56 ), clamp( damp * 0.75 + smoothstep( 0.22, 0.5, mould ) * 0.4, 0.0, 0.8 ) * hueWall * ( modern ? 0.3 : 1.0 ) );
   hueLit = mix( 0.02 + 0.045 * hood, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
+  hueRough = modern ? 0.8 : 0.9;
+  // plaster is never flat; openings sit back from the wall face
+  hueHgt = ( 0.006 * hueNoise( uv * vec2( 31.0, 37.0 ) ) + 0.012 * hueNoise( uv * vec2( 5.0, 7.0 ) ) ) * detail - 0.07 * hueGlass;
+  float roomK = hueGlass * ( 1.0 - smoothstep( 0.04, 0.22, fw ) ) * ( 1.0 - uLook );
+  if ( roomK > 0.01 ) {
+    vec3 rv = normalize( vWPos - cameraPosition );
+    vec3 room = hueRoom( f, vec3( dot( rv.xz, t ), rv.y, -dot( rv, hueN ) ), vec2( 2.9, 3.4 ), cell.y < 0.5 ? 6.0 : 4.2, hueHash( cell + side + 1.7 ) );
+    // a curtain or blind drawn part of the way on some windows
+    float blind = step( 0.55, hueHash( cell + side + 5.3 ) ) * step( 0.78 - 0.3 * hueHash( cell + 8.1 ), f.y ) * step( 0.5, cell.y );
+    room = mix( room, vec3( 0.8, 0.76, 0.66 ), blind * 0.9 );
+    diffuseColor.rgb = mix( diffuseColor.rgb, room * 0.42 * ( 0.75 + 0.25 * smoothstep( 0.0, 0.02, abs( f.x - 0.5 ) ) ), roomK * 0.86 );
+    hueRoomC = mix( vec3( 1.0 ), room * 1.7, roomK );
+  }
+  hueRough = mix( hueRough, 0.07, hueGlass * ( 1.0 - uLook ) );
+  hueMetal = 0.1 * hueGlass * ( 1.0 - uLook );
 } else if ( ( vKind > 1.5 && vKind < 2.5 ) || ( vKind > 8.5 && vKind < 9.5 ) ) {
   // ---------------- roof tiles (kind 9: glazed imperial tiles, which catch the sun) ----------------
   vec3 e = hueN.y > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
@@ -195,8 +277,13 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   float course = smoothstep( 0.0, 0.16, fract( uv.y ) );
   float jit = hueHash( floor( uv ) );
   float shade = ( 0.5 + 0.62 * ridge ) * ( 0.66 + 0.34 * course ) * ( 0.88 + 0.24 * jit );
+  // drawn: a flat wash hatched down the slope, the pen lifting here and there
+  float hatch = ( 1.0 - smoothstep( 0.0, 0.2, abs( sin( 3.14159 * uv.x ) ) ) ) * step( 0.2, hueHash( floor( vec2( uv.x, uv.y * 0.4 ) ) ) );
+  shade = mix( shade, 1.08 - 0.48 * hatch, uLook );
   // age: darker patches, lighter where rain has washed the ridges
   hueRib = normalize( hueN + e * cos( 3.14159 * uv.x ) * 0.55 * detail );
+  // each course laps the one below: the lip tips the tile a little down the slope
+  hueNp = normalize( hueRib - s * ( 1.0 - course ) * 0.5 * detail );
   hueGlaze = vKind > 8.5 ? 1.0 : 0.1;
   float age = hueNoise( vWPos.xz * 0.45 ) * 0.6 + hueNoise( vWPos.xz * 1.7 ) * 0.4;
   diffuseColor.rgb *= mix( 0.9, shade, detail ) * ( 0.78 + 0.36 * age );
@@ -205,6 +292,9 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.56, 0.66, 0.5 ), smoothstep( 0.42, 0.78, moss ) * 0.6 );
   // soot-dark courses near the eaves, where old tiles hold water longest
   diffuseColor.rgb *= 1.0 - 0.18 * smoothstep( 0.6, 0.95, hueNoise( vWPos.xz * 2.7 ) );
+  // glazed imperial tile keeps a ceramic sheen where moss has not taken it; clay tile is matt
+  hueRough = vKind > 8.5 ? mix( 0.27, 0.6, smoothstep( 0.42, 0.78, moss ) ) : mix( 0.66, 0.9, age );
+  hueMetal = vKind > 8.5 ? 0.04 : 0.0;
 } else if ( vKind > 3.5 && vKind < 4.5 ) {
   // ---------------- brick and stone ----------------
   diffuseColor.rgb *= mix( 1.0, mix( 0.76, 1.0, smoothstep( 0.0, 5.0, hueH ) ), hueWall );
@@ -223,14 +313,25 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   float moss = hueNoise( vec2( along * 0.12, vWPos.y * 0.45 ) ) * 0.7 + hueNoise( vec2( along * 0.5, vWPos.y * 1.3 ) ) * 0.3;
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.72, 0.98, 0.62 ), smoothstep( 0.45, 0.85, moss ) * 0.55 * hueWall );
   diffuseColor.rgb *= 0.9 + 0.2 * hueNoise( vec2( along * 0.05, vWPos.y * 0.2 ) + 9.0 );
+  hueRough = 0.93;
+  hueHgt = ( -0.03 * joint + 0.012 * jit + 0.008 * hueNoise( vec2( along, vWPos.y ) * 9.0 ) ) * detail * detail;
 } else if ( vKind > 4.5 && vKind < 5.5 ) {
   // ---------------- planted ground ----------------
   float g = hueNoise( vWPos.xz * 0.11 ) * 0.6 + hueNoise( vWPos.xz * 0.9 ) * 0.25 + hueNoise( vWPos.xz * 5.0 ) * 0.15;
   diffuseColor.rgb *= 0.82 + 0.34 * g;
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 1.1, 1.04, 0.8 ), smoothstep( 0.55, 0.9, g ) * 0.4 );
+  hueRough = 0.96;
+  if ( uLook > 0.5 ) {
+    // drawn grass: small pen marks scattered over the wash
+    vec2 gc = vWPos.xz / 2.3, gi = floor( gc );
+    vec2 gf = fract( gc ) - 0.5 + ( vec2( hueHash( gi + 3.1 ), hueHash( gi + 7.7 ) ) - 0.5 ) * 0.5;
+    float gtick = ( 1.0 - smoothstep( 0.02, 0.055, abs( gf.y + 0.08 - abs( gf.x ) * 1.4 ) ) ) * step( abs( gf.x ), 0.13 ) * step( 0.6, hueHash( gi ) ) * ( 1.0 - smoothstep( 0.12, 0.45, fwidth( gc.x ) + fwidth( gc.y ) ) );
+    diffuseColor.rgb *= 1.0 - 0.34 * gtick;
+  }
 } else if ( vKind > 5.5 && vKind < 6.5 ) {
   // ---------------- paving ----------------
   diffuseColor.rgb *= 0.93 + 0.1 * hueNoise( vWPos.xz * 0.7 ) + 0.04 * hueNoise( vWPos.xz * 7.0 );
+  hueRough = 0.84;
   #ifndef HUE_OVERLAY
   if ( hueH > 0.3 && hueN.y > 0.7 ) {
     // terraces and platforms are laid in flagstones (đá thanh, gạch Bát Tràng): staggered joints, each stone its own tone
@@ -241,6 +342,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
     float near = 1.0 - smoothstep( 0.06, 0.26, pw );
     diffuseColor.rgb *= 1.0 - 0.2 * smoothstep( 0.45, 0.5, max( pf.x, pf.y ) ) * near;
     diffuseColor.rgb *= 1.0 + ( hueHash( floor( pv ) ) - 0.5 ) * 0.1 * near;
+    hueHgt = -0.02 * smoothstep( 0.45, 0.5, max( pf.x, pf.y ) ) * near * near;
   }
   #endif
 } else if ( vKind > 6.5 && vKind < 7.5 ) {
@@ -258,23 +360,45 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   col = mix( col, base * 1.25 + vec3( 0.06, 0.03, 0.0 ), column );
   diffuseColor.rgb = mix( base * 0.82, col, detail );
   hueCell = vec2( floor( u ), 0.0 );
+  hueRough = mix( 0.48, 0.74, panel ); // lacquer on the columns, dull panels
+  hueHgt = ( 0.06 * column - 0.03 * panel ) * detail;
   hueLit = panel * 0.16 * detail * step( 0.3, hueH ) * step( hueHash( hueCell + 2.3 ), 0.38 ); // a lamp behind some of the doors, not all
 } else if ( vKind > 2.5 && vKind < 3.5 ) {
   // ---------------- flat roofs ----------------
   float c = hueNoise( vWPos.xz * 0.5 ) * 0.6 + hueNoise( vWPos.xz * 3.0 ) * 0.4;
   diffuseColor.rgb *= 0.84 + 0.26 * c;
+  hueRough = 0.9;
+} else if ( vKind > 11.5 ) {
+  // ---------------- a line laid on the ground (kerbs, road edges): a stone joint, or the pen in the drawn look ----------------
+  // once a pixel covers more than the line is wide it would only sparkle, so it thins out into what lies under it
+  float lpx = fwidth( vWPos.x ) + fwidth( vWPos.z );
+  diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.075, 0.055, 0.05 ), uLook * 0.8 * ( 1.0 - smoothstep( 0.5, 2.2, lpx ) ) );
 } else {
   diffuseColor.rgb *= mix( 1.0, mix( 0.78, 1.0, smoothstep( 0.0, 5.0, hueH ) ), hueWall * step( 0.0, hueH ) );
+}
+{
+  // relief to normal: the height's screen-space slope, laid back into the surface
+  vec3 hdx = dFdx( vWPos ), hdy = dFdy( vWPos );
+  vec3 hr1 = cross( hdy, hueN ), hr2 = cross( hueN, hdx );
+  float hdet = dot( hdx, hr1 );
+  vec3 hgrad = sign( hdet ) * ( dFdx( hueHgt ) * hr1 + dFdy( hueHgt ) * hr2 );
+  hgrad *= min( 1.0, 1.4 * abs( hdet ) / ( length( hgrad ) + 1e-9 ) );
+  hueNp = normalize( abs( hdet ) * hueNp - hgrad + 1e-9 * hueN );
 }
 #endif
 // rain darkens what it soaks: ground and roofs most, walls a little
 diffuseColor.rgb *= 1.0 - uWet * mix( 0.26, 0.1, hueWall );
+// and leaves a film that mirrors the sky, most where the water pools
+float huePuddle = smoothstep( 0.35, 0.72, hueNoise( vWPos.xz * 0.18 ) * 0.65 + hueNoise( vWPos.xz * 0.85 ) * 0.35 );
+float hueWetSurf = smoothstep( 0.25, 0.85, hueN.y ) * mix( 0.35, 1.0, huePuddle );
+hueRough = mix( hueRough, 0.1, hueWetSurf * uWet * 0.85 );
+if ( uLook > 0.5 ) { hueRough = 1.0; hueMetal = 0.0; hueNp = hueN; }
 `;
 
-// Lambert material for baked vertex-colour geometry (colours are stored sqrt-encoded
+// PBR material for baked vertex-colour geometry (colours are stored sqrt-encoded
 // in 8 bits, see Buf.tri) with the procedural surface detail above.
 export function cityMaterial({ windows = false, foliage = false, styled = false, overlay = false, ...opts } = {}) {
-  const m = new THREE.MeshLambertMaterial({ vertexColors: true, ...opts });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0, ...opts });
   m.defines = { ...(m.defines || {}) };
   if (windows) m.defines.HUE_WINDOWS = '';
   if (foliage) m.defines.HUE_FOLIAGE = '';
@@ -289,6 +413,8 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     sh.uniforms.uEra = shared.uEra;
     sh.uniforms.uTime = shared.uTime;
     sh.uniforms.uWind = shared.uWind;
+    sh.uniforms.uLook = shared.uLook;
+    cascades(sh);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\nattribute float aSpan;\nuniform float uEra;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
       .replace(
@@ -334,6 +460,11 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\n' + COMMON)
       .replace('#include <color_fragment>', SURFACE)
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = hueRough;')
+      .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = hueMetal;')
+      .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n#ifndef HUE_FOLIAGE\nnormal = normalize( normal + mat3( viewMatrix ) * ( hueNp - hueN ) );\n#endif')
+      // drawn look: leaves mark themselves in the alpha channel, so post.js can outline a crown as one shape
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 ) gl_FragColor.a = 0.0;\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
@@ -341,18 +472,21 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         {
           // sun on glass and on glazed tile: small, sharp highlights that move as the camera does
           vec3 hueV = normalize( cameraPosition - vWPos );
+          #ifndef USE_ENVMAP
           float gl = pow( max( dot( reflect( -hueV, hueN ), uSunDir ), 0.0 ), 70.0 ) * hueGlass * 1.4;
           float sh = pow( max( dot( reflect( -hueV, hueRib ), uSunDir ), 0.0 ), 16.0 ) * hueGlaze * 0.55;
           totalEmissiveRadiance += vec3( 1.0, 0.94, 0.82 ) * ( gl + sh ) * uSunI * 0.4 * ( 1.0 - uWet );
+          #endif
           // mưa Huế: wet streets, roofs and terraces pick up the sky at a low angle, most where the water pools;
           // after dark the same film carries the lamps
           if ( uWet > 0.01 ) {
             float ndv = max( dot( hueN, hueV ), 0.0 );
             float fres = pow( 1.0 - ndv, 3.5 );
-            float puddles = smoothstep( 0.35, 0.72, hueNoise( vWPos.xz * 0.18 ) * 0.65 + hueNoise( vWPos.xz * 0.85 ) * 0.35 );
-            float wetSurf = smoothstep( 0.25, 0.85, hueN.y ) * mix( 0.35, 1.0, puddles );
+            float puddles = huePuddle, wetSurf = hueWetSurf;
+            #ifndef USE_ENVMAP
             vec3 skyTint = mix( vec3( 0.52, 0.58, 0.66 ), vec3( 0.32, 0.28, 0.52 ), uGlow );
             totalEmissiveRadiance += skyTint * fres * wetSurf * uWet * 0.42;
+            #endif
             totalEmissiveRadiance += vec3( 1.0, 0.72, 0.38 ) * fres * wetSurf * uWet * uGlow * puddles * 0.22;
           }
         }
@@ -362,6 +496,8 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           vec3 hueV = normalize( cameraPosition - vWPos );
           float back = pow( max( dot( -hueV, uSunDir ), 0.0 ), 3.5 ) * smoothstep( -0.1, 0.6, normalize( vWNrm ).y );
           totalEmissiveRadiance += diffuseColor.rgb * vec3( 1.25, 1.15, 0.65 ) * back * uSunI * 0.16 * ( 1.0 - uWet ) * ( 1.0 - uGlow );
+          // and scatter it about inside the crown, so the shaded side of a tree is green, not black
+          totalEmissiveRadiance += diffuseColor.rgb * vec3( 1.0, 0.97, 0.8 ) * uSunI * 0.1;
         }
         #endif
         #ifdef HUE_WINDOWS
@@ -370,7 +506,7 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           float tone = hueHash( hueCell + 9.1 );
           vec3 lamp = tone < 0.72 ? mix( vec3( 1.0, 0.56, 0.24 ), vec3( 1.0, 0.8, 0.5 ), tone / 0.72 ) : tone < 0.93 ? vec3( 0.76, 0.95, 0.86 ) : vec3( 0.5, 0.66, 1.0 );
           if ( uEra < 1.5 ) lamp = mix( vec3( 1.0, 0.5, 0.2 ), vec3( 1.0, 0.72, 0.4 ), tone ); // oil and early electric light
-          totalEmissiveRadiance += lamp * hueLit * uGlow * 1.05;
+          totalEmissiveRadiance += lamp * hueLit * uGlow * 1.05 * hueRoomC;
         }
         #endif`,
       );
@@ -383,12 +519,14 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
 // bank: the cut faces of the slab along the river and the ponds, drawn as old embankment — dark and wet at the
 // waterline, stone courses above, moss hanging over from the grass at the rim.
 export function landMaterial(color, turf = false, bank = false) {
-  const m = new THREE.MeshLambertMaterial({ color });
-  m.defines = {};
+  const m = new THREE.MeshStandardMaterial({ color, roughness: 0.95, metalness: 0 });
+  m.defines = { ...( m.defines || {} ) };
   if (turf) m.defines.HUE_TURF = '';
   if (bank) m.defines.HUE_BANK = '';
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uWet = shared.uWet;
+    sh.uniforms.uLook = shared.uLook;
+    cascades(sh);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
       .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
@@ -396,20 +534,30 @@ export function landMaterial(color, turf = false, bank = false) {
       .replace(
         '#include <common>',
         `#include <common>
-        varying vec3 vWPos; uniform float uWet;
+        varying vec3 vWPos; uniform float uWet; uniform float uLook;
         float lHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
-        float lNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
-          return mix( mix( lHash( i ), lHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHash( i + vec2( 0.0, 1.0 ) ), lHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ); }`,
+        float lNoiseRaw( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
+          return ( mix( mix( lHash( i ), lHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHash( i + vec2( 0.0, 1.0 ) ), lHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ) ); }
+        // the drawn look lays flat washes: tonal drift settles most of the way to its middle
+        float lNoise( vec2 p ) { return mix( lNoiseRaw( p ), 0.5, uLook * 0.78 ); }`,
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
         // gardens and bare earth: Huế's plots are more green than paved
         float lg = lNoise( vWPos.xz * 0.012 ) * 0.5 + lNoise( vWPos.xz * 0.09 ) * 0.3 + lNoise( vWPos.xz * 0.9 ) * 0.2;
-        float grass = smoothstep( 0.38, 0.62, lNoise( vWPos.xz * 0.035 + 4.0 ) * 0.6 + lNoise( vWPos.xz * 0.21 ) * 0.4 );
+        float grassN = lNoiseRaw( vWPos.xz * 0.035 + 4.0 ) * 0.6 + lNoiseRaw( vWPos.xz * 0.21 ) * 0.4;
+        // drawn: grass and bare earth are two washes with an edge between them, not a gradient
+        float grass = mix( smoothstep( 0.38, 0.62, grassN ), smoothstep( 0.485, 0.515, grassN ), uLook );
         vec3 turf = vec3( 0.37, 0.5, 0.24 ) * ( 0.8 + 0.4 * lNoise( vWPos.xz * 1.3 ) );
         #ifdef HUE_TURF
           diffuseColor.rgb = mix( diffuseColor.rgb, turf, grass * 0.62 );
+          if ( uLook > 0.5 ) {
+            vec2 gc = vWPos.xz / 2.3, gi = floor( gc );
+            vec2 gf = fract( gc ) - 0.5 + ( vec2( lHash( gi + 3.1 ), lHash( gi + 7.7 ) ) - 0.5 ) * 0.5;
+            float gtick = ( 1.0 - smoothstep( 0.02, 0.055, abs( gf.y + 0.08 - abs( gf.x ) * 1.4 ) ) ) * step( abs( gf.x ), 0.13 ) * step( 0.6, lHash( gi ) ) * ( 1.0 - smoothstep( 0.12, 0.45, fwidth( gc.x ) + fwidth( gc.y ) ) );
+            diffuseColor.rgb *= 1.0 - 0.3 * gtick * grass;
+          }
         #endif
         diffuseColor.rgb *= 0.86 + 0.26 * lg;
         #ifdef HUE_BANK
@@ -430,16 +578,19 @@ export function landMaterial(color, turf = false, bank = false) {
           diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.36, 0.48, 0.26 ) * ( 0.8 + 0.4 * lNoise( vec2( bu * 1.1, by * 2.0 ) ) ), rim * 0.78 );
         }
         #endif
-        diffuseColor.rgb *= 1.0 - uWet * 0.26;`,
+        diffuseColor.rgb *= 1.0 - uWet * 0.26;
+        float lpud = smoothstep( 0.35, 0.72, lNoise( vWPos.xz * 0.18 ) * 0.65 + lNoise( vWPos.xz * 0.85 ) * 0.35 );`,
       )
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = uLook > 0.5 ? 1.0 : mix( roughnessFactor, 0.1, lpud * uWet * 0.85 );')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
         // rain pools on open ground and catches the sky at a low angle
         if ( uWet > 0.01 ) {
+          #ifndef USE_ENVMAP
           float lndv = abs( dot( normal, normalize( vViewPosition ) ) );
-          float lpud = smoothstep( 0.35, 0.72, lNoise( vWPos.xz * 0.18 ) * 0.65 + lNoise( vWPos.xz * 0.85 ) * 0.35 );
           totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.36;
+          #endif
         }`,
       );
   };

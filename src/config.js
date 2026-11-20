@@ -67,36 +67,38 @@ export const PAL = {
 };
 
 // Lighting / atmosphere presets. SUN_DIR points from the scene toward the light.
+// hemiI is the hemisphere fill on its own (phones); where the sky is an environment light (src/env/ibl.js) the fill
+// drops to hemiEnv and the sky adds envI, so shade is modelled by the sky rather than lifted flat.
 export const MOODS = {
   // Morning: soft humid Huế dawn light from the east, emerald-jade Perfume River, warm mist on the hills.
   day: {
     skyTop: '#9cb3cb', skyHorizon: '#f1e8d9', skyBelow: '#c8c3ba', sunGlow: '#ffebd0', fog: '#eae3d6', fogDensity: 0.000048,
     sunColor: '#ffeed2', sunI: 2.7, hemiSky: '#dce6f4', hemiGround: '#b6a389', hemiI: 1.48, shadow: 0.64,
-    waterDeep: '#195f58', waterShallow: '#549b87', glow: 0, rain: 0, exposure: 1.02, sunDisk: 1,
+    waterDeep: '#195f58', waterShallow: '#549b87', glow: 0, rain: 0, hemiEnv: 0.5, envI: 0.85, exposure: 1.02, sunDisk: 1,
   },
   // Golden hour, the opening mood: a low amber sun up-river and a rose-violet haze (tím Huế) in the shade and the
   // distance; the Hương carries the light through the spans of Trường Tiền.
   afternoon: {
     skyTop: '#8a9aca', skyHorizon: '#eccbac', skyBelow: '#cfb6a8', sunGlow: '#ffc47c', fog: '#e6d6da', fogDensity: 0.00012,
     sunColor: '#ffd29d', sunI: 2.65, hemiSky: '#d8c7e8', hemiGround: '#9a8672', hemiI: 1.52, shadow: 0.72,
-    waterDeep: '#2e5b5e', waterShallow: '#4e7d78', glow: 0, rain: 0, exposure: 1.04, sunDisk: 1,
+    waterDeep: '#2e5b5e', waterShallow: '#4e7d78', glow: 0, rain: 0, hemiEnv: 0.5, envI: 0.95, exposure: 1.04, sunDisk: 1,
   },
   // Lights on (Lên đèn): imperial Tím Huế twilight — deep indigo-violet river and plum-rose horizon glow.
   night: {
     skyTop: '#141536', skyHorizon: '#7c548c', skyBelow: '#282144', sunGlow: '#dc8094', fog: '#48386a', fogDensity: 0.000115,
     sunColor: '#abaee8', sunI: 0.78, hemiSky: '#7d82c6', hemiGround: '#433554', hemiI: 1.32, shadow: 0.5,
-    waterDeep: '#141a43', waterShallow: '#333772', glow: 1, rain: 0, exposure: 1.06, sunDisk: 0.25,
+    waterDeep: '#141a43', waterShallow: '#333772', glow: 1, rain: 0, hemiEnv: 0.95, envI: 0.6, exposure: 1.06, sunDisk: 0.25,
   },
   // Mưa rào: the light goes slate-violet, the far bank sinks into the rain
   rain: {
     skyTop: '#7f8799', skyHorizon: '#b3b8c4', skyBelow: '#959cab', sunGlow: '#b9bcc6', fog: '#8e95a5', fogDensity: 0.00046,
     sunColor: '#b6c2d9', sunI: 0.8, hemiSky: '#8a94ad', hemiGround: '#4c5057', hemiI: 1.36, shadow: 0.22,
-    waterDeep: '#3f5560', waterShallow: '#6f8590', glow: 0.8, rain: 1, exposure: 1.0, sunDisk: 0,
+    waterDeep: '#3f5560', waterShallow: '#6f8590', glow: 0.8, rain: 1, hemiEnv: 0.55, envI: 0.75, exposure: 1.0, sunDisk: 0,
   },
   nightRain: {
     skyTop: '#171836', skyHorizon: '#483f6c', skyBelow: '#282645', sunGlow: '#5c5080', fog: '#3a345e', fogDensity: 0.00038,
     sunColor: '#8f9ad0', sunI: 0.5, hemiSky: '#747eb8', hemiGround: '#403654', hemiI: 1.34, shadow: 0.2,
-    waterDeep: '#161b41', waterShallow: '#2e3467', glow: 1, rain: 1, exposure: 1.05, sunDisk: 0,
+    waterDeep: '#161b41', waterShallow: '#2e3467', glow: 1, rain: 1, hemiEnv: 0.95, envI: 0.6, exposure: 1.05, sunDisk: 0,
   },
 };
 export const SUN_DIRS = { day: [0.74, 0.6, 0.3], afternoon: [-0.667, 0.375, 0.64], night: [-0.667, 0.375, 0.64] };

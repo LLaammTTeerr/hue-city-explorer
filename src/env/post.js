@@ -91,12 +91,14 @@ class OcclusionPass extends Pass {
         tDiffuse: { value: null }, tAO: { value: null }, tDepth: { value: null }, uTint: { value: new THREE.Color(0.34, 0.31, 0.44) }, uVignette: { value: 0.15 },
         uInvProj: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() }, uCamPos: { value: new THREE.Vector3() },
         uMistColor: { value: new THREE.Color(1, 1, 1) }, uMist: { value: 0.5 }, uTime: { value: 0 },
+        uInk: { value: 0 }, uPx: { value: new THREE.Vector2() }, uInkEdge: { value: new THREE.Vector2(0.0004, 0.0016) }, uNight: { value: 0 },
       },
       vertexShader: VERT,
       depthTest: false, depthWrite: false,
       fragmentShader: /* glsl */ `
         uniform sampler2D tDiffuse, tAO, tDepth; uniform vec3 uTint, uCamPos, uMistColor; uniform float uVignette, uMist, uTime;
         uniform mat4 uInvProj, uCamWorld;
+        uniform float uInk, uNight; uniform vec2 uPx, uInkEdge;
         varying vec2 vUv;
         float mHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
         float mNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
@@ -107,12 +109,14 @@ class OcclusionPass extends Pass {
           col *= mix( uTint, vec3( 1.0 ), ao );
           // river mist: thin haze that pools low over the water and the banks, drifting in soft patches
           float dz = texture2D( tDepth, vUv ).x;
+          float inkDist = 1e5;
           if ( dz < 0.999995 ) {
             vec4 vp = uInvProj * vec4( vUv * 2.0 - 1.0, dz * 2.0 - 1.0, 1.0 );
             vp /= vp.w;
             vec3 wp = ( uCamWorld * vp ).xyz;
             vec3 ray = wp - uCamPos;
             float dist = length( ray );
+            inkDist = dist;
             // how much of the sight line runs inside the low mist layer: almost none looking straight down, a lot along the river
             const float TOP = 30.0;
             float inLayer = uCamPos.y > TOP ? ( TOP - min( wp.y, TOP ) ) / max( -ray.y / dist, 0.02 ) : dist * clamp( ( TOP - min( wp.y, uCamPos.y ) ) / TOP, 0.0, 1.0 );
@@ -131,7 +135,46 @@ class OcclusionPass extends Pass {
           col = col + ( curved - base01 ) * 0.22;
           col *= mix( vec3( 0.96, 0.96, 1.02 ), vec3( 1.06, 1.0, 0.92 ), smoothstep( 0.06, 0.72, l ) );
           vec2 q = vUv - 0.5;
-          col *= 1.0 - uVignette * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
+          if ( uInk > 0.01 ) {
+            // The illustrated look. Wash: pigment let down with a little paper, with the tooth of the sheet in it.
+            vec3 paper = mix( vec3( 0.87, 0.8, 0.66 ), vec3( 0.045, 0.045, 0.085 ), uNight );
+            float wl = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
+            vec3 wash = mix( vec3( wl ), col, 1.1 );
+            wash = mix( wash, paper, 0.06 );
+            float tooth = mNoise( gl_FragCoord.xy * 0.42 ) * 0.6 + mNoise( gl_FragCoord.xy * 0.11 + 7.0 ) * 0.4;
+            wash *= 0.955 + 0.08 * tooth;
+            float d0 = texture2D( tDepth, vUv ).x;
+            if ( d0 >= 0.999995 ) {
+              // beyond the model there is only the sheet it is drawn on, keeping a breath of the hour's sky
+              vec2 gp = abs( fract( gl_FragCoord.xy / 26.0 ) - 0.5 );
+              wash = mix( col, paper, 0.72 ) * ( 0.97 + 0.05 * tooth ) * ( 1.0 - 0.07 * ( 1.0 - smoothstep( 0.03, 0.07, length( gp ) ) ) );
+            }
+            // Line: the depth buffer is linear across any flat face on screen, so its second difference is zero inside
+            // a face and jumps at an outline or a fold. Relative to depth, one threshold serves near and far.
+            float dl = texture2D( tDepth, vUv - vec2( uPx.x, 0.0 ) ).x, dr = texture2D( tDepth, vUv + vec2( uPx.x, 0.0 ) ).x;
+            float dd = texture2D( tDepth, vUv - vec2( 0.0, uPx.y ) ).x, du = texture2D( tDepth, vUv + vec2( 0.0, uPx.y ) ).x;
+            float nearest = min( d0, min( min( dl, dr ), min( dd, du ) ) );
+            float edge = ( abs( dl + dr - 2.0 * d0 ) + abs( dd + du - 2.0 * d0 ) ) / max( 1.0 - nearest, 1e-7 );
+            float line = smoothstep( uInkEdge.x, uInkEdge.y, edge );
+            // Trees: leaves mark themselves with zero alpha (materials.js). Blurred, that mask is the crown as one
+            // shape: the pen goes round it, and inside only the big steps from clump to clump are drawn.
+            float leaf = 1.0 - texture2D( tDiffuse, vUv ).a;
+            for ( int i = 0; i < 8; i++ ) {
+              float la = float( i ) * 0.7853982;
+              leaf += 1.0 - texture2D( tDiffuse, vUv + vec2( cos( la ), sin( la ) ) * uPx * ( mod( float( i ), 2.0 ) < 0.5 ? 2.6 : 1.5 ) ).a;
+            }
+            leaf /= 9.0;
+            float crown = smoothstep( 0.3, 0.55, leaf );
+            float round = smoothstep( 0.14, 0.3, leaf ) * ( 1.0 - smoothstep( 0.4, 0.62, leaf ) );
+            line = mix( line, smoothstep( uInkEdge.y * 5.0, uInkEdge.y * 12.0, edge ) * 0.7, crown );
+            line = max( line, round * 0.85 );
+            // the pen wavers, and presses less on what is far away
+            line *= 0.74 + 0.26 * mNoise( gl_FragCoord.xy * 0.2 + 3.0 );
+            line *= mix( 1.0, 0.5, smoothstep( 500.0, 4500.0, inkDist ) );
+            vec3 inked = mix( wash, mix( vec3( 0.15, 0.11, 0.095 ), vec3( 0.02, 0.02, 0.05 ), uNight ), line * 0.9 );
+            col = mix( col, inked, uInk );
+          }
+          col *= 1.0 - uVignette * ( 1.0 - 0.6 * uInk ) * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
           gl_FragColor = vec4( col, 1.0 );
         }`,
     });
@@ -177,6 +220,8 @@ class OcclusionPass extends Pass {
     this.compRT.setSize(w, h);
     this.dofMat.uniforms.uPx.value.set(1 / w, 1 / h);
     this.dofMat.uniforms.uMaxPx.value = Math.max(4, h / 130);
+    const pen = Math.max(1.3, h / 620); // the pen's width in buffer pixels: about a pixel and a half on screen at any density
+    this.compMat.uniforms.uPx.value.set(pen / w, pen / h);
   }
   render(renderer, writeBuffer, readBuffer) {
     const cam = this.camera;
@@ -239,8 +284,9 @@ export function createPost(renderer, scene, camera) {
     resize() { renderer.getDrawingBufferSize(size); composer.setPixelRatio(1); composer.setSize(Math.max(2, size.x), Math.max(2, size.y)); },
     // night and rain want gentler occlusion and a touch more glow; mist takes the mood's haze colour
     setMood(glow, rain, mistColor, mist, time) {
-      occlusion.strength = 1 - 0.35 * Math.max(glow * 0.6, rain);
-      bloom.strength = 0.3 + 0.3 * glow;
+      occlusion.strength = (1 - 0.35 * Math.max(glow * 0.6, rain)) * (1 - 0.3 * occlusion.compMat.uniforms.uInk.value);
+      occlusion.compMat.uniforms.uNight.value = glow;
+      bloom.strength = (0.3 + 0.3 * glow) * (1 - 0.55 * occlusion.compMat.uniforms.uInk.value);
       const u = occlusion.compMat.uniforms;
       u.uVignette.value = 0.15 + 0.15 * glow;
       u.uMistColor.value.copy(mistColor);
@@ -248,5 +294,6 @@ export function createPost(renderer, scene, camera) {
       u.uTime.value = time;
     },
     setFocus(distance, aperture) { occlusion.focus = distance; occlusion.aperture = aperture; },
+    setLook(ink) { occlusion.compMat.uniforms.uInk.value = ink; },
   };
 }
