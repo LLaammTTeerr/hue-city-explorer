@@ -56,7 +56,7 @@ export function build({ data, S, group, THREE }) {
 
   // ---- ground: the forecourt (an open paved square with parking, reaching the mapped drive), the plinth ----
   S.kind = KIND.ROAD;
-  S.box(-1150, 1351, y0 - 0.5, y0 + 0.04, 92, 26, 0, asphalt, { topKind: KIND.ROAD });
+  S.box(-1154, 1351, y0 - 0.5, y0 + 0.04, 84, 26, 0, asphalt, { topKind: KIND.ROAD });
   S.kind = KIND.MASONRY;
   S.box(-1153.5, 1375.3, y0 - 0.5, y0 + 0.12, 77, 13.6, 0, pave, { topKind: KIND.ROAD });
   S.box(CX, 1365.4, y0 - 0.4, y0 + 0.16, 30, 5.6, 0, pave, { topKind: KIND.ROAD }); // under the canopy
@@ -71,7 +71,12 @@ export function build({ data, S, group, THREE }) {
   }
   // parking bays painted on the square
   S.kind = KIND.PLAIN;
-  for (let x = -1188; x <= -1112; x += 2.6) S.box(x, 1349, y0 + 0.04, y0 + 0.06, 0.12, 5, 0, hex('#d9d6cf'));
+  for (let x = -1188; x <= -1112; x += 2.6) if (x < -1173 || x > -1137) S.box(x, 1349, y0 + 0.04, y0 + 0.06, 0.12, 5, 0, hex('#d9d6cf'));
+  // a kerbed garden island in the middle of the square (estimated: lawn, clipped shrubs), its kerb knee-high
+  S.box(-1155, 1350.5, y0, y0 + 0.8, 35, 10, 0, white, { top: green });
+  S.kind = KIND.TIMBER;
+  for (let x = -1169; x <= -1141; x += 4) S.cyl(x, 1350.5, y0 + 0.8, y0 + 1.5, 0.6, 0.75, 6, hex('#4f7a3c'));
+  S.kind = KIND.PLAIN;
   S.box(-1150, 1346.5, y0 + 0.04, y0 + 0.06, 78, 0.12, 0, hex('#d9d6cf'));
   S.box(-1150, 1351.5, y0 + 0.04, y0 + 0.06, 78, 0.12, 0, hex('#d9d6cf'));
 
