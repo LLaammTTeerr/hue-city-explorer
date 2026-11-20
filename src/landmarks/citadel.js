@@ -57,16 +57,20 @@ function gate(S, g, centre) {
     }
     pavilion(S, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, top + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270') });
   } else {
-    // Imperial City gates: lower, brightly tiled, three bays
-    const top = LAND_Y + 5.2;
+    // Imperial City gates: lower, brightly tiled, three bays. The same form serves the gates of chùa Thiên Mụ, which
+    // stand up on Hà Khê hill, so they take the height of their own ground.
+    const G = LAND_Y + rise(cx, cz);
+    S.base = G - LAND_Y;
+    const top = G + 5.2;
     S.kind = KIND.MASONRY;
-    S.box(cx, cz, LAND_Y, top, w, Math.max(d, 4), a, hex('#d9c9a4'), { top: PAL.stone, topKind: KIND.ROAD });
+    S.box(cx, cz, G - 0.6, top, w, Math.max(d, 4), a, hex('#d9c9a4'), { top: PAL.stone, topKind: KIND.ROAD });
     S.kind = KIND.PLAIN;
     for (const s of [-1, 1]) for (const o of [-1, 0, 1]) {
       const fx = cx + px * s * (plen / 2 + 0.1) - pz * o * pwid * 0.28, fz = cz + pz * s * (plen / 2 + 0.1) + px * o * pwid * 0.28;
-      S.box(fx, fz, LAND_Y, LAND_Y + (o === 0 ? 3.8 : 3.0), 0.3, o === 0 ? 2.6 : 2.0, pa, dark);
+      S.box(fx, fz, G, G + (o === 0 ? 3.8 : 3.0), 0.3, o === 0 ? 2.6 : 2.0, pa, dark);
     }
     pavilion(S, cx, cz, Math.min(pwid * 0.8, 14), Math.max(3.5, plen * 0.7), pa + Math.PI / 2, top, { tiers: 2, wallH: 2.2, roof: PAL.jadeRoof, wall: hex('#b9452e'), over: 1.1, rh: 2.2 });
+    S.base = 0;
   }
 }
 

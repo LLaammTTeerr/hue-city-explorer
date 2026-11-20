@@ -95,6 +95,13 @@
   cầu Phú Xuân (374.65 m × 17 m), cầu Nguyễn Hoàng's arch (sources conflict: check a photograph), the An Cựu river
   bridges and cầu Gia Hội (no facts found), đàn Nam Giao's red lower railing, Thiên Mụ's pavilions, each tomb's
   axis sequence, Bia Quốc Học's true dimensions.
+- Atmosphere and HUD pass (branch `golden-hour`), from a visual specification the user passed on: the model opens at
+  golden hour (amber low sun, lavender shade and haze); rain is slate-violet; foliage, roofs and the Citadel's stone
+  are weathered rather than fresh; the river glare is a path, not a sheet. HUD: one crimson accent, gold hairlines,
+  blurred parchment labels with stems, tier 3–4 labels only below ~200 m, the place list in three groups with a
+  fold toggle. Deliberately not taken: ACES tone mapping (washed out, magenta speckle in the glitter),
+  PCFSoftShadowMap (deprecated in this three.js), a bank-distance river gradient (no bank distance in the shader).
+- Fixed: the gates of chùa Thiên Mụ were drawn at city level and sat buried in Hà Khê hill.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

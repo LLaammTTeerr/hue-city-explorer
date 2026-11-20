@@ -12,7 +12,8 @@ for (const [name, m] of Object.entries(MOODS)) {
 
 // Two independent dials: time of day (0 morning → 1 afternoon → 2 evening) and rain (0..1).
 export function createMood({ scene, renderer, sun, hemi, sky, water, rain }) {
-  const state = { time: 0, rain: 0, timeTarget: 0, rainTarget: 0, showerEnds: 0 };
+  // the model opens at golden hour (1); 0 is the morning, 2 the evening
+  const state = { time: 1, rain: 0, timeTarget: 1, rainTarget: 0, showerEnds: 0 };
   const cur = {};
   for (const k of COLOR_KEYS) cur[k] = new THREE.Color();
   const a = new THREE.Color(), b = new THREE.Color();

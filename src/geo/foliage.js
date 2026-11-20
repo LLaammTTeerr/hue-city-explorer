@@ -195,8 +195,9 @@ export function buildTrees(data, group) {
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
-  const greens = ['#4f8a3e', '#5a9445', '#467a3c', '#6a9c48', '#3f7038', '#588a4a', '#739f4c'].map(hex);
-  const dark = ['#2f6238', '#35693a', '#2b5a36', '#3a6e3c'].map(hex), flame = ['#d8452c', '#e2552b', '#c93c33'].map(hex), palmC = ['#5c8f47', '#4f8440', '#6a9a4c'].map(hex), pineC = ['#2f5a44', '#356148', '#3f6a45', '#2b5540', '#48703f'].map(hex);
+  // mossy, olive greens rather than emerald; the flame trees (hoa phượng) a muted rust so they accent without shouting
+  const greens = ['#4a6845', '#587450', '#3f5a3f', '#687a52', '#516d48', '#627849', '#466443'].map(hex);
+  const dark = ['#385a42', '#3d5f44', '#33523c', '#426247'].map(hex), flame = ['#a8382b', '#b84a39', '#9c3a2e'].map(hex), palmC = ['#526f42', '#4a683d', '#5e7846'].map(hex), pineC = ['#2f5040', '#345644', '#3c5c42', '#2b4a3a', '#445f3c'].map(hex);
   const meshes = [];
   const range = (start, end, layer) => {
     const span = end - start, n = Math.floor(span * quality.treeShare);

@@ -29,12 +29,13 @@ export const PAL = {
   casing: '#f0e8d6',
   rail: '#544c58',
   ballast: '#b9ad9a',
-  roofs: ['#9a5238', '#a55a3c', '#8f4a36', '#a8603f', '#84453a', '#96523f', '#8c4d3c', '#9f5a42', '#9a5238', '#7a4a3c', '#6f5a50', '#8a8378', '#77604f', '#7f8a8c', '#8a3f33'].map(hex),
+  // weathered clay rather than new tile: old roofs in Huế have had a century of rain
+  roofs: ['#9e4a36', '#8c4232', '#a65c43', '#93503c', '#84453a', '#9a5540', '#8a4b3a', '#a05a44', '#96503c', '#7a4a3c', '#6f5a50', '#8a8378', '#77604f', '#7f8a8c', '#863f35'].map(hex),
   walls: ['#ead9b4', '#efe2c4', '#e3cc98', '#ecd9ae', '#dfd9c4', '#e6cdb8', '#e4d0a2', '#f0e4c8', '#e2c98c', '#d3d8c4', '#cfd8dc', '#e3c7b4', '#d6c092', '#c9cfba', '#dcbc92', '#e0c27e', '#d9b874'].map(hex),
   concrete: ['#ddd6c8', '#e4ded2', '#d6cfc1', '#e0d9cb'].map(hex),
   // the three building families (see scripts/build-data.mjs §4b)
   indochine: ['#e6c676', '#ddb863', '#ecd391', '#e2c06c', '#efdcab', '#dfb65e', '#e8caa0'].map(hex), // lime-wash ochres
-  indochineRoof: ['#b5553a', '#ad4f36', '#bb5c3e', '#a84a34'].map(hex), // Marseille tile
+  indochineRoof: ['#a9523c', '#a04c38', '#ae5a42', '#994834'].map(hex), // Marseille tile
   tradWall: ['#6a4737', '#5c3e31', '#74503c', '#7d4335', '#654a3c'].map(hex), // jackfruit-wood panels
   tradRoof: ['#6d5a4d', '#77604f', '#62564c', '#7a6654', '#5f5f52'].map(hex), // old liệt tiles, weathered
   thatch: ['#b9a56c', '#ad9860', '#c2ae78', '#a38f5c'].map(hex), // rice-straw roofs
@@ -47,8 +48,8 @@ export const PAL = {
   jadeRoof: hex('#3c8a68'),
   lacquer: hex('#9d3024'),
   stone: hex('#b9ae99'),
-  brick: hex('#63564c'),
-  brickLight: hex('#7a6a5b'),
+  brick: hex('#625e57'), // the Citadel's aged brick and stone: grey with the warmth gone out of it
+  brickLight: hex('#7a746b'),
   moss: hex('#72764f'),
   templeWall: hex('#deb85e'),
   templeRoof: hex('#8f4634'),
@@ -60,7 +61,7 @@ export const PAL = {
   pier: hex('#b3a792'),
   deck: hex('#6f6a68'),
   marketWall: hex('#efd9a0'),
-  marketRoof: hex('#b24f36'),
+  marketRoof: hex('#a34e3a'),
 };
 
 // Lighting / atmosphere presets. SUN_DIR points from the scene toward the light.
@@ -71,21 +72,23 @@ export const MOODS = {
     sunColor: '#fff0da', sunI: 2.75, hemiSky: '#dde7f5', hemiGround: '#b8a88f', hemiI: 1.5, shadow: 0.62,
     waterDeep: '#1e6a60', waterShallow: '#62a78f', glow: 0, rain: 0, exposure: 1.02, sunDisk: 1,
   },
-  // Late afternoon: low sun up-river, the Hương carrying its reflection through the spans of Trường Tiền.
+  // Golden hour, the opening mood: a low amber sun up-river and a rose-violet haze (tím Huế) in the shade and the
+  // distance; the Hương carries the light through the spans of Trường Tiền.
   afternoon: {
-    skyTop: '#6d9bc8', skyHorizon: '#f5d8ab', skyBelow: '#cdb69c', sunGlow: '#ffc67a', fog: '#e8cfae', fogDensity: 0.00008,
-    sunColor: '#ffd3a0', sunI: 2.6, hemiSky: '#d6e2f5', hemiGround: '#b49a78', hemiI: 1.6, shadow: 0.7,
-    waterDeep: '#24666a', waterShallow: '#5c968a', glow: 0, rain: 0, exposure: 1.0, sunDisk: 1,
+    skyTop: '#8a9aca', skyHorizon: '#eccbac', skyBelow: '#cfb6a8', sunGlow: '#ffc47c', fog: '#e6d6da', fogDensity: 0.00012,
+    sunColor: '#ffd29d', sunI: 2.65, hemiSky: '#d8c7e8', hemiGround: '#9a8672', hemiI: 1.52, shadow: 0.72,
+    waterDeep: '#2e5b5e', waterShallow: '#4e7d78', glow: 0, rain: 0, exposure: 1.04, sunDisk: 1,
   },
   night: {
     skyTop: '#161a3e', skyHorizon: '#74598f', skyBelow: '#2b2749', sunGlow: '#e08a8c', fog: '#4a3f70', fogDensity: 0.00011,
     sunColor: '#a9b0ea', sunI: 0.8, hemiSky: '#7a84c8', hemiGround: '#453a58', hemiI: 1.32, shadow: 0.5,
     waterDeep: '#161d48', waterShallow: '#343c78', glow: 1, rain: 0, exposure: 1.05, sunDisk: 0.25,
   },
+  // Mưa rào: the light goes slate-violet, the far bank sinks into the rain
   rain: {
-    skyTop: '#8a93a3', skyHorizon: '#c2c7cd', skyBelow: '#a3aab4', sunGlow: '#c2c4c8', fog: '#b2b8c1', fogDensity: 0.00042,
-    sunColor: '#cdd5e2', sunI: 0.75, hemiSky: '#c3ccda', hemiGround: '#7d7a73', hemiI: 1.3, shadow: 0.22,
-    waterDeep: '#465c64', waterShallow: '#7b9094', glow: 0.8, rain: 1, exposure: 0.98, sunDisk: 0,
+    skyTop: '#7f8799', skyHorizon: '#b3b8c4', skyBelow: '#959cab', sunGlow: '#b9bcc6', fog: '#8e95a5', fogDensity: 0.00046,
+    sunColor: '#b6c2d9', sunI: 0.8, hemiSky: '#8a94ad', hemiGround: '#4c5057', hemiI: 1.36, shadow: 0.22,
+    waterDeep: '#3f5560', waterShallow: '#6f8590', glow: 0.8, rain: 1, exposure: 1.0, sunDisk: 0,
   },
   nightRain: {
     skyTop: '#1a1c39', skyHorizon: '#46426b', skyBelow: '#2a2a48', sunGlow: '#55507a', fog: '#3a3860', fogDensity: 0.00038,

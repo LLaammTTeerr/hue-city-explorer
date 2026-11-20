@@ -78,11 +78,11 @@ export function buildWater(data) {
         }
         float tone = vnoise( p * 0.004 + 3.0 );
         vec3 body = mix( uDeep, uShallow, clamp( ndv * ndv * 0.55 + tone * 0.35, 0.0, 1.0 ) );
-        vec3 col = mix( body, refl, fres * mix( 0.82, 0.7, uRain ) );
+        vec3 col = mix( body, refl, fres * mix( 0.74, 0.7, uRain ) ); // the river keeps some of its own jade under the sky it mirrors
 
         // sun path
         float sd = max( dot( R, uSunDir ), 0.0 );
-        col += uSunCol * ( pow( sd, 220.0 ) * 3.0 + pow( sd, 30.0 ) * 0.13 ) * uSunDisk;
+        col += uSunCol * ( pow( sd, 220.0 ) * 2.4 + pow( sd, 30.0 ) * 0.07 ) * uSunDisk; // a path of light, not a sheet
 
         // rain: pale rings close by, a flatter, milkier surface further off
         col += mix( uFog, vec3( 1.0 ), 0.4 ) * rip * 0.45;

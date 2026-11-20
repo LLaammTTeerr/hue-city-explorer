@@ -130,6 +130,7 @@ async function main() {
 
   mood = createMood({ scene, renderer, sun, hemi, sky, water, rain });
   mood.onChange((s) => ui.setMood({ rain: s.rainTarget, time: s.timeTarget }));
+  ui.setMood({ rain: mood.state.rainTarget, time: mood.state.timeTarget });
 
   // ---------- camera ----------
   const b = data.meta.bounds.map((v) => v / 10);

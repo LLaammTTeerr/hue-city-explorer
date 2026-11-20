@@ -15,6 +15,8 @@ export const STR = {
     lang: 'English',
     places: 'Địa danh',
     overview: 'Toàn cảnh',
+    groups: ['Kinh thành & di sản', 'Dọc sông Hương', 'Lăng tẩm & ngoại ô'],
+    foldList: 'Thu gọn danh sách', unfoldList: 'Mở danh sách',
     close: 'Đóng',
     exitRide: 'Rời thuyền',
     hintMouse: 'Kéo để lướt · cuộn để lại gần · chuột phải để xoay',
@@ -57,6 +59,8 @@ export const STR = {
     lang: 'Tiếng Việt',
     places: 'Places',
     overview: 'Whole model',
+    groups: ['Citadel & heritage', 'Along the river', 'Tombs & outskirts'],
+    foldList: 'Fold the list away', unfoldList: 'Show the list',
     close: 'Close',
     exitRide: 'Leave the boat',
     hintMouse: 'Drag to glide · scroll to come closer · right-drag to turn',
@@ -220,7 +224,14 @@ export const NOTES = {
 };
 
 // Places offered in the quick list, in the order a visitor might walk them.
-export const QUICK = ['truongtien', 'dongba', 'ndchieu', 'photay', 'kydai', 'nghenhluong', 'ngomon', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'nguyenhoang', 'thienmu', 'conhen', 'namgiao', 'tuduc', 'thuytien', 'khaidinh', 'minhmang'];
+// The place list, in three groups (titles in STR.groups, same order). `overview` puts the whole-model button at the
+// head of that group.
+export const PLACE_GROUPS = [
+  { ids: ['kydai', 'ngomon', 'nghenhluong', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'namgiao'] },
+  { overview: true, ids: ['truongtien', 'dongba', 'biaquochoc', 'ndchieu', 'photay', 'nguyenhoang', 'conhen', 'thienmu'] },
+  { ids: ['tuduc', 'thuytien', 'khaidinh', 'minhmang'] },
+];
+export const QUICK = PLACE_GROUPS.flatMap((g) => g.ids);
 
 // Camera framing per place: offset from the place [east, up, south] in metres, plus where to look relative to it.
 // Views sit to the south-east so the morning light falls on what you are looking at.

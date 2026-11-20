@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
-    <meta name="theme-color" content="#efe6d2" />
+    <meta name="theme-color" content="#f5efe2" />
     <meta name="description" content="Huế, bên dòng Hương — khám phá trung tâm Huế trong không gian 3D dựng từ dữ liệu OpenStreetMap." />
     <title>Huế · bên dòng Hương</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d1620'/%3E%3Cpath d='M3 21h26M5 21c2-9 6-9 8 0m0 0c2-9 6-9 8 0m0 0c2-9 4-9 6 0' fill='none' stroke='%23f0bd4a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
@@ -20,6 +20,9 @@
           <p data-t="tagline"></p>
         </div>
       </div>
+      <button id="brand-fold" class="icon small" type="button" aria-controls="places" aria-expanded="true">
+        <svg viewBox="0 0 24 24"><path d="M7 14.5l5-5 5 5" /></svg>
+      </button>
       <nav id="places" aria-label="Địa danh"></nav>
     </header>
 
@@ -85,10 +88,10 @@
         <span data-t="rain"></span>
       </button>
       <div id="seg-time" class="seg" role="radiogroup">
-        <button type="button" role="radio" data-time="0" aria-checked="true">
+        <button type="button" role="radio" data-time="0" aria-checked="false">
           <svg viewBox="0 0 24 24"><path d="M3 18h18M7 18a5 5 0 0110 0M12 6v3M5.2 9.2l2 2M18.8 9.2l-2 2" /></svg>
         </button>
-        <button type="button" role="radio" data-time="1" aria-checked="false">
+        <button type="button" role="radio" data-time="1" aria-checked="true">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8" /></svg>
         </button>
         <button type="button" role="radio" data-time="2" aria-checked="false">

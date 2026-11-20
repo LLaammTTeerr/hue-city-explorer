@@ -6,6 +6,10 @@ import { onEra, existsIn } from '../era.js';
 // HTML labels pinned to places. Nearer views reveal more of them, and overlapping labels yield to the more important one.
 export function createLabels(root, data, camera, onPick) {
   const TIER_DIST = { 1: 9000, 2: 3000, 3: 1500, 4: 750 };
+  // Lesser places also wait for the camera to come down: the opening view (250-430 m up) and the overview show only
+  // the landmarks of tiers 1-2; the framed views of single places (mostly 30-150 m up) bring the rest in.
+  const TIER_CEIL = { 3: 210, 4: 160 };
+  const STEM = 14; // .label-place > span sits this far above its anchor (style.css), stem included
   const items = [];
   const v = new THREE.Vector3();
 
@@ -33,7 +37,7 @@ export function createLabels(root, data, camera, onPick) {
   let measured = false;
 
   function measure() {
-    for (const it of items) { const span = it.el.querySelector('span'); it.w = span.offsetWidth; it.h = span.offsetHeight + (it.water ? 0 : 8); }
+    for (const it of items) { const span = it.el.querySelector('span'); it.w = span.offsetWidth; it.h = span.offsetHeight + (it.water ? 0 : STEM - 2); }
     measured = true;
   }
 
@@ -61,7 +65,7 @@ export function createLabels(root, data, camera, onPick) {
         let x = 0, y = 0;
         if (show) {
           const dist = camera.position.distanceTo(it.pos);
-          show = dist < TIER_DIST[it.water ? it.p.t : it.p.t] && dist > 40;
+          show = dist < TIER_DIST[it.p.t] && dist > 40 && (it.water || !(camera.position.y - LAND_Y > TIER_CEIL[it.p.t]));
           if (show) {
             v.copy(it.pos).project(camera);
             show = v.z < 1 && v.z > -1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
