@@ -147,7 +147,7 @@ function station(S, data) {
 // ---- Nhà thờ Phủ Cam (Ngô Viết Thụ, begun 1963): a concrete cross plan, ribs rising up the nave, twin towers ----
 function phuCam(S, data) {
   const sp = data.special.phucam;
-  if (!sp) return;
+  if (!sp || replaced('phucam')) return; // drawn by places/phucam.js
   const ring = unflat(sp.ring), o = obb(ring), pc = polyCentroid(ring);
   let f = [Math.cos(o.a), Math.sin(o.a)];
   if ((pc[0] - o.c[0]) * f[0] + (pc[1] - o.c[1]) * f[1] > 0) f = [-f[0], -f[1]]; // transept and apse weigh toward the back
