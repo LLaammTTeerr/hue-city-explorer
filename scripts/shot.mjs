@@ -9,12 +9,17 @@ import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 import path from 'node:path';
+import net from 'node:net';
 
 const args = process.argv.slice(2);
 const id = args.find((a) => !a.startsWith('--'));
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
 if (!id) { console.error('usage: node scripts/shot.mjs <placeId> [--out dir] [--port n] [--dist m] [--time 0|1|2] [--look real|ink]'); process.exit(2); }
-const port = +opt('port', 5300 + Math.floor(Math.random() * 600));
+// Several agents shoot at once: a port another preview already holds would photograph *its* build, so take the
+// asked port only if it and its CDP partner are free, else a random free pair.
+const free = (p) => new Promise((r) => { const s = net.createServer().once('error', () => r(false)).once('listening', () => s.close(() => r(true))).listen(p, '127.0.0.1'); });
+let port = +opt('port', 5300 + Math.floor(Math.random() * 600));
+for (let i = 0; i < 200 && !((await free(port)) && (await free(port + 1000))); i++) port = 5300 + Math.floor(Math.random() * 1600);
 const cdp = port + 1000;
 const out = opt('out', path.join('scratch', 'shots', id.replace(/[^\w-]/g, '_')));
 const dist = opt('dist', null);
@@ -81,7 +86,7 @@ try {
     if (!png) throw new Error('no image from the canvas');
     writeFileSync(path.join(out, `${name}.png`), Buffer.from(png.split(',')[1], 'base64'));
   }
-  console.log(`${info.n}: 5 views (n e s w top) at ${Math.round(D)} m → ${out}`);
+  console.log(`${info.n}: 5 views (n e s w top) at ${Math.round(D)} m → ${out} (port ${port})`);
   if (errors.length) console.log('page errors/warnings:\n  ' + errors.slice(0, 10).join('\n  '));
   done(0);
 } catch (e) {
