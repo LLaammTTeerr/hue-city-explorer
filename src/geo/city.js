@@ -11,6 +11,7 @@ import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
+import { replaced } from '../landmarks/places/index.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -251,7 +252,7 @@ function buildRoads(data, group, structures) {
     } else slab(structures, r.pts, w, P.y, P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
     const len = pathLength(r.pts);
     // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
-    const dv = vongDone ? null : (data.places || []).find((q) => q.id === 'bachho');
+    const dv = vongDone || replaced('bachho') ? null : (data.places || []).find((q) => q.id === 'bachho');
     if (dv && len > 250 && r.c <= 1 && Math.hypot(mp[0] - dv.x / 10, mp[1] - dv.z / 10) < 420) {
       vongDone = true; // the two carriageways are mapped separately: once is enough
       for (const f of [0.25, 0.5, 0.75]) for (const side of [-1, 1]) {
@@ -262,6 +263,7 @@ function buildRoads(data, group, structures) {
         pavilion(structures, x, z, 3.4, 3.4, a, top, { wallH: 2.6, roof: hex('#8f4a36'), wall: hex('#c9b99a'), over: 0.9, rh: 1.5, ridge: hex('#d9c9a0') });
       }
     }
+    if (replaced('bachho') && r.c <= 1 && Math.hypot(mp[0] + 1896, mp[1] - 1019) < 40) continue; // places/bachho.js has the piers
     if (len > 42 && r.c <= 3 && !P.arches) {
       const n = Math.max(1, Math.round(len / 30) - 1);
       for (let i = 1; i <= n; i++) {
@@ -274,6 +276,7 @@ function buildRoads(data, group, structures) {
   for (const [main, bridge, flat] of data.rails || []) {
     if (!bridge) continue;
     const pts = unflat(flat);
+    if (replaced('bachho') && pts.every((p) => Math.hypot(p[0] + 1830, p[1] - 1135) < 300)) continue; // places/bachho.js
     slab(structures, pts, 5.5, LAND_Y + 0.5, 1.4, hex(PAL.rail), hex('#6d6670'), 1.6);
     const len = pathLength(pts);
     if (len > 150) { railTruss(structures, pts, len, LAND_Y + 0.5, pier); continue; }
