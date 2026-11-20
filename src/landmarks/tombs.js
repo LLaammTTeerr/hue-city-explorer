@@ -871,7 +871,6 @@ export function buildTombs(data, S, stats = null) {
   for (const [id, fn] of Object.entries(TOMBS)) {
     const st = replaced(id) ? null : loadSite(data, id);
     const n0 = S.n;
-    if (replaced(id)) { if (stats) stats[id] = { from: n0, to: n0 }; continue; } // a replica in places/ draws this tomb
     if (st) {
       try { fn(S, st); } catch (e) { S.n = n0; console.warn(`tombs: ${id} skipped`, e); } // drop the half-built tomb, not just the rest of it
     }
