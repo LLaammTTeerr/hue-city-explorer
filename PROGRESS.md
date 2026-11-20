@@ -326,3 +326,21 @@ Sources: only "lotus-shaped" is confirmed (khamphahue.com.vn, wanderlog, a foody
 tiers and lights are a plausible fill-in, noted in the file header. Gotcha found: a zero normal at a pointed petal tip
 became NaN and the bloom pass blanked the whole screen; tip rows now borrow the row below. Looks:
 `docs/looks/restaurant-lotus.jpg`, `-night.jpg` (checked in both looks, day and night, on a `vite preview` of the build).
+
+**Height and terrain checks** (branch `claude/height-checks`). So a wrong height is caught before deploy:
+- `npm run check:heights` (`scripts/check-heights.mjs`): builds every landmark headless in node (stubbed browser
+  globals, same order as `main.js`) and measures each model's top above the ground against
+  `docs/heights-reference.json` (24 landmarks; ±15 % for sourced figures, ±25 % for estimates). `--all` prints every
+  row, `--diag` the rise and both bases. Fails on an out-of-range model, a locator that finds nothing, or a builder
+  that throws or warns (tombs swallow errors with `console.warn`). Entries with a `known` note only WARN: Đông Ba clock
+  tower 22.1 m, Diệu Đế 12.9 m, Bia Quốc Học 10.7 m. Borderline: the Citadel gates measure 17.2 m vs an estimated
+  13–14 m (passes only on the 25 %). To add a landmark: an entry with `name`, `h` (m or [lo, hi]), `confidence`,
+  `source`, and `at` = `special` | `site`+`name` | `site`+`rel`(+`tol`) | `point`+`r` | `gate`; `base: "model"` for
+  buildings on a terrace the model builds.
+- `npm run check:data` (`scripts/check-data.mjs`): terrain sanity on `public/data/hue.json` (grid size, no NaN or
+  negatives, Hà Khê plateau ~9.8 m, Minh Mạng mound and axis climbing, Khải Định rise 15–40 m, raised lakes flat,
+  building heights 0–180 m). `--against old.json` diffs terrain (≥2 m, grouped by nearest place) and building heights.
+- `npm run data:build` now runs the same checks plus lidar/peak rms limits (1.5 m; now 1.31/1.17), prints the diff
+  against the previous `hue.json`, and exits 1 on a failure (the file is still written for inspection).
+- CI: `npm run check` runs before `npm run build` in `deploy.yml`, and on every PR in `check.yml`.
+- Proven: against the pre-fix `tombs.js` it fails 5 tomb halls; against the pre-fix `hue.json` it fails the Minh Mạng axis.

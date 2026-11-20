@@ -683,7 +683,7 @@ function buildInfill(data, group, off = null) {
 }
 
 // ---------- Citadel wall & Imperial City enclosure ----------
-function buildWalls(data, structures) {
+export function buildWalls(data, structures) {
   const P = PAL;
   structures.kind = KIND.MASONRY;
   // The walls open where a gate stands (the gate models in citadel.js carry the passage through): a slot is cut
