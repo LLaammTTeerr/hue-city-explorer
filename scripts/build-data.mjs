@@ -494,8 +494,10 @@ for (const e of els) {
   let h;
   if (hTag) h = hTag;
   else if (lv) h = lv * 3.4 + 1.2;
-  else if (kind === 2) h = area > 900 ? 9.5 : area > 300 ? 7 : 5;
-  else if (kind === 3) h = area > 300 ? 8 : 5.5;
+  // h is the eave; the tiled roof adds 2-6 m. A one-storey Nguyễn hall stands 8-11 m to the ridge (Thái Hòa: 11.8 m),
+  // a pagoda hall 8-9 m (docs/reference/heights.md)
+  else if (kind === 2) h = area > 900 ? 5.2 : area > 300 ? 4.4 : 3.6;
+  else if (kind === 3) h = area > 300 ? 4.6 : 3.8;
   else if (kind === 4) h = area > 400 ? 17 : 9;
   else if (kind === 5) h = 8 + Math.floor(r * 3) * 3.4;
   else if (kind === 6) h = area > 1500 ? 12 : 5;
@@ -507,13 +509,13 @@ for (const e of els) {
   else h = r < 0.3 ? 5 : r < 0.75 ? 8.2 : 11.6;
   if (inCitadel(c) && !hTag && !lv && kind !== 2) h = Math.min(h, 11.5);
   let flags = 0;
-  if (thienMu && pip(c, thienMu) && t.historic !== 'city_gate') { kind = 3; if (!hTag && !lv) h = area > 300 ? 8 : 5.5; }
-  if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 9.2 : 5.2; }
+  if (thienMu && pip(c, thienMu) && t.historic !== 'city_gate') { kind = 3; if (!hTag && !lv) h = area > 300 ? 4.6 : 3.8; }
+  if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
   if (h > 30) kind = 7;
   // flags 4 = Indochine, 8 = Nguyễn-period timber house
   if ((kind === 0 || kind === 1 || kind === 5) && h <= 30) {
     const era = eraOf(c, area);
-    if (era === 1) { flags |= 4; if (!hTag && !lv) h = area > 260 ? 9.8 : area > 70 ? 7.4 : 4.6; }
+    if (era === 1) { flags |= 4; if (!hTag && !lv && !(flags & 2)) h = area > 260 ? 9.8 : area > 70 ? 7.4 : 4.6; } // Quốc Học keeps its own
     else if (era === 2 && kind === 0) { flags |= 8; if (!hTag && !lv) h = 3.7 + r * 0.9; }
   }
 
@@ -522,6 +524,16 @@ for (const e of els) {
   const b = [flat(ring), q(h), kind, t.name || 0, flags];
   buildings.push(b);
   fillPoly([ring], BLD);
+}
+// A building mapped inside a landmark's own outline (Lầu Ngũ Phụng on Ngọ Môn, the block inside Kỳ Đài) belongs to
+// that landmark's model: drawn as well, it would stand inside it.
+{
+  const rings = Object.entries(special).filter(([, sp]) => sp.ring && sp.ring.length >= 6).map(([k, sp]) => { const r = []; for (let i = 0; i < sp.ring.length; i += 2) r.push([sp.ring[i] / 10, sp.ring[i + 1] / 10]); return [k, r]; });
+  for (let i = buildings.length - 1; i >= 0; i--) {
+    const r = []; for (let k = 0; k < buildings[i][0].length; k += 2) r.push([buildings[i][0][k] / 10, buildings[i][0][k + 1] / 10]);
+    const c = centroid(r), inside = rings.find(([, ring]) => pip(c, ring));
+    if (inside) { console.log('inside landmark', inside[0], ':', buildings[i][3] || 'unnamed building', 'dropped'); buildings.splice(i, 1); }
+  }
 }
 console.log('buildings', buildings.length, 'gates', gates.length, gates.map((g) => g.n + ':' + g.k).join(', '));
 for (const e of els) {
@@ -779,7 +791,7 @@ const EXTRA = [
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
 addPlace('vongcanh', 'Đồi Vọng Cảnh', [-3123, 4990], 3, 'place', 12);
-addPlace('ngubinh', 'Núi Ngự Bình', [1221, 2974], 2, 'place', 20);
+addPlace('ngubinh', 'Núi Ngự Bình', [770, 2990], 2, 'place', 20); // the summit (16.4419 N, 107.5961 E); moved onto the highest ground in §9
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; special.biaquochoc = { c: [q(c[0]), q(c[1])], ring: [], name: 'Bia Quốc Học' }; addPlace('biaquochoc', 'Bia Quốc Học', c, 2, 'monument', 14); }
 addPlace('golim', 'Cầu gỗ lim', [-168.5, 374.8], 3, 'bridge', 5); // the ironwood walkway (midpoint from src/landmarks/boardwalk.js)
 addPlace('thienmu', 'Chùa Thiên Mụ', wayCentre(205795043), 1, 'monument', 26);
@@ -789,6 +801,32 @@ addPlace('nguyenhoang', 'Cầu Nguyễn Hoàng', wayCentre(1431136610), 2, 'brid
   // Phố Tây: the visitors' quarter on Phạm Ngũ Lão – Chu Văn An – Võ Thị Sáu
   const streets = [39419092, 39413149, 39416766].map((id) => wayCentre(id)).filter(Boolean);
   if (streets.length) addPlace('photay', 'Phố Tây', [streets.reduce((s, p) => s + p[0], 0) / streets.length, streets.reduce((s, p) => s + p[1], 0) / streets.length], 2, 'place', 14);
+}
+
+// True heights: a named place drawn as an ordinary building takes its real height to the ridge (or parapet), in
+// metres above its floor, as a sixth field the builder honours whatever roof it gives the footprint
+// (docs/reference/heights.md; most are estimates from storeys and type, the sourced ones are marked there).
+const TRUE_H = {
+  themieu: 10.5, hungmieu: 8.5, thaimieu: 10, trieumieu: 8, dientho: 9, truongsanh: 7.5, duyetthi: 12.5, kientrung: 16,
+  quoctugiam: 10, baotangcovat: 11.5, tangthulau: 10.5, tudam: 13, baoquoc: 8, thuongbac: 6.5, hoquyen: 5.8,
+  diemphungthi: 8.5, tayloc: 7.5, ancuu: 6.5, benngu: 8.5,
+};
+const OLD_HALL = ['quoctugiam', 'baotangcovat', 'tangthulau', 'thuongbac'];
+for (const [id, top] of Object.entries(TRUE_H)) {
+  const pl = places.find((p) => p.id === id);
+  if (!pl) continue;
+  const c = [pl.x / 10, pl.z / 10];
+  let best = null, bd = 25;
+  for (const b of buildings) {
+    const ring = [];
+    for (let i = 0; i < b[0].length; i += 2) ring.push([b[0][i] / 10, b[0][i + 1] / 10]);
+    if (pip(c, ring)) { best = b; break; }
+    const cc = centroid(ring), d = Math.hypot(cc[0] - c[0], cc[1] - c[1]);
+    if (d < bd) { bd = d; best = b; }
+  }
+  if (!best) { console.warn('true height: no building at', id); continue; }
+  best[1] = Math.min(best[1], q(top)); best[5] = q(top);
+  if (OLD_HALL.includes(id) && best[2] < 2) best[2] = 3; // a tiled timber hall, not a modern block
 }
 
 // Cồn Hến / Cồn Dã Viên: the two river islets (largest land islands inside the river)
@@ -803,6 +841,8 @@ console.log('islands', islands.map((i) => [Math.round(i.c[0]), Math.round(i.c[1]
   if (hen) addPlace('conhen', 'Cồn Hến', hen.c, 2, 'island', 10);
   if (dv) addPlace('daVien', 'Cồn Dã Viên', dv.c, 3, 'island', 10);
 }
+// a tag stands over the highest part of the model within this radius (default 14 m): these have towers off-centre
+for (const [id, r] of [['phucam', 36], ['dcct', 36], ['thienan', 36]]) { const pl = places.find((p) => p.id === id); if (pl) pl.r = r; }
 for (const g of gates) if (g.k === 'citadel' && g.n) places.push({ id: 'gate:' + g.n, n: g.n, x: g.c[0], z: g.c[1], t: 3, k: 'gate', h: 20 });
 
 // river labels sit on the mapped centre line
@@ -1041,6 +1081,19 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       cover += c;
     }
     terrain = { x0: q(MINX), z0: q(MINZ), step: STEP, nx, nz, h: Array.from(h, (v) => Math.round(v * 10)), cover };
+    // A hill's tag stands on its summit: the highest ground near its given point.
+    for (const [id, R] of [['ngubinh', 250], ['vongcanh', 160]]) {
+      const pl = places.find((p) => p.id === id);
+      if (!pl) continue;
+      const px = pl.x / 10, pz = pl.z / 10;
+      let best = -1, bx = px, bz = pz;
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        const x = MINX + i * STEP, z = MINZ + j * STEP;
+        if (Math.hypot(x - px, z - pz) <= R && h[j * nx + i] > best) { best = h[j * nx + i]; bx = x; bz = z; }
+      }
+      console.log('summit', id, [px, pz].map(Math.round), '->', [bx, bz].map(Math.round), best.toFixed(1), 'm');
+      pl.x = q(bx); pl.z = q(bz);
+    }
     const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
     console.log('terrain', nx + 'x' + nz, 'floor', floor.toFixed(1), 'm asl | lifted nodes', lifted, '| peak rise', peak.toFixed(1), 'm | Thiên Mụ', towerC ? probe(towerC[0], towerC[1]) : '-', '| raw DEM there', towerC ? demAt(towerC[0], towerC[1]).toFixed(1) : '-');
   }

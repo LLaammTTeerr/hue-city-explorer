@@ -7,7 +7,7 @@ import './ui/style.css';
 
 import * as THREE from 'three';
 import { LAND_Y, quality } from './config.js';
-import { buildCity, finishStructures, updateDetail } from './geo/city.js';
+import { buildCity, populate, finishStructures, updateDetail } from './geo/city.js';
 import { buildTruongTien } from './landmarks/truongtien.js';
 import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
 import { buildBoats, buildLanterns } from './landmarks/boats.js';
@@ -98,6 +98,7 @@ async function main() {
   buildBoardwalk(data, world.structures, dynamic);
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);
+  populate(world, data); // buildings, houses and trees, kept off the ground the landmark models cover
   finishStructures(world.structures, world.group);
   const boats = buildBoats(data, dynamic);
   const lanterns = buildLanterns(data, dynamic); // hoa đăng drifting past the Citadel after dark
@@ -176,7 +177,7 @@ async function main() {
 
   // ---------- labels & picking ----------
   let labelsOn = true;
-  labels = createLabels(document.getElementById('labels'), data, camera, (id) => pick(id, true));
+  labels = createLabels(document.getElementById('labels'), data, camera, (id) => pick(id, true), scene);
   function toggleLabels() { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); }
 
   function pick(id, fly) {
@@ -385,7 +386,7 @@ async function main() {
   setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
 
   // handle for debugging and automated checks
-  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, post, THREE };
+  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE };
 }
 
 main().catch((err) => {

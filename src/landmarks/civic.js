@@ -214,9 +214,10 @@ function redemptorist(S, data) {
   S.cyl(t[0], t[1], y + 31.2, y + 37, bw * 0.34, bw * 0.32, 8, stL, { cap: false, rot: F.a + Math.PI / 8 });
   S.kind = KIND.TILE;
   S.cyl(t[0], t[1], y + 37, y + 38.4, bw * 0.5, bw * 0.3, 8, roof, { cap: false, rot: F.a + Math.PI / 8 });
-  S.cyl(t[0], t[1], y + 38.2, y + 53, bw * 0.3, 0.12, 8, slate, { cap: false, rot: F.a + Math.PI / 8 });
+  // 53 m to the top of the cross (docs/reference/heights.md)
+  S.cyl(t[0], t[1], y + 38.2, y + 49.8, bw * 0.3, 0.12, 8, slate, { cap: false, rot: F.a + Math.PI / 8 });
   S.kind = KIND.PLAIN;
-  cross(S, t[0], t[1], y + 52.6, 3.4, F);
+  cross(S, t[0], t[1], y + 49.4, 2.9, F);
   for (let i = 0; i < 8; i++) {
     const a = F.a + (i * Math.PI) / 4, r = bw * 0.42 * Math.cos(Math.PI / 8) + 0.05;
     S.box(t[0] + Math.cos(a) * r, t[1] + Math.sin(a) * r, y + 23.5, y + 28.5, 0.14, 1.3, a, dark);

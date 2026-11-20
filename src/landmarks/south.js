@@ -15,8 +15,17 @@ const dark = hex('#2b2422');
 
 // ---------------------------------------------------------------- helpers
 const gy = (x, z) => LAND_Y + rise(x, z);
-const minG = (pts) => pts.reduce((m, p) => Math.min(m, gy(p[0], p[1])), Infinity);
-const maxG = (pts) => pts.reduce((m, p) => Math.max(m, gy(p[0], p[1])), -Infinity);
+// Lowest and highest ground under a footprint. The corners alone miss a rise in the middle of a wide terrace (the land
+// then shows through its top), so the whole box around the points is sampled every few metres.
+const spread = (pts) => {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const out = pts.slice(), nx = Math.min(40, Math.ceil((x1 - x0) / 6)), nz = Math.min(40, Math.ceil((z1 - z0) / 6));
+  for (let i = 0; i <= nx; i++) for (let j = 0; j <= nz; j++) out.push([x0 + ((x1 - x0) * i) / (nx || 1), z0 + ((z1 - z0) * j) / (nz || 1)]);
+  return out;
+};
+const minG = (pts) => spread(pts).reduce((m, p) => Math.min(m, gy(p[0], p[1])), Infinity);
+const maxG = (pts) => spread(pts).reduce((m, p) => Math.max(m, gy(p[0], p[1])), -Infinity);
 const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k];
@@ -273,7 +282,7 @@ function namGiao(S, data) {
 
   // lower terrace: 165 m square, its top just above the highest ground under it
   const h1 = 82.5;
-  const y1 = maxG(sq(h1 * 0.9)) + 0.9, b1 = minG(sq(h1)) - 0.6;
+  const y1 = maxG(sq(h1)) + 0.9, b1 = minG(sq(h1)) - 0.6;
   S.base = y1 - LAND_Y;
   S.kind = KIND.MASONRY;
   S.box(C[0], C[1], b1, y1, h1 * 2, h1 * 2, 0, laterite, { top: grass, topKind: KIND.GROUND });
@@ -371,19 +380,13 @@ function namGiao(S, data) {
 }
 
 // ---------------------------------------------------------------- Đồi Vọng Cảnh
-// Mapped: only the hill's name point. The summit is found from the terrain (highest ground within 160 m);
+// Mapped: only the hill's name point. The place is already moved onto the summit (scripts/build-data.mjs §9);
 // the small lookout pavilion on its paved terrace and the two old concrete bunkers below it, on the river
 // side, are illustrative.
 function vongCanh(S, data) {
   const pl = (data.places || []).find((p) => p.id === 'vongcanh');
   if (!pl) return;
-  const p0 = [pl.x / 10, pl.z / 10];
-  let P = p0, hb = rise(p0[0], p0[1]);
-  for (let dx = -160; dx <= 160; dx += 5) for (let dz = -160; dz <= 160; dz += 5) {
-    if (dx * dx + dz * dz > 160 * 160) continue;
-    const h = rise(p0[0] + dx, p0[1] + dz);
-    if (h > hb + 1e-3) { hb = h; P = [p0[0] + dx, p0[1] + dz]; }
-  }
+  const P = [pl.x / 10, pl.z / 10];
   const g = gy(P[0], P[1]);
   const ring8 = Array.from({ length: 8 }, (_, i) => [P[0] + Math.cos(i * 0.785) * 7, P[1] + Math.sin(i * 0.785) * 7]);
   const yt = maxG(ring8) + 0.3;

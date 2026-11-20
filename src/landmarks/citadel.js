@@ -241,7 +241,7 @@ export function buildCitadel(data, S, group) {
     const back = -o.d * 0.2;
     // centre hall: yellow glazed tiles (the emperor's), two tiers
     let p = P(0, back);
-    pavilion(S, p[0], p[1], o.w * 0.4, o.d * 0.4, o.a, baseTop, { tiers: 2, wallH: 3.6, roof: PAL.imperialRoof, over: 1.5, rh: 3.6, eaves });
+    pavilion(S, p[0], p[1], o.w * 0.4, o.d * 0.4, o.a, baseTop, { tiers: 2, wallH: 3.1, roof: PAL.imperialRoof, over: 1.5, rh: 3.1, eaves }); // under 15 m in all
     // flanking galleries and the two wing pavilions: green tiles
     for (const s of [-1, 1]) {
       p = P(s * o.w * 0.3, back);
@@ -300,7 +300,7 @@ export function buildCitadel(data, S, group) {
     const o = obb(unflat(data.special[key].ring));
     if (key === 'phuvanlau') {
       const eaves = [];
-      pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 2.6, platform: 0.9, eaves });
+      pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: 2, wallH: 3.9, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 3.1, platform: 1.2, eaves }); // 11.8 m with its 1.2 m platform
       if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
       // two lamps on the river face (away from Kỳ Đài)
       if (data.special.kydai) {
@@ -308,7 +308,7 @@ export function buildCitadel(data, S, group) {
         const fc = faceToward({ ...o, w: o.w * 0.86, d: o.d * 0.86 }, [o.c[0] - kd[0], o.c[1] - kd[1]]);
         for (const k of [-1, 1]) {
           const a = fc.half + 0.9, b = k * Math.min(1.6, fc.side * 0.4);
-          lantern(o.c[0] + fc.n[0] * a + fc.t[0] * b, LAND_Y + 0.9 + 1.6, o.c[1] + fc.n[1] * a + fc.t[1] * b);
+          lantern(o.c[0] + fc.n[0] * a + fc.t[0] * b, LAND_Y + 1.2 + 1.6, o.c[1] + fc.n[1] * a + fc.t[1] * b);
         }
       }
       continue;
@@ -481,22 +481,23 @@ export function buildThienMu(data, S, group = null) {
 export function buildMarket(data, S) {
   if (!data.special.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
-  const y0 = LAND_Y, body = 10.5;
+  // the hall stands about 10 m to its ridge and the three-tier clock tower about twice that (docs/reference/heights.md)
+  const y0 = LAND_Y, body = 7.4;
   const wall = PAL.marketWall, roof = PAL.marketRoof;
   S.kind = KIND.FACADE;
   S.box(o.c[0], o.c[1], y0, y0 + body, o.w, o.d, o.a, wall, { top: shade(roof, 0.8) });
   // tiled awning band and a low hip roof
-  S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + 4.2, 1.4, roof, { over: 2.2, flare: 0.3 });
+  S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + 3.4, 1.2, roof, { over: 2.2, flare: 0.3 });
   S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + body, 3.4, roof, { over: 1.4, flare: 0.4, fascia: 0.4, fasciaCol: shade(wall, 0.8), ridgeCol: hex('#d9c9a0'), hips: true });
   // bell tower rising through the middle of the hall
   const cx = o.c[0], cz = o.c[1];
   let y = y0 + body + 1.2;
-  S.box(cx, cz, y0 + body, y + 5.2, 7.4, 7.4, o.a, wall); y += 5.2;
-  S.hip(cx, cz, 7.4, 7.4, o.a, y, 1.5, roof, { over: 1.5, flare: 0.4 }); y += 0.9;
-  S.box(cx, cz, y, y + 4.2, 5.4, 5.4, o.a, wall); y += 4.2;
-  S.hip(cx, cz, 5.4, 5.4, o.a, y, 1.3, roof, { over: 1.3, flare: 0.4 }); y += 0.8;
-  S.box(cx, cz, y, y + 3.0, 3.8, 3.8, o.a, wall); y += 3.0;
-  S.hip(cx, cz, 3.8, 3.8, o.a, y, 3.2, roof, { over: 1.0, flare: 0.3 });
+  S.box(cx, cz, y0 + body, y + 3.4, 7.4, 7.4, o.a, wall); y += 3.4;
+  S.hip(cx, cz, 7.4, 7.4, o.a, y, 1.4, roof, { over: 1.5, flare: 0.4 }); y += 0.8;
+  S.box(cx, cz, y, y + 2.8, 5.4, 5.4, o.a, wall); y += 2.8;
+  S.hip(cx, cz, 5.4, 5.4, o.a, y, 1.2, roof, { over: 1.3, flare: 0.4 }); y += 0.7;
+  S.box(cx, cz, y, y + 2.2, 3.8, 3.8, o.a, wall); y += 2.2;
+  S.hip(cx, cz, 3.8, 3.8, o.a, y, 2.4, roof, { over: 1.0, flare: 0.3 });
   S.kind = KIND.PLAIN;
-  S.cyl(cx, cz, y + 3.0, y + 5.4, 0.16, 0.05, 5, hex('#d9c27a'));
+  S.cyl(cx, cz, y + 2.2, y + 3.6, 0.16, 0.05, 5, hex('#d9c27a'));
 }

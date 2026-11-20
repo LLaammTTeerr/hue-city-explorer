@@ -126,6 +126,30 @@
   the whole-model row and the three curated groups. The place card now hangs under the box like a map's side
   panel and its name is written in the box; `/` focuses the box. Phones: box across the top, period row under it,
   tools and compass in a column on the right, the quick strip of places kept at the bottom. The fold toggle is gone.
+- Heights and overlaps (branch `map-search`):
+  - Place tags are anchored on the model itself: 3 m over the surface above the place's point, or over the highest
+    vertex within its radius (`r` in the data, default 14 m; 36 m for Phủ Cam, Dòng Chúa Cứu Thế and Thiên An, whose
+    towers stand off-centre). `modelTops` in `src/ui/labels.js`; the hand-typed `h` is now only the fallback for water,
+    islands, streets and districts. Check from the console: `__hue.labels.anchors`.
+  - Núi Ngự Bình's point was 450 m east of the summit; it and đồi Vọng Cảnh are moved onto the highest ground nearby
+    in `build-data.mjs` §9, and the Vọng Cảnh lookout is built at the place's point.
+  - Real heights are collected in `docs/reference/heights.md` (16 sourced, 42 estimated from storeys and type).
+    Applied: Nguyễn halls and pagodas take eaves of 3.6-5.2 m (they were 5-9.5 m, so halls stood 13-16 m instead of
+    8-11 m); 19 named places drawn as ordinary buildings carry their true ridge height (`TRUE_H`, sixth field of a
+    `bld` record) and no stair heads or water tanks; Tàng Thư Lâu, điện Long An, Quốc Tử Giám and Thương Bạc are tiled
+    halls, not modern blocks; Đông Ba's hall about 10 m and its tower about 22 m (was 31 m); Ngọ Môn 14.7 m (was
+    16.1); Phu Văn Lâu 11.8 m (was 9.7); the Redemptorist spire 53 m (was 56.7); Quốc Học's blocks two storeys.
+    Left as they were: Kinh thành gates (17.2 m; only an estimate of 13-14 m found), Phủ Cam (46 m; one page says
+    50 m), Vincom (164 m with mast; 160 m published), chùa Diệu Đế, Bia Quốc Học, Ga Huế (estimates only).
+  - Buildings, houses and trees are placed after the landmark models (`populate` in `src/geo/city.js`) and keep off
+    the ground a model covers (`coverOf`: 1 m cells under its raised, upward faces). Houses and mapped buildings keep
+    off all of it, trees only off roofs and platforms 2.2 m or higher, so the pines stay on đàn Nam Giao's lawn
+    terraces. The Citadel rampart is exempt (it is planted). Mapped buildings inside a landmark's own outline are
+    dropped in the data (Lầu Ngũ Phụng on Ngọ Môn, a block inside Kỳ Đài).
+  - Hill bridges climb between banks of different height instead of lying level at the lower one and running into
+    the ground; the southern models take their ground levels from the whole footprint, not its corners.
+  - Still overlapping: footpaths run up to and under tomb platforms and across enclosure walls on slopes (lăng Tự
+    Đức); the burial mound's disc at lăng Minh Mạng lies under the terrain mound; a 0.3 m sliver at đàn Nam Giao.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified
