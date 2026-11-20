@@ -246,6 +246,7 @@ function buildRoads(data, group, structures) {
     const P = profiles.get(r.flat);
     if (!P) continue; // too short to profile (bridges.js skipped it): one bad entry must not abort the city
     if (P.name === 'Cầu Phú Xuân' && replaced('phuxuan')) continue; // modelled in landmarks/places/phuxuan.js
+    if (P.name === 'Cầu Cửa Ngăn' && replaced('gate:Cửa Ngăn')) continue; // modelled in landmarks/places/gate-cua-ngan.js
     if (P.name === 'Đông Thành Thủy Quan' && replaced('thuyquan')) continue; // modelled in landmarks/places/thuyquan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
