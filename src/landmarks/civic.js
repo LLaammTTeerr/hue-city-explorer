@@ -1,4 +1,4 @@
-import { KIND, hex, shade, unflat, obb, ringCentre, signedArea, span } from '../geo/buf.js';
+import { KIND, hex, shade, unflat, obb, ringCentre, span, inRing } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
@@ -18,11 +18,6 @@ function polyCentroid(r) {
   for (let i = 0, n = r.length; i < n; i++) { const a = r[i], b = r[(i + 1) % n], k = a[0] * b[1] - b[0] * a[1]; A += k; x += (a[0] + b[0]) * k; z += (a[1] + b[1]) * k; }
   return A ? [x / (3 * A), z / (3 * A)] : ringCentre(r);
 }
-const inRing = (x, z, r) => {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
-  return c;
-};
 // Pitched roof with the ridge along `ang`; the gable ends are closed in the wall colour.
 function gable(S, c, len, wid, ang, y0, h, roofCol, wallCol, over = 0.7) {
   const ux = Math.cos(ang), uz = Math.sin(ang);
@@ -55,7 +50,7 @@ function station(S, data) {
   if (!sp) return;
   const o = obb(unflat(sp.ring));
   let n = [-Math.sin(o.a), Math.cos(o.a)], best = null, bd = Infinity;
-  for (const r of data.rails) { const pts = unflat(r[2]); for (const q of pts) { const d = Math.hypot(q[0] - o.c[0], q[1] - o.c[1]); if (d < bd) { bd = d; best = q; } } }
+  for (const r of data.rails || []) { const pts = unflat(r[2]); for (const q of pts) { const d = Math.hypot(q[0] - o.c[0], q[1] - o.c[1]); if (d < bd) { bd = d; best = q; } } }
   if (best && (o.c[0] - best[0]) * n[0] + (o.c[1] - best[1]) * n[1] < 0) n = [-n[0], -n[1]]; // the front looks away from the tracks
   const F = frame(o.c, n), L = o.w, D = Math.max(o.d * 0.8, 9), y0 = ground(o.c);
   const pink = hex('#d58a80'), tile = hex('#a2553d');
@@ -283,7 +278,7 @@ function anDinh(S, data) {
   if (area) for (let t = D / 2 + 8; t < 120; t += 1) { const p = F.at(t, 0); if (!inRing(p[0], p[1], area)) { reach = Math.max(D / 2 + 26, t - 2.5); break; } }
   // Trung Lập pavilion
   const tp = F.at(D / 2 + (reach - D / 2) * 0.52, 0);
-  S.base = 0;
+  S.base = y0 - LAND_Y; // the pavilion and gate stand on the palace's raised ground, so the shader's foot darkening starts there
   S.kind = KIND.MASONRY;
   S.cyl(tp[0], tp[1], y0 - 0.2, y0 + 0.9, 5.6, 5.4, 8, stone, { rot: F.a + Math.PI / 8 });
   S.kind = KIND.PLAIN;
@@ -348,7 +343,7 @@ function hienLam(S, data) {
   S.kind = KIND.PLAIN;
   S.cyl(o.c[0], o.c[1], y, y + 1.2, 0.3, 0.05, 6, hex('#f1d77a'));
   // Cửu Đỉnh
-  const tm = data.places.find((p) => p.id === 'themieu');
+  const tm = (data.places || []).find((p) => p.id === 'themieu');
   let n = [-Math.sin(o.a), Math.cos(o.a)];
   if (tm && (tm.x / 10 - o.c[0]) * n[0] + (tm.z / 10 - o.c[1]) * n[1] < 0) n = [-n[0], -n[1]];
   const F = frame(o.c, n), bronze = hex('#56594a');
@@ -397,7 +392,8 @@ export function buildCivic(data, S) {
   // with the first era each stands in: 0 Nguyễn, 1 French period, 2 today (the churches as they stand are 1960s)
   for (const [fn, since] of [[station, 1], [phuCam, 2], [redemptorist, 2], [anDinh, 1], [dieuDe, 0], [hienLam, 0], [vincom, 2], [tuPhuong, 1]]) {
     S.span = span(since);
-    fn(S, data);
+    const n0 = S.n; // a place that throws is dropped whole (the buffer rolled back) and the rest still load
+    try { fn(S, data); } catch (e) { S.n = n0; console.warn('civic:', fn.name, e); }
     S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
   }
 }

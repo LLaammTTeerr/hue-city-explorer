@@ -3,7 +3,7 @@
 // historic outlines ('h'). Mapped buildings sit on their own footprints; the axes are taken from pairs of mapped
 // buildings; courts, terraces, stairs, statues, walls and bridges are laid out along those axes from the known plan
 // of each tomb (illustrative where nothing is mapped). Water itself is drawn elsewhere (POND_Y), never here.
-import { KIND, hex, shade, unflat, obb } from '../geo/buf.js';
+import { KIND, hex, shade, unflat, obb, inRing, span } from '../geo/buf.js';
 import { LAND_Y, POND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
@@ -28,14 +28,6 @@ const add = (p, q) => [p[0] + q[0], p[1] + q[1]];
 const sub = (p, q) => [p[0] - q[0], p[1] - q[1]];
 const fin = (p) => p && Number.isFinite(p[0]) && Number.isFinite(p[1]);
 
-function inRing(p, r) {
-  let ins = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
-    const a = r[i], b = r[j];
-    if ((a[1] > p[1]) !== (b[1] > p[1]) && p[0] < ((b[0] - a[0]) * (p[1] - a[1])) / (b[1] - a[1]) + a[0]) ins = !ins;
-  }
-  return ins;
-}
 // sample points over an oriented rectangle (corners, edge mids, centre)
 function rectPts(cx, cz, w, d, a) {
   const ux = Math.cos(a), uz = Math.sin(a), out = [];
@@ -44,7 +36,7 @@ function rectPts(cx, cz, w, d, a) {
 }
 // Lowest and highest ground under a footprint: the points given and the whole box round them, every few metres. The
 // corners alone miss a rise in the middle (Minh Lâu stands on a hillock that buried its three terraces).
-function span(pts) {
+function groundSpan(pts) {
   let lo = Infinity, hi = -Infinity, x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   const take = (x, z) => { const y = gY(x, z); lo = Math.min(lo, y); hi = Math.max(hi, y); };
   for (const p of pts) { take(p[0], p[1]); x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
@@ -67,7 +59,7 @@ function frame(o, dir) {
 function spans(F, rings, s0, s1, t = 0, step = 0.75) {
   const out = []; let cur = null;
   for (let s = s0; s <= s1; s += step) {
-    const p = F.at(s, t), w = rings.some((r) => inRing(p, r));
+    const p = F.at(s, t), w = rings.some((r) => inRing(p[0], p[1], r));
     if (w && !cur) cur = [s, s]; else if (w) cur[1] = s; else if (cur) { out.push(cur); cur = null; }
   }
   if (cur) out.push(cur);
@@ -106,14 +98,14 @@ const waters = (st) => st.items.filter((i) => i.k === 'w').map((i) => i.ring);
 // ---------- building blocks ----------
 // a level platform from 1 m below the lowest ground under it up to `top`
 function terrace(S, cx, cz, w, d, a, top, col = C.stone) {
-  const { lo } = span(rectPts(cx, cz, w, d, a));
+  const { lo } = groundSpan(rectPts(cx, cz, w, d, a));
   const y0 = lo - 1;
   if (top < y0 + 0.3) top = y0 + 0.3;
   S.kind = KIND.MASONRY; S.base = y0 - LAND_Y;
   S.box(cx, cz, y0, top, w, d, a, col, { top: shade(col, 1.06), topKind: KIND.ROAD });
   return top;
 }
-const levelTop = (cx, cz, w, d, a, lift = 0.2) => span(rectPts(cx, cz, w, d, a)).hi + lift;
+const levelTop = (cx, cz, w, d, a, lift = 0.2) => groundSpan(rectPts(cx, cz, w, d, a)).hi + lift;
 
 // pavilion() wants the long side along the angle
 function pav(S, cx, cz, w, d, a, floor, opts) {
@@ -163,7 +155,7 @@ function flight(S, p0, y0, p1, y1, w, { col = C.stone, rail = 0, railCol = null,
 let PATHS = [];
 function loadPaths(data) {
   PATHS = [];
-  const sites = Object.values(data.sites || {}).map((st) => [st.c[0] / 10, st.c[1] / 10, (st.r || 300) + 60]);
+  const sites = Object.values(data.sites || {}).filter((st) => st && fin(st.c)).map((st) => [st.c[0] / 10, st.c[1] / 10, (st.r || 300) + 60]); // a site without a centre has no paths, rather than aborting every tomb
   const W = [15, 12, 9.5, 6.5, 4, 2.2];
   for (const [c, bridge, flat] of data.roads || []) {
     if (bridge) continue;
@@ -234,7 +226,7 @@ const rectRing = (F, s0, s1, t0, t1) => [F.at(s0, t0), F.at(s1, t0), F.at(s1, t1
 // a masonry gate: w along the wall line (angle a), the passage runs across it
 function gate(S, cx, cz, a, w, d, { h = 5, openings = 3, roof = C.roofY, col = C.brickMoss, upper = false, floor = null, rh = null } = {}) {
   if (w < d) { const t = w; w = d; d = t; a += Math.PI / 2; }
-  const { lo, hi } = span(rectPts(cx, cz, w, d, a));
+  const { lo, hi } = groundSpan(rectPts(cx, cz, w, d, a));
   const y0 = floor ?? hi;
   S.kind = KIND.MASONRY; S.base = y0 - LAND_Y;
   S.box(cx, cz, lo - 0.8, y0 + h, w, d, a, col, { top: shade(col, 0.9) });
@@ -341,7 +333,7 @@ function obelisk(S, x, z, h = 9, col = C.stone) {
 // an earth tumulus with a few pines, its base bedded below the lowest ground around it
 function mound(S, cx, cz, r, h, { trees = 6, ground = null } = {}) {
   const ring = circle(cx, cz, r, 8);
-  const lo = ground != null ? ground - 0.4 : span(ring).lo - 0.6;
+  const lo = ground != null ? ground - 0.4 : groundSpan(ring).lo - 0.6;
   const top = (ground != null ? ground : gY(cx, cz)) + h;
   S.kind = KIND.GROUND; S.base = 0;
   S.cyl(cx, cz, lo, top, r, r * 0.22, 14, C.moss);
@@ -377,7 +369,7 @@ function minhMang(S, st) {
   const tgt = bt ? bt.c : ml ? ml.c : add(st.c, [-175, -22]);
   const F = frame(o, sub(tgt, o));
   const W = waters(st);
-  const wet = (p) => W.some((r) => inRing(p, r));
+  const wet = (p) => W.some((r) => inRing(p[0], p[1], r));
   const sBT = F.s(tgt), R = bt ? (bt.w + bt.d) / 4 : 40;
 
   // Đại Hồng Môn: the mapped central gate, widened with two lower side bays
@@ -409,7 +401,7 @@ function minhMang(S, st) {
     const s0 = sBD + 10, s1 = sHDM - 6, L = (s1 - s0) / 4;
     if (L > 3) {
       const m = F.at((s0 + s1) / 2);
-      let y = span(rectPts(m[0], m[1], s1 - s0, 32, F.a)).hi;
+      let y = groundSpan(rectPts(m[0], m[1], s1 - s0, 32, F.a)).hi;
       for (let k = 0; k < 4; k++) { const p = F.at(s0 + L * (k + 0.5)); y += 0.35; terrace(S, p[0], p[1], L + 0.05, 32 - k * 1.5, F.a, Math.max(y, levelTop(p[0], p[1], L, 32, F.a, 0.1))); }
     }
   }
@@ -478,14 +470,14 @@ function tuDuc(S, st) {
 
   // Khiêm Cung Môn, a two-storey gate at the head of the steps from the lake
   if (kcm) kcm.used = true;
-  const gTop = span(rectPts(kp[0], kp[1], 12, 11, F.a)).hi;
+  const gTop = groundSpan(rectPts(kp[0], kp[1], 12, 11, F.a)).hi;
   gate(S, kp[0], kp[1], F.av, kcm ? Math.max(kcm.w, kcm.d) : 12.5, kcm ? Math.min(kcm.w, kcm.d) : 11, { h: 4.4, openings: 3, upper: true, col: C.brickMoss, roof: C.roofYOld, floor: gTop });
   {
     const d0 = (kcm ? Math.min(kcm.w, kcm.d) : 11) / 2 + 0.3;
     let best = d0 + 6, by = Infinity;
     for (let s = d0 + 3; s <= d0 + 45; s += 1) {
       const p = F.at(s + 2);
-      if (lake && inRing(p, lake.ring)) break;
+      if (lake && inRing(p[0], p[1], lake.ring)) break;
       const y = gY(...F.at(s));
       if (y < by - 0.05) { by = y; best = s; }
     }
@@ -682,7 +674,7 @@ function thieuTri(S, st) {
     wallLine(S, rectRing(F, s0 - 5, 0, t0 - 5, t1 + 5), 2.4, 0.8);
     if (htm) htm.used = true;
     const gw = htm ? Math.max(htm.w, htm.d) : 10.8, gd = htm ? Math.min(htm.w, htm.d) : 8.4;
-    const gf = span(rectPts(hp[0], hp[1], gw, gd, F.av)).hi;
+    const gf = groundSpan(rectPts(hp[0], hp[1], gw, gd, F.av)).hi;
     gate(S, hp[0], hp[1], F.av, gw, gd, { h: 4.4, openings: 3, upper: true, col: C.lacquerOld, roof: C.roofY, floor: gf });
     const f = F.at(gd / 2 + 4);
     flight(S, f, gY(f[0], f[1]), F.at(gd / 2), gf, 6);
@@ -725,7 +717,7 @@ function thieuTri(S, st) {
   }
   {
     const sD = T.s(dp), dd = dhl ? Math.min(dhl.w, dhl.d) : 16.7, sI = sD - dd / 2 - 40, ip = T.at(sI), R = 16;
-    const wet = W.some((r) => inRing(ip, r)), isle = LAND_Y + rise(ip[0], ip[1]) + 0.3;
+    const wet = W.some((r) => inRing(ip[0], ip[1], r)), isle = LAND_Y + rise(ip[0], ip[1]) + 0.3;
     if (wet) {
       S.kind = KIND.MASONRY; S.base = 0;
       S.cyl(ip[0], ip[1], POND_Y - 1, isle, R + 2, R + 2, 22, C.stoneDark);
@@ -761,7 +753,7 @@ function dongKhanh(S, st) {
     const F = frame(nhd.c, tgt ? sub(tgt, nhd.c) : [1, 0.9]);
     let s0 = Infinity, s1 = -Infinity, t0 = Infinity, t1 = -Infinity;
     for (const p of nhd.ring) { s0 = Math.min(s0, F.s(p)); s1 = Math.max(s1, F.s(p)); t0 = Math.min(t0, F.t(p)); t1 = Math.max(t1, F.t(p)); }
-    const D = s1 - s0, Wd = t1 - t0, mc = F.at((s0 + s1) / 2, (t0 + t1) / 2), cs = F.s(mc), ct = F.t(mc);
+    const D = s1 - s0, Wd = t1 - t0, mc = F.at((s0 + s1) / 2, (t0 + t1) / 2), ct = F.t(mc);
     const top = terrace(S, mc[0], mc[1], D + 2, Wd + 2, F.a, levelTop(mc[0], mc[1], D + 2, Wd + 2, F.a, 1.0));
     // tiền điện, chính điện, hậu điện under three roofs that touch
     for (let k = 0; k < 3; k++) {
@@ -776,7 +768,6 @@ function dongKhanh(S, st) {
     if (pond) { const wet = spans(F, [pond.ring], s1, fs + 30, ct); if (wet.length && wet[0][0] < fs + 2) front = wet[0][0] - 3; }
     wallLine(S, rectRing(F, a0 - 5, front, b0 - 5, b1 + 5), 2.2, 0.7);
     const g = F.at(front, ct); gate(S, g[0], g[1], F.av, 10, 3, { h: 3.8, openings: 3, roof: C.roofY, col: C.brickMoss });
-    void cs;
   }
   // the tomb on its hill: a brick stele house with pilasters and cornice, a statue court below, Bửu Thành above
   const bdk = nearest(st, -106, -17, 10);
@@ -833,8 +824,8 @@ export function buildTombs(data, S, stats = null) {
     const st = loadSite(data, id);
     const n0 = S.n;
     if (st) {
-      S.span = id === 'dongkhanh' || id === 'khaidinh' ? 4 : 0; // those two were built under the French (span(1)); the rest are older
-      try { fn(S, st); } catch (e) { console.warn(`tombs: ${id} skipped`, e); }
+      S.span = id === 'dongkhanh' || id === 'khaidinh' ? span(1) : 0; // those two were built under the French; the rest are older
+      try { fn(S, st); } catch (e) { S.n = n0; console.warn(`tombs: ${id} skipped`, e); } // drop the half-built tomb, not just the rest of it
     }
     S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
     if (stats) stats[id] = { from: n0, to: S.n };

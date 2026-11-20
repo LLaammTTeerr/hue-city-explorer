@@ -21,10 +21,8 @@ from rasterio.windows import from_bounds
 
 BASE = 'https://storage.googleapis.com/open-buildings-temporal-data/v1/geotiffs/3141c_2023_06_30/'
 TILES = ['tile_MmkwMjIQ9Kc.tif', 'tile_F73tKZs3AmI.tif']
-ORIGIN = (16.468896, 107.588858)  # lat, lon: scripts/build-data.mjs
-KX = math.cos(math.radians(ORIGIN[0])) * 111319.49
-KZ = 110574
-x0, z0, x1, z1 = [v / 10 for v in json.load(open('public/data/hue.json'))['meta']['bounds']]
+from frame import ORIGIN, KX, KZ, BOUNDS  # scripts/frame.json, shared with scripts/build-data.mjs
+x0, z0, x1, z1 = BOUNDS
 STEP = 2.0
 nx, nz = int(math.ceil((x1 - x0) / STEP)), int(math.ceil((z1 - z0) / STEP))
 dst_tr = Affine(STEP / KX, 0, ORIGIN[1] + x0 / KX, 0, -STEP / KZ, ORIGIN[0] - z0 / KZ)

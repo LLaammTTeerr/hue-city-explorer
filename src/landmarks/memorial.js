@@ -35,9 +35,11 @@ import { rise } from '../geo/terrain.js';
 const ROW = [-675.1, 879.2]; // OSM memorial node, metres (x east, z south), used if data.special.biaquochoc is missing
 
 export function buildBiaQuocHoc(data, S) {
+  const n0 = S.n; // on a throw, roll the shared buffer back so no half-built screen is left behind
   try {
     build(data, S);
   } catch (e) {
+    S.n = n0;
     console.warn('Bia Quốc Học not built:', e);
   }
   S.span = 0;

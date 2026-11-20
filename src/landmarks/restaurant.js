@@ -120,6 +120,10 @@ function build(rec, data, S, group) {
     const m = new THREE.Mesh(B.geometry(), lightMaterial(colr, boost));
     m.renderOrder = 19;
     m.userData.minEra = 2;
+    // flagged as a glow so main.js hides it by day (uGlow 0: an additive draw of black) as well as before 2025; its
+    // per-frame loop also writes uScale, which this material does not use but must have
+    m.userData.glow = true;
+    m.material.uniforms.uScale = { value: 1 };
     group.add(m);
     strips.push(m);
   }

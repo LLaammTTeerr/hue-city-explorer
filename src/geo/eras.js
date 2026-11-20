@@ -1,4 +1,4 @@
-import { unflat } from './buf.js';
+import { unflat, inRing } from './buf.js';
 
 // Where and when the city was built up, for the era switcher. The mapped city is today's; for the two earlier
 // moments each plot is given the first era it was built on, by district. These shares are an illustration of how
@@ -6,11 +6,6 @@ import { unflat } from './buf.js';
 // survey: no historical cadastre is bundled.
 let wall = null, axis = [0, 1], mid = [0, 0];
 
-const inRing = (x, z, r) => {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
-  return c;
-};
 const ringArea = (r) => { let a = 0; for (let i = 0; i < r.length; i++) { const p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); };
 
 export function initEras(data) {
@@ -26,13 +21,16 @@ export function initEras(data) {
 export const inCitadel = (x, z) => !!wall && inRing(x, z, wall);
 // which side of the river, judged across the line of Trường Tiền (good near the centre, where it matters)
 export const southBank = (x, z) => (x - mid[0]) * axis[0] + (z - mid[1]) * axis[1] > 0;
-export const inHills = (x, z) => z > 2600;
+// Hand-placed boundaries in world metres (projection origin as in scripts/build-data.mjs): move them with the origin.
+const HILLS_Z = 2600; // beyond this line (larger z) lie the hills and the tombs
+const R_QUARTER = 1700, R_NORTH = 2500, R_SOUTH = 3200; // reach of the French quarter, of the old north bank, of the south-bank suburbs
+export const inHills = (x, z) => z > HILLS_Z;
 
 const h2 = (i, j) => { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const vnoise = (x, z) => { const i = Math.floor(x), j = Math.floor(z); let fx = x - i, fz = z - j; fx = fx * fx * (3 - 2 * fx); fz = fz * fz * (3 - 2 * fz); return (h2(i, j) * (1 - fx) + h2(i + 1, j) * fx) * (1 - fz) + (h2(i, j + 1) * (1 - fx) + h2(i + 1, j + 1) * fx) * fz; };
 
 // The French quarter proper: the south bank within reach of Lê Lợi.
-export const frenchQuarter = (x, z) => southBank(x, z) && !inHills(x, z) && Math.hypot(x - mid[0], z - mid[1]) < 1700;
+export const frenchQuarter = (x, z) => southBank(x, z) && !inHills(x, z) && Math.hypot(x - mid[0], z - mid[1]) < R_QUARTER;
 
 // First era (0, 1 or 2) in which the plot at (x, z) is built on. Clumped, so whole lanes fill in together.
 export function plotBorn(x, z, salt = 0) {
@@ -41,9 +39,9 @@ export function plotBorn(x, z, salt = 0) {
   let p0, p1; // share built by 1885, by 1935
   if (inCitadel(x, z)) { p0 = 0.5; p1 = 0.78; }
   else if (inHills(x, z)) { p0 = 0.07; p1 = 0.16; }
-  else if (!southBank(x, z)) { if (d < 2500) { p0 = 0.36; p1 = 0.7; } else { p0 = 0.14; p1 = 0.32; } }
-  else if (d < 1700) { p0 = 0.05; p1 = 0.58; }
-  else if (d < 3200) { p0 = 0.08; p1 = 0.32; }
+  else if (!southBank(x, z)) { if (d < R_NORTH) { p0 = 0.36; p1 = 0.7; } else { p0 = 0.14; p1 = 0.32; } }
+  else if (d < R_QUARTER) { p0 = 0.05; p1 = 0.58; }
+  else if (d < R_SOUTH) { p0 = 0.08; p1 = 0.32; }
   else { p0 = 0.1; p1 = 0.26; }
   return k < p0 ? 0 : k < p1 ? 1 : 2;
 }

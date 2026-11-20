@@ -4,6 +4,9 @@ import { hex } from './geo/buf.js';
 // laser measured them (3.5 m and 0.9 m above sea level; scripts/build-data.mjs prints the pair and checks this)
 export const LAND_Y = 2.6;
 export const POND_Y = LAND_Y - 1.3; // lakes, ponds and the moat stand just below ground level
+// carriageway width in metres by road class, 0 (widest) … ROAD_MAX (narrowest); road data is clamped to that range on load
+export const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
+export const ROAD_MAX = ROAD_W.length - 1;
 export const WALL_H = 6.6; // Citadel wall height, from the OSM tag on the wall relation
 
 export const isCoarse = () => matchMedia('(pointer: coarse)').matches;

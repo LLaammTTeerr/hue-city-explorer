@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre, span } from './buf.js';
+import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre, span, pathLength, chunked, rand, pick } from './buf.js';
 import { cityMaterial, landMaterial, enc, glowPoints, eraDepthMaterial } from './materials.js';
 import { initEras, inCitadel, southBank, inHills, frenchQuarter, plotBorn } from './eras.js';
-import { LAND_Y, WALL_H, PAL, quality } from '../config.js';
+import { LAND_Y, WALL_H, PAL, quality, ROAD_W, ROAD_MAX } from '../config.js';
 import polygonClipping from 'polygon-clipping';
 import { gateAxis, rectRing, inRing, CITADEL_PASSAGE } from './gates.js';
 import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
@@ -10,29 +10,13 @@ import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample } from './bridges.js';
+import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 
-const rand = (i, salt = 0) => {
-  let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
-  h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
-  return (h >>> 0) / 4294967296;
-};
-const pick = (arr, i, salt = 0) => arr[Math.floor(rand(i, salt) * arr.length) % arr.length];
-const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
-// Bucket instances into ~900 m tiles so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
+// Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
 // less. Whole chunks of houses and trees drop out much farther away, where the river mist has taken them anyway.
 export function updateDetail(camera, reach = 1500) {
   lodUpdate(camera, reach / 1500);
-}
-function chunked(items, size = 1300) {
-  const map = new Map();
-  for (const it of items) {
-    const key = Math.floor(it.x / size) + ',' + Math.floor(it.z / size);
-    let list = map.get(key);
-    if (!list) map.set(key, (list = []));
-    list.push(it);
-  }
-  return map.values();
 }
 
 // ---------- land ----------
@@ -54,6 +38,7 @@ function buildLand(data, group) {
   }
   // The model's base: a section of earth under the city, standing on a dark timber plinth, with a soft shadow
   // beneath so the whole thing sits on something rather than floating.
+  if (!data.meta?.bounds) return; // a trimmed data file without its extent: no base to size
   const b = data.meta.bounds.map((v) => v / 10);
   const w = b[2] - b[0], d = b[3] - b[1], cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2;
   const earth = new THREE.Mesh(new THREE.BoxGeometry(w, 46, d), landMaterial(PAL.base));
@@ -85,7 +70,7 @@ function buildGreen(data, group) {
   const B = new Buf(20000);
   B.kind = KIND.GROUND;
   const y = LAND_Y + 0.03;
-  for (const [k, poly] of data.green) {
+  for (const [k, poly] of data.green || []) {
     const col = hex(PAL.green[k] || PAL.green.grass);
     const rings = poly.map(unflat);
     const contour = rings[0].map((p) => new THREE.Vector2(p[0], p[1]));
@@ -190,7 +175,6 @@ function railTruss(B, pts, len, deck, pier) {
     }
   }
 }
-function pathLength(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
 function along(pts, dist) {
   let s = 0;
   for (let i = 0; i + 1 < pts.length; i++) {
@@ -206,7 +190,7 @@ function along(pts, dist) {
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = data.roads.map(([c, bridge, flat]) => ({ c, bridge, flat, pts: unflat(flat) }));
+  const roads = (data.roads || []).map(([c, bridge, flat]) => ({ c: Math.max(0, Math.min(ROAD_MAX, c | 0)), bridge, flat, pts: unflat(flat) })); // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
   const casing = hex(PAL.casing);
   const cols = PAL.road.map(hex);
@@ -233,7 +217,7 @@ function buildRoads(data, group, structures) {
   B.kind = KIND.LINE;
   for (const r of roads) if (!r.bridge && r.c <= 4) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[r.c] + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85)); }
   B.kind = KIND.ROAD;
-  for (let c = 5; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[c], y + 0.01, cols[c]); }
+  for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[c], y + 0.01, cols[c]); }
   B.span = span(2); // painted lane markings are today's
   const paint = hex('#f4eedd');
   for (const r of roads) {
@@ -245,7 +229,7 @@ function buildRoads(data, group, structures) {
     }
   }
   B.span = span(1); // the railway reached Huế in 1906–08
-  for (const [main, bridge, flat] of data.rails) {
+  for (const [main, bridge, flat] of data.rails || []) {
     const pts = unflat(flat);
     if (bridge) continue;
     ribbon(B, pts, main ? 5.4 : 4, y + 0.02, hex(PAL.ballast));
@@ -260,13 +244,16 @@ function buildRoads(data, group, structures) {
   // bridges: real slabs with piers, so they read from the water as well as from above
   const pier = PAL.pier, deckSide = hex('#a59c8b');
   let vongDone = false;
+  const ownDeck = thuyTienBridgeRoads(data); // the dragon aquarium's footbridges are modelled in landmarks/thuytien.js
   for (const r of roads) {
-    if (!r.bridge) continue;
+    if (!r.bridge || ownDeck.has(r.flat)) continue;
     structures.span = span(r.era);
     const w = ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5);
     // the deck: level at the banks (or climbing between banks of different height, or at a hill lake's level), and
     // on all but the long river bridges rising to a crown at mid-span (geo/bridges.js)
-    const P = profiles.get(r.flat), top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
+    const P = profiles.get(r.flat);
+    if (!P) continue; // too short to profile (bridges.js skipped it): one bad entry must not abort the city
+    const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
     if (P.rise > 0) {
       const R = resample(r.pts, P.arches ? 0.5 : Math.min(2, P.len / 16), P.breaks);
@@ -277,7 +264,7 @@ function buildRoads(data, group, structures) {
     } else slab(structures, r.pts, w, P.y, P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
     const len = pathLength(r.pts);
     // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
-    const dv = vongDone ? null : data.places.find((q) => q.id === 'bachho');
+    const dv = vongDone ? null : (data.places || []).find((q) => q.id === 'bachho');
     if (dv && len > 250 && r.c <= 1 && Math.hypot(mp[0] - dv.x / 10, mp[1] - dv.z / 10) < 420) {
       vongDone = true; // the two carriageways are mapped separately: once is enough
       for (const f of [0.25, 0.5, 0.75]) for (const side of [-1, 1]) {
@@ -298,7 +285,7 @@ function buildRoads(data, group, structures) {
     }
   }
   structures.span = span(1);
-  for (const [main, bridge, flat] of data.rails) {
+  for (const [main, bridge, flat] of data.rails || []) {
     if (!bridge) continue;
     const pts = unflat(flat);
     slab(structures, pts, 5.5, LAND_Y + 0.5, 1.4, hex(PAL.rail), hex('#6d6670'), 1.6);
@@ -474,9 +461,9 @@ function buildBuildings(data, group, off = null) {
 // the rest only into the main view (layer 1). Houses on main streets mostly become row houses: gable roofs
 // with the ridge running along the street, so a block reads as one long tiled roofline.
 function buildInfill(data, group, off = null) {
-  const a = data.infill, S = 8;
+  const a = data.infill || [], S = 8;
   const n = a.length / S;
-  const nearCount = data.meta.counts.infillNear ?? n;
+  const nearCount = data.meta?.counts?.infillNear ?? n;
   const W = [1, 1, 1];
 
   const wallGeo = new Buf(16);
@@ -595,7 +582,6 @@ function buildInfill(data, group, off = null) {
     mesh.instanceMatrix.needsUpdate = true;
     mesh.instanceColor.needsUpdate = true;
     mesh.castShadow = shadow && (!quality.low || geo === geos.wall);
-    mesh.geometry.boundingSphere = geo.boundingSphere;
     if (mesh.castShadow) mesh.customDepthMaterial = eraDepthMaterial();
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
@@ -619,7 +605,7 @@ function buildInfill(data, group, off = null) {
       // bed the house into a slope: stand it on the lowest corner, keep the eaves where the centre would put them
       const ca = Math.cos(ang), sa = Math.sin(ang);
       let lo = rise(x, z), hi = lo;
-      if (lo > 0 || rise(x + ca * w, z + sa * w) > 0 || rise(x - sa * d, z + ca * d) > 0 || rise(x + sa * d, z - ca * d) > 0) for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { // every corner: a partial probe let houses with one edge on a slope float
         const r = rise(x + (ca * u * w - sa * v * d) / 2, z + (sa * u * w + ca * v * d) / 2);
         lo = Math.min(lo, r); hi = Math.max(hi, r);
       }
@@ -689,7 +675,7 @@ function buildWalls(data, structures) {
   // The walls open where a gate stands (the gate models in citadel.js carry the passage through): a slot is cut
   // out of the rampart for each Citadel gate, and the Imperial City's wall stops at the footprints of its gates
   // and of Ngọ Môn.
-  const kinhthanh = data.places.find((q) => q.id === 'kinhthanh');
+  const kinhthanh = (data.places || []).find((q) => q.id === 'kinhthanh');
   const cityCentre = kinhthanh ? [kinhthanh.x / 10, kinhthanh.z / 10] : [0, 0];
   const impCentre = data.imperial ? [data.imperial.c[0] / 10, data.imperial.c[1] / 10] : cityCentre;
   const close = (r) => [...r, r[0]];
@@ -700,7 +686,7 @@ function buildWalls(data, structures) {
   }
   // Ngọ Môn is a U: the wall must also stay out of the court between its wings, so its whole box is cleared
   if (data.special && data.special.ngomon) { const o = obb(unflat(data.special.ngomon.ring)); clear.push(rectRing(o.c[0], o.c[1], o.w + 0.4, o.d + 0.4, o.a)); }
-  for (const poly of data.wall) {
+  for (const poly of data.wall || []) {
     let parts = [poly.map(unflat)];
     if (slots.length) {
       try { parts = polygonClipping.difference(parts[0].map(close), ...slots).map((pg) => pg.map((r) => r.slice(0, -1))); } catch { /* keep the wall whole */ }
@@ -709,7 +695,7 @@ function buildWalls(data, structures) {
   }
   // the Imperial City's own wall is mapped as lines: brick, with a tiled coping
   const cap = hex('#7a5a45'), body = hex('#8f7c69');
-  for (const flat of data.iwalls) {
+  for (const flat of data.iwalls || []) {
     const pts = unflat(flat);
     for (let i = 0; i + 1 < pts.length; i++) {
       const a = pts[i], b = pts[i + 1];

@@ -5,6 +5,9 @@ import { rise } from '../geo/terrain.js';
 
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const calm = matchMedia('(prefers-reduced-motion: reduce)');
+// A key pressed while typing, on a form control or anywhere in the search box belongs to that control, not to the map.
+export const fromForm = (e) => { const t = e.target; return t instanceof Element && (t.isContentEditable || !!t.closest('input, textarea, select, #search')); };
 
 // Map-style camera: drag the ground, wheel/pinch toward the cursor, right-drag or two fingers to turn and tilt.
 export function createCamera(canvas, bounds) {
@@ -23,7 +26,12 @@ export function createCamera(canvas, bounds) {
   controls.panSpeed = 1.0;
   controls.keyPanSpeed = 22;
   controls.autoRotateSpeed = 0.07;
-  controls.listenToKeyEvents(window);
+  // arrow keys pan the map, but not while they move a caret, a slider or the search results: the controls listen through a filter
+  const keyFilters = new Map();
+  controls.listenToKeyEvents({
+    addEventListener: (type, fn) => { const f = (e) => { if (!fromForm(e)) fn(e); }; keyFilters.set(fn, f); addEventListener(type, f); },
+    removeEventListener: (type, fn) => { removeEventListener(type, keyFilters.get(fn)); keyFilters.delete(fn); },
+  });
 
   let home = { pos: new THREE.Vector3(400, 230, -420), target: new THREE.Vector3(0, LAND_Y, 0) };
   let fly = null;
@@ -45,6 +53,7 @@ export function createCamera(canvas, bounds) {
   }
 
   function flyTo(pos, target, { duration = 2.4, arc = true, onDone = null } = {}) {
+    if (calm.matches) { duration = 0.001; arc = false; } // reduced motion: cut to the new view instead of sweeping there
     fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), t: 0, duration, arc, onDone };
     controls.autoRotate = false;
   }
@@ -70,10 +79,11 @@ export function createCamera(canvas, bounds) {
     setHome(pos, target) { home = { pos: pos.clone(), target: target.clone() }; },
     jumpHome() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); },
     goHome(duration = 2.6) { flyTo(home.pos, home.target, { duration }); },
-    startDrift() { if (!touched && !matchMedia('(prefers-reduced-motion: reduce)').matches) controls.autoRotate = true; },
+    startDrift() { if (!touched && !calm.matches) controls.autoRotate = true; },
     flyTo,
     cancelFly() { fly = null; },
     zoomBy(k) {
+      if (!controls.enabled) return; // the boat ride owns the camera (it disables the controls)
       const off = camera.position.clone().sub(controls.target).multiplyScalar(k);
       const len = off.length();
       if (len < controls.minDistance || len > controls.maxDistance) off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, len)));

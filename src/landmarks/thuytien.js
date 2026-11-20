@@ -1,5 +1,5 @@
-import { KIND, hex, shade, mix, unflat, obb } from '../geo/buf.js';
-import { LAND_Y, POND_Y } from '../config.js';
+import { KIND, hex, shade, mix, unflat, obb, inRing } from '../geo/buf.js';
+import { LAND_Y } from '../config.js';
 import { rise, waterY } from '../geo/terrain.js';
 
 // Hồ Thủy Tiên — the water park that opened in 2004 and was left to the pines.
@@ -21,11 +21,6 @@ const crs = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0
 const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
 const lin = (...terms) => terms.reduce((acc, [v, k]) => add(acc, scl(v, k)), [0, 0, 0]);
 const hash = (i) => { const s = Math.sin(i * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
-const inRing = (x, z, r) => {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
-  return c;
-};
 const centroid = (r) => {
   let x = 0, z = 0, A = 0;
   for (let i = 0, n = r.length; i < n; i++) { const a = r[i], b = r[(i + 1) % n], k = a[0] * b[1] - b[0] * a[1]; A += k; x += (a[0] + b[0]) * k; z += (a[1] + b[1]) * k; }
@@ -251,6 +246,7 @@ function footbridge(S, from, to) {
   const d = [dx / len, dz / len], ac = [-d[1], d[0]], ang = Math.atan2(d[1], d[0]), lift = rise(from[0], from[1]), y = LAND_Y + lift + 0.5, wd = 3.0;
   const P = (s, o, h = 0) => [from[0] + d[0] * s + ac[0] * o, y + h, from[1] + d[1] * s + ac[1] * o];
   const mid = P(len / 2, 0);
+  S.base = y - LAND_Y; // the deck stands on the lake's raised ground, so the shader's foot darkening starts there
   S.kind = KIND.ROAD;
   S.box(mid[0], mid[2], y - 0.35, y, len, wd, ang, hex('#b3b0a2'), { bottom: true });
   S.kind = KIND.MASONRY;
@@ -411,6 +407,32 @@ function slides(S, tower, pools) {
   for (let k = 3; k < tube.length; k += 6) { const a = tube[k]; if (a[1] - gy(a[0], a[2]) > 1.6) S.cyl(a[0], a[2], gy(a[0], a[2]) - 0.3, a[1] - 0.8, 0.18, 0.18, 4, concD, { cap: false }); }
 }
 
+const aquariumOf = (items) => items.find((it) => it.k === 'b' && /dragon|aquarium/i.test(it.n || ''));
+const aquariumDisc = (aq) => { const C = centroid(aq.pts); return { C, Rd: Math.max(9, aq.pts.reduce((s, p) => s + Math.hypot(p[0] - C[0], p[1] - C[1]), 0) / aq.pts.length) }; };
+// The mapped bridge roads that end at the dragon aquarium, as { f: the road's flat array, ends, d: each end's distance
+// from the aquarium's centre }; malformed roads (under two points) are skipped so one bad entry cannot drop the dragon.
+function aquariumBridges(roads, C, Rd) {
+  const out = [];
+  for (const rd of roads || []) {
+    if (!Array.isArray(rd) || !rd[1]) continue;
+    const f = rd[2];
+    if (!Array.isArray(f) || f.length < 4) continue;
+    const ends = [[f[0] / 10, f[1] / 10], [f[f.length - 2] / 10, f[f.length - 1] / 10]];
+    const d = ends.map((e) => Math.hypot(e[0] - C[0], e[1] - C[1]));
+    if (Math.min(d[0], d[1]) < Rd + 14) out.push({ f, ends, d });
+  }
+  return out;
+}
+// The flat arrays of the bridge roads this file rebuilds as the aquarium's footbridges, so that the generic bridge
+// builder can leave them out instead of laying its own deck in the same place.
+export function thuyTienBridgeRoads(data) {
+  const st = data && data.sites && data.sites.thuytien;
+  const aq = st && aquariumOf((st.items || []).map((it) => ({ ...it, pts: unflat(it.ring) })));
+  if (!aq) return new Set();
+  const { C, Rd } = aquariumDisc(aq);
+  return new Set(aquariumBridges(data.roads, C, Rd).map((b) => b.f));
+}
+
 export function buildThuyTien(data, S) {
   const st = data.sites && data.sites.thuytien;
   if (!st) return;
@@ -422,27 +444,22 @@ export function buildThuyTien(data, S) {
   const part = (fn) => { try { fn(); } catch (e) { console.warn('thuy tien:', e); } S.kind = KIND.PLAIN; S.base = 0; };
 
   // the dragon
-  const aq = items.find((it) => it.k === 'b' && /dragon|aquarium/i.test(it.n || ''));
+  const aq = aquariumOf(items);
   if (aq) part(() => {
     used.add(aq.id);
-    const C = centroid(aq.pts), Rd = Math.max(9, aq.pts.reduce((s, p) => s + Math.hypot(p[0] - C[0], p[1] - C[1]), 0) / aq.pts.length);
+    const { C, Rd } = aquariumDisc(aq);
     // the head looks out over the main lake
     const lake = waters.slice().sort((a, b) => b.length - a.length)[0];
     let hd = lake ? sub([...centroid(lake), 0], [...C, 0]) : [cm[0] - C[0], cm[1] - C[1], 0];
     { const l = Math.hypot(hd[0], hd[1]) || 1; hd = [hd[0] / l, hd[1] / l]; }
     // where the mapped footbridges arrive
     const angles = [];
-    for (const rd of data.roads || []) {
-      if (!rd[1]) continue;
-      const f = rd[2], ends = [[f[0] / 10, f[1] / 10], [f[f.length - 2] / 10, f[f.length - 1] / 10]];
-      const d = ends.map((e) => Math.hypot(e[0] - C[0], e[1] - C[1]));
-      if (Math.min(d[0], d[1]) < Rd + 14) {
-        const far = d[0] > d[1] ? ends[0] : ends[1], a = Math.atan2(far[1] - C[1], far[0] - C[0]);
-        angles.push(a);
-        // from the edge of the landing out to the far bank
-        footbridge(S, [C[0] + Math.cos(a) * (Rd + 4.2), C[1] + Math.sin(a) * (Rd + 4.2)], [far[0] + Math.cos(a) * 1.5, far[1] + Math.sin(a) * 1.5]);
-        S.kind = KIND.PLAIN;
-      }
+    for (const { ends, d } of aquariumBridges(data.roads, C, Rd)) {
+      const far = d[0] > d[1] ? ends[0] : ends[1], a = Math.atan2(far[1] - C[1], far[0] - C[0]);
+      angles.push(a);
+      // from the edge of the landing out to the far bank
+      footbridge(S, [C[0] + Math.cos(a) * (Rd + 4.2), C[1] + Math.sin(a) * (Rd + 4.2)], [far[0] + Math.cos(a) * 1.5, far[1] + Math.sin(a) * 1.5]);
+      S.kind = KIND.PLAIN;
     }
     dragon(S, C, Rd, hd, angles);
   });
@@ -466,7 +483,7 @@ export function buildThuyTien(data, S) {
   const sp = (st.points || []).find((p) => p.k === 'slide');
   if (sp && poolRings.length) part(() => {
     const q = [sp.x / 10, sp.z / 10];
-    const tower = items.filter((i) => i.k === 'b' && !used.has(i.id)).map((i) => ({ i, d: Math.hypot(centroid(i.pts)[0] - q[0], centroid(i.pts)[1] - q[1]) })).sort((a, b) => a.d - b.d)[0];
+    const tower = items.filter((i) => i.k === 'b' && !used.has(i.id)).map((i) => { const c = centroid(i.pts); return { i, d: Math.hypot(c[0] - q[0], c[1] - q[1]) }; }).sort((a, b) => a.d - b.d)[0];
     if (!tower || tower.d > 60) return;
     used.add(tower.i.id);
     slides(S, tower.i.pts, poolRings);

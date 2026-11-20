@@ -19,10 +19,8 @@ import json, math, os
 import sliderule
 from sliderule import icesat2
 
-ORIGIN = (16.468896, 107.588858)  # lat, lon: scripts/build-data.mjs
-KX = math.cos(math.radians(ORIGIN[0])) * 111319.49
-KZ = 110574
-x0, z0, x1, z1 = [v / 10 for v in json.load(open('public/data/hue.json'))['meta']['bounds']]
+from frame import ORIGIN, KX, KZ, BOUNDS  # scripts/frame.json, shared with scripts/build-data.mjs
+x0, z0, x1, z1 = BOUNDS
 W, E, N, S = ORIGIN[1] + x0 / KX, ORIGIN[1] + x1 / KX, ORIGIN[0] - z0 / KZ, ORIGIN[0] - z1 / KZ
 
 sliderule.init(verbose=False)

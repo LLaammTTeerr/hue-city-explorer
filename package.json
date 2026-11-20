@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "data:fetch": "sh scripts/fetch-osm.sh",
+    "data:fetch": "sh scripts/fetch-osm-all.sh",
     "data:build": "node scripts/build-data.mjs"
   },
   "dependencies": {

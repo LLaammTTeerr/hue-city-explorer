@@ -29,7 +29,7 @@ import { createMood } from './env/mood.js';
 import { createPost } from './env/post.js';
 import { createIBL } from './env/ibl.js';
 import { createCascades } from './env/csm.js';
-import { createCamera } from './camera/controls.js';
+import { createCamera, fromForm } from './camera/controls.js';
 import { createRide } from './camera/ride.js';
 import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
@@ -46,6 +46,7 @@ async function main() {
   const data = await res.json();
 
   let rig, ride, mood, labels;
+  let follow = null; // a boat the camera is following (see updateFollow); declared before the UI handlers that clear it
   const ui = createUI(data, {
     pick: (id, fly) => pick(id, fly),
     overview: () => { if (!ride.active) { ui.hideCard(); const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); } },
@@ -53,7 +54,7 @@ async function main() {
     labels: () => toggleLabels(),
     osmOnly: (on) => { world.infill.forEach((m) => { m.visible = !on; }); },
     home: () => { follow = null; if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } },
-    zoom: (k) => rig.zoomBy(k),
+    zoom: (k) => { if (!ride.active) rig.zoomBy(k); },
     cardClosed: () => {},
     ride: () => { follow = null; ride.start(); },
     rain: () => mood.setRain(!mood.state.rainTarget),
@@ -67,8 +68,9 @@ async function main() {
 
   // ---------- renderer ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows
-  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.max(1, Math.min(quality.pixelRatio, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
+  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
+  // at 1, but the adaptive fallback (adapt) may still take quality.pixelRatio below 1 on a slow 1x screen
+  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.min(quality.pixelRatio, Math.max(1, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
   renderer.setPixelRatio(fitRatio());
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -180,7 +182,7 @@ async function main() {
   const placeXZ = Object.fromEntries(data.places.map((p) => [p.id, [p.x / 10, p.z / 10]]));
   ride = createRide({ rig, bridge, boats, places: { thuongtu: placeXZ['gate:Cửa Thượng Tứ'] } });
   ride.on((type) => {
-    if (type === 'start') { ui.setRide(true); labels.setDim(true); }
+    if (type === 'start') { follow = null; ui.setRide(true); labels.setDim(true); } // every way in leaves a followed boat behind
     if (type === 'tick') ui.setRideProgress(ride.progress);
     if (type === 'end') { ui.setRide(false); labels.setDim(false); setTimeout(() => { if (!ride.active) boats.rideBoat.visible = false; }, 9000); }
   });
@@ -207,8 +209,7 @@ async function main() {
     }
   }
 
-  // following a boat: the camera's target rides on it; orbit and zoom still work
-  let follow = null;
+  // following a boat (`follow`, declared at the top): the camera's target rides on it; orbit and zoom still work
   const waterRay = new THREE.Raycaster(), waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5), waterHit = new THREE.Vector3();
   function boatAt(cx, cy) {
     const r = canvas.getBoundingClientRect();
@@ -227,25 +228,29 @@ async function main() {
     camera.position.add(followDelta);
   }
 
-  // tap / click on the ground near a landmark reveals it; drag during the ride turns the head
-  let down = null;
+  // tap / click on the ground near a landmark reveals it; drag during the ride turns the head.
+  // Every pointer is tracked: a second finger neither ends the first one's drag nor counts as a tap, and only the first turns the head.
+  const downs = new Map();
   canvas.addEventListener('pointerdown', (e) => {
-    down = { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, id: e.pointerId };
+    const multi = downs.size > 0;
+    if (multi) downs.forEach((d) => { d.multi = true; });
+    downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, multi });
     canvas.classList.add('dragging');
     if (ride.active) { ride.setDragging(true); canvas.setPointerCapture(e.pointerId); }
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!down || down.id !== e.pointerId) return;
-    if (ride.active) ride.look(e.clientX - down.lx, e.clientY - down.ly);
+    const down = downs.get(e.pointerId);
+    if (!down) return;
+    if (ride.active && downs.keys().next().value === e.pointerId) ride.look(e.clientX - down.lx, e.clientY - down.ly);
     down.lx = e.clientX; down.ly = e.clientY;
   });
   const up = (e) => {
-    canvas.classList.remove('dragging');
-    ride.setDragging(false);
-    if (!down || down.id !== e.pointerId) return;
+    const down = downs.get(e.pointerId);
+    downs.delete(e.pointerId);
+    if (!downs.size) { canvas.classList.remove('dragging'); ride.setDragging(false); }
+    if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
-    down = null;
-    if (moved > 6 || dt > 450 || ride.active || e.type === 'pointercancel') return;
+    if (down.multi || moved > 6 || dt > 450 || ride.active || e.type === 'pointercancel') return;
     // a click on a dragon boat rides along with it (the river plane is at y = 0, so test against that)
     const hitBoat = boatAt(e.clientX, e.clientY);
     if (hitBoat) { follow = hitBoat; ui.hideCard(); ui.hint(ui.T.hintFollow, 5000); return; }
@@ -275,17 +280,17 @@ async function main() {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
+    if (fromForm(e) || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
     const k = e.key.toLowerCase();
     if (k === 'escape') { if (ride.active) ride.exit(); else if (follow) { follow = null; ui.hideHint(); } else ui.hideCard(); }
-    else if (k === 'h' || k === 'home') { if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } }
+    else if (k === 'h' || k === 'home') { follow = null; if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } } // as the compass button does
     else if (k === 'b') { if (!ride.active) ride.start(); }
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
     else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (k === 'l') toggleLabels();
     else if (k === 'v') setLook(!look, true);
-    else if (k === '+' || k === '=') rig.zoomBy(0.65);
-    else if (k === '-' || k === '_') rig.zoomBy(1.5);
+    else if ((k === '+' || k === '=') && !ride.active) rig.zoomBy(0.65); // the ride owns the camera
+    else if ((k === '-' || k === '_') && !ride.active) rig.zoomBy(1.5);
   });
 
   rig.onInteract(() => ui.hideHint());
@@ -321,7 +326,9 @@ async function main() {
     rig.setHome(hv.pos, hv.target);
     if (!rig.touched && !ride.active && !rig.flying) rig.jumpHome();
   }
-  addEventListener('resize', resize);
+  // one resize per frame at most: each one reallocates the multisampled post targets and the mirror's
+  let resizeQueued = false;
+  addEventListener('resize', () => { if (!resizeQueued) { resizeQueued = true; requestAnimationFrame(() => { resizeQueued = false; resize(); }); } });
 
   // ---------- frame loop ----------
   let last = performance.now();
@@ -351,7 +358,8 @@ async function main() {
     if (ft > 250 || document.visibilityState !== 'visible') { slow = 0; return; }
     slow = ft > 36 ? slow + ft : Math.max(0, slow - ft * 2);
     if (slow > 2500 && pr > 0.8) {
-      pr = Math.max(0.75, pr - 0.25); slow = 0;
+      // step down from the ratio actually in use, so the first steps are not swallowed by the pixel cap in fitRatio
+      pr = Math.max(0.75, Math.min(pr, renderer.getPixelRatio()) - 0.25); slow = 0;
       quality.pixelRatio = pr;
       renderer.setPixelRatio(fitRatio());
       if (post) post.resize();
@@ -375,13 +383,15 @@ async function main() {
     updateDetail(camera, quality.low ? 900 : 1500);
     const pxScale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     world.lamps.material.uniforms.uScale.value = pxScale;
+    // in 1935 only a third of the posts stand (landmarks/life.js), so only their glows are lit
+    if (street.lampGlows1935) { street.lampGlows1935.material.uniforms.uScale.value = pxScale; street.lampGlows1935.visible = mood.cur.glow > 0.01 && era.value === 1; }
     bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
     bridge.lamps.material.uniforms.uScale.value = pxScale;
     for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= 2; }
     if (lanterns.halo) lanterns.halo.material.uniforms.uScale.value = pxScale;
     for (const g of lanternGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= (g.userData.minEra ?? 0); }
     const lit = mood.cur.glow > 0.01;
-    world.lamps.visible = lit && era.value >= 1; bridge.lamps.visible = lit && era.value >= 1; bridge.lights.forEach((l) => { l.visible = lit && era.value >= 2; });
+    world.lamps.visible = lit && era.value >= 2; bridge.lamps.visible = lit && era.value >= 1; bridge.lights.forEach((l) => { l.visible = lit && era.value >= 2; });
     if (post) {
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow, time);
       // focus on what the camera is looking at. Near the ground everything is sharp, as a building is to someone standing

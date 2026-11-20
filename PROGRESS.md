@@ -303,3 +303,13 @@ Sources: only "lotus-shaped" is confirmed (khamphahue.com.vn, wanderlog, a foody
 tiers and lights are a plausible fill-in, noted in the file header. Gotcha found: a zero normal at a pointed petal tip
 became NaN and the bloom pass blanked the whole screen; tip rows now borrow the row below. Looks:
 `docs/looks/restaurant-lotus.jpg`, `-night.jpg` (checked in both looks, day and night, on a `vite preview` of the build).
+
+- Review pass (branch `claude/repo-comprehensive-review-f8f9c2`, 2026-11-21): whole-repo review, then fixes for its
+  findings. Runtime: storage guards, key handling in form fields, ride/zoom/follow races, labels out of the tab order
+  when hidden, reduced motion, adaptive resolution on 1x screens. Geometry: terrain edge normals, shader patches warn
+  when a three.js chunk is missing, shared helpers in `geo/buf.js`. Landmarks: missing data skips one landmark instead
+  of the load, fleet boats turn round in a continuous sweep, 1935 lamp glows match their posts, Thủy Tiên footbridges
+  drawn once. Data: survey heights above a period cap are kept, newest extract wins at seams, fetch scripts validate
+  before replacing, `data:fetch` covers every extract; `hue.json` rebuilt (272 buildings, 4 roads changed).
+  Left open: a code licence (none chosen), binary bundle format for infill/trees, courtyard holes, explicit building
+  ids for the quoctugiam and tudam height anchors, pinned python versions, tests and lint.

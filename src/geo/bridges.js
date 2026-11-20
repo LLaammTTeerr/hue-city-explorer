@@ -1,5 +1,6 @@
-import { LAND_Y } from '../config.js';
+import { LAND_Y, ROAD_MAX } from '../config.js';
 import { rise, waterY } from './terrain.js';
+import { inRing, pathLength, unflat } from './buf.js';
 
 // The vertical profile of every generic road bridge: the deck rises from each bank to a crown at mid-span, as the
 // small bridges of Huế do, instead of lying as a flat slab. Shared by geo/city.js (the slab, piers, parapets,
@@ -31,16 +32,6 @@ const NAMED = {
 };
 const RUN_FLAT = 150; // a bridge run longer than this keeps its level deck
 
-function inRing(x, z, r) {
-  let c = false;
-  for (let i = 0, n = r.length / 2, j = n - 1; i < n; j = i++) {
-    const xi = r[2 * i] / 10, zi = r[2 * i + 1] / 10, xj = r[2 * j] / 10, zj = r[2 * j + 1] / 10;
-    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c;
-  }
-  return c;
-}
-function pathLength(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
-const unflat = (a) => { const o = []; for (let i = 0; i + 1 < a.length; i += 2) o.push([a[i] / 10, a[i + 1] / 10]); return o; };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // 0 at both banks, 1 at mid-span; level where it meets the road, round at the crown
 export const hump = (t) => (1 - Math.cos(2 * Math.PI * clamp(t, 0, 1))) / 2;
@@ -54,7 +45,7 @@ export function bridgeProfiles(data) {
   for (const r of data.roads || []) {
     if (!Array.isArray(r) || !r[1] || !Array.isArray(r[2]) || r[2].length < 4) continue;
     const pts = unflat(r[2]);
-    list.push({ c: Math.max(0, Math.min(5, r[0] | 0)), flat: r[2], pts, len: pathLength(pts) });
+    list.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), flat: r[2], pts, len: pathLength(pts) });
   }
   // bridges mapped in pieces (a river bridge and its approach spans) are one run: measure the whole of it
   const key = (p) => Math.round(p[0]) + ',' + Math.round(p[1]);
@@ -77,7 +68,7 @@ export function bridgeProfiles(data) {
   list.forEach((b, i) => {
     const a = b.pts[0], e = b.pts[b.pts.length - 1], m = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
     let named = null;
-    for (const q of bridges) if (q.n && NAMED[q.n] && inRing(m[0], m[1], q.ring)) { named = q.n; break; }
+    for (const q of bridges) if (q.n && NAMED[q.n] && inRing(m[0], m[1], unflat(q.ring))) { named = q.n; break; }
     let r, arches = 0;
     if (named) ({ rise: r, arches = 0 } = NAMED[named]);
     else if (runLen[runOf[i]] > RUN_FLAT || b.len > RUN_FLAT || runN[runOf[i]] > 1) r = 0; // (a run in pieces would hump twice)

@@ -4,11 +4,6 @@
 //   1 — thời Pháp thuộc, about 1935: Trường Tiền (1899), the railway and Ga Huế (1908), the Indochine quarter
 //       along Lê Lợi, the later tombs
 //   2 — today
-export const ERAS = [
-  { id: 'nguyen', year: 1885 },
-  { id: 'french', year: 1935 },
-  { id: 'today', year: 2026 },
-];
 export const era = { value: 2 };
 const listeners = [];
 export function onEra(fn) { listeners.push(fn); }

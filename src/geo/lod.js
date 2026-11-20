@@ -15,6 +15,7 @@ export function lodUpdate(camera, scale = 1) {
   for (const [m, reach, lo, hi] of items) {
     if (e < lo || e > hi) { m.visible = false; continue; }
     const bs = m.boundingSphere;
-    m.visible = !bs || v.copy(bs.center).distanceTo(camera.position) < reach * scale + lift + bs.radius;
+    // the sphere is in the mesh's own space: take its centre to world space (world.group is identity today, but need not stay so)
+    m.visible = !bs || v.copy(bs.center).applyMatrix4(m.matrixWorld).distanceTo(camera.position) < reach * scale + lift + bs.radius;
   }
 }

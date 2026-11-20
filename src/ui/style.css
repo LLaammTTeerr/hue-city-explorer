@@ -178,6 +178,7 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #card { position: fixed; left: var(--edge); bottom: calc(var(--bottom) + 58px); width: min(380px, calc(100vw - 2 * var(--edge))); max-height: min(74vh, 700px); display: flex; flex-direction: column; border-radius: 6px; animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
 #card-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 16px 18px 13px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 #card-media { margin: -6px -8px 12px; }
+#card-shot { display: block; width: 100%; border-radius: 3px; cursor: default; }
 #card-img { display: block; width: 100%; max-height: 220px; object-fit: cover; border-radius: 3px; background: var(--wash); }
 #card-img.more { cursor: pointer; }
 #card-media figcaption { margin: 5px 2px 0; font-size: 10.5px; line-height: 1.4; color: var(--ink-soft); }
@@ -195,6 +196,7 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #card::before { content: ''; position: absolute; inset: 4px; border: 1px solid var(--line); border-radius: 3px; pointer-events: none; }
 #card-close { position: absolute; right: 8px; top: 8px; opacity: 0.85; z-index: 1; background: var(--panel); border-radius: 50%; }
 #card-kind { margin: 0 0 4px; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent-ink); font-weight: 600; }
+#card-name:focus { outline: none; } /* focused only so a screen reader announces the card it opens */
 #card-name { margin: 0 30px 8px 0; font-family: var(--serif); font-weight: 540; font-size: 25px; line-height: 1.12; font-variation-settings: 'opsz' 60; }
 #card-note { margin: 0; font-size: 14px; line-height: 1.58; color: color-mix(in srgb, var(--ink) 88%, transparent); text-wrap: pretty; }
 #card-meta { margin: 10px 0 0; font-size: 11px; letter-spacing: 0.04em; color: var(--indigo); opacity: 0.8; font-variant-numeric: tabular-nums; }
@@ -221,8 +223,9 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
 #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; transition: opacity 0.5s; }
 #labels.off, #labels.dim { opacity: 0; }
 #labels.off .label, #labels.dim .label { pointer-events: none !important; }
-.label { position: absolute; left: 0; top: 0; opacity: 0; transition: opacity 0.35s; will-change: transform; white-space: nowrap; pointer-events: none; }
-.label.show { opacity: 1; }
+.label { position: absolute; left: 0; top: 0; opacity: 0; visibility: hidden; transition: opacity 0.35s, visibility 0s linear 0.35s; will-change: transform; white-space: nowrap; pointer-events: none; }
+/* a hidden tag also leaves the tab order and the accessibility tree (visibility), once its fade is over */
+.label.show { opacity: 1; visibility: visible; transition: opacity 0.35s, visibility 0s; }
 .label-place.show { pointer-events: auto; }
 .label-place:focus-visible { outline: none; }
 /* the tag stands STEM (14px, labels.js) above its anchor: a 12px gold stem runs from the tag's lower edge to the dot */
@@ -251,7 +254,7 @@ dialog kbd { font: 600 11px var(--ui); padding: 1px 6px; border-radius: 3px; bor
 #about-close { position: absolute; right: 14px; top: 14px; }
 .switch { display: flex; gap: 10px; align-items: center; margin: 16px 0 10px; font-size: 14px; cursor: pointer; }
 .switch input { width: 18px; height: 18px; accent-color: var(--seal); }
-.fine { font-size: 11.5px !important; opacity: 0.6; }
+.fine { font-size: 11.5px !important; opacity: 0.72; } /* 0.6 fell short of 4.5:1 on the day paper */
 
 /* ---------- loader ---------- */
 #loader { position: fixed; inset: 0; display: grid; place-items: center; background: #efe6d2; background-image: radial-gradient(rgba(44, 36, 30, 0.04) 1px, transparent 1.2px); background-size: 7px 7px; color: var(--ink); z-index: 10; transition: opacity 0.9s ease 0.1s, visibility 0s linear 1s; text-align: center; }
