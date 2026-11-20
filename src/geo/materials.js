@@ -231,6 +231,18 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
 } else if ( vKind > 5.5 && vKind < 6.5 ) {
   // ---------------- paving ----------------
   diffuseColor.rgb *= 0.93 + 0.1 * hueNoise( vWPos.xz * 0.7 ) + 0.04 * hueNoise( vWPos.xz * 7.0 );
+  #ifndef HUE_OVERLAY
+  if ( hueH > 0.3 && hueN.y > 0.7 ) {
+    // terraces and platforms are laid in flagstones (đá thanh, gạch Bát Tràng): staggered joints, each stone its own tone
+    vec2 pv = vWPos.xz / 1.5;
+    pv.x += step( 0.5, fract( pv.y * 0.5 ) ) * 0.5;
+    vec2 pf = abs( fract( pv ) - 0.5 );
+    float pw = fwidth( pv.x ) + fwidth( pv.y );
+    float near = 1.0 - smoothstep( 0.06, 0.26, pw );
+    diffuseColor.rgb *= 1.0 - 0.2 * smoothstep( 0.45, 0.5, max( pf.x, pf.y ) ) * near;
+    diffuseColor.rgb *= 1.0 + ( hueHash( floor( pv ) ) - 0.5 ) * 0.1 * near;
+  }
+  #endif
 } else if ( vKind > 6.5 && vKind < 7.5 ) {
   // ---------------- lacquered timber hall: columns, panelled doors ----------------
   diffuseColor.rgb *= mix( 1.0, mix( 0.74, 1.0, smoothstep( 0.0, 5.0, hueH ) ), hueWall );
@@ -261,12 +273,13 @@ diffuseColor.rgb *= 1.0 - uWet * mix( 0.26, 0.1, hueWall );
 
 // Lambert material for baked vertex-colour geometry (colours are stored sqrt-encoded
 // in 8 bits, see Buf.tri) with the procedural surface detail above.
-export function cityMaterial({ windows = false, foliage = false, styled = false, ...opts } = {}) {
+export function cityMaterial({ windows = false, foliage = false, styled = false, overlay = false, ...opts } = {}) {
   const m = new THREE.MeshLambertMaterial({ vertexColors: true, ...opts });
   m.defines = { ...(m.defines || {}) };
   if (windows) m.defines.HUE_WINDOWS = '';
   if (foliage) m.defines.HUE_FOLIAGE = '';
   if (styled) m.defines.HUE_STYLED = '';
+  if (overlay) m.defines.HUE_OVERLAY = ''; // flat ribbons laid on the ground (streets): no flagstone joints
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uGlow = shared.uGlow;
     sh.uniforms.uLandY = shared.uLandY;
@@ -331,6 +344,24 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           float gl = pow( max( dot( reflect( -hueV, hueN ), uSunDir ), 0.0 ), 70.0 ) * hueGlass * 1.4;
           float sh = pow( max( dot( reflect( -hueV, hueRib ), uSunDir ), 0.0 ), 16.0 ) * hueGlaze * 0.55;
           totalEmissiveRadiance += vec3( 1.0, 0.94, 0.82 ) * ( gl + sh ) * uSunI * 0.4 * ( 1.0 - uWet );
+          // mưa Huế: wet streets, roofs and terraces pick up the sky at a low angle, most where the water pools;
+          // after dark the same film carries the lamps
+          if ( uWet > 0.01 ) {
+            float ndv = max( dot( hueN, hueV ), 0.0 );
+            float fres = pow( 1.0 - ndv, 3.5 );
+            float puddles = smoothstep( 0.35, 0.72, hueNoise( vWPos.xz * 0.18 ) * 0.65 + hueNoise( vWPos.xz * 0.85 ) * 0.35 );
+            float wetSurf = smoothstep( 0.25, 0.85, hueN.y ) * mix( 0.35, 1.0, puddles );
+            vec3 skyTint = mix( vec3( 0.52, 0.58, 0.66 ), vec3( 0.32, 0.28, 0.52 ), uGlow );
+            totalEmissiveRadiance += skyTint * fres * wetSurf * uWet * 0.42;
+            totalEmissiveRadiance += vec3( 1.0, 0.72, 0.38 ) * fres * wetSurf * uWet * uGlow * puddles * 0.22;
+          }
+        }
+        #else
+        {
+          // leaves let the low sun through: crowns between the camera and the sun take a warm rim
+          vec3 hueV = normalize( cameraPosition - vWPos );
+          float back = pow( max( dot( -hueV, uSunDir ), 0.0 ), 3.5 ) * smoothstep( -0.1, 0.6, normalize( vWNrm ).y );
+          totalEmissiveRadiance += diffuseColor.rgb * vec3( 1.25, 1.15, 0.65 ) * back * uSunI * 0.16 * ( 1.0 - uWet ) * ( 1.0 - uGlow );
         }
         #endif
         #ifdef HUE_WINDOWS
@@ -344,14 +375,18 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         #endif`,
       );
   };
-  m.customProgramCacheKey = () => 'hue-city-' + (windows ? 'w' : 'p') + (foliage ? 'f' : '') + (styled ? 's' : '');
+  m.customProgramCacheKey = () => 'hue-city-' + (windows ? 'w' : 'p') + (foliage ? 'f' : '') + (styled ? 's' : '') + (overlay ? 'o' : '');
   return m;
 }
 
 // The land slab: broad tonal drift plus fine grain, so open ground is not one flat colour.
-export function landMaterial(color, turf = false) {
+// bank: the cut faces of the slab along the river and the ponds, drawn as old embankment — dark and wet at the
+// waterline, stone courses above, moss hanging over from the grass at the rim.
+export function landMaterial(color, turf = false, bank = false) {
   const m = new THREE.MeshLambertMaterial({ color });
-  if (turf) m.defines = { HUE_TURF: '' };
+  m.defines = {};
+  if (turf) m.defines.HUE_TURF = '';
+  if (bank) m.defines.HUE_BANK = '';
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uWet = shared.uWet;
     sh.vertexShader = sh.vertexShader
@@ -377,10 +412,38 @@ export function landMaterial(color, turf = false) {
           diffuseColor.rgb = mix( diffuseColor.rgb, turf, grass * 0.62 );
         #endif
         diffuseColor.rgb *= 0.86 + 0.26 * lg;
+        #ifdef HUE_BANK
+        {
+          float by = vWPos.y, bu = ( vWPos.x + vWPos.z ) * 0.72;
+          float near = 1.0 - smoothstep( 0.1, 0.45, fwidth( by ) * 3.0 );
+          // stone courses with staggered joints
+          float course = by / 0.62;
+          float seam = smoothstep( 0.44, 0.5, abs( fract( course ) - 0.5 ) );
+          float vj = smoothstep( 0.46, 0.5, abs( fract( bu / 1.5 + step( 0.5, fract( course * 0.5 ) ) * 0.5 ) - 0.5 ) );
+          diffuseColor.rgb *= 1.0 - 0.2 * max( seam, vj ) * near;
+          diffuseColor.rgb *= 0.9 + 0.2 * lNoise( vec2( floor( bu / 1.5 ) * 7.3, floor( course ) * 3.1 ) );
+          // the river's mark: dark, slightly green stone up to an uneven tide line
+          float wetl = 1.0 - smoothstep( 0.25, 1.25 + 0.6 * lNoise( vec2( bu * 0.12, 2.0 ) ), by );
+          diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.42, 0.5, 0.42 ), wetl );
+          // moss and grass hanging over the rim
+          float rim = smoothstep( ${(LAND_Y - 1.25).toFixed(2)} - 0.5 * lNoise( vec2( bu * 0.25, 5.0 ) ), ${(LAND_Y - 0.08).toFixed(2)}, by );
+          diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.36, 0.48, 0.26 ) * ( 0.8 + 0.4 * lNoise( vec2( bu * 1.1, by * 2.0 ) ) ), rim * 0.78 );
+        }
+        #endif
         diffuseColor.rgb *= 1.0 - uWet * 0.26;`,
+      )
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        // rain pools on open ground and catches the sky at a low angle
+        if ( uWet > 0.01 ) {
+          float lndv = abs( dot( normal, normalize( vViewPosition ) ) );
+          float lpud = smoothstep( 0.35, 0.72, lNoise( vWPos.xz * 0.18 ) * 0.65 + lNoise( vWPos.xz * 0.85 ) * 0.35 );
+          totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.36;
+        }`,
       );
   };
-  m.customProgramCacheKey = () => 'hue-land' + (turf ? '-turf' : '');
+  m.customProgramCacheKey = () => 'hue-land' + (turf ? '-turf' : '') + (bank ? '-bank' : '');
   return m;
 }
 

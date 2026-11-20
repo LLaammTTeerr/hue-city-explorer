@@ -4,6 +4,7 @@ import { cityMaterial, enc } from './materials.js';
 import { rise } from './terrain.js';
 import { LAND_Y, quality } from '../config.js';
 import { lodAdd } from './lod.js';
+import { inCitadel, inHills } from './eras.js';
 
 // Trees are built the way stylised foliage usually is: a handful of leaf-cluster cards around a dark core,
 // lit with rounded "puffball" normals so the crown shades as one soft mass, cut out by an alpha texture.
@@ -117,7 +118,7 @@ function crownGeometry(seed, cards, tall, pine = false) {
   const ico = new THREE.OctahedronGeometry(0.56, 0), ip = ico.attributes.position.array;
   for (let i = 0; i < ip.length; i += 9) {
     const v = [0, 1, 2].map((k) => [ip[i + k * 3] * sx, ip[i + k * 3 + 1] * sy + oy, ip[i + k * 3 + 2] * sx]);
-    S.tri(v, v.map((q) => [q[0], q[1] + 0.3, q[2]]), [SOLID, SOLID, SOLID], [0.2, 0.2, 0.2]);
+    S.tri(v, v.map((q) => [q[0], q[1] + 0.3, q[2]]), [SOLID, SOLID, SOLID], [0.32, 0.34, 0.3]);
   }
   for (let i = 0; i < cards; i++) {
     // card centres spread over a lumpy shell, biased to the top and sides
@@ -137,7 +138,7 @@ function crownGeometry(seed, cards, tall, pine = false) {
     const P = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
     // puffball normals and a shade that falls off toward the underside and the inside
     const N = P.map((q) => norm([q[0], (q[1] - oy) / sy + 0.42, q[2]]));
-    const L = P.map((q) => { const h = Math.max(0, Math.min(1, ((q[1] - oy + 0.12) / sy + 0.55) / 1.5)); return 0.38 + 0.62 * h * h * (3 - 2 * h); });
+    const L = P.map((q) => { const h = Math.max(0, Math.min(1, ((q[1] - oy + 0.12) / sy + 0.55) / 1.5)); return 0.48 + 0.52 * h * h * (3 - 2 * h); });
     const flip = rnd() < 0.5;
     const uv = flip ? [[0.49, 0.51], [0.01, 0.51], [0.01, 0.99], [0.49, 0.99]] : [[0.01, 0.51], [0.49, 0.51], [0.49, 0.99], [0.01, 0.99]];
     S.quad(P[0], P[1], P[2], P[3], N, uv, L);
@@ -198,6 +199,8 @@ export function buildTrees(data, group) {
   // mossy, olive greens rather than emerald; the flame trees (hoa phượng) a muted rust so they accent without shouting
   const greens = ['#4a6845', '#587450', '#3f5a3f', '#687a52', '#516d48', '#627849', '#466443'].map(hex);
   const dark = ['#385a42', '#3d5f44', '#33523c', '#426247'].map(hex), flame = ['#a8382b', '#b84a39', '#9c3a2e'].map(hex), palmC = ['#526f42', '#4a683d', '#5e7846'].map(hex), pineC = ['#2f5040', '#345644', '#3c5c42', '#2b4a3a', '#445f3c'].map(hex);
+  // the city's seasonal blossom, sparingly: bằng lăng tím along the streets, hoàng mai in the Citadel's gardens
+  const lilac = ['#8f6db8', '#a17ec8', '#7d5ca8'].map(hex), mai = ['#e3b53c', '#d8a632'].map(hex);
   const meshes = [];
   const range = (start, end, layer) => {
     const span = end - start, n = Math.floor(span * quality.treeShare);
@@ -223,7 +226,12 @@ export function buildTrees(data, group) {
           p.set(x, LAND_Y + rise(x, z) + hgt * 1.7, z);
           s.set(rr, hgt, rr);
           mesh.setMatrixAt(k, m.compose(p, q, s));
-          const col = type === 'pine' ? pick(pineC, i, 49) : type === 'palm' ? pick(palmC, i, 48) : kind === 2 ? pick(flame, i, 44) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
+          let col = type === 'pine' ? pick(pineC, i, 49) : type === 'palm' ? pick(palmC, i, 48) : kind === 2 ? pick(flame, i, 44) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
+          if ((type === 'round' || type === 'tall') && kind !== 2) {
+            const bl = rand(i, 67);
+            if (bl < 0.035 && !inHills(x, z)) col = pick(lilac, i, 68);
+            else if (bl < 0.065 && inCitadel(x, z)) col = pick(mai, i, 69);
+          }
           mesh.setColorAt(k, enc(shade(col, 0.86 + rand(i, 47) * 0.28), c));
         });
         mesh.instanceMatrix.needsUpdate = true;

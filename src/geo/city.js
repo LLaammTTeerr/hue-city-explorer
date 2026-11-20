@@ -35,7 +35,7 @@ function chunked(items, size = 1300) {
 // ---------- land ----------
 function buildLand(data, group) {
   const top = landMaterial(PAL.land, true);
-  const side = landMaterial(PAL.bank);
+  const side = landMaterial(PAL.bank, false, true);
   for (const poly of data.land) {
     const rings = poly.map(unflat);
     const shape = new THREE.Shape(rings[0].map((p) => new THREE.Vector2(p[0], p[1])));
@@ -74,7 +74,7 @@ function buildLand(data, group) {
 
 // flat polygon layers painted onto the land (no depth write, drawn in order)
 function overlayMaterial(order) {
-  const m = cityMaterial({ depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 - order, polygonOffsetUnits: -2 - order * 2 });
+  const m = cityMaterial({ overlay: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 - order, polygonOffsetUnits: -2 - order * 2 });
   return m;
 }
 
