@@ -312,6 +312,7 @@ function redemptorist(S, data) {
 
 // ---- Cung An Định: Khải Tường Lâu (1917–18), its octagonal Trung Lập pavilion and the riverside gate ----
 function anDinh(S, data) {
+  if (replaced('andinh')) return; // drawn by places/andinh.js
   const sp = data.special.andinh;
   if (!sp) return;
   const o = obb(unflat(sp.ring)), area = data.special.andinhArea ? unflat(data.special.andinhArea.ring) : null;
