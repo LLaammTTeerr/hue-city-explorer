@@ -405,6 +405,7 @@ function anDinh(S, data) {
 
 // ---- Chùa Diệu Đế: the main hall, and on the canal side the triple gate under its tower, between bell and drum towers ----
 function dieuDe(S, data) {
+  if (replaced('dieude')) return; // drawn by places/dieude.js
   const yellow = hex('#e3c377'), tile = hex('#a9523a'), ridge = hex('#e8dcc0'), lacq = hex('#a33a2a');
   const sp = data.special.dieude;
   let hall = null;
