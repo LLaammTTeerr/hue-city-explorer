@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { buildThuyTien } from './thuytien.js';
+import { replaced } from './places/index.js';
 
 // The southern hills: đan viện Thiên An, (the water park at hồ Thủy Tiên is in thuytien.js),
 // đàn Nam Giao and the lookout on đồi Vọng Cảnh. Each place says below what comes from OSM (position,
@@ -377,6 +378,7 @@ function namGiao(S, data) {
 // the small lookout pavilion on its paved terrace and the two old concrete bunkers below it, on the river
 // side, are illustrative.
 function vongCanh(S, data) {
+  if (replaced('vongcanh')) return; // drawn by places/vongcanh.js
   const pl = (data.places || []).find((p) => p.id === 'vongcanh');
   if (!pl) return;
   const P = [pl.x / 10, pl.z / 10];
