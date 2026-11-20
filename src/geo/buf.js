@@ -11,7 +11,7 @@ export const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 
 // What a face is made of. The fragment shader paints the matching surface detail
 // (window bays, roof tiles, brick courses…) so geometry stays light.
-export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11 };
+export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11, LINE: 12 };
 
 // When a piece of the model exists: from era `since` through era `until` (0 Nguyễn, 1 French period, 2 today).
 // Encoded so that 0 means "always", which is also what geometry without the attribute reads as.

@@ -172,8 +172,15 @@
     as one shape, so the pen goes round it. `materials.js`: `hueNoise` / `lNoise` settle toward their middle tone so
     weathering becomes flat wash; tile roofs are hatched down the slope; surfaces are matt. `water.js` (`uLook`): one
     jade wash, a faint mirror, pale strokes on the crests. `mood.js` (`state.look`): less sun, more fill.
-    Checked: opening view, Thái Hòa, Phố Tây, Trường Tiền at night, Ngọ Môn in rain, the 1885 era. Not yet drawn:
-    road and kerb edges (roads are flat overlays, so they get no line), ground detail up close.
+    Roads and ground: `KIND.LINE` (12) is a face that is a kerb joint in the realistic look and the pen in the drawn
+    one; `buildRoads` lays outlines under the pavements and carriageways map-fashion (all outlines, then fills from
+    minor to major), so side streets open into the roads they meet. Open land is two washes, grass and earth, with
+    an edge between them (`grassN` in `landMaterial`), and grass carries small pen marks (also on parks, kind 5).
+    Trees keep 46 m clear of Ngọ Môn, Thái Hòa, Kỳ Đài, Phu Văn Lâu and Nghênh Lương Đình (`forecourts` in
+    `foliage.js`).
+    Checked: opening view, Thái Hòa, Phố Tây, Nguyễn Đình Chiểu, Ngọ Môn (also in rain), Trường Tiền at night, the
+    1885 era. Not checked: the boat ride, the 1935 era. Not drawn: paving joints on pavements, crossings; footpaths
+    (class 5) have no edge line.
   - Shadows (`src/env/csm.js`): boxes centred on the point of attention, not view-frustum slices. The sun keeps the
     wide map; a second unlit directional light carries a tight map (27 % of the width, 2048), chosen in the shader
     (`LIGHTS` in `materials.js`; the sun must stay directional light 0). Depth ranges hug the model, so the bias is
@@ -189,7 +196,7 @@
     Ngọ Môn's axis. Comparison frames: `docs/looks/`.
   - Frame cost at 1024×768 on this machine: about 13 ms before, 19 ms with both maps drawn every frame, 60 fps
     (16.3 ms by `requestAnimationFrame`) with alternate maps; about 15.5 ms in either look at 1280×800 (render plus a
-    forced read-back). Not measured on a phone.
+    forced read-back), 16.8 ms once the road outlines were added. Not measured on a phone.
 
 ## Not verified
 - The southern models were checked from the air only; causeway landing, the dragon's heading, Nam Giao's exact

@@ -212,7 +212,18 @@ function buildRoads(data, group, structures) {
     else if (r.c <= 1) r.era = southBank(x, z) || inHills(x, z) ? 1 : 0;
     else { const b = plotBorn(x, z, 7 + (i % 5)); r.era = r.c === 2 ? Math.min(b, 1) : b; }
   });
-  for (const r of roads) if (!r.bridge && r.c <= 3) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[r.c] + (r.c <= 2 ? 3.6 : 2.4), y, casing); }
+  // Edges are drawn the way a map draws them: every outline first, then the fills from minor to major, so a side
+  // street opens into the road it meets and no line runs across a junction. KIND.LINE is a kerb joint in the
+  // realistic look and the pen in the drawn one.
+  const pavW = (c) => ROAD_W[c] + (c <= 2 ? 3.6 : 2.4);
+  const kerb = shade(casing, 0.8), verge = shade(casing, 0.9);
+  B.kind = KIND.LINE;
+  for (const r of roads) if (!r.bridge && r.c <= 3) { B.span = span(r.era); ribbon(B, r.pts, pavW(r.c) + 0.5, y - 0.005, verge); }
+  B.kind = KIND.ROAD;
+  for (const r of roads) if (!r.bridge && r.c <= 3) { B.span = span(r.era); ribbon(B, r.pts, pavW(r.c), y, casing); }
+  B.kind = KIND.LINE;
+  for (const r of roads) if (!r.bridge && r.c <= 4) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[r.c] + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85)); }
+  B.kind = KIND.ROAD;
   for (let c = 5; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) { B.span = span(r.era); ribbon(B, r.pts, ROAD_W[c], y + 0.01, cols[c]); }
   B.span = span(2); // painted lane markings are today's
   const paint = hex('#f4eedd');

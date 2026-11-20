@@ -503,6 +503,8 @@ export function buildTrees(data, group, off = null) {
   const low = quality.low;
   const geos = { spreading: spreadingGeometry(low), upright: uprightGeometry(low), flamboyant: flamboyantGeometry(low), willow: willowGeometry(low), pine: pineGeometry(low), palm: palmGeometry(low) };
   const nearWater = waterNear(data);
+  // illustrative planting must not stand between the visitor and the monuments of the central axis
+  const forecourts = data.places.filter((p) => ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'].includes(p.id)).map((p) => [p.x / 10, p.z / 10]);
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
@@ -524,6 +526,7 @@ export function buildTrees(data, group, off = null) {
       const r = rand(i, 61);
       const x = a[i * 4] / 10, z = a[i * 4 + 1] / 10;
       if (off && off(x, z, 2.2 * sc)) continue; // a landmark model stands here
+      if (forecourts.some((c) => (x - c[0]) ** 2 + (z - c[1]) ** 2 < 46 * 46)) continue; // the great halls stand in open courts
       let type = kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
       let lean = null;
       if (type === 'spreading' || type === 'upright') {

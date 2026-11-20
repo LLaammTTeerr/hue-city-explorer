@@ -127,7 +127,7 @@ vec3 hueRoomC = vec3( 1.0 ); // the room seen through a lit window
   hueRough = 0.8;
 #else
 
-if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind > 9.5 ) {
+if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind > 9.5 && vKind < 11.5 ) ) {
   // ---------------- facade (kind 8: institutions — the same bays on every floor, no shopfronts) ----------------
   // kind 10: Indochine — arched openings, louvred shutters, white trim. kind 11: modern — ribbon glazing, balconies
   bool colonial = vKind > 9.5 && vKind < 10.5;
@@ -321,6 +321,13 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   diffuseColor.rgb *= 0.82 + 0.34 * g;
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 1.1, 1.04, 0.8 ), smoothstep( 0.55, 0.9, g ) * 0.4 );
   hueRough = 0.96;
+  if ( uLook > 0.5 ) {
+    // drawn grass: small pen marks scattered over the wash
+    vec2 gc = vWPos.xz / 2.3, gi = floor( gc );
+    vec2 gf = fract( gc ) - 0.5 + ( vec2( hueHash( gi + 3.1 ), hueHash( gi + 7.7 ) ) - 0.5 ) * 0.5;
+    float gtick = ( 1.0 - smoothstep( 0.02, 0.055, abs( gf.y + 0.08 - abs( gf.x ) * 1.4 ) ) ) * step( abs( gf.x ), 0.13 ) * step( 0.6, hueHash( gi ) ) * ( 1.0 - smoothstep( 0.12, 0.45, fwidth( gc.x ) + fwidth( gc.y ) ) );
+    diffuseColor.rgb *= 1.0 - 0.34 * gtick;
+  }
 } else if ( vKind > 5.5 && vKind < 6.5 ) {
   // ---------------- paving ----------------
   diffuseColor.rgb *= 0.93 + 0.1 * hueNoise( vWPos.xz * 0.7 ) + 0.04 * hueNoise( vWPos.xz * 7.0 );
@@ -361,6 +368,11 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   float c = hueNoise( vWPos.xz * 0.5 ) * 0.6 + hueNoise( vWPos.xz * 3.0 ) * 0.4;
   diffuseColor.rgb *= 0.84 + 0.26 * c;
   hueRough = 0.9;
+} else if ( vKind > 11.5 ) {
+  // ---------------- a line laid on the ground (kerbs, road edges): a stone joint, or the pen in the drawn look ----------------
+  // once a pixel covers more than the line is wide it would only sparkle, so it thins out into what lies under it
+  float lpx = fwidth( vWPos.x ) + fwidth( vWPos.z );
+  diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.075, 0.055, 0.05 ), uLook * 0.8 * ( 1.0 - smoothstep( 0.5, 2.2, lpx ) ) );
 } else {
   diffuseColor.rgb *= mix( 1.0, mix( 0.78, 1.0, smoothstep( 0.0, 5.0, hueH ) ), hueWall * step( 0.0, hueH ) );
 }
@@ -524,18 +536,28 @@ export function landMaterial(color, turf = false, bank = false) {
         `#include <common>
         varying vec3 vWPos; uniform float uWet; uniform float uLook;
         float lHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
-        float lNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
-          return mix( 0.5, mix( mix( lHash( i ), lHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHash( i + vec2( 0.0, 1.0 ) ), lHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ), 1.0 - uLook * 0.78 ); }`,
+        float lNoiseRaw( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
+          return ( mix( mix( lHash( i ), lHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHash( i + vec2( 0.0, 1.0 ) ), lHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ) ); }
+        // the drawn look lays flat washes: tonal drift settles most of the way to its middle
+        float lNoise( vec2 p ) { return mix( lNoiseRaw( p ), 0.5, uLook * 0.78 ); }`,
       )
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
         // gardens and bare earth: Huế's plots are more green than paved
         float lg = lNoise( vWPos.xz * 0.012 ) * 0.5 + lNoise( vWPos.xz * 0.09 ) * 0.3 + lNoise( vWPos.xz * 0.9 ) * 0.2;
-        float grass = smoothstep( 0.38, 0.62, lNoise( vWPos.xz * 0.035 + 4.0 ) * 0.6 + lNoise( vWPos.xz * 0.21 ) * 0.4 );
+        float grassN = lNoiseRaw( vWPos.xz * 0.035 + 4.0 ) * 0.6 + lNoiseRaw( vWPos.xz * 0.21 ) * 0.4;
+        // drawn: grass and bare earth are two washes with an edge between them, not a gradient
+        float grass = mix( smoothstep( 0.38, 0.62, grassN ), smoothstep( 0.485, 0.515, grassN ), uLook );
         vec3 turf = vec3( 0.37, 0.5, 0.24 ) * ( 0.8 + 0.4 * lNoise( vWPos.xz * 1.3 ) );
         #ifdef HUE_TURF
           diffuseColor.rgb = mix( diffuseColor.rgb, turf, grass * 0.62 );
+          if ( uLook > 0.5 ) {
+            vec2 gc = vWPos.xz / 2.3, gi = floor( gc );
+            vec2 gf = fract( gc ) - 0.5 + ( vec2( lHash( gi + 3.1 ), lHash( gi + 7.7 ) ) - 0.5 ) * 0.5;
+            float gtick = ( 1.0 - smoothstep( 0.02, 0.055, abs( gf.y + 0.08 - abs( gf.x ) * 1.4 ) ) ) * step( abs( gf.x ), 0.13 ) * step( 0.6, lHash( gi ) ) * ( 1.0 - smoothstep( 0.12, 0.45, fwidth( gc.x ) + fwidth( gc.y ) ) );
+            diffuseColor.rgb *= 1.0 - 0.3 * gtick * grass;
+          }
         #endif
         diffuseColor.rgb *= 0.86 + 0.26 * lg;
         #ifdef HUE_BANK
