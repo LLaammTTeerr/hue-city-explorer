@@ -410,3 +410,12 @@ Merged in that order; each later branch took `main` first and was reconciled bef
     building the fence would cut is put outside by pulling in the nearest side that clears the core. Seen at Dòng
     Chúa Cứu Thế, whose fence ran through the monastery blocks.
   - Checked: `npm run check`, `npm run build`, browser views of DCCT and a west-side street, no console errors.
+
+## Replicas of every place, one agent each (2026-11-21, branch `claude/landscape-place-replication-agents-64978c`)
+Goal: each of the 77 places in `hue.json` re-modelled as it stands today, one agent per place in its own worktree, merged here.
+- Contract: `src/landmarks/places/<slug>.js` exports `id` + `build(ctx)`; the older builder skips it via `replaced(id)` (`places/index.js`, lazy list; node's `check-heights` hands the modules over on `globalThis.__hueReplicas`). Agent brief: `scratch/brief.md`; place list and shot ports: `scratch/agents.txt`. Each place documents sources and estimates in `docs/places/<slug>.md`.
+- Done and merged (20): truongtien, themieu, kinhthanh, ngomon, phuvanlau, kydai, bachho, hungmieu, nghenhluong, vincom, giahoi, phucam, thaihoa, dainoi, phuxuan, tinhtam, dongba, gahue, quochoc, thaimieu. Build passes, heights 24/24.
+- Running: andinh, trieumieu, dientho, truongsanh, duyetthi, kientrung, canchanh, hiennhon, chuongduc, tuphuong, quoctugiam, baotangcovat, tangthulau, xatac, mangca, thuyquan, dieude.
+- Next: places 37 (dcct) to 76 in `scratch/agents.txt`, about 3 per launch.
+- Merge notes: conflicts so far were neighbouring import lines (keep both) and one `bridges.js` line (own + ramp). After each merge run `scratch/dupimports.sh`; two merges once added the same `replaced` import twice. `shot.mjs` now picks free ports and kills vite's process group.
+- Shared changes made by agents: `structures.paved` ranges honoured by `coverOf` in `city.js` (thaihoa); `own: true` and `climb` bridge profiles in `bridges.js` (thaihoa, phuxuan); `owns(ring)` from `dainoi.js` and `ownRoads` from `giahoi.js` used in `city.js`; quochoc removes infill houses inside its campus at runtime.
