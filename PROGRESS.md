@@ -187,8 +187,13 @@
     under a texel instead of ~2.5 m and shadows meet their casters. The two maps are drawn on alternate frames.
   - Track 2, by a helper agent (`buf.js`, `citadel.js`, `truongtien.js`): curved hip roofs with lifted corners
     (`segs` / `horns`), `pavilion({ colonnade })` with free-standing columns, `passages()` through Ngọ Môn and the
-    gates, 14 panels per Trường Tiền span. The rampart boxes in `city.js` still cross the gate mouths, so those
-    passages end in a 1.2 m porch and a dark panel.
+    gates, 14 panels per Trường Tiền span.
+  - Gates open through the walls (`src/geo/gates.js` shared by `city.js` and `citadel.js`): `buildWalls` cuts a
+    5.6 m slot out of the rampart at each Citadel gate (`polygon-clipping`, now a runtime dependency) and stops the
+    Imperial City's wall at the footprints of its gates and at Ngọ Môn's whole box; the Citadel gate block reaches
+    to both rampart faces (`reach` in `gate()`), so the tunnel runs the wall's full thickness. The porch workaround
+    in `passages()` (`covers`) is no longer used by any caller. Seen: Thượng Tứ and Đông Ba from outside, Hiển Nhơn,
+    Ngọ Môn from both sides. The inner mouths of the Citadel gates were not seen clearly (trees in the way).
   - Track 4, by a helper agent (`foliage.js`, `water.js`, `boats.js`): six tree species picked in `foliage.js`,
     cross wavelets and current on the river, V-wakes (layer 1), lofted hulls. No shoreline darkening.
   - Not done: track 3 (asphalt roads, kerbs, ground textures, street dressing), `KIND.METAL` for the steel bridges,

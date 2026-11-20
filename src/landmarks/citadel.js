@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Buf, KIND, hex, shade, unflat, obb, ringCentre, signedArea } from '../geo/buf.js';
+import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { shared, lightMaterial, glowPoints } from '../geo/materials.js';
@@ -327,22 +328,27 @@ function passages(S, ring0, y0, y1, wallCol, openings, { frame = hex('#d6cbb5'),
 }
 
 function gate(S, g, centre, eaves = null, coverAt = null) {
-  const cx = g.c[0] / 10, cz = g.c[1] / 10, w = g.w / 10, d = g.d / 10, a = g.a / 1000;
-  const ux = Math.cos(a), uz = Math.sin(a);
-  // which footprint axis runs through the wall?
-  let rx = cx - centre[0], rz = cz - centre[1];
-  const rl = Math.hypot(rx, rz) || 1; rx /= rl; rz /= rl;
-  const alongLong = Math.abs(rx * ux + rz * uz) > 0.707;
-  const pa = alongLong ? a : a + Math.PI / 2; // passage direction
-  const plen = alongLong ? w : d, pwid = alongLong ? d : w;
-  const px = Math.cos(pa), pz = Math.sin(pa);
+  // which footprint axis runs through the wall: see gateAxis
+  const { cx, cz, w, d, a, pa, px, pz, plen, pwid } = gateAxis(g, centre);
   if (g.k === 'citadel') {
     const top = LAND_Y + WALL_H + 1.4;
     S.kind = KIND.MASONRY;
     // the gate block with its arched passage driven right through it
-    const ring = rect(cx, cz, w + 1, d + 1, a);
+    // The block reaches to both faces of the rampart, a hand's breadth proud of them, so the passage runs the whole
+    // thickness of the wall; city.js cuts the matching slot out of the rampart.
+    const reach = [plen / 2 + 0.5, plen / 2 + 0.5];
+    for (const [fa, fb] of (coverAt ? coverAt(cx, cz) : [])) {
+      const ex = fb[0] - fa[0], ez = fb[1] - fa[1], den = px * ez - pz * ex;
+      if (Math.abs(den) < 1e-6) continue;
+      const qx = fa[0] - cx, qz = fa[1] - cz, t = (qx * ez - qz * ex) / den, s = (qx * pz - qz * px) / den;
+      if (s < 0 || s > 1 || Math.abs(t) < plen / 2 - 1.5 || Math.abs(t) > plen / 2 + 6) continue;
+      const k = t < 0 ? 0 : 1;
+      reach[k] = Math.max(reach[k], Math.abs(t) + 0.12);
+    }
+    const shift = (reach[1] - reach[0]) / 2;
+    const ring = rect(cx + px * shift, cz + pz * shift, reach[0] + reach[1], pwid + 1, pa);
     S.prism(ring, top, top, PAL.brickLight, PAL.stone, { topKind: KIND.ROAD });
-    const built = passages(S, ring, LAND_Y - 0.5, top, PAL.brickLight, [{ p: [cx, cz], dir: [px, pz], w: 4.2, h: 5.4, floor: LAND_Y, arch: true }], { covers: coverAt && coverAt(cx, cz), porchTop: LAND_Y + WALL_H });
+    const built = passages(S, ring, LAND_Y - 0.5, top, PAL.brickLight, [{ p: [cx, cz], dir: [px, pz], w: CITADEL_PASSAGE.w, h: CITADEL_PASSAGE.h, floor: LAND_Y, arch: true }]);
     S.kind = KIND.MASONRY;
     S.box(cx, cz, top, top + 0.8, w + 0.6, d + 0.6, a, shade(PAL.brickLight, 1.08), { top: PAL.stone, topKind: KIND.ROAD });
     S.kind = KIND.PLAIN;
@@ -363,7 +369,7 @@ function gate(S, g, centre, eaves = null, coverAt = null) {
     const ring = rect(cx, cz, w, Math.max(d, 4), a), wallC = hex('#d9c9a4');
     S.prism(ring, top, top, wallC, PAL.stone, { topKind: KIND.ROAD });
     const ops = [-1, 0, 1].map((o) => ({ p: [cx - pz * o * pwid * 0.28, cz + px * o * pwid * 0.28], dir: [px, pz], w: o === 0 ? 2.6 : 2.0, h: o === 0 ? 4.0 : 3.2, floor: G, arch: true }));
-    const built = passages(S, ring, G - 0.6, top, wallC, ops, { covers: coverAt && coverAt(cx, cz) });
+    const built = passages(S, ring, G - 0.6, top, wallC, ops); // the Imperial City's wall stops at this footprint (city.js)
     S.kind = KIND.PLAIN;
     for (const s of [-1, 1]) for (const o of [-1, 0, 1]) {
       if (built.some((t) => t.op === ops[o + 1])) continue;
@@ -518,7 +524,7 @@ export function buildCitadel(data, S, group) {
     const ops = [-1, 0, 1].map((k) => ({ p: P(k * o.w * 0.11, back), dir: [vx, vz], w: k === 0 ? 3.2 : 2.4, h: k === 0 ? 4.2 : 3.6, floor: LAND_Y, arch: false }));
     ops.push({ p: P(0, o.d * 0.29), dir: [ux, uz], w: 2.3, h: 3.3, floor: LAND_Y, arch: true });
     S.kind = KIND.MASONRY;
-    const built = passages(S, ring, LAND_Y, baseTop, hex('#8e8172'), ops, { covers: coverAt(o.c[0], o.c[1]) });
+    const built = passages(S, ring, LAND_Y, baseTop, hex('#8e8172'), ops);
     S.kind = KIND.PLAIN;
     for (const k of [-1, 0, 1]) {
       const tn = built.find((t) => t.op === ops[k + 1]); // a lamp in the court, just outside each gateway

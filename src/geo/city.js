@@ -3,6 +3,8 @@ import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre, span }
 import { cityMaterial, landMaterial, enc, glowPoints, eraDepthMaterial } from './materials.js';
 import { initEras, inCitadel, southBank, inHills, frenchQuarter, plotBorn } from './eras.js';
 import { LAND_Y, WALL_H, PAL, quality } from '../config.js';
+import polygonClipping from 'polygon-clipping';
+import { gateAxis, rectRing, inRing, CITADEL_PASSAGE } from './gates.js';
 import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
 import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
@@ -673,9 +675,26 @@ function buildInfill(data, group, off = null) {
 function buildWalls(data, structures) {
   const P = PAL;
   structures.kind = KIND.MASONRY;
+  // The walls open where a gate stands (the gate models in citadel.js carry the passage through): a slot is cut
+  // out of the rampart for each Citadel gate, and the Imperial City's wall stops at the footprints of its gates
+  // and of Ngọ Môn.
+  const kinhthanh = data.places.find((q) => q.id === 'kinhthanh');
+  const cityCentre = kinhthanh ? [kinhthanh.x / 10, kinhthanh.z / 10] : [0, 0];
+  const impCentre = data.imperial ? [data.imperial.c[0] / 10, data.imperial.c[1] / 10] : cityCentre;
+  const close = (r) => [...r, r[0]];
+  const slots = [], clear = [];
+  for (const g of data.gates || []) {
+    if (g.k === 'citadel') { const t = gateAxis(g, cityCentre); slots.push([close(rectRing(t.cx, t.cz, t.plen + 14, CITADEL_PASSAGE.slot, t.pa))]); }
+    else { const t = gateAxis(g, impCentre); clear.push(rectRing(t.cx, t.cz, t.w + 0.3, Math.max(t.d, 4) + 0.3, t.a)); }
+  }
+  // Ngọ Môn is a U: the wall must also stay out of the court between its wings, so its whole box is cleared
+  if (data.special && data.special.ngomon) { const o = obb(unflat(data.special.ngomon.ring)); clear.push(rectRing(o.c[0], o.c[1], o.w + 0.4, o.d + 0.4, o.a)); }
   for (const poly of data.wall) {
-    const rings = poly.map(unflat);
-    structures.prism(rings[0], LAND_Y - 0.5, LAND_Y + WALL_H, P.brick, P.moss, { holes: rings.slice(1), topKind: KIND.GROUND, parapet: 0.9 });
+    let parts = [poly.map(unflat)];
+    if (slots.length) {
+      try { parts = polygonClipping.difference(parts[0].map(close), ...slots).map((pg) => pg.map((r) => r.slice(0, -1))); } catch { /* keep the wall whole */ }
+    }
+    for (const rings of parts) structures.prism(rings[0], LAND_Y - 0.5, LAND_Y + WALL_H, P.brick, P.moss, { holes: rings.slice(1), topKind: KIND.GROUND, parapet: 0.9 });
   }
   // the Imperial City's own wall is mapped as lines: brick, with a tiled coping
   const cap = hex('#7a5a45'), body = hex('#8f7c69');
@@ -686,11 +705,25 @@ function buildWalls(data, structures) {
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
       if (len < 0.3) continue;
       const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
-      const cx = (a[0] + b[0]) / 2, cz = (a[1] + b[1]) / 2;
-      structures.box(cx, cz, LAND_Y, LAND_Y + 4.0, len + 1.5, 1.7, ang, body, { top: cap });
-      structures.kind = KIND.TILE;
-      structures.box(cx, cz, LAND_Y + 4.0, LAND_Y + 4.5, len + 1.9, 2.5, ang, cap, { taper: 0.5 });
-      structures.kind = KIND.MASONRY;
+      // the stretches of this piece that lie outside every gate's footprint, as [from, to] along it
+      const n = Math.max(1, Math.ceil(len / 0.4)), runs = [];
+      let from = null;
+      for (let k = 0; k <= n; k++) {
+        const t = k / n, x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t;
+        const out = !clear.some((r) => inRing(x, z, r));
+        if (out && from === null) from = t;
+        if ((!out || k === n) && from !== null) { runs.push([from, out ? t : (k - 1) / n]); from = null; }
+      }
+      for (const [t0, t1] of runs) {
+        const whole = t0 === 0 && t1 === 1, l = len * (t1 - t0);
+        if (!whole && l < 0.6) continue;
+        const tm = (t0 + t1) / 2, cx = a[0] + (b[0] - a[0]) * tm, cz = a[1] + (b[1] - a[1]) * tm;
+        // a whole piece laps its neighbours at the corners; a cut one stops flush at the gate
+        structures.box(cx, cz, LAND_Y, LAND_Y + 4.0, l + (whole ? 1.5 : 0), 1.7, ang, body, { top: cap });
+        structures.kind = KIND.TILE;
+        structures.box(cx, cz, LAND_Y + 4.0, LAND_Y + 4.5, l + (whole ? 1.9 : 0), 2.5, ang, cap, { taper: 0.5 });
+        structures.kind = KIND.MASONRY;
+      }
     }
   }
   structures.kind = KIND.PLAIN;
