@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
+import { replaced } from './places/index.js';
 
 // Named places of the modern and colonial city, each built on its own OSM footprint: position, size and
 // orientation are mapped; the forms follow what stands there (see README for what is illustrative).
@@ -66,6 +67,7 @@ function yardFence(S, data, F, box, core, st, { gateHalf = 3.5, lampCol = [1, 0.
 
 // ---- Ga Huế (1908): the long pink colonial station, a tall middle pavilion between two wings ----
 function station(S, data) {
+  if (replaced('gahue')) return; // drawn by places/gahue.js
   const sp = data.special.gahue;
   if (!sp) return;
   const o = obb(unflat(sp.ring));
