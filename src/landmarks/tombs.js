@@ -350,19 +350,28 @@ function obelisk(S, x, z, h = 9, col = C.stone) {
   S.box(x, z, g + 1.3, g + h - 0.9, 1.15, 1.15, 0, col, { taper: 0.55 });
   S.box(x, z, g + h - 0.9, g + h, 0.7, 0.7, 0, shade(col, 1.05), { taper: 0.05 });
 }
-// an earth tumulus with a few pines, its base bedded below the lowest ground around it
+// an earth tumulus with a few pines, draped over the ground it stands on: a cone stood on the centre's ground sank its
+// uphill flank into the slope (Minh Mạng's sits on a hillside that climbs 6 m across it). The rim is bedded below
+// the ground; \`ground\` gives a flat island level instead of the terrain.
 function mound(S, cx, cz, r, h, { trees = 6, ground = null } = {}) {
-  const ring = circle(cx, cz, r, 8);
-  const lo = ground != null ? ground - 0.4 : groundSpan(ring).lo - 0.6;
-  const top = (ground != null ? ground : gY(cx, cz)) + h;
+  const g = (x, z) => (ground != null ? ground : gY(x, z));
+  const prof = (t) => (t <= 0.22 ? 1 : Math.cos(((t - 0.22) / 0.78) * Math.PI * 0.5)); // a flattened crown, easing to the rim
+  const at = (t, a) => { const x = cx + Math.cos(a) * r * t, z = cz + Math.sin(a) * r * t; return [x, g(x, z) + h * prof(t) - (t >= 1 ? 0.6 : 0), z]; };
+  const T = [0, 0.22, 0.45, 0.65, 0.82, 1], N = 16;
   S.kind = KIND.GROUND; S.base = 0;
-  S.cyl(cx, cz, lo, top, r, r * 0.22, 14, C.moss);
+  for (let j = 0; j < N; j++) {
+    const a0 = (j / N) * Math.PI * 2, a1 = ((j + 1) / N) * Math.PI * 2, am = (a0 + a1) / 2;
+    for (let k = 0; k + 1 < T.length; k++) {
+      const hint = [Math.cos(am) * T[k + 1], 1, Math.sin(am) * T[k + 1]];
+      if (k === 0) S.tri(at(0, 0), at(T[1], a0), at(T[1], a1), C.moss, hint);
+      else S.quad(at(T[k], a0), at(T[k], a1), at(T[k + 1], a1), at(T[k + 1], a0), C.moss, hint);
+    }
+  }
   S.kind = KIND.PLAIN;
   for (let i = 0; i < trees; i++) {
-    const ang = (i / trees) * Math.PI * 2 + 0.4, rr = r * (i % 2 ? 0.45 : 0.62);
-    const x = cx + Math.cos(ang) * rr, z = cz + Math.sin(ang) * rr;
-    const yb = top - (top - lo) * ((rr - r * 0.22) / (r * 0.78)) - 0.3;
-    S.cyl(x, z, yb, yb + 6.5, 1.7, 0, 6, C.pine, { cap: false });
+    const ang = (i / trees) * Math.PI * 2 + 0.4, t = i % 2 ? 0.45 : 0.62;
+    const [x, yb, z] = at(t, ang);
+    S.cyl(x, z, yb - 0.3, yb + 6.2, 1.7, 0, 6, C.pine, { cap: false });
   }
 }
 const RAD = Math.PI / 180;

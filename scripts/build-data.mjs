@@ -1112,7 +1112,9 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       return (g(ix, iy) * (1 - ax) + g(ix + 1, iy) * ax) * (1 - ay) + (g(ix, iy + 1) * (1 - ax) + g(ix + 1, iy + 1) * ax) * ay;
     };
     const bareAt = sample(D.h), surfAt = sample(D.s || D.h);
-    const STEP = 25, nx = Math.floor((MAXX - MINX) / STEP) + 1, nz = Math.floor((MAXZ - MINZ) / STEP) + 1;
+    // ceil, so the last row and column reach MAXX / MAXZ: with floor the grid stopped up to one step short of the
+    // east and south edges, and land in that strip read as the flat city floor beside the hills (trees sunk 160 m)
+    const STEP = 25, nx = Math.ceil((MAXX - MINX) / STEP) + 1, nz = Math.ceil((MAXZ - MINZ) / STEP) + 1;
     const sstep = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
     // ---- Calibration: the whole map against measured heights --------------------------------------------------
     // Two kinds of measurement exist. ICESat-2's laser gives the ground itself, to a few decimetres, every 10 m along
