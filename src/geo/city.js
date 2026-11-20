@@ -11,6 +11,7 @@ import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
+import { replaced } from '../landmarks/places/index.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -629,6 +630,7 @@ export function buildWalls(data, structures) {
   // Ngọ Môn is a U: the wall must also stay out of the court between its wings, so its whole box is cleared
   if (data.special && data.special.ngomon) { const o = obb(unflat(data.special.ngomon.ring)); clear.push(rectRing(o.c[0], o.c[1], o.w + 0.4, o.d + 0.4, o.a)); }
   for (const poly of data.wall || []) {
+    if (poly === data.wall[0] && replaced('kinhthanh')) continue; // the main rampart: src/landmarks/places/kinhthanh.js
     let parts = [poly.map(unflat)];
     if (slots.length) {
       try { parts = polygonClipping.difference(parts[0].map(close), ...slots).map((pg) => pg.map((r) => r.slice(0, -1))); } catch { /* keep the wall whole */ }
