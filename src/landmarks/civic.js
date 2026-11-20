@@ -4,6 +4,7 @@ import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { replaced } from './places/index.js';
 import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
+import { replaced } from './places/index.js';
 
 // Named places of the modern and colonial city, each built on its own OSM footprint: position, size and
 // orientation are mapped; the forms follow what stands there (see README for what is illustrative).
@@ -471,10 +472,12 @@ const TM_WALLS = [
   [false, [-13352, 1999, -13251, 1923, -12835, 1615, -12728, 1536]],
   [true, [-13395, 1218, -12938, 881, -13064, 712, -13372, 298, -13613, 474, -14373, 1032, -13934, 1622, -13499, 1295]],
 ];
-function templeWalls(S, data, c) {
+// (its own entry in buildCivic, so it does not hang on Hiển Lâm Các; the Thế Miếu wall and the dividing line are
+// drawn by places/themieu.js once that is built)
+function templeWalls(S, data, c = [-1300, 180]) {
   const list = Array.isArray(data.special.themieuWalls) ? data.special.themieuWalls.map((w) => [w.closed !== false, w.ring]) : TM_WALLS;
   const roads = roadsNear(data, c, 220), solid = buildingsNear(data, c, 200);
-  for (const [closed, flat] of list) fence(S, unflat(flat), FENCE.imperial, { closed, roads, solid });
+  list.forEach(([closed, flat], i) => { if (!(i < 2 && replaced('themieu'))) fence(S, unflat(flat), FENCE.imperial, { closed, roads, solid }); });
 }
 
 // ---- Hiển Lâm Các, three storeys of timber, and before it the nine dynastic urns facing Thế Miếu ----
@@ -482,7 +485,6 @@ function hienLam(S, data) {
   const sp = data.special.hienlam;
   if (!sp) return;
   const o = obb(unflat(sp.ring)), y0 = LAND_Y;
-  templeWalls(S, data, o.c);
   const eave = { fascia: 0.3, fasciaCol: shade(PAL.lacquer, 0.75), hips: true, glazed: true, ridgeCol: hex('#f1d77a') };
   S.base = 0;
   S.kind = KIND.MASONRY;
@@ -552,7 +554,7 @@ function tuPhuong(S, data) {
 
 export function buildCivic(data, S) {
   if (!data.special) return;
-  for (const fn of [station, phuCam, redemptorist, anDinh, dieuDe, hienLam, vincom, tuPhuong]) {
+  for (const fn of [station, phuCam, redemptorist, anDinh, dieuDe, templeWalls, hienLam, vincom, tuPhuong]) {
     const n0 = S.n; // a place that throws is dropped whole (the buffer rolled back) and the rest still load
     try { fn(S, data); } catch (e) { S.n = n0; console.warn('civic:', fn.name, e); }
     S.kind = KIND.PLAIN; S.base = 0;
