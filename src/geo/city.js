@@ -703,6 +703,7 @@ export function buildCity(data) {
 
 // Ground the landmark models stand on: every 1 m cell under a face of theirs that looks up and stands clear of the
 // ground (platforms, terraces, stairs, roofs with their eaves). The Citadel's rampart is left out: it is planted.
+const SUB = [[0.5, 0.5], [0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
 function coverOf(structures) {
   const cells = new Set(), tall = new Set(), P = structures.pos, [w0, w1] = structures.wallRange || [0, 0];
   const key = (ix, iz) => (ix + 32768) * 65536 + (iz + 32768);
@@ -718,9 +719,12 @@ function coverOf(structures) {
     const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.floor(Math.max(ax, bx, cx)), z0 = Math.floor(Math.min(az, bz, cz)), z1 = Math.floor(Math.max(az, bz, cz));
     const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
     for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
-      const px = ix + 0.5, pz = iz + 0.5;
-      const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
-      if (l1 > -0.08 && l2 > -0.08 && 1 - l1 - l2 > -0.08) { cells.add(key(ix, iz)); if (up >= 2.2) tall.add(key(ix, iz)); }
+      // five points per cell, so a face narrower than a cell (the top of a wall) is not missed
+      for (const [ox, oz] of SUB) {
+        const px = ix + ox, pz = iz + oz;
+        const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
+        if (l1 > -0.02 && l2 > -0.02 && 1 - l1 - l2 > -0.02) { cells.add(key(ix, iz)); if (up >= 2.2) tall.add(key(ix, iz)); break; }
+      }
     }
   }
   // houses keep off all of it; trees only off roofs and tall platforms (a tree may stand on a low lawn terrace, as the
@@ -734,7 +738,7 @@ export function populate(world, data) {
   const cover = coverOf(world.structures);
   const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
   // a tree: its trunk and the reach of its lower branches
-  const treeOff = (x, z, r) => { if (cover.hitTall(x, z)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r)) return true; return false; };
+  const treeOff = (x, z, r) => { if (cover.hitTall(x, z)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
   // a house: its plan sampled 3 x 3
   const houseOff = (x, z, w, d, ang) => {
     const ux = Math.cos(ang), uz = Math.sin(ang);

@@ -148,8 +148,13 @@
     dropped in the data (Lầu Ngũ Phụng on Ngọ Môn, a block inside Kỳ Đài).
   - Hill bridges climb between banks of different height instead of lying level at the lower one and running into
     the ground; the southern models take their ground levels from the whole footprint, not its corners.
-  - Still overlapping: footpaths run up to and under tomb platforms and across enclosure walls on slopes (lăng Tự
-    Đức); the burial mound's disc at lăng Minh Mạng lies under the terrain mound; a 0.3 m sliver at đàn Nam Giao.
+  - Tombs: where a footpath or lane crosses an enclosure wall the wall opens, with a post either side (`crossings`
+    and `wallLine` in `src/landmarks/tombs.js`; paths within a site's radius + 60 m). Terraces and gates take their
+    level from the whole footprint, not its corners: Minh Lâu's three terraces were buried up to 3.6 m in the
+    hillock they stand on. Đàn Nam Giao's Trai Cung court and halls sit on the highest ground inside its walls.
+    The cover map samples five points per cell, so trees also keep off wall tops.
+  - Left as it is: footpaths end at hall platforms and resume behind them (they are mapped through the halls); the
+    burial mounds are bedded into their hills.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

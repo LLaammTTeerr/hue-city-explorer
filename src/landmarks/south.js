@@ -362,10 +362,13 @@ function namGiao(S, data) {
         S.box(x, z, gg - 0.8, gg + 2.4, dz ? len : 0.6, dz ? 0.6 : len, 0, brick, { top: shade(gateC, 0.85) });
       }
       S.kind = KIND.ROAD;
-      S.box(tc[0], tc[1], g - 0.4, g + 0.08, half * 2 - 1, half * 2 - 1, 0, hex('#b8ae96'));
+      // the paved court lies on the highest ground inside the walls, so the slope does not show through it, and the
+      // halls stand on the court
+      const cq = [[tc[0] - half, tc[1] - half], [tc[0] + half, tc[1] - half], [tc[0] + half, tc[1] + half], [tc[0] - half, tc[1] + half]], cy = maxG(cq);
+      S.box(tc[0], tc[1], minG(cq) - 0.4, cy + 0.08, half * 2 - 1, half * 2 - 1, 0, hex('#b8ae96'));
       S.kind = KIND.PLAIN;
-      pavilion(S, tc[0] - 6, tc[1], 12, 22, 0, g, { tiers: 1, wallH: 3.8, roof: PAL.templeRoof, wall: PAL.lacquer, over: 1.2, rh: 3.2, platform: 0.9, ridge: hex('#d8c9a0') });
-      for (const sd of [-1, 1]) pavilion(S, tc[0] + 8, tc[1] + sd * 15, 14, 7, 0, g, { tiers: 1, wallH: 3.0, roof: PAL.templeRoof, wall: hex('#b58a5c'), over: 0.9, rh: 2.2, platform: 0.5, ridge: hex('#d8c9a0') });
+      pavilion(S, tc[0] - 6, tc[1], 12, 22, 0, cy, { tiers: 1, wallH: 3.8, roof: PAL.templeRoof, wall: PAL.lacquer, over: 1.2, rh: 3.2, platform: 0.9, ridge: hex('#d8c9a0') });
+      for (const sd of [-1, 1]) pavilion(S, tc[0] + 8, tc[1] + sd * 15, 14, 7, 0, cy, { tiers: 1, wallH: 3.0, roof: PAL.templeRoof, wall: hex('#b58a5c'), over: 0.9, rh: 2.2, platform: 0.5, ridge: hex('#d8c9a0') });
       pavilion(S, tc[0] + half, tc[1], 4.5, 8, Math.PI / 2, gy(tc[0] + half, tc[1]), { tiers: 2, wallH: 3.0, roof: PAL.templeRoof, wall: hex('#c9a27a'), over: 0.9, rh: 1.8, ridge: hex('#d8c9a0') });
     }
   }
