@@ -1,0 +1,37 @@
+import * as THREE from 'three';
+import { KIND } from '../../geo/buf.js';
+
+// Replica models, one file per place: src/landmarks/places/<slug>.js, picked up here without being listed.
+//
+// A place file exports
+//   id     the place's id in hue.json's `places` (e.g. 'kydai', 'gate:Cửa Hậu')
+//   build({ data, S, group, place, THREE })
+//          S is the shared static buffer (world.structures), group the dynamic THREE.Group for lights and moving
+//          parts, place the record from data.places with x/z already in metres. It may return
+//          { update(time, glow, rain) } to be called every frame.
+// The older builder that drew the same place checks `replaced(id)` and leaves it out, so the two never overlap.
+const mods = import.meta.glob(['./*.js', '!./index.js'], { eager: true });
+const list = Object.values(mods).filter((m) => m && m.id && typeof m.build === 'function');
+const ids = new Set(list.map((m) => String(m.id).normalize('NFC')));
+
+export const replaced = (id) => ids.has(String(id).normalize('NFC'));
+
+export function buildPlaces(data, S, group) {
+  const live = [];
+  for (const m of list) {
+    const id = String(m.id).normalize('NFC');
+    const p = (data.places || []).find((q) => String(q.id).normalize('NFC') === id);
+    const place = p ? { ...p, x: p.x / 10, z: p.z / 10 } : null;
+    const n0 = S.n; // on a throw, roll the shared buffer back so no half-built model is left behind
+    try {
+      const r = m.build({ data, S, group, place, THREE });
+      if (r && typeof r.update === 'function') live.push(r);
+    } catch (e) {
+      S.n = n0;
+      console.warn(`replica ${id} not built:`, e);
+    }
+    S.kind = KIND.PLAIN;
+    S.base = 0;
+  }
+  return { update(time, glow, rain) { for (const r of live) r.update(time, glow, rain); } };
+}

@@ -11,7 +11,8 @@
     "data:build": "node scripts/build-data.mjs",
     "check:heights": "node scripts/check-heights.mjs",
     "check:data": "node scripts/check-data.mjs",
-    "check": "npm run check:data && npm run check:heights"
+    "check": "npm run check:data && npm run check:heights",
+    "shot": "node scripts/shot.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
