@@ -414,8 +414,12 @@ Merged in that order; each later branch took `main` first and was reconciled bef
 ## Replicas of every place, one agent each (2026-11-21, branch `claude/landscape-place-replication-agents-64978c`)
 Goal: each of the 77 places in `hue.json` re-modelled as it stands today, one agent per place in its own worktree, merged here.
 - Contract: `src/landmarks/places/<slug>.js` exports `id` + `build(ctx)`; the older builder skips it via `replaced(id)` (`places/index.js`, lazy list; node's `check-heights` hands the modules over on `globalThis.__hueReplicas`). Agent brief: `scratch/brief.md`; place list and shot ports: `scratch/agents.txt`. Each place documents sources and estimates in `docs/places/<slug>.md`.
-- Done and merged (20): truongtien, themieu, kinhthanh, ngomon, phuvanlau, kydai, bachho, hungmieu, nghenhluong, vincom, giahoi, phucam, thaihoa, dainoi, phuxuan, tinhtam, dongba, gahue, quochoc, thaimieu. Build passes, heights 24/24.
-- Running: andinh, trieumieu, dientho, truongsanh, duyetthi, kientrung, canchanh, hiennhon, chuongduc, tuphuong, quoctugiam, baotangcovat, tangthulau, xatac, mangca, thuyquan, dieude.
-- Next: places 37 (dcct) to 76 in `scratch/agents.txt`, about 3 per launch.
+- Done: all 77 merged (76 replica files in `src/landmarks/places/`; Trường Tiền was corrected in place in `truongtien.js`, 226eee9). Build passes, check:data 8/8, heights 24/24.
+- Gates: one generic guard in `citadel.js` (`replaced('gate:' + name)`) skips every gate a `places/gate-cua-*.js` draws; Cửa Ngăn also owns its moat bridge (one-line skip in `city.js`).
+- Left for later (none blocks the build):
+  - Vọng Cảnh: the seed in `scripts/build-data.mjs` (~L1027) and `data/control-points.json` sit on Hòn Chén; the control point's latitude 16.42222 looks like a typo for 16.42958 (OSM lookout tower node 13516013279, same longitude). Moving it fails the summit check (terrain 35–37 m there vs the documented 43 m), so it needs terrain/elevation work first; `places/vongcanh.js` relocates the record at runtime meanwhile.
+  - Tự Đức: the terrain stands 0.1–0.5 m above the water of Lưu Khiêm lake and the crescent pond, so the water shows in patches.
+  - Thiên Mụ: the two side gates are still the generic green-roofed gates in `citadel.js`; the 9.9 m terrace needs ~30 risers where sources say ~19.
+  - Trường Sanh's bridges are grey (should be red, `city.js`); Cầu Quảng Đức and most other moat bridges still come from the shared bridge code.
 - Merge notes: conflicts so far were neighbouring import lines (keep both) and one `bridges.js` line (own + ramp). After each merge run `scratch/dupimports.sh`; two merges once added the same `replaced` import twice. `shot.mjs` now picks free ports and kills vite's process group.
 - Shared changes made by agents: `structures.paved` ranges honoured by `coverOf` in `city.js` (thaihoa); `own: true` and `climb` bridge profiles in `bridges.js` (thaihoa, phuxuan); `owns(ring)` from `dainoi.js` and `ownRoads` from `giahoi.js` used in `city.js`; quochoc removes infill houses inside its campus at runtime.
