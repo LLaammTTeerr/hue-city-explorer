@@ -28,8 +28,8 @@ const { initDistricts } = await import(src('geo/districts.js'));
 const { buildWalls } = await import(src('geo/city.js'));
 const { Buf } = await import(src('geo/buf.js'));
 const L = (m) => import(src('landmarks/' + m + '.js'));
-const [truongtien, citadel, more, civic, memorial, boardwalk, restaurant, south, tombs] = await Promise.all(
-  ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'restaurant', 'south', 'tombs'].map(L));
+const [truongtien, citadel, more, civic, memorial, boardwalk, floating, south, tombs] = await Promise.all(
+  ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'floating', 'south', 'tombs'].map(L));
 
 // ---- the scene, in the order src/main.js builds it ----
 initTerrain(data);
@@ -40,18 +40,16 @@ const step = (name, f) => { try { f(); } catch (e) { errors.push(`${name} threw:
 const w0 = S.n;
 step('walls', () => buildWalls(data, S));
 const wallRange = [w0, S.n];
-const ri = data.bld.findIndex(restaurant.isRestaurant), rec = data.bld[ri];
-if (rec) { const last = data.bld.pop(); if (last !== rec) data.bld[ri] = last; }
 step('truongtien', () => truongtien.buildTruongTien(data, S, dyn));
 step('citadel', () => citadel.buildCitadel(data, S, dyn));
-step('market', () => citadel.buildMarket(data, S));
+step('market', () => citadel.buildMarket(data, S, dyn));
 step('thienmu', () => citadel.buildThienMu(data, S, dyn));
 step('nguyenhoang', () => more.buildNguyenHoang(data, S, dyn));
 step('quochocgate', () => more.buildQuocHocGate(data, S));
 step('civic', () => civic.buildCivic(data, S));
 step('biaquochoc', () => memorial.buildBiaQuocHoc(data, S));
 step('boardwalk', () => boardwalk.buildBoardwalk(data, S, dyn));
-step('restaurant', () => restaurant.buildRestaurant(rec, data, S, dyn));
+step('floating', () => floating.buildFloatingRestaurants(data, S, dyn));
 step('south', () => south.buildSouth(data, S));
 step('tombs', () => tombs.buildTombs(data, S));
 console.warn = warn0;

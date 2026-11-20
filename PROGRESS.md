@@ -351,3 +351,53 @@ became NaN and the bloom pass blanked the whole screen; tip rows now borrow the 
   before replacing, `data:fetch` covers every extract; `hue.json` rebuilt (272 buildings, 4 roads changed).
   Left open: a code licence (none chosen), binary bundle format for infill/trees, courtyard holes, explicit building
   ids for the quoctugiam and tudam height anchors, pinned python versions, tests and lint.
+
+## Landmark re-work (2026-11-21, branch `claude/landscape-models-realism-cd02d4`)
+- **Trường Tiền:** rounder bows (`H·(1-u²)^0.62`, leaving the piers at about 45°). The night light show is a 24 s cycle: solid colours stepping, a bow-to-bow chase, a rainbow drift, and a violet pulse with a white run. Rain fades it to warm white.
+- **Generator fixes (build-data.mjs + city.js):**
+  - Infill houses are tested against each other with an OBB check, padded for each era's roof overhang, and mapped buildings are dilated 1.2 m for eaves. Result: 54.9k houses (was 63.9k), 0 roof overlaps.
+  - Old roofs are clamped to the plot.
+  - OSM "bridge" ways over dry land are laid as road. That is 81 ways, Cửa Chánh Tây among them.
+- **Chợ Đông Ba:** clock tower on the Trần Hưng Đạo front, a "CHỢ ĐÔNG BA" canvas sign that glows red at night, clock dials and eave light strips. The sign, clocks and lights show in today's era only.
+- **Citadel:**
+  - Hiển Nhơn / Chương Đức gates have yellow tiles.
+  - Kinh Thành gates have a crenellated parapet and name tablets.
+  - Thái Hòa has two unequal halls and the Đại Triều Nghi esplanade.
+  - Nghênh Lương Đình has a two-tier roof; Phước Duyên has openings on all eight faces.
+- **Civic (new `enclosure.js`):**
+  - Fences and gates at Quốc Học (OSM campus outline), Ga Huế, Phủ Cam, DCCT, An Định and Diệu Đế.
+  - Thế Miếu / Hưng Miếu walls.
+  - Night lamps, lit crosses, and the Vincom crown.
+- **Floating restaurant (new `floating.js`):** Nhà hàng nổi Sông Hương, remodelled from a night photo:
+  - Low dark pontoon, two glazed drums, two staggered rings of 16 open lotus-petal hoops.
+  - Roof terrace with lamp posts and festoons, and a white tent pavilion.
+  - The hoop LEDs run a 30 s colour show.
+- **Tombs and south:**
+  - Khải Định has dark weathered concrete, a three-path dragon stair, flagpoles and a precinct fence.
+  - Minh Mạng has its side gates; Đồng Khánh has a gate in the Bửu Thành wall.
+  - Nam Giao terraces read blue, yellow and red.
+- **Checked in the browser:** night show, Đông Ba sign, Quốc Học fence, Chánh Tây with no bridge, floating restaurant by day and night.
+- **Not yet seen in the browser:** the tombs, Thái Hòa, the churches, An Định.
+- **Still to do:**
+  - Tự Đức's La Thành wall and Vụ Khiêm gate, and the pavilions on Minh Mạng's lake (positions unknown).
+  - The yards at Ga Huế, Phủ Cam, DCCT and Diệu Đế are estimated rectangles.
+  - A small mapped building stands in front of the Đông Ba clock tower.
+
+## PRs #12, #9, #10 and #13 merged together (2026-11-21)
+Merged in that order; each later branch took `main` first and was reconciled before its merge.
+- **#9 after #12:** `check-heights.mjs` no longer imports `geo/eras.js` or sets `S.span` (both removed by #9).
+- **#10 after #9:** where #10 fixed era, ride or follow-a-boat code, the removal wins. `terrain.js` keeps `groundY`
+  (the height check uses it).
+- **#13 after the rest:**
+  - Its new code (`enclosure.js`, `floating.js`, the Đông Ba sign, lamps and light strips) no longer takes an era;
+    light meshes carry `userData.landmark`.
+  - `floating.js` is the floating restaurant. `restaurant.js` (the earlier lotus model of the same building) is
+    removed, with the code in `main.js` that took its footprint out of `data.bld`.
+  - Three reworked models stood above `docs/heights-reference.json` and were lowered: Thái Hòa 15.6 → 12.1 m,
+    Nghênh Lương Đình 10.8 → 8.3 m, Đông Ba clock tower 23.8 → 16.3 m. Diệu Đế keeps #12's lower hall on #13's
+    ground level.
+  - `hue.json` is rebuilt from the merged generator: 54,753 infill houses, 81 dry-land bridge ways laid as road,
+    272 survey heights kept. Two builds in a row are byte-identical.
+- Checked: `npm run check` (8/8 data, 24/24 heights), `npm run build`, and in the browser the day and night views,
+  the Trường Tiền show, the floating restaurant and Chợ Đông Ba, with no console errors.
+- Not seen in the browser after the merge: the tombs, Thái Hòa, the churches, An Định, the Quốc Học gate.

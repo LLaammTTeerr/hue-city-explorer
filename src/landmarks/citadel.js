@@ -3,7 +3,7 @@ import { Buf, KIND, hex, shade, unflat, obb, ringCentre, signedArea, inRing } fr
 import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
-import { lightMaterial, glowPoints } from '../geo/materials.js';
+import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -356,6 +356,29 @@ function gate(S, g, centre, eaves = null, coverAt = null) {
       S.box(fx, fz, LAND_Y, LAND_Y + 4.4, 0.3, 4.2, pa, dark);
       S.box(fx, fz, LAND_Y + 4.4, LAND_Y + 5.3, 0.3, 3.0, pa, dark);
     }
+    // the gate's flat top is walled with a crenellated brick parapet (lỗ châu mai), the watch pavilion inside it
+    {
+      const W2 = w + 0.6, D2 = d + 0.6, ux = Math.cos(a), uz = Math.sin(a);
+      const Pq = (u, v) => [cx + u * ux - v * uz, cz + u * uz + v * ux];
+      S.kind = KIND.MASONRY;
+      for (const [len, along, off] of [[W2, true, D2 / 2], [W2, true, -D2 / 2], [D2, false, W2 / 2], [D2, false, -W2 / 2]]) {
+        const n = Math.max(3, Math.round(len / 1.4));
+        for (let k = 0; k < n; k++) {
+          const s = -len / 2 + (len * (k + 0.5)) / n;
+          const q = along ? Pq(s, off - Math.sign(off) * 0.25) : Pq(off - Math.sign(off) * 0.25, s);
+          const merlon = k % 2 === 0;
+          S.box(q[0], q[1], top + 0.8, top + 0.8 + (merlon ? 1.15 : 0.7), along ? len / n : 0.5, along ? 0.5 : len / n, a, shade(PAL.brickLight, 1.08), { top: PAL.stone });
+        }
+      }
+      // the name panel (carved characters on a framed stone tablet) over the arch, on each face
+      S.kind = KIND.PLAIN;
+      for (const k of [0, 1]) {
+        const sg = k ? 1 : -1, dd = reach[k] + 0.08; // the block's faces stand reach[] out from the gate's centre
+        const yb = LAND_Y + CITADEL_PASSAGE.h + 0.75;
+        S.box(cx + px * sg * dd, cz + pz * sg * dd, yb, yb + 1.25, 3.6, 0.16, pa + Math.PI / 2, hex('#ddd3bd'));
+        S.box(cx + px * sg * (dd + 0.06), cz + pz * sg * (dd + 0.06), yb + 0.18, yb + 1.07, 3.1, 0.08, pa + Math.PI / 2, hex('#3b3430'));
+      }
+    }
     pavilion(S, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, top + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270'), eaves, colonnade: true });
   } else {
     // Imperial City gates: lower, brightly tiled, three bays. The same form serves the gates of chùa Thiên Mụ, which
@@ -375,7 +398,15 @@ function gate(S, g, centre, eaves = null, coverAt = null) {
       const fx = cx + px * s * (plen / 2 + 0.1) - pz * o * pwid * 0.28, fz = cz + pz * s * (plen / 2 + 0.1) + px * o * pwid * 0.28;
       S.box(fx, fz, G, G + (o === 0 ? 3.8 : 3.0), 0.3, o === 0 ? 2.6 : 2.0, pa, dark);
     }
-    pavilion(S, cx, cz, Math.min(pwid * 0.8, 14), Math.max(3.5, plen * 0.7), pa + Math.PI / 2, top, { tiers: 2, wallH: 2.2, roof: PAL.jadeRoof, wall: hex('#b9452e'), over: 1.1, rh: 2.2, eaves });
+    // Hiển Nhơn and Chương Đức, the Imperial City's east and west gates, carry their two-storey tower under yellow
+    // glazed tiles (hoàng lưu ly), the emperor's; the unnamed gates (at Thiên Mụ) and Trấn Bình keep the green
+    const nm = String(g.n || '').normalize('NFC');
+    const yellow = ['Cửa Hiển Nhơn', 'Chương Đức'].map((n) => n.normalize('NFC')).includes(nm);
+    pavilion(S, cx, cz, Math.min(pwid * 0.8, 14), Math.max(3.5, plen * 0.7), pa + Math.PI / 2, top, { tiers: 2, wallH: 2.2, roof: yellow ? PAL.imperialRoof : PAL.jadeRoof, wall: hex('#b9452e'), over: 1.1, rh: 2.2, eaves, ridge: yellow ? RIDGE : hex('#e8d9a0') });
+    // a white parapet round the gate's flat top, with the tower standing inside it
+    S.kind = KIND.PLAIN;
+    const pr = rect(cx, cz, w - 0.3, Math.max(d, 4) - 0.3, a), pi = rect(cx, cz, w - 0.9, Math.max(d, 4) - 0.9, a);
+    S.prism(pr, top, top + 0.75, hex('#e6dcc3'), hex('#efe6d0'), { holes: [pi.reverse()], top: true });
     S.base = 0;
   }
   return { cx, cz, px, pz, plen };
@@ -544,26 +575,50 @@ function citadel(data, S, group) {
   }
 
   // ---- Điện Thái Hòa: twin joined roofs over the throne hall ----
+  // Two halls under one plan (trùng thiềm điệp ốc): the front hall (tiền điện) lower and shallower, the main hall
+  // behind it taller under a double-eaved roof (a skirt of tiles all round, the upper hip roof above), both in yellow
+  // glazed tiles; red lacquered columns round the verandah. Before it, toward Ngọ Môn, the Esplanade of Great
+  // Salutations (sân Đại Triều Nghi) falls in two stone terraces with a raised imperial way up the middle.
   if (data.special?.thaihoa) {
     const o = obb(unflat(data.special?.thaihoa.ring));
     const ux = Math.cos(o.a), uz = Math.sin(o.a), vx = -uz, vz = ux;
+    const tgt = data.special.ngomon ? obb(unflat(data.special.ngomon.ring)).c : data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : null;
+    const fs = tgt && (tgt[0] - o.c[0]) * vx + (tgt[1] - o.c[1]) * vz < 0 ? -1 : 1; // which way along v is the front
+    const V = (u, v) => [o.c[0] + ux * u + vx * v, o.c[1] + uz * u + vz * v];
     S.kind = KIND.MASONRY;
     S.box(o.c[0], o.c[1], LAND_Y, LAND_Y + 1.4, o.w + 7, o.d + 7, o.a, PAL.stone, { taper: 0.97, topKind: KIND.ROAD });
+    // the esplanade: an upper terrace and a lower one, and the raised way through both
+    {
+      const e1 = 11, e2 = 13, ew = o.w + 10;
+      let q = V(0, fs * (o.d / 2 + 3.5 + e1 / 2));
+      S.box(q[0], q[1], LAND_Y - 0.3, LAND_Y + 0.9, ew, e1, o.a, shade(PAL.stone, 0.97), { topKind: KIND.ROAD });
+      q = V(0, fs * (o.d / 2 + 3.5 + e1 + e2 / 2));
+      S.box(q[0], q[1], LAND_Y - 0.3, LAND_Y + 0.45, ew + 6, e2, o.a, shade(PAL.stone, 0.94), { topKind: KIND.ROAD });
+      q = V(0, fs * (o.d / 2 + 3.5 + (e1 + e2) / 2));
+      S.box(q[0], q[1], LAND_Y - 0.3, LAND_Y + 1.0, 4.2, e1 + e2, o.a, shade(PAL.stone, 1.06), { topKind: KIND.ROAD });
+      // the rank stones (phẩm sơn) of the mandarins, in two rows either side of the way on each terrace
+      S.kind = KIND.PLAIN;
+      for (const [vv, yy] of [[o.d / 2 + 3.5 + e1 / 2, LAND_Y + 0.9], [o.d / 2 + 3.5 + e1 + e2 / 2, LAND_Y + 0.45]]) for (const sd of [-1, 1]) for (let k = 0; k < 9; k++) {
+        const r = V(sd * (5 + k * 2.4), fs * vv);
+        S.box(r[0], r[1], yy, yy + 0.75, 0.45, 0.22, o.a, hex('#c9c1ae'));
+      }
+    }
     S.kind = KIND.PLAIN;
-    for (const [off, dep] of [[-0.24, 0.5], [0.25, 0.46]]) {
+    const halls = [
+      { off: fs * 0.27, dep: 0.42, opt: { tiers: 1, wallH: 3.4, rh: 3.0, over: 1.5 } }, // front hall
+      { off: -fs * 0.2, dep: 0.56, opt: { tiers: 2, wallH: 3.6, rh: 3.2, over: 1.7 } }, // main hall, double eaves: 11.8 m to the ridge (docs/heights-reference.json)
+    ];
+    for (const { off, dep, opt } of halls) {
       const eaves = [];
-      pavilion(S, o.c[0] + vx * o.d * off, o.c[1] + vz * o.d * off, o.w, o.d * dep, o.a, LAND_Y + 1.4, { tiers: 1, wallH: 4.6, roof: PAL.imperialRoof, over: 1.6, rh: 4.6, eaves, colonnade: true, segs: 3 });
-      // only the outer long side of each roof: the inner ones meet in the valley between them
+      pavilion(S, o.c[0] + vx * o.d * off, o.c[1] + vz * o.d * off, o.w, o.d * dep, o.a, LAND_Y + 1.4, { ...opt, roof: PAL.imperialRoof, eaves, colonnade: true, segs: 3 });
+      // only the outer long side of each lower roof: the inner ones meet in the valley between them
       if (eaves[0]) eaveStrip(LB, eaves[0], [off < 0 ? 'v-' : 'v+'], 0.12, 0.09);
+      if (eaves[1]) eaveStrip(LB, eaves[1], ['v-', 'v+'], 0.12, 0.09);
     }
     // two lamps before the doors, on the side that faces Ngọ Môn (or Kỳ Đài)
-    const tgt = data.special?.ngomon ? obb(unflat(data.special?.ngomon.ring)).c : data.special?.kydai ? ringCentre(unflat(data.special?.kydai.ring)) : null;
-    if (tgt) {
-      const s = (tgt[0] - o.c[0]) * vx + (tgt[1] - o.c[1]) * vz < 0 ? -1 : 1;
-      for (const k of [-1, 1]) {
-        const v = s * (o.d * 0.5 + 0.9), u = k * o.w * 0.14;
-        lantern(o.c[0] + ux * u + vx * v, LAND_Y + 1.4 + 1.7, o.c[1] + uz * u + vz * v);
-      }
+    if (tgt) for (const k of [-1, 1]) {
+      const v = fs * (o.d * 0.5 + 0.9), u = k * o.w * 0.14;
+      lantern(o.c[0] + ux * u + vx * v, LAND_Y + 1.4 + 1.7, o.c[1] + uz * u + vz * v);
     }
   }
 
@@ -602,7 +657,8 @@ function citadel(data, S, group) {
       S.hip(q[0], q[1], side * 0.7, 3.4, fa + Math.PI / 2, LAND_Y + 3.5, 1.5, roof, { flare: 0.4, over: 1.0, fascia: 0.25, fasciaCol: shade(wall, 0.75), glazed: true });
     }
     const eaves = [];
-    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 1, wallH: 3.6, roof, wall, over: 1.3, rh: 3.0, eaves });
+    // the pavilion itself stands under a two-tiered (chồng diêm) roof of yellow glazed tiles
+    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 2, wallH: 2.7, roof, wall, over: 1.3, rh: 2.0, eaves, colonnade: true, segs: 3 }); // 7–8 m (docs/heights-reference.json)
     // the two open sides (the porches cover the front and back), and two lamps at the river porch
     if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
     for (const k of [-1, 1]) {
@@ -681,11 +737,14 @@ export function buildThienMu(data, S, group = null) {
     S.kind = KIND.PLAIN;
     S.cyl(c[0], c[1], y, y + 0.22, ri * 1.05, ri * 1.05, 8, trim, { cap: false, rot });
     S.cyl(c[0], c[1], y + h - 0.7, y + h - 0.42, ri * 1.04, ri * 1.04, 8, trim, { cap: false, rot });
-    // arched doorway on the face that looks down to the river, and its opposite
+    // an arched doorway on the face that looks down to the river and on its opposite, and on the other six faces the
+    // arched niches that each hold a Buddha, with a white surround
     const ap = ri * Math.cos(Math.PI / 8);
-    for (const s of [1, -1]) {
-      const dx = c[0] + f[0] * s * (ap + 0.03), dz = c[1] + f[1] * s * (ap + 0.03);
-      S.box(dx, dz, y + 0.25, y + h * 0.56, 0.16, Math.max(0.7, ri * 0.34), fa, dark);
+    for (let k = 0; k < 8; k++) {
+      const th = fa + (k * Math.PI) / 4, nx = Math.cos(th), nz = Math.sin(th), door = k % 4 === 0;
+      const ww = door ? Math.max(0.7, ri * 0.34) : Math.max(0.5, ri * 0.26), top = y + h * (door ? 0.56 : 0.5), bot = y + (door ? 0.25 : h * 0.18);
+      S.box(c[0] + nx * (ap + 0.02), c[1] + nz * (ap + 0.02), bot - 0.08, top + 0.14, 0.08, ww + 0.24, th, trim);
+      S.box(c[0] + nx * (ap + 0.07), c[1] + nz * (ap + 0.07), bot, top, 0.06, ww, th, door ? dark : hex('#4a3a33'));
     }
     S.cyl(c[0], c[1], y + h - 0.42, y + h - 0.26, ri * 1.2, ri * 1.2, 8, eave, { rot });
     if (LT) {
@@ -783,28 +842,164 @@ export function buildThienMu(data, S, group = null) {
   return { glows };
 }
 
-// ---- Chợ Đông Ba: the mapped main hall with its bell tower ----
-export function buildMarket(data, S) {
+// ---- Chợ Đông Ba: the mapped main hall, its clock tower on the street front, and the sign ----
+// The market was rebuilt after 1968 and renovated in 1987: a long two-storey hall in grey-cream render facing Trần Hưng
+// Đạo and the river, with a three-tier clock tower over the main entrance in the middle of that front, and the name in
+// big red capitals, "CHỢ ĐÔNG BA", across the tower's face above the doorway (lit red after dark).
+const MARKET_GREY = hex('#cfc8b6'), MARKET_TRIM = hex('#ece6d6'), SIGN_RED = '#c8161d';
+function signCanvas(text, W, H, mask) {
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  if (!mask) {
+    g.fillStyle = '#ebe5d5'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = '#b9b19c'; g.lineWidth = H * 0.05; g.strokeRect(H * 0.04, H * 0.04, W - H * 0.08, H - H * 0.08);
+  }
+  // fit the bold capitals (with room above for the circumflexes and the horn of Ợ, below for its dot)
+  let px = H * 0.62;
+  g.font = `900 ${px}px "Helvetica Neue", Arial, "Segoe UI", Roboto, "Noto Sans", sans-serif`;
+  const tw = g.measureText(text).width, maxW = W * 0.92;
+  if (tw > maxW) { px *= maxW / tw; g.font = `900 ${px}px "Helvetica Neue", Arial, "Segoe UI", Roboto, "Noto Sans", sans-serif`; }
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = mask ? '#ffffff' : SIGN_RED;
+  g.fillText(text, W / 2, H * 0.56);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+function clockCanvas(mask) {
+  const N = 128, cv = document.createElement('canvas');
+  cv.width = cv.height = N;
+  const g = cv.getContext('2d'), c = N / 2;
+  g.fillStyle = mask ? '#ffffff' : '#f4f0e4';
+  g.beginPath(); g.arc(c, c, c - 4, 0, Math.PI * 2); g.fill();
+  if (!mask) {
+    g.strokeStyle = '#3a2f26'; g.lineWidth = 6; g.stroke();
+    g.lineCap = 'round';
+    for (let i = 0; i < 12; i++) { const t = (i / 12) * Math.PI * 2; g.lineWidth = i % 3 ? 3 : 6; g.beginPath(); g.moveTo(c + Math.cos(t) * (c - 12), c + Math.sin(t) * (c - 12)); g.lineTo(c + Math.cos(t) * (c - 24), c + Math.sin(t) * (c - 24)); g.stroke(); }
+    const hand = (t, l, w) => { g.lineWidth = w; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.sin(t) * l, c - Math.cos(t) * l); g.stroke(); };
+    hand((10 / 12) * Math.PI * 2, c * 0.48, 7); hand((2 / 12) * Math.PI * 2, c * 0.72, 5); // ten past ten
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+// the glow of a sign after dark: the mask's alpha in one colour, added on top and following the mood's glow
+function signGlowMaterial(mask, color, boost) {
+  return new THREE.ShaderMaterial({
+    uniforms: { map: { value: mask }, uGlow: shared.uGlow, uColor: { value: new THREE.Color(color) }, uBoost: { value: boost } },
+    vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }',
+    fragmentShader: `uniform sampler2D map; uniform vec3 uColor; uniform float uGlow, uBoost; varying vec2 vUv;
+      void main() { float a = texture2D( map, vUv ).a;
+        gl_FragColor = vec4( uColor * uBoost * uGlow * a, 1.0 );
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
+  });
+}
+// a w × h picture standing on a face: centre [x, y, z], facing the outward normal n = [nx, nz]
+function facePlane(group, mat, w, h, at, n, order = 0) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  m.position.set(at[0], at[1], at[2]);
+  m.rotation.y = Math.atan2(n[0], n[1]);
+  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
+  if (order) m.renderOrder = order;
+  group.add(m);
+  return m;
+}
+
+export function buildMarket(data, S, group = null) {
   if (!data.special?.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
-  // the hall stands about 10 m to its ridge; the three-tier clock tower about 14–16 m with its finial
-  // (docs/reference/heights.md: estimated, only the three tiers are sourced)
+  // which way is the street front: toward the nearest edge of the river (Trần Hưng Đạo runs along the bank)
+  let dir = [0.73, 0.69];
+  if (data.river && data.river.length >= 6) {
+    const R = data.river, n = R.length / 2;
+    let best = Infinity;
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n, ax = R[2 * i] / 10, az = R[2 * i + 1] / 10, ex = R[2 * j] / 10 - ax, ez = R[2 * j + 1] / 10 - az;
+      const l2 = ex * ex + ez * ez || 1, t = clamp(((o.c[0] - ax) * ex + (o.c[1] - az) * ez) / l2, 0, 1);
+      const px = ax + ex * t - o.c[0], pz = az + ez * t - o.c[1], dd = Math.hypot(px, pz);
+      if (dd < best && dd > 1) { best = dd; dir = [px / dd, pz / dd]; }
+    }
+  }
+  const F = faceToward(o, dir); // F.n out of the front, F.t along it, F.half to the front face, F.side half its length
+  const fa = Math.atan2(F.t[1], F.t[0]); // boxes laid along the front
+  const At = (along, out) => [o.c[0] + F.t[0] * along + F.n[0] * out, o.c[1] + F.t[1] * along + F.n[1] * out];
+  // the hall: two storeys, about 10 m to its ridge (docs/reference/heights.md)
   const y0 = LAND_Y, body = 7.4;
-  const wall = PAL.marketWall, roof = PAL.marketRoof;
-  S.kind = KIND.FACADE;
+  const wall = MARKET_GREY, roof = PAL.marketRoof;
+  S.kind = KIND.CIVIC; // the same bays on both floors all round
   S.box(o.c[0], o.c[1], y0, y0 + body, o.w, o.d, o.a, wall, { top: shade(roof, 0.8) });
-  // tiled awning band and a low hip roof
+  // a white string course at the first floor, the tiled awning over the ground-floor stalls, and the low hip roof
+  S.kind = KIND.PLAIN;
+  S.box(o.c[0], o.c[1], y0 + 3.55, y0 + 3.85, o.w + 0.3, o.d + 0.3, o.a, MARKET_TRIM);
+  S.box(o.c[0], o.c[1], y0 + body - 0.45, y0 + body, o.w + 0.25, o.d + 0.25, o.a, MARKET_TRIM);
   S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + 3.4, 1.2, roof, { over: 2.2, flare: 0.3 });
   S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + body, 3.4, roof, { over: 1.4, flare: 0.4, fascia: 0.4, fasciaCol: shade(wall, 0.8), ridgeCol: hex('#d9c9a0'), hips: true });
-  // bell tower rising through the middle of the hall
-  const cx = o.c[0], cz = o.c[1];
-  S.box(cx, cz, y0 + body, y0 + 11.2, 7.4, 7.4, o.a, wall);
-  let y = y0 + 11.2;
-  S.hip(cx, cz, 7.4, 7.4, o.a, y, 1.0, roof, { over: 1.4, flare: 0.4 }); y += 0.5;
-  S.box(cx, cz, y, y + 1.4, 5.4, 5.4, o.a, wall); y += 1.4;
-  S.hip(cx, cz, 5.4, 5.4, o.a, y, 0.8, roof, { over: 1.2, flare: 0.4 }); y += 0.4;
-  S.box(cx, cz, y, y + 1.1, 3.8, 3.8, o.a, wall); y += 1.1;
-  S.hip(cx, cz, 3.8, 3.8, o.a, y, 1.2, roof, { over: 1.0, flare: 0.3 });
+
+  // ---- the clock tower over the main entrance, standing forward of the middle of the front ----
+  // about 14–16 m with its finial (docs/reference/heights.md: estimated, only the three tiers are sourced)
+  const TW = 14, TD = 9, proj = 4.0; // its base: wide along the front, reaching proj metres out past the face
+  const tc = At(0, F.half + proj - TD / 2), front = F.half + proj;
+  const baseTop = y0 + body + 1.0;
   S.kind = KIND.PLAIN;
-  S.cyl(cx, cz, y + 1.0, y + 1.8, 0.14, 0.05, 5, hex('#d9c27a'));
+  S.box(tc[0], tc[1], y0, baseTop, TW, TD, fa, wall, { top: shade(roof, 0.8) });
+  // pilasters at the corners and either side of the doorway, in the white trim
+  for (const u of [-TW / 2 + 0.45, -3.6, 3.6, TW / 2 - 0.45]) { const q = At(u, front + 0.12); S.box(q[0], q[1], y0, baseTop, 0.9, 0.3, fa, MARKET_TRIM); }
+  // the great entrance: a tall dark opening with a white surround, and a side door either side
+  const ent = At(0, front + 0.05);
+  S.box(ent[0], ent[1], y0, y0 + 4.6, 5.6, 0.2, fa, dark);
+  { const q = At(0, front + 0.14); S.box(q[0], q[1], y0 + 4.6, y0 + 5.0, 6.4, 0.3, fa, MARKET_TRIM); }
+  for (const s of [-1, 1]) { const q = At(s * 5.3, front + 0.05); S.box(q[0], q[1], y0, y0 + 3.0, 1.9, 0.2, fa, dark); }
+  // the band of the sign (a plain panel behind the lettering), a cornice, and a balcony rail above the sign
+  const signY = y0 + 6.35, signW = 12.4, signH = 2.1;
+  { const q = At(0, front + 0.1); S.box(q[0], q[1], signY - signH / 2 - 0.15, signY + signH / 2 + 0.15, signW + 0.5, 0.22, fa, MARKET_TRIM); }
+  { const q = At(0, front + 0.3); S.box(q[0], q[1], baseTop - 0.5, baseTop, TW + 0.6, 0.7, fa, MARKET_TRIM); }
+  // the tower's eaves and tiers, each with a skirt of tiles; clock faces on all four sides of the middle tier
+  const eaves = [];
+  const tier = (w, y, h) => { S.kind = KIND.PLAIN; S.box(tc[0], tc[1], y, y + h, w, w, fa, wall, { top: shade(roof, 0.8) }); S.box(tc[0], tc[1], y + h - 0.3, y + h, w + 0.2, w + 0.2, fa, MARKET_TRIM); };
+  const skirt = (w, y, over, rh) => { S.hip(tc[0], tc[1], w, w, fa, y, rh, roof, { over, flare: 0.45, fascia: 0.25, fasciaCol: MARKET_TRIM, segs: 2 }); eaves.push({ cx: tc[0], cz: tc[1], w, d: w, ang: fa, y, over, fascia: 0.25 }); };
+  S.hip(tc[0], tc[1], TW, TD, fa, baseTop, 1.0, roof, { over: 1.2, flare: 0.45, fascia: 0.3, fasciaCol: MARKET_TRIM, segs: 2 });
+  eaves.push({ cx: tc[0], cz: tc[1], w: TW, d: TD, ang: fa, y: baseTop, over: 1.2, fascia: 0.3 });
+  let y = baseTop + 0.3;
+  tier(7.6, y, 1.8); y += 1.8; skirt(7.6, y, 1.3, 0.8); y += 0.4;
+  const clockY = y + 1.1, clockW = 5.6;
+  tier(clockW, y, 2.2); y += 2.2; skirt(clockW, y, 1.1, 0.7); y += 0.4;
+  tier(4.0, y, 1.0); y += 1.0;
+  S.hip(tc[0], tc[1], 4.0, 4.0, fa, y, 1.3, roof, { over: 0.9, flare: 0.45, fascia: 0.22, fasciaCol: MARKET_TRIM, ridgeCol: hex('#d9c9a0'), hips: true, segs: 2 });
+  eaves.push({ cx: tc[0], cz: tc[1], w: 4.0, d: 4.0, ang: fa, y, over: 0.9, fascia: 0.22 });
+  S.kind = KIND.PLAIN;
+  S.cyl(tc[0], tc[1], y + 1.1, y + 1.8, 0.14, 0.05, 5, hex('#d9c27a'));
+  // louvred openings in the lowest tier, on its front and sides
+  for (const [nn, tt] of [[F.n, F.t], [F.t, [-F.n[0], -F.n[1]]], [[-F.t[0], -F.t[1]], F.n]]) {
+    for (const k of [-1, 1]) {
+      const q = [tc[0] + nn[0] * 3.84 + tt[0] * k * 1.6, tc[1] + nn[1] * 3.84 + tt[1] * k * 1.6];
+      S.box(q[0], q[1], baseTop + 0.65, baseTop + 1.65, 0.1, 1.3, Math.atan2(nn[1], nn[0]), shade(dark, 1.3));
+    }
+  }
+  if (!group) return;
+
+  // the lettering and the clock faces, as pictures on the walls (the facade of the 1987 renovation)
+  const signTex = signCanvas('CHỢ ĐÔNG BA'.normalize('NFC'), 1024, 176, false), signMask = signCanvas('CHỢ ĐÔNG BA'.normalize('NFC'), 1024, 176, true);
+  const sp = At(0, front + 0.23);
+  facePlane(group, new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.7, metalness: 0 }), signW, signH, [sp[0], signY, sp[1]], F.n);
+  const gp = At(0, front + 0.26);
+  facePlane(group, signGlowMaterial(signMask, 0xff2a1a, 2.2), signW, signH, [gp[0], signY, gp[1]], F.n, 19);
+  const dial = clockCanvas(false), dialMask = clockCanvas(true);
+  const dialMat = new THREE.MeshStandardMaterial({ map: dial, roughness: 0.6, metalness: 0, transparent: true, alphaTest: 0.5 });
+  const dialGlow = signGlowMaterial(dialMask, 0xfff0c8, 0.9);
+  for (const nn of [F.n, F.t, [-F.n[0], -F.n[1]], [-F.t[0], -F.t[1]]]) {
+    const q = [tc[0] + nn[0] * (clockW / 2 + 0.03), clockY, tc[1] + nn[1] * (clockW / 2 + 0.03)];
+    facePlane(group, dialMat, 1.8, 1.8, q, nn);
+    facePlane(group, dialGlow, 1.8, 1.8, [q[0] + nn[0] * 0.02, q[1], q[2] + nn[1] * 0.02], nn, 19);
+  }
+  // after dark: lines of light under the tower's eaves and along the hall's front cornice
+  const L = new Buf(400);
+  for (const e of eaves) eaveStrip(L, e);
+  { const a = At(-F.side + 0.5, F.half + 0.12), b = At(-TW / 2 - 0.3, F.half + 0.12), c2 = At(TW / 2 + 0.3, F.half + 0.12), d2 = At(F.side - 0.5, F.half + 0.12), yy = y0 + body - 0.25;
+    L.beam([a[0], yy, a[1]], [b[0], yy, b[1]], 0.14, 0.12, W1); L.beam([c2[0], yy, c2[1]], [d2[0], yy, d2[1]], 0.14, 0.12, W1); }
+  lightMesh(group, L, 0xffc068, 1.3);
 }

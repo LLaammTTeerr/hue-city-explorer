@@ -249,8 +249,8 @@ function thienAn(S, data) {
 // ---------------------------------------------------------------- Đàn Nam Giao
 // Mapped: the round top terrace (Viên đàn, centre and radius) and one small building to the north. Drawn
 // from the real esplanade around that centre, compass-aligned: the square lower terrace (165 m) inside its
-// wall with a three-arched gate at each cardinal point, the square middle terrace (Phương đàn, 83 m) with
-// its yellow balustrade, the round top with its blue one, stairs on four sides of each, and the Trai Cung
+// wall with a three-arched gate at each cardinal point and a red balustrade, the square middle terrace (Phương đàn,
+// 83 m) with its yellow balustrade, the round top with its blue one, stairs on four sides of each, and the Trai Cung
 // fasting palace to the south-west (its position and size are illustrative).
 function namGiao(S, data) {
   const site = siteOf(data, 'namgiao');
@@ -258,7 +258,9 @@ function namGiao(S, data) {
   const top = site.items.find((it) => it.k === 'h' && /nam giao/i.test(it.n || '')) || site.items.find((it) => it.k === 'h');
   const used = new Set();
   const laterite = hex('#8b7d6a'), brick = hex('#7d6c5c'), stoneP = hex('#bdb39e'), grass = hex('#9fab72'), grass2 = hex('#aab37c');
-  const yellow = hex('#d4b04c'), blue = hex('#4f7ea6'), gateC = hex('#cfc7b3');
+  // the three balustrades in the colours of Thiên – Địa – Nhân: blue round the round top (Heaven), yellow round the
+  // square middle terrace (Earth), red round the lowest (Man)
+  const yellow = hex('#d4b04c'), blue = hex('#4f7ea6'), red = hex('#9e3a2c'), gateC = hex('#cfc7b3');
   let C = site.cm, Rt = 20.2;
   if (top) {
     used.add(top.id);
@@ -302,7 +304,7 @@ function namGiao(S, data) {
     }
   };
   rail(h2, y2, yellow, 10);
-  rail(h1, y1, shade(gateC, 0.92), 12, 0.7);
+  rail(h1, y1, red, 12, 0.85);
   // stairs on the four sides of each terrace (the north flights, toward the city, a little wider)
   S.kind = KIND.MASONRY;
   for (const [i, [dx, dz]] of card.entries()) {

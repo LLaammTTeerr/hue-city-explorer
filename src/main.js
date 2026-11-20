@@ -17,7 +17,6 @@ import { buildSouth } from './landmarks/south.js';
 import { buildTombs } from './landmarks/tombs.js';
 import { buildBiaQuocHoc } from './landmarks/memorial.js';
 import { buildBoardwalk } from './landmarks/boardwalk.js';
-import { buildRestaurant, isRestaurant } from './landmarks/restaurant.js';
 import { shared } from './geo/materials.js';
 import { buildLotus, buildTraffic, buildStreetLife } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
@@ -32,6 +31,7 @@ import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
 import { VIEWS } from './ui/content.js';
 import { rise } from './geo/terrain.js';
+import { buildFloatingRestaurants } from './landmarks/floating.js';
 
 const canvas = document.getElementById('scene');
 // yield to the event loop between build steps (a message task is not throttled in background tabs, unlike rAF and timers)
@@ -72,10 +72,6 @@ async function main() {
   const scene = new THREE.Scene();
 
   // ---------- world ----------
-  // the lotus restaurant on the river has its own model: take its footprint out before the city draws a block there
-  // (the last record moves into its slot, so every other building keeps its index and the details seeded from it)
-  const restaurantAt = data.bld.findIndex(isRestaurant), restaurantRec = data.bld[restaurantAt];
-  if (restaurantRec) { const last = data.bld.pop(); if (last !== restaurantRec) data.bld[restaurantAt] = last; }
   const world = buildCity(data);
   ui.loaderProgress(0.55);
   await frame();
@@ -83,14 +79,14 @@ async function main() {
   const S = world.structures;
   const bridge = buildTruongTien(data, S, dynamic);
   const citadel = buildCitadel(data, S, dynamic);
-  buildMarket(data, S);
+  buildMarket(data, S, dynamic);
   buildThienMu(data, S, dynamic);
   const extraGlows = buildNguyenHoang(data, S, dynamic);
   buildQuocHocGate(data, S);
   buildCivic(data, world.structures);
   buildBiaQuocHoc(data, world.structures);
   buildBoardwalk(data, world.structures, dynamic);
-  buildRestaurant(restaurantRec, data, world.structures, dynamic);
+  const floating = buildFloatingRestaurants(data, world.structures, dynamic); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);
   populate(world, data); // buildings, houses and trees, kept off the ground the landmark models cover
@@ -310,6 +306,7 @@ async function main() {
     rig.update(dt);
     mood.update(dt, time);
     bridge.update(time, mood.cur.glow, mood.state.rain);
+    floating.update(time);
     citadel.update(time, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
     boats.update(dt, time);
     lanterns.update(dt, time);

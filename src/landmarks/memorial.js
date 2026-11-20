@@ -1,6 +1,7 @@
 import { KIND, hex, shade } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
+import { lamp, flushLamps } from './enclosure.js';
 
 // ---- Bia Quốc Học: Đài tưởng niệm Chiến sĩ trận vong (1920), on the south bank opposite Trường Quốc Học ----
 //
@@ -44,6 +45,7 @@ export function buildBiaQuocHoc(data, S) {
     S.n = n0;
     console.warn('Bia Quốc Học not built:', e);
   }
+  flushLamps();
   S.kind = KIND.PLAIN;
   S.base = 0;
 }
@@ -214,4 +216,19 @@ function build(data, S) {
     S.cyl(q[0], q[1], y0, y0 + 2.6, 0.07, 0.06, 5, dark, { cap: false });
     S.box(q[0], q[1], y0 + 2.6, y0 + 3.0, 0.3, 0.3, A, trim);
   }
+
+  // ---- after dark (since the 2016-17 restoration: "67 lamps on roof, walls, pillars"): points along the eaves of
+  // every roof, front and back, the lanterns of the two trụ biểu, the two posts by the stairs ----
+  const warm = [1, 0.8, 0.45];
+  const eave = (b0, b1, yy, dd, n) => { for (let i = 0; i <= n; i++) for (const k of [-1, 1]) { const q = at(k * dd, b0 + ((b1 - b0) * i) / n); lamp(q[0], yy, q[1], warm, 2.6); } };
+  eave(-cW / 2 - 0.6, cW / 2 + 0.6, y + cH - 0.15, T / 2 + 0.85, 4);
+  eave(-uW / 2 - 0.6, uW / 2 + 0.6, topY - 0.15, T * 0.425 + 0.85, 3);
+  for (const s of [-1, 1]) eave(s * (sbB - sbW / 2 - 0.4), s * (sbB + sbW / 2 + 0.4), y + sbH - 0.15, T / 2 + 0.75, 3);
+  for (const s of [-1, 1]) {
+    const q = at(0.3, s * pB);
+    lamp(q[0], pY + 6.1, q[1], [1, 0.85, 0.55], 4);
+    const r = at(5.6, s * 4.8);
+    lamp(r[0], y0 + 3.15, r[1], [1, 0.9, 0.7], 3.5);
+  }
+  lamp(c[0], r0 + 1.1, c[1], warm, 3);
 }
