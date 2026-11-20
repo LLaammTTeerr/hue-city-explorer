@@ -2,7 +2,6 @@ import { KIND, Buf, hex, shade, unflat, obb, ringCentre, signedArea, inRing } fr
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
-import { replaced } from './places/index.js';
 import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
 import { replaced } from './places/index.js';
 
