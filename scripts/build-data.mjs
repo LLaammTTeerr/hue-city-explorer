@@ -985,27 +985,39 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
   // Bare-earth heights (FABDEM: Copernicus GLO-30 with forests and buildings removed), written for the model's box by
   // scripts/fetch-terrain.py. A surface model reads roofs and canopy as ground: the flat city then carries several
   // metres of noise and every low hill has to be flattened along with it.
-  const DEM = 'data/raw/dem/fabdem.json';
+  const DEM = 'data/raw/dem/terrain.json';
   if (!fs.existsSync(DEM)) console.warn('no terrain grid (run scripts/fetch-terrain.py): terrain stays flat');
   else {
     const D = JSON.parse(fs.readFileSync(DEM, 'utf8'));
-    const demAt = (x, z) => {
+    const sample = (arr) => (x, z) => {
       const lon = ORIGIN.lon + x / KX, lat = ORIGIN.lat - z / KZ;
       const px = Math.max(0, Math.min(D.nx - 1.001, (lon - D.lon0) / D.dlon - 0.5)), py = Math.max(0, Math.min(D.ny - 1.001, (lat - D.lat0) / D.dlat - 0.5));
       const ix = Math.floor(px), iy = Math.floor(py), ax = px - ix, ay = py - iy;
-      const g = (a, b) => D.h[b * D.nx + a] / 10;
+      const g = (a, b) => arr[b * D.nx + a] / 10;
       return (g(ix, iy) * (1 - ax) + g(ix + 1, iy) * ax) * (1 - ay) + (g(ix, iy + 1) * (1 - ax) + g(ix + 1, iy + 1) * ax) * ay;
     };
+    const bareAt = sample(D.h), surfAt = sample(D.s || D.h);
     const STEP = 25, nx = Math.floor((MAXX - MINX) / STEP) + 1, nz = Math.floor((MAXZ - MINZ) / STEP) + 1;
-    let h = new Float32Array(nx * nz);
+    // the city's own ground: the median of the bare-earth reading inside the Citadel
     const flatSamples = [];
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const x = MINX + i * STEP, z = MINZ + j * STEP;
-      h[j * nx + i] = demAt(x, z);
-      if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(h[j * nx + i]);
+      if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(bareAt(x, z));
     }
     flatSamples.sort((a, b) => a - b);
-    const floor = flatSamples[Math.floor(flatSamples.length * 0.5)]; // the city's own ground: the median inside the Citadel
+    const floor = flatSamples[Math.floor(flatSamples.length * 0.5)];
+    // Calibration (data/control-points.json; the table is printed below). Neither model is right everywhere: on the
+    // built-up plain the surface model reads roofs and the bare-earth one is right; on the hills the bare-earth one
+    // strips 5-10 m of "forest" that hides no ground, and the surface model matches the documented summits to about
+    // 2 m. So the ground is the bare-earth reading on the plain and moves to the surface reading as it rises:
+    // none of it under BLEND0 above the city floor, all of it from BLEND1.
+    const BLEND0 = 2, BLEND1 = 8;
+    const demAt = (x, z) => {
+      const b = bareAt(x, z), t = Math.max(0, Math.min(1, (b - floor - BLEND0) / (BLEND1 - BLEND0)));
+      return b + (surfAt(x, z) - b) * t * t * (3 - 2 * t);
+    };
+    let h = new Float32Array(nx * nz);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) h[j * nx + i] = demAt(MINX + i * STEP, MINZ + j * STEP);
     const blur = (src) => {
       const out = new Float32Array(src.length);
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
@@ -1134,6 +1146,31 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       }
       console.log('summit', id, [px, pz].map(Math.round), '->', [bx, bz].map(Math.round), best.toFixed(1), 'm');
       pl.x = q(bx); pl.z = q(bz);
+    }
+    // The control points: documented heights against the two source models, the calibrated ground, and what the
+    // model finally stands there (its 25 m grid and the flat plain included).
+    if (fs.existsSync('data/control-points.json')) {
+      const pts = JSON.parse(fs.readFileSync('data/control-points.json', 'utf8'));
+      const top = (f, x, z, R) => { let m = -Infinity; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) m = Math.max(m, f(x + dx, z + dz)); return m; };
+      const modelAt = (x, z, R) => {
+        if (x < MINX || x > MAXX || z < MINZ || z > MAXZ) return NaN;
+        let m = 0;
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (Math.hypot(MINX + i * STEP - x, MINZ + j * STEP - z) <= R + STEP / 2) m = Math.max(m, h[j * nx + i]);
+        return floor + m;
+      };
+      const mean = (f, x, z, R) => { let s2 = 0, n = 0; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) { s2 += f(x + dx, z + dz); n++; } return s2 / n; };
+      const err = { bare: [], surface: [], calibrated: [], model: [] };
+      console.log('control points (m above sea level): documented | bare earth | surface | calibrated | model');
+      for (const c of pts) {
+        const [x, z] = proj(c), R = c.r || 100, f = c.what === 'summit' ? top : mean;
+        // the model's own ground: the city floor plus what the terrain rises there (water is drawn lower, by design)
+        const model = c.what === 'water' ? NaN : c.what === 'summit' ? modelAt(x, z, R) : (x < MINX || x > MAXX || z < MINZ || z > MAXZ ? NaN : floor + mean((a, b) => { const i = Math.round((a - MINX) / STEP), k = Math.round((b - MINZ) / STEP); return h[k * nx + i]; }, x, z, R));
+        const v = { bare: f(bareAt, x, z, R), surface: f(surfAt, x, z, R), calibrated: f(demAt, x, z, R), model };
+        if (!c.doubt) for (const k of Object.keys(err)) if (Number.isFinite(v[k])) err[k].push(v[k] - c.ele);
+        console.log('  ' + (c.name + (c.doubt ? ' (doubtful)' : '')).padEnd(34), String(c.ele).padStart(5), '|', v.bare.toFixed(1).padStart(6), '|', v.surface.toFixed(1).padStart(6), '|', v.calibrated.toFixed(1).padStart(6), '|', Number.isFinite(v.model) ? v.model.toFixed(1).padStart(6) : '     -');
+      }
+      const stat = (a) => (a.reduce((s2, e) => s2 + e, 0) / a.length).toFixed(1) + ' mean, ' + Math.sqrt(a.reduce((s2, e) => s2 + e * e, 0) / a.length).toFixed(1) + ' rms';
+      console.log('  error: bare', stat(err.bare), '| surface', stat(err.surface), '| calibrated', stat(err.calibrated), '| model', stat(err.model));
     }
     const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
     console.log('terrain', nx + 'x' + nz, 'floor', floor.toFixed(1), 'm asl | lifted nodes', lifted, '| peak rise', peak.toFixed(1), 'm | Thiên Mụ', towerC ? probe(towerC[0], towerC[1]) : '-', '| raw DEM there', towerC ? demAt(towerC[0], towerC[1]).toFixed(1) : '-');

@@ -1,0 +1,75 @@
+[
+  {
+    "name": "Núi Ngự Bình",
+    "lat": 16.4418,
+    "lon": 107.59613,
+    "ele": 103,
+    "r": 150,
+    "what": "summit",
+    "source": "OpenStreetMap node natural=peak, ele=103; vi.wikipedia.org/wiki/Núi_Ngự_Bình gives 103 m, tourism pages 105 m"
+  },
+  {
+    "name": "Núi Thiên Thai",
+    "lat": 16.42683,
+    "lon": 107.59444,
+    "ele": 118,
+    "r": 200,
+    "what": "summit",
+    "source": "OpenStreetMap node natural=peak, ele=118"
+  },
+  {
+    "name": "Núi Động Tranh",
+    "lat": 16.42716,
+    "lon": 107.6086,
+    "ele": 127,
+    "r": 200,
+    "what": "summit",
+    "source": "OpenStreetMap node natural=peak, ele=127 (all three elevation models read 130-139 m here: the tag may belong to a lower top)",
+    "doubt": true
+  },
+  {
+    "name": "Núi Kim Phụng (the mapped top)",
+    "lat": 16.39029,
+    "lon": 107.53553,
+    "ele": 433,
+    "r": 300,
+    "what": "summit",
+    "source": "OpenStreetMap node natural=peak, ele=433; 300 m west of the model's edge"
+  },
+  {
+    "name": "Đồi Vọng Cảnh",
+    "lat": 16.42222,
+    "lon": 107.56278,
+    "ele": 43,
+    "r": 100,
+    "what": "summit",
+    "source": "https://vinwonders.com/vi/wonderpedia/news/doi-vong-canh-hue/ (43 m); position: the hilltop standing over the river bend"
+  },
+  {
+    "name": "Núi Bân",
+    "lat": 16.44209,
+    "lon": 107.59026,
+    "ele": 43,
+    "r": 120,
+    "what": "summit",
+    "source": "about 43 m, press (kienthuc.net.vn, see docs/reference/elevation-control.md A5); position: OpenStreetMap node natural=peak"
+  },
+  {
+    "name": "Đại Nội, the courts",
+    "lat": 16.46882,
+    "lon": 107.57835,
+    "ele": 3.5,
+    "r": 120,
+    "what": "ground",
+    "source": "from flood depths: over 1.5 m of water at the 5.05 m peak at Kim Long (27 Oct 2025); the court before điện Thái Hòa under water at 4.11 m (3 Nov 2025) with the hall dry. About 3.0-3.8 m; docs/reference/elevation-control.md B6-B7"
+  },
+  {
+    "name": "Sông Hương, ordinary stage",
+    "lat": 16.468896,
+    "lon": 107.588858,
+    "ele": 0.5,
+    "r": 40,
+    "what": "water",
+    "source": "Kim Long gauge, 45-57 cm on 16 Dec 2025 (national bulletin; elevation-control.md B3), read here under cầu Trường Tiền, 4 km downstream"
+  }
+]
