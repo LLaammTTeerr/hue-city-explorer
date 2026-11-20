@@ -239,6 +239,7 @@ function buildRoads(data, group, structures) {
   for (const r of roads) {
     if (!r.bridge || ownDeck.has(r.flat)) continue;
     if (replaced('giahoi') && giaHoiRoads(data).has(r.flat)) continue; // cầu Gia Hội is modelled in landmarks/places/giahoi.js
+    if (replaced('golim') && r.c === 5 && r.pts.some((p) => Math.hypot(p[0] + 72.9, p[1] - 281.6) < 1 || Math.hypot(p[0] + 298, p[1] - 500.2) < 1)) continue; // the lim walkway's OSM ways: landmarks/places/golim.js
     const w = ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5);
     // the deck: level at the banks (or climbing between banks of different height, or at a hill lake's level), and
     // on all but the long river bridges rising to a crown at mid-span (geo/bridges.js)
