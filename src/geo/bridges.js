@@ -11,13 +11,14 @@ import { inRing, pathLength, unflat } from './buf.js';
 //    and Vĩnh Lợi, 1825); Đông Thành Thủy Quan is the vaulted sluice where Ngự Hà leaves through the east wall
 //    (Trương Hồng Trường, Tạp chí Khoa học ĐH Khoa học Huế; Đại Nam nhất thống chí via laodong.vn).
 //  - Cầu Trung Đạo (Gia Long; over hồ Thái Dịch between Ngọ Môn and Thái Hòa) is a brick bridge on several vaults
-//    (mia.vn); the three Ngoại Kim Thủy bridges are small single-vault stone bridges in front of it.
+//    (mia.vn); it is drawn with Thái Hòa (src/landmarks/places/thaihoa.js), so it gets no profile here (`own`) and
+//    city.js leaves its generic deck out. The three Ngoại Kim Thủy bridges are small single-vault stone bridges in front of it.
 // Illustrative: the crown rises (no surveyed long sections were found), the number of vaults, the default rule.
 // Big modern river bridges keep a level deck: Phú Xuân, Dã Viên (and its approaches), any run over 150 m.
 // Trường Tiền and Nguyễn Hoàng are hand models elsewhere; the Bạch Hổ rail bridge is not a road.
 
 const NAMED = {
-  'Cầu Trung Đạo': { rise: 1.3, arches: 5 },
+  'Cầu Trung Đạo': { own: true },
   'Cầu Ngoại Kim Thuỷ': { rise: 1.4, arches: 1 },
   'Cầu Ngoại Kim Thủy': { rise: 1.4, arches: 1 },
   'Đông Thành Thủy Quan': { rise: 0.9, arches: 3 },
@@ -69,6 +70,7 @@ export function bridgeProfiles(data) {
     const a = b.pts[0], e = b.pts[b.pts.length - 1], m = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
     let named = null;
     for (const q of bridges) if (q.n && NAMED[q.n] && inRing(m[0], m[1], unflat(q.ring))) { named = q.n; break; }
+    if (named && NAMED[named].own) return;
     let r, arches = 0;
     if (named) ({ rise: r, arches = 0 } = NAMED[named]);
     else if (runLen[runOf[i]] > RUN_FLAT || b.len > RUN_FLAT || runN[runOf[i]] > 1) r = 0; // (a run in pieces would hump twice)
