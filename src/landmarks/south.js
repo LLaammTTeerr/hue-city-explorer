@@ -164,6 +164,7 @@ function wings(ring, maxN = 7, minArea = 60) {
 // lancet windows), its square bell tower of tiered roofs at the wing's free end, the other wings as two-storey
 // cloister ranges with shaded verandahs. Heights and the tower's form are illustrative.
 function thienAn(S, data) {
+  if (replaced('thienan')) return; // drawn by places/thienan.js
   const site = siteOf(data, 'thienan');
   if (!site) return;
   const stoneW = hex('#d9d1bf'), stoneW2 = hex('#cfc6b2'), tile = hex('#8f4a36'), tile2 = hex('#9a5238'), ridge = hex('#d8cdb4'), plinth = hex('#a59c88');
