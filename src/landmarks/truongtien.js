@@ -16,7 +16,9 @@ export function buildTruongTien(data, S, group) {
   const n = [-d[1], d[0]]; // across the bridge
   const ang = Math.atan2(d[1], d[0]);
   const SPANS = 6, span = L / SPANS;
-  const deckTop = LAND_Y + 2.4, deckT = 0.9; // underside ~6 m above the river: room for a dragon boat and its roof
+  // the deck stands on the river, not on the bank: its underside about 5.5 m above the water, room for a dragon boat
+  // and its roof, and the approaches climb to it from the streets
+  const deckTop = 6.4, deckT = 0.9;
   const trussX = W / 2 - 2.35; // truss planes; walkways are cantilevered outside them
   const H = 10.4; // crown of each bow above the deck
   const N = 10; // panels per span

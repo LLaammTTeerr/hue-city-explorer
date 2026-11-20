@@ -15,7 +15,7 @@ export function buildNguyenHoang(data, S, group) {
   const u = [Math.cos(ang), Math.sin(ang)], v = [-u[1], u[0]];
   const at = (s, off, y) => [c[0] + u[0] * s + v[0] * off, y, c[1] + u[1] * s + v[1] * off];
   const SPANS = 5, span = L / SPANS;
-  const deckTop = LAND_Y + 2.8, deckT = 1.7;
+  const deckTop = 6.8, deckT = 1.7; // above the river, as cầu Trường Tiền's is: the banks are 2.6 m up, the deck climbs to this
   const concrete = hex('#cfc9be'), asphalt = hex('#77726e'), granite = hex('#b08a7c'), gold = hex('#dba92c'), goldD = hex('#b98a1e');
 
   S.kind = KIND.PLAIN;

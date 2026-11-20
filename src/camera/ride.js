@@ -11,7 +11,7 @@ export function createRide({ rig, bridge, boats, places }) {
   const up = [-d[1], d[0]].map((v) => v * (-d[1] * -0.682 + d[0] * 0.731 > 0 ? 1 : -1)); // up-river (south-west)
   const lane = [c[0] - d[0] * bridge.span * 0.5, c[1] - d[1] * bridge.span * 0.5]; // middle of the third span from the north bank
   const P = (alongUp, towardNorth, y) => new THREE.Vector3(lane[0] + up[0] * alongUp - d[0] * towardNorth, y, lane[1] + up[1] * alongUp - d[1] * towardNorth);
-  const eye = 3.0; // standing height on the foredeck; the span's underside is about three metres above
+  const eye = 3.0; // standing height on the foredeck; the span's underside is about two and a half metres above
   const gate = places.thuongtu || [-498, -101];
 
   const endPos = new THREE.Vector3(gate[0] - 400, 250, gate[1] + 215);

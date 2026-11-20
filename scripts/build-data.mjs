@@ -448,46 +448,70 @@ const sites = {};
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; stamp(c[0], c[1], 26, TREE | NOBUILD); }
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
-// Measured building heights (Google Open Buildings 2.5D Temporal, 2023), on a 2 m grid in the model's frame, written
-// by scripts/fetch-heights.py. The raster reads the mass of a roof, not its ridge, and blurs narrow buildings: across
-// the places whose heights are known it comes out 10-20 % low, so a reading is raised by a tenth.
-const HM = (() => {
-  const meta = 'data/raw/heights/open-buildings-2023.json', bin = 'data/raw/heights/open-buildings-2023.u8.gz';
-  if (!fs.existsSync(meta) || !fs.existsSync(bin)) { console.warn('no measured heights (run scripts/fetch-heights.py): building heights fall back to rules'); return null; }
-  return { ...JSON.parse(fs.readFileSync(meta, 'utf8')), g: zlib.gunzipSync(fs.readFileSync(bin)) };
-})();
-const cellH = (x, z) => {
-  if (!HM) return 0;
-  const i = Math.floor((x - HM.x0) / HM.step), j = Math.floor((z - HM.z0) / HM.step);
-  return i < 0 || j < 0 || i >= HM.nx || j >= HM.nz ? 0 : HM.g[j * HM.nx + i] * HM.unit;
+// Building heights, on 2 m grids in the model's frame. Two sources, the better one first:
+//  1. the city's own 3D building survey (GISHue; scripts/fetch-gishue-heights.py): for every footprint, the height
+//     of a surface model above the ground, flown by drone over the urban core. Against the heights that are
+//     published it reads within half a metre (Phu Văn Lâu 11.7 for 11.8, điện Thái Hòa 11.7 for 11.8).
+//  2. Google Open Buildings 2.5D Temporal, 2023 (scripts/fetch-heights.py): heights a network predicts from 10 m
+//     satellite imagery. It reads the mass of a roof, not its ridge, and blurs narrow buildings: across the places
+//     whose heights are known it comes out 10-20 % low, so a reading is raised by a tenth. Used where the survey
+//     holds no footprint (it dates from 2022-23).
+const raster = (name, script) => {
+  const meta = `data/raw/heights/${name}.json`, bin = `data/raw/heights/${name}.u8.gz`;
+  if (!fs.existsSync(meta) || !fs.existsSync(bin)) { console.warn(`no ${name} heights (run scripts/${script})`); return null; }
+  const m = { ...JSON.parse(fs.readFileSync(meta, 'utf8')), g: zlib.gunzipSync(fs.readFileSync(bin)) };
+  m.at = (x, z) => { const i = Math.floor((x - m.x0) / m.step), j = Math.floor((z - m.z0) / m.step); return i < 0 || j < 0 || i >= m.nx || j >= m.nz ? 0 : m.g[j * m.nx + i] * m.unit; };
+  return m;
 };
-// height to the top of what stands on a footprint (0: the raster sees no building there)
+const SV = raster('gishue', 'fetch-gishue-heights.py'), HM = raster('open-buildings-2023', 'fetch-heights.py');
+if (!SV && !HM) console.warn('no measured heights: building heights fall back to rules');
+const cellS = (x, z) => (SV ? SV.at(x, z) : 0), cellH = (x, z) => (HM ? HM.at(x, z) : 0);
+// height to the top of what stands on a footprint (0: neither source sees a building there); `measured.src` then
+// says which source gave it (1 the survey, 2 the satellite prediction)
 const measured = (ring) => {
-  if (!HM) return 0;
+  measured.src = 0;
+  if (!SV && !HM) return 0;
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
-  const v = [];
-  for (let z = Math.floor(z0 / HM.step) * HM.step + HM.step / 2; z <= z1; z += HM.step) for (let x = Math.floor(x0 / HM.step) * HM.step + HM.step / 2; x <= x1; x += HM.step) if (pip([x, z], ring)) v.push(cellH(x, z));
-  if (!v.length) v.push(cellH((x0 + x1) / 2, (z0 + z1) / 2));
+  const v = [], sv = [];
+  let cells = 0;
+  for (let z = Math.floor(z0 / 2) * 2 + 1; z <= z1; z += 2) for (let x = Math.floor(x0 / 2) * 2 + 1; x <= x1; x += 2) if (pip([x, z], ring)) { cells++; v.push(cellH(x, z)); const a = cellS(x, z); if (a > 0) sv.push(a); }
+  if (!cells) { cells = 1; v.push(cellH((x0 + x1) / 2, (z0 + z1) / 2)); const a = cellS((x0 + x1) / 2, (z0 + z1) / 2); if (a > 0) sv.push(a); }
+  const area = Math.abs(ringArea(ring));
+  // the survey, where its footprints cover at least half of this one: each of them carries one height, so the
+  // footprint takes the height most of it stands at, leaning to the taller part
+  if (sv.length >= cells * 0.5) {
+    sv.sort((a, b) => a - b);
+    const top = Math.min(sv[Math.min(sv.length - 1, Math.floor(sv.length * 0.6))], 4 * Math.sqrt(area));
+    if (top >= 2.8) { measured.src = 1; return top; }
+  }
   v.sort((a, b) => a - b);
   // a small footprint is read near its top; a large one (a hall, a market, a tower on its podium) by its bulk, so a
   // tower does not lift the whole block it stands on
-  const area = Math.abs(ringArea(ring)), pc = area < 600 ? 0.9 : area < 1500 ? 0.8 : 0.65;
+  const pc = area < 600 ? 0.9 : area < 1500 ? 0.8 : 0.65;
   let top = v[Math.min(v.length - 1, Math.floor(v.length * pc))] * 1.1;
   // nothing stands more than four times as tall as it is wide: a taller reading is a neighbouring tower leaning
   // across the footprint in the satellite view
   top = Math.min(top, 4 * Math.sqrt(area));
-  return top >= 2.8 ? top : 0;
+  if (top >= 2.8) { measured.src = 2; return top; }
+  return 0;
 };
 const measuredRect = (cx, cz, w, d, ang) => {
   const ux = Math.cos(ang), uz = Math.sin(ang);
   let m = 0;
-  for (const [u, v] of [[0, 0], [-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]]) m = Math.max(m, cellH(cx + ux * u * w - uz * v * d, cz + uz * u * w + ux * v * d));
+  const sv = [];
+  for (const [u, v] of [[0, 0], [-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]]) {
+    const x = cx + ux * u * w - uz * v * d, z = cz + uz * u * w + ux * v * d, a = cellS(x, z);
+    if (a > 0) sv.push(a);
+    m = Math.max(m, cellH(x, z));
+  }
+  if (sv.length >= 2) { sv.sort((a, b) => a - b); const a = sv[sv.length >> 1]; if (a >= 2.8) return a; }
   return m * 1.1 >= 2.8 ? m * 1.1 : 0;
 };
-let nMeasured = 0, nHouseMeasured = 0;
+let nMeasured = 0, nSurvey = 0, nHouseMeasured = 0;
 const gates = [];
 const buildings = [];
+const smeared = new Set(), surveyed = new Set(); // buildings whose height is the satellite prediction / the city survey's reading
 const marketArea = get('way', 161714451).geometry.map(proj);
 const hash = (id) => { let h = (id * 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; };
 const num = (s) => { const v = parseFloat(String(s || '').replace(',', '.')); return Number.isFinite(v) ? v : 0; };
@@ -552,8 +576,8 @@ for (const e of els) {
   if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
   // what the building really measures, where the raster sees it and OSM gives no height of its own: h then runs to the
   // top of the building (sixth field), and the builder fits the eave under whatever roof it draws
-  const mh = !hTag && !lv && kind !== 8 ? measured(ring) : 0;
-  if (mh) { h = mh; nMeasured++; }
+  const mh = !hTag && !lv && kind !== 8 ? measured(ring) : 0, src = mh ? measured.src : 0;
+  if (mh) { h = mh; nMeasured++; if (src === 1) nSurvey++; }
   if (h > 30) kind = 7;
   // flags 4 = Indochine, 8 = Nguyễn-period timber house
   if ((kind === 0 || kind === 1 || kind === 5) && h <= 30) {
@@ -566,6 +590,7 @@ for (const e of els) {
   if (at(c[0], c[1]) & WATER) flags |= 1;
   const b = [flat(ring), q(h), kind, t.name || 0, flags];
   if (mh && !(flags & 8)) b[5] = q(h);
+  if (src === 2) smeared.add(b); else if (src === 1) surveyed.add(b);
   buildings.push(b);
   fillPoly([ring], BLD);
 }
@@ -579,13 +604,14 @@ for (const e of els) {
     if (inside) { console.log('inside landmark', inside[0], ':', buildings[i][3] || 'unnamed building', 'dropped'); buildings.splice(i, 1); }
   }
 }
-// Round the 160 m Vincom tower the raster is smeared with its height: measured buildings within 220 m keep to 20 m.
+// Round the 160 m Vincom tower the satellite raster is smeared with its height: buildings it measured within 220 m
+// keep to 20 m (the survey's own readings stand).
 if (special.vincom) {
   const vr = []; for (let i = 0; i < special.vincom.ring.length; i += 2) vr.push([special.vincom.ring[i] / 10, special.vincom.ring[i + 1] / 10]);
   const vc = centroid(vr);
   let n = 0;
   for (const b of buildings) {
-    if (!b[5] || b[1] <= 200) continue;
+    if (!b[5] || b[1] <= 200 || !smeared.has(b)) continue;
     const r = []; for (let i = 0; i < b[0].length; i += 2) r.push([b[0][i] / 10, b[0][i + 1] / 10]);
     const c = centroid(r);
     if (Math.hypot(c[0] - vc[0], c[1] - vc[1]) > 220) continue;
@@ -593,7 +619,7 @@ if (special.vincom) {
   }
   console.log('capped beside Vincom:', n);
 }
-console.log('measured heights on', nMeasured, 'of', buildings.length, 'buildings');
+console.log('measured heights on', nMeasured, 'of', buildings.length, 'buildings |', nSurvey, 'from the city survey,', nMeasured - nSurvey, 'from the satellite prediction');
 console.log('buildings', buildings.length, 'gates', gates.length, gates.map((g) => g.n + ':' + g.k).join(', '));
 for (const e of els) {
   const t = e.tags || {};
@@ -873,10 +899,13 @@ addPlace('nguyenhoang', 'Cầu Nguyễn Hoàng', wayCentre(1431136610), 2, 'brid
 }
 
 // True heights: a named place drawn as an ordinary building takes its real height to the ridge (or parapet), in
-// metres above its floor, as a sixth field the builder honours whatever roof it gives the footprint
-// (docs/reference/heights.md; most are estimates from storeys and type, the sourced ones are marked there).
+// metres above its floor, as a sixth field the builder honours whatever roof it gives the footprint. Most of this
+// table is estimated from storeys and type (docs/reference/heights.md), so where the city survey measured the
+// building its reading stands and the table only marks the place as a monument. điện Kiến Trung was rebuilt in 2024,
+// after the survey: its 14 m is the conservation centre's own figure (docs/reference/heights-sourced.md).
+const AFTER_SURVEY = ['kientrung'];
 const TRUE_H = {
-  themieu: 10.5, hungmieu: 8.5, thaimieu: 10, trieumieu: 8, dientho: 9, truongsanh: 7.5, duyetthi: 12.5, kientrung: 16,
+  themieu: 10.5, hungmieu: 8.5, thaimieu: 10, trieumieu: 8, dientho: 9, truongsanh: 7.5, duyetthi: 12.5, kientrung: 14,
   quoctugiam: 10, baotangcovat: 11.5, tangthulau: 10.5, tudam: 13, baoquoc: 8, thuongbac: 6.5, hoquyen: 5.8,
   diemphungthi: 8.5, tayloc: 7.5, ancuu: 6.5, benngu: 8.5,
 };
@@ -894,7 +923,9 @@ for (const [id, top] of Object.entries(TRUE_H)) {
     if (d < bd) { bd = d; best = b; }
   }
   if (!best) { console.warn('true height: no building at', id); continue; }
-  best[1] = Math.min(best[1], q(top)); best[5] = q(top); best[6] = 1; // 1: a monument (no stair heads or tanks on its roof)
+  best[6] = 1; // 1: a monument (no stair heads or tanks on its roof)
+  if (surveyed.has(best) && !AFTER_SURVEY.includes(id)) console.log('true height', id.padEnd(13), 'table', String(top).padStart(5), '| survey', (best[5] / 10).toFixed(1).padStart(5), '(kept)');
+  else { best[1] = Math.min(best[1], q(top)); best[5] = q(top); console.log('true height', id.padEnd(13), 'table', String(top).padStart(5), '(used)'); }
   if (OLD_HALL.includes(id) && best[2] < 2) best[2] = 3; // a tiled timber hall, not a modern block
 }
 
@@ -998,24 +1029,94 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     };
     const bareAt = sample(D.h), surfAt = sample(D.s || D.h);
     const STEP = 25, nx = Math.floor((MAXX - MINX) / STEP) + 1, nz = Math.floor((MAXZ - MINZ) / STEP) + 1;
-    // the city's own ground: the median of the bare-earth reading inside the Citadel
+    const sstep = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+    // ---- Calibration: the whole map against measured heights --------------------------------------------------
+    // Two kinds of measurement exist. ICESat-2's laser gives the ground itself, to a few decimetres, every 10 m along
+    // its tracks (scripts/fetch-lidar.py: thousands of points, most of the box within a few hundred metres of one).
+    // The documented summits (data/control-points.json) cover the hilltops, which the tracks mostly miss.
+    //
+    // 1. Summits. On slopes the bare-earth model agrees with the laser (no bias from 10 to 40 m), so its forest
+    //    removal is right there. On hilltops it is not: a 30 m grid rounds a crown off and the removal then takes a
+    //    canopy's worth more, and it reads 2-10 m under every documented summit. The surface model with CROWN added
+    //    matches those summits to about a metre. So the ground moves from bare earth to that as the land turns
+    //    convex: `convex` is how far a cell stands above its surroundings (the bare model less itself blurred over
+    //    about 120 m), none of it under CV0, all of it from CV1.
+    const convex = (() => {
+      const R = 16, k = [], tmp = new Float32Array(D.nx * D.ny), out = new Float32Array(D.nx * D.ny);
+      for (let i = -R; i <= R; i++) k.push(Math.exp(-(i * i) / 32));
+      const ks = k.reduce((a, b) => a + b, 0);
+      for (let y = 0; y < D.ny; y++) for (let x = 0; x < D.nx; x++) { let a = 0; for (let i = -R; i <= R; i++) a += D.h[y * D.nx + Math.max(0, Math.min(D.nx - 1, x + i))] * k[i + R]; tmp[y * D.nx + x] = a / ks; }
+      for (let y = 0; y < D.ny; y++) for (let x = 0; x < D.nx; x++) { let a = 0; for (let i = -R; i <= R; i++) a += tmp[Math.max(0, Math.min(D.ny - 1, y + i)) * D.nx + x] * k[i + R]; out[y * D.nx + x] = D.h[y * D.nx + x] - a / ks; }
+      return out;
+    })();
+    const convexAt = sample(convex);
+    const CV0 = 2, CV1 = 27, CROWN = 2;
+    const baseAt = (x, z) => { const b = bareAt(x, z); return b + sstep((convexAt(x, z) - CV0) / (CV1 - CV0)) * (Math.max(0, surfAt(x, z) - b) + CROWN); };
+    // 2. The laser. What is left between it and the model varies from place to place (the bare-earth model keeps
+    //    about a metre of roofs inside the Citadel, and reads Hà Khê hill 3 m low), so the difference is spread from
+    //    the tracks as a smooth field: each point weighs by a bell SIG wide, and away from any track the field falls
+    //    back (by LAM points' worth) on the same average taken over a district (a bell WIDE wide), and that on
+    //    nothing. Points on water, on steep ground (where a 10 m footprint error is metres of height) and wild
+    //    returns are left out.
+    let fieldAt = () => 0, river = null, lidar = null;
+    const LIDAR = 'data/raw/lidar/icesat2-ground.json';
+    if (!fs.existsSync(LIDAR)) console.warn('no lidar ground points (run scripts/fetch-lidar.py): terrain is not calibrated on the plain');
+    else {
+      const SIG = 150, LAM = 4, WIDE = 900, LAMW = 8, CELL = 300, land = [], wet = [];
+      for (const [lat, lon, ele, pass] of JSON.parse(fs.readFileSync(LIDAR, 'utf8')).pts) {
+        const [x, z] = proj({ lat, lon });
+        if (x < MINX || x > MAXX || z < MINZ || z > MAXZ) continue;
+        const b = bareAt(x, z);
+        if (b <= 0.6 && surfAt(x, z) <= 0.6) { wet.push(ele); continue; } // both models hold open water flat at 0.5
+        if (at(x, z) & WATER) continue;
+        const slope = Math.hypot(bareAt(x + 15, z) - bareAt(x - 15, z), bareAt(x, z + 15) - bareAt(x, z - 15)) / 30;
+        if (slope > 0.3 || Math.abs(ele - b) > 15) continue;
+        land.push({ x, z, ele, pass, b, s: surfAt(x, z), r: ele - baseAt(x, z) });
+      }
+      wet.sort((a, b) => a - b);
+      river = wet.length ? wet[wet.length >> 1] : null;
+      const bins = new Map(), key = (x, z) => Math.floor(x / CELL) * 8192 + Math.floor(z / CELL);
+      for (const p of land) { const k = key(p.x, p.z); if (!bins.has(k)) bins.set(k, []); bins.get(k).push(p); }
+      const reach = Math.ceil(2.5 * WIDE / CELL), near = Math.ceil(3 * SIG / CELL);
+      const field = (x, z, skip) => {
+        let sum = 0, w = 0, sumW = 0, wW = 0;
+        for (let dx = -reach; dx <= reach; dx++) for (let dz = -reach; dz <= reach; dz++) {
+          const cell = bins.get(key(x + dx * CELL, z + dz * CELL));
+          if (!cell) continue;
+          const close = Math.abs(dx) <= near && Math.abs(dz) <= near;
+          for (const p of cell) {
+            if (p.pass === skip) continue;
+            const d2 = (p.x - x) ** 2 + (p.z - z) ** 2, gw = Math.exp(-d2 / (2 * WIDE * WIDE));
+            sumW += p.r * gw; wW += gw;
+            if (close) { const g = Math.exp(-d2 / (2 * SIG * SIG)); sum += p.r * g; w += g; }
+          }
+        }
+        return (sum + LAM * (sumW / (wW + LAMW))) / (w + LAM);
+      };
+      fieldAt = (x, z) => field(x, z, -1);
+      // how good is it? Each overpass is predicted from the others, so no point tests itself.
+      const rms = (a) => Math.sqrt(a.reduce((t, e) => t + e * e, 0) / (a.length || 1)).toFixed(2), med = (a) => { const c = [...a].sort((u, v) => u - v); return (c[c.length >> 1] || 0).toFixed(2); };
+      const row = (name, sel) => {
+        const pts = land.filter(sel);
+        console.log('  ' + name.padEnd(22), String(pts.length).padStart(5), '| bare', rms(pts.map((p) => p.b - p.ele)), '(' + med(pts.map((p) => p.b - p.ele)) + ')', '| surface', rms(pts.map((p) => p.s - p.ele)), '(' + med(pts.map((p) => p.s - p.ele)) + ')',
+          '| calibrated', rms(pts.map((p) => field(p.x, p.z, p.pass) - p.r)), '(' + med(pts.map((p) => field(p.x, p.z, p.pass) - p.r)) + ')');
+      };
+      console.log('lidar ground points:', land.length, 'on land,', wet.length, 'on open water (river level', river === null ? '-' : river.toFixed(2), 'm) | error in m rms (median), each overpass predicted from the others');
+      row('plain, under 8 m', (p) => p.ele < 8); row('rising ground, 8-25 m', (p) => p.ele >= 8 && p.ele < 25); row('hills, over 25 m', (p) => p.ele >= 25); row('all', () => true);
+      lidar = land;
+    }
+    const demAt = (x, z) => baseAt(x, z) + fieldAt(x, z);
+    // the city's own ground: the median of the calibrated ground inside the Citadel
     const flatSamples = [];
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const x = MINX + i * STEP, z = MINZ + j * STEP;
-      if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(bareAt(x, z));
+      if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(demAt(x, z));
     }
     flatSamples.sort((a, b) => a - b);
-    const floor = flatSamples[Math.floor(flatSamples.length * 0.5)];
-    // Calibration (data/control-points.json; the table is printed below). Neither model is right everywhere: on the
-    // built-up plain the surface model reads roofs and the bare-earth one is right; on the hills the bare-earth one
-    // strips 5-10 m of "forest" that hides no ground, and the surface model matches the documented summits to about
-    // 2 m. So the ground is the bare-earth reading on the plain and moves to the surface reading as it rises:
-    // none of it under BLEND0 above the city floor, all of it from BLEND1.
-    const BLEND0 = 2, BLEND1 = 8;
-    const demAt = (x, z) => {
-      const b = bareAt(x, z), t = Math.max(0, Math.min(1, (b - floor - BLEND0) / (BLEND1 - BLEND0)));
-      return b + (surfAt(x, z) - b) * t * t * (3 - 2 * t);
-    };
+    // ... or, better, what the laser itself measured inside the walls, where enough of its points fall there
+    const inWalls = lidar ? lidar.filter((p) => inCitadel([p.x, p.z])).map((p) => p.ele).sort((a, b) => a - b) : [];
+    const floor = inWalls.length >= 50 ? inWalls[inWalls.length >> 1] : flatSamples[Math.floor(flatSamples.length * 0.5)];
+    console.log('city floor: laser inside the Citadel', inWalls.length, 'points, median', inWalls.length ? inWalls[inWalls.length >> 1].toFixed(2) : '-', '| calibrated model there', flatSamples[Math.floor(flatSamples.length * 0.5)].toFixed(2));
     let h = new Float32Array(nx * nz);
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) h[j * nx + i] = demAt(MINX + i * STEP, MINZ + j * STEP);
     const blur = (src) => {
@@ -1032,10 +1133,12 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       }
       return out;
     };
-    // The city floor still reads about a metre of noise, and the model wants it flat. A smoothed copy decides WHERE
-    // the ground really rises; the height itself comes from a lightly smoothed copy, so hills keep their true height
-    // above the city floor. Ground under DEAD above the floor stays flat; from FULL up it stands at its true height.
-    const DEAD = 2.5, FULL = 5.0;
+    // The city floor still reads most of a metre of noise (0.8 m rms against the laser), and the model wants it flat.
+    // A smoothed copy decides WHERE the ground really rises; the height itself comes from a lightly smoothed copy, so
+    // hills keep their true height above the city floor. Ground under DEAD above the floor stays flat; from FULL up
+    // it stands at its true height. (Against the laser the drawn ground then reads +0.3 m on the plain, -0.8 m on the
+    // 5-8 m rises this squeezes, and within 0.2 m above them.)
+    const DEAD = 1.2, FULL = 3.0;
     const gateOf = (up) => { const t = Math.max(0, Math.min(1, (up - DEAD) / (FULL - DEAD))); return t * t * (3 - 2 * t); };
     const raw = h;
     const broad = blur(raw), fine = (() => {
@@ -1082,7 +1185,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const inside = [];
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (pip([MINX + i * STEP, MINZ + j * STEP], thienMu)) inside.push(j * nx + i);
       const ups = inside.map((k) => fine[k] - floor).sort((a, b) => a - b);
-      const top = ups.length ? ups[Math.floor(ups.length * 0.6)] : 0;
+      // the laser crossed the compound: its ground is then what was measured, not what a 25 m grid makes of the hill
+      const shot = lidar ? lidar.filter((p) => pip([p.x, p.z], thienMu)).map((p) => p.ele - floor).sort((a, b) => a - b) : [];
+      const top = shot.length >= 5 ? shot[shot.length >> 1] : ups.length ? ups[Math.floor(ups.length * 0.6)] : 0;
+      console.log('Hà Khê: laser points inside the compound', shot.length, shot.length ? '| ' + (shot[0] + floor).toFixed(1) + ' to ' + (shot[shot.length - 1] + floor).toFixed(1) + ' m asl' : '', '| grid reading', ups.length ? (ups[Math.floor(ups.length * 0.6)] + floor).toFixed(1) : '-');
       if (top > 1.5) { for (const k of inside) nodeLv[k] = Math.max(nodeLv[k], top); hakhe = { ring: flat(thienMu), top: q(top) }; }
       console.log('Hà Khê plateau', top.toFixed(1), 'm above the city floor |', inside.length, 'nodes');
     }
@@ -1119,6 +1225,18 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     // the smoothing shaves narrow summits (đồi Vọng Cảnh is about 100 m across): well above the plain, where the
     // bare-earth reading needs no smoothing, a node stands no lower than what was measured there
     for (let k = 0; k < h.length; k++) if (!lock[k] && raw[k] - floor > FULL + 3) h[k] = Math.max(h[k], raw[k] - floor);
+    // and a summit that falls between the grid's nodes is not lost: a node that tops its neighbours stands at the
+    // highest ground within its own cell
+    for (let j = 1; j < nz - 1; j++) for (let i = 1; i < nx - 1; i++) {
+      const k = j * nx + i;
+      if (lock[k] || raw[k] - floor <= FULL + 3) continue;
+      let peak = true;
+      for (let dj = -1; dj <= 1 && peak; dj++) for (let di = -1; di <= 1; di++) if ((di || dj) && raw[k + dj * nx + di] > raw[k]) { peak = false; break; }
+      if (!peak) continue;
+      let m = raw[k];
+      for (let dz = -10; dz <= 10; dz += 5) for (let dx = -10; dx <= 10; dx += 5) m = Math.max(m, demAt(MINX + i * STEP + dx, MINZ + j * STEP + dz));
+      h[k] = Math.max(h[k], m - floor);
+    }
     for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
     // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
     const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7 };
@@ -1173,6 +1291,11 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       console.log('  error: bare', stat(err.bare), '| surface', stat(err.surface), '| calibrated', stat(err.calibrated), '| model', stat(err.model));
     }
     const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
+    // The river: the model draws the city LAND_Y above the water (src/config.js). The laser measures both.
+    if (river !== null) {
+      const drawn = +(/LAND_Y = ([\d.]+)/.exec(fs.readFileSync('src/config.js', 'utf8')) || [])[1];
+      console.log('city floor', floor.toFixed(2), 'm asl, river', river.toFixed(2), 'm: the city stands', (floor - river).toFixed(2), 'm above the water | drawn', drawn, Math.abs(drawn - (floor - river)) > 0.3 ? '<-- set LAND_Y in src/config.js' : '(agrees)');
+    }
     console.log('terrain', nx + 'x' + nz, 'floor', floor.toFixed(1), 'm asl | lifted nodes', lifted, '| peak rise', peak.toFixed(1), 'm | Thiên Mụ', towerC ? probe(towerC[0], towerC[1]) : '-', '| raw DEM there', towerC ? demAt(towerC[0], towerC[1]).toFixed(1) : '-');
   }
 }
