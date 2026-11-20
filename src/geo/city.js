@@ -11,6 +11,7 @@ import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
+import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -235,6 +236,7 @@ function buildRoads(data, group, structures) {
   const ownDeck = thuyTienBridgeRoads(data); // the dragon aquarium's footbridges are modelled in landmarks/thuytien.js
   for (const r of roads) {
     if (!r.bridge || ownDeck.has(r.flat)) continue;
+    if (giaHoiRoads(data).has(r.flat)) continue; // cầu Gia Hội is modelled in landmarks/places/giahoi.js
     const w = ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5);
     // the deck: level at the banks (or climbing between banks of different height, or at a hill lake's level), and
     // on all but the long river bridges rising to a crown at mid-span (geo/bridges.js)
