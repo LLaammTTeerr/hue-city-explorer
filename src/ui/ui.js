@@ -53,15 +53,13 @@ export function createUI(data, handlers) {
     document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
     list.setAttribute('aria-label', T.places);
     search.refresh(current);
-    if (innerWidth <= 720) $('btn-ride').querySelector('span').textContent = T.rideShort;
     $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
     $('btn-lang').textContent = innerWidth <= 720 ? T.langShort : T.lang;
     $('btn-lang').title = T.lang; $('btn-lang').setAttribute('aria-label', T.lang);
-    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain };
+    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
     document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
     $('attrib').textContent = T.attrib;
-    $('ride-exit').textContent = T.exitRide;
     $('about-title').textContent = T.aboutTitle;
     const n = (v) => v.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
     $('about-body').innerHTML = T.aboutBody.replace('{buildings}', n(data.meta.counts.buildings)).replace('{infill}', n(data.meta.counts.infill));
@@ -174,16 +172,8 @@ export function createUI(data, handlers) {
   $('btn-zout').addEventListener('click', () => handlers.zoom(1.6));
   $('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
   $('card-img').addEventListener('click', () => { if (current) { shot++; fillMedia(stories && stories[current.id]); } });
-  $('btn-ride').addEventListener('click', () => handlers.ride());
   $('btn-rain').addEventListener('click', () => handlers.rain());
   document.querySelectorAll('#seg-time button').forEach((b) => b.addEventListener('click', () => handlers.time(+b.dataset.time)));
-  $('ride-exit').addEventListener('click', () => handlers.exitRide());
-
-  const scrub = $('ride-scrub');
-  scrub.addEventListener('input', () => handlers.seek(scrub.value / 1000, true));
-  const release = () => handlers.seek(scrub.value / 1000, false);
-  scrub.addEventListener('change', release);
-  scrub.addEventListener('pointerup', release);
 
   applyText();
   // the short wordings (phone) and the placeholder follow the window across its breakpoints
@@ -194,7 +184,6 @@ export function createUI(data, handlers) {
     applyText();
   });
 
-  let capIndex = -1;
   return {
     get lang() { return lang; },
     get T() { return T; },
@@ -210,23 +199,6 @@ export function createUI(data, handlers) {
       document.querySelectorAll('#seg-time button').forEach((b) => b.setAttribute('aria-checked', +b.dataset.time === time));
     },
     setHeading(rad) { $('needle').style.transform = `rotate(${(-rad * 180) / Math.PI}deg)`; },
-    setRide(active) {
-      document.body.classList.toggle('riding', active);
-      $('ride-hud').hidden = !active;
-      capIndex = -1;
-      if (active) { search.close(); hideCard(); hint(T.hintRide, 4500); } else hideHint();
-    },
-    setRideProgress(t) {
-      if (document.activeElement !== scrub || !scrub.matches(':active')) scrub.value = Math.round(t * 1000);
-      scrub.style.setProperty('--p', (t * 100).toFixed(1) + '%');
-      const i = t < 0.2 ? 0 : t < 0.4 ? 1 : t < 0.56 ? 2 : t < 0.78 ? 3 : 4;
-      if (i !== capIndex) {
-        capIndex = i;
-        const cap = $('ride-cap');
-        cap.style.opacity = 0;
-        setTimeout(() => { cap.textContent = T.caps[i]; cap.style.opacity = 1; }, capIndex === 0 ? 0 : 320);
-      }
-    },
     loaderProgress(p) { $('loader-bar').style.width = Math.round(p * 100) + '%'; },
     loaderDone() { $('loader').classList.add('done'); },
   };

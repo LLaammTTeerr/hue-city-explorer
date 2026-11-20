@@ -60,7 +60,7 @@ svg .fill { fill: currentColor; stroke: none; }
 #scene.dragging { cursor: grabbing; }
 
 /* paper surface shared by every panel: a faint fibre texture laid over the flat tone */
-#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint {
+#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #hint {
   background-color: var(--panel);
   background-image: radial-gradient(rgba(44, 36, 30, 0.035) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1.3px);
   background-size: 7px 7px, 11px 11px;
@@ -71,7 +71,7 @@ svg .fill { fill: currentColor; stroke: none; }
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   transition: background-color 0.45s ease, border-color 0.45s ease, color 0.45s ease;
 }
-body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint) {
+body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #hint) {
   background-image: radial-gradient(rgba(207, 168, 98, 0.03) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.016) 1px, transparent 1.3px);
 }
 
@@ -130,19 +130,16 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #places button.active::before { border-color: var(--accent-ink); }
 
 /* ---------- controls ---------- */
-.icon, .chip, .tog, .cta { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 42px; border-radius: 6px; transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s, opacity 0.3s; white-space: nowrap; }
+.icon, .chip, .tog { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 42px; border-radius: 6px; transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s, opacity 0.3s; white-space: nowrap; }
 .icon { width: 42px; }
 .icon.small { width: 32px; height: 32px; background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 .chip { padding: 0 14px; font-size: 13px; font-weight: 500; }
-.tog, .cta { padding: 0 17px 0 14px; font-size: 14px; font-weight: 500; }
+.tog { padding: 0 17px 0 14px; font-size: 14px; font-weight: 500; }
 .icon:hover, .chip:hover, .tog:hover { background-color: var(--paper); }
-.icon:active, .chip:active, .tog:active, .cta:active { transform: translateY(1px); }
+.icon:active, .chip:active, .tog:active { transform: translateY(1px); }
 /* switched on: crimson. The rain toggle fills; the label icon only takes the colour, so the top bar stays calm */
 .tog[aria-pressed='true'] { color: var(--cream); background-color: var(--seal); background-image: none; border-color: var(--seal-deep); }
 .icon.on { color: var(--accent-ink); }
-.cta { background: var(--seal); color: var(--cream); border: 1px solid var(--seal-deep); font-weight: 600; letter-spacing: 0.01em; box-shadow: 0 8px 22px rgba(122, 30, 31, 0.32), 0 0 0 3px rgba(248, 238, 222, 0.55) inset, 0 0 0 4px rgba(122, 30, 31, 0.5) inset; }
-.cta:hover { background: #ae3132; }
-.cta svg { stroke-width: 1.8; }
 .seg { display: inline-flex; align-items: center; gap: 2px; height: 42px; padding: 3px; border-radius: 6px; }
 .seg button { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 34px; border-radius: 4px; color: var(--ink-soft); transition: background 0.2s, color 0.2s; }
 .seg button:hover { background: var(--wash); color: var(--ink); }
@@ -187,18 +184,6 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #card-meta { margin: 10px 0 0; font-size: 11px; letter-spacing: 0.04em; color: var(--indigo); opacity: 0.8; font-variant-numeric: tabular-nums; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
-/* ---------- ride HUD ---------- */
-#ride-hud { position: fixed; left: 50%; bottom: var(--bottom); transform: translateX(-50%); width: min(560px, calc(100vw - 2 * var(--edge))); text-align: center; animation: rise 0.5s; }
-#ride-hud[hidden] { display: none; }
-#ride-cap { margin: 0 0 12px; font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2.3vw, 24px); font-variation-settings: 'opsz' 40; color: var(--cream); text-shadow: 0 1px 14px rgba(44, 36, 30, 0.85), 0 0 3px rgba(44, 36, 30, 0.7); min-height: 1.3em; transition: opacity 0.4s; }
-#ride-hud .row { display: flex; gap: 10px; align-items: center; padding: 0 5px 0 16px; height: 44px; border-radius: 6px; }
-#ride-hud .chip { height: 34px; background: var(--ink); color: var(--paper); border: 0; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-input[type='range'] { flex: 1; min-width: 0; height: 24px; margin: 0; background: transparent; -webkit-appearance: none; appearance: none; cursor: pointer; }
-input[type='range']::-webkit-slider-runnable-track { height: 2px; background: linear-gradient(90deg, var(--seal) var(--p, 0%), color-mix(in srgb, var(--ink) 28%, transparent) var(--p, 0%)); }
-input[type='range']::-moz-range-track { height: 2px; background: color-mix(in srgb, var(--ink) 28%, transparent); }
-input[type='range']::-moz-range-progress { height: 2px; background: var(--seal); }
-input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; margin-top: -6px; border-radius: 2px; background: var(--seal); border: 0; transform: rotate(45deg); box-shadow: 0 1px 4px rgba(44, 36, 30, 0.4); }
-input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius: 2px; background: var(--seal); border: 0; transform: rotate(45deg); }
 
 /* ---------- attribution ---------- */
 #attrib { position: fixed; right: var(--edge); bottom: var(--bottom); padding: 3px 8px; border-radius: 3px; font-size: 11px; letter-spacing: 0.02em; color: var(--ink); background: var(--panel); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--ink) 35%, transparent); text-underline-offset: 3px; transition: background-color 0.45s ease, color 0.45s ease; }
@@ -206,8 +191,8 @@ input[type='range']::-moz-range-thumb { width: 12px; height: 12px; border-radius
 
 /* ---------- labels: small paper slips pinned to the model ---------- */
 #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; transition: opacity 0.5s; }
-#labels.off, #labels.dim { opacity: 0; }
-#labels.off .label, #labels.dim .label { pointer-events: none !important; }
+#labels.off { opacity: 0; }
+#labels.off .label { pointer-events: none !important; }
 .label { position: absolute; left: 0; top: 0; opacity: 0; transition: opacity 0.35s; will-change: transform; white-space: nowrap; pointer-events: none; }
 .label.show { opacity: 1; }
 .label-place.show { pointer-events: auto; }
@@ -248,12 +233,6 @@ dialog kbd { font: 600 11px var(--ui); padding: 1px 6px; border-radius: 3px; bor
 #loader .bar { width: 180px; height: 2px; margin: 0 auto; background: rgba(44, 36, 30, 0.14); overflow: hidden; }
 #loader .bar i { display: block; height: 100%; width: 0%; background: var(--seal); transition: width 0.3s; }
 
-/* ---------- riding: clear the stage ---------- */
-body.riding #places, body.riding #actions, body.riding #card, body.riding #nav .desk { opacity: 0; pointer-events: none; }
-body.riding #actions { transform: translate(-50%, 12px); }
-body.riding #search { opacity: 0; pointer-events: none; }
-body.riding #scene { cursor: move; }
-body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
 
 /* ---------- phones ---------- */
 @media (max-width: 720px) {
@@ -273,10 +252,7 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #places::-webkit-scrollbar { display: none; }
   #places button.ov { order: -1; }
   #places button { flex: none; height: 34px; padding: 0 12px 0 24px; background: var(--panel); border: 1px solid var(--gold-line); border-radius: 4px; box-shadow: 0 4px 12px rgba(44, 36, 30, 0.16); font-size: 13px; }
-  #actions { left: var(--edge); right: var(--edge); bottom: calc(var(--bottom) + 20px); transform: none; }
-  body.riding #actions { transform: translateY(12px); }
-  #actions .cta { flex: 1; height: 48px; padding: 0 12px; font-size: 13.5px; min-width: 0; }
-  #actions .cta span { overflow: hidden; text-overflow: ellipsis; }
+  #actions { left: var(--edge); right: var(--edge); bottom: calc(var(--bottom) + 20px); transform: none; justify-content: center; }
   #actions .tog { width: 48px; height: 48px; padding: 0; }
   #actions .tog span { display: none; }
   #actions .tog, #actions .seg { flex: none; }
@@ -286,7 +262,6 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #attrib { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) - 3px); font-size: 10px; white-space: nowrap; padding: 2px 6px; }
   #card { left: 10px; right: 10px; width: auto; bottom: calc(var(--bottom) + 76px); z-index: 2; max-height: 56vh; }
   body.has-card #places { opacity: 0; pointer-events: none; }
-  #ride-hud { bottom: calc(var(--bottom) + 18px); }
   dialog { padding: 22px 20px 18px; }
 }
 /* Desktop: the card is the map's side panel, hung under the search box; the top row centres on the taller box */

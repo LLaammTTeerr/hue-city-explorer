@@ -213,7 +213,7 @@ export function createSearch(ctx) {
   box.addEventListener('focusout', (e) => { if (e.relatedTarget && !box.contains(e.relatedTarget)) setOpen(false); });
   addEventListener('keydown', (e) => {
     if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target instanceof HTMLInputElement || document.getElementById('about').open || document.body.classList.contains('riding')) return;
+    if (e.target instanceof HTMLInputElement || document.getElementById('about').open) return;
     e.preventDefault();
     input.focus();
   });

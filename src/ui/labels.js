@@ -82,7 +82,7 @@ export function createLabels(root, data, camera, onPick, scene) {
   data.waterLabels.forEach((p) => add(p, true));
   items.sort((a, b) => a.pri - b.pri);
 
-  let enabled = true, dim = false, frame = 0, blocked = [];
+  let enabled = true, frame = 0, blocked = [];
   const visited = new Set();
   let measured = false;
 
@@ -93,7 +93,6 @@ export function createLabels(root, data, camera, onPick, scene) {
 
   return {
     setEnabled(on) { enabled = on; root.classList.toggle('off', !on); },
-    setDim(on) { dim = on; root.classList.toggle('dim', on); },
     markVisited(id) { visited.add(id); const it = items.find((i) => i.p.id === id); if (it) it.el.classList.add('seen'); },
     remeasure() { measured = false; },
     get visited() { return visited; },
@@ -103,7 +102,7 @@ export function createLabels(root, data, camera, onPick, scene) {
       // keep labels out from under the interface: its panels count as already-placed boxes
       if (frame++ % 30 === 0) {
         blocked = [];
-        for (const sel of ['#places', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card', '#ride-hud']) {
+        for (const sel of ['#places', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card']) {
           const el = document.querySelector(sel);
           if (!el || el.hidden) continue;
           const r = el.getBoundingClientRect();
@@ -112,7 +111,7 @@ export function createLabels(root, data, camera, onPick, scene) {
       }
       const placed = blocked.slice();
       for (const it of items) {
-        let show = enabled && !dim;
+        let show = enabled;
         let x = 0, y = 0;
         if (show) {
           const dist = camera.position.distanceTo(it.pos);

@@ -261,7 +261,7 @@ function makeWake(group, time, { bow = 9.8, stern = 20.5, len = 110 } = {}) {
     cur.copy(boat.position);
     if (has && dt > 1e-4) {
       const v = Math.hypot(cur.x - last.x, cur.z - last.z) / dt;
-      if (v < 40) spd += (v - spd) * Math.min(1, dt * 2.5); // a jump (a teleport, a new ride) is not speed
+      if (v < 40) spd += (v - spd) * Math.min(1, dt * 2.5); // a jump (a teleport) is not speed
     } else spd = 0;
     last.copy(cur); has = true;
     const amt = Math.min(1, Math.max(0, (spd - 0.4) / 4.0));
@@ -317,16 +317,13 @@ export function buildBoats(data, group) {
     const n = 5;
     for (let i = 0; i < n; i++) fleet.push({ mesh: make(), s: (track.total * (i + 0.5)) / n, dir: i % 2 ? 1 : -1, speed: 3.2 + (i % 3) * 0.9, lane: 26 + (i % 3) * 16, phase: i * 1.7 });
   }
-  const rideBoat = make();
-  rideBoat.visible = false;
 
-  // wakes: one per boat, fleet and the ride boat alike
+  // wakes: one per boat
   const wakeTime = { value: 0 };
   let wakes = [];
-  try { wakes = [...fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]), [rideBoat, makeWake(group, wakeTime)]]; } catch (e) { wakes = []; }
+  try { wakes = fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]); } catch (e) { wakes = []; }
 
   return {
-    rideBoat,
     fleet,
     update(dt, time) {
       for (const b of fleet) {

@@ -28,7 +28,6 @@ import { createPost } from './env/post.js';
 import { createIBL } from './env/ibl.js';
 import { createCascades } from './env/csm.js';
 import { createCamera } from './camera/controls.js';
-import { createRide } from './camera/ride.js';
 import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
 import { VIEWS } from './ui/content.js';
@@ -43,22 +42,19 @@ async function main() {
   const res = await fetch(`${import.meta.env.BASE_URL}data/hue.json`);
   const data = await res.json();
 
-  let rig, ride, mood, labels;
+  let rig, mood, labels;
   const ui = createUI(data, {
     pick: (id, fly) => pick(id, fly),
-    overview: () => { if (!ride.active) { ui.hideCard(); const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); } },
+    overview: () => { ui.hideCard(); const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
     lang: () => labels && labels.remeasure(),
     labels: () => toggleLabels(),
     osmOnly: (on) => { world.infill.forEach((m) => { m.visible = !on; }); },
-    home: () => { follow = null; if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } },
+    home: () => { follow = null; rig.goHome(); ui.hideCard(); },
     zoom: (k) => rig.zoomBy(k),
     cardClosed: () => {},
-    ride: () => { follow = null; ride.start(); },
     rain: () => mood.setRain(!mood.state.rainTarget),
     time: (i) => mood.setTime(i),
     look: () => setLook(!look, true),
-    exitRide: () => ride.exit(),
-    seek: (t, scrubbing) => ride.seek(t, scrubbing),
   });
   ui.loaderProgress(0.15);
   await frame();
@@ -158,13 +154,6 @@ async function main() {
   rig.setHome(hv.pos, hv.target);
   rig.jumpHome();
 
-  const placeXZ = Object.fromEntries(data.places.map((p) => [p.id, [p.x / 10, p.z / 10]]));
-  ride = createRide({ rig, bridge, boats, places: { thuongtu: placeXZ['gate:Cửa Thượng Tứ'] } });
-  ride.on((type) => {
-    if (type === 'start') { ui.setRide(true); labels.setDim(true); }
-    if (type === 'tick') ui.setRideProgress(ride.progress);
-    if (type === 'end') { ui.setRide(false); labels.setDim(false); setTimeout(() => { if (!ride.active) boats.rideBoat.visible = false; }, 9000); }
-  });
 
   // ---------- labels & picking ----------
   let labelsOn = true;
@@ -174,7 +163,6 @@ async function main() {
   function pick(id, fly) {
     const p = data.places.find((q) => q.id === id);
     if (!p) return;
-    if (ride.active) return;
     if (fly) follow = null;
     ui.showCard(id);
     labels.markVisited(id);
@@ -202,31 +190,28 @@ async function main() {
   }
   const followDelta = new THREE.Vector3();
   function updateFollow() {
-    if (!follow || ride.active || rig.flying) return;
+    if (!follow || rig.flying) return;
     followDelta.set(follow.mesh.position.x - controls.target.x, 0, follow.mesh.position.z - controls.target.z).multiplyScalar(0.12);
     controls.target.add(followDelta);
     camera.position.add(followDelta);
   }
 
-  // tap / click on the ground near a landmark reveals it; drag during the ride turns the head
+  // tap / click on the ground near a landmark reveals it
   let down = null;
   canvas.addEventListener('pointerdown', (e) => {
     down = { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, id: e.pointerId };
     canvas.classList.add('dragging');
-    if (ride.active) { ride.setDragging(true); canvas.setPointerCapture(e.pointerId); }
   });
   canvas.addEventListener('pointermove', (e) => {
     if (!down || down.id !== e.pointerId) return;
-    if (ride.active) ride.look(e.clientX - down.lx, e.clientY - down.ly);
     down.lx = e.clientX; down.ly = e.clientY;
   });
   const up = (e) => {
     canvas.classList.remove('dragging');
-    ride.setDragging(false);
     if (!down || down.id !== e.pointerId) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
     down = null;
-    if (moved > 6 || dt > 450 || ride.active || e.type === 'pointercancel') return;
+    if (moved > 6 || dt > 450 || e.type === 'pointercancel') return;
     // a click on a dragon boat rides along with it (the river plane is at y = 0, so test against that)
     const hitBoat = boatAt(e.clientX, e.clientY);
     if (hitBoat) { follow = hitBoat; ui.hideCard(); ui.hint(ui.T.hintFollow, 5000); return; }
@@ -245,7 +230,6 @@ async function main() {
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('dblclick', (e) => {
-    if (ride.active) return;
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     const off = camera.position.clone().sub(controls.target).multiplyScalar(0.45);
@@ -258,9 +242,8 @@ async function main() {
   addEventListener('keydown', (e) => {
     if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
     const k = e.key.toLowerCase();
-    if (k === 'escape') { if (ride.active) ride.exit(); else if (follow) { follow = null; ui.hideHint(); } else ui.hideCard(); }
-    else if (k === 'h' || k === 'home') { if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } }
-    else if (k === 'b') { if (!ride.active) ride.start(); }
+    if (k === 'escape') { if (follow) { follow = null; ui.hideHint(); } else ui.hideCard(); }
+    else if (k === 'h' || k === 'home') { rig.goHome(); ui.hideCard(); }
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
     else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (k === 'l') toggleLabels();
@@ -300,20 +283,19 @@ async function main() {
     labels.remeasure();
     hv = homeView();
     rig.setHome(hv.pos, hv.target);
-    if (!rig.touched && !ride.active && !rig.flying) rig.jumpHome();
+    if (!rig.touched && !rig.flying) rig.jumpHome();
   }
   addEventListener('resize', resize);
 
   // ---------- frame loop ----------
   let last = performance.now();
-  const fwd = new THREE.Vector3(), focus = new THREE.Vector3();
+  const focus = new THREE.Vector3();
   let time = 0;
   function updateShadow() {
     // keep the shadow map centred where the eye is resting, sized to the view
     const dist = camera.position.distanceTo(controls.target);
-    if (ride.active) { camera.getWorldDirection(fwd); focus.copy(camera.position).addScaledVector(fwd, 160); focus.y = LAND_Y; }
-    else focus.copy(controls.target);
-    const ext = ride.active ? 420 : Math.max(260, Math.min(2600, dist * 0.8));
+    focus.copy(controls.target);
+    const ext = Math.max(260, Math.min(2600, dist * 0.8));
     shadows.update(focus, mood.sunDir, ext);
   }
 
@@ -341,9 +323,8 @@ async function main() {
   }
   function step(dt) {
     time += dt;
-    ride.update(dt);
     updateFollow();
-    rig.update(dt, !ride.active);
+    rig.update(dt);
     mood.update(dt, time);
     bridge.update(time, mood.cur.glow, mood.state.rain);
     citadel.update(time, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
@@ -367,9 +348,9 @@ async function main() {
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow, time);
       // focus on what the camera is looking at. Near the ground everything is sharp, as a building is to someone standing
       // by it; only from the air does the far field soften a little. The illustrated look is sharp throughout.
-      const fd = ride.active ? 90 : camera.position.distanceTo(controls.target);
+      const fd = camera.position.distanceTo(controls.target);
       const hgt = camera.position.y - LAND_Y;
-      post.setFocus(fd, (1 - look) * (ride.active ? 0 : 0.3 * THREE.MathUtils.smoothstep(hgt, 120, 650)));
+      post.setFocus(fd, (1 - look) * 0.3 * THREE.MathUtils.smoothstep(hgt, 120, 650));
       post.setLook(look);
     }
     draw();
@@ -391,7 +372,7 @@ async function main() {
   setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
 
   // handle for debugging and automated checks
-  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
+  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
 }
 
 main().catch((err) => {

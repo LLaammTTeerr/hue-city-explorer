@@ -6,9 +6,9 @@
 - Hand-modelled landmarks on OSM footprints: cầu Trường Tiền, Citadel wall and gates, Kỳ Đài, Ngọ Môn,
   Điện Thái Hòa, Phu Văn Lâu, chợ Đông Ba hall and bell tower, dragon boats.
 - Atmosphere: afternoon / shower / lights-on moods, planar water reflection (desktop), rain.
-- Interaction: map controls, boat ride under the bridge, place list and cards, labels toggle, compass home.
+- Interaction: map controls, place list and cards, labels toggle, compass home.
 - UI in Vietnamese and English; phone layout.
-- Checked in the browser: opening view, ride start to finish and early exit, rain, night, recovery from
+- Checked in the browser: opening view, rain, night, recovery from
   an edge-of-map street-level camera, labels off, OSM-only toggle, phone viewport, production build.
 
 - Visual upgrade (branch `visual-upgrade`): procedural facades, roof tiles, masonry and timber-hall shading;
@@ -74,6 +74,8 @@
   so the river mirrors them: Trường Tiền's six bows drift through neighbouring hues and gather into violet now and
   then (warm white in rain); Nguyễn Hoàng's arch is washed gold. The dragon's three footbridges at hồ Thủy Tiên are
   now thin railed walkways on piers.
+- Boat ride: the guided ride under cầu Trường Tiền was removed (2026-11-21). Gone: `src/camera/ride.js`, the ride
+  button, HUD and scrub bar, the `B` key, the spare ride boat. Kept: the dragon-boat fleet and click-to-follow.
 - Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
   the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
   `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and
