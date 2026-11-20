@@ -216,6 +216,10 @@ export const NOTES = {
   },
   vongcanh: { vi: 'Đồi Vọng Cảnh — đồi thông nhìn xuống khúc sông Hương trước điện Hòn Chén.', en: 'Vọng Cảnh hill, the pine lookout over the bend of the Hương.' },
   ngubinh: { vi: 'Núi Ngự Bình, cao 105 m — bức bình phong của Kinh thành. «Huế — sông Hương núi Ngự».', en: 'Ngự Bình, 105 m: the “royal screen” mountain that shields the Citadel from the south.' },
+  golim: {
+    vi: 'Cầu gỗ lim — lối đi bộ lát gỗ lim dài gần 400 m, rộng 4 m, đứng trên mặt nước dọc bờ nam sông Hương; mở cửa tháng 11 năm 2018.',
+    en: 'The ironwood walkway: a boardwalk nearly 400 m long and 4 m wide standing in the water along the south bank, opened in November 2018.',
+  },
   biaquochoc: {
     vi: 'Bia Quốc Học — đài tưởng niệm bên bờ sông Hương, đối diện cổng trường Quốc Học, dựng khoảng năm 1920.',
     en: 'Bia Quốc Học, the memorial on the riverbank facing the gate of Quốc Học school, built around 1920.',
@@ -228,7 +232,7 @@ export const NOTES = {
 // head of that group.
 export const PLACE_GROUPS = [
   { ids: ['kydai', 'ngomon', 'nghenhluong', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'namgiao'] },
-  { overview: true, ids: ['truongtien', 'dongba', 'biaquochoc', 'ndchieu', 'photay', 'nguyenhoang', 'conhen', 'thienmu'] },
+  { overview: true, ids: ['truongtien', 'dongba', 'biaquochoc', 'ndchieu', 'golim', 'photay', 'nguyenhoang', 'conhen', 'thienmu'] },
   { ids: ['tuduc', 'thuytien', 'khaidinh', 'minhmang'] },
 ];
 export const QUICK = PLACE_GROUPS.flatMap((g) => g.ids);
@@ -262,5 +266,6 @@ export const VIEWS = {
   thienan: { off: [200, 150, 260], look: [0, 0] },
   ngubinh: { off: [500, 420, 700], look: [0, 0] },
   biaquochoc: { off: [-40, 30, 85], look: [0, -6] },
+  golim: { off: [-90, 45, -110], look: [0, 0] },
   default: { off: [170, 170, 280], look: [0, 0] },
 };

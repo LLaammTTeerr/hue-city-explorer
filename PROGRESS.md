@@ -102,6 +102,13 @@
   fold toggle. Deliberately not taken: ACES tone mapping (washed out, magenta speckle in the glitter),
   PCFSoftShadowMap (deprecated in this three.js), a bank-distance river gradient (no bank distance in the shader).
 - Fixed: the gates of chùa Thiên Mụ were drawn at city level and sat buried in Hà Khê hill.
+- Night and riverfront pass (branch `night-magic`), from a second specification the user passed on:
+  amber uplighting on Kỳ Đài, Ngọ Môn, Thái Hòa, Phu Văn Lâu, Nghênh Lương Đình, Cửa Ngăn, Cửa Thượng Tứ and
+  Tháp Phước Duyên (`citadel.js`; floodlight strips today only, doorway lanterns in every era); lit dragon boats
+  and 160 drifting hoa đăng (`boats.js`, `buildLanterns`); the ironwood walkway on the south bank
+  (`boardwalk.js`, 400 m, 2018, place `golim`); wet sheen in the rain, stone embankments with moss, flagstone
+  terraces, backlit foliage, softer crowns, bằng lăng and hoàng mai accents (`materials.js`, `foliage.js`).
+  The spec's "other branch" (`feat/hue-atmosphere-ui`) does not exist in this repo.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

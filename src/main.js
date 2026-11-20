@@ -10,12 +10,13 @@ import { LAND_Y, quality } from './config.js';
 import { buildCity, finishStructures, updateDetail } from './geo/city.js';
 import { buildTruongTien } from './landmarks/truongtien.js';
 import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
-import { buildBoats } from './landmarks/boats.js';
+import { buildBoats, buildLanterns } from './landmarks/boats.js';
 import { buildNguyenHoang, buildQuocHocGate } from './landmarks/more.js';
 import { buildCivic } from './landmarks/civic.js';
 import { buildSouth } from './landmarks/south.js';
 import { buildTombs } from './landmarks/tombs.js';
 import { buildBiaQuocHoc } from './landmarks/memorial.js';
+import { buildBoardwalk } from './landmarks/boardwalk.js';
 import { era, onEra } from './era.js';
 import { shared } from './geo/materials.js';
 import { span } from './geo/buf.js';
@@ -94,10 +95,12 @@ async function main() {
   S.span = 0;
   buildCivic(data, world.structures);
   buildBiaQuocHoc(data, world.structures);
+  buildBoardwalk(data, world.structures, dynamic);
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);
   finishStructures(world.structures, world.group);
   const boats = buildBoats(data, dynamic);
+  const lanterns = buildLanterns(data, dynamic); // hoa đăng drifting past the Citadel after dark
   buildLotus(data, dynamic);
   const traffic = buildTraffic(data, dynamic);
   const street = buildStreetLife(data, dynamic);
@@ -344,6 +347,7 @@ async function main() {
     bridge.update(time, mood.cur.glow, mood.state.rain);
     citadel.update(time, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
     boats.update(dt, time);
+    lanterns.update(dt, time);
     traffic.update(dt);
     street.update(dt, time);
     updateShadow();
@@ -354,6 +358,7 @@ async function main() {
     bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
     bridge.lamps.material.uniforms.uScale.value = pxScale;
     for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= 2; }
+    if (lanterns.halo) lanterns.halo.material.uniforms.uScale.value = pxScale;
     for (const g of lanternGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= (g.userData.minEra ?? 0); }
     const lit = mood.cur.glow > 0.01;
     world.lamps.visible = lit && era.value >= 1; bridge.lamps.visible = lit && era.value >= 1; bridge.lights.forEach((l) => { l.visible = lit && era.value >= 2; });

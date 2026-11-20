@@ -24,6 +24,6 @@ export function setEra(e) {
 export const PLACE_SINCE = {
   truongtien: 1, dongba: 1, quochoc: 1, gahue: 1, andinh: 1, bachho: 1, phucam: 2, dcct: 2, vincom: 2, phuxuan: 2,
   nguyenhoang: 2, ndchieu: 2, photay: 2, thuytien: 2, thienan: 2, khaidinh: 1, dongkhanh: 1, kientrung: 1,
-  tuphuong: 1, thuongbac: 1, biaquochoc: 1, baotangcovat: 1, baotanghcm: 2, diemphungthi: 2, tayloc: 1, ancuu: 1, benngu: 1,
+  tuphuong: 1, thuongbac: 1, biaquochoc: 1, golim: 2, baotangcovat: 1, baotanghcm: 2, diemphungthi: 2, tayloc: 1, ancuu: 1, benngu: 1,
 };
 export const existsIn = (id, e = era.value) => (PLACE_SINCE[id] ?? 0) <= e;
