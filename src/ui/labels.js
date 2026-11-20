@@ -74,8 +74,12 @@ export function createLabels(root, data, camera, onPick) {
         }
         if (show) {
           const hw = it.w / 2 + 6, top = it.water ? y - it.h / 2 : y - it.h - 4, bottom = it.water ? y + it.h / 2 : y + 4;
-          for (const q of placed) if (x - hw < q.r && x + hw > q.l && top < q.b && bottom > q.t) { show = false; break; }
-          if (show) placed.push({ l: x - hw, r: x + hw, t: top, b: bottom });
+          // a tag the window edge would cut is not drawn at all
+          if (x - hw < 8 || x + hw > width - 8 || top < 8 || bottom > height - 8) show = false;
+          else {
+            for (const q of placed) if (x - hw < q.r && x + hw > q.l && top < q.b && bottom > q.t) { show = false; break; }
+            if (show) placed.push({ l: x - hw, r: x + hw, t: top, b: bottom });
+          }
         }
         if (show) it.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
         if (show !== it.shown) { it.shown = show; it.el.classList.toggle('show', show); }

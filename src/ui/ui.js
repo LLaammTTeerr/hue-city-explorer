@@ -245,6 +245,7 @@ export function createUI(data, handlers) {
     firstHint() { hint(isCoarse() ? T.hintTouch : T.hintMouse, 7000); },
     setLabels(on) { $('btn-labels').classList.toggle('on', on); $('btn-labels').setAttribute('aria-pressed', on); if (!on) hint(T.hintLabels, 4200); },
     setMood({ rain, time }) {
+      document.body.dataset.time = time; // the sheets turn to dark lacquer once the lights are on (style.css)
       $('btn-rain').setAttribute('aria-pressed', !!rain);
       $('btn-rain').querySelector('span').textContent = rain ? T.rainOn : T.rain;
       document.querySelectorAll('#seg-time button').forEach((b) => b.setAttribute('aria-checked', +b.dataset.time === time));

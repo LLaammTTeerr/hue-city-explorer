@@ -121,12 +121,15 @@ class OcclusionPass extends Pass {
             float m = ( 1.0 - exp( -inLayer * 0.0021 ) ) * drift * uMist;
             col = mix( col, uMistColor, clamp( m, 0.0, 0.82 ) );
           }
-          // grade: a little more separation, warm highlights against cool shade
+          // grade: a little more separation, warm highlights against dusty-plum Huế shade
           float l = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
-          // grade toward old paper and patina: a little less chroma, warm lights, green-grey shade
-          col = mix( vec3( l ), col, 1.04 );
-          col = mix( col, col * col * ( 3.0 - 2.0 * col ), 0.22 ); // gentle S-curve so the mist does not flatten the picture
-          col *= mix( vec3( 0.95, 1.0, 0.98 ), vec3( 1.05, 1.0, 0.93 ), smoothstep( 0.05, 0.7, l ) );
+          // grade toward old paper and patina: warm lights, subtle plum-slate shade
+          col = mix( vec3( l ), col, 1.05 );
+          // apply the gentle S-curve only inside [0, 1] so HDR glints (> 1) never invert channels
+          vec3 base01 = clamp( col, 0.0, 1.0 );
+          vec3 curved = base01 * base01 * ( 3.0 - 2.0 * base01 );
+          col = col + ( curved - base01 ) * 0.22;
+          col *= mix( vec3( 0.96, 0.96, 1.02 ), vec3( 1.06, 1.0, 0.92 ), smoothstep( 0.06, 0.72, l ) );
           vec2 q = vUv - 0.5;
           col *= 1.0 - uVignette * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
           gl_FragColor = vec4( col, 1.0 );
@@ -145,7 +148,8 @@ class OcclusionPass extends Pass {
         uniform sampler2D tColor, tDepth; uniform vec2 uNearFar, uPx; uniform float uFocus, uAperture, uMaxPx;
         varying vec2 vUv;
         float dist( vec2 uv ) { return -perspectiveDepthToViewZ( texture2D( tDepth, uv ).x, uNearFar.x, uNearFar.y ); }
-        float coc( float d ) { return clamp( abs( d - uFocus ) / max( uFocus, 1.0 ) * uAperture, 0.0, 1.0 ); }
+        // keep foreground miniature softening while easing far-field blur so distant hills read as misty ridges
+        float coc( float d ) { float k = d > uFocus ? 0.58 : 1.0; return clamp( abs( d - uFocus ) / max( uFocus, 1.0 ) * uAperture * k, 0.0, 1.0 ); }
         void main() {
           vec3 base = texture2D( tColor, vUv ).rgb;
           float d = dist( vUv ), c = coc( d ) * uMaxPx;

@@ -109,6 +109,17 @@
   (`boardwalk.js`, 400 m, 2018, place `golim`); wet sheen in the rain, stone embankments with moss, flagstone
   terraces, backlit foliage, softer crowns, bằng lăng and hoàng mai accents (`materials.js`, `foliage.js`).
   The spec's "other branch" (`feat/hue-atmosphere-ui`) does not exist in this repo.
+- That branch later arrived as a patch (made against `b2e4245`, before the two passes above) and was reviewed and
+  merged selectively (branch `atmosphere-ui-merge`).
+  Taken: `post.js` (S-curve only inside 0–1 so bright glints cannot invert, plum-to-cream grade, softer far blur),
+  `sky.js` (drifting wisps of cloud, a mist band on the horizon), labels the window edge would cut are hidden,
+  full-sun / setting-sun icons for morning / late afternoon, the slightly deeper ground, road and roof palette and
+  the morning and night presets, a fade at the foot of the place list, and the idea of a dark lacquer interface
+  once the lights are on (`body[data-time='2']` in `style.css`, rewritten on the current tokens; crimson stays the
+  one accent, lifting to vermilion where it is text).
+  Left out: its golden-hour and rain presets (ours are newer), the second collapse button (`#brand-fold` exists),
+  the card replacing the place list (the list stays usable beside the card), kind-coloured label borders and gold
+  as a second accent (one-accent rule), the inner frame on the title sheet.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

@@ -25,11 +25,24 @@ export function buildSky() {
     fragmentShader: `
       varying vec3 vDir;
       uniform vec3 uTop, uHorizon, uBelow, uGlow, uFog, uSunDir; uniform float uSunDisk, uHaze, uTime;
+      ${NOISE}
       void main() {
         vec3 d = normalize( vDir );
-        vec3 col = mix( uHorizon, uTop, pow( smoothstep( 0.0, 0.85, d.y ), 0.7 ) );
+        vec3 col = mix( uHorizon, uTop, pow( smoothstep( 0.0, 0.85, d.y ), 0.68 ) );
         col = mix( col, uBelow, smoothstep( 0.0, -0.55, d.y ) );
         float sd = max( dot( d, uSunDir ), 0.0 );
+        // delicate high clouds that drift slowly above the hills and catch the warm horizon glow
+        if ( d.y > 0.015 ) {
+          vec2 cuv = d.xz / ( d.y + 0.22 ) * 0.85 + vec2( uTime * 0.0045, uTime * 0.0018 );
+          float wisp = fbm( cuv + vec2( fbm( cuv * 1.4 ) * 0.35 ) );
+          float mask = smoothstep( 0.48 - uHaze * 0.14, 0.78 - uHaze * 0.1, wisp )
+                     * smoothstep( 0.02, 0.2, d.y ) * smoothstep( 0.88, 0.28, d.y );
+          vec3 cloudCol = mix( uHorizon * 1.06, uGlow * 1.12, pow( sd, 2.5 ) * 0.65 * ( 1.0 - uHaze * 0.7 ) );
+          col = mix( col, cloudCol, mask * mix( 0.34, 0.22, uHaze ) );
+        }
+        // soft misty horizon veil blending the distant ridges into the sky
+        float band = exp( -abs( d.y ) * 11.0 );
+        col = mix( col, mix( uFog, uGlow, pow( sd, 3.0 ) * 0.3 * uSunDisk ), band * ( 0.24 + uHaze * 0.22 ) );
         col += uGlow * ( pow( sd, 6.0 ) * 0.16 + pow( sd, 64.0 ) * 0.4 ) * uSunDisk;
         col += vec3( 1.0, 0.93, 0.8 ) * smoothstep( 0.9988, 0.99965, sd ) * uSunDisk * 1.6; // soft-edged disc, so focus blur and bloom do not ring it
         gl_FragColor = vec4( col, 1.0 );
