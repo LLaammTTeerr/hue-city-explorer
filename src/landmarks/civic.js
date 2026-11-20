@@ -54,9 +54,10 @@ function litCross(L, x, z, y, h, F) {
 // the gate piers, lamps on the piers after dark
 function yardFence(S, data, F, box, core, st, { gateHalf = 3.5, lampCol = [1, 0.85, 0.6], gateLamps = 2, lampEvery = 0 } = {}) {
   const roads = roadsNear(data, F.c, 160);
-  const Y = yard(F, roads, box[0], box[1], box[2], box[3], core[0], core[1], core[2], core[3]);
+  const blds = buildingsNear(data, F.c, 120);
+  const Y = yard(F, roads, box[0], box[1], box[2], box[3], core[0], core[1], core[2], core[3], blds);
   const g = F.at(Y.a1, 0);
-  fence(S, Y.ring, st, { roads, openings: [[g[0], g[1], gateHalf]], solid: buildingsNear(data, F.c, 120), lampEvery, lampCol });
+  fence(S, Y.ring, st, { roads, openings: [[g[0], g[1], gateHalf]], solid: blds, lampEvery, lampCol });
   const p = F.at(Y.a1, -gateHalf), q = F.at(Y.a1, gateHalf), y = ground(g);
   leaves(S, p, q, y, st.h + 0.3, st.iron || dark);
   for (const e of [p, q]) for (let k = 0; k < gateLamps; k++) lamp(e[0], ground(e) + st.h + st.pierUp + 0.9, e[1], lampCol, 4);
@@ -127,7 +128,7 @@ function station(S, data) {
   // middle (the square itself stays open to the street)
   const roads = roadsNear(data, F.at(D / 2 + 20, 0), 120);
   const front = D / 2 + 1.8 + 4.2;
-  const Y = yard(F, roads, front, D / 2 + 42, -(L / 2 + 6), L / 2 + 6, front, D / 2 + 16, -(cw / 2 + 6), cw / 2 + 6);
+  const Y = yard(F, roads, front, D / 2 + 42, -(L / 2 + 6), L / 2 + 6, front, D / 2 + 16, -(cw / 2 + 6), cw / 2 + 6, buildingsNear(data, o.c, 120));
   if (Y.a1 - front > 8) {
     const g = F.at(Y.a1, 0);
     fence(S, [F.at(front, Y.b0), F.at(Y.a1, Y.b0), F.at(Y.a1, Y.b1), F.at(front, Y.b1)], FENCE.station, { closed: false, roads, openings: [[g[0], g[1], 7]], solid: buildingsNear(data, o.c, 120) });
@@ -447,7 +448,7 @@ function dieuDe(S, data) {
     back = Math.min(back, ha - ext - 14);
     side = Math.max(side, Math.abs(hb) + ext + 8);
   }
-  const Y = yard(F, roads, back, 0, -side, side, back + 20, 0, -o.w / 2 - 1, o.w / 2 + 1);
+  const Y = yard(F, roads, back, 0, -side, side, back + 20, 0, -o.w / 2 - 1, o.w / 2 + 1, buildingsNear(data, o.c, 100));
   fence(S, Y.ring, FENCE.pagoda, { roads, openings: [[o.c[0], o.c[1], o.w * 0.5 + 0.5]], solid: buildingsNear(data, o.c, 100) });
   // lanterns: red silk lanterns under the gate's eaves, and the hall's eaves lit
   for (const b of [-o.w * 0.21, -o.w * 0.07, o.w * 0.07, o.w * 0.21]) { const d = at(b, 1.5); lamp(d[0], y1 + 4.3, d[1], [1, 0.42, 0.22], 3.5); }
