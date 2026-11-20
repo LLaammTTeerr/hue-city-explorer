@@ -36,17 +36,39 @@ const GALLERIES = [
   [[[-51, 63.5], [-23, 63.5]], 4.5], // in front of the Vu halls
   [[[22, 62], [40, 62]], 4.5],
   [[[-33.5, -90], [-33.5, 40]], 6], // the long corridors either side of the inner courts
-  [[[27.5, -14], [27.5, 37]], 6],
+  [[[28.5, -14], [30.5, 29]], 6],
+  [[[22, 33], [34, 33]], 8], // the wide end in front of Điện Cần Chánh's east side
   [[[28, -91], [28, -14]], 6],
   [[[31, -51], [91, -51], [91, 22]], 5], // Tả Trường Lang
+  [[[80, -53], [80, -61]], 4], // its spur to Thái Bình Lâu
   [[[-171, -46], [-38, -46]], 6], // Hữu Trường Lang
   [[[-169, -32], [-169, -6]], 5],
 ];
+
+// the Imperial City's frame, set once build() has run
+let frame = null;
+
+// True for a mapped building this model draws itself (a gallery or a Vu hall): every corner lies within a gallery's
+// strip or a hall's plan. city.js's buildBuildings leaves these out; its own cover test misses L-shaped galleries,
+// whose middle falls in the court they wrap.
+export function owns(ring) {
+  if (!frame) return false;
+  const { C, ca, sa } = frame;
+  const inStrip = ([u, v]) => GALLERIES.some(([line, w]) => line.slice(1).some(([ub, vb], i) => {
+    const [ua, va] = line[i], lu = ub - ua, lv = vb - va, len = Math.hypot(lu, lv);
+    const s = ((u - ua) * lu + (v - va) * lv) / len, t = Math.abs((u - ua) * lv - (v - va) * lu) / len;
+    return s > -3.5 && s < len + 3.5 && t < w / 2 + 2.5;
+  })) || VU.some(([u0, u1, v0, v1]) => u > u0 - 2 && u < u1 + 2 && v > v0 - 2 && v < v1 + 2);
+  return ring.every(([x, z]) => { const dx = x - C[0], dz = z - C[1]; return inStrip([dx * ca + dz * sa, -dx * sa + dz * ca]); });
+}
+
+const VU = [[35, 54, 66, 95], [-52, -33, 67.5, 97.5]]; // Tả Vu, Hữu Vu: u0, u1, v0, v1
 
 export function build({ data, S }) {
   if (!data.imperial) return;
   const C = [data.imperial.c[0] / 10, data.imperial.c[1] / 10], A = data.imperial.a / 1000;
   const ca = Math.cos(A), sa = Math.sin(A);
+  frame = { C, ca, sa };
   const W = (u, v) => [C[0] + u * ca - v * sa, C[1] + u * sa + v * ca];
   const L = ([x, z]) => { const dx = x - C[0], dz = z - C[1]; return [dx * ca + dz * sa, -dx * sa + dz * ca]; };
   const Y = LAND_Y, keep = S.kind;
@@ -124,7 +146,7 @@ export function build({ data, S }) {
   }
 
   // ---- Tả Vu and Hữu Vu: each a pair of parallel halls under yellow glazed roofs, long along v ---------------
-  for (const [u0, u1, v0, v1] of [[35, 54, 66, 95], [-52, -33, 67.5, 97.5]]) {
+  for (const [u0, u1, v0, v1] of VU) {
     const um = (u0 + u1) / 2, vm = (v0 + v1) / 2, len = v1 - v0 - 3.4, half = (u1 - u0 - 3.4) / 2;
     const base = W(um, vm);
     S.kind = KIND.MASONRY;

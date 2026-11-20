@@ -12,6 +12,7 @@ import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced } from '../landmarks/places/index.js';
+import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -414,6 +415,7 @@ function buildBuildings(data, group, off = null) {
   data.bld.forEach((b, i) => {
     const ring = unflat(b[0]);
     if (off && off(ring, ringCentre(ring))) return; // a landmark model already stands on this footprint
+    if (b[2] === 2 && dainoiOwns(ring)) return; // a gallery or hall places/dainoi.js draws
     draw(b, i);
   });
   const mesh = new THREE.Mesh(B.geometry(), cityMaterial({ windows: true }));
