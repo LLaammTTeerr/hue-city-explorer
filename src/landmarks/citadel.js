@@ -4,6 +4,7 @@ import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
+import { replaced } from './places/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -625,6 +626,7 @@ function citadel(data, S, group) {
   // ---- riverside pavilions in front of the Citadel ----
   for (const key of ['phuvanlau', 'nghenhluong']) {
     if (!data.special?.[key]) continue;
+    if (key === 'nghenhluong' && replaced('nghenhluong')) continue;
     const o = obb(unflat(data.special?.[key].ring));
     if (key === 'phuvanlau') {
       const eaves = [];
