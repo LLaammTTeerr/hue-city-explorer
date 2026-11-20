@@ -31,7 +31,10 @@
     <nav id="places" aria-label="Địa danh"></nav>
 
     <div id="tools">
-      <button id="btn-lang" class="chip" type="button"></button>
+      <div id="seg-lang" class="seg text" role="radiogroup">
+        <button type="button" role="radio" data-lang="vi" lang="vi" title="Tiếng Việt" aria-label="Tiếng Việt" aria-checked="true">VI</button>
+        <button type="button" role="radio" data-lang="en" lang="en" title="English" aria-label="English" aria-checked="false">EN</button>
+      </div>
       <button id="btn-labels" class="icon on" type="button" aria-pressed="true">
         <svg viewBox="0 0 24 24"><path d="M4 6h10l6 6-6 6H4z" /><circle cx="8.5" cy="12" r="1.3" class="fill" /></svg>
       </button>

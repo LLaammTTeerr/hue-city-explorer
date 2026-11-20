@@ -60,7 +60,7 @@ svg .fill { fill: currentColor; stroke: none; }
 #scene.dragging { cursor: grabbing; }
 
 /* paper surface shared by every panel: a faint fibre texture laid over the flat tone */
-#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #hint {
+#search .bar, #panel, .icon, .tog, .seg, #card, dialog, #hint {
   background-color: var(--panel);
   background-image: radial-gradient(rgba(44, 36, 30, 0.035) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1.3px);
   background-size: 7px 7px, 11px 11px;
@@ -71,7 +71,7 @@ svg .fill { fill: currentColor; stroke: none; }
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   transition: background-color 0.45s ease, border-color 0.45s ease, color 0.45s ease;
 }
-body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #hint) {
+body[data-time='2'] :is(#search .bar, #panel, .icon, .tog, .seg, #card, dialog, #hint) {
   background-image: radial-gradient(rgba(207, 168, 98, 0.03) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.016) 1px, transparent 1.3px);
 }
 
@@ -130,13 +130,12 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 #places button.active::before { border-color: var(--accent-ink); }
 
 /* ---------- controls ---------- */
-.icon, .chip, .tog { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 42px; border-radius: 6px; transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s, opacity 0.3s; white-space: nowrap; }
+.icon, .tog { display: inline-flex; align-items: center; justify-content: center; gap: 9px; height: 42px; border-radius: 6px; transition: background-color 0.2s, color 0.2s, transform 0.15s, border-color 0.2s, opacity 0.3s; white-space: nowrap; }
 .icon { width: 42px; }
 .icon.small { width: 32px; height: 32px; background: transparent; border-color: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-.chip { padding: 0 14px; font-size: 13px; font-weight: 500; }
 .tog { padding: 0 17px 0 14px; font-size: 14px; font-weight: 500; }
-.icon:hover, .chip:hover, .tog:hover { background-color: var(--paper); }
-.icon:active, .chip:active, .tog:active { transform: translateY(1px); }
+.icon:hover, .tog:hover { background-color: var(--paper); }
+.icon:active, .tog:active { transform: translateY(1px); }
 /* switched on: crimson. The rain toggle fills; the label icon only takes the colour, so the top bar stays calm */
 .tog[aria-pressed='true'] { color: var(--cream); background-color: var(--seal); background-image: none; border-color: var(--seal-deep); }
 .icon.on { color: var(--accent-ink); }
@@ -144,6 +143,7 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, d
 .seg button { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 34px; border-radius: 4px; color: var(--ink-soft); transition: background 0.2s, color 0.2s; }
 .seg button:hover { background: var(--wash); color: var(--ink); }
 .seg button[aria-checked='true'] { color: var(--cream); background: var(--seal); }
+.seg.text button { width: auto; min-width: 40px; padding: 0 10px; font-size: 13px; font-weight: 500; letter-spacing: 0.04em; }
 
 #tools { position: fixed; right: var(--edge); top: var(--top); display: flex; gap: 8px; }
 #nav { position: fixed; right: var(--edge); bottom: calc(var(--bottom) + 34px); display: flex; flex-direction: column; gap: 8px; align-items: center; }
@@ -243,8 +243,10 @@ dialog kbd { font: 600 11px var(--ui); padding: 1px 6px; border-radius: 3px; bor
   #panel { max-height: 46vh; }
   /* under the search box: the tools and the compass in a column on the right */
   #tools { top: calc(var(--top) + 58px); flex-direction: column; align-items: flex-end; gap: 6px; }
-  #tools .chip { width: 42px; padding: 0; font-size: 12px; letter-spacing: 0.04em; }
-  #nav { bottom: auto; top: calc(var(--top) + 58px + 144px); }
+  /* the language choice stands upright in the column, as wide as the icons */
+  #tools .seg.text { flex-direction: column; width: 42px; height: auto; }
+  #tools .seg.text button { width: 36px; min-width: 0; height: 30px; padding: 0; font-size: 12px; }
+  #nav { bottom: auto; top: calc(var(--top) + 58px + var(--tools-h, 220px) + 12px); }
   .desk { display: none; }
   .compass { width: 42px; height: 42px; }
   .compass svg { width: 36px; height: 36px; }

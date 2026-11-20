@@ -54,8 +54,8 @@ export function createUI(data, handlers) {
     list.setAttribute('aria-label', T.places);
     search.refresh(current);
     $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
-    $('btn-lang').textContent = innerWidth <= 720 ? T.langShort : T.lang;
-    $('btn-lang').title = T.lang; $('btn-lang').setAttribute('aria-label', T.lang);
+    $('seg-lang').setAttribute('aria-label', T.langGroup);
+    document.querySelectorAll('#seg-lang button').forEach((b) => b.setAttribute('aria-checked', b.dataset.lang === lang));
     const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
     document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
@@ -159,7 +159,10 @@ export function createUI(data, handlers) {
   const hideHint = () => { clearTimeout(hintTimer); $('hint').classList.remove('show'); };
 
   // ---- wiring ----
-  $('btn-lang').addEventListener('click', () => { lang = lang === 'vi' ? 'en' : 'vi'; localStorage.setItem('hue-lang', lang); applyText(); if (current) fillCard(current); handlers.lang(lang); });
+  document.querySelectorAll('#seg-lang button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== lang) pickLang(b.dataset.lang); }));
+  // On phones the compass stacks under the tool column; publish its real height so the CSS never guesses it.
+  new ResizeObserver(([e]) => document.documentElement.style.setProperty('--tools-h', `${Math.ceil(e.borderBoxSize[0].blockSize)}px`)).observe($('tools'));
+  function pickLang(l) { lang = l; localStorage.setItem('hue-lang', lang); applyText(); if (current) fillCard(current); handlers.lang(lang); }
   $('btn-labels').addEventListener('click', () => handlers.labels());
   $('btn-look').addEventListener('click', () => handlers.look());
   $('btn-about').addEventListener('click', () => $('about').showModal());

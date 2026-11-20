@@ -351,4 +351,6 @@ the parser or a shared builder), then rebuild.
   west of north, but the build dropped them from sites. The build now derives a grid bearing per site from that linework
   (`sites.<id>.g`, plus `gk` for agreement). `namGiao()` draws in that frame, and `check:data` guards the angle. Only
   Nam Giao uses it: the tombs already orient from their mapped halls, and other sites' paths disagree too much (gk 0.1–0.6).
+- #11 done: the language control was a lone button labelled with the *other* language; it is now a VI | EN radiogroup on the shared `.seg` component (the dead `.chip` style is gone). The same pass fixed the phone compass, which was pinned at a hard-coded +144px and overlapped the tool column; `ui.js` now publishes the column's measured height as `--tools-h`.
+- Remaining: #14 (craft villages), #7 (trees around heritage sites), #5 (south bank remodel), #8 (landmark accuracy, large).
 - Next: the user picks the next issue.
