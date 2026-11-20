@@ -1,6 +1,7 @@
 import { KIND, hex, shade, unflat, inRing } from '../geo/buf.js';
 import { glowPoints } from '../geo/materials.js';
 import { LAND_Y } from '../config.js';
+import { replaced } from './places/index.js';
 
 // Cầu đi bộ gỗ lim — the ironwood riverside walkway on the south bank of the Hương, inaugurated
 // 15 Nov 2018 (KOICA-funded). A timber deck on concrete piles standing just off the Nguyễn Đình Chiểu
@@ -196,6 +197,7 @@ function boardwalkPath(data) {
 // ------------------------------------------------------------------ the model
 export function buildBoardwalk(data, S, group) {
   const glows = [];
+  if (replaced('golim')) return { glows }; // modelled in landmarks/places/golim.js
   try {
     const path = boardwalkPath(data);
     if (!path || path.length < 10) { console.warn('boardwalk: no bank found'); return { glows }; }
