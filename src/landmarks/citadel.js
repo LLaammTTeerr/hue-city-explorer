@@ -626,6 +626,7 @@ function citadel(data, S, group) {
   // ---- riverside pavilions in front of the Citadel ----
   for (const key of ['phuvanlau', 'nghenhluong']) {
     if (!data.special?.[key]) continue;
+    if (replaced(key)) continue;
     const o = obb(unflat(data.special?.[key].ring));
     if (key === 'phuvanlau') {
       const eaves = [];
