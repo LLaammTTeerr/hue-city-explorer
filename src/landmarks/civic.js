@@ -4,7 +4,6 @@ import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { replaced } from './places/index.js';
 import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
-import { replaced } from './places/index.js';
 
 // Named places of the modern and colonial city, each built on its own OSM footprint: position, size and
 // orientation are mapped; the forms follow what stands there (see README for what is illustrative).
