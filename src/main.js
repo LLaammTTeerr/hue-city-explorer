@@ -17,6 +17,7 @@ import { buildSouth } from './landmarks/south.js';
 import { buildTombs } from './landmarks/tombs.js';
 import { buildBiaQuocHoc } from './landmarks/memorial.js';
 import { buildBoardwalk } from './landmarks/boardwalk.js';
+import { buildRestaurant, isRestaurant } from './landmarks/restaurant.js';
 import { era, onEra } from './era.js';
 import { shared } from './geo/materials.js';
 import { span } from './geo/buf.js';
@@ -76,6 +77,10 @@ async function main() {
   const scene = new THREE.Scene();
 
   // ---------- world ----------
+  // the lotus restaurant on the river has its own model: take its footprint out before the city draws a block there
+  // (the last record moves into its slot, so every other building keeps its index and the details seeded from it)
+  const restaurantAt = data.bld.findIndex(isRestaurant), restaurantRec = data.bld[restaurantAt];
+  if (restaurantRec) { const last = data.bld.pop(); if (last !== restaurantRec) data.bld[restaurantAt] = last; }
   const world = buildCity(data);
   ui.loaderProgress(0.55);
   await frame();
@@ -99,6 +104,7 @@ async function main() {
   buildCivic(data, world.structures);
   buildBiaQuocHoc(data, world.structures);
   buildBoardwalk(data, world.structures, dynamic);
+  buildRestaurant(restaurantRec, data, world.structures, dynamic);
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);
   populate(world, data); // buildings, houses and trees, kept off the ground the landmark models cover

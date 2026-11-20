@@ -291,10 +291,14 @@ function bridge(S, p0, p1, w, { col = C.stone, arch = 0.5, rail = true } = {}) {
   const y0 = Math.max(gY(p0[0], p0[1]), LAND_Y) + 0.15, y1 = Math.max(gY(p1[0], p1[1]), LAND_Y) + 0.15;
   const ym = Math.max(y0, y1, LAND_Y + 0.3) + arch;
   const P = (f) => [p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f];
-  const knots = [[0, y0], [0.3, ym], [0.7, ym], [1, y1]];
+  // the deck humps on a smooth curve from bank to crown to bank (as the road bridges of geo/bridges.js do), fuller
+  // at the crown than a sine so the walk over the top stays easy
+  const N = Math.max(4, Math.min(12, Math.round(len / 1.5)));
+  const yAt = (f) => y0 + (y1 - y0) * f + (ym - (y0 + (y1 - y0) * 0.5)) * Math.pow(Math.sin(Math.PI * f), 0.6);
+  const knots = Array.from({ length: N + 1 }, (_, i) => [i / N, yAt(i / N)]);
   const ux = (p1[0] - p0[0]) / len, uz = (p1[1] - p0[1]) / len;
   S.kind = KIND.MASONRY; S.base = 0;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < N; i++) {
     const [fa, ya] = knots[i], [fb, yb] = knots[i + 1], a = P(fa), b = P(fb);
     S.beam([a[0], ya - 0.3, a[1]], [b[0], yb - 0.3, b[1]], w, 0.6, col);
     if (rail) for (const sd of [-1, 1]) {
@@ -302,7 +306,7 @@ function bridge(S, p0, p1, w, { col = C.stone, arch = 0.5, rail = true } = {}) {
       S.beam([a[0] + ox, ya + 0.3, a[1] + oz], [b[0] + ox, yb + 0.3, b[1] + oz], 0.25, 0.6, shade(col, 0.9));
     }
   }
-  for (const f of [0.3, 0.7]) { const p = P(f); S.box(p[0], p[1], POND_Y - 0.8, ym - 0.5, 1.2, w * 0.9, Math.atan2(uz, ux), shade(col, 0.85)); }
+  for (const f of [0.3, 0.7]) { const p = P(f); S.box(p[0], p[1], POND_Y - 0.8, yAt(f) - 0.5, 1.2, w * 0.9, Math.atan2(uz, ux), shade(col, 0.85)); }
 }
 
 // statues: mandarins as slim grey boxes, elephants and horses as two or three blocks
