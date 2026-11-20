@@ -486,7 +486,7 @@ function templeWalls(S, data, c = [-1300, 180]) {
 // ---- Hiển Lâm Các, three storeys of timber, and before it the nine dynastic urns facing Thế Miếu ----
 function hienLam(S, data) {
   const sp = data.special.hienlam;
-  if (!sp) return;
+  if (!sp || replaced('hienlam')) return;
   const o = obb(unflat(sp.ring)), y0 = LAND_Y;
   const eave = { fascia: 0.3, fasciaCol: shade(PAL.lacquer, 0.75), hips: true, glazed: true, ridgeCol: hex('#f1d77a') };
   S.base = 0;
