@@ -1188,8 +1188,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       return out;
     })();
     // Lakes in the hills stand at their own height, not the city's: read each one's level off the elevation model
-    // and hold the ground flat at that level inside it and along its shore.
-    const nodeLv = new Float32Array(nx * nz);
+    // and hold the ground flat at that level under the water. The shore and the islands only stand no LOWER than it:
+    // holding them flat at the water's level too cut every hill that rises from a lake (the Bửu Thành mound of lăng
+    // Minh Mạng was sheared in half, its lake side dropped 10 m to the water and the ring wall left on a ramp).
+    const nodeLv = new Float32Array(nx * nz), shoreLv = new Float32Array(nx * nz);
     ponds.forEach((poly, pi) => {
       const ring = poly[0], c = centroid(ring);
       if (inCitadel(c)) return;
@@ -1205,8 +1207,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const near = (x, z) => { for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < 34) return true; } return false; };
       for (let j = Math.max(0, Math.floor((z0 - 40 - MINZ) / STEP)); j <= Math.min(nz - 1, Math.ceil((z1 + 40 - MINZ) / STEP)); j++) for (let i = Math.max(0, Math.floor((x0 - 40 - MINX) / STEP)); i <= Math.min(nx - 1, Math.ceil((x1 + 40 - MINX) / STEP)); i++) {
         const x = MINX + i * STEP, z = MINZ + j * STEP;
-        // islands inside the lake stand at its level too (they are holes in the water polygon)
-        if (pip([x, z], ring) || near(x, z)) nodeLv[j * nx + i] = Math.max(nodeLv[j * nx + i], lv);
+        // islands are holes in the water polygon: shore, not water
+        const k = j * nx + i, wet = pip([x, z], ring) && !poly.slice(1).some((hole) => pip([x, z], hole));
+        if (wet) nodeLv[k] = Math.max(nodeLv[k], lv);
+        else if (pip([x, z], ring) || near(x, z)) shoreLv[k] = Math.max(shoreLv[k], lv);
       }
     });
     console.log('raised lakes', pondLv.filter((v) => v > 0).length, 'of', ponds.length, '| highest', Math.max(0, ...pondLv).toFixed(1), 'm');
@@ -1233,7 +1237,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const edge = i === 0 || j === 0 || i === nx - 1 || j === nz - 1;
       if (nodeLv[k] > 0) { h[k] = nodeLv[k]; lock[k] = 2; continue; }
       // banks stay at street level, except where a hill stands straight over the water (đồi Vọng Cảnh's bluff)
-      const bank = nearWet(x, z) && !(fine[k] - floor > 12 && !(at(x, z) & WATER));
+      const bank = !shoreLv[k] && nearWet(x, z) && !(fine[k] - floor > 12 && !(at(x, z) & WATER));
       if ((edge && !inHills([x, z])) || bank || inCitadel([x, z]) || wallBandTest([x, z])) { lock[k] = 1; continue; }
       h[k] = Math.max(0, fine[k] - floor) * gateOf(broad[k] - floor);
     }
@@ -1269,6 +1273,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       for (let dz = -10; dz <= 10; dz += 5) for (let dx = -10; dx <= 10; dx += 5) m = Math.max(m, demAt(MINX + i * STEP + dx, MINZ + j * STEP + dz));
       h[k] = Math.max(h[k], m - floor);
     }
+    // a lake's shore and islands stand no lower than its water
+    let shoreHigh = 0;
+    for (let k = 0; k < h.length; k++) if (shoreLv[k] && !lock[k]) { if (h[k] > shoreLv[k] + 2) shoreHigh++; h[k] = Math.max(h[k], shoreLv[k]); }
+    console.log('lake shores:', shoreHigh, 'nodes stand over 2 m above their lake (they were held flat at its level)');
     for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
     // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
     const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7 };
