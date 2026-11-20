@@ -4,6 +4,7 @@ import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
+import { replaced } from './places/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -911,6 +912,7 @@ function facePlane(group, mat, w, h, at, n, order = 0) {
 }
 
 export function buildMarket(data, S, group = null) {
+  if (replaced('dongba')) return;
   if (!data.special?.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
   // which way is the street front: toward the nearest edge of the river (Trần Hưng Đạo runs along the bank)
