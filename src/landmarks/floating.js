@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Buf, KIND, hex, shade, span, unflat, ringCentre } from '../geo/buf.js';
+import { Buf, KIND, hex, shade, unflat, ringCentre } from '../geo/buf.js';
 import { glowPoints, shared } from '../geo/materials.js';
 import { LAND_Y, quality } from '../config.js';
 
@@ -19,7 +19,7 @@ import { LAND_Y, quality } from '../config.js';
 //    and in the middle a small white tent pavilion with strings of bulbs running down from its peak
 //  - a gangway to the bank
 //
-// The water surface is y = 0 (config.js: the city stands LAND_Y above the river). Only today's era: span(2).
+// The water surface is y = 0 (config.js: the city stands LAND_Y above the river).
 
 const FLOAT_RE = /nhà hàng nổi|floating restaurant/i;
 
@@ -285,9 +285,8 @@ function lotusRestaurant(data, S, LB, glow, ring, name) {
 export function buildFloatingRestaurants(data, S, group) {
   const list = [], glows = [];
   let petalMat = null;
-  const keepSpan = S.span, keepKind = S.kind, keepBase = S.base;
+  const keepKind = S.kind, keepBase = S.base;
   try {
-    S.span = span(2);
     S.base = 0;
     const LB = { warm: new Buf(800), petal: new Buf(4000), line: new Buf(800) };
     const glow = { pos: [], col: [], lpos: [], lcol: [] }; // festoon bulbs; lamp heads
@@ -300,7 +299,7 @@ export function buildFloatingRestaurants(data, S, group) {
         if (!B.n) return;
         const m = new THREE.Mesh(B.geometry(), mat);
         m.renderOrder = 19;
-        m.userData.minEra = 2;
+        m.userData.landmark = true; // counts towards label heights (ui/labels.js)
         group.add(m);
       };
       add(LB.warm, washMaterial(0xffc98a, 0.32));
@@ -311,7 +310,6 @@ export function buildFloatingRestaurants(data, S, group) {
         if (!p.length) continue;
         const pts = glowPoints(p, cl, size);
         pts.userData.glow = true;
-        pts.userData.minEra = 2;
         group.add(pts);
         glows.push(pts);
       }
@@ -319,7 +317,6 @@ export function buildFloatingRestaurants(data, S, group) {
   } catch (e) {
     console.warn('floating restaurants:', e);
   } finally {
-    S.span = keepSpan;
     S.kind = keepKind;
     S.base = keepBase;
   }

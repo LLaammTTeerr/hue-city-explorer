@@ -17,9 +17,7 @@ import { buildSouth } from './landmarks/south.js';
 import { buildTombs } from './landmarks/tombs.js';
 import { buildBiaQuocHoc } from './landmarks/memorial.js';
 import { buildBoardwalk } from './landmarks/boardwalk.js';
-import { era, onEra } from './era.js';
 import { shared } from './geo/materials.js';
-import { span } from './geo/buf.js';
 import { buildLotus, buildTraffic, buildStreetLife } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
@@ -28,8 +26,7 @@ import { createMood } from './env/mood.js';
 import { createPost } from './env/post.js';
 import { createIBL } from './env/ibl.js';
 import { createCascades } from './env/csm.js';
-import { createCamera } from './camera/controls.js';
-import { createRide } from './camera/ride.js';
+import { createCamera, fromForm } from './camera/controls.js';
 import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
 import { VIEWS } from './ui/content.js';
@@ -45,30 +42,28 @@ async function main() {
   const res = await fetch(`${import.meta.env.BASE_URL}data/hue.json`);
   const data = await res.json();
 
-  let rig, ride, mood, labels;
+  let rig, mood, labels;
   const ui = createUI(data, {
     pick: (id, fly) => pick(id, fly),
-    overview: () => { if (!ride.active) { ui.hideCard(); const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); } },
+    overview: () => { ui.hideCard(); const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
     lang: () => labels && labels.remeasure(),
     labels: () => toggleLabels(),
     osmOnly: (on) => { world.infill.forEach((m) => { m.visible = !on; }); },
-    home: () => { follow = null; if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } },
+    home: () => { rig.goHome(); ui.hideCard(); },
     zoom: (k) => rig.zoomBy(k),
     cardClosed: () => {},
-    ride: () => { follow = null; ride.start(); },
     rain: () => mood.setRain(!mood.state.rainTarget),
     time: (i) => mood.setTime(i),
     look: () => setLook(!look, true),
-    exitRide: () => ride.exit(),
-    seek: (t, scrubbing) => ride.seek(t, scrubbing),
   });
   ui.loaderProgress(0.15);
   await frame();
 
   // ---------- renderer ----------
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows
-  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.max(1, Math.min(quality.pixelRatio, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
+  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
+  // at 1, but the adaptive fallback (adapt) may still take quality.pixelRatio below 1 on a slow 1x screen
+  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.min(quality.pixelRatio, Math.max(1, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
   renderer.setPixelRatio(fitRatio());
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -81,22 +76,13 @@ async function main() {
   ui.loaderProgress(0.55);
   await frame();
   const dynamic = new THREE.Group();
-  // each landmark is tagged with the first era it stands in (src/era.js): Trường Tiền 1899, the market and
-  // Quốc Học's gate under the French, cầu Nguyễn Hoàng 2025; the Citadel and Thiên Mụ are older than all three
   const S = world.structures;
-  S.span = span(1);
   const bridge = buildTruongTien(data, S, dynamic);
-  S.span = 0;
   const citadel = buildCitadel(data, S, dynamic);
-  S.span = span(1);
   buildMarket(data, S, dynamic);
-  S.span = 0;
   buildThienMu(data, S, dynamic);
-  S.span = span(2);
   const extraGlows = buildNguyenHoang(data, S, dynamic);
-  S.span = span(1);
   buildQuocHocGate(data, S);
-  S.span = 0;
   buildCivic(data, world.structures);
   buildBiaQuocHoc(data, world.structures);
   buildBoardwalk(data, world.structures, dynamic);
@@ -111,16 +97,8 @@ async function main() {
   const traffic = buildTraffic(data, dynamic);
   const street = buildStreetLife(data, dynamic);
   scene.add(world.group, dynamic);
-  // the era switcher: geometry hides itself in the shader; lights and lamp glows are switched here
-  const eraGated = [], lanternGlows = []; // lanternGlows: glow points that landmarks flagged for the per-frame update
-  dynamic.traverse((o) => { if (o.userData.minEra != null) eraGated.push(o); if (o.userData.glow) lanternGlows.push(o); });
-  const applyEra = (e) => {
-    shared.uEra.value = e;
-    for (const o of eraGated) o.visible = e >= o.userData.minEra;
-    world.lamps.material.uniforms.uBoost.value = e >= 2 ? 0.6 : 0.3; // thinner street lighting in the 1930s
-  };
-  applyEra(era.value);
-  onEra(applyEra);
+  const lanternGlows = []; // lanternGlows: glow points that landmarks flagged for the per-frame update
+  dynamic.traverse((o) => { if (o.userData.glow) lanternGlows.push(o); });
   ui.loaderProgress(0.8);
   await frame();
 
@@ -173,13 +151,6 @@ async function main() {
   rig.setHome(hv.pos, hv.target);
   rig.jumpHome();
 
-  const placeXZ = Object.fromEntries(data.places.map((p) => [p.id, [p.x / 10, p.z / 10]]));
-  ride = createRide({ rig, bridge, boats, places: { thuongtu: placeXZ['gate:Cửa Thượng Tứ'] } });
-  ride.on((type) => {
-    if (type === 'start') { ui.setRide(true); labels.setDim(true); }
-    if (type === 'tick') ui.setRideProgress(ride.progress);
-    if (type === 'end') { ui.setRide(false); labels.setDim(false); setTimeout(() => { if (!ride.active) boats.rideBoat.visible = false; }, 9000); }
-  });
 
   // ---------- labels & picking ----------
   let labelsOn = true;
@@ -189,8 +160,6 @@ async function main() {
   function pick(id, fly) {
     const p = data.places.find((q) => q.id === id);
     if (!p) return;
-    if (ride.active) return;
-    if (fly) follow = null;
     ui.showCard(id);
     labels.markVisited(id);
     if (fly) {
@@ -203,49 +172,27 @@ async function main() {
     }
   }
 
-  // following a boat: the camera's target rides on it; orbit and zoom still work
-  let follow = null;
-  const waterRay = new THREE.Raycaster(), waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.5), waterHit = new THREE.Vector3();
-  function boatAt(cx, cy) {
-    const r = canvas.getBoundingClientRect();
-    waterRay.setFromCamera(new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
-    if (!waterRay.ray.intersectPlane(waterPlane, waterHit)) return null;
-    const reach = Math.max(16, camera.position.distanceTo(waterHit) * 0.03);
-    let best = null, bd = reach;
-    for (const b of boats.fleet) { const d = Math.hypot(b.mesh.position.x - waterHit.x, b.mesh.position.z - waterHit.z); if (d < bd) { bd = d; best = b; } }
-    return best;
-  }
-  const followDelta = new THREE.Vector3();
-  function updateFollow() {
-    if (!follow || ride.active || rig.flying) return;
-    followDelta.set(follow.mesh.position.x - controls.target.x, 0, follow.mesh.position.z - controls.target.z).multiplyScalar(0.12);
-    controls.target.add(followDelta);
-    camera.position.add(followDelta);
-  }
-
-  // tap / click on the ground near a landmark reveals it; drag during the ride turns the head
-  let down = null;
+  // tap / click on the ground near a landmark reveals it.
+  // Every pointer is tracked: a second finger neither ends the first one's drag nor counts as a tap.
+  const downs = new Map();
   canvas.addEventListener('pointerdown', (e) => {
-    down = { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, id: e.pointerId };
+    const multi = downs.size > 0;
+    if (multi) downs.forEach((d) => { d.multi = true; });
+    downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, multi });
     canvas.classList.add('dragging');
-    if (ride.active) { ride.setDragging(true); canvas.setPointerCapture(e.pointerId); }
   });
   canvas.addEventListener('pointermove', (e) => {
-    if (!down || down.id !== e.pointerId) return;
-    if (ride.active) ride.look(e.clientX - down.lx, e.clientY - down.ly);
+    const down = downs.get(e.pointerId);
+    if (!down) return;
     down.lx = e.clientX; down.ly = e.clientY;
   });
   const up = (e) => {
-    canvas.classList.remove('dragging');
-    ride.setDragging(false);
-    if (!down || down.id !== e.pointerId) return;
+    const down = downs.get(e.pointerId);
+    downs.delete(e.pointerId);
+    if (!downs.size) canvas.classList.remove('dragging');
+    if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
-    down = null;
-    if (moved > 6 || dt > 450 || ride.active || e.type === 'pointercancel') return;
-    // a click on a dragon boat rides along with it (the river plane is at y = 0, so test against that)
-    const hitBoat = boatAt(e.clientX, e.clientY);
-    if (hitBoat) { follow = hitBoat; ui.hideCard(); ui.hint(ui.T.hintFollow, 5000); return; }
-    if (follow) { follow = null; ui.hideHint(); }
+    if (down.multi || moved > 6 || dt > 450 || e.type === 'pointercancel') return;
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     let best = null, bd = Infinity;
@@ -260,7 +207,6 @@ async function main() {
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('dblclick', (e) => {
-    if (ride.active) return;
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     const off = camera.position.clone().sub(controls.target).multiplyScalar(0.45);
@@ -271,11 +217,10 @@ async function main() {
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
   addEventListener('keydown', (e) => {
-    if (e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
+    if (fromForm(e) || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
     const k = e.key.toLowerCase();
-    if (k === 'escape') { if (ride.active) ride.exit(); else if (follow) { follow = null; ui.hideHint(); } else ui.hideCard(); }
-    else if (k === 'h' || k === 'home') { if (ride.active) ride.exit(); else { rig.goHome(); ui.hideCard(); } }
-    else if (k === 'b') { if (!ride.active) ride.start(); }
+    if (k === 'escape') ui.hideCard();
+    else if (k === 'h' || k === 'home') { rig.goHome(); ui.hideCard(); }
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
     else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (k === 'l') toggleLabels();
@@ -315,20 +260,21 @@ async function main() {
     labels.remeasure();
     hv = homeView();
     rig.setHome(hv.pos, hv.target);
-    if (!rig.touched && !ride.active && !rig.flying) rig.jumpHome();
+    if (!rig.touched && !rig.flying) rig.jumpHome();
   }
-  addEventListener('resize', resize);
+  // one resize per frame at most: each one reallocates the multisampled post targets and the mirror's
+  let resizeQueued = false;
+  addEventListener('resize', () => { if (!resizeQueued) { resizeQueued = true; requestAnimationFrame(() => { resizeQueued = false; resize(); }); } });
 
   // ---------- frame loop ----------
   let last = performance.now();
-  const fwd = new THREE.Vector3(), focus = new THREE.Vector3();
+  const focus = new THREE.Vector3();
   let time = 0;
   function updateShadow() {
     // keep the shadow map centred where the eye is resting, sized to the view
     const dist = camera.position.distanceTo(controls.target);
-    if (ride.active) { camera.getWorldDirection(fwd); focus.copy(camera.position).addScaledVector(fwd, 160); focus.y = LAND_Y; }
-    else focus.copy(controls.target);
-    const ext = ride.active ? 420 : Math.max(260, Math.min(2600, dist * 0.8));
+    focus.copy(controls.target);
+    const ext = Math.max(260, Math.min(2600, dist * 0.8));
     shadows.update(focus, mood.sunDir, ext);
   }
 
@@ -347,7 +293,8 @@ async function main() {
     if (ft > 250 || document.visibilityState !== 'visible') { slow = 0; return; }
     slow = ft > 36 ? slow + ft : Math.max(0, slow - ft * 2);
     if (slow > 2500 && pr > 0.8) {
-      pr = Math.max(0.75, pr - 0.25); slow = 0;
+      // step down from the ratio actually in use, so the first steps are not swallowed by the pixel cap in fitRatio
+      pr = Math.max(0.75, Math.min(pr, renderer.getPixelRatio()) - 0.25); slow = 0;
       quality.pixelRatio = pr;
       renderer.setPixelRatio(fitRatio());
       if (post) post.resize();
@@ -356,9 +303,7 @@ async function main() {
   }
   function step(dt) {
     time += dt;
-    ride.update(dt);
-    updateFollow();
-    rig.update(dt, !ride.active);
+    rig.update(dt);
     mood.update(dt, time);
     bridge.update(time, mood.cur.glow, mood.state.rain);
     floating.update(time);
@@ -374,18 +319,18 @@ async function main() {
     world.lamps.material.uniforms.uScale.value = pxScale;
     bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
     bridge.lamps.material.uniforms.uScale.value = pxScale;
-    for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= 2; }
+    for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01; }
     if (lanterns.halo) lanterns.halo.material.uniforms.uScale.value = pxScale;
-    for (const g of lanternGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01 && era.value >= (g.userData.minEra ?? 0); }
+    for (const g of lanternGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01; }
     const lit = mood.cur.glow > 0.01;
-    world.lamps.visible = lit && era.value >= 1; bridge.lamps.visible = lit && era.value >= 1; bridge.lights.forEach((l) => { l.visible = lit && era.value >= 2; });
+    world.lamps.visible = lit; bridge.lamps.visible = lit; bridge.lights.forEach((l) => { l.visible = lit; });
     if (post) {
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow, time);
       // focus on what the camera is looking at. Near the ground everything is sharp, as a building is to someone standing
       // by it; only from the air does the far field soften a little. The illustrated look is sharp throughout.
-      const fd = ride.active ? 90 : camera.position.distanceTo(controls.target);
+      const fd = camera.position.distanceTo(controls.target);
       const hgt = camera.position.y - LAND_Y;
-      post.setFocus(fd, (1 - look) * (ride.active ? 0 : 0.3 * THREE.MathUtils.smoothstep(hgt, 120, 650)));
+      post.setFocus(fd, (1 - look) * 0.3 * THREE.MathUtils.smoothstep(hgt, 120, 650));
       post.setLook(look);
     }
     draw();
@@ -407,7 +352,7 @@ async function main() {
   setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
 
   // handle for debugging and automated checks
-  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
+  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
 }
 
 main().catch((err) => {

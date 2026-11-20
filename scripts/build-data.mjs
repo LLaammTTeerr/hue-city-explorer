@@ -10,25 +10,48 @@ import zlib from 'node:zlib';
 
 const RAW = 'data/raw/hue-osm.json';
 const OUT = 'public/data/hue.json';
+// A missing input (height rasters, terrain grid, lidar points) stops the build: without it the bundle comes out
+// materially different (rule heights, a flat or uncalibrated ground). `--allow-missing` builds anyway, with a warning.
+const ALLOW_MISSING = process.argv.includes('--allow-missing');
+const missing = (msg) => {
+  if (!ALLOW_MISSING) { console.error('missing input:', msg, '\n(pass --allow-missing to build without it)'); process.exit(1); }
+  console.warn(msg);
+};
+const quality = {}; // calibration errors, checked at the end
 
-// Local frame: metres east (x) and south (z) of the middle of cầu Trường Tiền.
-const ORIGIN = { lat: 16.468896, lon: 107.588858 };
-const BBOX = { s: 16.382, w: 107.5385, n: 16.4965, e: 107.613 }; // west edge reaches chùa Thiên Mụ; south edge takes in the royal tombs down to lăng Minh Mạng
-const CITY_S = 16.4455; // south of this line lie the hills: sparser houses and trees, real relief
+// Local frame: metres east (x) and south (z) of the middle of cầu Trường Tiền. Shared with the raw-data fetchers
+// through scripts/frame.json. The west edge reaches chùa Thiên Mụ; the south edge takes in the royal tombs down to
+// lăng Minh Mạng; south of citySouth lie the hills (sparser houses and trees, real relief).
+const FRAME = JSON.parse(fs.readFileSync(new URL('./frame.json', import.meta.url), 'utf8'));
+const ORIGIN = FRAME.origin;
+const BBOX = FRAME.bbox;
+const CITY_S = FRAME.citySouth;
 const KX = Math.cos((ORIGIN.lat * Math.PI) / 180) * 111319.49;
-const KZ = 110574;
+const KZ = FRAME.kz; // the equatorial degree of latitude, about 0.08 % short at 16.5 N: kept, see scripts/frame.json
 const proj = (p) => [(p.lon - ORIGIN.lon) * KX, -(p.lat - ORIGIN.lat) * KZ];
 
 const raw = JSON.parse(fs.readFileSync(RAW, 'utf8'));
 const els = raw.elements;
-// extra strips fetched with scripts/fetch-osm-strip.sh (data/raw/hue-osm-<name>.json) are merged in
+// Extra strips (data/raw/hue-osm-<name>.json, see scripts/fetch-osm-all.sh) are merged in. An element present in
+// several extracts keeps its newest copy: by its own `version` where the extract carries it (`out meta`), otherwise
+// by the extract's timestamp (osm3s.timestamp_osm_base). It keeps the place of its first appearance in the list.
+const osmExtracts = { 'hue-osm.json': (raw.osm3s && raw.osm3s.timestamp_osm_base) || null };
 {
-  const have = new Set(els.map((e) => e.type + e.id));
+  const stamp = (j) => (j.osm3s && j.osm3s.timestamp_osm_base) || '';
+  const at = new Map(els.map((e, i) => [e.type + e.id, { i, ts: stamp(raw) }]));
   for (const f of fs.readdirSync('data/raw').filter((n) => /^hue-osm-.+\.json$/.test(n))) {
-    const extra = JSON.parse(fs.readFileSync('data/raw/' + f, 'utf8')).elements;
-    let added = 0;
-    for (const e of extra) if (!have.has(e.type + e.id)) { have.add(e.type + e.id); els.push(e); added++; }
-    console.log('merged', f, '+' + added, 'elements');
+    const j = JSON.parse(fs.readFileSync('data/raw/' + f, 'utf8'));
+    const ts = stamp(j);
+    osmExtracts[f] = ts || null;
+    let added = 0, replaced = 0;
+    for (const e of j.elements) {
+      const k = e.type + e.id, prev = at.get(k);
+      if (!prev) { at.set(k, { i: els.length, ts }); els.push(e); added++; continue; }
+      const old = els[prev.i];
+      const newer = old.version != null && e.version != null ? e.version > old.version : ts > prev.ts;
+      if (newer) { els[prev.i] = e; prev.ts = ts; replaced++; }
+    }
+    console.log('merged', f, '+' + added, 'elements', replaced ? `(${replaced} replaced by this newer copy)` : '');
   }
 }
 const byId = new Map(els.map((e) => [e.type + e.id, e]));
@@ -473,7 +496,7 @@ const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(
 //     holds no footprint (it dates from 2022-23).
 const raster = (name, script) => {
   const meta = `data/raw/heights/${name}.json`, bin = `data/raw/heights/${name}.u8.gz`;
-  if (!fs.existsSync(meta) || !fs.existsSync(bin)) { console.warn(`no ${name} heights (run scripts/${script})`); return null; }
+  if (!fs.existsSync(meta) || !fs.existsSync(bin)) { missing(`no ${name} heights (run scripts/${script})`); return null; }
   const m = { ...JSON.parse(fs.readFileSync(meta, 'utf8')), g: zlib.gunzipSync(fs.readFileSync(bin)) };
   m.at = (x, z) => { const i = Math.floor((x - m.x0) / m.step), j = Math.floor((z - m.z0) / m.step); return i < 0 || j < 0 || i >= m.nx || j >= m.nz ? 0 : m.g[j * m.nx + i] * m.unit; };
   return m;
@@ -483,14 +506,14 @@ if (!SV && !HM) console.warn('no measured heights: building heights fall back to
 const cellS = (x, z) => (SV ? SV.at(x, z) : 0), cellH = (x, z) => (HM ? HM.at(x, z) : 0);
 // height to the top of what stands on a footprint (0: neither source sees a building there); `measured.src` then
 // says which source gave it (1 the survey, 2 the satellite prediction)
-const measured = (ring) => {
+const measured = (ring, holes = []) => {
   measured.src = 0;
   if (!SV && !HM) return 0;
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
   const v = [], sv = [];
   let cells = 0;
-  for (let z = Math.floor(z0 / 2) * 2 + 1; z <= z1; z += 2) for (let x = Math.floor(x0 / 2) * 2 + 1; x <= x1; x += 2) if (pip([x, z], ring)) { cells++; v.push(cellH(x, z)); const a = cellS(x, z); if (a > 0) sv.push(a); }
+  for (let z = Math.floor(z0 / 2) * 2 + 1; z <= z1; z += 2) for (let x = Math.floor(x0 / 2) * 2 + 1; x <= x1; x += 2) if (pip([x, z], ring) && !holes.some((hr) => pip([x, z], hr))) { cells++; v.push(cellH(x, z)); const a = cellS(x, z); if (a > 0) sv.push(a); }
   if (!cells) { cells = 1; v.push(cellH((x0 + x1) / 2, (z0 + z1) / 2)); const a = cellS((x0 + x1) / 2, (z0 + z1) / 2); if (a > 0) sv.push(a); }
   const area = Math.abs(ringArea(ring));
   // the survey, where its footprints cover at least half of this one: each of them carries one height, so the
@@ -524,6 +547,8 @@ const measuredRect = (cx, cz, w, d, ang) => {
   return m * 1.1 >= 2.8 ? m * 1.1 : 0;
 };
 let nMeasured = 0, nSurvey = 0, nHouseMeasured = 0;
+const PERIOD_CAP = { 1: 13, 2: 5.2 }, PERIOD_SLACK = 1.2; // tallest Indochine building / Nguyễn-period house, m
+const periodKept = { 1: 0, 2: 0 }; // surveyed buildings too tall for their district's period
 const gates = [];
 const buildings = [];
 const smeared = new Set(), surveyed = new Set(); // buildings whose height is the satellite prediction / the city survey's reading
@@ -541,6 +566,8 @@ for (const e of els) {
   const ring = openRing(rings[0]);
   const area = Math.abs(ringArea(ring));
   if (area < 7 || ring.length < 3) continue;
+  // only the outer ring is drawn; inner rings (courtyards) are at least kept out of the height reading
+  const holes = rings.slice(1).map(openRing).filter((hr) => hr.length >= 3 && pip(centroid(hr), ring));
   const c = centroid(ring);
   if (!ring.every((p) => inBox(p, -1))) continue;
   if (ringArea(ring) < 0) ring.reverse();
@@ -591,12 +618,15 @@ for (const e of els) {
   if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
   // what the building really measures, where the raster sees it and OSM gives no height of its own: h then runs to the
   // top of the building (sixth field), and the builder fits the eave under whatever roof it draws
-  const mh = !hTag && !lv && kind !== 8 ? measured(ring) : 0, src = mh ? measured.src : 0;
+  const mh = !hTag && !lv && kind !== 8 ? measured(ring, holes) : 0, src = mh ? measured.src : 0;
   if (mh) { h = mh; nMeasured++; if (src === 1) nSurvey++; }
   if (h > 30) kind = 7;
-  // flags 4 = Indochine, 8 = Nguyễn-period timber house
+  // flags 4 = Indochine, 8 = Nguyễn-period timber house. The district only suggests a period: a building the survey
+  // measures clearly taller than the period allows (over PERIOD_SLACK times its cap) is a later one, keeps its measured
+  // height and takes no period styling. Within that, a period building is held to the period's range.
   if ((kind === 0 || kind === 1 || kind === 5) && h <= 30) {
-    const era = eraOf(c, area);
+    let era = eraOf(c, area);
+    if (era && src === 1 && mh > PERIOD_CAP[era] * PERIOD_SLACK && (era === 1 || kind === 0)) { periodKept[era]++; era = 0; }
     if (era === 1) { flags |= 4; if (mh) h = Math.max(4.6, Math.min(mh, 13)); else if (!hTag && !lv && !(flags & 2)) h = area > 260 ? 9.8 : area > 70 ? 7.4 : 4.6; } // Quốc Học keeps its own
     else if (era === 2 && kind === 0) { flags |= 8; if (!hTag && !lv) h = mh ? Math.max(3.4, Math.min(mh, 5.2)) : 3.7 + r * 0.9; }
   }
@@ -635,6 +665,7 @@ if (special.vincom) {
   }
   console.log('capped beside Vincom:', n);
 }
+console.log('surveyed taller than the period: kept measured, not styled | Indochine (over', PERIOD_CAP[1] * PERIOD_SLACK, 'm)', periodKept[1], '| Nguyễn-period (over', +(PERIOD_CAP[2] * PERIOD_SLACK).toFixed(2), 'm)', periodKept[2]);
 console.log('measured heights on', nMeasured, 'of', buildings.length, 'buildings |', nSurvey, 'from the city survey,', nMeasured - nSurvey, 'from the satellite prediction');
 console.log('buildings', buildings.length, 'gates', gates.length, gates.map((g) => g.n + ':' + g.k).join(', '));
 for (const e of els) {
@@ -965,15 +996,17 @@ for (const [id, top] of Object.entries(TRUE_H)) {
   const pl = places.find((p) => p.id === id);
   if (!pl) continue;
   const c = [pl.x / 10, pl.z / 10];
-  let best = null, bd = 25;
+  let best = null, bd = 25, inside = false;
   for (const b of buildings) {
     const ring = [];
     for (let i = 0; i < b[0].length; i += 2) ring.push([b[0][i] / 10, b[0][i + 1] / 10]);
-    if (pip(c, ring)) { best = b; break; }
+    if (pip(c, ring)) { best = b; inside = true; break; }
     const cc = centroid(ring), d = Math.hypot(cc[0] - c[0], cc[1] - c[1]);
     if (d < bd) { bd = d; best = b; }
   }
   if (!best) { console.warn('true height: no building at', id); continue; }
+  // the place point stands in no footprint: the nearest one is taken, which may be a neighbour (check the name)
+  if (!inside) console.warn('true height', id, ': place point in no footprint, nearest building', bd.toFixed(1), 'm away taken:', best[3] || 'unnamed');
   best[6] = 1; // 1: a monument (no stair heads or tanks on its roof)
   if (surveyed.has(best) && !AFTER_SURVEY.includes(id)) console.log('true height', id.padEnd(13), 'table', String(top).padStart(5), '| survey', (best[5] / 10).toFixed(1).padStart(5), '(kept)');
   else { best[1] = Math.min(best[1], q(top)); best[5] = q(top); console.log('true height', id.padEnd(13), 'table', String(top).padStart(5), '(used)'); }
@@ -1068,7 +1101,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
   // scripts/fetch-terrain.py. A surface model reads roofs and canopy as ground: the flat city then carries several
   // metres of noise and every low hill has to be flattened along with it.
   const DEM = 'data/raw/dem/terrain.json';
-  if (!fs.existsSync(DEM)) console.warn('no terrain grid (run scripts/fetch-terrain.py): terrain stays flat');
+  if (!fs.existsSync(DEM)) missing('no terrain grid (run scripts/fetch-terrain.py): terrain stays flat');
   else {
     const D = JSON.parse(fs.readFileSync(DEM, 'utf8'));
     const sample = (arr) => (x, z) => {
@@ -1111,7 +1144,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     //    returns are left out.
     let fieldAt = () => 0, river = null, lidar = null;
     const LIDAR = 'data/raw/lidar/icesat2-ground.json';
-    if (!fs.existsSync(LIDAR)) console.warn('no lidar ground points (run scripts/fetch-lidar.py): terrain is not calibrated on the plain');
+    if (!fs.existsSync(LIDAR)) missing('no lidar ground points (run scripts/fetch-lidar.py): terrain is not calibrated on the plain');
     else {
       const SIG = 150, LAM = 4, WIDE = 900, LAMW = 8, CELL = 300, land = [], wet = [];
       for (const [lat, lon, ele, pass] of JSON.parse(fs.readFileSync(LIDAR, 'utf8')).pts) {
@@ -1154,6 +1187,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       };
       console.log('lidar ground points:', land.length, 'on land,', wet.length, 'on open water (river level', river === null ? '-' : river.toFixed(2), 'm) | error in m rms (median), each overpass predicted from the others');
       row('plain, under 8 m', (p) => p.ele < 8); row('rising ground, 8-25 m', (p) => p.ele >= 8 && p.ele < 25); row('hills, over 25 m', (p) => p.ele >= 25); row('all', () => true);
+      quality.lidarRms = +rms(land.map((p) => field(p.x, p.z, p.pass) - p.r));
       lidar = land;
     }
     const demAt = (x, z) => baseAt(x, z) + fieldAt(x, z);
@@ -1207,8 +1241,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       return out;
     })();
     // Lakes in the hills stand at their own height, not the city's: read each one's level off the elevation model
-    // and hold the ground flat at that level inside it and along its shore.
-    const nodeLv = new Float32Array(nx * nz);
+    // and hold the ground flat at that level under the water. The shore and the islands only stand no LOWER than it:
+    // holding them flat at the water's level too cut every hill that rises from a lake (the Bửu Thành mound of lăng
+    // Minh Mạng was sheared in half, its lake side dropped 10 m to the water and the ring wall left on a ramp).
+    const nodeLv = new Float32Array(nx * nz), shoreLv = new Float32Array(nx * nz);
     ponds.forEach((poly, pi) => {
       const ring = poly[0], c = centroid(ring);
       if (inCitadel(c)) return;
@@ -1224,8 +1260,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const near = (x, z) => { for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < 34) return true; } return false; };
       for (let j = Math.max(0, Math.floor((z0 - 40 - MINZ) / STEP)); j <= Math.min(nz - 1, Math.ceil((z1 + 40 - MINZ) / STEP)); j++) for (let i = Math.max(0, Math.floor((x0 - 40 - MINX) / STEP)); i <= Math.min(nx - 1, Math.ceil((x1 + 40 - MINX) / STEP)); i++) {
         const x = MINX + i * STEP, z = MINZ + j * STEP;
-        // islands inside the lake stand at its level too (they are holes in the water polygon)
-        if (pip([x, z], ring) || near(x, z)) nodeLv[j * nx + i] = Math.max(nodeLv[j * nx + i], lv);
+        // islands are holes in the water polygon: shore, not water
+        const k = j * nx + i, wet = pip([x, z], ring) && !poly.slice(1).some((hole) => pip([x, z], hole));
+        if (wet) nodeLv[k] = Math.max(nodeLv[k], lv);
+        else if (pip([x, z], ring) || near(x, z)) shoreLv[k] = Math.max(shoreLv[k], lv);
       }
     });
     console.log('raised lakes', pondLv.filter((v) => v > 0).length, 'of', ponds.length, '| highest', Math.max(0, ...pondLv).toFixed(1), 'm');
@@ -1252,7 +1290,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const edge = i === 0 || j === 0 || i === nx - 1 || j === nz - 1;
       if (nodeLv[k] > 0) { h[k] = nodeLv[k]; lock[k] = 2; continue; }
       // banks stay at street level, except where a hill stands straight over the water (đồi Vọng Cảnh's bluff)
-      const bank = nearWet(x, z) && !(fine[k] - floor > 12 && !(at(x, z) & WATER));
+      const bank = !shoreLv[k] && nearWet(x, z) && !(fine[k] - floor > 12 && !(at(x, z) & WATER));
       if ((edge && !inHills([x, z])) || bank || inCitadel([x, z]) || wallBandTest([x, z])) { lock[k] = 1; continue; }
       h[k] = Math.max(0, fine[k] - floor) * gateOf(broad[k] - floor);
     }
@@ -1288,6 +1326,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       for (let dz = -10; dz <= 10; dz += 5) for (let dx = -10; dx <= 10; dx += 5) m = Math.max(m, demAt(MINX + i * STEP + dx, MINZ + j * STEP + dz));
       h[k] = Math.max(h[k], m - floor);
     }
+    // a lake's shore and islands stand no lower than its water
+    let shoreHigh = 0;
+    for (let k = 0; k < h.length; k++) if (shoreLv[k] && !lock[k]) { if (h[k] > shoreLv[k] + 2) shoreHigh++; h[k] = Math.max(h[k], shoreLv[k]); }
+    console.log('lake shores:', shoreHigh, 'nodes stand over 2 m above their lake (they were held flat at its level)');
     for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
     // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
     const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7 };
@@ -1333,12 +1375,14 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       for (const c of pts) {
         const [x, z] = proj(c), R = c.r || 100, f = c.what === 'summit' ? top : mean;
         // the model's own ground: the city floor plus what the terrain rises there (water is drawn lower, by design)
-        const model = c.what === 'water' ? NaN : c.what === 'summit' ? modelAt(x, z, R) : (x < MINX || x > MAXX || z < MINZ || z > MAXZ ? NaN : floor + mean((a, b) => { const i = Math.round((a - MINX) / STEP), k = Math.round((b - MINZ) / STEP); return h[k * nx + i]; }, x, z, R));
+        // a sample off the grid (a disc crossing the slab's edge) is left out rather than read from a neighbouring row
+        const model = c.what === 'water' ? NaN : c.what === 'summit' ? modelAt(x, z, R) : (x < MINX || x > MAXX || z < MINZ || z > MAXZ ? NaN : floor + (() => { let s2 = 0, n = 0; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) { const i = Math.round((x + dx - MINX) / STEP), k = Math.round((z + dz - MINZ) / STEP); if (i < 0 || k < 0 || i >= nx || k >= nz) continue; s2 += h[k * nx + i]; n++; } return n ? s2 / n : NaN; })());
         const v = { bare: f(bareAt, x, z, R), surface: f(surfAt, x, z, R), calibrated: f(demAt, x, z, R), model };
         if (!c.doubt) for (const k of Object.keys(err)) if (Number.isFinite(v[k])) err[k].push(v[k] - c.ele);
         console.log('  ' + (c.name + (c.doubt ? ' (doubtful)' : '')).padEnd(34), String(c.ele).padStart(5), '|', v.bare.toFixed(1).padStart(6), '|', v.surface.toFixed(1).padStart(6), '|', v.calibrated.toFixed(1).padStart(6), '|', Number.isFinite(v.model) ? v.model.toFixed(1).padStart(6) : '     -');
       }
       const stat = (a) => (a.reduce((s2, e) => s2 + e, 0) / a.length).toFixed(1) + ' mean, ' + Math.sqrt(a.reduce((s2, e) => s2 + e * e, 0) / a.length).toFixed(1) + ' rms';
+      quality.peakRms = Math.sqrt(err.model.reduce((s2, e) => s2 + e * e, 0) / (err.model.length || 1));
       console.log('  error: bare', stat(err.bare), '| surface', stat(err.surface), '| calibrated', stat(err.calibrated), '| model', stat(err.model));
     }
     const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
@@ -1362,6 +1406,7 @@ const out = {
     origin: ORIGIN,
     bounds: [q(MINX), q(MINZ), q(MAXX), q(MAXZ)],
     osmTimestamp: raw.osm3s && raw.osm3s.timestamp_osm_base,
+    osmExtracts, // every extract merged, with its Overpass timestamp (null: fetched from the OSM API, no timestamp)
     counts: { buildings: buildings.length, infill: infill.length / 8, roads: roads.length, trees: trees.length / 4, infillNear, treesNear },
   },
   land: land.map(flatPoly),
@@ -1392,7 +1437,25 @@ const out = {
   places,
   waterLabels: water_labels,
 };
+const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT)) : null;
 fs.mkdirSync('public/data', { recursive: true });
 fs.writeFileSync(OUT, JSON.stringify(out));
 console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB', '| extent m', Math.round(MAXX - MINX), 'x', Math.round(MAXZ - MINZ));
 console.log('truong tien obb', ttBox.w.toFixed(1), 'x', ttBox.d.toFixed(1), 'centre', ttBox.c.map((v) => v.toFixed(1)), 'centreline', tt.map((p) => p.map((v) => v.toFixed(1))));
+
+// ---- checks: the terrain must not get worse without anyone noticing (see scripts/check-data.mjs) ----
+{
+  const { checkData, diffData } = await import('./check-data.mjs');
+  const { fails, notes } = checkData(JSON.parse(JSON.stringify(out)));
+  // the calibration against the laser and the named summits, against the figures of November 2026 (1.31 and 1.2 m)
+  const limit = { lidarRms: 1.5, peakRms: 1.5 };
+  for (const [k, v] of Object.entries(limit)) {
+    const got = quality[k];
+    if (got == null) notes.push(`skip ${k}: not measured (raw data missing)`);
+    else (got <= v ? notes : fails).push(`${got <= v ? 'ok  ' : 'FAIL'} terrain ${k === 'lidarRms' ? 'error against the laser ground points' : 'error at the named summits'}: ${got.toFixed(2)} m rms (limit ${v})`);
+  }
+  console.log('checks:');
+  for (const l of [...notes, ...fails]) console.log('  ' + l);
+  if (previous) { console.log('changes against the previous ' + OUT + ':'); for (const l of diffData(previous, out)) console.log('  ' + l); }
+  if (fails.length) { console.error(`build-data: ${fails.length} check(s) failed; ${OUT} was written so it can be inspected, but do not ship it`); process.exit(1); }
+}

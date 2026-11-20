@@ -1,5 +1,4 @@
 import { NOTES, PLACE_GROUPS } from './content.js';
-import { existsIn } from '../era.js';
 
 // The search box: a map-style bar whose panel lists the places of the model. Nothing is looked up online: the
 // index is the place list in hue.json plus the titles, kinds and summaries of stories.json and the short notes.
@@ -135,7 +134,7 @@ export function createSearch(ctx) {
       rows[0].el.classList.add('ov');
       const byId = new Map(ctx.places.map((p) => [p.id, p]));
       PLACE_GROUPS.forEach((g, gi) => {
-        const ps = g.ids.map((id) => byId.get(id)).filter((p) => p && existsIn(p.id));
+        const ps = g.ids.map((id) => byId.get(id)).filter(Boolean);
         if (!ps.length) return;
         const h = document.createElement('div'); h.className = 'rgroup'; h.textContent = T.groups[gi]; h.setAttribute('role', 'presentation');
         results.append(h);
@@ -143,11 +142,10 @@ export function createSearch(ctx) {
       });
     } else {
       const want = FILTERS[filter];
-      let found = ctx.places.filter((p) => !want || want.includes(p.k)).map((p) => ({ p, s: tokens.length ? score(p, tokens) : 1 })).filter((r) => r.s > 0);
-      const here = found.filter((r) => existsIn(r.p.id));
-      here.sort((a, b) => b.s - a.s || a.p.t - b.p.t || a.p.n.localeCompare(b.p.n, 'vi'));
-      here.forEach((r) => placeRow(r.p, tokens));
-      if (!here.length) message = !tokens.length ? T.noneOfKind : found.length ? T.noResultsEra : T.noResults.replace('{q}', q);
+      const found = ctx.places.filter((p) => !want || want.includes(p.k)).map((p) => ({ p, s: tokens.length ? score(p, tokens) : 1 })).filter((r) => r.s > 0);
+      found.sort((a, b) => b.s - a.s || a.p.t - b.p.t || a.p.n.localeCompare(b.p.n, 'vi'));
+      found.forEach((r) => placeRow(r.p, tokens));
+      if (!found.length) message = !tokens.length ? T.noneOfKind : T.noResults.replace('{q}', q);
     }
     none.textContent = message; none.hidden = !message;
     results.hidden = !rows.length;
@@ -185,6 +183,7 @@ export function createSearch(ctx) {
   input.addEventListener('focus', () => { setOpen(true); if (shown !== null && input.value === shown) input.select(); });
   input.addEventListener('input', () => { if (open) render(); else setOpen(true); });
   input.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229) return; // an IME (Telex, VNI) is still composing: its Enter commits the word, not a pick
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
       if (!open) { setOpen(true); return; }
@@ -215,7 +214,7 @@ export function createSearch(ctx) {
   box.addEventListener('focusout', (e) => { if (e.relatedTarget && !box.contains(e.relatedTarget)) setOpen(false); });
   addEventListener('keydown', (e) => {
     if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target instanceof HTMLInputElement || document.getElementById('about').open || document.body.classList.contains('riding')) return;
+    if (e.target instanceof HTMLInputElement || document.getElementById('about').open) return;
     e.preventDefault();
     input.focus();
   });
@@ -238,6 +237,7 @@ export function createSearch(ctx) {
       clearBtn.title = T.clear; clearBtn.setAttribute('aria-label', T.clear);
       toggle.title = T.browse; toggle.setAttribute('aria-label', T.browse);
       results.setAttribute('aria-label', T.places);
+      kinds.setAttribute('aria-label', T.filterBy);
       [...kinds.children].forEach((b, i) => { b.textContent = T.filters[i]; });
       if (current && shown !== null) { const keep = input.value === shown; shown = nameOf(current); if (keep) input.value = shown; }
       if (open) render();

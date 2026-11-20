@@ -10,12 +10,24 @@ export const shared = {
   uWind: { value: 0.55 },
   uSunDir: { value: new THREE.Vector3(0.7, 0.6, 0.3) },
   uSunI: { value: 2.5 },
-  uEra: { value: 2 }, // 0 Nguyễn, 1 French period, 2 today (src/era.js)
   uLook: { value: 0 }, // 0 realistic (reflections, relief, rooms behind glass), 1 illustrated (flat washes; the ink is drawn in post.js)
 };
 
-// Hides a vertex whose face does not exist in the current era (see span() in buf.js).
-const ERA_CLIP = `{ float sSince = floor( aSpan * 0.25 + 0.01 ); float sGone = aSpan - sSince * 4.0; if ( uEra < sSince - 0.5 || uEra > 2.5 - sGone ) gl_Position = vec4( 0.0, 0.0, 2.0, 1.0 ); }`;
+// Wind on instanced foliage, in object space after begin_vertex; shared by the leaves and by their shadow pass.
+const WIND = /* glsl */ `
+        #if defined( HUE_FOLIAGE ) && defined( USE_INSTANCING )
+        {
+          // wind: the whole crown leans and recovers, leaves shiver; one direction for the whole city
+          mat3 wim = mat3( instanceMatrix );
+          vec3 origin = instanceMatrix[ 3 ].xyz;
+          float ph = origin.x * 0.045 + origin.z * 0.06;
+          float gust = sin( uTime * 1.2 + ph ) + 0.5 * sin( uTime * 2.7 + ph * 1.7 ) + 0.25 * sin( uTime * 5.3 + ph * 2.9 );
+          float lift = clamp( ( transformed.y + 1.75 ) / 2.75, 0.0, 1.0 );
+          vec3 windL = ( vec3( 0.78, 0.0, -0.42 ) * wim ) / vec3( dot( wim[ 0 ], wim[ 0 ] ), dot( wim[ 1 ], wim[ 1 ] ), dot( wim[ 2 ], wim[ 2 ] ) );
+          transformed += windL * gust * 0.22 * lift * lift * uWind;
+          transformed += normal * sin( uTime * 6.0 + position.x * 11.0 + position.z * 9.0 + ph ) * 0.012 * uWind * lift;
+        }
+        #endif`;
 
 // One sun, more than one shadow map: light 0 lights the scene and carries the wide map; a second shadow-casting
 // directional light (zero intensity, see src/env/csm.js) is a tight map round the point of attention, used wherever
@@ -48,7 +60,23 @@ const LIGHTS = lfbA < 0 || lfbB < lfbA ? null : lfb.slice(0, lfbA) + /* glsl */ 
 #endif
 ` + lfb.slice(lfbB);
 if (!LIGHTS) console.warn('[hue] three.js light loop changed; shadow cascades are off');
-const cascades = (sh) => { if (LIGHTS) sh.fragmentShader = sh.fragmentShader.replace('#include <lights_fragment_begin>', LIGHTS); };
+// the cascade loop calls getShadow itself: if its parameters change, keep three's own loop rather than fail to compile
+const SHADOW_SIG = THREE.ShaderChunk.shadowmap_pars_fragment.includes('vec2 shadowMapSize, float shadowIntensity, float shadowBias, float shadowRadius, vec4 shadowCoord )');
+if (LIGHTS && !SHADOW_SIG) console.warn('[hue] three.js getShadow() signature changed; shadow cascades are off');
+const cascades = (sh) => { if (LIGHTS && SHADOW_SIG) sh.fragmentShader = patch(sh.fragmentShader).replace('#include <lights_fragment_begin>', LIGHTS).src; };
+
+// Shader patching that fails loudly: every chunk a patch hooks onto must be in the source. If a three.js upgrade
+// renames one, warn once naming it (as the light-loop guard above does) rather than lose wind or
+// tinting without a word. Use as patch(src).replace(tag, code)….src
+const missing = new Set();
+export const patch = (src) => ({
+  src,
+  replace(tag, code) {
+    if (this.src.includes(tag)) this.src = this.src.replace(tag, code);
+    else if (!missing.has(tag)) { missing.add(tag); console.warn(`[hue] three.js shader has no ${tag}; the patch hooked there is off`); }
+    return this;
+  },
+});
 
 const COMMON = /* glsl */ `
 varying vec3 vWPos;
@@ -56,7 +84,6 @@ varying vec3 vWNrm;
 varying float vKind;
 varying float vBase;
 uniform float uGlow;
-uniform float uEra;
 uniform float uLandY;
 uniform float uWet;
 uniform vec3 uSunDir;
@@ -148,7 +175,6 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   float hood = smoothstep( 0.25, 0.8, hueNoise( vWPos.xz * 0.013 ) );
   float litP = mix( 0.05, 0.3, hood ) * ( 0.55 + 0.9 * hueHash( vec2( side, 3.0 ) ) );
   float litK = 0.4 + 0.6 * hueHash( cell + 4.7 );
-  litP *= uEra > 1.5 ? 1.0 : uEra > 0.5 ? 0.55 : 0.32; // fewer lamps the further back we go
   vec3 base = diffuseColor.rgb;
   // plaster: soft blotches and rain streaks running down from the eaves
   float streak = hueNoise( vec2( uv.x * 9.0, uv.y * 0.7 ) );
@@ -410,30 +436,13 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     sh.uniforms.uWet = shared.uWet;
     sh.uniforms.uSunDir = shared.uSunDir;
     sh.uniforms.uSunI = shared.uSunI;
-    sh.uniforms.uEra = shared.uEra;
     sh.uniforms.uTime = shared.uTime;
     sh.uniforms.uWind = shared.uWind;
     sh.uniforms.uLook = shared.uLook;
     cascades(sh);
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\nattribute float aSpan;\nuniform float uEra;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
-      .replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
-        #if defined( HUE_FOLIAGE ) && defined( USE_INSTANCING )
-        {
-          // wind: the whole crown leans and recovers, leaves shiver; one direction for the whole city
-          mat3 wim = mat3( instanceMatrix );
-          vec3 origin = instanceMatrix[ 3 ].xyz;
-          float ph = origin.x * 0.045 + origin.z * 0.06;
-          float gust = sin( uTime * 1.2 + ph ) + 0.5 * sin( uTime * 2.7 + ph * 1.7 ) + 0.25 * sin( uTime * 5.3 + ph * 2.9 );
-          float lift = clamp( ( transformed.y + 1.75 ) / 2.75, 0.0, 1.0 );
-          vec3 windL = ( vec3( 0.78, 0.0, -0.42 ) * wim ) / vec3( dot( wim[ 0 ], wim[ 0 ] ), dot( wim[ 1 ], wim[ 1 ] ), dot( wim[ 2 ], wim[ 2 ] ) );
-          transformed += windL * gust * 0.22 * lift * lift * uWind;
-          transformed += normal * sin( uTime * 6.0 + position.x * 11.0 + position.z * 9.0 + ph ) * 0.012 * uWind * lift;
-        }
-        #endif`,
-      )
+    sh.vertexShader = patch(sh.vertexShader)
+      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND)
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>
@@ -455,9 +464,9 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           #endif
           vBase = aBase;
         }
-        ` + ERA_CLIP,
-      );
-    sh.fragmentShader = sh.fragmentShader
+        `,
+      ).src;
+    sh.fragmentShader = patch(sh.fragmentShader)
       .replace('#include <common>', '#include <common>\n' + COMMON)
       .replace('#include <color_fragment>', SURFACE)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = hueRough;')
@@ -505,11 +514,10 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           // mostly warm bulbs, some greenish tube light, the odd blue of a television
           float tone = hueHash( hueCell + 9.1 );
           vec3 lamp = tone < 0.72 ? mix( vec3( 1.0, 0.56, 0.24 ), vec3( 1.0, 0.8, 0.5 ), tone / 0.72 ) : tone < 0.93 ? vec3( 0.76, 0.95, 0.86 ) : vec3( 0.5, 0.66, 1.0 );
-          if ( uEra < 1.5 ) lamp = mix( vec3( 1.0, 0.5, 0.2 ), vec3( 1.0, 0.72, 0.4 ), tone ); // oil and early electric light
           totalEmissiveRadiance += lamp * hueLit * uGlow * 1.05 * hueRoomC;
         }
         #endif`,
-      );
+      ).src;
   };
   m.customProgramCacheKey = () => 'hue-city-' + (windows ? 'w' : 'p') + (foliage ? 'f' : '') + (styled ? 's' : '') + (overlay ? 'o' : '');
   return m;
@@ -527,10 +535,10 @@ export function landMaterial(color, turf = false, bank = false) {
     sh.uniforms.uWet = shared.uWet;
     sh.uniforms.uLook = shared.uLook;
     cascades(sh);
-    sh.vertexShader = sh.vertexShader
+    sh.vertexShader = patch(sh.vertexShader)
       .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
-    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;').src;
+    sh.fragmentShader = patch(sh.fragmentShader)
       .replace(
         '#include <common>',
         `#include <common>
@@ -592,7 +600,7 @@ export function landMaterial(color, turf = false, bank = false) {
           totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.36;
           #endif
         }`,
-      );
+      ).src;
   };
   m.customProgramCacheKey = () => 'hue-land' + (turf ? '-turf' : '') + (bank ? '-bank' : '');
   return m;
@@ -601,19 +609,20 @@ export function landMaterial(color, turf = false, bank = false) {
 // sqrt-encode a linear [r,g,b] for instanceColor (the shader squares it back)
 export const enc = (c, target = new THREE.Color()) => target.setRGB(Math.sqrt(c[0]), Math.sqrt(c[1]), Math.sqrt(c[2]), THREE.LinearSRGBColorSpace);
 
-// Shadow-pass material that honours the era, so things hidden in a period do not leave their shadows behind.
-let eraDepth = null;
-export function eraDepthMaterial() {
-  if (eraDepth) return eraDepth;
-  eraDepth = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
-  eraDepth.onBeforeCompile = (sh) => {
-    sh.uniforms.uEra = shared.uEra;
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', '#include <common>\nattribute float aSpan;\nuniform float uEra;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\n' + ERA_CLIP);
+// Shadow-pass material for the tree cards: the same cut-out, and the same wind, so shadows sway with the crowns.
+// (depthPacking only matters if the shadow type is ever VSM: other types render into a native depth texture.)
+export function foliageDepthMaterial(opts) {
+  const m = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, ...opts });
+  m.defines = { ...(m.defines || {}), HUE_FOLIAGE: '' };
+  m.onBeforeCompile = (sh) => {
+    sh.uniforms.uTime = shared.uTime;
+    sh.uniforms.uWind = shared.uWind;
+    sh.vertexShader = patch(sh.vertexShader)
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform float uWind;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND).src;
   };
-  eraDepth.customProgramCacheKey = () => 'hue-era-depth';
-  return eraDepth;
+  m.customProgramCacheKey = () => 'hue-foliage-depth';
+  return m;
 }
 
 // Architectural lighting: strips of light laid along a structure. Geometry, so the river mirrors them; they

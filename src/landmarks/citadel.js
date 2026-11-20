@@ -1,9 +1,9 @@
 import * as THREE from 'three';
-import { Buf, KIND, hex, shade, unflat, obb, ringCentre, signedArea } from '../geo/buf.js';
+import { Buf, KIND, hex, shade, unflat, obb, ringCentre, signedArea, inRing } from '../geo/buf.js';
 import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
-import { shared, lightMaterial, glowPoints } from '../geo/materials.js';
+import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -21,13 +21,13 @@ export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roo
     S.box(cx, cz, y, y + platform, w + 3.4, d + 3.4, ang, PAL.stone, { taper: 0.97, topKind: KIND.ROAD });
     if (steps && platform >= 0.3) {
       // a flight up the middle of the front and back, between low stone cheek walls
-      const n = Math.max(2, Math.round(platform / 0.17)), rise = platform / n, tread = 0.32;
+      const n = Math.max(2, Math.round(platform / 0.17)), stepH = platform / n, tread = 0.32;
       const sw = clamp(w * 0.32, 1.6, 4.4), edge = d / 2 + 1.7 - 0.06;
       for (const sg of [-1, 1]) {
         S.kind = KIND.MASONRY;
         for (let k = 1; k < n; k++) {
           const q = P(0, sg * (edge + tread * (k - 0.5)));
-          S.box(q[0], q[1], y - 0.3, y + platform - rise * k, sw, tread, ang, shade(PAL.stone, 1.05), { topKind: KIND.ROAD });
+          S.box(q[0], q[1], y - 0.3, y + platform - stepH * k, sw, tread, ang, shade(PAL.stone, 1.05), { topKind: KIND.ROAD });
         }
         S.kind = KIND.PLAIN;
         const run = tread * (n - 1);
@@ -137,19 +137,18 @@ function faceToward(o, dir) {
   const s = Math.sign(dv) || 1;
   return { n: [-uz * s, ux * s], t: [ux, uz], half: o.d / 2, side: o.w / 2 };
 }
-function lightMesh(group, L, color, boost, minEra) {
+function lightMesh(group, L, color, boost) {
   if (!group || !L || L.n === 0) return null;
   const m = new THREE.Mesh(L.geometry(), lightMaterial(color, boost));
   m.renderOrder = 19;
-  m.userData.minEra = minEra;
+  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
   group.add(m);
   return m;
 }
-function lampPoints(group, pos, col, size, minEra, glows) {
+function lampPoints(group, pos, col, size, glows) {
   if (!group || !pos.length) return null;
   const p = glowPoints(pos, col, size);
   p.userData.glow = true;
-  p.userData.minEra = minEra;
   group.add(p);
   glows.push(p);
   return p;
@@ -431,18 +430,15 @@ function makeFlag() {
   const geo = new THREE.PlaneGeometry(1, 1, 14, 6);
   geo.translate(0.5, 0, 0);
   const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 }, uEra: shared.uEra },
+    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 } },
     side: THREE.DoubleSide,
     vertexShader: `uniform float uTime; varying vec2 vUv; varying float vSh;
       void main() { vUv = uv; vec3 p = position;
         float w = sin( p.x * 7.0 - uTime * 4.2 ) * 0.07 * p.x + sin( p.x * 3.0 - uTime * 2.6 + p.y * 2.0 ) * 0.05 * p.x;
         p.z += w; p.y -= p.x * p.x * 0.05; vSh = 0.86 + w * 2.4;
         gl_Position = projectionMatrix * modelViewMatrix * vec4( p, 1.0 ); }`,
-    // the standard flown here in each era: the imperial yellow; from the 1920s yellow with a red band; today's flag
-    fragmentShader: `uniform sampler2D map; uniform float uLight, uEra; varying vec2 vUv; varying float vSh;
+    fragmentShader: `uniform sampler2D map; uniform float uLight; varying vec2 vUv; varying float vSh;
       void main() { vec4 c = texture2D( map, vUv );
-        if ( uEra < 0.5 ) c.rgb = vec3( 0.93, 0.76, 0.16 );
-        else if ( uEra < 1.5 ) c.rgb = abs( vUv.y - 0.5 ) < 0.17 ? vec3( 0.78, 0.13, 0.1 ) : vec3( 0.93, 0.76, 0.16 );
         gl_FragColor = vec4( c.rgb * vSh * uLight, 1.0 );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -453,13 +449,23 @@ function makeFlag() {
   return m;
 }
 
+// A dataset that lacks what the Citadel needs leaves it out (and the shared buffer as it was) instead of stopping the
+// whole load; main.js still gets the object it calls every frame.
 export function buildCitadel(data, S, group) {
-  const place = (id) => { const p = data.places.find((q) => q.id === id); return [p.x / 10, p.z / 10]; };
-  const cityCentre = place('kinhthanh');
+  const n0 = S.n;
+  try { return citadel(data, S, group); } catch (e) {
+    S.n = n0; S.kind = KIND.PLAIN; S.base = 0;
+    console.warn('Citadel not built:', e);
+    return { flag: null, glows: [], update() {} };
+  }
+}
+function citadel(data, S, group) {
+  const place = (id) => { const p = (data.places || []).find((q) => q.id === id); return p ? [p.x / 10, p.z / 10] : null; };
   const impCentre = [data.imperial.c[0] / 10, data.imperial.c[1] / 10];
+  const cityCentre = place('kinhthanh') || impCentre; // the Imperial City stands near enough the middle to aim the gates by
 
-  // night lighting: A = Kỳ Đài and Ngọ Môn, B = the halls, riverside pavilions and the two south gates (both electric,
-  // today only); lanterns at doorways in every era, floodlights at the flagpole's foot today only
+  // night lighting: A = Kỳ Đài and Ngọ Môn, B = the halls, riverside pavilions and the two south gates (both electric);
+  // lanterns at doorways, floodlights at the flagpole's foot
   const LA = new Buf(800), LB = new Buf(800);
   const lanPos = [], lanCol = [], floodPos = [], floodCol = [], glows = [];
   const lantern = (x, y, z) => { lanPos.push(x, y, z); lanCol.push(...LANTERN); };
@@ -494,8 +500,8 @@ export function buildCitadel(data, S, group) {
 
   // ---- Kỳ Đài: three brick terraces on the Nam Chánh bastion, and the flag ----
   let flag = null;
-  if (data.special.kydai) {
-    const ring = unflat(data.special.kydai.ring);
+  if (data.special?.kydai) {
+    const ring = unflat(data.special?.kydai.ring);
     const c = ringCentre(ring);
     const scale = (k) => ring.map((p) => [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * k]);
     let y = LAND_Y;
@@ -525,8 +531,8 @@ export function buildCitadel(data, S, group) {
   }
 
   // ---- Ngọ Môn: U-shaped masonry base from OSM, Lầu Ngũ Phụng on top ----
-  if (data.special.ngomon) {
-    const ring = unflat(data.special.ngomon.ring);
+  if (data.special?.ngomon) {
+    const ring = unflat(data.special?.ngomon.ring);
     const o = obb(ring);
     const baseTop = LAND_Y + 5.4;
     S.kind = KIND.MASONRY;
@@ -573,8 +579,8 @@ export function buildCitadel(data, S, group) {
   // behind it taller under a double-eaved roof (a skirt of tiles all round, the upper hip roof above), both in yellow
   // glazed tiles; red lacquered columns round the verandah. Before it, toward Ngọ Môn, the Esplanade of Great
   // Salutations (sân Đại Triều Nghi) falls in two stone terraces with a raised imperial way up the middle.
-  if (data.special.thaihoa) {
-    const o = obb(unflat(data.special.thaihoa.ring));
+  if (data.special?.thaihoa) {
+    const o = obb(unflat(data.special?.thaihoa.ring));
     const ux = Math.cos(o.a), uz = Math.sin(o.a), vx = -uz, vz = ux;
     const tgt = data.special.ngomon ? obb(unflat(data.special.ngomon.ring)).c : data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : null;
     const fs = tgt && (tgt[0] - o.c[0]) * vx + (tgt[1] - o.c[1]) * vz < 0 ? -1 : 1; // which way along v is the front
@@ -599,8 +605,8 @@ export function buildCitadel(data, S, group) {
     }
     S.kind = KIND.PLAIN;
     const halls = [
-      { off: fs * 0.27, dep: 0.42, opt: { tiers: 1, wallH: 4.2, rh: 3.8, over: 1.5 } }, // front hall
-      { off: -fs * 0.2, dep: 0.56, opt: { tiers: 2, wallH: 4.8, rh: 4.4, over: 1.7 } }, // main hall, double eaves
+      { off: fs * 0.27, dep: 0.42, opt: { tiers: 1, wallH: 3.4, rh: 3.0, over: 1.5 } }, // front hall
+      { off: -fs * 0.2, dep: 0.56, opt: { tiers: 2, wallH: 3.6, rh: 3.2, over: 1.7 } }, // main hall, double eaves: 11.8 m to the ridge (docs/heights-reference.json)
     ];
     for (const { off, dep, opt } of halls) {
       const eaves = [];
@@ -618,15 +624,15 @@ export function buildCitadel(data, S, group) {
 
   // ---- riverside pavilions in front of the Citadel ----
   for (const key of ['phuvanlau', 'nghenhluong']) {
-    if (!data.special[key]) continue;
-    const o = obb(unflat(data.special[key].ring));
+    if (!data.special?.[key]) continue;
+    const o = obb(unflat(data.special?.[key].ring));
     if (key === 'phuvanlau') {
       const eaves = [];
       pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: 2, wallH: 3.9, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 3.1, platform: 1.2, eaves, colonnade: true, segs: 3 }); // 11.8 m with its 1.2 m platform
       if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
       // two lamps on the river face (away from Kỳ Đài)
-      if (data.special.kydai) {
-        const kd = ringCentre(unflat(data.special.kydai.ring));
+      if (data.special?.kydai) {
+        const kd = ringCentre(unflat(data.special?.kydai.ring));
         const fc = faceToward({ ...o, w: o.w * 0.86, d: o.d * 0.86 }, [o.c[0] - kd[0], o.c[1] - kd[1]]);
         for (const k of [-1, 1]) {
           const a = fc.half + 0.9, b = k * Math.min(1.6, fc.side * 0.4);
@@ -637,7 +643,7 @@ export function buildCitadel(data, S, group) {
     }
     // Nghênh Lương Đình: a square pavilion with a lower "crab-shell" porch before and behind, on a 0.9 m base,
     // and steps down to a landing at the water (the axis runs from Kỳ Đài out to the river)
-    const kd = data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : [o.c[0] - 1, o.c[1] - 1];
+    const kd = data.special?.kydai ? ringCentre(unflat(data.special?.kydai.ring)) : [o.c[0] - 1, o.c[1] - 1];
     let f = [o.c[0] - kd[0], o.c[1] - kd[1]];
     { const l = Math.hypot(f[0], f[1]) || 1; f = [f[0] / l, f[1] / l]; }
     const fa = Math.atan2(f[1], f[0]), side = Math.min(o.w, o.d) * 0.72, at = (a) => [o.c[0] + f[0] * a, o.c[1] + f[1] * a];
@@ -652,7 +658,7 @@ export function buildCitadel(data, S, group) {
     }
     const eaves = [];
     // the pavilion itself stands under a two-tiered (chồng diêm) roof of yellow glazed tiles
-    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 2, wallH: 3.6, roof, wall, over: 1.3, rh: 2.8, eaves, colonnade: true, segs: 3 });
+    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 2, wallH: 2.7, roof, wall, over: 1.3, rh: 2.0, eaves, colonnade: true, segs: 3 }); // 7–8 m (docs/heights-reference.json)
     // the two open sides (the porches cover the front and back), and two lamps at the river porch
     if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
     for (const k of [-1, 1]) {
@@ -665,10 +671,10 @@ export function buildCitadel(data, S, group) {
     S.kind = KIND.PLAIN;
   }
 
-  lightMesh(group, LA, 0xffb64c, 1.4, 2);
-  lightMesh(group, LB, 0xffae42, 1.2, 2);
-  lampPoints(group, lanPos, lanCol, 7, 0, glows);
-  lampPoints(group, floodPos, floodCol, 8, 2, glows);
+  lightMesh(group, LA, 0xffb64c, 1.4);
+  lightMesh(group, LB, 0xffae42, 1.2);
+  lampPoints(group, lanPos, lanCol, 7, glows);
+  lampPoints(group, floodPos, floodCol, 8, glows);
 
   return {
     flag,
@@ -694,7 +700,7 @@ export function buildThienMu(data, S, group = null) {
   const small = (data.special.thienmuSmall || []).map(unflat);
   // the compound's axis: from the triple gate (the widest small building, behind the tower) out to the river
   let f = [0.23, 0.97];
-  const gateRing = small.slice().sort((a, b) => obb(b).w - obb(a).w)[0];
+  const gateRing = small.map((rg) => [obb(rg).w, rg]).sort((a, b) => b[0] - a[0]).map((e) => e[1])[0]; // widths worked out once, not in the comparator
   if (gateRing) { const g = ringCentre(gateRing); const l = Math.hypot(c[0] - g[0], c[1] - g[1]) || 1; f = [(c[0] - g[0]) / l, (c[1] - g[1]) / l]; }
   const p = [-f[1], f[0]];
   const fa = Math.atan2(f[1], f[0]);
@@ -703,15 +709,7 @@ export function buildThienMu(data, S, group = null) {
   // rounds the hill's brow off, so the compound stands on a stone-faced terrace at that level, and everything in it
   // is founded on the terrace.
   const hk = data.hakhe ? { ring: unflat(data.hakhe.ring), y: LAND_Y + data.hakhe.top / 10 + 0.06 } : null;
-  const onHill = (x, z) => {
-    if (!hk) return false;
-    let inside = false;
-    for (let i = 0, j = hk.ring.length - 1; i < hk.ring.length; j = i++) {
-      const a = hk.ring[i], b = hk.ring[j];
-      if (a[1] > z !== b[1] > z && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
-    }
-    return inside;
-  };
+  const onHill = (x, z) => !!hk && inRing(x, z, hk.ring);
   const gy = (x, z) => { const g = LAND_Y + rise(x, z); return onHill(x, z) ? Math.max(g, hk.y) : g; };
   if (hk) {
     const n0 = S.n;
@@ -723,6 +721,7 @@ export function buildThienMu(data, S, group = null) {
 
   // terrace under the tower
   const y0 = gy(c[0], c[1]);
+  S.base = y0 - LAND_Y; // everything here is founded on the hill, so the shader's foot darkening starts at its own ground
   S.kind = KIND.MASONRY;
   S.cyl(c[0], c[1], y0 - 1.5, y0 + 0.7, rOsm * 1.75, rOsm * 1.65, 8, stone, { rot: fa - Math.PI / 8 });
   // the tower
@@ -772,6 +771,7 @@ export function buildThienMu(data, S, group = null) {
   for (const off of [-7.6, -2.5, 2.5, 7.6]) {
     const x = c[0] + f[0] * front + p[0] * off, z = c[1] + f[1] * front + p[1] * off, py = gy(x, z);
     const tall = Math.abs(off) < 5 ? 7.4 : 6.6;
+    S.base = py - LAND_Y;
     S.kind = KIND.MASONRY;
     S.box(x, z, py - 1, py + 0.8, 1.5, 1.5, fa, stone);
     S.box(x, z, py + 0.8, py + tall, 1.0, 1.0, fa, trim, { taper: 0.9 });
@@ -801,6 +801,7 @@ export function buildThienMu(data, S, group = null) {
       const x = c[0] + f[0] * d, z = c[1] + f[1] * d;
       const sy = gy(x, z);
       if (sy < LAND_Y + 0.25) break;
+      S.base = sy - LAND_Y;
       S.box(x, z, sy - 1.2, sy + 0.12, 2.3, 13, fa, shade(stone, 1.04));
     }
   }
@@ -809,6 +810,7 @@ export function buildThienMu(data, S, group = null) {
   for (const rg of small) {
     const o = obb(rg), cc = ringCentre(rg), py = gy(cc[0], cc[1]);
     const rr = rg.reduce((s2, q) => s2 + Math.hypot(q[0] - cc[0], q[1] - cc[1]), 0) / rg.length;
+    S.base = py - LAND_Y;
     if (rg === gateRing) {
       // triple gate: three doorways under a two-tier roof
       pavilion(S, o.c[0], o.c[1], o.w, Math.max(o.d, 4.5), o.a, py, { tiers: 2, wallH: 4.2, roof: PAL.templeRoof, wall: hex('#c9a27a'), over: 1.1, rh: 2.4, platform: 0.5, ridge: hex('#d8c9a0'), colonnade: false, steps: false });
@@ -832,10 +834,10 @@ export function buildThienMu(data, S, group = null) {
       pavilion(S, o.c[0], o.c[1], Math.max(o.w, 3), Math.max(o.d, 3), o.a, py, { tiers: 1, wallH: 3.0, roof: PAL.templeRoof, wall: PAL.templeWall, over: 0.8, rh: 1.8, platform: 0.5, ridge: hex('#d8c9a0') });
     }
   }
-  S.kind = KIND.PLAIN;
+  S.kind = KIND.PLAIN; S.base = 0;
   if (group) {
-    lightMesh(group, LT, 0xffba52, 1.5, 2);
-    lampPoints(group, lanPos, lanCol, 6.5, 0, glows);
+    lightMesh(group, LT, 0xffba52, 1.5);
+    lampPoints(group, lanPos, lanCol, 6.5, glows);
   }
   return { glows };
 }
@@ -898,18 +900,18 @@ function signGlowMaterial(mask, color, boost) {
   });
 }
 // a w × h picture standing on a face: centre [x, y, z], facing the outward normal n = [nx, nz]
-function facePlane(group, mat, w, h, at, n, minEra, order = 0) {
+function facePlane(group, mat, w, h, at, n, order = 0) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   m.position.set(at[0], at[1], at[2]);
   m.rotation.y = Math.atan2(n[0], n[1]);
-  m.userData.minEra = minEra;
+  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
   if (order) m.renderOrder = order;
   group.add(m);
   return m;
 }
 
 export function buildMarket(data, S, group = null) {
-  if (!data.special.markethall) return;
+  if (!data.special?.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
   // which way is the street front: toward the nearest edge of the river (Trần Hưng Đạo runs along the bank)
   let dir = [0.73, 0.69];
@@ -939,9 +941,10 @@ export function buildMarket(data, S, group = null) {
   S.hip(o.c[0], o.c[1], o.w, o.d, o.a, y0 + body, 3.4, roof, { over: 1.4, flare: 0.4, fascia: 0.4, fasciaCol: shade(wall, 0.8), ridgeCol: hex('#d9c9a0'), hips: true });
 
   // ---- the clock tower over the main entrance, standing forward of the middle of the front ----
+  // about 14–16 m with its finial (docs/reference/heights.md: estimated, only the three tiers are sourced)
   const TW = 14, TD = 9, proj = 4.0; // its base: wide along the front, reaching proj metres out past the face
   const tc = At(0, F.half + proj - TD / 2), front = F.half + proj;
-  const baseTop = y0 + body + 2.4;
+  const baseTop = y0 + body + 1.0;
   S.kind = KIND.PLAIN;
   S.box(tc[0], tc[1], y0, baseTop, TW, TD, fa, wall, { top: shade(roof, 0.8) });
   // pilasters at the corners and either side of the doorway, in the white trim
@@ -959,44 +962,44 @@ export function buildMarket(data, S, group = null) {
   const eaves = [];
   const tier = (w, y, h) => { S.kind = KIND.PLAIN; S.box(tc[0], tc[1], y, y + h, w, w, fa, wall, { top: shade(roof, 0.8) }); S.box(tc[0], tc[1], y + h - 0.3, y + h, w + 0.2, w + 0.2, fa, MARKET_TRIM); };
   const skirt = (w, y, over, rh) => { S.hip(tc[0], tc[1], w, w, fa, y, rh, roof, { over, flare: 0.45, fascia: 0.25, fasciaCol: MARKET_TRIM, segs: 2 }); eaves.push({ cx: tc[0], cz: tc[1], w, d: w, ang: fa, y, over, fascia: 0.25 }); };
-  S.hip(tc[0], tc[1], TW, TD, fa, baseTop, 1.3, roof, { over: 1.2, flare: 0.45, fascia: 0.3, fasciaCol: MARKET_TRIM, segs: 2 });
+  S.hip(tc[0], tc[1], TW, TD, fa, baseTop, 1.0, roof, { over: 1.2, flare: 0.45, fascia: 0.3, fasciaCol: MARKET_TRIM, segs: 2 });
   eaves.push({ cx: tc[0], cz: tc[1], w: TW, d: TD, ang: fa, y: baseTop, over: 1.2, fascia: 0.3 });
-  let y = baseTop + 0.5;
-  tier(7.6, y, 3.4); y += 3.4; skirt(7.6, y, 1.3, 1.1); y += 0.6;
-  const clockY = y + 1.5, clockW = 5.6;
-  tier(clockW, y, 3.0); y += 3.0; skirt(clockW, y, 1.1, 1.0); y += 0.5;
-  tier(4.0, y, 2.2); y += 2.2;
-  S.hip(tc[0], tc[1], 4.0, 4.0, fa, y, 2.6, roof, { over: 0.9, flare: 0.45, fascia: 0.22, fasciaCol: MARKET_TRIM, ridgeCol: hex('#d9c9a0'), hips: true, segs: 2 });
+  let y = baseTop + 0.3;
+  tier(7.6, y, 1.8); y += 1.8; skirt(7.6, y, 1.3, 0.8); y += 0.4;
+  const clockY = y + 1.1, clockW = 5.6;
+  tier(clockW, y, 2.2); y += 2.2; skirt(clockW, y, 1.1, 0.7); y += 0.4;
+  tier(4.0, y, 1.0); y += 1.0;
+  S.hip(tc[0], tc[1], 4.0, 4.0, fa, y, 1.3, roof, { over: 0.9, flare: 0.45, fascia: 0.22, fasciaCol: MARKET_TRIM, ridgeCol: hex('#d9c9a0'), hips: true, segs: 2 });
   eaves.push({ cx: tc[0], cz: tc[1], w: 4.0, d: 4.0, ang: fa, y, over: 0.9, fascia: 0.22 });
   S.kind = KIND.PLAIN;
-  S.cyl(tc[0], tc[1], y + 2.4, y + 3.8, 0.16, 0.05, 5, hex('#d9c27a'));
+  S.cyl(tc[0], tc[1], y + 1.1, y + 1.8, 0.14, 0.05, 5, hex('#d9c27a'));
   // louvred openings in the lowest tier, on its front and sides
   for (const [nn, tt] of [[F.n, F.t], [F.t, [-F.n[0], -F.n[1]]], [[-F.t[0], -F.t[1]], F.n]]) {
     for (const k of [-1, 1]) {
       const q = [tc[0] + nn[0] * 3.84 + tt[0] * k * 1.6, tc[1] + nn[1] * 3.84 + tt[1] * k * 1.6];
-      S.box(q[0], q[1], baseTop + 1.1, baseTop + 3.0, 0.1, 1.3, Math.atan2(nn[1], nn[0]), shade(dark, 1.3));
+      S.box(q[0], q[1], baseTop + 0.65, baseTop + 1.65, 0.1, 1.3, Math.atan2(nn[1], nn[0]), shade(dark, 1.3));
     }
   }
   if (!group) return;
 
-  // the lettering and the clock faces, as pictures on the walls; today's facade (the 1987 renovation)
+  // the lettering and the clock faces, as pictures on the walls (the facade of the 1987 renovation)
   const signTex = signCanvas('CHỢ ĐÔNG BA'.normalize('NFC'), 1024, 176, false), signMask = signCanvas('CHỢ ĐÔNG BA'.normalize('NFC'), 1024, 176, true);
   const sp = At(0, front + 0.23);
-  facePlane(group, new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.7, metalness: 0 }), signW, signH, [sp[0], signY, sp[1]], F.n, 2);
+  facePlane(group, new THREE.MeshStandardMaterial({ map: signTex, roughness: 0.7, metalness: 0 }), signW, signH, [sp[0], signY, sp[1]], F.n);
   const gp = At(0, front + 0.26);
-  facePlane(group, signGlowMaterial(signMask, 0xff2a1a, 2.2), signW, signH, [gp[0], signY, gp[1]], F.n, 2, 19);
+  facePlane(group, signGlowMaterial(signMask, 0xff2a1a, 2.2), signW, signH, [gp[0], signY, gp[1]], F.n, 19);
   const dial = clockCanvas(false), dialMask = clockCanvas(true);
   const dialMat = new THREE.MeshStandardMaterial({ map: dial, roughness: 0.6, metalness: 0, transparent: true, alphaTest: 0.5 });
   const dialGlow = signGlowMaterial(dialMask, 0xfff0c8, 0.9);
   for (const nn of [F.n, F.t, [-F.n[0], -F.n[1]], [-F.t[0], -F.t[1]]]) {
     const q = [tc[0] + nn[0] * (clockW / 2 + 0.03), clockY, tc[1] + nn[1] * (clockW / 2 + 0.03)];
-    facePlane(group, dialMat, 2.3, 2.3, q, nn, 2);
-    facePlane(group, dialGlow, 2.3, 2.3, [q[0] + nn[0] * 0.02, q[1], q[2] + nn[1] * 0.02], nn, 2, 19);
+    facePlane(group, dialMat, 1.8, 1.8, q, nn);
+    facePlane(group, dialGlow, 1.8, 1.8, [q[0] + nn[0] * 0.02, q[1], q[2] + nn[1] * 0.02], nn, 19);
   }
   // after dark: lines of light under the tower's eaves and along the hall's front cornice
   const L = new Buf(400);
   for (const e of eaves) eaveStrip(L, e);
   { const a = At(-F.side + 0.5, F.half + 0.12), b = At(-TW / 2 - 0.3, F.half + 0.12), c2 = At(TW / 2 + 0.3, F.half + 0.12), d2 = At(F.side - 0.5, F.half + 0.12), yy = y0 + body - 0.25;
     L.beam([a[0], yy, a[1]], [b[0], yy, b[1]], 0.14, 0.12, W1); L.beam([c2[0], yy, c2[1]], [d2[0], yy, d2[1]], 0.14, 0.12, W1); }
-  lightMesh(group, L, 0xffc068, 1.3, 2);
+  lightMesh(group, L, 0xffc068, 1.3);
 }

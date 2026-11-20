@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Buf, hex, unflat } from '../geo/buf.js';
+import { Buf, hex, unflat, inRing } from '../geo/buf.js';
 import { cityMaterial, lightMaterial, shared } from '../geo/materials.js';
 import { quality } from '../config.js';
 
@@ -86,16 +86,21 @@ function makeTrack(pts) {
   const acc = [0];
   for (let i = 1; i < pts.length; i++) acc.push(acc[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
   const total = acc[acc.length - 1];
+  // the direction at each vertex is the mean of the segments either side, and along a segment it turns from one
+  // end's to the other's: a boat held a lane's width off the centre line rounds each bend instead of jumping it
+  const seg = (i) => { const j = Math.max(1, Math.min(pts.length - 1, i)), dx = pts[j][0] - pts[j - 1][0], dz = pts[j][1] - pts[j - 1][1], l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l]; };
+  const vt = pts.map((_, k) => { const u = seg(k), v = seg(k + 1), x = u[0] + v[0], z = u[1] + v[1], l = Math.hypot(x, z); return l > 1e-6 ? [x / l, z / l] : v; });
   return {
     total,
-    at(s) {
+    at(s, o = {}) { // o: a reused result object, so the per-frame callers allocate nothing
       s = Math.max(0, Math.min(total, s));
       let i = 1;
       while (i < acc.length - 1 && acc[i] < s) i++;
-      const a = pts[i - 1], b = pts[i];
+      const a = pts[i - 1], b = pts[i], ta = vt[i - 1], tb = vt[i];
       const t = (s - acc[i - 1]) / Math.max(1e-6, acc[i] - acc[i - 1]);
-      const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
-      return { x: a[0] + dx * t, z: a[1] + dz * t, tx: dx / l, tz: dz / l };
+      const tx = ta[0] + (tb[0] - ta[0]) * t, tz = ta[1] + (tb[1] - ta[1]) * t, l = Math.hypot(tx, tz) || 1;
+      o.x = a[0] + (b[0] - a[0]) * t; o.z = a[1] + (b[1] - a[1]) * t; o.tx = tx / l; o.tz = tz / l;
+      return o;
     },
   };
 }
@@ -103,7 +108,13 @@ function makeTrack(pts) {
 // Traffic keeps to the stretch between Cồn Dã Viên and the head of Cồn Hến.
 function riverTrack(data) {
   if (!data || !Array.isArray(data.river) || data.river.length < 6) return null;
-  const pts = unflat(data.river).filter((p) => p[0] > -2300 && p[0] < 700 && p[1] > -700 && p[1] < 1500);
+  // the longest contiguous run inside the box: a centre line that left it and came back must not be joined by a chord
+  let pts = [], cur = [];
+  for (const p of unflat(data.river)) {
+    if (p[0] > -2300 && p[0] < 700 && p[1] > -700 && p[1] < 1500) { const q = cur[cur.length - 1]; if (!q || Math.hypot(p[0] - q[0], p[1] - q[1]) > 0.5) cur.push(p); } // repeated vertices would give a bend no length to turn in
+    else { if (cur.length > pts.length) pts = cur; cur = []; }
+  }
+  if (cur.length > pts.length) pts = cur;
   return pts.length > 2 ? makeTrack(pts) : null;
 }
 
@@ -261,7 +272,7 @@ function makeWake(group, time, { bow = 9.8, stern = 20.5, len = 110 } = {}) {
     cur.copy(boat.position);
     if (has && dt > 1e-4) {
       const v = Math.hypot(cur.x - last.x, cur.z - last.z) / dt;
-      if (v < 40) spd += (v - spd) * Math.min(1, dt * 2.5); // a jump (a teleport, a new ride) is not speed
+      if (v < 40) spd += (v - spd) * Math.min(1, dt * 2.5); // a jump (a teleport) is not speed
     } else spd = 0;
     last.copy(cur); has = true;
     const amt = Math.min(1, Math.max(0, (spd - 0.4) / 4.0));
@@ -288,17 +299,20 @@ export function buildBoats(data, group) {
     winMat.polygonOffset = true; winMat.polygonOffsetFactor = -2; winMat.polygonOffsetUnits = -2;
     lights = { ...g, winMat, lanMat: vertexLightMaterial(1.5) };
   } catch (e) { lights = null; }
+  const winMeshes = [], lanMeshes = []; // shown only after dark (by day they would draw black, additively), see update()
   const light = (m) => {
     if (!lights) return;
     const w = new THREE.Mesh(lights.windows, lights.winMat), l = new THREE.Mesh(lights.lanterns, lights.lanMat);
-    for (const c of [w, l]) { c.renderOrder = 19; c.raycast = () => {}; m.add(c); }
+    for (const c of [w, l]) { c.renderOrder = 19; c.raycast = () => {}; c.visible = false; m.add(c); }
+    winMeshes.push(w); lanMeshes.push(l);
   };
   // sampans at the moorings
   const mo = data.moorings || [];
-  if (mo.length) {
-    const im = new THREE.InstancedMesh(sampanGeometry(), mat, mo.length / 3);
+  if (mo.length >= 3) {
+    const nm = Math.floor(mo.length / 3); // a malformed tail must not leave a fractional count (and NaN matrices)
+    const im = new THREE.InstancedMesh(sampanGeometry(), mat, nm);
     const m4 = new THREE.Matrix4(), qq = new THREE.Quaternion(), ss = new THREE.Vector3(), pp = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-    for (let i = 0; i < mo.length / 3; i++) {
+    for (let i = 0; i < nm; i++) {
       const k = 0.85 + ((i * 37) % 10) / 25;
       qq.setFromAxisAngle(up, -mo[i * 3 + 2] / 1000 + (i % 2 ? Math.PI : 0));
       pp.set(mo[i * 3] / 10, 0, mo[i * 3 + 1] / 10); ss.set(k, k, k);
@@ -315,29 +329,40 @@ export function buildBoats(data, group) {
   const fleet = [];
   if (track) {
     const n = 5;
-    for (let i = 0; i < n; i++) fleet.push({ mesh: make(), s: (track.total * (i + 0.5)) / n, dir: i % 2 ? 1 : -1, speed: 3.2 + (i % 3) * 0.9, lane: 26 + (i % 3) * 16, phase: i * 1.7 });
+    for (let i = 0; i < n; i++) fleet.push({ mesh: make(), s: (track.total * (i + 0.5)) / n, dir: i % 2 ? 1 : -1, speed: 3.2 + (i % 3) * 0.9, lane: 26 + (i % 3) * 16, phase: i * 1.7, turn: -1 });
   }
-  const rideBoat = make();
-  rideBoat.visible = false;
 
-  // wakes: one per boat, fleet and the ride boat alike
-  const wakeTime = { value: 0 };
+  // wakes: one per boat
+  const wakeTime = { value: 0 }, pt = { x: 0, z: 0, tx: 1, tz: 0 };
   let wakes = [];
-  try { wakes = [...fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]), [rideBoat, makeWake(group, wakeTime)]]; } catch (e) { wakes = []; }
+  try { wakes = fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]); } catch (e) { wakes = []; }
 
   return {
-    rideBoat,
-    fleet,
     update(dt, time) {
+      const lit = shared.uGlow.value >= 0.01, winOn = lit;
+      for (let i = 0; i < winMeshes.length; i++) { winMeshes[i].visible = winOn; lanMeshes[i].visible = lit; }
       for (const b of fleet) {
-        b.s += b.dir * b.speed * dt;
-        if (b.s > track.total - 5) { b.s = track.total - 5; b.dir = -1; }
-        if (b.s < 5) { b.s = 5; b.dir = 1; }
-        const p = track.at(b.s);
-        const tx = p.tx * b.dir, tz = p.tz * b.dir;
-        // keep right
-        b.mesh.position.set(p.x - tz * b.lane, Math.sin(time * 0.9 + b.phase) * 0.06, p.z + tx * b.lane);
-        b.mesh.rotation.set(Math.sin(time * 0.7 + b.phase) * 0.012, Math.atan2(-tz, tx), 0);
+        // keep right: the lateral offset is lat along the track's left normal (-tz, tx), dir * lane on the straight.
+        // Near a track end the boat swings across to the other lane in a half-ellipse (R ahead, lane to either side),
+        // at its cruising speed, so its position and heading stay continuous for a camera that follows it.
+        const R = Math.min(b.lane, Math.max(1, track.total / 2 - 6));
+        let lat, hx, hz;
+        if (b.turn >= 0) {
+          b.turn = Math.min(1, b.turn + (b.speed * dt) / ((Math.PI * (R + b.lane)) / 2));
+          const a = Math.PI * b.turn, c = Math.cos(a), sn = Math.sin(a);
+          track.at(b.s + b.dir * R * sn, pt);
+          lat = b.dir * b.lane * c;
+          const f = b.dir * R * c, l = -b.dir * b.lane * sn; // d/da of (along, lateral): the heading
+          hx = pt.tx * f - pt.tz * l; hz = pt.tz * f + pt.tx * l;
+          if (b.turn >= 1) { b.dir = -b.dir; b.turn = -1; }
+        } else {
+          b.s += b.dir * b.speed * dt;
+          if (b.dir > 0 ? b.s > track.total - 5 - R : b.s < 5 + R) { b.s = b.dir > 0 ? track.total - 5 - R : 5 + R; b.turn = 0; }
+          track.at(b.s, pt);
+          lat = b.dir * b.lane; hx = pt.tx * b.dir; hz = pt.tz * b.dir;
+        }
+        b.mesh.position.set(pt.x - pt.tz * lat, Math.sin(time * 0.9 + b.phase) * 0.06, pt.z + pt.tx * lat);
+        b.mesh.rotation.set(Math.sin(time * 0.7 + b.phase) * 0.012, Math.atan2(-hz, hx), 0);
       }
       wakeTime.value = Number.isFinite(time) ? time : 0;
       const d = Number.isFinite(dt) ? Math.min(0.25, Math.max(0, dt)) : 0;
@@ -399,31 +424,28 @@ export function buildLanterns(data, group) {
   }
 }
 
-function inRing(x, z, r) {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
-    const xi = r[i][0], zi = r[i][1], xj = r[j][0], zj = r[j][1];
-    if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c;
-  }
-  return c;
-}
-
-// Dry land: inside a land polygon and outside its holes. Without land data nothing is land.
-function landTest(data) {
+// Dry land: inside a land polygon and outside its holes (and, with ponds, outside every pond). Shared with
+// landmarks/life.js so boats and street life agree on the shore. Missing or malformed data counts as water:
+// without land data nothing is land.
+export function landTest(data, { ponds: withPonds = false } = {}) {
+  const ring = (a) => Array.isArray(a) && a.length >= 6;
   const polys = [];
-  for (const poly of data.land || []) {
-    if (!Array.isArray(poly) || !Array.isArray(poly[0]) || poly[0].length < 6) continue;
-    const rings = poly.map(unflat);
+  for (const poly of (data && data.land) || []) {
+    if (!Array.isArray(poly) || !ring(poly[0])) continue;
+    const rings = poly.filter(ring).map(unflat);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of rings[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
     polys.push({ rings, x0, x1, z0, z1 });
   }
+  const ponds = [];
+  if (withPonds) for (const poly of (data && data.ponds) || []) if (Array.isArray(poly) && ring(poly[0])) ponds.push(unflat(poly[0]));
   return (x, z) => {
+    let on = false;
     for (const p of polys) {
       if (x < p.x0 || x > p.x1 || z < p.z0 || z > p.z1) continue;
-      if (inRing(x, z, p.rings[0]) && !p.rings.slice(1).some((h) => inRing(x, z, h))) return true;
+      if (inRing(x, z, p.rings[0]) && !p.rings.slice(1).some((h) => inRing(x, z, h))) { on = true; break; }
     }
-    return false;
+    return on && !ponds.some((r) => inRing(x, z, r));
   };
 }
 
@@ -464,7 +486,7 @@ function makeLanterns(data, group) {
   for (let i = 0; i < ns; i++) {
     const s = s0 + i * STEP, p = track.at(s);
     const f = (s - s0) / 20, j = Math.min(coarse.length - 2, Math.floor(f)), t = Math.min(1, f - j);
-    const a = coarse[j], b = coarse[j + 1] || a;
+    const a = coarse[j], b = coarse[Math.min(coarse.length - 1, j + 1)]; // a null sample (land, a sandbar) is no water either side
     let mid = 0, half = 0;
     if (a && b) {
       const lo = a[0] + (b[0] - a[0]) * t, hi = a[1] + (b[1] - a[1]) * t;

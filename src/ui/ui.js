@@ -1,12 +1,21 @@
 import { STR, NOTES, QUICK } from './content.js';
 import { createSearch } from './search.js';
 import { isCoarse } from '../config.js';
-import { era, setEra, onEra, existsIn } from '../era.js';
 
 const $ = (id) => document.getElementById(id);
+// storage can throw outright (blocked cookies, some private modes, sandboxed frames); the language choice is only a nicety
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* not kept */ } },
+};
+// story data is hand-edited: only web links become a src or an href
+const webUrl = (u) => { try { const x = new URL(u, location.href); return x.protocol === 'http:' || x.protocol === 'https:' ? x : null; } catch { return null; } };
 
 export function createUI(data, handlers) {
-  let lang = (localStorage.getItem('hue-lang') || (navigator.language || 'vi').slice(0, 2)) === 'vi' ? 'vi' : 'en';
+  let lang = (store.get('hue-lang') || (navigator.language || 'vi').slice(0, 2)) === 'vi' ? 'vi' : 'en';
+  // until the scene is ready the interface behind the loader is out of reach, for the keyboard too
+  const behind = [...document.body.children].filter((el) => el.id !== 'loader' && el.tagName !== 'SCRIPT');
+  behind.forEach((el) => { el.inert = true; });
   let T = STR[lang];
   let current = null; // place shown in the card
   const placeById = new Map(data.places.map((p) => [p.id, p]));
@@ -54,29 +63,21 @@ export function createUI(data, handlers) {
     document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
     list.setAttribute('aria-label', T.places);
     search.refresh(current);
-    if (innerWidth <= 720) $('btn-ride').querySelector('span').textContent = T.rideShort;
     $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
     $('btn-lang').textContent = innerWidth <= 720 ? T.langShort : T.lang;
     $('btn-lang').title = T.lang; $('btn-lang').setAttribute('aria-label', T.lang);
-    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain };
-    $('era').setAttribute('aria-label', T.era);
-    document.querySelectorAll('#era button').forEach((b) => {
-      const i = +b.dataset.era;
-      b.querySelector('.long').textContent = T.eras[i];
-      b.querySelector('.short').textContent = T.erasShort[i];
-      b.querySelector('small').textContent = T.eraYears[i];
-      b.setAttribute('aria-label', T.eras[i] + (T.eraYears[i] ? ' ' + T.eraYears[i] : ''));
-    });
+    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
     document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
     $('attrib').textContent = T.attrib;
-    $('ride-exit').textContent = T.exitRide;
     $('about-title').textContent = T.aboutTitle;
     const n = (v) => v.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
     $('about-body').innerHTML = T.aboutBody.replace('{buildings}', n(data.meta.counts.buildings)).replace('{infill}', n(data.meta.counts.infill));
     const ts = (data.meta.osmTimestamp || '').slice(0, 10);
     $('about-fine').textContent = (lang === 'vi' ? 'Dữ liệu OSM trích ngày ' : 'OSM extract dated ') + ts + ' · Overpass API · three.js';
     $('loader-text').textContent = T.loading;
+    $('scene').setAttribute('aria-label', T.scene);
+    $('seg-time').setAttribute('aria-label', T.timeOfDay);
     if (current) fillCard(current);
   }
 
@@ -92,60 +93,78 @@ export function createUI(data, handlers) {
   const show = (id, on) => { $(id).hidden = !on; };
   function fillMedia(st) {
     const imgs = (st && st.images) || [];
-    if (!imgs.length) { show('card-media', false); return; }
-    const im = imgs[shot % imgs.length], img = $('card-img');
+    const im = imgs.length ? imgs[shot % imgs.length] : null, thumb = im && webUrl(im.thumb);
+    if (!thumb) { show('card-media', false); return; }
+    const img = $('card-img'), next = $('card-shot');
     img.onerror = () => show('card-media', false);
     img.style.aspectRatio = im.width && im.height ? `${im.width} / ${Math.min(im.height, im.width * 0.72)}` : '';
-    img.src = im.thumb;
+    img.src = thumb.href;
     img.alt = (im.caption && im.caption[lang]) || '';
-    img.title = imgs.length > 1 ? `${T.nextPhoto} (${(shot % imgs.length) + 1}/${imgs.length})` : '';
+    // the picture is a button that shows the next one; with a single picture there is nothing to press
+    const tip = imgs.length > 1 ? `${T.nextPhoto} (${(shot % imgs.length) + 1}/${imgs.length})` : '';
+    next.title = tip; next.disabled = !tip;
+    if (tip) next.setAttribute('aria-label', tip); else next.removeAttribute('aria-label');
     img.classList.toggle('more', imgs.length > 1);
     $('card-caption').textContent = (im.caption && im.caption[lang]) || '';
     const credit = $('card-credit');
     credit.textContent = '';
-    const a = document.createElement('a');
-    a.href = im.page; a.target = '_blank'; a.rel = 'noopener';
+    const page = webUrl(im.page), a = document.createElement(page ? 'a' : 'span');
+    if (page) { a.href = page.href; a.target = '_blank'; a.rel = 'noopener'; }
     a.textContent = `${T.photoBy}: ${(im.author || 'Wikimedia Commons').slice(0, 60)} · ${im.license || ''}`;
     credit.append(a);
     show('card-media', true);
   }
+  // text in the interface language, or the other one when it is missing: [text, language of that text]
+  const txl = (o) => (!o ? ['', lang] : o[lang] ? [o[lang], lang] : o.vi ? [o.vi, 'vi'] : o.en ? [o.en, 'en'] : ['', lang]);
+  // write text and mark a fallback with its own language, so a screen reader pronounces it by the right rules
+  const put = (el, text, l = lang) => { el.textContent = text; if (l !== lang) el.lang = l; else el.removeAttribute('lang'); };
   function fillCard(p) {
     const note = NOTES[p.id] || (p.k === 'gate' ? NOTES.gate : null);
     const st = stories && stories[p.id];
-    const tx = (o) => (o && (o[lang] || o.vi || o.en)) || '';
-    $('card-kind').textContent = tx(st && st.kind) || T.kinds[p.k] || T.kinds.place;
-    $('card-name').textContent = (lang === 'en' && st && tx(st.title)) || p.n;
-    $('card-when').textContent = tx(st && st.when); show('card-when', !!(st && st.when));
-    $('card-note').textContent = tx(st && st.summary) || (note ? note[lang] : '');
-    const then = st && st.eras && era.value < 2 ? tx(st.eras[era.value]) : '';
-    $('card-era').textContent = then ? `${T.then[era.value]}: ${then}` : ''; show('card-era', !!then);
+    const kind = txl(st && st.kind);
+    if (kind[0]) put($('card-kind'), ...kind); else put($('card-kind'), T.kinds[p.k] || T.kinds.place);
+    const title = lang === 'en' && st && txl(st.title);
+    if (title && title[0]) put($('card-name'), ...title); else put($('card-name'), p.n, 'vi'); // the place's own (Vietnamese) name
+    put($('card-when'), ...txl(st && st.when)); show('card-when', !!(st && st.when));
+    const summary = txl(st && st.summary);
+    if (summary[0]) put($('card-note'), ...summary); else put($('card-note'), note ? note[lang] : '');
     const story = $('card-story'); story.textContent = '';
-    for (const para of tx(st && st.story).split(/\n\s*\n/)) if (para.trim()) { const el = document.createElement('p'); el.textContent = para.trim(); story.append(el); }
+    const [storyText, storyLang] = txl(st && st.story);
+    for (const para of storyText.split(/\n\s*\n/)) if (para.trim()) { const el = document.createElement('p'); put(el, para.trim(), storyLang); story.append(el); }
     show('card-story', story.childElementCount > 0);
     const facts = $('card-facts'); facts.textContent = '';
-    for (const f of (st && st.facts) || []) { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = tx(f.label); dd.textContent = tx(f.value); facts.append(dt, dd); }
+    for (const f of (st && st.facts) || []) { const dt = document.createElement('dt'), dd = document.createElement('dd'); put(dt, ...txl(f.label)); put(dd, ...txl(f.value)); facts.append(dt, dd); }
     show('card-facts', facts.childElementCount > 0);
     const src = $('card-sources'); src.textContent = '';
     const list = (st && st.sources) || [];
     if (list.length) {
       src.append(`${T.sources}: `);
-      list.forEach((q, i) => { const a = document.createElement('a'); a.href = q.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = q.title || new URL(q.url).hostname; src.append(a, i < list.length - 1 ? ' · ' : ''); });
+      list.forEach((q, i) => {
+        const u = webUrl(q.url), a = document.createElement(u ? 'a' : 'span');
+        if (u) { a.href = u.href; a.target = '_blank'; a.rel = 'noopener'; }
+        a.textContent = q.title || (u ? u.hostname : '');
+        src.append(a, i < list.length - 1 ? ' · ' : '');
+      });
     }
     show('card-sources', list.length > 0);
     fillMedia(st);
     const lat = origin.lat - p.z / 10 / 110574, lon = origin.lon + p.x / 10 / (Math.cos((origin.lat * Math.PI) / 180) * 111319.49);
     $('card-meta').textContent = `${lat.toFixed(4)}° N · ${lon.toFixed(4)}° E`;
   }
+  // focus moves into the card when it opens and goes back to whatever opened it when it closes
+  let opener = null;
   function showCard(id) {
     const p = placeById.get(id);
     if (!p) return;
+    const card = $('card'), from = document.activeElement;
+    if (from && from !== document.body && !card.contains(from)) opener = from;
     current = p;
     shot = 0;
     loadStories();
     fillCard(p);
     $('card-scroll').scrollTop = 0;
-    const card = $('card');
     card.hidden = false;
+    $('card-name').focus({ preventScroll: true });
     card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
     document.body.classList.add('has-card');
     seen.add(id);
@@ -155,7 +174,10 @@ export function createUI(data, handlers) {
   function hideCard() {
     current = null;
     search.setShown(null);
-    $('card').hidden = true;
+    const card = $('card'), hadFocus = card.contains(document.activeElement);
+    card.hidden = true;
+    if (hadFocus && opener && opener.isConnected) opener.focus({ preventScroll: true });
+    opener = null;
     document.body.classList.remove('has-card');
     listButtons.forEach((b) => b.classList.remove('active'));
   }
@@ -165,7 +187,6 @@ export function createUI(data, handlers) {
   function hint(text, ms = 5200) {
     const el = $('hint');
     el.textContent = text;
-    el.classList.remove('long');
     el.classList.add('show');
     clearTimeout(hintTimer);
     if (ms) hintTimer = setTimeout(() => el.classList.remove('show'), ms);
@@ -173,7 +194,7 @@ export function createUI(data, handlers) {
   const hideHint = () => { clearTimeout(hintTimer); $('hint').classList.remove('show'); };
 
   // ---- wiring ----
-  $('btn-lang').addEventListener('click', () => { lang = lang === 'vi' ? 'en' : 'vi'; localStorage.setItem('hue-lang', lang); applyText(); if (current) fillCard(current); handlers.lang(lang); });
+  $('btn-lang').addEventListener('click', () => { lang = lang === 'vi' ? 'en' : 'vi'; store.set('hue-lang', lang); applyText(); handlers.lang(lang); }); // applyText refills an open card
   $('btn-labels').addEventListener('click', () => handlers.labels());
   $('btn-look').addEventListener('click', () => handlers.look());
   $('btn-about').addEventListener('click', () => $('about').showModal());
@@ -185,44 +206,20 @@ export function createUI(data, handlers) {
   $('btn-zin').addEventListener('click', () => handlers.zoom(0.6));
   $('btn-zout').addEventListener('click', () => handlers.zoom(1.6));
   $('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
-  $('card-img').addEventListener('click', () => { if (current) { shot++; fillMedia(stories && stories[current.id]); } });
-  onEra(() => { if (current) fillCard(current); });
-  $('btn-ride').addEventListener('click', () => handlers.ride());
+  $('card-shot').addEventListener('click', () => { if (current) { shot++; fillMedia(stories && stories[current.id]); } });
   $('btn-rain').addEventListener('click', () => handlers.rain());
-  document.querySelectorAll('#seg-time button').forEach((b) => b.addEventListener('click', () => handlers.time(+b.dataset.time)));
-  $('ride-exit').addEventListener('click', () => handlers.exitRide());
-
-  // ---- period: the switcher calls setEra itself; everything here follows onEra ----
-  const eraButtons = [...document.querySelectorAll('#era button')];
-  eraButtons.forEach((b) => b.addEventListener('click', () => setEra(+b.dataset.era)));
-  $('era').addEventListener('keydown', (e) => {
+  const timeButtons = [...document.querySelectorAll('#seg-time button')];
+  timeButtons.forEach((b) => b.addEventListener('click', () => handlers.time(+b.dataset.time)));
+  // a radio group: one stop in the tab order, arrow keys move the choice
+  let timeIdx = 1;
+  $('seg-time').addEventListener('keydown', (e) => {
     const d = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
     if (!d) return;
     e.preventDefault(); e.stopPropagation();
-    setEra((era.value + d + 3) % 3);
-    eraButtons[era.value].focus();
+    const i = (timeIdx + d + 3) % 3;
+    handlers.time(i);
+    timeButtons[i].focus();
   });
-  const calm = matchMedia('(prefers-reduced-motion: reduce)');
-  let dipTimer = 0;
-  function applyEra(e, dip) {
-    document.body.dataset.era = e;
-    eraButtons.forEach((b) => { const on = +b.dataset.era === e; b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; });
-    listButtons.forEach((b, id) => { b.hidden = !existsIn(id, e); });
-    if (current && !existsIn(current.id, e)) { hideCard(); handlers.cardClosed(); }
-    search.refresh(current);
-    if (dip && !calm.matches) {
-      const body = document.body;
-      body.classList.remove('era-dip'); void body.offsetWidth; body.classList.add('era-dip');
-      clearTimeout(dipTimer); dipTimer = setTimeout(() => body.classList.remove('era-dip'), 450);
-    }
-  }
-  onEra((e) => { applyEra(e, true); hint(T.eraHints[e], 4500); $('hint').classList.add('long'); });
-  applyEra(era.value, false);
-  const scrub = $('ride-scrub');
-  scrub.addEventListener('input', () => handlers.seek(scrub.value / 1000, true));
-  const release = () => handlers.seek(scrub.value / 1000, false);
-  scrub.addEventListener('change', release);
-  scrub.addEventListener('pointerup', release);
 
   applyText();
   // the short wordings (phone) and the placeholder follow the window across its breakpoints
@@ -233,7 +230,7 @@ export function createUI(data, handlers) {
     applyText();
   });
 
-  let capIndex = -1;
+  let heading = NaN;
   return {
     get lang() { return lang; },
     get T() { return T; },
@@ -246,27 +243,14 @@ export function createUI(data, handlers) {
       document.body.dataset.time = time; // the sheets turn to dark lacquer once the lights are on (style.css)
       $('btn-rain').setAttribute('aria-pressed', !!rain);
       $('btn-rain').querySelector('span').textContent = rain ? T.rainOn : T.rain;
-      document.querySelectorAll('#seg-time button').forEach((b) => b.setAttribute('aria-checked', +b.dataset.time === time));
+      timeIdx = time;
+      timeButtons.forEach((b) => { const on = +b.dataset.time === time; b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; });
     },
-    setHeading(rad) { $('needle').style.transform = `rotate(${(-rad * 180) / Math.PI}deg)`; },
-    setRide(active) {
-      document.body.classList.toggle('riding', active);
-      $('ride-hud').hidden = !active;
-      capIndex = -1;
-      if (active) { search.close(); hideCard(); hint(T.hintRide, 4500); } else hideHint();
-    },
-    setRideProgress(t) {
-      if (document.activeElement !== scrub || !scrub.matches(':active')) scrub.value = Math.round(t * 1000);
-      scrub.style.setProperty('--p', (t * 100).toFixed(1) + '%');
-      const i = t < 0.2 ? 0 : t < 0.4 ? 1 : t < 0.56 ? 2 : t < 0.78 ? 3 : 4;
-      if (i !== capIndex) {
-        capIndex = i;
-        const cap = $('ride-cap');
-        cap.style.opacity = 0;
-        setTimeout(() => { cap.textContent = T.caps[i]; cap.style.opacity = 1; }, capIndex === 0 ? 0 : 320);
-      }
+    setHeading(rad) {
+      const deg = Math.round((-rad * 1800) / Math.PI) / 10; // tenths of a degree; no style write while the view holds still
+      if (deg !== heading) { heading = deg; $('needle').style.transform = `rotate(${deg}deg)`; }
     },
     loaderProgress(p) { $('loader-bar').style.width = Math.round(p * 100) + '%'; },
-    loaderDone() { $('loader').classList.add('done'); },
+    loaderDone() { $('loader').classList.add('done'); behind.forEach((el) => { el.inert = false; }); },
   };
 }

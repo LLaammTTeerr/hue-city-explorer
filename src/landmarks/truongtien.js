@@ -1,13 +1,20 @@
 import * as THREE from 'three';
-import { KIND, hex, shade } from '../geo/buf.js';
+import { KIND, hex, shade, Buf } from '../geo/buf.js';
 import { glowPoints, lightMaterial } from '../geo/materials.js';
-import { Buf } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 
 // Cầu Trường Tiền. Position, axis, length and width come from the OSM bridge outline
 // (way 1431129413); the six bow-string steel spans — "sáu vài mười hai nhịp" — are modelled by hand.
 export function buildTruongTien(data, S, group) {
   const tt = data.truongtien;
+  const pt = (p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]);
+  if (!tt || !pt(tt.a) || !pt(tt.b) || !tt.box || !pt(tt.box.c) || !(tt.box.w > 0) || !(tt.box.d > 0)) {
+    // without its outline the bridge is left out, but the caller still gets the fields and methods it uses each frame
+    console.warn('Trường Tiền not built: data.truongtien missing or incomplete');
+    const lamps = glowPoints([], [], 8);
+    group.add(lamps);
+    return { centre: [0, 0], dir: [1, 0], across: [0, 1], length: 0, width: 0, span: 0, deckTop: 0, deckBottom: 0, lights: [], lamps, update() {} };
+  }
   const a = [tt.a[0] / 10, tt.a[1] / 10], b = [tt.b[0] / 10, tt.b[1] / 10]; // north end, south end
   const L = tt.box.w / 10, W = tt.box.d / 10;
   const c = [tt.box.c[0] / 10, tt.box.c[1] / 10];
@@ -136,7 +143,7 @@ export function buildTruongTien(data, S, group) {
     }
     const strip = new THREE.Mesh(LB.geometry(), lightMaterial(0xffffff, 1.5));
     strip.renderOrder = 19;
-    strip.userData.minEra = 2;
+    strip.userData.landmark = true;
     group.add(strip);
     spanStrips.push(strip);
   }
@@ -151,7 +158,7 @@ export function buildTruongTien(data, S, group) {
     }
     const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xffd9a0, 0.75));
     edge.renderOrder = 19;
-    edge.userData.minEra = 2;
+    edge.userData.landmark = true;
     group.add(edge);
   }
 

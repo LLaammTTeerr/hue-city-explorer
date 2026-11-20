@@ -1,4 +1,4 @@
-import { KIND, hex, shade, span, unflat } from '../geo/buf.js';
+import { KIND, hex, shade, unflat, inRing } from '../geo/buf.js';
 import { glowPoints } from '../geo/materials.js';
 import { LAND_Y } from '../config.js';
 
@@ -24,21 +24,15 @@ import { LAND_Y } from '../config.js';
 const LENGTH = 400, WIDTH = 4, DECK_Y = 1.2, PILE_Y = -1.5, GAP = 2.0, PAST_PX = 20;
 
 // ------------------------------------------------------------------ geometry helpers (pure)
-function inRing(r, x, z) {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
-    const a = r[i], b = r[j];
-    if ((a[1] > z) !== (b[1] > z) && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) c = !c;
-  }
-  return c;
-}
 function segDist(p, a, b) {
   const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
   let t = l2 > 0 ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / l2 : 0;
   t = Math.max(0, Math.min(1, t));
   return { d: Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t), t };
 }
+// evenly spaced points (not geo/bridges.js's resample, which keeps the vertices and returns arc lengths)
 function resample(pts, step) {
+  if (!pts.length) return [];
   const out = [pts[0]];
   let carry = 0;
   for (let i = 1; i < pts.length; i++) {
@@ -68,7 +62,7 @@ function smooth(arr, half, passes) {
 }
 
 // Land near a point: polygons (outer ring + holes, in metres) whose bounds come within `reach`.
-export function landNear(data, c, reach) {
+function landNear(data, c, reach) {
   const out = [];
   for (const poly of data.land) {
     const rings = poly.map(unflat);
@@ -79,16 +73,16 @@ export function landNear(data, c, reach) {
   }
   return out;
 }
-export function isLand(land, x, z) {
+function isLand(land, x, z) {
   for (const rings of land) {
-    if (!inRing(rings[0], x, z)) continue;
+    if (!inRing(x, z, rings[0])) continue;
     let hole = false;
-    for (let h = 1; h < rings.length && !hole; h++) hole = inRing(rings[h], x, z);
+    for (let h = 1; h < rings.length && !hole; h++) hole = inRing(x, z, rings[h]);
     if (!hole) return true;
   }
   return false;
 }
-export function bankDist(land, p) {
+function bankDist(land, p) {
   let best = Infinity;
   for (const rings of land) for (const r of rings) for (let i = 0; i < r.length; i++) {
     const d = segDist(p, r[i], r[(i + 1) % r.length]).d;
@@ -98,7 +92,7 @@ export function bankDist(land, p) {
 }
 
 // The walkway's centreline: [{ p:[x,z], t:[tx,tz] (upstream), n:[nx,nz] (towards the water), bank }], ~1.5 m apart.
-export function boardwalkPath(data) {
+function boardwalkPath(data) {
   const tt = data.truongtien;
   const south = [tt.b[0] / 10, tt.b[1] / 10];
   const lab = data.places.find((q) => q.id === 'ndchieu');
@@ -182,13 +176,14 @@ export function boardwalkPath(data) {
   if (px) {
     const ring = unflat(px.ring);
     let last = -1;
-    for (let i = iFoot; i < n; i++) if (inRing(ring, c[i][0], c[i][1])) last = i;
+    for (let i = iFoot; i < n; i++) if (inRing(c[i][0], c[i][1], ring)) last = i;
     if (last > 0) sEnd = arc[last] + PAST_PX;
   }
   sEnd = Math.min(sEnd, arc[n - 1] - 20);
   const sStart = Math.max(arc[0] + 20, sEnd - LENGTH);
   const cut = [];
   for (let i = 0; i < n; i++) if (arc[i] >= sStart && arc[i] <= sEnd) cut.push(c[i]);
+  if (cut.length < 2) return null; // a bank too short for the window: no walkway rather than a TypeError
   const cl = resample(cut, STEP);
   const m = cl.length;
   return cl.map((p, i) => {
@@ -204,8 +199,6 @@ export function buildBoardwalk(data, S, group) {
   try {
     const path = boardwalkPath(data);
     if (!path || path.length < 10) { console.warn('boardwalk: no bank found'); return { glows }; }
-    const n0 = S.n;
-    S.span = span(2);
     S.base = 0;
 
     const wood = hex('#7d5336'), woodShades = [1, 0.88, 0.95, 0.84, 0.92], fascia = shade(wood, 0.7);
@@ -302,21 +295,16 @@ export function buildBoardwalk(data, S, group) {
       cols.push(1.0 * f, 0.74 * f, 0.4 * f);
     }
     S.kind = KIND.PLAIN;
-    for (let i = 0; i < pos.length; i += 3) for (const a of [0, Math.PI / 2]) {
-      const dx = Math.cos(a) * 0.09, dz = Math.sin(a) * 0.09;
-      S.quad([pos[i] - dx, DECK_Y, pos[i + 2] - dz], [pos[i] + dx, DECK_Y, pos[i + 2] + dz], [pos[i] + dx, DECK_Y + 0.5, pos[i + 2] + dz], [pos[i] - dx, DECK_Y + 0.5, pos[i + 2] - dz], bronze);
-    }
+    // a small square post (closed, so it shows from every side under the FrontSide city material)
+    for (let i = 0; i < pos.length; i += 3) S.box(pos[i], pos[i + 2], DECK_Y, DECK_Y + 0.5, 0.18, 0.18, 0, bronze);
     const pts = glowPoints(pos, cols, 4);
     pts.userData.glow = true;
-    pts.userData.minEra = 2;
     group.add(pts);
     glows.push(pts);
 
-    buildBoardwalk.tris = (S.n - n0) / 3;
   } catch (e) {
     console.warn('boardwalk:', e);
   } finally {
-    S.span = 0;
     S.kind = KIND.PLAIN;
     S.base = 0;
   }

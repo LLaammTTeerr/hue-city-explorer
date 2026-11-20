@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { Buf, hex, shade, unflat } from '../geo/buf.js';
-import { cityMaterial, enc } from '../geo/materials.js';
+import { Buf, hex, shade, unflat, inRing, pathLength } from '../geo/buf.js';
+import { cityMaterial, enc, glowPoints } from '../geo/materials.js';
 import { rise, pondY } from '../geo/terrain.js';
-import { LAND_Y, POND_Y, quality } from '../config.js';
-import { era, onEra } from '../era.js';
+import { LAND_Y, quality, ROAD_W, ROAD_MAX } from '../config.js';
+import { bridgeProfiles, resample } from '../geo/bridges.js';
+import { landTest } from './boats.js';
 
 // Small living things that make the model feel inhabited. All illustrative.
 
@@ -11,11 +12,6 @@ function rng(seed) {
   let s = seed >>> 0;
   return () => { s = (s + 0x6d2b79f5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 }
-const inRing = (x, z, r) => {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
-  return c;
-};
 
 // Lotus on the still water: the moat and the lakes of the Citadel are full of it in summer.
 export function buildLotus(data, group) {
@@ -69,6 +65,7 @@ export function buildLotus(data, group) {
     padMesh.setColorAt(i, enc(shade(greens[i % greens.length], 0.85 + ((i * 7) % 10) / 33), c));
   });
   const bloomMesh = new THREE.InstancedMesh(bloomGeo.geometry(), mat, Math.max(1, blooms.length));
+  bloomMesh.count = blooms.length; // with no blooms, no stray identity instance at the origin
   blooms.forEach(([x, z, r, y], i) => {
     q.setFromAxisAngle(up, i); p.set(x, y + 0.25, z); s.set(r, r, r);
     bloomMesh.setMatrixAt(i, m.compose(p, q, s));
@@ -86,12 +83,10 @@ export function buildLotus(data, group) {
 
 // ---------- shared helpers for things that move along polylines ----------
 
-const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2]; // carriageway widths by road class; must match ROAD_W in geo/city.js
 const BRIDGE_TOP = LAND_Y + 0.42; // road bridge slab top (geo/city.js)
 const RAIL_BRIDGE_TOP = LAND_Y + 0.5; // rail bridge deck (geo/city.js)
 const ON_GROUND = 0.06; // things on the ground stand on the road overlay, not under it
 
-function pathLength(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
 // Same as `along` in geo/city.js, so lamp posts land exactly where the night glows are.
 function along(pts, dist) {
   let s = 0;
@@ -113,7 +108,7 @@ function readRoads(data) {
     const pts = unflat(r[2]);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1]; }
-    out.push({ c: Math.max(0, Math.min(5, r[0] | 0)), bridge: !!r[1], pts, len: pathLength(pts), x0, x1, z0, z1 });
+    out.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), x0, x1, z0, z1 });
   }
   return out;
 }
@@ -218,12 +213,14 @@ function chain(lines, tol, canJoin) {
           if (Math.hypot(p[0] - l[0], p[1] - l[1]) < (k === 0 ? tol + 0.01 : 0.05)) continue;
         }
         pts.push(p);
-        hs.push(lines[s.i].h);
+        hs.push(lines[s.i].hs ? lines[s.i].hs[s.rev ? n - 1 - k : k] : lines[s.i].h);
       }
     }
     if (pts.length < 2) continue;
-    const ya = Float32Array.from(hs);
-    const path = mkPath(pts, ya, ya);
+    // segment i runs from height ya[i] to yb[i]; across a humped deck that follows its curve, while the segments
+    // entering and leaving a bridge from the road keep to the ground (NaN), so neither rides at deck height
+    const yb = Float32Array.from(hs), ya = Float32Array.from(hs, (h, i) => (i && h === h && hs[i - 1] === hs[i - 1] ? hs[i - 1] : NaN));
+    const path = mkPath(pts, ya, yb);
     path.c = lines[i0].c;
     out.push(path);
   }
@@ -245,29 +242,6 @@ function clipRuns(pts, keep, step, minLen) {
   }
   flush();
   return runs;
-}
-
-// Dry land: inside a land polygon, outside its holes and outside every pond. Without land data, everywhere is land.
-function landTest(data) {
-  const polys = [];
-  for (const poly of data.land || []) {
-    if (!Array.isArray(poly) || !poly.length) continue;
-    const rings = poly.map(unflat);
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
-    for (const p of rings[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
-    polys.push({ rings, x0, x1, z0, z1 });
-  }
-  const ponds = [];
-  for (const poly of data.ponds || []) if (Array.isArray(poly) && poly[0]) ponds.push(unflat(poly[0]));
-  if (!polys.length) return () => true;
-  return (x, z) => {
-    let on = false;
-    for (const p of polys) {
-      if (x < p.x0 || x > p.x1 || z < p.z0 || z > p.z1) continue;
-      if (inRing(x, z, p.rings[0]) && !p.rings.slice(1).some((h) => inRing(x, z, h))) { on = true; break; }
-    }
-    return on && !ponds.some((r) => inRing(x, z, r));
-  };
 }
 
 function placeById(data) {
@@ -301,55 +275,6 @@ function truongTienFrame(data) {
 
 const tmp = { x: 0, y: 0, z: 0, dx: 1, dz: 0 };
 
-// ---------- the era switcher (era.js): who is on the street in 1885, 1935 and today ----------
-//
-// Historical fact:
-//  - 1885: no railway (the line and Ga Huế came in 1908), no cầu Trường Tiền (1899), no Quốc Học (1896), no
-//    French quarter on the south bank (Phố Tây, Nguyễn Đình Chiểu); no motor vehicles and no electric street
-//    lighting. People went on foot; dignitaries were carried in palanquins (võng, kiệu) and goods went by ox- or
-//    hand-cart. The nón lá was near-universal headwear and everyday clothes were undyed, brown, black and indigo.
-//  - 1935: the train ran (steam, black locomotives); Trường Tiền was the only bridge over the Hương; the
-//    hand-pulled rickshaw (xe kéo) was the common hired vehicle, the pedalled xích lô was only just appearing in
-//    Indochina (late 1930s); bicycles were common, private cars few (dark colours of the period); there were no
-//    motorbikes or city buses to speak of. Electric street lighting existed but only on the main central streets.
-//  - The other bridges over the main river (Phú Xuân, Dã Viên, ...) are post-1950s.
-// Illustrative: every number (a third of today's riders become rickshaws, one in eight cars survives, a third of
-// the lamp posts, ~90 % nón lá, the shares of áo dài), the colours, the palanquins/ox-carts drawn with the cyclo
-// mesh, the bicycles drawn with the motorbike mesh, which pedestrian hotspots are kept in 1885, and the rule used
-// for missing bridges (any road-bridge run longer than 250 m is absent before today; Trường Tiền's deck before 1935).
-// Agents whose route crosses an absent bridge keep to the bridge-free stretch of it that they are on.
-const LONG_BRIDGE = 250;
-// Arc-length ranges [a, b] of a chained path that lie on a road-bridge run longer than LONG_BRIDGE metres.
-function longBridgeRuns(path) {
-  const runs = [], ya = path.ya, n = path.acc.length;
-  if (!ya) return runs;
-  let st = -1;
-  for (let i = 1; i <= n; i++) {
-    const b = i < n && ya[i] === ya[i];
-    if (b && st < 0) st = i;
-    else if (!b && st >= 0) { const a = path.acc[st - 1], e = path.acc[i - 1]; if (e - a > LONG_BRIDGE) runs.push([a, e]); st = -1; }
-  }
-  return runs;
-}
-// The stretch of [s0, s1] clear of `runs` (padded) that contains s, else the longest; null if under minLen.
-function freeRange(s0, s1, s, runs, pad = 15, minLen = 40) {
-  if (!runs.length) return [s0, s1];
-  const pieces = [];
-  let a = s0;
-  for (const [ra, rb] of runs) {
-    if (rb + pad <= a || ra - pad >= s1) continue;
-    if (ra - pad > a) pieces.push([a, ra - pad]);
-    a = Math.max(a, rb + pad);
-  }
-  if (a < s1) pieces.push([a, s1]);
-  let best = null;
-  for (const p of pieces) if (p[1] - p[0] >= minLen) {
-    if (s >= p[0] && s <= p[1]) return p;
-    if (!best || p[1] - p[0] > best[1] - best[0]) best = p;
-  }
-  return best;
-}
-
 // ---------- traffic ----------
 
 // Motorbikes, cars, buses and cyclos on the main streets — Huế moves on two wheels.
@@ -358,7 +283,16 @@ function freeRange(s0, s1, s, runs, pad = 15, minLen = 40) {
 export function buildTraffic(data, group) {
   const rnd = rng(1899);
   const roads = readRoads(data);
-  const lines = roads.filter((r) => r.c <= 2 && r.len > 1).map((r) => ({ pts: r.pts, len: r.len, c: r.c, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN }));
+  const profiles = bridgeProfiles(data);
+  const lines = roads.filter((r) => r.c <= 2 && r.len > 1).map((r) => {
+    const P = r.bridge && profiles.get(r.flat);
+    if (!P) return { pts: r.pts, len: r.len, c: r.c, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN };
+    // a humped deck: points close enough together to ride its curve; a flat one keeps its vertices, where
+    // geo/city.js lays the deck at the profile's height (which may sit above BRIDGE_TOP, or climb between banks)
+    let acc = 0;
+    const R = P.rise > 0 ? resample(r.pts, 2) : { pts: r.pts, s: r.pts.map((q, i) => (acc += i ? Math.hypot(q[0] - r.pts[i - 1][0], q[1] - r.pts[i - 1][1]) : 0)) };
+    return { pts: R.pts, len: r.len, c: r.c, h: BRIDGE_TOP + 0.02, hs: R.s.map((s) => Math.max(BRIDGE_TOP, P.base(s)) + P.bump(s) + 0.02) };
+  });
   const paths = chain(lines, 1.5, (a, b) => Math.abs(a.c - b.c) <= 1).filter((p) => p.len > 160);
   const tt = truongTienFrame(data);
   if (!paths.length && !tt) return { update() {} };
@@ -414,54 +348,6 @@ export function buildTraffic(data, group) {
     for (let i = 0; i < nTT; i++) add('bike', p, 0, p.len, 4 + rnd() * 4, 0.9 + rnd() * Math.max(0.3, tt.trussX - 1.3), 1.2);
   }
 
-  // ---- era roles (see the note above longBridgeRuns); a separate generator keeps today exactly as it was
-  const er = rng(1885);
-  // 1885 only: palanquins and ox-carts on the streets around the Citadel's south front
-  if (paths.length) {
-    const hubs = ['kydai', 'ngomon', 'phuvanlau'].map((id) => places.get(id)).filter(Boolean);
-    const spans = [];
-    for (const p of paths) {
-      let a = Infinity, b = -Infinity;
-      p.pts.forEach((q, j) => { if (hubs.some((h) => Math.hypot(q[0] - h[0], q[1] - h[1]) < 500)) { a = Math.min(a, p.acc[j]); b = Math.max(b, p.acc[j]); } });
-      if (b - a > 80) spans.push({ p, a, b });
-    }
-    const nPal = spans.length ? (low ? 6 : 12) : 0;
-    for (let i = 0; i < nPal; i++) {
-      const s = spans[Math.floor(er() * spans.length)];
-      V.push({ kind: 'palanquin', path: s.p, s0: s.a, s1: s.b, s: s.a + er() * (s.b - s.a), dir: er() < 0.5 ? 1 : -1, speed: 0.9 + er() * 0.5, lane: 1.4 + er() * 1.2, off: 0, turn: 0, T: 2.4, seg: 1, k: null, mesh: null, i: 0 });
-    }
-  }
-  const OLD = {
-    bicycle: ['#e8e4da', '#6e4b3a', '#33415e', '#2a2a2e', '#d9cdb4'].map(hex),
-    oldcar: ['#1c1c1e', '#24402f', '#5a1f24', '#1c1c1e'].map(hex),
-    rickshaw: ['#1e1e20', '#3a2a22', '#5a1f24', '#2d2d33'].map(hex),
-    palanquin: ['#8a2a20', '#6b4a2e', '#a8832e', '#6b4a2e'].map(hex),
-  };
-  const OLDCAR_K = [0.92, 1.08, 0.95], PAL_K = [1.15, 0.95, 1.1];
-  const cnt = { bike: 0, car: 0, cyclo: 0 };
-  for (let j = 0; j < V.length; j++) {
-    const v = V[j], base = [v.s0, v.s1];
-    v.roles = [null, null, null]; v.sp = [v.speed, v.speed, v.speed]; v.ks = [v.k, v.k, v.k]; v.pal = [null, null, null];
-    if (v.kind === 'palanquin') { v.roles[0] = 'palanquin'; v.ks[0] = PAL_K; v.pal[0] = OLD.palanquin[j % 4]; }
-    else if (v.kind === 'bike') {
-      v.roles[2] = 'bike';
-      const r = cnt.bike++ % 6;
-      if (r === 0 || r === 3) { v.roles[1] = 'rickshaw'; v.sp[1] = 1.8 + er() * 1.3; v.pal[1] = OLD.rickshaw[r % 4]; }
-      else if (r === 1) { v.roles[1] = 'bicycle'; v.sp[1] = 3 + er() * 1.6; v.pal[1] = OLD.bicycle[Math.floor(er() * 5)]; }
-    } else if (v.kind === 'car') {
-      v.roles[2] = 'car';
-      if (cnt.car++ % 8 === 0) { v.roles[1] = 'oldcar'; v.sp[1] = v.speed * 0.7; v.ks[1] = OLDCAR_K; v.pal[1] = OLD.oldcar[Math.floor(er() * 4)]; }
-    } else if (v.kind === 'bus') v.roles[2] = 'bus';
-    else if (v.kind === 'cyclo') { v.roles[2] = 'cyclo'; v.roles[1] = 'rickshaw'; v.sp[1] = Math.min(v.speed, 1.8 + er() * 1.3); v.pal[1] = OLD.rickshaw[cnt.cyclo++ % 4]; }
-    // where each may go: the deck of Trường Tiền exists from 1935, long road bridges only today
-    v.rng = [base, base, base];
-    if (v.path === ttPath) v.rng[0] = null;
-    else {
-      const runs = v.path.lbr || (v.path.lbr = longBridgeRuns(v.path));
-      v.rng[0] = v.rng[1] = freeRange(v.s0, v.s1, v.s, runs);
-    }
-  }
-
   // geometry, +x forward
   const W = [1, 1, 1];
   const bikeGeo = new Buf(24); // machine and rider: 20 triangles
@@ -483,19 +369,14 @@ export function buildTraffic(data, group) {
     cyclo: ['#3f6b5a', '#7a3a34', '#33415e', '#c8a24a'].map(hex),
   };
   const c = new THREE.Color();
-  // which mesh draws each role; today's colours are picked exactly as before (by index within the mesh)
-  const MESH_OF = { bike: 0, bicycle: 0, car: 1, bus: 1, oldcar: 1, cyclo: 2, rickshaw: 2, palanquin: 2 };
-  const todayIdx = [0, 0, 0];
-  for (const v of V) if (v.roles[2]) { const mi = MESH_OF[v.roles[2]], pal = cols[v.kind], i = todayIdx[mi]++; v.pal[2] = pal[i % pal.length]; }
-  const cap = [0, 0, 0];
-  for (let e = 0; e < 3; e++) {
-    const n = [0, 0, 0];
-    for (const v of V) if (v.roles[e] && v.rng[e]) n[MESH_OF[v.roles[e]]]++;
-    for (let k = 0; k < 3; k++) cap[k] = Math.max(cap[k], n[k]);
-  }
+  // which mesh draws each kind; a vehicle's colour goes by its index within its mesh
+  const MESH_OF = { bike: 0, car: 1, bus: 1, cyclo: 2 };
+  const count = [0, 0, 0];
+  for (const v of V) { v.mi = MESH_OF[v.kind]; v.i = count[v.mi]++; }
   const make = (geo, n) => {
     const mesh = new THREE.InstancedMesh(geo.geometry(), mat, Math.max(1, n));
-    mesh.count = 0;
+    mesh.count = n;
+    mesh.visible = n > 0;
     mesh.castShadow = !quality.low;
     mesh.frustumCulled = false;
     mesh.layers.set(1);
@@ -503,37 +384,15 @@ export function buildTraffic(data, group) {
     group.add(mesh);
     return mesh;
   };
-  const meshes = [make(bikeGeo, cap[0]), make(carGeo, cap[1]), make(cycloGeo, cap[2])];
-
-  // the agents on the street in the current era, packed at the front of each mesh (mesh.count = how many)
-  const act = [];
-  function apply(e) {
-    act.length = 0;
-    const n = [0, 0, 0];
-    for (const v of V) {
-      const role = v.roles[e], r = v.rng[e];
-      if (!role || !r) continue;
-      const mi = MESH_OF[role];
-      v.mesh = meshes[mi]; v.i = n[mi]++;
-      v.mesh.setColorAt(v.i, enc(v.pal[e], c));
-      v.speed = v.sp[e]; v.k = v.ks[e];
-      v.s0 = r[0]; v.s1 = r[1];
-      if (v.s < v.s0) v.s = v.s0; else if (v.s > v.s1) v.s = v.s1;
-      act.push(v);
-    }
-    meshes.forEach((mesh, k) => {
-      mesh.count = n[k];
-      mesh.visible = n[k] > 0;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    });
-    update(0);
-  }
+  const meshes = [make(bikeGeo, count[0]), make(carGeo, count[1]), make(cycloGeo, count[2])];
+  for (const v of V) { v.mesh = meshes[v.mi]; const pal = cols[v.kind]; v.mesh.setColorAt(v.i, enc(pal[v.i % pal.length], c)); }
+  for (const mesh of meshes) if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   function update(dt) {
     dt = Math.min(dt, 0.1);
-    for (let i = 0; i < act.length; i++) {
-      const v = act[i];
+    for (let i = 0; i < V.length; i++) {
+      const v = V[i];
       if (v.turn > 0) v.turn = Math.max(0, v.turn - dt); // a slow U-turn at the end of the route, not a jump
       else {
         v.s += v.dir * v.speed * dt;
@@ -552,25 +411,26 @@ export function buildTraffic(data, group) {
     }
     for (const mesh of meshes) if (mesh.visible) mesh.instanceMatrix.needsUpdate = true;
   }
-  apply(era.value);
-  onEra(apply);
+  update(0);
   return { update };
 }
 
 // ---------- street lamps, pedestrians, the train ----------
 
 export function buildStreetLife(data, group) {
-  const updates = [];
+  const updates = [], out = {};
   const parts = [buildLampPosts, buildPedestrians, buildTrain];
   for (const build of parts) {
     try {
-      const u = build(data, group);
+      const u = build(data, group, out);
       if (u) updates.push(u);
     } catch (e) {
       console.warn('street life: skipped', build.name, e); // one missing data field should not take the city down
     }
   }
-  return { update(dt, time) { dt = Math.min(dt, 0.1); for (const u of updates) u(dt, time); } };
+  // lampGlows1935: the glows of the 1935 lamp posts only (hidden; main.js shows it in 1935 at night instead of the
+  // full world.lamps set, and feeds its uScale like the other glow points)
+  return { update(dt, time) { dt = Math.min(dt, 0.1); for (const u of updates) u(dt, time); }, lampGlows1935: out.lampGlows1935 || null };
 }
 
 // Lamp posts. Real: each stands where geo/city.js puts a night-time glow (every 30–36 m along OSM class 0–2
@@ -578,8 +438,9 @@ export function buildStreetLife(data, group) {
 // To stay inside the triangle budget only the posts nearest the centre and the Citadel are built
 // (LAMP_MAX); glows further out keep shining without a post.
 const LAMP_MAX = () => (quality.low ? 800 : 3000);
-function buildLampPosts(data, group) {
+function buildLampPosts(data, group, out = {}) {
   const roads = readRoads(data);
+  const profiles = bridgeProfiles(data);
   const kd = placeById(data).get('kydai') || [0, 0];
   const ARM = 0.9; // pole stands this far behind the lantern, away from the carriageway
   const spots = [];
@@ -590,20 +451,17 @@ function buildLampPosts(data, group) {
       const { p, a } = along(r.pts, s);
       const side = k % 2 ? 1 : -1, off = (ROAD_W[r.c] / 2 + 0.5) * side;
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
-      const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 : 7.5);
-      const baseY = r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) : LAND_Y + rise(lx, lz);
+      const P = r.bridge && profiles.get(r.flat), up = P ? P.bump(s) : 0; // on a humped deck the post rides the curve
+      const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 + up : 7.5);
+      const baseY = r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) + up : LAND_Y + rise(lx, lz);
       const ox = -Math.sin(a) * side, oz = Math.cos(a) * side; // outward, away from the road
       const far = Math.min(Math.hypot(lx, lz), Math.hypot(lx - kd[0], lz - kd[1]));
-      spots.push([lx, lz, baseY, (glowY - baseY) / 7.5, Math.atan2(-oz, ox), far, r.bridge && r.len > LONG_BRIDGE]);
+      spots.push([lx, lz, baseY, (glowY - baseY) / 7.5, Math.atan2(-oz, ox), far]);
     }
   }
   if (!spots.length) return null;
   spots.sort((a, b) => a[5] - b[5]);
   if (spots.length > LAMP_MAX()) spots.length = LAMP_MAX();
-  // 1935: only the third nearest the centre (and none on bridges not yet built), packed at the front
-  const n1 = Math.round(spots.length / 3);
-  let k1 = 0;
-  for (let i = 0; i < spots.length && k1 < n1; i++) if (!spots[i][6]) { const t = spots[i]; spots.splice(i, 1); spots.splice(k1++, 0, t); }
   // 14 triangles: three-sided pole, a ridged arm, an inverted lantern whose centre is 7.5 m up
   const geo = new Buf(16);
   const dark = hex('#3a4641'), glass = hex('#f2e6c4');
@@ -626,9 +484,6 @@ function buildLampPosts(data, group) {
   mesh.castShadow = !quality.low;
   mesh.layers.set(1);
   group.add(mesh);
-  const apply = (e) => { mesh.count = e >= 2 ? spots.length : e === 1 ? k1 : 0; mesh.visible = mesh.count > 0; };
-  apply(era.value);
-  onEra(apply);
   return null;
 }
 
@@ -640,7 +495,7 @@ function buildPedestrians(data, group) {
   const rnd = rng(1945);
   const roads = readRoads(data).filter((r) => !r.bridge && r.pts.length >= 2);
   const places = placeById(data);
-  const onLand = landTest(data);
+  const onLand = landTest(data, { ponds: true });
   const tt = truongTienFrame(data);
   const N = quality.low ? 300 : 900;
 
@@ -677,11 +532,11 @@ function buildPedestrians(data, group) {
     let ox = 0, oz = 0;
     for (const sgn of [1, -1]) if (!onLand(x + gx[0] * 40 * sgn, z + gx[1] * 40 * sgn) && onLand(x + gx[0] * 12 * sgn, z + gx[1] * 12 * sgn)) { ox = gx[0] * 12 * sgn; oz = gx[1] * 12 * sgn; break; }
     paths.push(...promenade(x + ox, z + oz, gn[0], gn[1], 200, 3));
-    spots.push({ paths, share: 0.17, aodai: 0.3, since: 1 });
+    spots.push({ paths, share: 0.17, aodai: 0.3 });
   }
-  if (tt) spots.push({ paths: [-1, 1].map((sd) => { const p = tt.lane(sd * tt.walkOff, 0.12); p.pav = 0; p.half = 0.5; return p; }), share: 0.07, aodai: 0.3, noGroups: true, since: 1 });
-  if (P('dongba')) spots.push({ paths: roadsNear(...P('dongba'), 170), share: 0.14, aodai: 0.15, since: 0 });
-  if (P('photay')) spots.push({ paths: roadsNear(...P('photay'), 200), share: 0.15, aodai: 0.08, since: 1 });
+  if (tt) spots.push({ paths: [-1, 1].map((sd) => { const p = tt.lane(sd * tt.walkOff, 0.12); p.pav = 0; p.half = 0.5; return p; }), share: 0.07, aodai: 0.3, noGroups: true });
+  if (P('dongba')) spots.push({ paths: roadsNear(...P('dongba'), 170), share: 0.14, aodai: 0.15 });
+  if (P('photay')) spots.push({ paths: roadsNear(...P('photay'), 200), share: 0.15, aodai: 0.08 });
   if (P('kydai') && P('ngomon')) {
     // the esplanade between Kỳ Đài and Ngọ Môn: three walks along it and one across
     const [ax, az] = P('kydai'), [bx, bz] = P('ngomon');
@@ -690,7 +545,7 @@ function buildPedestrians(data, group) {
     const paths = roadsNear(cx, cz, dl * 0.6, 3);
     for (const o of [-28, 0, 28]) paths.push(...promenade(cx - uz * o, cz + ux * o, ux, uz, dl * 0.34, 4));
     paths.push(...promenade(cx, cz, -uz, ux, 45, 4));
-    spots.push({ paths, share: 0.12, aodai: 0.35, since: 0 });
+    spots.push({ paths, share: 0.12, aodai: 0.35 });
   }
   if (P('phuvanlau')) {
     // the river bank in front of the Citadel, Phu Văn Lâu to Nghênh Lương Đình
@@ -700,23 +555,18 @@ function buildPedestrians(data, group) {
       const [bx, bz] = P('nghenhluong'), dl = Math.hypot(bx - ax, bz - az) || 1;
       paths.push(...promenade((ax + bx) / 2, (az + bz) / 2, (bx - ax) / dl, (bz - az) / dl, dl / 2 + 90, 3));
     }
-    spots.push({ paths, share: 0.05, aodai: 0.3, since: 0 });
+    spots.push({ paths, share: 0.05, aodai: 0.3 });
   }
-  if (P('gahue')) spots.push({ paths: roadsNear(...P('gahue'), 110), share: 0.03, aodai: 0.1, since: 1 });
-  if (P('quochoc')) spots.push({ paths: roadsNear(...P('quochoc'), 110), share: 0.03, aodai: 0.6, since: 1 }); // students in white áo dài
+  if (P('gahue')) spots.push({ paths: roadsNear(...P('gahue'), 110), share: 0.03, aodai: 0.1 });
+  if (P('quochoc')) spots.push({ paths: roadsNear(...P('quochoc'), 110), share: 0.03, aodai: 0.6 }); // students in white áo dài
   // thinner along the pavements of the main streets in the centre and the Citadel
   const ctr = [[0, 0, 1500]];
   if (P('kydai')) ctr.push([P('kydai')[0], P('kydai')[1] - 300, 1000]);
   const pave = [];
-  // in 1885 only the pavements inside the Citadel are walked (the outer ring of the largest mapped wall)
-  let cit = null;
-  for (const poly of data.wall || []) if (Array.isArray(poly) && Array.isArray(poly[0]) && (!cit || poly[0].length > cit.length * 2)) cit = unflat(poly[0]);
   for (const rd of roads) {
     if (rd.c > 2) continue;
     for (const run of clipRuns(rd.pts, (x, z) => ctr.some(([cx, cz, r]) => (x - cx) ** 2 + (z - cz) ** 2 < r * r), 8, 30)) {
-      const p = roadPath(run, rd.c), mid = run[run.length >> 1];
-      p.since = cit && inRing(mid[0], mid[1], cit) ? 0 : 1;
-      pave.push(p);
+      pave.push(roadPath(run, rd.c));
     }
   }
   spots.push({ paths: pave, share: 0.24, aodai: 0.12 });
@@ -748,14 +598,14 @@ function buildPedestrians(data, group) {
         for (let j = 0; j < k; j++) {
           const a = (j / k) * Math.PI * 2 + rnd() * 0.5, r = 0.55 + rnd() * 0.25;
           const x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
-          people.push({ still: true, x, z, y: LAND_Y + rise(x, z) + ON_GROUND, yaw: Math.atan2(Math.sin(a), -Math.cos(a)), since: spot.since ?? p.since ?? 0, ...dress() });
+          people.push({ still: true, x, z, y: LAND_Y + rise(x, z) + ON_GROUND, yaw: Math.atan2(Math.sin(a), -Math.cos(a)), ...dress() });
         }
         still -= k; left -= k;
       }
     }
     for (let i = 0; i < left; i++) {
       const p = pick();
-      people.push({ still: false, path: p, s: rnd() * p.len, dir: rnd() < 0.5 ? 1 : -1, lat: lateral(p), speed: 0.9 + rnd() * 0.7, phase: rnd() * 6.28, turn: 0, wait: 0, go: 20 + rnd() * 120, seg: 1, since: spot.since ?? p.since ?? 0, ...dress() });
+      people.push({ still: false, path: p, s: rnd() * p.len, dir: rnd() < 0.5 ? 1 : -1, lat: lateral(p), speed: 0.9 + rnd() * 0.7, phase: rnd() * 6.28, turn: 0, wait: 0, go: 20 + rnd() * 120, seg: 1, ...dress() });
     }
   }
   if (!people.length) return null;
@@ -784,54 +634,39 @@ function buildPedestrians(data, group) {
     group.add(mesh);
     return mesh;
   };
-  // two wardrobes prepared now: today's, and the older one (1885/1935) — darker, more áo dài, nearly all in nón lá;
-  // a separate generator so today's colours are exactly what they were
-  const OLD_AODAI = ['#f1ede4', '#26221f', '#2e3550', '#5e4232', '#3b2f28'].map(hex); // white, black, indigo, brown
-  const OLD_EVERY = ['#4a3a2c', '#2b2724', '#3a3f52', '#d9cdb4', '#5a4a3a', '#6b5a44', '#2f3447'].map(hex); // brown, black, indigo, undyed
-  const er = rng(1885);
   people.forEach((w) => {
     const pal = w.aodai ? AODAI : EVERY;
     w.col = shade(pal[Math.floor(rnd() * pal.length)], 0.88 + rnd() * 0.12);
     w.headCol = shade([1, 1, 1], 0.86 + rnd() * 0.14);
-    const oldAodai = w.aodai || er() < 0.3, op = oldAodai ? OLD_AODAI : OLD_EVERY;
-    w.colOld = shade(op[Math.floor(er() * op.length)], 0.85 + er() * 0.15);
-    w.hatOld = w.hat || er() < 0.85;
   });
-  const nHat = people.filter((w) => w.hat).length, nHatOld = people.filter((w) => w.hatOld).length;
-  const bodies = mk(body, people.length), hats = mk(hatHead, Math.max(nHat, nHatOld)), bares = mk(bareHead, people.length - Math.min(nHat, nHatOld));
+  const nHat = people.filter((w) => w.hat).length;
+  const bodies = mk(body, people.length), hats = mk(hatHead, nHat), bares = mk(bareHead, people.length - nHat);
   const c = new THREE.Color();
 
   const SCALE = 1.1; // a touch over life size so they read from the usual viewing distance
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(SCALE, SCALE, SCALE), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
-  // On an era change the people of that era are packed at the front of each mesh (mesh.count = how many), get
-  // that era's clothes, and those standing still are written once; the per-frame loop only visits walkers.
+  // those standing still are written once; the per-frame loop only visits walkers
   const walkers = [];
-  const apply = (e) => {
-    walkers.length = 0;
-    let nb = 0, nh = 0, nr = 0;
-    for (const w of people) {
-      if (w.since > e) continue;
-      const hat = e >= 2 ? w.hat : w.hatOld;
-      w.i = nb++;
-      w.head = hat ? hats : bares;
-      w.j = hat ? nh++ : nr++;
-      bodies.setColorAt(w.i, enc(e >= 2 ? w.col : w.colOld, c));
-      w.head.setColorAt(w.j, enc(w.headCol, c));
-      if (w.still) {
-        q.setFromAxisAngle(up, w.yaw); p.set(w.x, w.y, w.z);
-        m.compose(p, q, sc);
-        bodies.setMatrixAt(w.i, m); w.head.setMatrixAt(w.j, m);
-      } else walkers.push(w);
-    }
-    bodies.count = nb; hats.count = nh; bares.count = nr;
-    for (const mesh of [bodies, hats, bares]) {
-      mesh.visible = mesh.count > 0;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    }
-    update(0);
-  };
-  const TURN = 0.8;
+  let nh = 0, nr = 0;
+  people.forEach((w, i) => {
+    w.i = i;
+    w.head = w.hat ? hats : bares;
+    w.j = w.hat ? nh++ : nr++;
+    bodies.setColorAt(w.i, enc(w.col, c));
+    w.head.setColorAt(w.j, enc(w.headCol, c));
+    if (w.still) {
+      q.setFromAxisAngle(up, w.yaw); p.set(w.x, w.y, w.z);
+      m.compose(p, q, sc);
+      bodies.setMatrixAt(w.i, m); w.head.setMatrixAt(w.j, m);
+    } else walkers.push(w);
+  });
+  for (const mesh of [bodies, hats, bares]) {
+    mesh.visible = mesh.count > 0;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+  const TURN = 0.8, pmeshes = [bodies, hats, bares];
   const update = (dt) => {
+    if (!bodies.visible) return;
     for (let i = 0; i < walkers.length; i++) {
       const w = walkers[i];
       let moving = false;
@@ -851,10 +686,9 @@ function buildPedestrians(data, group) {
       bodies.setMatrixAt(w.i, m);
       w.head.setMatrixAt(w.j, m);
     }
-    bodies.instanceMatrix.needsUpdate = hats.instanceMatrix.needsUpdate = bares.instanceMatrix.needsUpdate = true;
+    for (let k = 0; k < 3; k++) if (pmeshes[k].visible) pmeshes[k].instanceMatrix.needsUpdate = true; // no upload while hidden
   };
-  apply(era.value);
-  onEra(apply);
+  update(0);
   return update;
 }
 
@@ -901,8 +735,6 @@ function buildTrain(data, group) {
   const c = new THREE.Color();
   UNITS.forEach((_, k) => mesh.setColorAt(k, enc(hex(k === 0 ? '#b8462f' : k % 2 ? '#2f5f8f' : '#33658f'), c)));
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  // no railway in 1885; in 1935 a steam train, so a black locomotive
-  const LOCO = [hex('#1e1e20'), hex('#b8462f')];
   mesh.castShadow = !quality.low;
   mesh.frustumCulled = false;
   mesh.layers.set(1);
@@ -915,7 +747,6 @@ function buildTrain(data, group) {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const VMAX = 10;
   const update = (dt) => {
-    if (!mesh.visible) return;
     if (st.wait > 0) st.wait -= dt;
     else {
       const mid = st.front - LT / 2;
@@ -940,14 +771,6 @@ function buildTrain(data, group) {
     }
     mesh.instanceMatrix.needsUpdate = true;
   };
-  const apply = (e) => {
-    mesh.visible = e >= 1;
-    mesh.setColorAt(0, enc(LOCO[e >= 2 ? 1 : 0], c));
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    update(0);
-  };
   update(0);
-  apply(era.value);
-  onEra(apply);
   return update;
 }

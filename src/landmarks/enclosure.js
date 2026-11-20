@@ -14,25 +14,25 @@ const gY = (x, z) => LAND_Y + rise(x, z);
 const RW = [15, 12, 9.5, 6.5, 4, 2.2]; // carriageway width by road class
 
 // ---- night: one group handed to the scene's `dynamic` group by buildNguyenHoang (more.js), which main.js builds
-// before every other landmark of these files; main.js gathers era-gated objects and glows from `dynamic` only after
+// before every other landmark of these files; main.js gathers glows from `dynamic` only after
 // all landmarks are built, so what is added here later is still picked up. ----
 export const night = new THREE.Group();
 night.name = 'civic-night';
 const lampSets = new Map();
-// a warm point light, shown after dark from era `minEra` on
-export function lamp(x, y, z, col = [1, 0.8, 0.5], minEra = 2, size = 4) {
-  const k = minEra + '|' + size;
-  if (!lampSets.has(k)) lampSets.set(k, { minEra, size, pos: [], col: [] });
+// a warm point light, shown after dark
+export function lamp(x, y, z, col = [1, 0.8, 0.5], size = 4) {
+  const k = size;
+  if (!lampSets.has(k)) lampSets.set(k, { size, pos: [], col: [] });
   const s = lampSets.get(k);
   s.pos.push(x, y, z);
   s.col.push(col[0], col[1], col[2]);
 }
-// a strip of architectural light (geometry built in `L`, a Buf), from era `minEra` on
-export function strips(L, color, boost = 1.6, minEra = 2) {
+// a strip of architectural light (geometry built in `L`, a Buf)
+export function strips(L, color, boost = 1.6) {
   if (!L || L.n === 0) return;
   const m = new THREE.Mesh(L.geometry(), lightMaterial(color, boost));
   m.renderOrder = 19;
-  m.userData.minEra = minEra;
+  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
   night.add(m);
 }
 export function flushLamps() {
@@ -40,7 +40,6 @@ export function flushLamps() {
     if (!s.pos.length) continue;
     const p = glowPoints(s.pos, s.col, s.size);
     p.userData.glow = true;
-    p.userData.minEra = s.minEra;
     night.add(p);
   }
   lampSets.clear();
@@ -119,7 +118,7 @@ export function buildingsNear(data, c, r) {
   return out;
 }
 
-export function fence(S, pts, st, { closed = true, roads = [], openings = [], solid = [], lampEvery = 0, lampCol = [1, 0.82, 0.55], minEra = 2 } = {}) {
+export function fence(S, pts, st, { closed = true, roads = [], openings = [], solid = [], lampEvery = 0, lampCol = [1, 0.82, 0.55] } = {}) {
   const piers = [];
   const n = pts.length, m = closed ? n : n - 1;
   const keepKind = S.kind, keepBase = S.base;
@@ -164,7 +163,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
           S.box(o[0], o[1], y - 0.4, y + st.h + st.postUp, st.postW, st.postW, ang, st.wall, { top: st.cap });
           if (k % 2 === 0) { S.kind = KIND.PLAIN; S.box(o[0], o[1], y + st.h + st.postUp, y + st.h + st.postUp + 0.12, st.postW + 0.12, st.postW + 0.12, ang, st.cap); } // a cap on every other post (keeps the count down)
           sinceLamp += 1;
-          if (lampEvery && sinceLamp % lampEvery === 0) lamp(o[0], y + st.h + st.postUp + 0.35, o[1], lampCol, minEra, 3);
+          if (lampEvery && sinceLamp % lampEvery === 0) lamp(o[0], y + st.h + st.postUp + 0.35, o[1], lampCol, 3);
         }
       }
     }

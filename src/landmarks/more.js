@@ -1,10 +1,9 @@
 import * as THREE from 'three';
-import { KIND, hex, shade } from '../geo/buf.js';
+import { KIND, hex, shade, Buf } from '../geo/buf.js';
 import { glowPoints, lightMaterial } from '../geo/materials.js';
-import { Buf } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
-import { pavilion } from './citadel.js';
 import { rise } from '../geo/terrain.js';
+import { pavilion } from './citadel.js';
 import { night, lamp, strips, flushLamps, fence, roadsNear, leaves, FENCE } from './enclosure.js';
 
 // Cầu Nguyễn Hoàng (opened 2025). Axis, length and position come from the OSM bridge outline; the form
@@ -85,7 +84,7 @@ export function buildNguyenHoang(data, S, group) {
     const arch = new THREE.Mesh(LB.geometry(), lightMaterial(0xffb637, 2.1));
     const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xfff0d0, 1.0));
     arch.renderOrder = edge.renderOrder = 19;
-    arch.userData.minEra = edge.userData.minEra = 2;
+    arch.userData.landmark = edge.userData.landmark = true;
     group.add(arch, edge);
   }
 
@@ -185,15 +184,15 @@ function gate(g, S) {
   }
   S.box(c[0], c[1], y1 + 6.4, y1 + 6.9, 6.8, 2.6, ang, cream); // cornice over the tall piers
   pavilion(S, c[0], c[1], 6.4, 2.6, ang, y1 + 6.9, { tiers: 2, wallH: 1.5, roof, wall: red, over: 0.9, rh: 1.6, ridge });
-  S.kind = KIND.PLAIN;
+  S.kind = KIND.PLAIN; S.base = 0;
 
   // after dark: lanterns on the four piers, the name board lit, a line under the upper eave (today)
   const W = [1, 1, 1], LB = new Buf(64);
   for (const s of [-1, 1]) {
-    for (const [b, h] of [[2.55, 6.9], [QH_GATE_HALF - 0.8, 4.4]]) { const q = P(s * b); lamp(q[0], y1 + h + 1.3, q[1], [1, 0.84, 0.55], 2, 4); }
+    for (const [b, h] of [[2.55, 6.9], [QH_GATE_HALF - 0.8, 4.4]]) { const q = P(s * b); lamp(q[0], y1 + h + 1.3, q[1], [1, 0.84, 0.55], 4); }
     const q = P(0, s * 1.12);
     LB.box(q[0], q[1], y1 + 4.45, y1 + 5.65, 3.1, 0.04, ang, W);
     LB.beam([P(-3.6, s * 1.6)[0], y1 + 8.3, P(-3.6, s * 1.6)[1]], [P(3.6, s * 1.6)[0], y1 + 8.3, P(3.6, s * 1.6)[1]], 0.12, 0.12, W);
   }
-  strips(LB, 0xffd9a0, 1.1, 2);
+  strips(LB, 0xffd9a0, 1.1);
 }

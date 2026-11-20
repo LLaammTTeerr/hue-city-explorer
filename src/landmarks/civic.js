@@ -1,4 +1,4 @@
-import { KIND, Buf, hex, shade, unflat, obb, ringCentre, signedArea, span } from '../geo/buf.js';
+import { KIND, Buf, hex, shade, unflat, obb, ringCentre, signedArea, inRing } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
@@ -19,11 +19,6 @@ function polyCentroid(r) {
   for (let i = 0, n = r.length; i < n; i++) { const a = r[i], b = r[(i + 1) % n], k = a[0] * b[1] - b[0] * a[1]; A += k; x += (a[0] + b[0]) * k; z += (a[1] + b[1]) * k; }
   return A ? [x / (3 * A), z / (3 * A)] : ringCentre(r);
 }
-const inRing = (x, z, r) => {
-  let c = false;
-  for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
-  return c;
-};
 // Pitched roof with the ridge along `ang`; the gable ends are closed in the wall colour.
 function gable(S, c, len, wid, ang, y0, h, roofCol, wallCol, over = 0.7) {
   const ux = Math.cos(ang), uz = Math.sin(ang);
@@ -64,7 +59,7 @@ function yardFence(S, data, F, box, core, st, { gateHalf = 3.5, lampCol = [1, 0.
   fence(S, Y.ring, st, { roads, openings: [[g[0], g[1], gateHalf]], solid: buildingsNear(data, F.c, 120), lampEvery, lampCol });
   const p = F.at(Y.a1, -gateHalf), q = F.at(Y.a1, gateHalf), y = ground(g);
   leaves(S, p, q, y, st.h + 0.3, st.iron || dark);
-  for (const e of [p, q]) for (let k = 0; k < gateLamps; k++) lamp(e[0], ground(e) + st.h + st.pierUp + 0.9, e[1], lampCol, 2, 4);
+  for (const e of [p, q]) for (let k = 0; k < gateLamps; k++) lamp(e[0], ground(e) + st.h + st.pierUp + 0.9, e[1], lampCol, 4);
   return Y;
 }
 
@@ -74,7 +69,7 @@ function station(S, data) {
   if (!sp) return;
   const o = obb(unflat(sp.ring));
   let n = [-Math.sin(o.a), Math.cos(o.a)], best = null, bd = Infinity;
-  for (const r of data.rails) { const pts = unflat(r[2]); for (const q of pts) { const d = Math.hypot(q[0] - o.c[0], q[1] - o.c[1]); if (d < bd) { bd = d; best = q; } } }
+  for (const r of data.rails || []) { const pts = unflat(r[2]); for (const q of pts) { const d = Math.hypot(q[0] - o.c[0], q[1] - o.c[1]); if (d < bd) { bd = d; best = q; } } }
   if (best && (o.c[0] - best[0]) * n[0] + (o.c[1] - best[1]) * n[1] < 0) n = [-n[0], -n[1]]; // the front looks away from the tracks
   const F = frame(o.c, n), L = o.w, D = Math.max(o.d * 0.8, 9), y0 = ground(o.c);
   const pink = hex('#d0796d'), tile = hex('#9a4a36'); // painted the pink of Quốc Học (VnExpress), red-brown tiles
@@ -139,11 +134,11 @@ function station(S, data) {
   }
   // after dark: the clock face, lamps under the canopy, the doors warm
   S.base = 0;
-  for (const s of [-1, 1]) { const q = F.at(s * (D / 2 + 1.9), 0); lamp(q[0], y + 10.95, q[1], [1, 0.97, 0.85], 1, 6); }
-  for (let b = -cw / 2 - 2; b <= cw / 2 + 2.01; b += (cw + 4) / 4) { const q = F.at(D / 2 + 4.2, b); lamp(q[0], y + 3.7, q[1], [1, 0.82, 0.5], 1, 4); }
+  for (const s of [-1, 1]) { const q = F.at(s * (D / 2 + 1.9), 0); lamp(q[0], y + 10.95, q[1], [1, 0.97, 0.85], 6); }
+  for (let b = -cw / 2 - 2; b <= cw / 2 + 2.01; b += (cw + 4) / 4) { const q = F.at(D / 2 + 4.2, b); lamp(q[0], y + 3.7, q[1], [1, 0.82, 0.5], 4); }
   const LB = new Buf(64);
   for (const b of [-cw * 0.3, 0, cw * 0.3]) { const q = F.at(D / 2 + 1.82, b); LB.box(q[0], q[1], y + 0.2, y + 3.9, 0.06, cw * 0.15, F.a, [1, 1, 1]); }
-  strips(LB, 0xffc982, 0.9, 1);
+  strips(LB, 0xffc982, 0.9);
 }
 
 // ---- Nhà thờ Phủ Cam (Ngô Viết Thụ, begun 1963): a concrete cross plan, ribs rising up the nave, twin towers ----
@@ -215,10 +210,10 @@ function phuCam(S, data) {
   q = F.at(fa + 0.5, 0);
   litCross(LB, q[0] + F.f[0] * 0.85, q[1] + F.f[1] * 0.85, y + 25.5, 4.2, F);
   for (const s of [-1, 1]) { const t = F.at(fa - 0.6, s * (nw / 2 + 3.4)); litCross(LB, t[0], t[1], y + 39.9, 3.0, F); }
-  strips(LB, 0xf4f1ff, 1.5, 2);
+  strips(LB, 0xf4f1ff, 1.5);
   q = F.at(fa + 1.45, 0);
-  lamp(q[0], y + 16, q[1], [0.95, 0.8, 0.55], 2, 7);
-  lamp(q[0], y + 5, q[1], [1, 0.8, 0.5], 2, 6);
+  lamp(q[0], y + 16, q[1], [0.95, 0.8, 0.55], 7);
+  lamp(q[0], y + 5, q[1], [1, 0.8, 0.5], 6);
 }
 
 // ---- Nhà thờ Dòng Chúa Cứu Thế (Nguyễn Mỹ Lộc, 1959–62): grey-blue stone, tiled eastern roofs, one tall spire ----
@@ -306,10 +301,10 @@ function redemptorist(S, data) {
     const a = F.a + Math.PI / 8 + (i * Math.PI) / 2, r0 = bw * 0.3 + 0.08;
     LB.beam([t[0] + Math.cos(a) * r0, y + 38.4, t[1] + Math.sin(a) * r0], [t[0] + Math.cos(a) * 0.2, y + 49.4, t[1] + Math.sin(a) * 0.2], 0.12, 0.12, [1, 1, 1]);
   }
-  strips(LB, 0xf4f1ff, 1.3, 2);
-  for (const k of [-1, 1]) for (const j of [-1, 1]) { const l = F.at(L * 0.43 - 4.6 + k * (bw / 2 + 2), j * (bw / 2 + 2)); lamp(l[0], y0 + 1.0, l[1], [1, 0.9, 0.7], 2, 5); } // floodlights at the tower's feet
+  strips(LB, 0xf4f1ff, 1.3);
+  for (const k of [-1, 1]) for (const j of [-1, 1]) { const l = F.at(L * 0.43 - 4.6 + k * (bw / 2 + 2), j * (bw / 2 + 2)); lamp(l[0], y0 + 1.0, l[1], [1, 0.9, 0.7], 5); } // floodlights at the tower's feet
   q = F.at(L * 0.43 - 4.6 + bw / 2 + 0.2, 0);
-  lamp(q[0], y + 11.2, q[1], [0.9, 0.75, 0.55], 2, 5);
+  lamp(q[0], y + 11.2, q[1], [0.9, 0.75, 0.55], 5);
 }
 
 // ---- Cung An Định: Khải Tường Lâu (1917–18), its octagonal Trung Lập pavilion and the riverside gate ----
@@ -357,7 +352,7 @@ function anDinh(S, data) {
   if (area) for (let t = D / 2 + 8; t < 120; t += 0.5) { const p = F.at(t, 0); if (!inRing(p[0], p[1], area)) { reach = Math.max(D / 2 + 26, t - 0.6); break; } }
   // Trung Lập pavilion
   const tp = F.at(D / 2 + (reach - D / 2) * 0.52, 0);
-  S.base = 0;
+  S.base = y0 - LAND_Y; // the pavilion and gate stand on the palace's raised ground, so the shader's foot darkening starts there
   S.kind = KIND.MASONRY;
   S.cyl(tp[0], tp[1], y0 - 0.2, y0 + 0.9, 5.6, 5.4, 8, stone, { rot: F.a + Math.PI / 8 });
   S.kind = KIND.PLAIN;
@@ -399,10 +394,10 @@ function anDinh(S, data) {
     LB.beam([a[0], y0 + 6.45, a[1]], [b[0], y0 + 6.45, b[1]], 0.14, 0.14, W);
     const a2 = F.at(reach + s * 1.2, -3.8), b2 = F.at(reach + s * 1.2, 3.8);
     LB.beam([a2[0], y0 + 10.2, a2[1]], [b2[0], y0 + 10.2, b2[1]], 0.12, 0.12, W);
-    const e = F.at(reach, s * 7.5); lamp(e[0], y0 + 9.8, e[1], [1, 0.82, 0.5], 2, 4);
+    const e = F.at(reach, s * 7.5); lamp(e[0], y0 + 9.8, e[1], [1, 0.82, 0.5], 4);
   }
-  strips(LB, 0xffcf8a, 1.2, 2);
-  for (let b = -L / 2 + 2; b <= L / 2 - 1.99; b += (L - 4) / 5) { const q = F.at(D / 2 + 9, b); lamp(q[0], y0 + 0.6, q[1], [1, 0.86, 0.62], 2, 6); }
+  strips(LB, 0xffcf8a, 1.2);
+  for (let b = -L / 2 + 2; b <= L / 2 - 1.99; b += (L - 4) / 5) { const q = F.at(D / 2 + 9, b); lamp(q[0], y0 + 0.6, q[1], [1, 0.86, 0.62], 6); }
 }
 
 // ---- Chùa Diệu Đế: the main hall, and on the canal side the triple gate under its tower, between bell and drum towers ----
@@ -411,10 +406,11 @@ function dieuDe(S, data) {
   const sp = data.special.dieude;
   let hall = null;
   if (sp) {
+    // Đại Giác hall: about 9 m to the ridge (docs/reference/heights.md, estimated; no source gives a figure)
     const o = obb(unflat(sp.ring)), y0 = ground(o.c);
     hall = o;
     S.base = y0 - LAND_Y;
-    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, y0, { tiers: 2, wallH: 4.2, roof: tile, wall: yellow, over: 1.5, rh: 3.6, platform: 1.0, ridge });
+    pavilion(S, o.c[0], o.c[1], o.w * 0.92, o.d * 0.84, o.a, y0, { tiers: 2, wallH: 3.2, roof: tile, wall: yellow, over: 1.5, rh: 2.6, platform: 0.8, ridge });
   }
   const gp = data.special.dieudeGate;
   if (!gp) return;
@@ -453,14 +449,14 @@ function dieuDe(S, data) {
   }
   const Y = yard(F, roads, back, 0, -side, side, back + 20, 0, -o.w / 2 - 1, o.w / 2 + 1);
   fence(S, Y.ring, FENCE.pagoda, { roads, openings: [[o.c[0], o.c[1], o.w * 0.5 + 0.5]], solid: buildingsNear(data, o.c, 100) });
-  // lanterns: red silk lanterns under the gate's eaves in every era; the hall's eaves lit today
-  for (const b of [-o.w * 0.21, -o.w * 0.07, o.w * 0.07, o.w * 0.21]) { const d = at(b, 1.5); lamp(d[0], y1 + 4.3, d[1], [1, 0.42, 0.22], 0, 3.5); }
-  for (const s of [-1, 1]) { const t = at(s * o.w * 0.38, 3.6); lamp(t[0], y1 + 3.3, t[1], [1, 0.45, 0.25], 0, 3.2); }
+  // lanterns: red silk lanterns under the gate's eaves, and the hall's eaves lit
+  for (const b of [-o.w * 0.21, -o.w * 0.07, o.w * 0.07, o.w * 0.21]) { const d = at(b, 1.5); lamp(d[0], y1 + 4.3, d[1], [1, 0.42, 0.22], 3.5); }
+  for (const s of [-1, 1]) { const t = at(s * o.w * 0.38, 3.6); lamp(t[0], y1 + 3.3, t[1], [1, 0.45, 0.25], 3.2); }
   if (hall) {
     const hy = ground(hall.c) + 1.0 + 4.2, hu = [Math.cos(hall.a), Math.sin(hall.a)], hv = [-hu[1], hu[0]];
     for (let i = -3; i <= 3; i++) for (const k of [-1, 1]) {
       const x = hall.c[0] + hu[0] * i * hall.w * 0.15 + hv[0] * k * (hall.d * 0.42 + 1.3), z = hall.c[1] + hu[1] * i * hall.w * 0.15 + hv[1] * k * (hall.d * 0.42 + 1.3);
-      lamp(x, hy - 0.4, z, [1, 0.5, 0.26], 2, 3);
+      lamp(x, hy - 0.4, z, [1, 0.5, 0.26], 3);
     }
   }
 }
@@ -501,7 +497,7 @@ function hienLam(S, data) {
   S.kind = KIND.PLAIN;
   S.cyl(o.c[0], o.c[1], y, y + 1.2, 0.3, 0.05, 6, hex('#f1d77a'));
   // Cửu Đỉnh
-  const tm = data.places.find((p) => p.id === 'themieu');
+  const tm = (data.places || []).find((p) => p.id === 'themieu');
   let n = [-Math.sin(o.a), Math.cos(o.a)];
   if (tm && (tm.x / 10 - o.c[0]) * n[0] + (tm.z / 10 - o.c[1]) * n[1] < 0) n = [-n[0], -n[1]];
   const F = frame(o.c, n), bronze = hex('#56594a');
@@ -539,8 +535,8 @@ function vincom(S, data) {
   const corner = (s, k, y) => [c[0] + u[0] * s * (tw / 2 + 0.3) - u[1] * k * (td / 2 + 0.3), y, c[1] + u[1] * s * (tw / 2 + 0.3) + u[0] * k * (td / 2 + 0.3)];
   for (const [s, k, s2, k2] of [[-1, -1, 1, -1], [1, -1, 1, 1], [1, 1, -1, 1], [-1, 1, -1, -1]]) LB.beam(corner(s, k, top + 0.8), corner(s2, k2, top + 0.8), 0.25, 0.25, W);
   for (const s of [-1, 1]) for (const k of [-1, 1]) LB.beam(corner(s, k, y0 + 24), corner(s, k, top + 0.6), 0.16, 0.16, W);
-  strips(LB, 0xcfe6ff, 1.3, 2);
-  lamp(c[0], top + 14.2, c[1], [1, 0.15, 0.1], 2, 5);
+  strips(LB, 0xcfe6ff, 1.3);
+  lamp(c[0], top + 14.2, c[1], [1, 0.15, 0.1], 5);
 }
 
 // ---- Lầu Tứ Phương Vô Sự on the north bastion of the Imperial City ----
@@ -554,15 +550,10 @@ function tuPhuong(S, data) {
 
 export function buildCivic(data, S) {
   if (!data.special) return;
-  // with the first era each stands in: 0 Nguyễn, 1 French period, 2 today (the churches as they stand are 1960s)
-  for (const [fn, since] of [[station, 1], [phuCam, 2], [redemptorist, 2], [anDinh, 1], [dieuDe, 0], [hienLam, 0], [vincom, 2], [tuPhuong, 1]]) {
-    S.span = span(since);
-    try {
-      fn(S, data);
-    } catch (e) {
-      console.warn('civic landmark not built:', fn.name, e);
-    }
-    S.kind = KIND.PLAIN; S.base = 0; S.span = 0;
+  for (const fn of [station, phuCam, redemptorist, anDinh, dieuDe, hienLam, vincom, tuPhuong]) {
+    const n0 = S.n; // a place that throws is dropped whole (the buffer rolled back) and the rest still load
+    try { fn(S, data); } catch (e) { S.n = n0; console.warn('civic:', fn.name, e); }
+    S.kind = KIND.PLAIN; S.base = 0;
   }
   flushLamps();
 }

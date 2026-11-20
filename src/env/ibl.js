@@ -25,15 +25,20 @@ export function createIBL(renderer, scene) {
         gl_FragColor = vec4( col, 1.0 );
       }`,
   })));
-  let target = null, last = '', wait = 0;
-  const q = (c) => c.getHexString();
+  let target = null, wait = 0;
+  // the inputs, rounded about as finely as a hex colour, are compared in place each frame (no per-frame strings)
+  const key = new Float64Array(16), last = new Float64Array(16).fill(NaN);
+  const putColor = (c, i) => { key[i] = Math.round(c.r * 255); key[i + 1] = Math.round(c.g * 255); key[i + 2] = Math.round(c.b * 255); };
   return {
     // cur: the mood's current colours (src/env/mood.js)
     update(cur, sunDir, dt) {
       wait -= dt;
-      const key = q(cur.skyTop) + q(cur.skyHorizon) + q(cur.hemiGround) + q(cur.sunGlow) + sunDir.toArray().map((v) => v.toFixed(2)).join() + cur.sunDisk.toFixed(2);
-      if (key === last || wait > 0) return;
-      last = key; wait = 0.15;
+      putColor(cur.skyTop, 0); putColor(cur.skyHorizon, 3); putColor(cur.hemiGround, 6); putColor(cur.sunGlow, 9);
+      key[12] = Math.round(sunDir.x * 100); key[13] = Math.round(sunDir.y * 100); key[14] = Math.round(sunDir.z * 100); key[15] = Math.round(cur.sunDisk * 100);
+      let same = true;
+      for (let i = 0; i < 16; i++) if (key[i] !== last[i]) { same = false; break; }
+      if (same || wait > 0) return;
+      last.set(key); wait = 0.15;
       uniforms.uTop.value.copy(cur.skyTop);
       uniforms.uHorizon.value.copy(cur.skyHorizon);
       uniforms.uGround.value.copy(cur.hemiGround).multiplyScalar(0.5);
