@@ -10,7 +10,9 @@ import { KIND } from '../../geo/buf.js';
 //          parts, place the record from data.places with x/z already in metres. It may return
 //          { update(time, glow, rain) } to be called every frame.
 // The older builder that drew the same place checks `replaced(id)` and leaves it out, so the two never overlap.
-const mods = import.meta.glob(['./*.js', '!./index.js'], { eager: true });
+// Vite collects the replica files; plain node (scripts/check-heights.mjs) imports them itself and hands them over
+// on globalThis.__hueReplicas before it loads any builder.
+const mods = import.meta.glob ? import.meta.glob(['./*.js', '!./index.js'], { eager: true }) : (globalThis.__hueReplicas || {});
 const list = Object.values(mods).filter((m) => m && m.id && typeof m.build === 'function');
 const ids = new Set(list.map((m) => String(m.id).normalize('NFC')));
 
