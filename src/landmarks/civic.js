@@ -67,6 +67,7 @@ function yardFence(S, data, F, box, core, st, { gateHalf = 3.5, lampCol = [1, 0.
 
 // ---- Ga Huế (1908): the long pink colonial station, a tall middle pavilion between two wings ----
 function station(S, data) {
+  if (replaced('gahue')) return; // drawn by places/gahue.js
   const sp = data.special.gahue;
   if (!sp) return;
   const o = obb(unflat(sp.ring));
