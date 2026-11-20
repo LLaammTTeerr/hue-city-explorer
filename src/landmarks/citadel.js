@@ -4,6 +4,7 @@ import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
+import { replaced } from './places/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -579,7 +580,7 @@ function citadel(data, S, group) {
   // behind it taller under a double-eaved roof (a skirt of tiles all round, the upper hip roof above), both in yellow
   // glazed tiles; red lacquered columns round the verandah. Before it, toward Ngọ Môn, the Esplanade of Great
   // Salutations (sân Đại Triều Nghi) falls in two stone terraces with a raised imperial way up the middle.
-  if (data.special?.thaihoa) {
+  if (data.special?.thaihoa && !replaced('thaihoa')) {
     const o = obb(unflat(data.special?.thaihoa.ring));
     const ux = Math.cos(o.a), uz = Math.sin(o.a), vx = -uz, vz = ux;
     const tgt = data.special.ngomon ? obb(unflat(data.special.ngomon.ring)).c : data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : null;

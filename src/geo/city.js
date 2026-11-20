@@ -698,7 +698,9 @@ function coverOf(structures) {
     const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az); // twice the footprint area (signed)
     const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay), nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     if (ny < 0.35 * Math.hypot(nx, ny, nz) || ny < 0.2) continue;
-    const up = Math.min(ay, by, cy) - LAND_Y - rise((ax + bx + cx) / 3, (az + bz + cz) / 3);
+    let up = Math.min(ay, by, cy) - LAND_Y - rise((ax + bx + cx) / 3, (az + bz + cz) / 3);
+    // paved courts (structures.paved: index ranges a model marks) are kept clear of trees and houses however low
+    if (structures.paved && up > 0.2 && structures.paved.some(([f, t]) => i >= f && i < t)) up = 2.2;
     if (up < 0.7) continue;
     const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.floor(Math.max(ax, bx, cx)), z0 = Math.floor(Math.min(az, bz, cz)), z1 = Math.floor(Math.max(az, bz, cz));
     const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
