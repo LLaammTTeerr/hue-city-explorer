@@ -29,10 +29,11 @@ const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/M
 mkdirSync(out, { recursive: true });
 
 const kids = [];
-const done = (code) => { for (const k of kids) { try { k.kill('SIGKILL'); } catch { /* gone */ } } process.exit(code); };
+// each child leads its own process group, so killing the group also stops vite under npx and Chrome's helpers
+const done = (code) => { for (const k of kids) { try { process.kill(-k.pid, 'SIGKILL'); } catch { try { k.kill('SIGKILL'); } catch { /* gone */ } } } process.exit(code); };
 process.on('SIGINT', () => done(130));
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { stdio: 'ignore' });
+const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { stdio: 'ignore', detached: true });
 kids.push(server);
 const profile = path.join(process.env.TMPDIR || '/tmp', `hue-shot-${port}`);
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--window-size=1400,900',
