@@ -2,6 +2,7 @@ import { KIND, Buf, hex, shade, unflat, obb, ringCentre, signedArea, inRing } fr
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
+import { replaced } from './places/index.js';
 import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
 import { replaced } from './places/index.js';
 
@@ -519,7 +520,7 @@ function hienLam(S, data) {
 // ---- Vincom Plaza: a glass slab on a shopping podium, the one tower on the south bank ----
 function vincom(S, data) {
   const sp = data.special.vincom;
-  if (!sp) return;
+  if (!sp || replaced('vincom')) return;
   const ring = unflat(sp.ring), o = obb(ring), c = polyCentroid(ring), y0 = ground(c);
   const pod = hex('#dedbd3'), glass = hex('#7d9fb8'), band = hex('#eef1f2');
   S.base = y0 - LAND_Y;

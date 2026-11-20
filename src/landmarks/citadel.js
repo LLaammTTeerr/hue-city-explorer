@@ -4,6 +4,7 @@ import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
+import { replaced } from './places/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -500,7 +501,7 @@ function citadel(data, S, group) {
 
   // ---- Kỳ Đài: three brick terraces on the Nam Chánh bastion, and the flag ----
   let flag = null;
-  if (data.special?.kydai) {
+  if (data.special?.kydai && !replaced('kydai')) { // drawn by places/kydai.js
     const ring = unflat(data.special?.kydai.ring);
     const c = ringCentre(ring);
     const scale = (k) => ring.map((p) => [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * k]);
@@ -531,7 +532,7 @@ function citadel(data, S, group) {
   }
 
   // ---- Ngọ Môn: U-shaped masonry base from OSM, Lầu Ngũ Phụng on top ----
-  if (data.special?.ngomon) {
+  if (data.special?.ngomon && !replaced('ngomon')) {
     const ring = unflat(data.special?.ngomon.ring);
     const o = obb(ring);
     const baseTop = LAND_Y + 5.4;
@@ -625,6 +626,7 @@ function citadel(data, S, group) {
   // ---- riverside pavilions in front of the Citadel ----
   for (const key of ['phuvanlau', 'nghenhluong']) {
     if (!data.special?.[key]) continue;
+    if (replaced(key)) continue;
     const o = obb(unflat(data.special?.[key].ring));
     if (key === 'phuvanlau') {
       const eaves = [];
