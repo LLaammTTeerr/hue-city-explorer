@@ -176,11 +176,13 @@ function halls(S, lamps) {
 
 function walls(S, data) {
   const roads = roadsNear(data, C, 200);
-  const W = OUTER.map(([u, v]) => P(u, v)), X = CROSS.map(([u, v]) => P(u, v));
+  const X = CROSS.map(([u, v]) => P(u, v));
   const tm = P(2.9, 100.6);
   // gates in the cross wall to the back yard: Hiển Thừa Môn (east) and Túc Tướng Môn (west), positions estimated
   const back = [P(40, -13.3), P(-40, -14.5)];
-  fence(S, W, FENCE.imperial, { closed: true, roads, openings: [[tm[0], tm[1], 13.6]] });
+  // the back yard's walls (OUTER between the two ends of CROSS) are Triệu Miếu's, drawn by trieumieu.js with its gates
+  const front = [[64, -12.9], [64.3, 101.7], [-63.1, 101.9], [-64.9, -15.1]].map(([u, v]) => P(u, v));
+  fence(S, front, FENCE.imperial, { closed: false, roads, openings: [[tm[0], tm[1], 13.6]] });
   fence(S, X, FENCE.imperial, { closed: false, roads, openings: back.map((q) => [q[0], q[1], 4.6]) });
   for (const q of back) gate(S, q, ANG, 5.0, 1.6, gy(q));
   // the cross wall of Tuy Thành Các, between the gates

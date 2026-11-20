@@ -158,8 +158,10 @@ function gate(S, q, a, big) {
 
 function walls(S, data) {
   const roads = roadsNear(data, C, 160), solid = buildingsNear(data, C, 120);
-  fence(S, RING, LOW, { closed: true, roads, solid, openings: GATES.map(([x, z, big]) => [x, z, big ? 2.0 : 1.6]) });
-  for (const [x, z, big] of GATES) {
+  // the wall to Thái Miếu's court (RING's last two legs) and its gate are drawn by thaimieu.js as its cross wall
+  const own = GATES.filter(([, , big]) => !big);
+  fence(S, RING.slice(0, 6), LOW, { closed: false, roads, solid, openings: own.map(([x, z]) => [x, z, 1.6]) });
+  for (const [x, z, big] of own) {
     // the wall segment through the gate gives its angle
     let a = 0, bd = 1e9;
     for (let i = 0; i < RING.length; i++) {
@@ -175,7 +177,9 @@ function walls(S, data) {
 export function build({ data, S, group }) {
   const lamps = [];
   hall(S, lamps);
+  const paved0 = S.n;
   court(S);
+  (S.paved = S.paved || []).push([paved0, S.n]); // brick court: no trees, no houses (src/geo/city.js coverOf)
   sides(S);
   walls(S, data);
   S.kind = KIND.PLAIN;
