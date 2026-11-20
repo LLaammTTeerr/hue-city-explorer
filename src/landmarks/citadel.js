@@ -375,8 +375,28 @@ export function buildThienMu(data, S, group = null) {
   if (gateRing) { const g = ringCentre(gateRing); const l = Math.hypot(c[0] - g[0], c[1] - g[1]) || 1; f = [(c[0] - g[0]) / l, (c[1] - g[1]) / l]; }
   const p = [-f[1], f[0]];
   const fa = Math.atan2(f[1], f[0]);
-  const gy = (x, z) => LAND_Y + rise(x, z);
   const brick = hex('#b8897a'), eave = hex('#5b5352'), trim = hex('#e9dfcd'), dark = hex('#2b2422'), stone = PAL.stone;
+  // Hà Khê hill: the pagoda's walled ground is one level (data.hakhe, from the elevation model). The terrain grid
+  // rounds the hill's brow off, so the compound stands on a stone-faced terrace at that level, and everything in it
+  // is founded on the terrace.
+  const hk = data.hakhe ? { ring: unflat(data.hakhe.ring), y: LAND_Y + data.hakhe.top / 10 + 0.06 } : null;
+  const onHill = (x, z) => {
+    if (!hk) return false;
+    let inside = false;
+    for (let i = 0, j = hk.ring.length - 1; i < hk.ring.length; j = i++) {
+      const a = hk.ring[i], b = hk.ring[j];
+      if (a[1] > z !== b[1] > z && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+    }
+    return inside;
+  };
+  const gy = (x, z) => { const g = LAND_Y + rise(x, z); return onHill(x, z) ? Math.max(g, hk.y) : g; };
+  if (hk) {
+    const n0 = S.n;
+    S.kind = KIND.MASONRY; S.base = hk.y - LAND_Y;
+    S.prism(hk.ring, LAND_Y - 0.6, hk.y, shade(stone, 0.9), hex(PAL.green.sacred || PAL.green.grass), { topKind: KIND.GROUND });
+    S.base = 0;
+    (S.noCover = S.noCover || []).push([n0, S.n]); // it is ground: trees and the pagoda's own halls stand on it
+  }
 
   // terrace under the tower
   const y0 = gy(c[0], c[1]);
@@ -419,8 +439,10 @@ export function buildThienMu(data, S, group = null) {
   S.cyl(c[0], c[1], y + 0.5, y + 1.3, r * 0.2, r * 0.13, 8, trim);
   S.cyl(c[0], c[1], y + 1.3, y + 2.6, 0.13, 0.03, 6, hex('#d9c27a'));
 
-  // the four entrance pillars at the head of the steps
-  const front = rOsm * 1.75 + 6;
+  // the four entrance pillars at the head of the steps: just inside the brow of the terrace
+  let brow = rOsm * 1.75 + 8;
+  if (hk) { brow = 0; while (brow < 60 && onHill(c[0] + f[0] * (brow + 0.5), c[1] + f[1] * (brow + 0.5))) brow += 0.5; }
+  const front = hk ? Math.max(rOsm * 1.75 + 2, brow - 2.5) : rOsm * 1.75 + 6;
   for (const off of [-7.6, -2.5, 2.5, 7.6]) {
     const x = c[0] + f[0] * front + p[0] * off, z = c[1] + f[1] * front + p[1] * off, py = gy(x, z);
     const tall = Math.abs(off) < 5 ? 7.4 : 6.6;
@@ -433,13 +455,28 @@ export function buildThienMu(data, S, group = null) {
     lanPos.push(x + f[0] * 0.85, py + tall - 0.6, z + f[1] * 0.85); // a lamp on the pillar's river face
     lanCol.push(...LANTERN);
   }
-  // steps down the slope to the riverside road
+  // the stair from the riverside road up to the pillars: one straight flight from the brow, landing where it meets
+  // the bank
   S.kind = KIND.ROAD;
-  for (let d = front + 2; d < front + 46; d += 2.2) {
-    const x = c[0] + f[0] * d, z = c[1] + f[1] * d;
-    const sy = gy(x, z);
-    if (sy < LAND_Y + 0.25) break;
-    S.box(x, z, sy - 1.2, sy + 0.12, 2.3, 13, fa, shade(stone, 1.04));
+  if (hk) {
+    const run = 0.7, fall = 0.36; // a step
+    for (let k = 0; k < 80; k++) {
+      const d = brow + 0.2 + (k + 0.5) * run, x = c[0] + f[0] * d, z = c[1] + f[1] * d;
+      const sy = hk.y - (k + 1) * fall, g = LAND_Y + rise(x, z);
+      if (sy < g + 0.1) break;
+      S.base = sy - LAND_Y;
+      S.box(x, z, Math.min(g, sy) - 1.0, sy, run + 0.02, 13, fa, shade(stone, 1.04));
+      // low side walls
+      for (const sd of [-1, 1]) S.box(x + p[0] * sd * 6.9, z + p[1] * sd * 6.9, Math.min(g, sy) - 1.0, sy + 0.75, run + 0.02, 0.8, fa, shade(stone, 0.92));
+    }
+    S.base = 0;
+  } else {
+    for (let d = front + 2; d < front + 46; d += 2.2) {
+      const x = c[0] + f[0] * d, z = c[1] + f[1] * d;
+      const sy = gy(x, z);
+      if (sy < LAND_Y + 0.25) break;
+      S.box(x, z, sy - 1.2, sy + 0.12, 2.3, 13, fa, shade(stone, 1.04));
+    }
   }
 
   // pavilions and gate on their mapped footprints

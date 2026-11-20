@@ -320,6 +320,7 @@ console.log('imperial city obb', imperial.w.toFixed(0), 'x', imperial.d.toFixed(
 for (const poly of wall) fillPoly(poly, NOBUILD);
 for (const poly of wall) for (const r of poly) stampLine(r.concat([r[0]]), 30, NOBUILD);
 fillPoly([imperialRing], NOBUILD);
+{ const tm = get('way', 205794912); if (tm) fillPoly([openRing(tm.geometry.map(proj))], NOBUILD); } // no generated houses inside chùa Thiên Mụ
 
 // =====================================================================
 // 3. Green / open land
@@ -447,6 +448,44 @@ const sites = {};
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; stamp(c[0], c[1], 26, TREE | NOBUILD); }
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
+// Measured building heights (Google Open Buildings 2.5D Temporal, 2023), on a 2 m grid in the model's frame, written
+// by scripts/fetch-heights.py. The raster reads the mass of a roof, not its ridge, and blurs narrow buildings: across
+// the places whose heights are known it comes out 10-20 % low, so a reading is raised by a tenth.
+const HM = (() => {
+  const meta = 'data/raw/heights/open-buildings-2023.json', bin = 'data/raw/heights/open-buildings-2023.u8.gz';
+  if (!fs.existsSync(meta) || !fs.existsSync(bin)) { console.warn('no measured heights (run scripts/fetch-heights.py): building heights fall back to rules'); return null; }
+  return { ...JSON.parse(fs.readFileSync(meta, 'utf8')), g: zlib.gunzipSync(fs.readFileSync(bin)) };
+})();
+const cellH = (x, z) => {
+  if (!HM) return 0;
+  const i = Math.floor((x - HM.x0) / HM.step), j = Math.floor((z - HM.z0) / HM.step);
+  return i < 0 || j < 0 || i >= HM.nx || j >= HM.nz ? 0 : HM.g[j * HM.nx + i] * HM.unit;
+};
+// height to the top of what stands on a footprint (0: the raster sees no building there)
+const measured = (ring) => {
+  if (!HM) return 0;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const v = [];
+  for (let z = Math.floor(z0 / HM.step) * HM.step + HM.step / 2; z <= z1; z += HM.step) for (let x = Math.floor(x0 / HM.step) * HM.step + HM.step / 2; x <= x1; x += HM.step) if (pip([x, z], ring)) v.push(cellH(x, z));
+  if (!v.length) v.push(cellH((x0 + x1) / 2, (z0 + z1) / 2));
+  v.sort((a, b) => a - b);
+  // a small footprint is read near its top; a large one (a hall, a market, a tower on its podium) by its bulk, so a
+  // tower does not lift the whole block it stands on
+  const area = Math.abs(ringArea(ring)), pc = area < 600 ? 0.9 : area < 1500 ? 0.8 : 0.65;
+  let top = v[Math.min(v.length - 1, Math.floor(v.length * pc))] * 1.1;
+  // nothing stands more than four times as tall as it is wide: a taller reading is a neighbouring tower leaning
+  // across the footprint in the satellite view
+  top = Math.min(top, 4 * Math.sqrt(area));
+  return top >= 2.8 ? top : 0;
+};
+const measuredRect = (cx, cz, w, d, ang) => {
+  const ux = Math.cos(ang), uz = Math.sin(ang);
+  let m = 0;
+  for (const [u, v] of [[0, 0], [-0.25, -0.25], [0.25, -0.25], [-0.25, 0.25], [0.25, 0.25]]) m = Math.max(m, cellH(cx + ux * u * w - uz * v * d, cz + uz * u * w + ux * v * d));
+  return m * 1.1 >= 2.8 ? m * 1.1 : 0;
+};
+let nMeasured = 0, nHouseMeasured = 0;
 const gates = [];
 const buildings = [];
 const marketArea = get('way', 161714451).geometry.map(proj);
@@ -511,17 +550,22 @@ for (const e of els) {
   let flags = 0;
   if (thienMu && pip(c, thienMu) && t.historic !== 'city_gate') { kind = 3; if (!hTag && !lv) h = area > 300 ? 4.6 : 3.8; }
   if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
+  // what the building really measures, where the raster sees it and OSM gives no height of its own: h then runs to the
+  // top of the building (sixth field), and the builder fits the eave under whatever roof it draws
+  const mh = !hTag && !lv && kind !== 8 ? measured(ring) : 0;
+  if (mh) { h = mh; nMeasured++; }
   if (h > 30) kind = 7;
   // flags 4 = Indochine, 8 = Nguyễn-period timber house
   if ((kind === 0 || kind === 1 || kind === 5) && h <= 30) {
     const era = eraOf(c, area);
-    if (era === 1) { flags |= 4; if (!hTag && !lv && !(flags & 2)) h = area > 260 ? 9.8 : area > 70 ? 7.4 : 4.6; } // Quốc Học keeps its own
-    else if (era === 2 && kind === 0) { flags |= 8; if (!hTag && !lv) h = 3.7 + r * 0.9; }
+    if (era === 1) { flags |= 4; if (mh) h = Math.max(4.6, Math.min(mh, 13)); else if (!hTag && !lv && !(flags & 2)) h = area > 260 ? 9.8 : area > 70 ? 7.4 : 4.6; } // Quốc Học keeps its own
+    else if (era === 2 && kind === 0) { flags |= 8; if (!hTag && !lv) h = mh ? Math.max(3.4, Math.min(mh, 5.2)) : 3.7 + r * 0.9; }
   }
 
   // flags: 1 = mapped over the water (drawn on a piled deck), 2 = Quốc Học campus
   if (at(c[0], c[1]) & WATER) flags |= 1;
   const b = [flat(ring), q(h), kind, t.name || 0, flags];
+  if (mh && !(flags & 8)) b[5] = q(h);
   buildings.push(b);
   fillPoly([ring], BLD);
 }
@@ -535,6 +579,21 @@ for (const e of els) {
     if (inside) { console.log('inside landmark', inside[0], ':', buildings[i][3] || 'unnamed building', 'dropped'); buildings.splice(i, 1); }
   }
 }
+// Round the 160 m Vincom tower the raster is smeared with its height: measured buildings within 220 m keep to 20 m.
+if (special.vincom) {
+  const vr = []; for (let i = 0; i < special.vincom.ring.length; i += 2) vr.push([special.vincom.ring[i] / 10, special.vincom.ring[i + 1] / 10]);
+  const vc = centroid(vr);
+  let n = 0;
+  for (const b of buildings) {
+    if (!b[5] || b[1] <= 200) continue;
+    const r = []; for (let i = 0; i < b[0].length; i += 2) r.push([b[0][i] / 10, b[0][i + 1] / 10]);
+    const c = centroid(r);
+    if (Math.hypot(c[0] - vc[0], c[1] - vc[1]) > 220) continue;
+    b[1] = b[5] = 200; if (b[2] === 7) b[2] = 1; n++;
+  }
+  console.log('capped beside Vincom:', n);
+}
+console.log('measured heights on', nMeasured, 'of', buildings.length, 'buildings');
 console.log('buildings', buildings.length, 'gates', gates.length, gates.map((g) => g.n + ':' + g.k).join(', '));
 for (const e of els) {
   const t = e.tags || {};
@@ -563,6 +622,14 @@ console.log('special', Object.keys(special));
 // 6. Illustrated infill houses where OSM has streets but no footprints
 // =====================================================================
 const infill = [];
+// a generated house stands as tall as what the raster measures on its plot (to the eave: its tiled roof comes on top);
+// where the raster sees nothing it keeps the height the street rule gave it
+const houseH = (cx, cz, w, d, ang, rule) => {
+  const m = measuredRect(cx, cz, w, d, ang);
+  if (!m) return rule;
+  nHouseMeasured++;
+  return Math.max(3.4, Math.min(m - 1.2, 18)) + (rule % 1) * 0.4;
+};
 const BLOCK = WATER | GREEN | ROAD | BLD | NOBUILD;
 for (const road of roads) {
   if (road.bridge || road.c > 4) continue;
@@ -601,7 +668,8 @@ for (const road of roads) {
             const r2 = rnd();
             const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
             const era2 = eraOf([bx, bz], w2 * d2);
-            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(h2, 4.4) : h2), 0, 2 | (era2 << 2)); // 2 = no street face; era in the upper bits
+            const m2 = houseH(bx, bz, w2, d2, ang, h2);
+            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2)); // 2 = no street face; era in the upper bits
             fillPoly([rectCorners(bx, bz, w2, d2, ang)], BLD);
           }
         }
@@ -612,6 +680,7 @@ for (const road of roads) {
           else if (main) h = r < 0.15 ? 4.5 : r < 0.6 ? rr(7.4, 8.4) : r < 0.9 ? rr(10.8, 11.8) : rr(14, 15.5);
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
           const era = eraOf([cx, cz], w * d);
+          h = houseH(cx, cz, w, d, ang, h);
           if (era === 2) h = Math.min(h, 4.4); else if (era === 1) h = Math.min(Math.max(h, 7.2), 11.4);
           infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2));
           fillPoly([rectCorners(cx, cz, w, d, ang)], BLD);
@@ -790,7 +859,7 @@ const EXTRA = [
 ];
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
-addPlace('vongcanh', 'Đồi Vọng Cảnh', [-3123, 4990], 3, 'place', 12);
+addPlace('vongcanh', 'Đồi Vọng Cảnh', [-2784, 5161], 3, 'place', 12); // the 43 m hill standing straight over the river bend; moved onto its top in §9
 addPlace('ngubinh', 'Núi Ngự Bình', [770, 2990], 2, 'place', 20); // the summit (16.4419 N, 107.5961 E); moved onto the highest ground in §9
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; special.biaquochoc = { c: [q(c[0]), q(c[1])], ring: [], name: 'Bia Quốc Học' }; addPlace('biaquochoc', 'Bia Quốc Học', c, 2, 'monument', 14); }
 addPlace('golim', 'Cầu gỗ lim', [-168.5, 374.8], 3, 'bridge', 5); // the ironwood walkway (midpoint from src/landmarks/boardwalk.js)
@@ -825,7 +894,7 @@ for (const [id, top] of Object.entries(TRUE_H)) {
     if (d < bd) { bd = d; best = b; }
   }
   if (!best) { console.warn('true height: no building at', id); continue; }
-  best[1] = Math.min(best[1], q(top)); best[5] = q(top);
+  best[1] = Math.min(best[1], q(top)); best[5] = q(top); best[6] = 1; // 1: a monument (no stair heads or tanks on its roof)
   if (OLD_HALL.includes(id) && best[2] < 2) best[2] = 3; // a tiled timber hall, not a modern block
 }
 
@@ -907,66 +976,48 @@ special.thienmuSmall = thienMuSmall;
 console.log('thien mu small buildings', thienMuSmall.length);
 
 // =====================================================================
-// 9. Terrain: height above the flat city floor, from public elevation tiles
+// 9. Terrain: height above the flat city floor, from a bare-earth elevation model
 // =====================================================================
-// Minimal PNG reader (8-bit RGB/RGBA, non-interlaced) — enough for terrarium tiles.
-function readPng(file) {
-  const buf = fs.readFileSync(file);
-  let pos = 8, w = 0, h = 0, ch = 3;
-  const idat = [];
-  while (pos < buf.length) {
-    const len = buf.readUInt32BE(pos), type = buf.toString('ascii', pos + 4, pos + 8);
-    const data = buf.subarray(pos + 8, pos + 8 + len);
-    if (type === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); ch = data[9] === 6 ? 4 : 3; if (data[8] !== 8 || (data[9] !== 2 && data[9] !== 6) || data[12] !== 0) throw new Error('unsupported PNG ' + file); }
-    if (type === 'IDAT') idat.push(data);
-    pos += 12 + len;
-  }
-  const raw = zlib.inflateSync(Buffer.concat(idat));
-  const out = new Uint8Array(w * h * ch), stride = w * ch;
-  for (let y = 0; y < h; y++) {
-    const f = raw[y * (stride + 1)];
-    for (let x = 0; x < stride; x++) {
-      const v = raw[y * (stride + 1) + 1 + x];
-      const a = x >= ch ? out[y * stride + x - ch] : 0, b = y ? out[(y - 1) * stride + x] : 0, c = x >= ch && y ? out[(y - 1) * stride + x - ch] : 0;
-      let r = v;
-      if (f === 1) r = v + a; else if (f === 2) r = v + b; else if (f === 3) r = v + ((a + b) >> 1);
-      else if (f === 4) { const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pcc = Math.abs(p - c); r = v + (pa <= pb && pa <= pcc ? a : pb <= pcc ? b : c); }
-      out[y * stride + x] = r & 255;
-    }
-  }
-  return { w, h, ch, px: out };
-}
 let terrain = null;
+let hakhe = null; // the level ground of chùa Thiên Mụ: its outline and height above the city floor
 let pondLv = ponds.map(() => 0); // metres above the city floor at which each still-water body stands (0: at city level)
 {
-  const Z = 13, X0 = 6543, Y0 = 3715, NXT = 2, NYT = 4;
-  const have = [0, 1].every((i) => [0, 1, 2, 3].every((j) => fs.existsSync(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`)));
-  if (!have) console.warn('no elevation tiles (run scripts/fetch-elevation.sh): terrain stays flat');
+  // Bare-earth heights (FABDEM: Copernicus GLO-30 with forests and buildings removed), written for the model's box by
+  // scripts/fetch-terrain.py. A surface model reads roofs and canopy as ground: the flat city then carries several
+  // metres of noise and every low hill has to be flattened along with it.
+  const DEM = 'data/raw/dem/terrain.json';
+  if (!fs.existsSync(DEM)) console.warn('no terrain grid (run scripts/fetch-terrain.py): terrain stays flat');
   else {
-    const M = 256 * NXT, MH = 256 * NYT, dem = new Float32Array(M * MH);
-    for (let i = 0; i < NXT; i++) for (let j = 0; j < NYT; j++) {
-      const t = readPng(`data/raw/elev/${Z}-${X0 + i}-${Y0 + j}.png`);
-      for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) { const o = (y * 256 + x) * t.ch; dem[(j * 256 + y) * M + i * 256 + x] = t.px[o] * 256 + t.px[o + 1] + t.px[o + 2] / 256 - 32768; }
-    }
-    const demAt = (x, z) => {
+    const D = JSON.parse(fs.readFileSync(DEM, 'utf8'));
+    const sample = (arr) => (x, z) => {
       const lon = ORIGIN.lon + x / KX, lat = ORIGIN.lat - z / KZ;
-      const n = 2 ** Z, fx = ((lon + 180) / 360) * n - X0, lr = (lat * Math.PI) / 180;
-      const fy = ((1 - Math.asinh(Math.tan(lr)) / Math.PI) / 2) * n - Y0;
-      const px = Math.max(0, Math.min(M - 1.001, fx * 256 - 0.5)), py = Math.max(0, Math.min(MH - 1.001, fy * 256 - 0.5));
+      const px = Math.max(0, Math.min(D.nx - 1.001, (lon - D.lon0) / D.dlon - 0.5)), py = Math.max(0, Math.min(D.ny - 1.001, (lat - D.lat0) / D.dlat - 0.5));
       const ix = Math.floor(px), iy = Math.floor(py), ax = px - ix, ay = py - iy;
-      const g = (a, b) => dem[b * M + a];
+      const g = (a, b) => arr[b * D.nx + a] / 10;
       return (g(ix, iy) * (1 - ax) + g(ix + 1, iy) * ax) * (1 - ay) + (g(ix, iy + 1) * (1 - ax) + g(ix + 1, iy + 1) * ax) * ay;
     };
+    const bareAt = sample(D.h), surfAt = sample(D.s || D.h);
     const STEP = 25, nx = Math.floor((MAXX - MINX) / STEP) + 1, nz = Math.floor((MAXZ - MINZ) / STEP) + 1;
-    let h = new Float32Array(nx * nz);
+    // the city's own ground: the median of the bare-earth reading inside the Citadel
     const flatSamples = [];
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const x = MINX + i * STEP, z = MINZ + j * STEP;
-      h[j * nx + i] = demAt(x, z);
-      if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(h[j * nx + i]);
+      if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(bareAt(x, z));
     }
     flatSamples.sort((a, b) => a - b);
-    const floor = flatSamples[Math.floor(flatSamples.length * 0.6)];
+    const floor = flatSamples[Math.floor(flatSamples.length * 0.5)];
+    // Calibration (data/control-points.json; the table is printed below). Neither model is right everywhere: on the
+    // built-up plain the surface model reads roofs and the bare-earth one is right; on the hills the bare-earth one
+    // strips 5-10 m of "forest" that hides no ground, and the surface model matches the documented summits to about
+    // 2 m. So the ground is the bare-earth reading on the plain and moves to the surface reading as it rises:
+    // none of it under BLEND0 above the city floor, all of it from BLEND1.
+    const BLEND0 = 2, BLEND1 = 8;
+    const demAt = (x, z) => {
+      const b = bareAt(x, z), t = Math.max(0, Math.min(1, (b - floor - BLEND0) / (BLEND1 - BLEND0)));
+      return b + (surfAt(x, z) - b) * t * t * (3 - 2 * t);
+    };
+    let h = new Float32Array(nx * nz);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) h[j * nx + i] = demAt(MINX + i * STEP, MINZ + j * STEP);
     const blur = (src) => {
       const out = new Float32Array(src.length);
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
@@ -981,11 +1032,13 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       }
       return out;
     };
-    // Radar elevation picks up roofs and canopy, so the flat city floor reads a few metres of noise. A heavily
-    // smoothed copy decides WHERE the ground really rises; the height itself comes from a lightly smoothed copy,
-    // so hills keep their true height above the city floor instead of being shaved and flattened.
+    // The city floor still reads about a metre of noise, and the model wants it flat. A smoothed copy decides WHERE
+    // the ground really rises; the height itself comes from a lightly smoothed copy, so hills keep their true height
+    // above the city floor. Ground under DEAD above the floor stays flat; from FULL up it stands at its true height.
+    const DEAD = 2.5, FULL = 5.0;
+    const gateOf = (up) => { const t = Math.max(0, Math.min(1, (up - DEAD) / (FULL - DEAD))); return t * t * (3 - 2 * t); };
     const raw = h;
-    const broad = blur(blur(raw)), fine = (() => {
+    const broad = blur(raw), fine = (() => {
       const out = new Float32Array(raw.length);
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
         let sum = 0, wsum = 0;
@@ -1008,8 +1061,9 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const vals = [demAt(c[0], c[1])];
       for (let i = 0; i < ring.length; i += Math.max(1, ring.length >> 4)) vals.push(demAt(ring[i][0], ring[i][1]));
       vals.sort((a, b) => a - b);
-      const lv = vals[Math.floor(vals.length * 0.3)] - floor - 1;
-      if (lv < 2.5) return;
+      // the same squeeze the ground around it gets, so a low lake is not left perched above its own shore
+      const up = vals[Math.floor(vals.length * 0.3)] - floor, lv = up * gateOf(up) - 0.3;
+      if (lv < 1.5) return;
       pondLv[pi] = lv;
       let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
       for (const q0 of ring) { x0 = Math.min(x0, q0[0]); x1 = Math.max(x1, q0[0]); z0 = Math.min(z0, q0[1]); z1 = Math.max(z1, q0[1]); }
@@ -1021,7 +1075,17 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       }
     });
     console.log('raised lakes', pondLv.filter((v) => v > 0).length, 'of', ponds.length, '| highest', Math.max(0, ...pondLv).toFixed(1), 'm');
-    const DEAD = 3.2, FULL = 9; // below DEAD above the floor: flat; from FULL up: the true height
+    // Hà Khê hill: chùa Thiên Mụ's walled ground is one level. The model reads that level, stands the front of the
+    // compound on a stone terrace and lays the stair down to the road (buildThienMu); a 25 m grid alone rounds the
+    // hill's brow off under the tower.
+    if (thienMu) {
+      const inside = [];
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (pip([MINX + i * STEP, MINZ + j * STEP], thienMu)) inside.push(j * nx + i);
+      const ups = inside.map((k) => fine[k] - floor).sort((a, b) => a - b);
+      const top = ups.length ? ups[Math.floor(ups.length * 0.6)] : 0;
+      if (top > 1.5) { for (const k of inside) nodeLv[k] = Math.max(nodeLv[k], top); hakhe = { ring: flat(thienMu), top: q(top) }; }
+      console.log('Hà Khê plateau', top.toFixed(1), 'm above the city floor |', inside.length, 'nodes');
+    }
     const nearWet = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx * STEP, z + dz * STEP) & WATER) return true; return false; };
     const lock = new Uint8Array(nx * nz);
     h = new Float32Array(nx * nz);
@@ -1030,10 +1094,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       // the slab's edge may stand high in the hills (it is cut like a model); only the city's own edges stay flat
       const edge = i === 0 || j === 0 || i === nx - 1 || j === nz - 1;
       if (nodeLv[k] > 0) { h[k] = nodeLv[k]; lock[k] = 2; continue; }
-      if ((edge && !inHills([x, z])) || nearWet(x, z) || inCitadel([x, z]) || wallBandTest([x, z])) { lock[k] = 1; continue; }
-      const up = broad[k] - floor;
-      const t = Math.max(0, Math.min(1, (up - DEAD) / (FULL - DEAD))), gate = t * t * (3 - 2 * t);
-      h[k] = Math.max(0, fine[k] - floor) * gate;
+      // banks stay at street level, except where a hill stands straight over the water (đồi Vọng Cảnh's bluff)
+      const bank = nearWet(x, z) && !(fine[k] - floor > 12 && !(at(x, z) & WATER));
+      if ((edge && !inHills([x, z])) || bank || inCitadel([x, z]) || wallBandTest([x, z])) { lock[k] = 1; continue; }
+      h[k] = Math.max(0, fine[k] - floor) * gateOf(broad[k] - floor);
     }
     // one light pass to take the steps out of the gate; water and the Citadel stay at zero
     {
@@ -1052,21 +1116,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       }
       h = out;
     }
+    // the smoothing shaves narrow summits (đồi Vọng Cảnh is about 100 m across): well above the plain, where the
+    // bare-earth reading needs no smoothing, a node stands no lower than what was measured there
+    for (let k = 0; k < h.length; k++) if (!lock[k] && raw[k] - floor > FULL + 3) h[k] = Math.max(h[k], raw[k] - floor);
     for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
-    // Hà Khê hill, which carries chùa Thiên Mụ, is narrower than the smoothing above, so its crest is put back
-    // from the unsmoothed samples, measured against the low end of the city floor (true ground, not rooftops).
-    if (towerC) {
-      const low = flatSamples[Math.floor(flatSamples.length * 0.15)];
-      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
-        const x = MINX + i * STEP, z = MINZ + j * STEP, k = j * nx + i;
-        const d = Math.hypot(x - towerC[0], z - towerC[1]);
-        if (d > 130 || at(x, z) & WATER) continue;
-        const t = Math.max(0, Math.min(1, (130 - d) / 80)), fall = t * t * (3 - 2 * t);
-        // the bank itself stays at street level; the slope climbs from the riverside road
-        const bank = nearWet(x, z) ? 0.25 : 1;
-        h[k] = Math.max(h[k], Math.max(0, demAt(x, z) - low) * fall * bank);
-      }
-    }
     // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
     const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7 };
     let cover = '', lifted = 0, peak = 0;
@@ -1082,7 +1135,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     }
     terrain = { x0: q(MINX), z0: q(MINZ), step: STEP, nx, nz, h: Array.from(h, (v) => Math.round(v * 10)), cover };
     // A hill's tag stands on its summit: the highest ground near its given point.
-    for (const [id, R] of [['ngubinh', 250], ['vongcanh', 160]]) {
+    for (const [id, R] of [['ngubinh', 250], ['vongcanh', 80]]) {
       const pl = places.find((p) => p.id === id);
       if (!pl) continue;
       const px = pl.x / 10, pz = pl.z / 10;
@@ -1093,6 +1146,31 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       }
       console.log('summit', id, [px, pz].map(Math.round), '->', [bx, bz].map(Math.round), best.toFixed(1), 'm');
       pl.x = q(bx); pl.z = q(bz);
+    }
+    // The control points: documented heights against the two source models, the calibrated ground, and what the
+    // model finally stands there (its 25 m grid and the flat plain included).
+    if (fs.existsSync('data/control-points.json')) {
+      const pts = JSON.parse(fs.readFileSync('data/control-points.json', 'utf8'));
+      const top = (f, x, z, R) => { let m = -Infinity; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) m = Math.max(m, f(x + dx, z + dz)); return m; };
+      const modelAt = (x, z, R) => {
+        if (x < MINX || x > MAXX || z < MINZ || z > MAXZ) return NaN;
+        let m = 0;
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (Math.hypot(MINX + i * STEP - x, MINZ + j * STEP - z) <= R + STEP / 2) m = Math.max(m, h[j * nx + i]);
+        return floor + m;
+      };
+      const mean = (f, x, z, R) => { let s2 = 0, n = 0; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) { s2 += f(x + dx, z + dz); n++; } return s2 / n; };
+      const err = { bare: [], surface: [], calibrated: [], model: [] };
+      console.log('control points (m above sea level): documented | bare earth | surface | calibrated | model');
+      for (const c of pts) {
+        const [x, z] = proj(c), R = c.r || 100, f = c.what === 'summit' ? top : mean;
+        // the model's own ground: the city floor plus what the terrain rises there (water is drawn lower, by design)
+        const model = c.what === 'water' ? NaN : c.what === 'summit' ? modelAt(x, z, R) : (x < MINX || x > MAXX || z < MINZ || z > MAXZ ? NaN : floor + mean((a, b) => { const i = Math.round((a - MINX) / STEP), k = Math.round((b - MINZ) / STEP); return h[k * nx + i]; }, x, z, R));
+        const v = { bare: f(bareAt, x, z, R), surface: f(surfAt, x, z, R), calibrated: f(demAt, x, z, R), model };
+        if (!c.doubt) for (const k of Object.keys(err)) if (Number.isFinite(v[k])) err[k].push(v[k] - c.ele);
+        console.log('  ' + (c.name + (c.doubt ? ' (doubtful)' : '')).padEnd(34), String(c.ele).padStart(5), '|', v.bare.toFixed(1).padStart(6), '|', v.surface.toFixed(1).padStart(6), '|', v.calibrated.toFixed(1).padStart(6), '|', Number.isFinite(v.model) ? v.model.toFixed(1).padStart(6) : '     -');
+      }
+      const stat = (a) => (a.reduce((s2, e) => s2 + e, 0) / a.length).toFixed(1) + ' mean, ' + Math.sqrt(a.reduce((s2, e) => s2 + e * e, 0) / a.length).toFixed(1) + ' rms';
+      console.log('  error: bare', stat(err.bare), '| surface', stat(err.surface), '| calibrated', stat(err.calibrated), '| model', stat(err.model));
     }
     const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
     console.log('terrain', nx + 'x' + nz, 'floor', floor.toFixed(1), 'm asl | lifted nodes', lifted, '| peak rise', peak.toFixed(1), 'm | Thiên Mụ', towerC ? probe(towerC[0], towerC[1]) : '-', '| raw DEM there', towerC ? demAt(towerC[0], towerC[1]).toFixed(1) : '-');
@@ -1130,6 +1208,7 @@ const out = {
   market: flat(openRing(marketArea)),
   truongtien: { a: flat([tt[0]]), b: flat([tt[tt.length - 1]]), box: { c: [q(ttBox.c[0]), q(ttBox.c[1])], w: q(ttBox.w), d: q(ttBox.d), a: Math.round(ttBox.a * 1000) } },
   terrain,
+  hakhe,
   moorings,
   nguyenhoang: nhBox ? { c: [q(nhBox.c[0]), q(nhBox.c[1])], w: q(nhBox.w), d: q(nhBox.d), a: Math.round(nhBox.a * 1000) } : null,
   quocHocGate,

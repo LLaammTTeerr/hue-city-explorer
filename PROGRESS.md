@@ -155,6 +155,36 @@
     The cover map samples five points per cell, so trees also keep off wall tops.
   - Left as it is: footpaths end at hall platforms and resume behind them (they are mapped through the halls); the
     burial mounds are bedded into their hills.
+- Measured terrain and building heights (branch `real-terrain`; sources compared in `docs/reference/data-sources.md`):
+  - Terrain is calibrated against documented elevations, as one rule for the whole map, not point fixes.
+    `data/control-points.json` holds the control points (six summits, the courts of Đại Nội from flood depths, the
+    river's ordinary stage; research in `docs/reference/elevation-control.md`); `npm run data:build` prints the table
+    and the error of each source. Finding: FABDEM (bare earth) is right on the built-up plain but 5-10 m low on every
+    hill, because it strips "forest" that hides no ground; the Copernicus surface model matches the documented
+    summits to about 2 m but reads roofs on the plain. The build uses FABDEM on the plain and moves to Copernicus as
+    the ground rises, from 2 m to 8 m above the city floor (`BLEND0`/`BLEND1` in `build-data.mjs` §9). Error over the
+    control points: bare 6.2 m rms, surface 2.1, calibrated 1.8, the finished model 1.7 (Ngự Bình 101.0 for 103,
+    Thiên Thai 115.6 for 118, Vọng Cảnh 44.0 for 43, núi Bân 41.3 for 43, Đại Nội 4.1 for about 3.5).
+    `scripts/fetch-terrain.py` writes both grids to `data/raw/dem/terrain.json` (`h` bare, `s` surface); the
+    terrarium tiles and `fetch-elevation.sh` are gone. Ground under 2.5 m above the floor (4.1 m asl) stays flat;
+    summits are not shaved by the smoothing; a hill standing straight over the water keeps its height at the bank.
+  - Chùa Thiên Mụ: the walled ground is one level, 10.1 m above the floor (14.2 m asl; `data.hakhe`). No published
+    height for Hà Khê hill was found, so it is not a control point: its level follows from the calibration. The model
+    stands the compound on a stone-faced terrace with the tower at its brow and one straight stair, 13 m wide, down
+    to the riverside road (`buildThienMu`). The terrace is ground: exempt from the cover map (`S.noCover`). Terrace
+    and stair are shaped by hand.
+  - Đồi Vọng Cảnh was on the wrong hill: it is the hill straight over the river bend, now at (-2826, 5173).
+  - Known deviation: the city floor stands 4.6 m above the drawn river (`LAND_Y`); the control points put it about
+    3 m above the ordinary stage. Left as it is: bridges, boats and embankments are fitted to it.
+  - Building heights: Google Open Buildings 2.5D Temporal 2023 (CC BY 4.0), `scripts/fetch-heights.py` →
+    `data/raw/heights/` (2 m grid, half-metre steps). 5,696 of 6,070 mapped buildings take a measured height (sixth
+    field of a `bld` record: height to the top; the builder fits the eave under its roof), generated houses take the
+    reading on their plot. Against the 19 known places the raster reads 10-20 % low, so readings are raised by a
+    tenth; large footprints are read by their bulk (65th-80th percentile), a reading is capped at four times the
+    footprint's width, and measured buildings within 220 m of Vincom are held to 20 m (its 160 m smears onto its
+    neighbours). Monuments (`TRUE_H`, seventh field) and hand models keep their documented heights.
+  - Both fetch scripts need Python with `rasterio` (a throwaway venv); the build itself still needs only Node.
+  - Not checked: individual measured heights against photographs; the raster is known to read narrow shophouses low.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

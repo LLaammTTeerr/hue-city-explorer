@@ -48,22 +48,43 @@ bundle the app loads:
 | --- | --- |
 | river, canals, moats, lakes (→ land is cut around the real banks) | infill houses on streets that have no footprints yet (toggle in the info panel) |
 | streets, railway, bridges | trees, dragon boats, lamps, horizon ridges |
-| 5,159 building footprints; heights where tagged | building heights where untagged (estimated from type and area) |
+| building footprints; heights where tagged, otherwise measured from the Open Buildings height raster | heights of the few buildings the raster does not see (estimated from type and area) |
 | Citadel wall polygon (height 6.6 m from its tag), Imperial City walls, gates | roof shapes, facades, rooftop water tanks, rear wings on infill houses |
 | footprints/axes of Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the market hall | the hand-built models standing on those footprints |
 
-Ground height comes from eight zoom-13 tiles of the AWS Open Data [Terrain Tiles](https://registry.opendata.aws/terrain-tiles/)
-set (`scripts/fetch-elevation.sh` → `data/raw/elev/`). The build keeps only what stands clearly above the flat city
-floor, so the hills rise to their real height and the plain stays level.
+Ground height is calibrated against documented elevations (`data/control-points.json`; `npm run data:build` prints the
+table). Two open models are read on the same 30 m grid by `scripts/fetch-terrain.py` → `data/raw/dem/terrain.json`:
+[FABDEM v1-2](https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn) (bare earth) and the
+[Copernicus GLO-30](https://registry.opendata.aws/copernicus-dem/) surface it was made from. Neither is right
+everywhere: on the built-up plain the surface model reads roofs and FABDEM is right; on the hills FABDEM strips 5-10 m
+of "forest" that hides no ground and the surface model matches the documented summits to about 2 m. The build uses
+FABDEM on the plain and moves to the surface model as the ground rises (from 2 m to 8 m above the city's own ground).
+Ground under 2.5 m above the city stays flat. No open model resolves a hill as small as Hà Khê: its level comes from
+the calibrated data, its terrace and stair under chùa Thiên Mụ are shaped by hand.
+
+Building heights come from [Google Open Buildings 2.5D Temporal](https://sites.research.google/gr/open-buildings/temporal/)
+(2023), resampled to a 2 m grid by `scripts/fetch-heights.py` → `data/raw/heights/`. The raster reads about a tenth
+low and blurs narrow buildings; readings are raised by a tenth, capped at four times a footprint's width, and ignored
+beside the Vincom tower, whose height smears onto its neighbours. Hand-built landmarks keep their documented heights.
 
 Which period an ordinary building belongs to (Nguyễn-period timber house, Indochine, modern) is not an OSM tag: the
 build assigns it by district — the French quarter along Lê Lợi, the old shophouse streets of Gia Hội, the garden-house
 wards of the Citadel, Kim Long and Vỹ Dạ — as an illustration of how those quarters read. The royal tombs, đàn Nam
 Giao, Thiên An and the Thủy Tiên dragon stand on their mapped footprints and axes; their forms are hand-built.
 
-To refresh: `npm run data:fetch && sh scripts/fetch-elevation.sh && npm run data:build`.
+To refresh: `npm run data:fetch && npm run data:build`. The terrain and height grids are committed; to fetch them
+again: `python3 -m venv .venv && .venv/bin/pip install rasterio`, then `.venv/bin/python scripts/fetch-terrain.py` and
+`.venv/bin/python scripts/fetch-heights.py`.
 
-© OpenStreetMap contributors, ODbL — https://www.openstreetmap.org/copyright
+Data credits and licences:
+
+- © OpenStreetMap contributors, ODbL — https://www.openstreetmap.org/copyright
+- Terrain: FABDEM v1-2, © University of Bristol / Fathom, **CC BY-NC-SA 4.0**. `data/raw/dem/terrain.json` and the
+  `terrain` grid inside `public/data/hue.json` are derived from it and carry the same licence: non-commercial use,
+  attribution, share alike.
+- Terrain: Copernicus DEM GLO-30, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under
+  COPERNICUS by the European Union and ESA; all rights reserved.
+- Building heights: Google Open Buildings 2.5D Temporal v1, CC BY 4.0.
 
 ## Layout
 
