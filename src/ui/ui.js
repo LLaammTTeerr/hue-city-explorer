@@ -1,4 +1,5 @@
-import { STR, NOTES, PLACE_GROUPS } from './content.js';
+import { STR, NOTES, QUICK } from './content.js';
+import { createSearch } from './search.js';
 import { isCoarse } from '../config.js';
 import { era, setEra, onEra, existsIn } from '../era.js';
 
@@ -12,25 +13,17 @@ export function createUI(data, handlers) {
   const seen = new Set();
   const origin = data.meta.origin;
 
-  // ---- place list: three groups, each under a small header; the whole-model button heads the river group ----
+  // ---- quick strip (phones): the whole-model button, then the short walk through the city ----
   const list = $('places');
   const listButtons = new Map();
-  const groupHeads = []; // [header element, ids of its places]
-  PLACE_GROUPS.forEach((g, gi) => {
-    const head = document.createElement('h2');
-    head.className = 'pgroup';
-    head.dataset.gi = gi;
-    list.appendChild(head);
-    const ids = [];
-    if (g.overview) {
-      const overview = document.createElement('button');
-      overview.type = 'button';
-      overview.className = 'ov';
-      overview.dataset.t = 'overview';
-      overview.addEventListener('click', () => handlers.overview());
-      list.appendChild(overview);
-    }
-    for (const id of g.ids) {
+  {
+    const overview = document.createElement('button');
+    overview.type = 'button';
+    overview.className = 'ov';
+    overview.dataset.t = 'overview';
+    overview.addEventListener('click', () => handlers.overview());
+    list.appendChild(overview);
+    for (const id of QUICK) {
       const p = placeById.get(id);
       if (!p) continue;
       const b = document.createElement('button');
@@ -39,25 +32,19 @@ export function createUI(data, handlers) {
       b.addEventListener('click', () => handlers.pick(id, true));
       list.appendChild(b);
       listButtons.set(id, b);
-      ids.push(id);
     }
-    groupHeads.push([head, g.overview ? null : ids]);
-  });
-
-  // ---- fold the list away (desktop; on phones the list is a strip and the button is hidden) ----
-  const brand = $('brand'), fold = $('brand-fold');
-  let folded = false;
-  try { folded = localStorage.getItem('hue-list-folded') === '1'; } catch (e) { /* storage blocked */ }
-  function applyFold() {
-    brand.classList.toggle('folded', folded);
-    fold.setAttribute('aria-expanded', !folded);
-    const tip = folded ? T.unfoldList : T.foldList;
-    fold.title = tip; fold.setAttribute('aria-label', tip);
   }
-  fold.addEventListener('click', () => {
-    folded = !folded;
-    try { localStorage.setItem('hue-list-folded', folded ? '1' : '0'); } catch (e) { /* storage blocked */ }
-    applyFold();
+
+  // ---- search box: every place in the data, found by name, kind or description ----
+  let stories = null, storiesAsked = false, shot = 0;
+  const search = createSearch({
+    places: data.places,
+    T: () => T, Tof: (l) => STR[l], lang: () => lang,
+    stories: () => stories, loadStories: () => loadStories(),
+    seen, currentId: () => current && current.id,
+    pick: (id) => handlers.pick(id, true),
+    overview: () => handlers.overview(),
+    clear: () => { hideCard(); handlers.cardClosed(); },
   });
 
   // ---- text ----
@@ -65,11 +52,12 @@ export function createUI(data, handlers) {
     T = STR[lang];
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
-    groupHeads.forEach(([head], i) => { head.textContent = T.groups[i]; });
     list.setAttribute('aria-label', T.places);
-    applyFold();
+    search.refresh(current);
     if (innerWidth <= 720) $('btn-ride').querySelector('span').textContent = T.rideShort;
-    $('btn-lang').textContent = T.lang;
+    $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
+    $('btn-lang').textContent = innerWidth <= 720 ? T.langShort : T.lang;
+    $('btn-lang').title = T.lang; $('btn-lang').setAttribute('aria-label', T.lang);
     const tips = { 'btn-labels': T.labels, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-ride': T.ride, 'btn-rain': T.rain };
     $('era').setAttribute('aria-label', T.era);
     document.querySelectorAll('#era button').forEach((b) => {
@@ -96,11 +84,10 @@ export function createUI(data, handlers) {
   // The explorer: stories, facts and picture references live in data/stories.json, fetched the first time a card
   // opens. Pictures are Wikimedia Commons files under free licences, shown with their credit; without a
   // connection the card simply has no picture.
-  let stories = null, storiesAsked = false, shot = 0;
   function loadStories() {
     if (storiesAsked) return;
     storiesAsked = true;
-    fetch('data/stories.json').then((r) => (r.ok ? r.json() : {})).then((j) => { stories = j || {}; if (current) fillCard(current); }).catch(() => { stories = {}; });
+    fetch('data/stories.json').then((r) => (r.ok ? r.json() : {})).then((j) => { stories = j || {}; if (current) fillCard(current); search.refresh(current); }).catch(() => { stories = {}; });
   }
   const show = (id, on) => { $(id).hidden = !on; };
   function fillMedia(st) {
@@ -162,10 +149,12 @@ export function createUI(data, handlers) {
     card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
     document.body.classList.add('has-card');
     seen.add(id);
+    search.setShown(p);
     listButtons.forEach((b, k) => { b.classList.toggle('active', k === id); if (seen.has(k)) b.classList.add('seen'); });
   }
   function hideCard() {
     current = null;
+    search.setShown(null);
     $('card').hidden = true;
     document.body.classList.remove('has-card');
     listButtons.forEach((b) => b.classList.remove('active'));
@@ -218,8 +207,8 @@ export function createUI(data, handlers) {
     document.body.dataset.era = e;
     eraButtons.forEach((b) => { const on = +b.dataset.era === e; b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; });
     listButtons.forEach((b, id) => { b.hidden = !existsIn(id, e); });
-    groupHeads.forEach(([head, ids]) => { head.hidden = !!ids && ids.every((id) => !existsIn(id, e)); });
     if (current && !existsIn(current.id, e)) { hideCard(); handlers.cardClosed(); }
+    search.refresh(current);
     if (dip && !calm.matches) {
       const body = document.body;
       body.classList.remove('era-dip'); void body.offsetWidth; body.classList.add('era-dip');
@@ -235,6 +224,13 @@ export function createUI(data, handlers) {
   scrub.addEventListener('pointerup', release);
 
   applyText();
+  // the short wordings (phone) and the placeholder follow the window across its breakpoints
+  let narrow = innerWidth <= 720, mid = innerWidth < 900;
+  addEventListener('resize', () => {
+    if (narrow === innerWidth <= 720 && mid === innerWidth < 900) return;
+    narrow = innerWidth <= 720; mid = innerWidth < 900;
+    applyText();
+  });
 
   let capIndex = -1;
   return {
@@ -255,7 +251,7 @@ export function createUI(data, handlers) {
       document.body.classList.toggle('riding', active);
       $('ride-hud').hidden = !active;
       capIndex = -1;
-      if (active) { hideCard(); hint(T.hintRide, 4500); } else hideHint();
+      if (active) { search.close(); hideCard(); hint(T.hintRide, 4500); } else hideHint();
     },
     setRideProgress(t) {
       if (document.activeElement !== scrub || !scrub.matches(':active')) scrub.value = Math.round(t * 1000);

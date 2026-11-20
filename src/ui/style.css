@@ -30,6 +30,7 @@
   --edge: max(18px, env(safe-area-inset-left));
   --top: max(16px, env(safe-area-inset-top));
   --bottom: max(16px, env(safe-area-inset-bottom));
+  --sw: clamp(250px, calc(100vw - 472px), 380px); /* width of the search box; the period switcher sits beside it on narrow windows */
 }
 /* Lights on: the sheets turn to dark lacquer (sơn mài) with a gold hairline, so the interface does not glare beside
    a night city. Crimson stays the one accent; where it is text it lifts to vermilion to stay legible on the dark. */
@@ -64,7 +65,7 @@ body.era-dip #scene { animation: era-dip 0.45s ease-in-out; }
 #scene.dragging { cursor: grabbing; }
 
 /* paper surface shared by every panel: a faint fibre texture laid over the flat tone */
-#brand, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint {
+#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint {
   background-color: var(--panel);
   background-image: radial-gradient(rgba(44, 36, 30, 0.035) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1.3px);
   background-size: 7px 7px, 11px 11px;
@@ -75,7 +76,7 @@ body.era-dip #scene { animation: era-dip 0.45s ease-in-out; }
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   transition: background-color 0.45s ease, border-color 0.45s ease, color 0.45s ease;
 }
-body[data-time='2'] :is(#brand, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint) {
+body[data-time='2'] :is(#search .bar, #panel, .icon, .chip, .tog, .seg, #card, dialog, #ride-hud .row, #hint) {
   background-image: radial-gradient(rgba(207, 168, 98, 0.03) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.016) 1px, transparent 1.3px);
 }
 
@@ -83,28 +84,54 @@ body[data-time='2'] :is(#brand, .icon, .chip, .tog, .seg, #card, dialog, #ride-h
 .seal { display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 2px; border-radius: 5px; background: var(--seal); color: var(--cream); font-family: var(--han); font-size: 15px; line-height: 1.02; font-weight: 700; writing-mode: vertical-rl; letter-spacing: 0.02em; box-shadow: 0 0 0 1.5px var(--seal) inset, 0 0 0 3px rgba(248, 238, 222, 0.9) inset, 0 1px 3px rgba(44, 36, 30, 0.3); transform: rotate(-2.5deg); flex: none; }
 .seal.big { width: 56px; height: 56px; font-size: 21px; margin-bottom: 18px; }
 
-/* ---------- title + place list: one sheet ---------- */
-#brand { position: fixed; left: var(--edge); top: var(--top); padding: 14px 12px 10px 16px; min-width: 214px; border-radius: 6px; transition: opacity 0.6s, background-color 0.45s ease, border-color 0.45s ease, color 0.45s ease; }
-/* fold the list away to see the panorama: a chevron in the sheet's top-right corner, clear of the short title */
-#brand-fold { position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; color: var(--ink-soft); border-radius: 4px; }
-#brand-fold:hover { color: var(--accent-ink); background-color: var(--wash); }
-#brand-fold svg { width: 18px; height: 18px; transition: transform 0.3s ease; }
-#brand.folded #brand-fold svg { transform: rotate(180deg); }
-#brand .mast { display: flex; align-items: center; gap: 12px; }
-#brand h1 { margin: 0; font-family: var(--serif); font-weight: 520; font-size: clamp(34px, 3.4vw, 46px); line-height: 0.92; letter-spacing: -0.01em; font-variation-settings: 'opsz' 144, 'SOFT' 50; }
-#brand p { margin: 5px 0 0 1px; font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--indigo); font-weight: 500; }
-#places { display: flex; flex-direction: column; align-items: stretch; gap: 0; margin: 12px -4px 0 -6px; padding-top: 8px; border-top: 1px solid var(--gold-line); position: relative; transition: opacity 0.5s; }
-#places::before { content: ''; position: absolute; left: 0; right: 0; top: 2px; border-top: 1px solid var(--gold-line); }
-#places .pgroup { margin: 11px 10px 3px; font-size: 9.5px; line-height: 1.3; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; color: var(--ink-soft); }
-#places .pgroup:first-child { margin-top: 3px; }
-#places .pgroup[hidden] { display: none; }
-#places button { position: relative; padding: 4.5px 10px 4.5px 22px; font-size: 13.5px; letter-spacing: 0.005em; text-align: left; color: var(--ink); border-radius: 4px; transition: background 0.2s, color 0.2s; }
+/* ---------- search: one box at the top left, as on a map. Its panel drops beneath it, the place card docks under it ---------- */
+#search { position: fixed; left: var(--edge); top: var(--top); width: var(--sw); z-index: 3; transition: opacity 0.6s; }
+#search .bar { display: flex; align-items: center; gap: 9px; height: 46px; padding: 0 5px 0 8px; border-radius: 6px; }
+#search .bar:focus-within, #search.open .bar { border-color: var(--gold); }
+#search .seal { width: 30px; height: 30px; font-size: 11px; }
+#search h1 { margin: 0; padding-right: 11px; border-right: 1px solid var(--gold-line); font-family: var(--serif); font-weight: 520; font-size: 25px; line-height: 30px; letter-spacing: -0.01em; font-variation-settings: 'opsz' 144, 'SOFT' 50; }
+#q { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; background: none; font: inherit; font-size: 14.5px; color: var(--ink); text-overflow: ellipsis; }
+#q:focus-visible { outline: none; }
+#q::placeholder { color: var(--ink-soft); opacity: 1; }
+#search .bar .icon { color: var(--ink-soft); border-radius: 4px; }
+#search .bar .icon:hover { color: var(--accent-ink); background-color: var(--wash); }
+#search .bar .icon svg { width: 19px; height: 19px; }
+#search .bar [hidden] { display: none; }
+#search.open #q-toggle { color: var(--accent-ink); }
+#panel { display: flex; flex-direction: column; margin-top: 6px; min-width: min(330px, calc(100vw - 2 * var(--edge))); max-height: min(66vh, 580px); border-radius: 6px; overflow: hidden; animation: rise 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#panel[hidden] { display: none; }
+#kinds { flex: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 10px 9px; border-bottom: 1px solid var(--line); }
+#kinds button { height: 27px; padding: 0 11px; border-radius: 14px; border: 1px solid var(--line); font-size: 12.5px; color: var(--ink-soft); transition: background 0.2s, color 0.2s, border-color 0.2s; }
+#kinds button:hover { background: var(--wash); color: var(--ink); }
+#kinds button[aria-pressed='true'] { background: var(--seal); color: var(--cream); border-color: var(--seal-deep); }
+#results { overflow-y: auto; overscroll-behavior: contain; padding: 4px 4px 8px; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+#results[hidden] { display: none; }
+#results .rgroup { margin: 11px 12px 3px; font-size: 9.5px; line-height: 1.3; letter-spacing: 0.2em; text-transform: uppercase; font-weight: 600; color: var(--ink-soft); }
+#results .row { display: flex; align-items: center; gap: 11px; width: 100%; padding: 6px 10px; border-radius: 4px; text-align: left; transition: background 0.15s; }
+#results .row:hover, #results .row.active { background: var(--wash); }
+#results .ic { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--wash); color: var(--ink-soft); flex: none; }
+#results .ic svg { width: 17px; height: 17px; stroke-width: 1.5; }
+#results .tx { display: flex; flex-direction: column; min-width: 0; }
+#results b, #results small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#results b { font-weight: 500; font-size: 14px; line-height: 1.35; }
+#results small { font-size: 11.5px; line-height: 1.4; color: var(--ink-soft); }
+#results mark { background: none; color: var(--accent-ink); font-weight: 600; }
+#results .row.ov b { font-family: var(--serif); font-style: italic; font-size: 15px; }
+#results .row.seen .ic { background: var(--accent-wash); color: var(--accent-ink); }
+#results .row.current { background: var(--accent-wash); }
+#results .row.current b { color: var(--accent-ink); }
+#no-results { margin: 0; padding: 16px 16px 18px; font-size: 13px; line-height: 1.5; color: var(--ink-soft); }
+#no-results[hidden] { display: none; }
+
+/* quick strip of places: phones only (see below) */
+#places { display: none; transition: opacity 0.5s; }
+#places button { position: relative; text-align: left; color: var(--ink); transition: background 0.2s, color 0.2s; }
+#places button[hidden] { display: none; }
 #places button::before { content: ''; position: absolute; left: 9px; top: 50%; width: 5px; height: 5px; margin-top: -3px; border-radius: 50%; border: 1.2px solid var(--ink-soft); transition: background 0.2s, border-color 0.2s; }
 #places button.seen::before { background: var(--seal); border-color: var(--seal); }
 #places button.ov { font-family: var(--serif); font-style: italic; font-size: 14.5px; }
 #places button.ov::before { border-radius: 1px; transform: rotate(45deg); }
-#places button:hover { background: var(--wash); }
-#places button.active { background: var(--accent-wash); color: var(--accent-ink); }
+#places button.active { color: var(--accent-ink); }
 #places button.active::before { border-color: var(--accent-ink); }
 
 /* ---------- controls ---------- */
@@ -237,33 +264,31 @@ dialog kbd { font: 600 11px var(--ui); padding: 1px 6px; border-radius: 3px; bor
 /* ---------- riding: clear the stage ---------- */
 body.riding #places, body.riding #actions, body.riding #card, body.riding #nav .desk { opacity: 0; pointer-events: none; }
 body.riding #actions { transform: translate(-50%, 12px); }
-body.riding #brand, body.riding #era { opacity: 0; pointer-events: none; }
+body.riding #search, body.riding #era { opacity: 0; pointer-events: none; }
 body.riding #scene { cursor: move; }
 body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
 
 /* ---------- phones ---------- */
 @media (max-width: 720px) {
-  /* no backdrop-filter on the title here: it would trap the fixed place strip inside the title box */
-  #brand { padding: 7px 12px 8px 9px; min-width: 0; backdrop-filter: none; -webkit-backdrop-filter: none; pointer-events: none; }
-  #brand .mast { gap: 9px; }
-  #brand .seal { width: 32px; height: 32px; font-size: 12px; }
-  #brand h1 { font-size: 30px; }
-  #brand p { font-size: 8.5px; letter-spacing: 0.2em; margin-top: 3px; }
-  #nav { bottom: auto; top: calc(var(--top) + 52px); }
+  #search { right: var(--edge); width: auto; }
+  #search .bar { height: 48px; }
+  #search h1 { display: none; }
+  #q { font-size: 16px; } /* below 16px iOS zooms the page when the box takes focus */
+  #panel { max-height: 46vh; }
+  /* under the search box: the period row on the left, the tools and the compass in a column on the right */
+  #tools { top: calc(var(--top) + 58px); flex-direction: column; align-items: flex-end; gap: 6px; }
+  #tools .chip { width: 42px; padding: 0; font-size: 12px; letter-spacing: 0.04em; }
+  #nav { bottom: auto; top: calc(var(--top) + 58px + 144px); }
   /* period row under the title, clear of the compass at the top right */
-  #era { left: var(--edge); top: calc(var(--top) + 66px); transform: none; height: 48px; max-width: calc(100vw - 2 * var(--edge) - 52px); }
+  #era { left: var(--edge); top: calc(var(--top) + 58px); transform: none; height: 48px; max-width: calc(100vw - 2 * var(--edge) - 52px); }
   #era button { height: 40px; padding: 0 11px; font-size: 12.5px; }
   .desk { display: none; }
   .compass { width: 42px; height: 42px; }
   .compass svg { width: 36px; height: 36px; }
-  #places { position: fixed; margin: 0; border: 0; top: auto; left: 0; right: 0; bottom: calc(var(--bottom) + 74px); flex-direction: row; gap: 6px; padding: 4px var(--edge); overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; pointer-events: auto; }
-  #places::before { display: none; }
+  #places { display: flex; position: fixed; left: 0; right: 0; bottom: calc(var(--bottom) + 74px); gap: 6px; padding: 4px var(--edge); overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; pointer-events: auto; }
   #places::-webkit-scrollbar { display: none; }
-  #places .pgroup { display: none; }
-  #brand-fold { display: none; }
   #places button.ov { order: -1; }
   #places button { flex: none; height: 34px; padding: 0 12px 0 24px; background: var(--panel); border: 1px solid var(--gold-line); border-radius: 4px; box-shadow: 0 4px 12px rgba(44, 36, 30, 0.16); font-size: 13px; }
-  body.riding #brand { opacity: 0.55; }
   #actions { left: var(--edge); right: var(--edge); bottom: calc(var(--bottom) + 20px); transform: none; }
   body.riding #actions { transform: translateY(12px); }
   #actions .cta { flex: 1; height: 48px; padding: 0 12px; font-size: 13.5px; min-width: 0; }
@@ -280,28 +305,19 @@ body.riding #hint { bottom: auto; top: calc(var(--top) + 62px); }
   #ride-hud { bottom: calc(var(--bottom) + 18px); }
   dialog { padding: 22px 20px 18px; }
 }
-/* Desktop: the place list has grown long, so the note card sits beside the panel instead of under it, and the
-   list scrolls inside the panel when the window is short. */
+/* Desktop: the card is the map's side panel, hung under the search box; the top row centres on the taller box */
 @media (min-width: 721px) {
-  #brand { width: 256px; }
-  #places { max-height: calc(100vh - var(--top) - 196px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--line) transparent; padding-bottom: 10px; mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 16px), transparent); }
-  /* folded: the sheet is just the masthead; the card keeps its place beside where the list was */
-  #brand.folded { padding-bottom: 14px; }
-  #brand.folded #places { display: none; }
-  #card { left: calc(var(--edge) + 256px + 12px); }
+  #era, #tools { top: calc(var(--top) + 2px); }
+  #card { top: calc(var(--top) + 56px); bottom: auto; width: 380px; max-height: calc(100vh - var(--top) - 56px - var(--bottom) - 58px); }
 }
-/* between the title sheet and the tools there is no room for the centred control: sit it beside the sheet,
-   short words, no year */
-@media (min-width: 721px) and (max-width: 979px) {
-  #era { left: calc(var(--edge) + 256px + 10px); transform: none; }
+/* until the window is wide enough for a centred period switcher to clear the search box, it sits beside the box */
+@media (min-width: 721px) and (max-width: 1159px) {
+  #era { left: calc(var(--edge) + var(--sw) + 10px); transform: none; }
   #era button { padding: 0 10px; font-size: 12.5px; }
 }
 @media (max-width: 979px) {
   #era .long, #era button[aria-checked='true'] small:not(:empty) { display: none; }
   #era .short { display: inline; }
-}
-@media (max-height: 560px) and (min-width: 721px) {
-  #places, #brand-fold { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }

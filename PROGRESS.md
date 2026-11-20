@@ -120,6 +120,12 @@
   Left out: its golden-hour and rain presets (ours are newer), the second collapse button (`#brand-fold` exists),
   the card replacing the place list (the list stays usable beside the card), kind-coloured label borders and gold
   as a second accent (one-accent rule), the inner frame on the title sheet.
+- Map-style search (branch `map-search`): the title sheet and its place list became one search box at the top left
+  (`src/ui/search.js`). It searches only the 77 places of `hue.json`, by name, kind and description in both
+  languages, without needing tone marks; the panel under it has kind filter chips and, before anything is typed,
+  the whole-model row and the three curated groups. The place card now hangs under the box like a map's side
+  panel and its name is written in the box; `/` focuses the box. Phones: box across the top, period row under it,
+  tools and compass in a column on the right, the quick strip of places kept at the bottom. The fold toggle is gone.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
 
 ## Not verified

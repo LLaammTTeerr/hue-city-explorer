@@ -52,7 +52,7 @@ export function createLabels(root, data, camera, onPick) {
       // keep labels out from under the interface: its panels count as already-placed boxes
       if (frame++ % 30 === 0) {
         blocked = [];
-        for (const sel of ['#places', '#brand', '#era', '#tools', '#nav', '#actions', '#card', '#ride-hud']) {
+        for (const sel of ['#places', '#search .bar', '#panel', '#era', '#tools', '#nav', '#actions', '#card', '#ride-hud']) {
           const el = document.querySelector(sel);
           if (!el || el.hidden) continue;
           const r = el.getBoundingClientRect();
