@@ -156,6 +156,32 @@
   - Left as it is: footpaths end at hall platforms and resume behind them (they are mapped through the halls); the
     burial mounds are bedded into their hills.
 - Frame cost after all of this: ~18 ms at 2190×1369 (unchanged from before the extension), ~11–14 ms at 1280×800.
+- Realism handoff (branch `claude/hue-3d-realism-handoff-ba1946`, 2026-11-21), from a five-track specification another
+  agent wrote (`hue-3d-realism-handoff.zip`). The user then asked to see two renderings of the same model, so there
+  is a switch (pencil button, key `V`, `?look=ink`; `__hue.setLook(0|1)`, `shared.uLook`):
+  - Realistic (default). `cityMaterial` / `landMaterial` are `MeshStandardMaterial` with per-kind roughness and
+    metalness, relief normals (tile ribs and laps, brick joints, plaster, reveals), rooms behind window glass
+    (`hueRoom`, interior mapping), and rain as a low-roughness film. The mood's sky is the environment light
+    (`src/env/ibl.js`, rebuilt only while the mood changes; desktop only, phones keep the old fill and painted
+    glints via `#ifndef USE_ENVMAP`). `MOODS` carry `hemiEnv` / `envI` beside `hemiI`. Focus blur is off below 120 m.
+  - Illustrated. An ink line from the second difference of the depth buffer and a paper wash in `post.js`
+    (`uInk`, `uInkEdge`), flatter light in `mood.js` (`state.look`), matt materials, one wash per tree crown.
+    First pass only: lines on leaf cards are busy, there is no hatching, the sky is unchanged.
+  - Shadows (`src/env/csm.js`): boxes centred on the point of attention, not view-frustum slices. The sun keeps the
+    wide map; a second unlit directional light carries a tight map (27 % of the width, 2048), chosen in the shader
+    (`LIGHTS` in `materials.js`; the sun must stay directional light 0). Depth ranges hug the model, so the bias is
+    under a texel instead of ~2.5 m and shadows meet their casters. The two maps are drawn on alternate frames.
+  - Track 2, by a helper agent (`buf.js`, `citadel.js`, `truongtien.js`): curved hip roofs with lifted corners
+    (`segs` / `horns`), `pavilion({ colonnade })` with free-standing columns, `passages()` through Ngọ Môn and the
+    gates, 14 panels per Trường Tiền span. The rampart boxes in `city.js` still cross the gate mouths, so those
+    passages end in a 1.2 m porch and a dark panel.
+  - Track 4, by a helper agent (`foliage.js`, `water.js`, `boats.js`): six tree species picked in `foliage.js`,
+    cross wavelets and current on the river, V-wakes (layer 1), lofted hulls. No shoreline darkening.
+  - Not done: track 3 (asphalt roads, kerbs, ground textures, street dressing), `KIND.METAL` for the steel bridges,
+    `.glb` hero models (none exist), the diorama-blur checkbox. Willows are planted by any water, so one stands on
+    Ngọ Môn's axis. Comparison frames: `docs/looks/`.
+  - Frame cost at 1024×768 on this machine: about 13 ms before, 19 ms with both maps drawn every frame, 60 fps
+    (16.3 ms by `requestAnimationFrame`) with alternate maps. Not measured at larger windows or on a phone.
 
 ## Not verified
 - The southern models were checked from the air only; causeway landing, the dragon's heading, Nam Giao's exact

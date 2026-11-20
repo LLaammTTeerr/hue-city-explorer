@@ -26,6 +26,8 @@ import { buildWater } from './env/water.js';
 import { buildRain } from './env/rain.js';
 import { createMood } from './env/mood.js';
 import { createPost } from './env/post.js';
+import { createIBL } from './env/ibl.js';
+import { createCascades } from './env/csm.js';
 import { createCamera } from './camera/controls.js';
 import { createRide } from './camera/ride.js';
 import { createLabels } from './ui/labels.js';
@@ -55,6 +57,7 @@ async function main() {
     ride: () => { follow = null; ride.start(); },
     rain: () => mood.setRain(!mood.state.rainTarget),
     time: (i) => mood.setTime(i),
+    look: () => setLook(!look),
     exitRide: () => ride.exit(),
     seek: (t, scrubbing) => ride.seek(t, scrubbing),
   });
@@ -128,11 +131,12 @@ async function main() {
   const sun = new THREE.DirectionalLight(0xffffff, 2);
   sun.castShadow = true;
   sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
-  sun.shadow.bias = -0.0004;
   sun.shadow.radius = 2.4;
   scene.add(hemi, sun, sun.target);
+  const shadows = createCascades(scene, sun, { tight: !quality.low }); // after the sun, so the sun stays light 0
+  const ibl = quality.low ? null : createIBL(renderer, scene);
 
-  mood = createMood({ scene, renderer, sun, hemi, sky, water, rain });
+  mood = createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl });
   mood.onChange((s) => ui.setMood({ rain: s.rainTarget, time: s.timeTarget }));
   ui.setMood({ rain: mood.state.rainTarget, time: mood.state.timeTarget });
 
@@ -273,11 +277,23 @@ async function main() {
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
     else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (k === 'l') toggleLabels();
+    else if (k === 'v') setLook(!look);
     else if (k === '+' || k === '=') rig.zoomBy(0.65);
     else if (k === '-' || k === '_') rig.zoomBy(1.5);
   });
 
   rig.onInteract(() => ui.hideHint());
+
+  // ---------- look ----------
+  // two renderings of the same model: 0 realistic, 1 illustrated (ink line and flat wash). `?look=ink` opens in the second.
+  let look = 0;
+  function setLook(v) {
+    look = v ? 1 : 0;
+    shared.uLook.value = look;
+    mood.state.look = look;
+    document.body.dataset.look = look ? 'ink' : 'real';
+    ui.setLook(look);
+  }
 
   // ---------- resize ----------
   function resize() {
@@ -305,16 +321,7 @@ async function main() {
     if (ride.active) { camera.getWorldDirection(fwd); focus.copy(camera.position).addScaledVector(fwd, 160); focus.y = LAND_Y; }
     else focus.copy(controls.target);
     const ext = ride.active ? 420 : Math.max(260, Math.min(2600, dist * 0.8));
-    const texel = (ext * 2) / quality.shadowSize;
-    focus.x = Math.round(focus.x / texel) * texel; focus.z = Math.round(focus.z / texel) * texel;
-    sun.target.position.copy(focus);
-    sun.position.copy(focus).addScaledVector(mood.sunDir, 3200);
-    const cam = sun.shadow.camera;
-    if (Math.abs(cam.right - ext) > 1) {
-      cam.left = -ext; cam.right = ext; cam.top = ext; cam.bottom = -ext; cam.near = 200; cam.far = 6500;
-      cam.updateProjectionMatrix();
-      sun.shadow.normalBias = texel * 1.6;
-    }
+    shadows.update(focus, mood.sunDir, ext);
   }
 
   function tick() {
@@ -365,16 +372,19 @@ async function main() {
     world.lamps.visible = lit && era.value >= 1; bridge.lamps.visible = lit && era.value >= 1; bridge.lights.forEach((l) => { l.visible = lit && era.value >= 2; });
     if (post) {
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow, time);
-      // focus on what the camera is looking at; the higher the view, the shallower the focus (the model-on-a-table look)
+      // focus on what the camera is looking at. Near the ground everything is sharp, as a building is to someone standing
+      // by it; only from the air does the far field soften a little. The illustrated look is sharp throughout.
       const fd = ride.active ? 90 : camera.position.distanceTo(controls.target);
       const hgt = camera.position.y - LAND_Y;
-      post.setFocus(fd, ride.active ? 0.12 : 0.18 + 0.5 * Math.min(1, Math.max(0, (hgt - 40) / 500)));
+      post.setFocus(fd, (1 - look) * (ride.active ? 0 : 0.3 * THREE.MathUtils.smoothstep(hgt, 120, 650)));
+      post.setLook(look);
     }
     draw();
     labels.update(innerWidth, innerHeight);
     ui.setHeading(rig.heading());
   }
 
+  setLook(new URLSearchParams(location.search).get('look') === 'ink');
   mood.update(0, 0);
   updateShadow();
   draw(); // compile shaders before the curtain lifts
@@ -386,7 +396,7 @@ async function main() {
   setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
 
   // handle for debugging and automated checks
-  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE };
+  window.__hue = { rig, ride, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
 }
 
 main().catch((err) => {

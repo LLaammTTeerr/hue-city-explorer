@@ -91,12 +91,14 @@ class OcclusionPass extends Pass {
         tDiffuse: { value: null }, tAO: { value: null }, tDepth: { value: null }, uTint: { value: new THREE.Color(0.34, 0.31, 0.44) }, uVignette: { value: 0.15 },
         uInvProj: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() }, uCamPos: { value: new THREE.Vector3() },
         uMistColor: { value: new THREE.Color(1, 1, 1) }, uMist: { value: 0.5 }, uTime: { value: 0 },
+        uInk: { value: 0 }, uPx: { value: new THREE.Vector2() }, uInkEdge: { value: new THREE.Vector2(0.0004, 0.0016) }, uNight: { value: 0 },
       },
       vertexShader: VERT,
       depthTest: false, depthWrite: false,
       fragmentShader: /* glsl */ `
         uniform sampler2D tDiffuse, tAO, tDepth; uniform vec3 uTint, uCamPos, uMistColor; uniform float uVignette, uMist, uTime;
         uniform mat4 uInvProj, uCamWorld;
+        uniform float uInk, uNight; uniform vec2 uPx, uInkEdge;
         varying vec2 vUv;
         float mHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
         float mNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
@@ -131,7 +133,27 @@ class OcclusionPass extends Pass {
           col = col + ( curved - base01 ) * 0.22;
           col *= mix( vec3( 0.96, 0.96, 1.02 ), vec3( 1.06, 1.0, 0.92 ), smoothstep( 0.06, 0.72, l ) );
           vec2 q = vUv - 0.5;
-          col *= 1.0 - uVignette * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
+          if ( uInk > 0.01 ) {
+            // The illustrated look. Wash: pigment calmed and let down with paper, with the tooth of the sheet in it.
+            float wl = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
+            vec3 wash = mix( vec3( wl ), col, 1.08 );
+            wash = mix( wash, vec3( 1.0, 0.975, 0.93 ) * mix( 1.0, 0.16, uNight ), 0.07 );
+            float tooth = mNoise( gl_FragCoord.xy * 0.42 ) * 0.6 + mNoise( gl_FragCoord.xy * 0.11 + 7.0 ) * 0.4;
+            wash *= 0.95 + 0.09 * tooth;
+            // Line: the depth buffer is linear across any flat face on screen, so its second difference is zero inside
+            // a face and jumps at an outline or a fold. Relative to depth, one threshold serves near and far.
+            float d0 = texture2D( tDepth, vUv ).x;
+            float dl = texture2D( tDepth, vUv - vec2( uPx.x, 0.0 ) ).x, dr = texture2D( tDepth, vUv + vec2( uPx.x, 0.0 ) ).x;
+            float dd = texture2D( tDepth, vUv - vec2( 0.0, uPx.y ) ).x, du = texture2D( tDepth, vUv + vec2( 0.0, uPx.y ) ).x;
+            float nearest = min( d0, min( min( dl, dr ), min( dd, du ) ) );
+            float edge = ( abs( dl + dr - 2.0 * d0 ) + abs( dd + du - 2.0 * d0 ) ) / max( 1.0 - nearest, 1e-7 );
+            float line = smoothstep( uInkEdge.x, uInkEdge.y, edge );
+            // the pen wavers: lines break a little and vary in weight
+            line *= 0.72 + 0.28 * mNoise( gl_FragCoord.xy * 0.2 + 3.0 );
+            vec3 inked = mix( wash, mix( vec3( 0.16, 0.115, 0.1 ), vec3( 0.02, 0.02, 0.05 ), uNight ), line * 0.9 );
+            col = mix( col, inked, uInk );
+          }
+          col *= 1.0 - uVignette * ( 1.0 - 0.6 * uInk ) * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
           gl_FragColor = vec4( col, 1.0 );
         }`,
     });
@@ -177,6 +199,8 @@ class OcclusionPass extends Pass {
     this.compRT.setSize(w, h);
     this.dofMat.uniforms.uPx.value.set(1 / w, 1 / h);
     this.dofMat.uniforms.uMaxPx.value = Math.max(4, h / 130);
+    const pen = Math.max(1.3, h / 620); // the pen's width in buffer pixels: about a pixel and a half on screen at any density
+    this.compMat.uniforms.uPx.value.set(pen / w, pen / h);
   }
   render(renderer, writeBuffer, readBuffer) {
     const cam = this.camera;
@@ -239,7 +263,8 @@ export function createPost(renderer, scene, camera) {
     resize() { renderer.getDrawingBufferSize(size); composer.setPixelRatio(1); composer.setSize(Math.max(2, size.x), Math.max(2, size.y)); },
     // night and rain want gentler occlusion and a touch more glow; mist takes the mood's haze colour
     setMood(glow, rain, mistColor, mist, time) {
-      occlusion.strength = 1 - 0.35 * Math.max(glow * 0.6, rain);
+      occlusion.strength = (1 - 0.35 * Math.max(glow * 0.6, rain)) * (1 - 0.3 * occlusion.compMat.uniforms.uInk.value);
+      occlusion.compMat.uniforms.uNight.value = glow;
       bloom.strength = 0.3 + 0.3 * glow;
       const u = occlusion.compMat.uniforms;
       u.uVignette.value = 0.15 + 0.15 * glow;
@@ -248,5 +273,6 @@ export function createPost(renderer, scene, camera) {
       u.uTime.value = time;
     },
     setFocus(distance, aperture) { occlusion.focus = distance; occlusion.aperture = aperture; },
+    setLook(ink) { occlusion.compMat.uniforms.uInk.value = ink; },
   };
 }
