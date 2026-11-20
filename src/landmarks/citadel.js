@@ -695,6 +695,7 @@ function citadel(data, S, group) {
 // octagon. In front, toward the river: the four entrance pillars and the steps down the slope. Around it: the
 // small stele and bell pavilions and the triple gate, each on its own OSM footprint.
 export function buildThienMu(data, S, group = null) {
+  if (replaced('thienmu')) return { glows: [] }; // drawn by places/thienmu.js
   const glows = [];
   if (!data.special || !data.special.phuocduyen) return { glows };
   const LT = group ? new Buf(800) : null; // rings of light under the seven eaves (today only)
