@@ -11,15 +11,21 @@ import { KIND } from '../../geo/buf.js';
 //          { update(time, glow, rain) } to be called every frame.
 // The older builder that drew the same place checks `replaced(id)` and leaves it out, so the two never overlap.
 // Vite collects the replica files; plain node (scripts/check-heights.mjs) imports them itself and hands them over
-// on globalThis.__hueReplicas before it loads any builder.
+// on globalThis.__hueReplicas. The list is read on first use, not at import: builders (and city.js through
+// citadel.js) import this file before node has handed the replicas over, and place files may import builders.
 // (Vite rewrites only the glob call itself, so test the node hand-over first, never import.meta.glob.)
-const mods = globalThis.__hueReplicas || import.meta.glob(['./*.js', '!./index.js'], { eager: true });
-const list = Object.values(mods).filter((m) => m && m.id && typeof m.build === 'function');
-const ids = new Set(list.map((m) => String(m.id).normalize('NFC')));
+let list = null, ids = null;
+function load() {
+  if (list) return;
+  const mods = globalThis.__hueReplicas || import.meta.glob(['./*.js', '!./index.js'], { eager: true });
+  list = Object.values(mods).filter((m) => m && m.id && typeof m.build === 'function');
+  ids = new Set(list.map((m) => String(m.id).normalize('NFC')));
+}
 
-export const replaced = (id) => ids.has(String(id).normalize('NFC'));
+export const replaced = (id) => { load(); return ids.has(String(id).normalize('NFC')); };
 
 export function buildPlaces(data, S, group) {
+  load();
   const live = [];
   for (const m of list) {
     const id = String(m.id).normalize('NFC');
