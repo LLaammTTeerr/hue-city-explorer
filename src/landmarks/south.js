@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { buildThuyTien } from './thuytien.js';
+import { replaced } from './places/index.js';
 
 // The southern hills: đan viện Thiên An, (the water park at hồ Thủy Tiên is in thuytien.js),
 // đàn Nam Giao and the lookout on đồi Vọng Cảnh. Each place says below what comes from OSM (position,
@@ -253,6 +254,7 @@ function thienAn(S, data) {
 // 83 m) with its yellow balustrade, the round top with its blue one, stairs on four sides of each, and the Trai Cung
 // fasting palace to the south-west (its position and size are illustrative).
 function namGiao(S, data) {
+  if (replaced('namgiao')) return;
   const site = siteOf(data, 'namgiao');
   if (!site) return;
   const top = site.items.find((it) => it.k === 'h' && /nam giao/i.test(it.n || '')) || site.items.find((it) => it.k === 'h');
