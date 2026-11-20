@@ -57,7 +57,7 @@ async function main() {
     ride: () => { follow = null; ride.start(); },
     rain: () => mood.setRain(!mood.state.rainTarget),
     time: (i) => mood.setTime(i),
-    look: () => setLook(!look),
+    look: () => setLook(!look, true),
     exitRide: () => ride.exit(),
     seek: (t, scrubbing) => ride.seek(t, scrubbing),
   });
@@ -277,7 +277,7 @@ async function main() {
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
     else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (k === 'l') toggleLabels();
-    else if (k === 'v') setLook(!look);
+    else if (k === 'v') setLook(!look, true);
     else if (k === '+' || k === '=') rig.zoomBy(0.65);
     else if (k === '-' || k === '_') rig.zoomBy(1.5);
   });
@@ -285,10 +285,16 @@ async function main() {
   rig.onInteract(() => ui.hideHint());
 
   // ---------- look ----------
-  // two renderings of the same model: 0 realistic, 1 illustrated (ink line and flat wash). `?look=ink` opens in the second.
-  let look = 0;
-  function setLook(v) {
+  // two renderings of the same model: 1 illustrated (ink line and flat wash), the default, and 0 realistic.
+  // `?look=real` / `?look=ink` choose one; otherwise the last one chosen is kept.
+  let look = 1;
+  const leafMats = new Set();
+  world.group.traverse((o) => { if (o.material && o.material.defines && 'HUE_FOLIAGE' in o.material.defines) leafMats.add(o.material); });
+  function setLook(v, remember = false) {
     look = v ? 1 : 0;
+    if (remember) { try { localStorage.setItem('hue-look', look ? 'ink' : 'real'); } catch { /* private mode */ } }
+    // drawn leaves carry a mask in the alpha channel (post.js), which alpha-to-coverage would read as holes
+    for (const m of leafMats) { if (m.alphaToCoverage !== !look) { m.alphaToCoverage = !look; m.needsUpdate = true; } }
     shared.uLook.value = look;
     mood.state.look = look;
     document.body.dataset.look = look ? 'ink' : 'real';
@@ -384,7 +390,9 @@ async function main() {
     ui.setHeading(rig.heading());
   }
 
-  setLook(new URLSearchParams(location.search).get('look') === 'ink');
+  let savedLook = null;
+  try { savedLook = localStorage.getItem('hue-look'); } catch { /* private mode */ }
+  setLook((new URLSearchParams(location.search).get('look') || savedLook || 'ink') !== 'real');
   mood.update(0, 0);
   updateShadow();
   draw(); // compile shaders before the curtain lifts

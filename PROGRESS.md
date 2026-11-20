@@ -164,9 +164,16 @@
     (`hueRoom`, interior mapping), and rain as a low-roughness film. The mood's sky is the environment light
     (`src/env/ibl.js`, rebuilt only while the mood changes; desktop only, phones keep the old fill and painted
     glints via `#ifndef USE_ENVMAP`). `MOODS` carry `hemiEnv` / `envI` beside `hemiI`. Focus blur is off below 120 m.
-  - Illustrated. An ink line from the second difference of the depth buffer and a paper wash in `post.js`
-    (`uInk`, `uInkEdge`), flatter light in `mood.js` (`state.look`), matt materials, one wash per tree crown.
-    First pass only: lines on leaf cards are busy, there is no hatching, the sky is unchanged.
+  - Illustrated, the user's choice and now the default (`?look=real` or the pencil button for the other; the choice
+    is kept in `localStorage` as `hue-look`). After the Pocket City reference (april-zhu.com/pocketcity).
+    `post.js`: an ink line from the second difference of the depth buffer (`uInk`, `uInkEdge`), a paper wash with the
+    sheet's tooth, a paper backdrop with a faint dot grid in place of the sky, lines lighter with distance. Trees:
+    leaves write zero alpha (alpha-to-coverage is switched off for them in this look), the blurred mask is the crown
+    as one shape, so the pen goes round it. `materials.js`: `hueNoise` / `lNoise` settle toward their middle tone so
+    weathering becomes flat wash; tile roofs are hatched down the slope; surfaces are matt. `water.js` (`uLook`): one
+    jade wash, a faint mirror, pale strokes on the crests. `mood.js` (`state.look`): less sun, more fill.
+    Checked: opening view, Thái Hòa, Phố Tây, Trường Tiền at night, Ngọ Môn in rain, the 1885 era. Not yet drawn:
+    road and kerb edges (roads are flat overlays, so they get no line), ground detail up close.
   - Shadows (`src/env/csm.js`): boxes centred on the point of attention, not view-frustum slices. The sun keeps the
     wide map; a second unlit directional light carries a tight map (27 % of the width, 2048), chosen in the shader
     (`LIGHTS` in `materials.js`; the sun must stay directional light 0). Depth ranges hug the model, so the bias is
@@ -181,7 +188,8 @@
     `.glb` hero models (none exist), the diorama-blur checkbox. Willows are planted by any water, so one stands on
     Ngọ Môn's axis. Comparison frames: `docs/looks/`.
   - Frame cost at 1024×768 on this machine: about 13 ms before, 19 ms with both maps drawn every frame, 60 fps
-    (16.3 ms by `requestAnimationFrame`) with alternate maps. Not measured at larger windows or on a phone.
+    (16.3 ms by `requestAnimationFrame`) with alternate maps; about 15.5 ms in either look at 1280×800 (render plus a
+    forced read-back). Not measured on a phone.
 
 ## Not verified
 - The southern models were checked from the air only; causeway landing, the dragon's heading, Nam Giao's exact

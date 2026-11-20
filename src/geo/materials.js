@@ -63,10 +63,12 @@ uniform vec3 uSunDir;
 uniform float uSunI;
 uniform float uLook;
 float hueHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
-float hueNoise( vec2 p ) {
+float hueNoiseRaw( vec2 p ) {
   vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
   return mix( mix( hueHash( i ), hueHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( hueHash( i + vec2( 0.0, 1.0 ) ), hueHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
 }
+// the drawn look lays flat washes: weathering and mottling settle most of the way to their middle tone
+float hueNoise( vec2 p ) { return mix( hueNoiseRaw( p ), 0.5, uLook * 0.78 ); }
 // The room behind a pane (interior mapping): p is the place in the bay (0..1 across and up), d the sight line as
 // (along the wall, up, into the wall), size the bay in metres. The ray is run to the back wall, a side wall, the floor
 // or the ceiling of a box as wide and tall as the bay, so the room shifts behind the glass as the camera moves.
@@ -275,6 +277,9 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || vKind >
   float course = smoothstep( 0.0, 0.16, fract( uv.y ) );
   float jit = hueHash( floor( uv ) );
   float shade = ( 0.5 + 0.62 * ridge ) * ( 0.66 + 0.34 * course ) * ( 0.88 + 0.24 * jit );
+  // drawn: a flat wash hatched down the slope, the pen lifting here and there
+  float hatch = ( 1.0 - smoothstep( 0.0, 0.2, abs( sin( 3.14159 * uv.x ) ) ) ) * step( 0.2, hueHash( floor( vec2( uv.x, uv.y * 0.4 ) ) ) );
+  shade = mix( shade, 1.08 - 0.48 * hatch, uLook );
   // age: darker patches, lighter where rain has washed the ridges
   hueRib = normalize( hueN + e * cos( 3.14159 * uv.x ) * 0.55 * detail );
   // each course laps the one below: the lip tips the tile a little down the slope
@@ -446,6 +451,8 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = hueRough;')
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = hueMetal;')
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n#ifndef HUE_FOLIAGE\nnormal = normalize( normal + mat3( viewMatrix ) * ( hueNp - hueN ) );\n#endif')
+      // drawn look: leaves mark themselves in the alpha channel, so post.js can outline a crown as one shape
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 ) gl_FragColor.a = 0.0;\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
@@ -518,7 +525,7 @@ export function landMaterial(color, turf = false, bank = false) {
         varying vec3 vWPos; uniform float uWet; uniform float uLook;
         float lHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
         float lNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
-          return mix( mix( lHash( i ), lHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHash( i + vec2( 0.0, 1.0 ) ), lHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ); }`,
+          return mix( 0.5, mix( mix( lHash( i ), lHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHash( i + vec2( 0.0, 1.0 ) ), lHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ), 1.0 - uLook * 0.78 ); }`,
       )
       .replace(
         '#include <color_fragment>',

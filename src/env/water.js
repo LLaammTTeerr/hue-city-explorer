@@ -13,7 +13,7 @@ export function buildWater(data) {
     name: 'HueWater',
     uniforms: {
       color: { value: null }, tDiffuse: { value: null }, textureMatrix: { value: null },
-      uTime: { value: 0 }, uRain: { value: 0 }, uReflect: { value: quality.reflection ? 1 : 0 }, uGlow: { value: 0 },
+      uTime: { value: 0 }, uRain: { value: 0 }, uReflect: { value: quality.reflection ? 1 : 0 }, uGlow: { value: 0 }, uLook: { value: 0 },
       uDeep: { value: new THREE.Color() }, uShallow: { value: new THREE.Color() },
       uSkyTop: { value: new THREE.Color() }, uSkyHorizon: { value: new THREE.Color() },
       uSunDir: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color() }, uSunDisk: { value: 1 },
@@ -33,7 +33,7 @@ export function buildWater(data) {
     fragmentShader: `
       uniform sampler2D tDiffuse;
       uniform highp sampler2D tFlow;
-      uniform float uTime, uRain, uReflect, uSunDisk, uFogDensity, uGlow, uFlowOn, uCurrent;
+      uniform float uTime, uRain, uReflect, uSunDisk, uFogDensity, uGlow, uFlowOn, uCurrent, uLook;
       uniform vec3 uDeep, uShallow, uSkyTop, uSkyHorizon, uSunDir, uSunCol, uFog;
       uniform vec4 uFlowBox; uniform vec2 uFlowSize;
       varying vec4 vUvR; varying vec3 vW;
@@ -157,6 +157,17 @@ export function buildWater(data) {
         col += mix( uFog, vec3( 1.0 ), 0.4 ) * rip * 0.45;
         col = mix( col, uFog, uRain * 0.16 );
 
+        if ( uLook > 0.5 ) {
+          // drawn water: one calm wash that deepens away from the eye, the mirror kept faint, and short pale strokes
+          // where the wavelets crest
+          vec3 washW = mix( uShallow, uDeep, 0.3 + 0.25 * tone ) * 1.12;
+          vec3 drawn = mix( washW, refl, 0.3 * fres );
+          float stroke = smoothstep( 0.55, 0.95, crest ) * near;
+          drawn = mix( drawn, mix( uSkyHorizon, vec3( 1.0 ), 0.5 ), stroke * 0.55 );
+          drawn += uSunCol * pow( sd, 26.0 ) * 0.16 * uSunDisk;
+          drawn += mix( uFog, vec3( 1.0 ), 0.4 ) * rip * 0.45;
+          col = drawn;
+        }
         float f = 1.0 - exp( -pow( uFogDensity * dist, 2.0 ) );
         col = mix( col, uFog, f );
         gl_FragColor = vec4( col, 1.0 );

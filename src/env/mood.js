@@ -62,7 +62,7 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl =
       wu.uDeep.value.copy(cur.waterDeep); wu.uShallow.value.copy(cur.waterShallow);
       wu.uSkyTop.value.copy(cur.skyTop); wu.uSkyHorizon.value.copy(cur.skyHorizon);
       wu.uSunCol.value.copy(cur.sunColor); wu.uSunDisk.value = cur.sunDisk;
-      wu.uFog.value.copy(cur.fog); wu.uFogDensity.value = cur.fogDensity; wu.uRain.value = r; wu.uGlow.value = cur.glow;
+      wu.uFog.value.copy(cur.fog); wu.uFogDensity.value = cur.fogDensity; wu.uRain.value = r; wu.uGlow.value = cur.glow; wu.uLook.value = ink;
     }
     shared.uGlow.value = cur.glow;
     shared.uWet.value = r;
