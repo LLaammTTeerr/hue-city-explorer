@@ -11,6 +11,7 @@ import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
+import { replaced } from '../landmarks/places/index.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -240,6 +241,7 @@ function buildRoads(data, group, structures) {
     // on all but the long river bridges rising to a crown at mid-span (geo/bridges.js)
     const P = profiles.get(r.flat);
     if (!P) continue; // too short to profile (bridges.js skipped it): one bad entry must not abort the city
+    if (P.name === 'Cầu Phú Xuân' && replaced('phuxuan')) continue; // modelled in landmarks/places/phuxuan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
     if (P.rise > 0) {

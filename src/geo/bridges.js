@@ -13,7 +13,7 @@ import { inRing, pathLength, unflat } from './buf.js';
 //  - Cầu Trung Đạo (Gia Long; over hồ Thái Dịch between Ngọ Môn and Thái Hòa) is a brick bridge on several vaults
 //    (mia.vn); the three Ngoại Kim Thủy bridges are small single-vault stone bridges in front of it.
 // Illustrative: the crown rises (no surveyed long sections were found), the number of vaults, the default rule.
-// Big modern river bridges keep a level deck: Phú Xuân, Dã Viên (and its approaches), any run over 150 m.
+// Big modern river bridges keep a level deck: Dã Viên (and its approaches), any run over 150 m; Phú Xuân climbs (below).
 // Trường Tiền and Nguyễn Hoàng are hand models elsewhere; the Bạch Hổ rail bridge is not a road.
 
 const NAMED = {
@@ -25,7 +25,8 @@ const NAMED = {
   'Cầu Nhà Đồ': { rise: 1.0 },
   'Cầu Cửa Ngăn': { rise: 1.0 },
   'Cầu Cửa Thượng Tứ': { rise: 1.0 },
-  'Cầu Phú Xuân': { rise: 0 },
+  // 1971 girder bridge: the deck climbs off each bank within ~40 m, then crowns gently (landmarks/places/phuxuan.js)
+  'Cầu Phú Xuân': { rise: 4.2, ramp: 0.1 },
   'Cầu Dã Viên': { rise: 0 },
   'Cầu Trường Tiền': { rise: 0 },
   'Cầu Nguyễn Hoàng': { rise: 0 },
@@ -69,19 +70,19 @@ export function bridgeProfiles(data) {
     const a = b.pts[0], e = b.pts[b.pts.length - 1], m = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
     let named = null;
     for (const q of bridges) if (q.n && NAMED[q.n] && inRing(m[0], m[1], unflat(q.ring))) { named = q.n; break; }
-    let r, arches = 0;
-    if (named) ({ rise: r, arches = 0 } = NAMED[named]);
+    let r, arches = 0, ramp = 0;
+    if (named) ({ rise: r, arches = 0, ramp = 0 } = NAMED[named]);
     else if (runLen[runOf[i]] > RUN_FLAT || b.len > RUN_FLAT || runN[runOf[i]] > 1) r = 0; // (a run in pieces would hump twice)
     // footbridges and lanes over canals hump noticeably; road bridges over the moat and the canals get a camber
     else if (b.c >= 4) r = clamp(b.len / 14, 0.5, 1.5);
     else r = clamp(b.len * 0.02, 0.4, 1.1);
-    map.set(b.flat, makeProfile(b.pts, b.len, b.c, r, arches));
+    map.set(b.flat, Object.assign(makeProfile(b.pts, b.len, b.c, r, arches, ramp), { name: named }));
   });
   cache = { data, map };
   return map;
 }
 
-function makeProfile(pts, len, c, riseM, arches) {
+function makeProfile(pts, len, c, riseM, arches, climb = 0) {
   // the bank-to-bank deck as it was: level at the bank, or climbing between banks of different height, or at the
   // level of a lake in the hills
   const p0 = pts[0], pn = pts[pts.length - 1], mp = pts[pts.length >> 1];
@@ -91,7 +92,9 @@ function makeProfile(pts, len, c, riseM, arches) {
   const ramp = Math.abs(e0 - e1) > 0.25;
   const lvl = Math.min(e0, e1) - lift < 0.25 ? LAND_Y + Math.min(e0, e1) + 0.42 : top;
   const base = ramp ? (s) => LAND_Y + e0 + 0.42 + ((e1 - e0) * s) / (len || 1) : () => lvl;
-  const bump = (s) => riseM * hump(s / (len || 1));
+  // climb: reach most of the rise within that fraction of the length at each end, then a low crown (a long bridge)
+  const ss = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
+  const bump = climb ? (s) => { const t = s / (len || 1); return riseM * ss(t / climb) * ss((1 - t) / climb) * (0.82 + 0.18 * hump(t)); } : (s) => riseM * hump(s / (len || 1));
   const thick = c <= 2 ? 1.3 : 0.7;
   const prof = { len, c, rise: riseM, arches, top, lift, thick, base, bump, y: (s) => base(s) + bump(s), breaks: [] };
   if (arches) {
