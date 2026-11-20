@@ -100,7 +100,7 @@ async function main() {
   buildCivic(data, world.structures);
   buildBiaQuocHoc(data, world.structures);
   buildBoardwalk(data, world.structures, dynamic);
-  buildFloatingRestaurants(data, world.structures, dynamic); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
+  const floating = buildFloatingRestaurants(data, world.structures, dynamic); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);
   populate(world, data); // buildings, houses and trees, kept off the ground the landmark models cover
@@ -361,6 +361,7 @@ async function main() {
     rig.update(dt, !ride.active);
     mood.update(dt, time);
     bridge.update(time, mood.cur.glow, mood.state.rain);
+    floating.update(time);
     citadel.update(time, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
     boats.update(dt, time);
     lanterns.update(dt, time);

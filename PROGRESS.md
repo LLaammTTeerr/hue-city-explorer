@@ -295,7 +295,10 @@ Known weak points:
   - Fences and gates at Quốc Học (OSM campus outline), Ga Huế, Phủ Cam, DCCT, An Định and Diệu Đế.
   - Thế Miếu / Hưng Miếu walls.
   - Night lamps, lit crosses, and the Vincom crown.
-- **Floating restaurant (new `floating.js`):** Nhà hàng nổi Sông Hương is modelled as the real lotus-shaped restaurant, with pontoon, glass halls, petal roof, gangway and sign, plus pink petal LEDs at night.
+- **Floating restaurant (new `floating.js`):** Nhà hàng nổi Sông Hương, remodelled from a night photo:
+  - Low dark pontoon, two glazed drums, two staggered rings of 16 open lotus-petal hoops.
+  - Roof terrace with lamp posts and festoons, and a white tent pavilion.
+  - The hoop LEDs run a 30 s colour show.
 - **Tombs and south:**
   - Khải Định has dark weathered concrete, a three-path dragon stair, flagpoles and a precinct fence.
   - Minh Mạng has its side gates; Đồng Khánh has a gate in the Bửu Thành wall.
