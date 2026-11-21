@@ -17,7 +17,7 @@ const LIMIT = { road: 2, overlap: 2, building: 2 }; // m² per source, pair or b
 const showAll = process.argv.includes('--all');
 
 const t0 = Date.now();
-const { data, world, S, sources, errors, groundY, ROAD_W } = await buildScene();
+const { data, tiles, world, S, sources, errors, groundY, ROAD_W } = await buildScene();
 const key = (ix, iz) => (ix + 32768) * 65536 + (iz + 32768);
 const unkey = (k) => [Math.floor(k / 65536) - 32768 + 0.5, (k % 65536) - 32768 + 0.5];
 
@@ -269,8 +269,8 @@ const tallHits = (ix, iz, inside) => { // [[source name, SUB points inside and d
   }
   for (const [n, q] of by) add('building', `${n} under mapped building ${b[3] ? '"' + b[3] + '"' : '@' + cx.toFixed(0) + ',' + cz.toFixed(0)}`, q.cells, q.area);
 });
-{ // infill houses: the ones populate keeps (its own houseOff test); here every square metre of each
-  const a = data.infill || [], N = 8, by = new Map();
+for (const a of [data.infill || [], ...tiles.map((t) => t.infill)]) { // infill houses, hue.json's and the tiles': the ones populate keeps (its own houseOff test); here every square metre of each
+  const N = 8, by = new Map();
   for (let i = 0; i + N <= a.length; i += N) {
     const x = a[i] / 10, z = a[i + 1] / 10, w = a[i + 2] / 10, d = a[i + 3] / 10, ang = a[i + 4] / 1000, ux = Math.cos(ang), uz = Math.sin(ang);
     if (world.houseOff(x, z, w, d, ang)) continue; // populate leaves it out

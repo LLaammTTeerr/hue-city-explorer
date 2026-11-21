@@ -461,10 +461,9 @@ function waterNear(data) {
 
 const TYPES = ['spreading', 'upright', 'flamboyant', 'willow', 'pine', 'palm'];
 
-export function buildTrees(data, group, off = null) {
-  const a = data.trees || [];
-  const total = a.length / 4;
-  const nearCount = data.meta?.counts?.treesNear ?? total;
+// Returns plant(records, nearCount, i0): plants one batch of trees (hue.json's own, then each tile's) with the shared
+// geometry and materials and returns its meshes; i0 is the batch's first index in the whole model (dice seeds).
+export function treePlanter(data, group, off = null) {
   const tex = leafAtlas();
   const mat = cityMaterial({ foliage: true, map: tex, alphaTest: 0.42, side: THREE.DoubleSide });
   mat.alphaToCoverage = true;
@@ -502,16 +501,16 @@ export function buildTrees(data, group, off = null) {
   const flameBase = ['#bdb8a8', '#c4bba4', '#b4b2a4'].map(hex); // multiplies the green/red baked into the cards
   // the city's seasonal blossom, sparingly: bằng lăng tím along the streets, hoàng mai in the Citadel's gardens
   const lilac = ['#8f6db8', '#a17ec8', '#7d5ca8'].map(hex), mai = ['#e3b53c', '#d8a632'].map(hex);
-  const meshes = [];
-  const range = (start, end, layer) => {
+  let meshes = [];
+  const range = (a, i0, start, end, layer) => {
     const span = end - start, n = Math.floor(span * quality.treeShare);
     if (n <= 0) return;
     const stride = span / n;
     const items = [];
     for (let k = 0; k < n; k++) {
-      const i = start + Math.floor(k * stride), sc = a[i * 4 + 2] / 10, kind = a[i * 4 + 3];
+      const j = start + Math.floor(k * stride), i = i0 + j, sc = a[j * 4 + 2] / 10, kind = a[j * 4 + 3];
       const r = rand(i, 61);
-      const x = a[i * 4] / 10, z = a[i * 4 + 1] / 10;
+      const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
       if (off && off(x, z, 2.2 * sc)) continue; // a landmark model stands here
       if (forecourts.some((c) => (x - c[0]) ** 2 + (z - c[1]) ** 2 < 46 * 46)) continue; // the great halls stand in open courts
       let type = kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
@@ -561,7 +560,12 @@ export function buildTrees(data, group, off = null) {
       }
     }
   };
-  range(0, nearCount, 0);
-  range(nearCount, total, 1);
-  return meshes;
+  return (a, nearCount, i0 = 0) => {
+    a = a || [];
+    nearCount ??= a.length / 4;
+    meshes = [];
+    range(a, i0, 0, nearCount, 0);
+    range(a, i0, nearCount, a.length / 4, 1);
+    return meshes;
+  };
 }

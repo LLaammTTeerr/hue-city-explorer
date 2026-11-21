@@ -1,6 +1,27 @@
 # Progress
 
 ## Done
+- Shadow maps cached (2026-11-21): csm.js redraws a map only when its snapped box, the sun direction, a casting
+  LOD chunk reaching into it (lodFlips in lod.js) or `shadows.invalidate()` changes; moving casters (traffic, boats,
+  tree sway) refresh on a cadence (near 33-100 ms, wide 100-330 ms). ~0.44 map renders per frame instead of 1.0
+  with a still camera; 0 % stale pixels after orbit, zoom, night/day and look switch. `shadows.stats` counts redraws.
+- Focus pass skipped when nothing can blur (2026-11-21): post.js sends the grade straight to the output when
+  aperture × max blur radius is under the shader's 0.7 px cut-off (always in the drawn look, and in the real look
+  below ~120 m), saving one full-screen read/write pass. Output is the same by construction; both looks checked live.
+
+- Label heights at build time (2026-11-21): `modelTops()` (scene walk for each tag's anchor, ~100-120 ms on the M-series
+  GPU page, more on phones) moved out of startup into the data build: `scripts/build-label-tops.mjs` (run at the end of
+  build-data.mjs) builds the app scene headless and writes `a` (model top, decimetres) per place into `places.json`;
+  labels.js reads it (fallback ground + `h`) and now takes its places from the index. Vọng Cảnh's record, moved onto the
+  lookout by its replica at build, is moved in the index too. All 80 anchors match the old browser ones within 5 cm
+  (rounding); `npm run check:labels` (also `--browser`).
+- Tiled trees and infill (2026-11-21): `hue.json` keeps only the trees and infill houses of the opening view (a wedge
+  in front of the home camera out to 3.6 km) and those within reach of the 13 place builders that read or edit them;
+  the rest go to ten 4 km tiles in `public/data/tiles/`, fetched after the first frame nearest first and planted one
+  per frame through the same builders (`world.addTile`, near-water records still on the reflection layer). `hue.json`
+  8.23 MB / 2.95 MB gzip -> 3.47 MB / 1.18 MB gzip; tiles 4.77 MB / 1.77 MB gzip. At 9 Mbps / 60 ms (headless,
+  gzip server): first 3D frame 6.7 s -> 4.1 s, all tiles in at 6.3 s. `npm run check:tiles` proves the split
+  changes no builder's input.
 - Junction markings (2026-11-21, branch worktree-agent-a495b5cffec0ae1d6): lane dashes were laid along every class 0-1
   centre line unclipped, so they ran straight through junction boxes and crossed each other (big junction at
   x≈-200, z≈550). Patches enclosed by carriageways that none covers showed the pale casing and kerb as small white

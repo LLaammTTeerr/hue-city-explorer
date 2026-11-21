@@ -163,7 +163,7 @@ async function main() {
 
   // ---------- labels & picking ----------
   let labelsOn = true;
-  labels = createLabels(document.getElementById('labels'), data, camera, (id) => pick(id, true), scene);
+  labels = createLabels(document.getElementById('labels'), index, camera, (id) => pick(id, true)); // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
   function toggleLabels() { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); }
 
   function pick(id, fly, from) {
@@ -257,6 +257,7 @@ async function main() {
     mood.state.look = look;
     document.body.dataset.look = look ? 'ink' : 'real';
     ui.setLook(look);
+    shadows.invalidate(); // the maps hold no look of their own today; redrawn anyway, so a look-dependent caster cannot go stale
   }
 
   // ---------- resize ----------
@@ -290,8 +291,7 @@ async function main() {
   canvas.addEventListener('webglcontextrestored', () => {
     console.warn('[hue] WebGL context restored');
     if (ibl) ibl.invalidate();
-    sun.shadow.needsUpdate = true;
-    if (shadows.near) shadows.near.shadow.needsUpdate = true;
+    shadows.invalidate();
     pendingSize = Math.max(pendingSize, 1);
   });
 
@@ -393,8 +393,31 @@ async function main() {
     setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
   }
 
-  // handle for debugging and automated checks
-  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing };
+  // ---------- the rest of the trees and houses ----------
+  // hue.json carries the first frame's; the others come in tiles (data.meta.tiles, nearest the opening view first,
+  // see build-data.mjs), fetched one behind the other after the first frame and each planted between two frames.
+  // Every tile added fires 'hue:scene-changed' on window (detail.meshes: what was added), for anything that keeps a
+  // drawing of the scene between frames; the shadow maps are told directly.
+  const tiles = (async () => {
+    const list = data.meta.tiles || [];
+    const get = (t) => getJSON(t.f).catch((err) => { console.warn('[hue] tile not loaded', t.f, err); return null; });
+    let next = list.length ? get(list[0]) : null;
+    for (let k = 0; k < list.length; k++) {
+      const body = await next;
+      next = k + 1 < list.length ? get(list[k + 1]) : null; // download the next one while this one is planted
+      if (!body) continue;
+      await frame();
+      const meshes = world.addTile(body);
+      for (const o of meshes) if (o.material?.defines && 'HUE_FOLIAGE' in o.material.defines && !leafMats.has(o.material)) { leafMats.add(o.material); setLook(look); }
+      if (shadows.invalidate) shadows.invalidate();
+      else { sun.shadow.needsUpdate = true; if (shadows.near) shadows.near.shadow.needsUpdate = true; }
+      dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
+    }
+    performance.mark('hue:tiles-loaded');
+  })();
+
+  // handle for debugging and automated checks (tiles: resolves once every tile is in the scene)
+  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing, tiles };
 }
 
 main().catch((err) => {

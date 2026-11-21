@@ -112,6 +112,7 @@ try {
   }
   await send('Page.navigate', { url: `${base}/?look=${look}${view ? '&still' : ''}` });
   for (let i = 0; i < 360; i++) { if (await evaluate('!!window.__hue')) break; await sleep(500); if (i === 359) throw new Error('scene never became ready'); }
+  await evaluate('window.__hue.tiles'); // the trees and houses that arrive after the first frame (public/data/tiles/)
   if (view) { await shootView(); done(0); }
   const info = await evaluate(`(() => {
     const H = window.__hue, p = H.data.places.find((q) => q.id === ${JSON.stringify(id)});

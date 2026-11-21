@@ -144,7 +144,7 @@ function lightMesh(group, L, color, boost) {
   if (!group || !L || L.n === 0) return null;
   const m = new THREE.Mesh(L.geometry(), lightMaterial(color, boost));
   m.renderOrder = 19;
-  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
+  m.userData.landmark = true; // counts towards label heights (scripts/lib/label-tops.mjs)
   group.add(m);
   return m;
 }
@@ -877,7 +877,7 @@ function facePlane(group, mat, w, h, at, n, order = 0) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
   m.position.set(at[0], at[1], at[2]);
   m.rotation.y = Math.atan2(n[0], n[1]);
-  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
+  m.userData.landmark = true; // counts towards label heights (scripts/lib/label-tops.mjs)
   if (order) m.renderOrder = order;
   group.add(m);
   return m;
