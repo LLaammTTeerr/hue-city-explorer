@@ -1,8 +1,8 @@
 import * as THREE from 'three';
-import { KIND, hex, shade, Buf } from '../../geo/buf.js';
+import { KIND, hex, shade, mix, Buf } from '../../geo/buf.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
 import { rise } from '../../geo/terrain.js';
-import { LAND_Y } from '../../config.js';
+import { LAND_Y, PAL, roadWidth } from '../../config.js';
 
 // Cầu Nguyễn Hoàng (cầu vượt sông Hương), opened to traffic 26 March 2025, named 8 September 2025: Kim Long
 // (Nguyễn Hoàng street, north) to Phường Đúc (Bùi Thị Xuân, south), between cồn Dã Viên and chùa Thiên Mụ.
@@ -28,31 +28,50 @@ const L = 350, HW = 21.5; // length, half width
 const V_MED = 1.0, V_CAR = 11.5, V_RIB = 13, V_STRIP = 14.5, V_MOTO = 18, V_RAIL = 21.35;
 const Y_END = 6.6, Y_MID = 8.4; // deck surface at the abutments and at mid-span (river at y = 0)
 const FOOT = 92, Y_SPRING = 1.2, Y_CROWN = 30.6, LEAN = 3.5; // arch: springing at the V footing, crown, inward lean
-const V_TOP = 114, PIER = 144, RAMP = 46;
+const V_TOP = 114, PIER = 144, RAMP = 46, TRANS = 24; // TRANS: the last stretch, where the bands meet the street's
 
-export function build({ data, S, group }) {
+// The deck's frame (s along the bridge, t across it) and where it comes down to the street: the first mapped
+// carriageway beyond each end of the outline, on the deck's axis (the OSM bridge ways under the outline are not laid;
+// the slip roads and avenues carry on from where they stop). The ramp is at grade there, so it never stands over the
+// junction or the islands between its slips. approach[e]: the carriageways that start at that end, [t, half width].
+function frame(data) {
   const nh = data.nguyenhoang;
   if (!nh) throw new Error('no nguyenhoang outline in hue.json');
   const c = [nh.c[0] / 10, nh.c[1] / 10], ang = nh.a / 1000;
   const u = [Math.cos(ang), Math.sin(ang)], v = [-u[1], u[0]];
-  const xz = (s, t) => [c[0] + u[0] * s + v[0] * t, c[1] + u[1] * s + v[1] * t];
-  const at = (s, t, y) => { const p = xz(s, t); return [p[0], y, p[1]]; };
-  const ground = (s) => { const p = xz(s, 0); return LAND_Y + rise(p[0], p[1]) + 0.08; };
   const half = L / 2;
-  // where the deck comes down to the street: the first mapped carriageway beyond each end of the outline, on the
-  // deck's axis (the OSM bridge ways under the outline are not laid; the slip roads and avenues carry on from where
-  // they stop). The ramp is at grade there, so it never stands over the junction or the islands between its slips.
+  const heads = [];
+  for (const r of data.roads || []) {
+    const [cls, br, f] = r;
+    if (br || cls > 3) continue;
+    for (const k of [0, f.length - 2]) {
+      const dx = f[k] / 10 - c[0], dz = f[k + 1] / 10 - c[1];
+      heads.push({ s: dx * u[0] + dz * u[1], t: dx * v[0] + dz * v[1], hw: roadWidth(r) / 2 });
+    }
+  }
   const ends = [-1, 1].map((e) => {
     let best = half + RAMP;
-    for (const [cls, br, f] of data.roads || []) {
-      if (br || cls > 3) continue;
-      for (const k of [0, f.length - 2]) {
-        const dx = f[k] / 10 - c[0], dz = f[k + 1] / 10 - c[1], s = (dx * u[0] + dz * u[1]) * e, t = dx * v[0] + dz * v[1];
-        if (Math.abs(t) < HW && s > half && s < best) best = s;
-      }
-    }
+    for (const h of heads) if (Math.abs(h.t) < HW && h.s * e > half && h.s * e < best) best = h.s * e;
     return best;
   });
+  const approach = [-1, 1].map((e, i) => heads.filter((h) => Math.abs(h.t) < HW && h.s * e >= ends[i] - 0.05 && h.s * e < ends[i] + JOIN_REACH).map((h) => [h.t, h.hw]));
+  return { c, ang, u, v, half, ends, approach };
+}
+const JOIN_REACH = 6; // m: a carriageway starting this far past the deck's end is one of its approaches
+
+// The streets' side of the joint (geo/city.js): each approach carriageway is cut on the deck's end line, square to
+// the deck, and starts on it, so the deck and the street meet along one straight edge.
+export function deckEnds(data) {
+  const { c, u, ends } = frame(data);
+  return [-1, 1].map((e, i) => ({ p: [c[0] + u[0] * e * ends[i], c[1] + u[1] * e * ends[i]], u: [u[0] * e, u[1] * e], hw: HW, reach: JOIN_REACH }));
+}
+
+export function build({ data, S, group }) {
+  const { c, ang, u, v, half, ends, approach } = frame(data);
+  const xz = (s, t) => [c[0] + u[0] * s + v[0] * t, c[1] + u[1] * s + v[1] * t];
+  const at = (s, t, y) => { const p = xz(s, t); return [p[0], y, p[1]]; };
+  // the street's surface at (s, t): carriageways lie 0.06 m over the ground, 0.12 m more on raised ground (geo/city.js)
+  const ground = (s, t = 0) => { const p = xz(s, t), r = rise(p[0], p[1]); return LAND_Y + r + 0.07 + (r > 0 ? 0.12 : 0); };
   const endOf = (s) => (s < 0 ? ends[0] : ends[1]);
   const curve = (s) => { const a = Math.min(Math.abs(s), half); return Y_END + (Y_MID - Y_END) * (1 - (a / half) ** 2); };
   // deck surface along the axis: a gentle vertical curve over the river, then the approach ramp over the last RAMP m
@@ -76,49 +95,76 @@ export function build({ data, S, group }) {
   const n0 = S.n;
   const ss = [];
   for (let s = -ends[0]; s < ends[1]; s += 5) ss.push(s);
+  for (const e of [-1, 1]) for (let a = endOf(e) - TRANS; a < endOf(e); a += 1) ss.push(Math.round(e * a * 100) / 100);
   ss.push(ends[1]);
   for (const s of [-half, half, ...abut]) if (!ss.includes(s)) ss.push(s);
   ss.sort((a, b) => a - b);
-  const bands = [ // [inner, outer, raise, colour, kind]
-    [V_MED, V_CAR, 0, asphalt, KIND.ROAD],
-    [V_CAR, V_STRIP, 0.28, strip, KIND.PLAIN],
-    [V_STRIP, V_MOTO, 0, moto, KIND.ROAD],
-    [V_MOTO, HW, 0.2, granite, KIND.ROAD],
+  // The cross-section at the ends. Over the last TRANS m the deck's bands move to where the street's own
+  // carriageways start: the car lanes onto the main carriageways, the motorbike lanes onto the slip roads, the
+  // walkway out to the street's pavement. The raised strips come down flush and the paving takes the street's
+  // colours, so at the end line the deck is the street: lanes, median and pavements run straight on.
+  const street = approach.map((list) => [-1, 1].map((side) => {
+    const own = list.filter(([t]) => t * side > 0).map(([t, hw]) => [Math.abs(t) - hw, Math.abs(t) + hw]).sort((p, q) => p[0] - q[0]);
+    if (!own.length) return null;
+    const [main, slip] = own, med = Math.max(0.3, main[0]), car = Math.max(med + 2, main[1]);
+    const st = slip ? Math.max(car, slip[0]) : Math.min(car + 3, HW - 3), mo = slip ? Math.max(st + 2, Math.min(HW - 0.5, slip[1])) : HW - 1.5;
+    return [med, car, st, mo];
+  }));
+  const DECK = [V_MED, V_CAR, V_STRIP, V_MOTO];
+  const near = (s) => { const E = endOf(s), x = (Math.abs(s) - (E - TRANS)) / TRANS; return x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x); };
+  // band edges [median, car, strip, moto] at s on one side (+1 / -1)
+  const edges = (s, side) => {
+    const T = street[s < 0 ? 0 : 1][(side + 1) / 2], k = T ? near(s) : 0;
+    return DECK.map((d, j) => d + ((T ? T[j] : d) - d) * k);
+  };
+  const toStreet = (col, to, s) => mix(col, to, near(s));
+  // the ground falls across the deck's end (0.6 m over its width at the north end): over the same stretch the deck
+  // takes the street's cross-fall, so it meets every carriageway at its own height, not level at the axis only
+  const tilt = (s, t) => { const k = near(s); return k ? k * (ground(Math.sign(s) * endOf(s), t) - ground(Math.sign(s) * endOf(s))) : 0; };
+  const atd = (s, t, y) => at(s, t, y + tilt(s, t));
+  const roadCol = hex(PAL.road[1]), paveCol = hex(PAL.casing);
+  const bands = [ // [inner edge, outer edge, raise, colour, street colour, kind]; edge -1 is the deck's outer edge
+    [0, 1, 0.0, asphalt, roadCol, KIND.ROAD],
+    [1, 2, 0.28, strip, paveCol, KIND.PLAIN],
+    [2, 3, 0.0, moto, roadCol, KIND.ROAD],
+    [3, -1, 0.2, granite, paveCol, KIND.ROAD],
   ];
   for (let i = 0; i + 1 < ss.length; i++) {
-    const a = ss[i], b = ss[i + 1], ya = top(a), yb = top(b);
+    const a = ss[i], b = ss[i + 1], ya = top(a), yb = top(b), m = (a + b) / 2, fa = 1 - near(a), fb = 1 - near(b);
     const span = a >= abut[0] - 1e-6 && b <= abut[1] + 1e-6;
+    const ma = edges(a, 1)[0], mb = edges(b, 1)[0], na = edges(a, -1)[0], nb = edges(b, -1)[0];
     S.kind = KIND.PLAIN;
-    S.quad(at(a, -V_MED, ya + 0.3), at(a, V_MED, ya + 0.3), at(b, V_MED, yb + 0.3), at(b, -V_MED, yb + 0.3), strip, [0, 1, 0]);
+    S.quad(atd(a, -na, ya + 0.3 * fa), atd(a, ma, ya + 0.3 * fa), atd(b, mb, yb + 0.3 * fb), atd(b, -nb, yb + 0.3 * fb), toStreet(strip, paveCol, m), [0, 1, 0]);
     for (const side of [-1, 1]) {
-      for (const [ti, to, h, col, kind] of bands) {
+      const Ea = edges(a, side), Eb = edges(b, side), ed = (E, j) => side * (j < 0 ? HW : E[j]);
+      for (const [ji, jo, h, col0, col1, kind] of bands) {
         S.kind = kind;
-        const vi = side * ti, vo = side * to;
-        S.quad(at(a, vi, ya + h), at(a, vo, ya + h), at(b, vo, yb + h), at(b, vi, yb + h), col, [0, 1, 0]);
+        const col = toStreet(col0, col1, m), ha = h * fa, hb = h * fb;
+        S.quad(atd(a, ed(Ea, ji), ya + ha), atd(a, ed(Ea, jo), ya + ha), atd(b, ed(Eb, jo), yb + hb), atd(b, ed(Eb, ji), yb + hb), col, [0, 1, 0]);
         S.kind = KIND.PLAIN;
-        if (h > 0) for (const vv of [vi, vo]) {
-          if (Math.abs(vv) >= HW - 1e-6) continue;
-          S.quad(at(a, vv, ya), at(b, vv, yb), at(b, vv, yb + h), at(a, vv, ya + h), shade(col, 0.92), [0, 0.2, 0]);
+        if (h > 0 && Math.max(ha, hb) > 0.005) for (const j of [ji, jo]) {
+          if (j < 0) continue;
+          S.quad(atd(a, ed(Ea, j), ya), atd(b, ed(Eb, j), yb), atd(b, ed(Eb, j), yb + hb), atd(a, ed(Ea, j), ya + ha), shade(col, 0.92), [0, 0.2, 0]);
         }
       }
       S.kind = KIND.PLAIN;
-      S.quad(at(a, side * V_MED, ya), at(b, side * V_MED, yb), at(b, side * V_MED, yb + 0.3), at(a, side * V_MED, ya + 0.3), strip, [side * v[0], 0, side * v[1]]);
+      if (fa + fb > 0.01) S.quad(atd(a, side * Ea[0], ya), atd(b, side * Eb[0], yb), atd(b, side * Eb[0], yb + 0.3 * fb), atd(a, side * Ea[0], ya + 0.3 * fa), strip, [side * v[0], 0, side * v[1]]);
       // outer face: the cantilever edge on the bridge, a retaining wall down to the street on the ramps
       const ba = span ? ya - 1.1 : Math.min(ya - 1.1, ground(a) - 0.5), bb = span ? yb - 1.1 : Math.min(yb - 1.1, ground(b) - 0.5);
-      S.quad(at(a, side * HW, ba), at(b, side * HW, bb), at(b, side * HW, yb + 0.2), at(a, side * HW, ya + 0.2), span ? fascia : concrete, [side * v[0], 0, side * v[1]]);
+      S.quad(atd(a, side * HW, ba), atd(b, side * HW, bb), atd(b, side * HW, yb + 0.2), atd(a, side * HW, ya + 0.2), span ? fascia : concrete, [side * v[0], 0, side * v[1]]);
       if (span) {
         // underside of the cantilevered outer lanes, the main girder's web, the girder soffit
-        S.quad(at(a, side * 10, ya - 1.1), at(b, side * 10, yb - 1.1), at(b, side * HW, yb - 1.1), at(a, side * HW, ya - 1.1), under, [0, -1, 0]);
-        S.quad(at(a, side * 10, ya - 2.4), at(b, side * 10, yb - 2.4), at(b, side * 10, yb - 1.1), at(a, side * 10, ya - 1.1), steel, [side * v[0], 0, side * v[1]]);
+        S.quad(atd(a, side * 10, ya - 1.1), atd(b, side * 10, yb - 1.1), atd(b, side * HW, yb - 1.1), atd(a, side * HW, ya - 1.1), under, [0, -1, 0]);
+        S.quad(atd(a, side * 10, ya - 2.4), atd(b, side * 10, yb - 2.4), atd(b, side * 10, yb - 1.1), atd(a, side * 10, ya - 1.1), steel, [side * v[0], 0, side * v[1]]);
       }
     }
-    if (span) S.quad(at(a, -10, ya - 2.4), at(b, -10, yb - 2.4), at(b, 10, yb - 2.4), at(a, 10, ya - 2.4), under, [0, -1, 0]);
+    if (span) S.quad(atd(a, -10, ya - 2.4), atd(b, -10, yb - 2.4), atd(b, 10, yb - 2.4), atd(a, 10, ya - 2.4), under, [0, -1, 0]);
   }
   (S.paved = S.paved || []).push([n0, S.n]);
   S.kind = KIND.PLAIN;
   // lane lines: white dashes between the car lanes
   for (const side of [-1, 1]) for (const vv of [4.5, 8]) {
-    for (let s = -ends[0] + 2; s < ends[1] - 6; s += 10) {
+    for (let s = -ends[0] + TRANS + 2; s < ends[1] - TRANS - 4; s += 10) {
       const y = top(s + 2) + 0.015, t = side * vv;
       S.quad(at(s, t - 0.08, y), at(s, t + 0.08, y), at(s + 4, t + 0.08, top(s + 4) + 0.015), at(s + 4, t - 0.08, y), line, [0, 1, 0]);
     }
@@ -193,13 +239,13 @@ export function build({ data, S, group }) {
   for (const side of [-1, 1]) {
     const t = side * V_RAIL;
     for (let s = -ends[0] + 1; s <= ends[1] - 1; s += 2.5) {
-      const y = top(s) + 0.2;
+      const y = top(s) + tilt(s, t) + 0.2;
       const p = xz(s, t);
       S.box(p[0], p[1], y, y + 1.15, 0.14, 0.14, ang, rail);
     }
     for (let s = -ends[0] + 1; s < ends[1] - 1; s += 5) {
       const e = Math.min(ends[1] - 1, s + 5);
-      for (const [h, w] of [[1.12, 0.14], [0.62, 0.07], [0.12, 0.1]]) S.beam(at(s, t, top(s) + 0.2 + h), at(e, t, top(e) + 0.2 + h), w, w, rail);
+      for (const [h, w] of [[1.12, 0.14], [0.62, 0.07], [0.12, 0.1]]) S.beam(atd(s, t, top(s) + 0.2 + h), atd(e, t, top(e) + 0.2 + h), w, w, rail);
     }
   }
 

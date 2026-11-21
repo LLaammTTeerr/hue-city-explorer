@@ -40,6 +40,7 @@ const RUN_FLAT = 150; // a bridge run longer than this keeps its level deck
 // default top at the banks (BRIDGE_TOP in landmarks/life.js): a deck that lands at grade comes down by the difference
 export const STREET = 0.06;
 const DECK = 0.42;
+const LAND_RAMP = 6; // m: a deck's last stretch, where it comes down from DECK to the street
 export const ABUT = 1.8; // a `water` bridge's abutment: the deck lands this far past the water's edge
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -234,8 +235,20 @@ function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = 
   // span: the deck is structure only over [a, b] (the water and its abutments), where it humps by riseM over the
   // street from street level at each abutment; outside it the way is street, flush with the roads it joins
   const G = STREET - DECK;
-  const bump = span ? (s) => (s <= span[0] || s >= span[1] ? G : G + riseM * hump((s - span[0]) / (span[1] - span[0])))
+  const bump0 = span ? (s) => (s <= span[0] || s >= span[1] ? G : G + riseM * hump((s - span[0]) / (span[1] - span[0])))
     : climb ? (s) => { const t = s / (len || 1); return riseM * ss(t / climb) * ss((1 - t) / climb) * (0.82 + 0.18 * hump(t)); } : (s) => riseM * hump(s / (len || 1));
+  // A road deck lands on the street it joins: from DECK over the bank it comes down to the street's own surface
+  // (STREET, and the 0.12 m a carriageway on raised ground is laid above it, geo/city.js ribbon) over the last
+  // LAND_RAMP m at each end. Left at DECK, every generic deck ended in a 0.36 m lip across the carriageway.
+  // (A span profile already lands at street level at its abutments; vaulted citadel bridges keep their masonry.)
+  let bump = bump0;
+  if (c <= 3 && !span && !arches && !zone) {
+    const R = Math.min(LAND_RAMP, len * 0.2);
+    const street = (p) => LAND_Y + STREET + rise(p[0], p[1]) + (rise(p[0], p[1]) > 0 ? 0.12 : 0);
+    const d0 = street(p0) - base(0) - bump0(0), d1 = street(pn) - base(len) - bump0(len);
+    const k0 = Math.abs(d0) < 0.8 ? d0 : 0, k1 = Math.abs(d1) < 0.8 ? d1 : 0;
+    if (k0 || k1) bump = (s) => bump0(s) + k0 * (1 - ss(s / R)) + k1 * (1 - ss((len - s) / R));
+  }
   const thick = zone ? CIT_DECK : c <= 2 ? 1.3 : 0.7;
   const prof = { len, c, rise: riseM, arches, top, lift, thick, base, bump, y: (s) => base(s) + bump(s), breaks: span ? [...span] : [], span };
   if (arches) {

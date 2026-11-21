@@ -25,6 +25,19 @@ function load() {
 
 export const replaced = (id) => { load(); return ids.has(String(id).normalize('NFC')); };
 
+// A place that models a bridge deck may also export deckEnds(data): its end lines, [{ p, u, hw, reach }] (p on the
+// deck's axis at the end, u the unit vector out of the deck, hw the half width, reach how far past the end a street
+// may start and still be an approach). geo/city.js cuts the approach streets on those lines; check-joints tests them.
+export function placeDeckEnds(data) {
+  load();
+  const out = [];
+  for (const m of list) {
+    if (typeof m.deckEnds !== 'function') continue;
+    try { for (const e of m.deckEnds(data)) out.push({ ...e, id: m.id }); } catch (e) { console.warn(`deck ends of ${m.id}:`, e); }
+  }
+  return out;
+}
+
 // onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
 export function buildPlaces(data, S, group, onEach = null) {
   load();

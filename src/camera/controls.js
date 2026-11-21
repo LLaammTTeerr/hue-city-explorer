@@ -36,10 +36,13 @@ export function createCamera(canvas, bounds) {
   let home = { pos: new THREE.Vector3(400, 230, -420), target: new THREE.Vector3(0, LAND_Y, 0) };
   let fly = null;
   let touched = false;
+  // still on the opening view (home, untouched): a resize then re-frames home; any other view is kept as it is
+  let opening = true;
   const listeners = { interact: new Set() };
 
   const markTouched = () => {
     if (!touched) { touched = true; controls.autoRotate = false; }
+    opening = false;
     listeners.interact.forEach((f) => f());
   };
   controls.addEventListener('start', () => { if (fly) fly = null; markTouched(); });
@@ -54,6 +57,7 @@ export function createCamera(canvas, bounds) {
 
   function flyTo(pos, target, { duration = 2.4, arc = true, onDone = null } = {}) {
     if (calm.matches) { duration = 0.001; arc = false; } // reduced motion: cut to the new view instead of sweeping there
+    opening = false; // a place, the overview or any other flight leaves the opening view
     fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), t: 0, duration, arc, onDone };
     controls.autoRotate = false;
   }
@@ -75,10 +79,11 @@ export function createCamera(canvas, bounds) {
     camera, controls, groundAt,
     get flying() { return !!fly; },
     get touched() { return touched; },
+    get opening() { return opening; },
     onInteract: (f) => listeners.interact.add(f),
     setHome(pos, target) { home = { pos: pos.clone(), target: target.clone() }; },
     jumpHome() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); },
-    goHome(duration = 2.6) { flyTo(home.pos, home.target, { duration }); },
+    goHome(duration = 2.6) { flyTo(home.pos, home.target, { duration, onDone: () => { opening = true; } }); },
     startDrift() { if (!touched && !calm.matches) controls.autoRotate = true; },
     flyTo,
     cancelFly() { fly = null; },

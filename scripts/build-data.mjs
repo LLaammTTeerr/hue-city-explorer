@@ -484,7 +484,9 @@ const MEDIAN_KEEP = 90; // m from the market's outline
 const nearMarket = (p) => marketArea.some((m) => Math.hypot(m[0] - p[0], m[1] - p[1]) < MEDIAN_KEEP);
 const ONEWAY_W = [8, 7, 6]; // m, by class 0-2: two lanes and a little shoulder
 const MEDIAN_MIN = 1.2, MEDIAN_MAX = 18, MEDIAN_STEP = 3; // m
-const divided = roads.filter((r) => r.ow && !r.bridge && r.c <= 2 && r.name);
+// Twin bridge decks are narrowed with their streets: left at the class width (15-18 m slabs for a pair of 7 m
+// one-way streets) the two decks merged into one broad slab that overhung the approach road at both ends.
+const divided = roads.filter((r) => r.ow && r.c <= 2 && r.name);
 const twinAt = (() => {
   const G = 30, grid = new Map();
   divided.forEach((r, ri) => {
@@ -1048,6 +1050,7 @@ console.log('special', Object.keys(special));
 // shrubs. A strip stops where a road (up to residential) crosses it, so it ends at each junction and U-turn gap.
 // Exception: the road in front of chợ Đông Ba (Trần Hưng Đạo) keeps its median trees as they are.
 const MEDIAN_RUN = 10; // m: the shortest strip kept
+const MEDIAN_TOL = 0.5; // m: how far a strip's gap may stray from its width before the strip is cut
 const medians = [];
 {
   const crossing = carriagewayTest(3);
@@ -1056,7 +1059,22 @@ const medians = [];
     const flush = () => {
       let L = 0;
       for (let i = 1; i < run.length; i++) L += Math.hypot(run[i].p[0] - run[i - 1].p[0], run[i].p[1] - run[i - 1].p[1]);
-      if (run.length >= 2 && L >= MEDIAN_RUN) medians.push({ pts: run.map((s) => s.p), w: run.reduce((s, x) => s + x.w, 0) / run.length });
+      // A strip has one width. Where the gap between the twins widens or narrows (fanning out from a bridge head),
+      // one averaged width left bare ground beside the kerb at one end and ran under the carriageways at the other:
+      // the run is cut into pieces whose gap stays within MEDIAN_TOL of the piece's mean, each starting where the
+      // last one ends.
+      if (run.length >= 2 && L >= MEDIAN_RUN) {
+        const mean = (a) => a.reduce((s, x) => s + x.w, 0) / a.length;
+        let cur = [run[0]];
+        for (let i = 1; i < run.length; i++) {
+          if (cur.length >= 2 && Math.abs(run[i].w - mean(cur)) > MEDIAN_TOL) {
+            medians.push({ pts: cur.map((s) => s.p), w: mean(cur) });
+            cur = [cur.at(-1)];
+          }
+          cur.push(run[i]);
+        }
+        if (cur.length >= 2) medians.push({ pts: cur.map((s) => s.p), w: mean(cur) });
+      }
       run = [];
     };
     walkLine(A.pts, (px, pz, tx, tz) => {
@@ -1064,6 +1082,8 @@ const medians = [];
       // each strip once: from the twin with the lower index
       const gap = t && t.ri > ai ? t.dist - A.w / 2 - divided[t.ri].w / 2 : 0;
       if (gap < MEDIAN_MIN || gap > MEDIAN_MAX) return flush();
+      // no planted strip between twin bridge decks: the gap there is open water (or the deck's own slab)
+      if (A.bridge || divided[t.ri].bridge) return flush();
       const o = A.w / 2 + gap / 2, p = [px + t.nx * o, pz + t.nz * o];
       if (crossing(p[0], p[1], 1.5) || nearMarket(p)) return flush();
       run.push({ p, w: gap });
