@@ -287,6 +287,7 @@ async function main() {
     mood.state.look = look;
     document.body.dataset.look = look ? 'ink' : 'real';
     ui.setLook(look);
+    shadows.invalidate(); // the maps hold no look of their own today; redrawn anyway, so a look-dependent caster cannot go stale
   }
 
   // ---------- resize ----------
@@ -320,8 +321,7 @@ async function main() {
   canvas.addEventListener('webglcontextrestored', () => {
     console.warn('[hue] WebGL context restored');
     if (ibl) ibl.invalidate();
-    sun.shadow.needsUpdate = true;
-    if (shadows.near) shadows.near.shadow.needsUpdate = true;
+    shadows.invalidate();
     pendingSize = Math.max(pendingSize, 1);
   });
 
