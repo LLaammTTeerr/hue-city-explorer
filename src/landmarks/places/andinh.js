@@ -99,7 +99,8 @@ function palace(S, lamps) {
   fbox(S, 0, D2 + 0.3, fl, cor, 8.0, 0.6, STUCCO2);
   fbox(S, 0, -D2 - 0.3, fl, cor, 8.0, 0.6, STUCCO2);
   // corner towers, 4.8 m square, 0.4 m proud on both faces, a storey above the cornice
-  const TU = W2 - 2.0, TV = D2 - 2.0, twTop = att + 0.4;
+  // (twTop: high enough that each tower's eave clears the main roof's slope where it stands over it, 1.1 m up there)
+  const TU = W2 - 2.0, TV = D2 - 2.0, twTop = att + 1.0;
   for (const su of [-1, 1]) for (const sv of [-1, 1]) {
     fbox(S, su * TU, sv * TV, fl, twTop, 4.8, 4.8, STUCCO2);
     fbox(S, su * TU, sv * TV, s1 - 0.1, s1 + 0.2, 5.0, 5.0, WHITE);

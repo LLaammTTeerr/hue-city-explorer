@@ -1,6 +1,27 @@
 # Progress
 
 ## Done
+- One landmark sequence (2026-11-21): `buildLandmarks` in src/landmarks/build.js is the only place the landmarks,
+  populate and the moving things are built, in order; src/main.js and scripts/lib/scene.mjs both call it (the checks
+  through a per-step observer), and check-heights now builds through scene.mjs too. Previously browser-only steps now
+  checked: riverlights, boats, lanterns, lotus, traffic. They revealed two real faults, fixed at the source: 66
+  embankment lamp posts stood on carriageways (build-data.mjs now keeps lamps off class 0-3 streets; posts 901 → 835,
+  walkway lights 1609 → 1621) and lotus leaves reached over pond banks under the ground (life.js keeps each whole leaf
+  on the water). Browser scene graph identical before/after the refactor.
+- Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
+  `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
+  lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with
+  `joinRoofs = false`) and the mapped buildings (city.js) run inside it. city.js also drops a mapped house whose roof
+  would run through a model roof (the yellow house through Tạ Trường Du, Diên Thọ). Own numbers fixed: An Định towers,
+  Kiến Trung and Thái Miếu upper tiers; Tự Đức's duplicate Minh Khiêm footprint skipped. `npm run check:roofs` checks
+  all 2082 roofs.
+- No-WebGL recovery and fast search (2026-11-21): the renderer is created before the geometry is fetched; without WebGL
+  a bilingual recovery screen offers Retry 3D and a 2D place map with search and cards (`src/ui/fallback.js`); a load
+  error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
+  `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
+  first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
+
+
 - Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
   the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
   and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground

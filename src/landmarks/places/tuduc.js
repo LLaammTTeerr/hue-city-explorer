@@ -254,8 +254,8 @@ function horse(S, x, z, y, a) {
 }
 
 export function build({ data, S }) {
-  const claimed = []; // centres of the mapped buildings drawn here, so the generic pass leaves them alone
-  const claim = (r) => claimed.push(centre(r));
+  const claimed = [], claimedRings = []; // the mapped buildings drawn here, so the generic pass leaves them alone
+  const claim = (r) => { claimed.push(centre(r)); claimedRings.push(r); };
   const keep = []; // footprints (padded) the La Thành must not run through
 
   // ================= the temple (Khiêm Cung), facing east over the lake =================
@@ -481,7 +481,8 @@ export function build({ data, S }) {
   // ================= the rest of the mapped buildings in the site (service houses, the village outside) =================
   for (const r of items) {
     const c = centre(r);
-    if (claimed.some((p) => Math.hypot(p[0] - c[0], p[1] - c[1]) < 4)) continue;
+    // a second outline of a hall already drawn (OSM maps Minh Khiêm twice, a few metres apart) is left out too
+    if (claimed.some((p) => Math.hypot(p[0] - c[0], p[1] - c[1]) < 4) || claimedRings.some((q) => inRing(c[0], c[1], q))) continue;
     const o = obb(r), tiny = Math.max(o.w, o.d) < 8;
     hall(S, r, { plinth: 0.35, wallH: tiny ? 2.6 : 3.0, rh: tiny ? 1.5 : 2.0, roof: C.roofTile, wall: tiny ? C.stucco : C.lacquerOld, glazed: false, over: 0.7 });
   }
