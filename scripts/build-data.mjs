@@ -761,7 +761,7 @@ for (const e of els) {
 
   // flags: 1 = mapped over the water (drawn on a piled deck), 2 = Quốc Học campus
   if (at(c[0], c[1]) & WATER) flags |= 1;
-  // flags 16-64 (bits 4-6): the roof family seen from orbit; 128: a whitewashed ward
+  // flags 16-64 (bits 4-6): the roof family seen from orbit; 128: a whitewashed ward; 256: floodlit at night (riverside lights, below)
   const rc = roofOf(ring, c); roofCount[rc]++; flags |= rc << 4;
   if (whiteWard(c) && !(flags & 2)) flags |= 128;
   const b = [flat(ring), q(h), kind, t.name || 0, flags];
@@ -1321,6 +1321,127 @@ for (const poly of water) {
 }
 console.log('moorings', moorings.length / 3);
 
+// Riverside lights (issue #21). After dark the Hương is lit along its city banks: lamp posts on the embankments,
+// garden lights along the riverside walkways, and warm floodlight on the facades that face the water. All three are
+// read from the data: the Hương's own bank (the river-system water near its centreline, between the villages and the
+// hills), the OSM footways and paths along it, and the buildings in the front row facing it. The lamp design and
+// spacing are illustrative.
+const riverLamps = []; // [x, z, type] in decimetres; type 0 = embankment post, 1 = walkway light
+let nFlood = 0;
+{
+  const segDist = (p, a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / l2));
+    return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t);
+  };
+  const toCentre = (p) => { let d = Infinity; for (let i = 0; i + 1 < riverLine.length; i++) d = Math.min(d, segDist(p, riverLine[i], riverLine[i + 1])); return d; };
+  const inTown = (p) => !inHills(p) && !inVillages(p);
+  // the Hương's banks, sampled every 4 m, in a 40 m hash for nearest-bank queries
+  const HC = 40, bankHash = new Map(), bankRuns = [];
+  const hkey = (x, z) => Math.floor(x / HC) * 100003 + Math.floor(z / HC);
+  for (const poly of water) {
+    if (!touchesEdge(poly) && Math.abs(ringArea(poly[0])) < 400000) continue;
+    for (const ring of poly) {
+      let run = [];
+      const cut = () => { if (run.length > 1) bankRuns.push(run); run = []; };
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        for (let s = 0; s < len; s += 4) {
+          const p = [a[0] + ((b[0] - a[0]) * s) / len, a[1] + ((b[1] - a[1]) * s) / len];
+          // the slab edge is a cut, not a bank
+          if (!inBox(p, -3) || !inTown(p) || toCentre(p) > 380) { cut(); continue; }
+          run.push(p);
+          const k = hkey(p[0], p[1]);
+          if (!bankHash.has(k)) bankHash.set(k, []);
+          bankHash.get(k).push(p);
+        }
+      }
+      cut();
+    }
+  }
+  const nearestBank = (x, z, r) => {
+    let best = null, bd = r;
+    const c0 = Math.floor((x - r) / HC), c1 = Math.floor((x + r) / HC), r0 = Math.floor((z - r) / HC), r1 = Math.floor((z + r) / HC);
+    for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) {
+      for (const p of bankHash.get(cx * 100003 + cz) || []) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; best = p; } }
+    }
+    return best ? { p: best, d: bd } : null;
+  };
+  // lamps keep a few metres from each other, whichever rule placed them first
+  const lampHash = new Map();
+  const place = (x, z, type, gap) => {
+    if (at(x, z) & (WATER | BLD)) return false;
+    const c0 = Math.floor((x - gap) / HC), c1 = Math.floor((x + gap) / HC), r0 = Math.floor((z - gap) / HC), r1 = Math.floor((z + gap) / HC);
+    for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) for (const p of lampHash.get(cx * 100003 + cz) || []) if (Math.hypot(p[0] - x, p[1] - z) < gap) return false;
+    const k = hkey(x, z);
+    if (!lampHash.has(k)) lampHash.set(k, []);
+    lampHash.get(k).push([x, z]);
+    riverLamps.push(q(x), q(z), type);
+    return true;
+  };
+  // is there a street or path within r metres (an embankment people walk along, not a field running into the water)?
+  const reached = (x, z, r) => {
+    for (let dz = -r; dz <= r; dz += CELL) for (let dx = -r; dx <= r; dx += CELL) if (dx * dx + dz * dz <= r * r && at(x + dx, z + dz) & ROAD) return true;
+    return false;
+  };
+  // 1. embankment posts every 24 m, 3 m in from the water's edge
+  let nPost = 0;
+  for (const run of bankRuns) {
+    for (let i = 0; i + 1 < run.length; i += 6) {
+      const a = run[i], b = run[Math.min(run.length - 1, i + 1)], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const nx = -(b[1] - a[1]) / len, nz = (b[0] - a[0]) / len;
+      for (const sgn of [1, -1]) {
+        const x = a[0] + nx * 3 * sgn, z = a[1] + nz * 3 * sgn;
+        if (at(x, z) & WATER || !(at(a[0] - nx * 3 * sgn, a[1] - nz * 3 * sgn) & WATER)) continue;
+        if (reached(x, z, 28) && place(x, z, 0, 14)) nPost++;
+        break;
+      }
+    }
+  }
+  // 2. walkway lights every 16 m along the OSM footways, paths and lanes within 70 m of the bank
+  let nWalk = 0;
+  for (const r of roads) {
+    if (r.bridge || r.c < 3) continue; // the main streets are lit by the street lamps (src/geo/city.js)
+    const reach = r.c === 5 ? 70 : 30;
+    let s = 8, side = 1;
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 0.01) continue;
+      const nx = -(b[1] - a[1]) / len, nz = (b[0] - a[0]) / len, off = (r.c === 5 ? 1.4 : ROAD_W[r.c] / 2 + 0.6);
+      for (; s < len; s += 16) {
+        const x = a[0] + ((b[0] - a[0]) * s) / len, z = a[1] + ((b[1] - a[1]) * s) / len;
+        if (!inTown([x, z]) || !nearestBank(x, z, reach)) continue;
+        side = -side;
+        if (place(x + nx * off * side, z + nz * off * side, 1, 9)) nWalk++;
+      }
+      s -= len;
+    }
+  }
+  // 3. floodlit facades: buildings within 130 m of the bank with no other building between them and the water
+  //    (flag 256). The test walks the mask from the footprint's nearest corner to the bank.
+  const FLOOD_R = 130;
+  for (const b of buildings) {
+    const flags = b[4], kind = b[2];
+    if (flags & 1 || kind === 8 || b[1] < 45) continue;
+    const ring = []; for (let i = 0; i < b[0].length; i += 2) ring.push([b[0][i] / 10, b[0][i + 1] / 10]);
+    if (Math.abs(ringArea(ring)) < 90 || !inTown(centroid(ring))) continue;
+    let best = null;
+    for (const p of ring) { const n = nearestBank(p[0], p[1], FLOOD_R); if (n && (!best || n.d < best.d)) best = { ...n, from: p }; }
+    if (!best) continue;
+    const [fx, fz] = best.from, [bx, bz] = best.p, steps = Math.ceil(best.d / CELL);
+    let blocked = 0, out = false;
+    for (let k = 1; k < steps; k++) {
+      const x = fx + ((bx - fx) * k) / steps, z = fz + ((bz - fz) * k) / steps;
+      if (!out) { if (pip([x, z], ring) || k * CELL < 3) continue; out = true; }
+      if (at(x, z) & BLD) blocked++;
+    }
+    if (blocked > 3) continue;
+    b[4] = flags | 256;
+    nFlood++;
+  }
+  console.log('riverside lights: embankment posts', nPost, '| walkway lights', nWalk, '| floodlit facades', nFlood, '| bank samples', bankRuns.reduce((s, r) => s + r.length, 0));
+}
+
 let quocHocGate = null;
 if (quocHoc) {
   let best = null;
@@ -1690,6 +1811,7 @@ const out = {
   terrain,
   hakhe,
   moorings,
+  riverLamps,
   nguyenhoang: nhBox ? { c: [q(nhBox.c[0]), q(nhBox.c[1])], w: q(nhBox.w), d: q(nhBox.d), a: Math.round(nhBox.a * 1000) } : null,
   quocHocGate,
   bridges: bridgeOutlines,
