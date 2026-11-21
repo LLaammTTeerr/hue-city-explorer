@@ -41,7 +41,7 @@ reading `data.places` directly must divide by 10.
 
 ```bash
 npm ci
-npm run check                                   # version, data, heights, burial, overlap, joints, roofs (CI)
+npm run check                                   # version, data, heights, burial, overlap, joints, roofs, joint test (CI)
 npm run build                                   # production build (CI runs this)
 node scripts/shot.mjs --view ngo-mon-arrival    # a named view → scratch/shots/ngo-mon-arrival/
 node scripts/shot.mjs ngomon                    # one place from four sides and above
