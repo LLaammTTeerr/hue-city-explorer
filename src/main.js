@@ -275,6 +275,19 @@ async function main() {
   }
   addEventListener('resize', () => { pendingSize = 2; });
 
+  // ---------- lost GPU context ----------
+  // A driver reset or memory pressure can take the WebGL context away. three prevents the default (so the browser
+  // may give it back) and rebuilds its own state when it returns; what the app keeps on the GPU between frames, the
+  // sky's light probe and the shadow maps, is drawn again here. Meanwhile the loop runs on and three skips the draws.
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('[hue] WebGL context lost'); });
+  canvas.addEventListener('webglcontextrestored', () => {
+    console.warn('[hue] WebGL context restored');
+    if (ibl) ibl.invalidate();
+    sun.shadow.needsUpdate = true;
+    if (shadows.near) shadows.near.shadow.needsUpdate = true;
+    pendingSize = Math.max(pendingSize, 1);
+  });
+
   // ---------- frame loop ----------
   let last = performance.now();
   const focus = new THREE.Vector3();

@@ -126,7 +126,7 @@ export function buildWater(data) {
           rip = ( rings( p, 1.6, 0.0 ) + rings( p, 2.7, 13.7 ) + rings( p + 40.0, 4.4, 31.1 ) ) * nearR * uRain;
         }
         vec3 n = normalize( vec3( -g.x * amp, 1.0, -g.y * amp ) );
-        float ndv = max( dot( n, V ), 0.0 );
+        float ndv = clamp( dot( n, V ), 0.0, 1.0 ); // pow( 1.0 - ndv ) below is NaN past 1
         float fres = clamp( 0.07 + 0.93 * pow( 1.0 - ndv, 3.2 ), 0.0, 1.0 );
 
         vec3 R = reflect( -V, n );
