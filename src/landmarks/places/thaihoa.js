@@ -161,18 +161,28 @@ export function build({ S, group, THREE }) {
   // the front: the outer row stands free along a verandah; behind it, the 7 middle bays are door leaves (52 in all),
   // the end bays solid. Gables and the back are walled, with doors in the middle bays at the back.
   S.kind = KIND.TIMBER;
-  const doorRow = (v, from, to, h) => {
+  // `open`: bays whose leaves stand folded back against the jambs, swung into the hall, so the throne bay can be seen
+  const doorRow = (v, from, to, h, open = []) => {
     for (let i = from; i < to; i++) {
       const u0 = cu[i] + 0.3, u1 = cu[i + 1] - 0.3, w = u1 - u0, uc = (u0 + u1) / 2;
-      box(uc, v, FL, FL + h, w, 0.14, shade(RED, 0.8));
-      box(uc, v + Math.sign(v) * 0.08, FL + h - 0.7, FL + h - 0.5, w, 0.04, GOLD); // the gilt rail above the leaves
       const leaves = Math.max(2, Math.round(w / 0.85));
-      for (let k = 1; k < leaves; k++) box(u0 + (w * k) / leaves, v + Math.sign(v) * 0.08, FL, FL + h - 0.7, 0.06, 0.04, RED_DK);
+      if (open.includes(i)) {
+        const lw = w / leaves, t = 0.07 * Math.ceil(leaves / 2), inn = -Math.sign(v);
+        for (const [ue, sg] of [[u0, 1], [u1, -1]]) {
+          box(ue + sg * t / 2, v + inn * lw / 2, FL, FL + h - 0.7, t, lw, shade(RED, 0.8)); // the folded stack
+          box(ue + sg * (t + 0.01), v + inn * lw / 2, FL + 0.3, FL + h - 1.0, 0.02, lw * 0.7, shade(GOLD, 0.8));
+        }
+        box(uc, v, FL + h - 0.7, FL + h, w, 0.14, shade(RED, 0.8)); // the head over the opening
+      } else {
+        box(uc, v, FL, FL + h, w, 0.14, shade(RED, 0.8));
+        for (let k = 1; k < leaves; k++) box(u0 + (w * k) / leaves, v + Math.sign(v) * 0.08, FL, FL + h - 0.7, 0.06, 0.04, RED_DK);
+      }
+      box(uc, v + Math.sign(v) * 0.08, FL + h - 0.7, FL + h - 0.5, w, 0.04, GOLD); // the gilt rail above the leaves
       box(uc, v, FL + h, FL + CH - 0.3, w, 0.12, RED_DK); // the transom of carved, gilt panels
       box(uc, v + Math.sign(v) * 0.07, FL + h + 0.15, FL + CH - 0.45, w * 0.8, 0.04, shade(GOLD, 0.8));
     }
   };
-  doorRow(cv[1], 1, 8, 3.1);
+  doorRow(cv[1], 1, 8, 3.1, [3, 4, 5]); // the three middle front bays open (owner's choice: show the cranes)
   doorRow(cv[7] + 0.1, 2, 7, 3.1);
   // solid end bays at the front and back, and the gable walls
   for (const s of [-1, 1]) {
