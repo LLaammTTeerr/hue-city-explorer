@@ -92,5 +92,26 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [690, 150, 1750], "target": [690, 80, 3020] }
+  },
+  "elevation-ga-hue-street": {
+    "note": "Ga Huế's forecourt and the streets east of it from just above the rooftops (issue #73): houses, roads and the station seated on the raised plain south of the river.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1060, 22, 1420], "target": [-1150, 4, 1355] }
+  },
+  "elevation-south-plain": {
+    "note": "The plain between Ga Huế and An Cựu from 120 m, looking north-west towards the river (issue #73): the half-metre swells of the elevation raster under the streets and houses.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-350, 120, 2150], "target": [-800, 4, 1450] }
+  },
+  "elevation-tombs-far": {
+    "note": "The hills of the tombs from high over the city's south-west, looking south-west past lăng Tự Đức and Đồng Khánh towards Thiệu Trị (issue #73).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1200, 420, 2300], "target": [-2200, 20, 4700] }
   }
 }

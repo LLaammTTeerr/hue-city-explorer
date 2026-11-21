@@ -17,6 +17,15 @@
   dragon pair.
 
 ## Done
+- Elevation from the owner's raster (2026-11-22, branch `claude/issue-73-elevation-03ab81`, issue #73): Band 1 of
+  `data/raw/dem/output_hh.tif` (Copernicus GLO-30 surface on the WGS 84 ellipsoid) read by a new dependency-free
+  reader `scripts/lib/geotiff.mjs` at build time; NoData skipped; moved to EGM2008 by a fitted geoid plane
+  (−14.0…−13.3 m). Heights 1:1 above the city floor. Carriageways (classes 0-3) smoothed where the grade breaks over
+  8 % between 25 m stretches (ground moves ≤ 5 m); level pads under the 15 designed landmarks on the plain; road
+  bridge ends held level, rail bridges land at the floor; `makeProfile` in `src/geo/bridges.js` reads only the two end
+  heights. Fit: laser 1.31 m rms overall, plain 1.07 m, summits 1.18 m. New views `elevation-ga-hue-street`,
+  `elevation-south-plain`, `elevation-tombs-far`. Open: ground under the Citadel floor is clamped up to it; 4 sharp
+  grade breaks remain where roads meet locked banks.
 - Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
   Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
   bridges; 11 of them sat under a deck (Thượng Tứ, Cồn Dã Viên, …). They now keep 3 m from every bridge road, rail and

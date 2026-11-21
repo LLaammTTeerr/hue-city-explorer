@@ -1855,7 +1855,67 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const g = (a, b) => arr[b * D.nx + a] / 10;
       return (g(ix, iy) * (1 - ax) + g(ix + 1, iy) * ax) * (1 - ay) + (g(ix, iy + 1) * (1 - ax) + g(ix + 1, iy + 1) * ax) * ay;
     };
-    const bareAt = sample(D.h), surfAt = sample(D.s || D.h);
+    const bareAt = sample(D.h);
+    // The surface heights come from the owner's elevation raster (issue #73): data/raw/dem/output_hh.tif, Band 1 in
+    // metres above the WGS 84 ellipsoid, on the same 1 arc-second lattice as the grid above (it is the Copernicus
+    // GLO-30 surface, roofs and canopy included, as exported by OpenTopography). Everything else here stands on
+    // EGM2008 (the bare-earth grid, the laser points, the documented heights), so the raster is moved onto it: the
+    // geoid's height over the ellipsoid, fitted as a plane where the raster and the Copernicus grid of terrain.json
+    // overlap (about -14.0 m in the north-west to -13.3 m in the south-east; residual a few centimetres). NoData
+    // cells (the file's NoData value, non-numbers, the 0.00 its export writes over open water, and the handful of
+    // lagoon cells that read tens of metres under the sea) are skipped: there the surface falls back to bare earth.
+    const TIF = 'data/raw/dem/output_hh.tif';
+    let surfAt = sample(D.s || D.h);
+    if (!fs.existsSync(TIF)) missing('no elevation raster ' + TIF + ': the surface comes from terrain.json');
+    else {
+      const { readGeoTiff } = await import('./lib/geotiff.mjs');
+      const R = readGeoTiff(fs.readFileSync(TIF));
+      const ok = (v) => Number.isFinite(v) && v !== R.nodata && v !== 0 && v > -20;
+      const cellOf = (lon, lat) => [(lon - R.lon0) / R.dlon, (lat - R.lat0) / R.dlat]; // pixel centres at integers
+      // the datum: least squares plane N = a + b·lon' + c·lat' over the overlap, outliers (> 0.5 m off a first fit) left out
+      const pairs = [];
+      for (let j = 0; j < D.ny; j++) for (let i = 0; i < D.nx; i++) {
+        const lon = D.lon0 + (i + 0.5) * D.dlon, lat = D.lat0 + (j + 0.5) * D.dlat, [px, py] = cellOf(lon, lat);
+        const v = R.data[Math.round(py) * R.width + Math.round(px)];
+        if (ok(v) && D.s && D.s[j * D.nx + i] !== 0) pairs.push([lon - ORIGIN.lon, lat - ORIGIN.lat, v - D.s[j * D.nx + i] / 10]);
+      }
+      const fit = (pts) => {
+        const A = [[0, 0, 0], [0, 0, 0], [0, 0, 0]], y = [0, 0, 0];
+        for (const [u, w, d] of pts) { const r = [1, u, w]; for (let a = 0; a < 3; a++) { y[a] += r[a] * d; for (let b = 0; b < 3; b++) A[a][b] += r[a] * r[b]; } }
+        for (let c = 0; c < 3; c++) for (let r = c + 1; r < 3; r++) { const f = A[r][c] / A[c][c]; for (let k = c; k < 3; k++) A[r][k] -= f * A[c][k]; y[r] -= f * y[c]; }
+        const s = [0, 0, 0];
+        for (let r = 2; r >= 0; r--) { let t = y[r]; for (let k = r + 1; k < 3; k++) t -= A[r][k] * s[k]; s[r] = t / A[r][r]; }
+        return s;
+      };
+      let N = pairs.length ? fit(pairs) : [0, 0, 0];
+      const geoid = (lon, lat) => N[0] + N[1] * (lon - ORIGIN.lon) + N[2] * (lat - ORIGIN.lat);
+      if (pairs.length) N = fit(pairs.filter(([u, w, d]) => Math.abs(d - geoid(u + ORIGIN.lon, w + ORIGIN.lat)) < 0.5));
+      const res = pairs.map(([u, w, d]) => d - geoid(u + ORIGIN.lon, w + ORIGIN.lat)).sort((a, b) => a - b);
+      // EGM2008 heights; NoData as NaN
+      const E = new Float64Array(R.data.length);
+      let nodata = 0;
+      for (let j = 0; j < R.height; j++) for (let i = 0; i < R.width; i++) {
+        const k = j * R.width + i, v = R.data[k];
+        if (!ok(v)) { E[k] = NaN; nodata++; continue; }
+        E[k] = v - geoid(R.lon0 + i * R.dlon, R.lat0 + j * R.dlat);
+      }
+      // bilinear over the four nearest cells, NoData corners left out; all four NoData: bare earth
+      surfAt = (x, z) => {
+        const [px, py] = cellOf(ORIGIN.lon + x / KX, ORIGIN.lat - z / KZ);
+        const ix = Math.floor(px), iy = Math.floor(py), ax = px - ix, ay = py - iy;
+        let s = 0, w = 0;
+        for (const [di, dj, wt] of [[0, 0, (1 - ax) * (1 - ay)], [1, 0, ax * (1 - ay)], [0, 1, (1 - ax) * ay], [1, 1, ax * ay]]) {
+          const a = ix + di, b = iy + dj;
+          if (a < 0 || b < 0 || a >= R.width || b >= R.height) continue;
+          const v = E[b * R.width + a];
+          if (v === v && wt > 0) { s += v * wt; w += wt; }
+        }
+        return w > 1e-6 ? s / w : bareAt(x, z);
+      };
+      console.log('elevation raster', TIF, R.width + 'x' + R.height, '"' + R.description + '"', '| pixel', (R.dlon * 3600).toFixed(2) + '″', R.pixelIsPoint ? 'is point' : 'is area',
+        '| NoData cells', nodata, '| geoid over the ellipsoid', geoid(107.5385, 16.53).toFixed(2), 'to', geoid(107.613, 16.382).toFixed(2), 'm, residual p05/p95',
+        res.length ? res[res.length * 0.05 | 0].toFixed(2) + '/' + res[res.length * 0.95 | 0].toFixed(2) : '-', 'm over', res.length, 'cells');
+    }
     // ceil, so the last row and column reach MAXX / MAXZ: with floor the grid stopped up to one step short of the
     // east and south edges, and land in that strip read as the flat city floor beside the hills (trees sunk 160 m)
     // The grid's nodes sit on a fixed 25 m lattice laid from frame.json's gridAnchor (the box's north-west corner when
@@ -1969,11 +2029,11 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       }
       return out;
     };
-    // The city floor still reads most of a metre of noise (0.8 m rms against the laser), and the model wants it flat.
-    // A smoothed copy decides WHERE the ground really rises; the height itself comes from a lightly smoothed copy, so
-    // hills keep their true height above the city floor. Ground under DEAD above the floor stays flat; from FULL up
-    // it stands at its true height. (Against the laser the drawn ground then reads +0.3 m on the plain, -0.8 m on the
-    // 5-8 m rises this squeezes, and within 0.2 m above them.)
+    // Heights stand 1:1 above the city floor (issue #73): nothing is squeezed or scaled. What varies is only how much
+    // a node is smoothed. The plain still reads most of a metre of noise (0.8 m rms against the laser: roofs the
+    // bare-earth model kept), so where the broadly smoothed ground stands under DEAD above the floor a node takes that
+    // broad reading (a 5 × 5 node bell, about 30 m); from FULL up it takes the lightly smoothed one, so hills keep
+    // their crests; between, it blends. Ground under the floor is drawn at the floor (the slab cannot go lower).
     const DEAD = 1.2, FULL = 3.0;
     const gateOf = (up) => { const t = Math.max(0, Math.min(1, (up - DEAD) / (FULL - DEAD))); return t * t * (3 - 2 * t); };
     const raw = h;
@@ -2002,8 +2062,8 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const vals = [demAt(c[0], c[1])];
       for (let i = 0; i < ring.length; i += Math.max(1, ring.length >> 4)) vals.push(demAt(ring[i][0], ring[i][1]));
       vals.sort((a, b) => a - b);
-      // the same squeeze the ground around it gets, so a low lake is not left perched above its own shore
-      const up = vals[Math.floor(vals.length * 0.3)] - floor, lv = up * gateOf(up) - 0.3;
+      // 0.3 m under the ground's own reading, so a low lake is not left perched above its own shore
+      const up = vals[Math.floor(vals.length * 0.3)] - floor, lv = up - 0.3;
       if (lv < 1.5) return;
       pondLv[pi] = lv;
       let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
@@ -2043,7 +2103,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       // banks stay at street level, except where a hill stands straight over the water (đồi Vọng Cảnh's bluff)
       const bank = !shoreLv[k] && nearWet(x, z) && !(fine[k] - floor > 12 && !(at(x, z) & WATER));
       if ((edge && !inHills([x, z])) || bank || inCitadel([x, z]) || wallBandTest([x, z])) { lock[k] = 1; continue; }
-      h[k] = Math.max(0, fine[k] - floor) * gateOf(broad[k] - floor);
+      { const g = gateOf(broad[k] - floor); h[k] = Math.max(0, broad[k] + g * (fine[k] - broad[k]) - floor); }
     }
     // one light pass to take the steps out of the gate; water and the Citadel stay at zero
     {
@@ -2082,6 +2142,131 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     for (let k = 0; k < h.length; k++) if (shoreLv[k] && !lock[k]) { if (h[k] > shoreLv[k] + 2) shoreHigh++; h[k] = Math.max(h[k], shoreLv[k]); }
     console.log('lake shores:', shoreHigh, 'nodes stand over 2 m above their lake (they were held flat at its level)');
     for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
+    // Carriageways on a 30 m grid (issue #73). The elevation raster is a surface model at about 30 m: beside a road it
+    // reads a cutting's shoulders, an embankment's foot or roadside canopy as the ground, and a street drawn over it
+    // then climbs 8 m and drops back within 50 m (Quốc lộ 49 on the way to the tombs) where the real road runs level.
+    // Each carriageway (classes 0-3; tracks and footpaths climb the hills as they are) is read every STEP along its
+    // length; where its grade changes by more than GRADE_BREAK from one stretch to the next, the grid nodes under the
+    // middle are moved toward the line between its neighbours. The ground itself moves, so the road, the houses along
+    // it (seated on the same ground) and the terrain stay one surface. Water, lakes, banks and the Citadel are locked;
+    // bridges keep their own deck (src/geo/bridges.js).
+    {
+      const GRADE_BREAK = 0.08, SHARP = 0.15, PASSES = 40;
+      const tri = (x, z) => {
+        const gx = (x - GX0) / STEP, gz = (z - GZ0) / STEP, i = Math.floor(gx), j = Math.floor(gz), fx = gx - i, fz = gz - j;
+        if (i < 0 || j < 0 || i >= nx - 1 || j >= nz - 1) return null;
+        const k = j * nx + i;
+        // the client's triangles (src/geo/terrain.js coarse): split along the 00-11 diagonal
+        return fx > fz ? [[k, 1 - fx], [k + 1, fx - fz], [k + nx + 1, fz]] : [[k, 1 - fz], [k + nx, fz - fx], [k + nx + 1, fx]];
+      };
+      const yAt = (t) => t.reduce((s, [k, w]) => s + h[k] * w, 0);
+      const lines = [];
+      for (const r of roads) {
+        if (r.bridge || r.c > 3) continue; // tracks and footpaths climb the hills as they are
+        const pts = r.pts;
+        let len = 0;
+        for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+        if (len < 3 * STEP) continue;
+        const n = Math.floor(len / STEP), samples = [];
+        for (let s = 0, i = 0, acc = 0; samples.length <= n; s += len / n) {
+          while (i < pts.length - 2 && acc + Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) < s) { acc += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); i++; }
+          const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = Math.min(1, Math.max(0, (s - acc) / l));
+          const tr = tri(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t);
+          if (!tr) break;
+          samples.push(tr);
+        }
+        if (samples.length >= 3) lines.push({ samples, d: len / n });
+      }
+      const worst = () => {
+        let n = 0, sharp = 0, m = 0;
+        for (const { samples, d } of lines) for (let i = 1; i + 1 < samples.length; i++) {
+          const b = Math.abs(yAt(samples[i + 1]) - 2 * yAt(samples[i]) + yAt(samples[i - 1])) / d;
+          if (b > GRADE_BREAK) n++;
+          if (b > SHARP) sharp++;
+          m = Math.max(m, b);
+        }
+        return [n, m, sharp];
+      };
+      const [n0, m0, s0] = worst();
+      // Jacobi passes: neighbouring samples share nodes, so each pass first gathers what every break asks of its nodes
+      // (to bring its middle onto the line between its neighbours, give or take GRADE_BREAK), then moves each node by
+      // half the mean of those asks. A node moves at most MAX_MOVE in all, so a summit the road climbs over keeps its height.
+      const MAX_MOVE = 5, h0 = Float32Array.from(h), ask = new Float32Array(h.length), cnt = new Float32Array(h.length);
+      for (let pass = 0; pass < PASSES; pass++) {
+        ask.fill(0); cnt.fill(0);
+        let any = false;
+        for (const { samples, d } of lines) for (let i = 1; i + 1 < samples.length; i++) {
+          const y0 = yAt(samples[i - 1]), y1 = yAt(samples[i]), y2 = yAt(samples[i + 1]), b = (y2 - 2 * y1 + y0) / d;
+          if (Math.abs(b) <= GRADE_BREAK) continue;
+          const want = ((b - Math.sign(b) * GRADE_BREAK) * d) / 2; // raise the middle by this (lower it if negative)
+          for (const [k, w] of samples[i]) if (!lock[k] && w > 0.05) { ask[k] += want * w; cnt[k] += w; }
+          any = true;
+        }
+        if (!any) break;
+        for (let k = 0; k < h.length; k++) if (cnt[k] > 0) h[k] = Math.max(0, shoreLv[k], h0[k] - MAX_MOVE, Math.min(h0[k] + MAX_MOVE, h[k] + (0.5 * ask[k]) / cnt[k]));
+      }
+      let moved = 0;
+      for (let k = 0; k < h.length; k++) if (Math.abs(h[k] - h0[k]) > 0.05) moved++;
+      const [n1, m1, s1] = worst();
+      console.log('carriageway grade breaks between neighbouring', STEP, 'm stretches: over', GRADE_BREAK * 100 + '%', n0, '->', n1, '| over', SHARP * 100 + '%', s0, '->', s1, '| worst', (m0 * 100).toFixed(1) + '% ->', (m1 * 100).toFixed(1) + '% |', moved, 'nodes moved over 5 cm, on', lines.length, 'roads');
+    }
+    // Designed landmarks keep their own geometry (issue #73). A model in src/landmarks/places/ is drawn on one level
+    // (its floor, forecourt and steps read the ground at one point), and the plain under it now has the raster's
+    // half-metre swells. So the ground comes to the model: the grid nodes within PAD_R of a designed place on the plain
+    // are held at one level, the median of what they read, or the city floor where the pad meets a locked bank. Its
+    // access roads and the houses round it are seated on the same ground. Places in the hills (any node over PAD_HILL)
+    // are left as they are: those models are built on their slopes.
+    // Bridges keep their own deck too: a road bridge's deck is level across (src/geo/bridges.js reads only the ground
+    // at its two ends), so the nodes round each end are held level the same way and the street it lands on does not
+    // tilt under it. Rail bridges carry their deck flat at LAND_Y + 0.5 (src/geo/city.js, places/bachho.js) with the
+    // track at grade beyond, so the ground where a rail bridge lands stays at the city floor.
+    {
+      const PAD_R = 60, PAD_HILL = 3, LANDING = 25, RAIL_END = 35;
+      const designed = new Set();
+      for (const f of fs.readdirSync('src/landmarks/places')) {
+        const m = /^export const id = '([^']+)'/m.exec(fs.readFileSync('src/landmarks/places/' + f, 'utf8'));
+        if (m) designed.add(m[1]);
+      }
+      const near = (x, z, r, fn) => {
+        for (let j = Math.max(0, Math.floor((z - r - GZ0) / STEP)); j <= Math.min(nz - 1, Math.ceil((z + r - GZ0) / STEP)); j++)
+          for (let i = Math.max(0, Math.floor((x - r - GX0) / STEP)); i <= Math.min(nx - 1, Math.ceil((x + r - GX0) / STEP)); i++)
+            if (Math.hypot(GX0 + i * STEP - x, GZ0 + j * STEP - z) <= r) fn(j * nx + i);
+      };
+      let pads = 0, padNodes = 0, landings = 0, railNodes = 0;
+      // hold these nodes at one level; 0 (nothing done) on a hillside or where they all stand at the floor already
+      const level = (ks) => {
+        if (!ks.length || ks.some((k) => lock[k] === 2 || h[k] > PAD_HILL) || ks.every((k) => h[k] === 0)) return 0;
+        const free = ks.filter((k) => !lock[k]), vals = free.map((k) => h[k]).sort((a, b) => a - b);
+        const lv = ks.some((k) => lock[k] === 1) ? 0 : vals[vals.length >> 1];
+        for (const k of free) h[k] = lv;
+        return free.length;
+      };
+      for (const pl of places) {
+        if (!designed.has(pl.id)) continue;
+        const ks = [];
+        near(pl.x / 10, pl.z / 10, PAD_R, (k) => ks.push(k));
+        const n = level(ks);
+        if (n) { pads++; padNodes += n; }
+      }
+      for (const r of roads) if (r.bridge) for (const e of [r.pts[0], r.pts[r.pts.length - 1]]) { const ks = []; near(e[0], e[1], LANDING, (k) => ks.push(k)); landings += level(ks); }
+      for (const r of rails) if (r.bridge) for (const e of [r.pts[0], r.pts[r.pts.length - 1]]) near(e[0], e[1], RAIL_END, (k) => { if (h[k] > 0 && lock[k] !== 2) { h[k] = 0; railNodes++; } });
+      console.log('landmark pads on the plain:', pads, 'places,', padNodes, 'nodes held level | road bridge landings:', landings, 'nodes | rail bridge landings:', railNodes, 'nodes at the floor');
+    }
+    // the drawn ground (city floor + grid, on the client's triangles) against the laser, the same bins as above
+    if (lidar) {
+      const drawn = (x, z) => {
+        const gx = (x - GX0) / STEP, gz = (z - GZ0) / STEP, i = Math.floor(gx), j = Math.floor(gz), fx = gx - i, fz = gz - j;
+        if (i < 0 || j < 0 || i >= nx - 1 || j >= nz - 1) return NaN;
+        const k = j * nx + i, h00 = h[k], h10 = h[k + 1], h01 = h[k + nx], h11 = h[k + nx + 1];
+        return floor + (fx > fz ? h00 + (h10 - h00) * fx + (h11 - h10) * fz : h00 + (h11 - h01) * fx + (h01 - h00) * fz);
+      };
+      const line = (name, sel) => {
+        const e = lidar.filter(sel).map((p) => drawn(p.x, p.z) - p.ele).filter(Number.isFinite).sort((a, b) => a - b);
+        return `${name} ${e.length} pts ${Math.sqrt(e.reduce((t, v) => t + v * v, 0) / (e.length || 1)).toFixed(2)} rms (median ${(e[e.length >> 1] || 0).toFixed(2)})`;
+      };
+      const out = (p) => !inCitadel([p.x, p.z]);
+      console.log('drawn ground against the laser:', line('plain outside the Citadel, under 8 m', (p) => p.ele < 8 && out(p)), '|', line('8-25 m', (p) => p.ele >= 8 && p.ele < 25), '|', line('all', () => true));
+    }
     // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
     const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7, paved: 8 };
     let cover = '', lifted = 0, peak = 0;
