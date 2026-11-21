@@ -11,9 +11,19 @@ npm run build    # static site in dist/ (relative paths, host anywhere)
 npm run preview  # serve the built site
 ```
 
-Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). No map service is contacted at runtime.
+Everything the scene needs is bundled (`public/data/places.json`, `public/data/hue.json`, `public/data/stories.json`,
+fonts via npm). No map service is contacted at runtime.
 
-`window.__hue` exposes the scene for debugging, and `__hue.step(dt)` advances one frame by hand. `?look=real` or `?look=ink` in the URL picks the rendering.
+Startup order (`main()` in `src/main.js`): the place index `places.json` (~32 kB, ~13 kB gzip) and the WebGL renderer
+come first, together. Search and the cards work as soon as the index is in, above the loader, while the city loads. The
+geometry bundle `hue.json` (~8 MB, ~3 MB gzip) is fetched only once a renderer exists. Without WebGL, or when the load
+fails, `src/ui/fallback.js` shows a bilingual recovery screen with "Thử lại 3D / Retry 3D" and "Xem bản đồ 2D / Browse
+places": a flat SVG map of the places over the land outline (from `places.json`), with search and the cards.
+
+`window.__hue` exposes the scene for debugging, and `__hue.step(dt)` advances one frame by hand. `?look=real` or
+`?look=ink` in the URL picks the rendering. `?nogl` makes the page behave like a device without WebGL (canvas
+`getContext('webgl*')` returns null), to try the recovery screen and the 2D fallback. The performance marks
+`hue:search-ready`, `hue:geometry-loaded` and `hue:first-frame` time the startup.
 
 ## Checks
 
@@ -32,7 +42,7 @@ Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). N
 - `main` is protected: every change goes through a pull request.
 - The `check` workflow (`.github/workflows/check.yml`) must pass, and the branch must be up to date with `main`.
 - PRs are squash-merged, so each PR lands as one commit.
-- After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` with the change.
+- After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` and `public/data/places.json` with the change.
 - Fix a problem where it starts (the source data, the parser or a shared builder) and rebuild, rather than patching one place.
 - Work in progress and history are in [`PROGRESS.md`](../PROGRESS.md). Per-place research notes are in [`docs/places/`](places/).
 
@@ -77,7 +87,9 @@ elements and carries no Overpass `remark` (a timed-out, partial result); a piece
 script exits 1. Where an element appears in several extracts the build keeps the newest copy (by the extract's
 timestamp), and `meta.osmExtracts` in the bundle lists every extract with its date. The model's origin and box live
 in `scripts/frame.json`, read by the build and by every raw-data fetcher. `scripts/build-data.mjs` turns it all into
-the ~5 MB bundle the app loads:
+the ~8 MB geometry bundle the app loads (`public/data/hue.json`), plus the small place index `public/data/places.json`
+(places, water labels and a simplified land and Citadel outline in whole metres for the 2D map; the places stay in
+`hue.json` too, since the scene builders read them there):
 
 | From OSM, positions and proportions kept | Generated, shown as illustration |
 | --- | --- |
