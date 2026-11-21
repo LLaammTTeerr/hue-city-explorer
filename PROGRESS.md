@@ -11,8 +11,9 @@
   (x≈-195, z≈-215); each strip now keeps a width per point (`medians` entries carry a third array, decimetres) and the
   client draws it tapering. Strips stopped up to ~4.5 m short of a crossing road, showing the twins' pale pavement as a
   square nose; they now run 3 m (MEDIAN_OVER) on under the crossing carriageway. Moorings now reseed (the shared random
-  stream shifted with the tree planting and put a sampan on land at Cửa Ngăn). Open: the 1.4 m pavement sliver
-  between roads 1442 and 1273 (x≈-197, z≈-190) still ends square in the junction.
+  stream shifted with the tree planting and put a sampan on land at Cửa Ngăn). Pavement narrower than 2.5 m between two
+  carriageways side by side (`slivers` in src/geo/junctions.js: a street mapped beside a main road, twins closer than
+  a median, fork arms) is paved kerb to kerb, 228 strips, 8.8 km; e.g. roads 1442/1273 at x≈-197, z≈-190.
 - Junction markings (2026-11-21, branch worktree-agent-a495b5cffec0ae1d6): lane dashes were laid along every class 0-1
   centre line unclipped, so they ran straight through junction boxes and crossed each other (big junction at
   x≈-200, z≈550). Patches enclosed by carriageways that none covers showed the pale casing and kerb as small white

@@ -16,7 +16,7 @@ import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
-import { junctionHoles, holeRects, markingGuard, inPoly } from './junctions.js';
+import { junctionHoles, holeRects, markingGuard, inPoly, slivers } from './junctions.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -310,6 +310,8 @@ function buildRoads(data, group, structures) {
     const v = (x, z) => [x, y + 0.0055 + rise(x, z) + lift, z];
     for (const [x0, x1, z0, z1] of holeRects(h)) B.quad(v(x0, z0), v(x0, z1), v(x1, z1), v(x1, z0), col, [0, 1, 0]);
   }
+  // pavement too narrow to walk on between two carriageways side by side is paved (geo/junctions.js slivers)
+  for (const v of slivers(roads.filter((r) => !r.bridge && r.c <= 4))) ribbon(B, v.pts, v.ws, y + 0.0055, cols[Math.min(v.c, ROAD_MAX)]);
   // the medians of the divided roads (issue #15): a planted strip inside a pale stone kerb, under the carriageways'
   // own edges, with low clipped shrubs along it
   const medians = (data.medians || []).map(([w, flat, ws]) => { const pts = unflat(flat); return { w: w / 10, pts, ws: ws ? ws.map((v) => v / 10) : pts.map(() => w / 10) }; });
