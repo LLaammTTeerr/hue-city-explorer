@@ -27,12 +27,16 @@ The "royal screen": the flat-topped hill about 4 km south of the Citadel, on its
 - The hill has a flat top, pine cover, a footpath over the top, and graves round the foot.
 
 ## Estimated
-- **Flat top.** The grid shows a peak on a single 25 m node, with a narrow crest running west-south-west. I added a
-  local cap in the place file:
-  - a stadium about 130 x 40 m along that crest, level across and falling only about 2 m along its length;
-  - a rounded 30 m shoulder down to the grid;
-  - a lift of up to about 9 m at the cap's edges over the grid's slopes.
-  The real plateau size is not confirmed.
+- **Flat top.** No source gives its size. The bare-earth DEM (FABDEM, `data/raw/dem/terrain.json`, ~30 m cells)
+  shows ground over 85 m running about 220–240 m from just east of the summit to the west-south-west (about 13° south
+  of west), 50–60 m across, its column maxima 91–97 m (within ~6 m). The model grid agrees (93–97 m out to 200 m
+  west), and from the north the hill is symmetric about a line ~87 m west of the summit, which fits the sources'
+  "symmetrical from the front". The local cap in the place file follows that crest:
+  - a stadium 220 x 40 m from (+20, −15) to (−195, +35) relative to the summit, level across and easing down along its
+    length to the grid's lower west end;
+  - a rounded 30 m shoulder down to the grid.
+  Until 2026-11 the cap was 130 x 40 m, covered only the east part of the crest and was turned about 23° too far
+  south. The exact edge is an estimate.
 - **Clearing.** The middle of the top (about 26 m wide) is bare, trodden earth. No summit structures are drawn
   because none are confirmed.
 - **Path.** It is about 2.7 m wide, trodden earth on the gentle ridge and stone steps wherever it climbs steeply
@@ -47,7 +51,7 @@ The "royal screen": the flat-topped hill about 4 km south of the Citadel, on its
 
 ## Left
 - Tả Bật and Hữu Bật are not drawn, because no source gives their positions.
-- The plateau size, the step count and any summit features (viewing spots, shrines) are unconfirmed.
+- The plateau's exact edge, the step count and any summit features (viewing spots, shrines) are unconfirmed.
 - The redrawn cap pines are boxes, not the instanced foliage cards, so they read slightly blockier close up.
 - The proposed firebreak road is not built, so it is not modelled.
 - About 38.7k triangles in total.

@@ -15,5 +15,19 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [260, 2, -90], "target": [0, 8, 0] }
+  },
+  "ngo-mon-dich-mon": {
+    "note": "Standing in Ngọ Môn's forecourt between the wings, at eye height, looking at the west wing's inner face: Tả Dịch Môn and the west Giáp Môn from the side.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1016.5, 4.2, 149.8], "target": [-1041.3, 3.2, 145.6] }
+  },
+  "ngu-binh-north": {
+    "note": "Núi Ngự Bình from the north, over the An Cựu quarter, looking south along the Citadel's axis at the flat top.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [690, 150, 1750], "target": [690, 80, 3020] }
   }
 }
