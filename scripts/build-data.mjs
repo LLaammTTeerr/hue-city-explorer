@@ -1606,8 +1606,24 @@ let nFlood = 0;
   };
   // lamps keep a few metres from each other, whichever rule placed them first
   const lampHash = new Map();
+  // and off the carriageways: the streets city.js gives kerbs (class 0-3, not bridges), their half width plus the
+  // post's foot and a little more, so no part of a post stands in the traffic lane (check-overlap)
+  const streetHash = new Map();
+  for (const r of roads) {
+    if (r.bridge || r.c > 3) continue;
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], m = r.w / 2 + 1;
+      for (let cx = Math.floor((Math.min(a[0], b[0]) - m) / HC); cx <= Math.floor((Math.max(a[0], b[0]) + m) / HC); cx++)
+        for (let cz = Math.floor((Math.min(a[1], b[1]) - m) / HC); cz <= Math.floor((Math.max(a[1], b[1]) + m) / HC); cz++) {
+          const k = cx * 100003 + cz;
+          if (!streetHash.has(k)) streetHash.set(k, []);
+          streetHash.get(k).push([a, b, r.w / 2]);
+        }
+    }
+  }
+  const onCarriage = (x, z) => (streetHash.get(hkey(x, z)) || []).some(([a, b, hw]) => segDist([x, z], a, b) < hw + 0.3);
   const place = (x, z, type, gap) => {
-    if (at(x, z) & (WATER | BLD)) return false;
+    if (at(x, z) & (WATER | BLD) || onCarriage(x, z)) return false;
     const c0 = Math.floor((x - gap) / HC), c1 = Math.floor((x + gap) / HC), r0 = Math.floor((z - gap) / HC), r1 = Math.floor((z + gap) / HC);
     for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) for (const p of lampHash.get(cx * 100003 + cz) || []) if (Math.hypot(p[0] - x, p[1] - z) < gap) return false;
     const k = hkey(x, z);
