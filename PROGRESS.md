@@ -1,6 +1,13 @@
 # Progress
 
 ## Done
+- Focus pass skipped when nothing can blur (2026-11-21): post.js sends the grade straight to the output when
+  aperture × max blur radius is under the shader's 0.7 px cut-off (always in the drawn look, and in the real look
+  below ~120 m), saving one full-screen read/write pass. Output is the same by construction; both looks checked live.
+  Next perf ideas (from external review, not yet done): label anchor heights computed at data build instead of
+  `modelTops()` in the browser; tile distant trees/infill out of hue.json; reuse the wide shadow map while its
+  coverage and sun direction are unchanged. (The adaptive-resolution stall bug that review named was fixed in #55.)
+
 - No-WebGL recovery and fast search (2026-11-21): the renderer is created before the geometry is fetched; without WebGL
   a bilingual recovery screen offers Retry 3D and a 2D place map with search and cards (`src/ui/fallback.js`); a load
   error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
