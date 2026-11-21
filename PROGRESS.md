@@ -1,6 +1,11 @@
 # Progress
 
 ## Done
+- No-WebGL recovery and fast search (2026-11-21): the renderer is created before the geometry is fetched; without WebGL
+  a bilingual recovery screen offers Retry 3D and a 2D place map with search and cards (`src/ui/fallback.js`); a load
+  error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
+  `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
+  first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
 - Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
   along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
 - Riverside lights (issue #21, 2026-11-21): build-data.mjs derives `riverLamps` from the Hương banks (embankment posts
