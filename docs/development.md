@@ -1,6 +1,6 @@
 # Development
 
-Notes for working on the code and the data. If you only want to look at the model, open https://hue-city.lamter.cc. The [README](../README.md) is the user guide.
+Notes for working on the code and the data. If you only want to look at the model, open https://hue-city.lamter.cc. The [README](../README.md) is the user guide. Agents (and newcomers) start with [AGENTS.md](../AGENTS.md).
 
 ## Run and build
 
@@ -23,7 +23,11 @@ places": a flat SVG map of the places over the land outline (from `places.json`)
 `window.__hue` exposes the scene for debugging, and `__hue.step(dt)` advances one frame by hand. `?look=real` or
 `?look=ink` in the URL picks the rendering. `?nogl` makes the page behave like a device without WebGL (canvas
 `getContext('webgl*')` returns null), to try the recovery screen and the 2D fallback. The performance marks
-`hue:search-ready`, `hue:geometry-loaded` and `hue:first-frame` time the startup.
+`hue:search-ready`, `hue:geometry-loaded` and `hue:first-frame` time the startup. `?still` stops the frame loop (no drift,
+no adaptive resolution), so only `__hue.step` moves time.
+
+`node scripts/shot.mjs --view <name>` captures a named view from `scripts/views.json`; `node scripts/compare.mjs <view>
+--base <ref>` captures it on another revision too and writes a side-by-side page to `scratch/compare/`.
 
 ### Shared views (`?v=1`)
 

@@ -384,9 +384,14 @@ async function main() {
   await frame();
   ui.loaderDone();
   performance.mark('hue:first-frame');
-  requestAnimationFrame(tick);
   if (ui.cardId && !sharedView) pick(ui.cardId, true); // a place opened from the search box while the city loaded: go there now
-  setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
+  // `?still`: no frame loop, no drift, no adaptive resolution. Time moves only when __hue.step(dt) is called, so
+  // scripts/shot.mjs gets the same frame for the same steps on every run and revision (to within a few pixels of GPU noise).
+  const still = new URLSearchParams(location.search).has('still');
+  if (!still) {
+    requestAnimationFrame(tick);
+    setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
+  }
 
   // handle for debugging and automated checks
   window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing };

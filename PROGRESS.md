@@ -15,6 +15,11 @@
   overlap for tens of metres) no longer clip each other's dashes, and a clear stretch the 13 m rhythm misses gets one
   centred dash. check:markings also fails if more than 0.1% of the dash slots clear of junction zones lose their dash
   (the first version would have missed 0.17%; now 0.02%).
+- Agent workflow (2026-11-21): root `AGENTS.md` (CLAUDE.md imports it); named views in `scripts/views.json`
+  (`ngo-mon-arrival`, `truong-tien-river-level`) shot with `node scripts/shot.mjs --view <name>` under `?still`, which
+  stops the frame loop so repeat runs differ by at most ~10 scattered pixels; `scripts/compare.mjs <view> --base <ref>` shoots base and
+  head side by side; `.github/ISSUE_TEMPLATE/experience.md`. Next: try a real issue (the Ngọ Môn arrival) and see where
+  the agent gets stuck; captures are not in CI yet (needs Chrome with WebGL on the runner).
 - Share a view (2026-11-21): "Chia sẻ góc nhìn" / "Share this view" button on the place card and in the tool column
   builds a `?v=1&c=…&t=…&a=…&f=…&m=…&p=…` link (format in docs/development.md, code in src/ui/share.js): navigator.share
   where available, otherwise the clipboard with "Đã sao chép liên kết". Opening it sets the mood without a fade, puts
@@ -42,8 +47,6 @@
   error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
   `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
   first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
-
-
 - Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
   the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
   and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground
