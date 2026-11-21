@@ -1,6 +1,16 @@
 # Progress
 
 ## Done
+- Junction markings (2026-11-21, branch worktree-agent-a495b5cffec0ae1d6): lane dashes were laid along every class 0-1
+  centre line unclipped, so they ran straight through junction boxes and crossed each other (big junction at
+  x≈-200, z≈550). Patches enclosed by carriageways that none covers showed the pale casing and kerb as small white
+  triangles and squares (x≈-219, z≈544; x≈1433, z≈-2608). New `src/geo/junctions.js`: `junctionHoles` rasterises the
+  carriageways (0.5 m) around each cluster of junction nodes and flood-fills from outside; enclosed patches under
+  150 m² (not mapped greens) are painted as asphalt under the medians. `markingGuard` stops a dash 1.5 m short of any
+  other class 0-2 carriageway (its own end-to-end continuations excepted) and of a hole. `npm run check:markings`
+  tests every dash outline against the exact carriageway triangles and the holes (in `npm run check`). Swept top-down
+  and oblique: the main junction, the median square, roundabout (639, 604), divided crossing (214, 572), divided T
+  (1373, -1685), T (2202, 2342), bridge-head junction (-2007, 879). No stop lines drawn (the 1.5 m pad leaves room).
 - Ink lines across roads at hill rims (2026-11-21): the terrain mesh stood 3 cm proud of the slab at every node,
   including the rim nodes where the ground stops rising, so each drawn cell meeting the plain slab ended in a 3 cm step
   along the 25 m lattice. Roads and greens write no depth, so the ink's depth edges drew those steps as long straight

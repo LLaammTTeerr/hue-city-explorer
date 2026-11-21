@@ -26,6 +26,7 @@ Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). N
 | `npm run check:burial` | no model sunk into the ground |
 | `npm run check:overlap` | no model on a carriageway, inside another model or under a kept building |
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
+| `npm run check:markings` | no lane dash crosses another major carriageway or lies in a junction hole: markings stop at the junction mouth |
 
 ## Contributing
 
