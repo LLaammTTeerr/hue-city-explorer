@@ -464,3 +464,10 @@ Issues from sleepyluno, worked one at a time and fixed at the root (the source d
 one PR per issue. sleepyluno is credited in the README and the About panel.
 - #6 (Nam Giao orientation): already fixed on main by the per-place replica (`places/namgiao.js`, 13° off the compass from the OSM lawns).
 - #11 done: the language control was a lone button labelled with the *other* language; it is now a VI | EN radiogroup on the shared `.seg` component (the dead `.chip` style is gone). The same pass fixed the phone compass, which was pinned at a hard-coded +144px and overlapped the tool column; `ui.js` now publishes the column's measured height as `--tools-h`.
+- #14 craft villages (partly done, "Refs #14"):
+  - The model now reaches Sình: `scripts/frame.json` bbox.n is 16.530, and the new `cityNorth` = 16.4965 starts a village zone (`inVillages`: roadside houses ×0.6, random trees 0.2).
+  - Four new OSM strips came from `scripts/fetch-osm-north.sh` into `data/raw/hue-osm-north1..4.json`. The terrain was refetched up to 16.537 N.
+  - Root fix found on the way: the terrain grid was laid from the box's corner, so widening the box moved every node by a fraction of a cell and sank the Thiên Mụ replica 1–2 m (burial check). The lattice is now laid from `frame.json` `gridAnchor`, the old corner, so main's nodes stay put and new rows are added to the north.
+  - The height fetchers (`fetch-heights.py`, `fetch-gishue-heights.py`, `fetch-lidar.py`) read the same bbox but were not rerun: the northern strip uses default heights until they are.
+  - New kind `craft`: Thủy Xuân (way 1473275556), Phường Đúc (node 9960090217), Sình (node 9960092017), guarded by the `craft villages` check.
+  - Thanh Tiên paper flowers is not in OSM; asked sleepyluno for a pin in #14.

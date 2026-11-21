@@ -15,9 +15,9 @@ export const STR = {
     langGroup: 'Ngôn ngữ',
     places: 'Địa danh',
     overview: 'Toàn cảnh',
-    groups: ['Kinh thành & di sản', 'Dọc sông Hương', 'Lăng tẩm & ngoại ô'],
+    groups: ['Kinh thành & di sản', 'Dọc sông Hương', 'Lăng tẩm & ngoại ô', 'Làng nghề'],
     search: 'Tìm địa danh ở Huế', searchShort: 'Tìm địa danh', clear: 'Xóa', browse: 'Danh sách địa danh',
-    filters: ['Tất cả', 'Di tích', 'Cầu', 'Chợ', 'Cửa thành', 'Sông nước', 'Nơi khác'],
+    filters: ['Tất cả', 'Di tích', 'Cầu', 'Chợ', 'Cửa thành', 'Sông nước', 'Làng nghề', 'Nơi khác'],
     noResults: 'Không tìm thấy địa danh nào khớp với «{q}».', noneOfKind: 'Không có địa danh loại này.',
     close: 'Đóng',
     hintMouse: 'Kéo để lướt · cuộn để lại gần · chuột phải để xoay',
@@ -25,7 +25,7 @@ export const STR = {
     hintLabels: 'Đã ẩn nhãn — bạn nhận ra những đâu?',
     loading: 'Đang dựng thành phố từ dữ liệu OpenStreetMap…',
     attrib: '© Những người đóng góp OpenStreetMap',
-    kinds: { bridge: 'Cầu', market: 'Chợ', monument: 'Di tích', area: 'Quần thể', water: 'Mặt nước', place: 'Địa điểm', island: 'Cồn', gate: 'Cửa thành' },
+    kinds: { bridge: 'Cầu', market: 'Chợ', monument: 'Di tích', area: 'Quần thể', water: 'Mặt nước', place: 'Địa điểm', island: 'Cồn', gate: 'Cửa thành', craft: 'Làng nghề' },
     aboutTitle: 'Huế, bên dòng Hương',
     aboutBody: `
       <p>Một mô hình 3D của trung tâm Huế để bạn tự do bay lượn: sông Hương, cầu Trường Tiền, chợ Đông Ba và Kinh thành với tường, hào và các cửa.</p>
@@ -54,9 +54,9 @@ export const STR = {
     langGroup: 'Language',
     places: 'Places',
     overview: 'Whole model',
-    groups: ['Citadel & heritage', 'Along the river', 'Tombs & outskirts'],
+    groups: ['Citadel & heritage', 'Along the river', 'Tombs & outskirts', 'Craft villages'],
     search: 'Search places in Huế', searchShort: 'Search places', clear: 'Clear', browse: 'Browse places',
-    filters: ['All', 'Monuments', 'Bridges', 'Markets', 'Gates', 'Water & islets', 'Other places'],
+    filters: ['All', 'Monuments', 'Bridges', 'Markets', 'Gates', 'Water & islets', 'Craft villages', 'Other places'],
     noResults: 'No place matches “{q}”.', noneOfKind: 'No places of this kind.',
     close: 'Close',
     hintMouse: 'Drag to glide · scroll to come closer · right-drag to turn',
@@ -64,7 +64,7 @@ export const STR = {
     hintLabels: 'Labels hidden — what can you still recognise?',
     loading: 'Raising the city from OpenStreetMap data…',
     attrib: '© OpenStreetMap contributors',
-    kinds: { bridge: 'Bridge', market: 'Market', monument: 'Monument', area: 'Ensemble', water: 'Water', place: 'Place', island: 'Islet', gate: 'Citadel gate' },
+    kinds: { bridge: 'Bridge', market: 'Market', monument: 'Monument', area: 'Ensemble', water: 'Water', place: 'Place', island: 'Islet', gate: 'Citadel gate', craft: 'Craft village' },
     aboutTitle: 'Huế, on the Perfume River',
     aboutBody: `
       <p>A 3D model of central Huế to fly through: the Hương river, cầu Trường Tiền, chợ Đông Ba, and the Citadel with its walls, moat and gates.</p>
@@ -214,16 +214,29 @@ export const NOTES = {
     vi: 'Bia Quốc Học — đài tưởng niệm bên bờ sông Hương, đối diện cổng trường Quốc Học, dựng khoảng năm 1920.',
     en: 'Bia Quốc Học, the memorial on the riverbank facing the gate of Quốc Học school, built around 1920.',
   },
+  thuyxuan: {
+    vi: 'Làng hương Thủy Xuân, dưới chân đồi gần lăng Tự Đức: người làng nhuộm chân hương đủ màu rồi xòe thành từng bó hình hoa bên đường — góc chụp ảnh quen thuộc của du khách.',
+    en: 'Thủy Xuân incense village, below the hills near Tự Đức’s tomb: the villagers dye incense sticks in bright colours and fan the bundles out like flowers along the road, a favourite photo stop.',
+  },
+  phuongduc: {
+    vi: 'Phường Đúc — làng đúc đồng có từ thời các chúa Nguyễn. Thợ ở đây đúc Cửu Đỉnh (1835–1837) đặt trước Thế Miếu, và nay vẫn đúc chuông, tượng, đồ thờ.',
+    en: 'Phường Đúc, the bronze-casting quarter since the Nguyễn lords. Its founders cast the Nine Dynastic Urns (1835–37) that stand before Thế Miếu, and still cast bells, statues and altar pieces.',
+  },
+  sinh: {
+    vi: 'Làng Sình (Lại Ân) bên ngã ba sông Hương và sông Bồ: tranh khắc gỗ in trên giấy dó, tô màu bằng tay, vốn để thờ cúng rồi hóa đi sau lễ.',
+    en: 'Sình village (Lại Ân), where the Bồ meets the Hương: woodblock prints on dó paper, coloured by hand, made for worship and burnt after the rite.',
+  },
   gate: { vi: 'Một trong các cửa của Kinh thành, phía trên là vọng lâu.', en: 'One of the Citadel’s gates, with a watch pavilion on top.' },
 };
 
 // Places offered in the quick list, in the order a visitor might walk them.
-// The place list, in three groups (titles in STR.groups, same order). `overview` puts the whole-model button at the
+// The place list, in four groups (titles in STR.groups, same order). `overview` puts the whole-model button at the
 // head of that group.
 export const PLACE_GROUPS = [
   { ids: ['kydai', 'ngomon', 'nghenhluong', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'namgiao'] },
   { overview: true, ids: ['truongtien', 'dongba', 'biaquochoc', 'ndchieu', 'golim', 'photay', 'nguyenhoang', 'conhen', 'thienmu'] },
   { ids: ['tuduc', 'thuytien', 'khaidinh', 'minhmang'] },
+  { ids: ['thuyxuan', 'phuongduc', 'sinh'] },
 ];
 export const QUICK = PLACE_GROUPS.flatMap((g) => g.ids);
 
@@ -257,5 +270,8 @@ export const VIEWS = {
   ngubinh: { off: [500, 420, 700], look: [0, 0] },
   biaquochoc: { off: [-40, 30, 85], look: [0, -6] },
   golim: { off: [-90, 45, -110], look: [0, 0] },
+  thuyxuan: { off: [110, 70, 150], look: [0, 0] },
+  phuongduc: { off: [110, 75, 160], look: [0, 0] },
+  sinh: { off: [170, 110, 230], look: [0, 0] },
   default: { off: [170, 170, 280], look: [0, 0] },
 };
