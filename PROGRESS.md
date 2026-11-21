@@ -536,3 +536,12 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - #37: the non-bridge fixes described above, merged with the bridge-head exemption.
 - check:overlap on main: 11 findings, mostly edge contact (dainoi+tuphuong 172, dainoi+duyetthi 43, canchanh 27, hungmieu 17), plus hoquyen 33, mangca 14, giahoi 13, quochoc 15, gahue 7, phucam 7, conhen 3.
 - Next: decide between per-sample and per-cell overlap counting so edge contact stops aliasing. Then fix hoquyen and mangca. Once it reaches 0, add check:overlap to `npm run check`.
+
+## Medians and darker asphalt on the divided roads (2026-11-21, issue #15, branch `claude/issue-15-roads-e59be1`)
+- Root cause: each carriageway of a divided road is its own one-way OSM way, but each was drawn at the full class width. The two overlapped into one slab, and the median trees ended up standing in the road.
+- `build-data.mjs`: a one-way twin (same name, running the opposite way, straight across) is now laid at a one-way width (8/7/6 m, never wider than the gap allows). The gap between the twins' inner kerbs becomes a median (`medians` in hue.json: `[width dm, pts]`). It stops at crossing roads and roundabouts, and no trees are planted on it. 106 carriageways narrowed, 119 strips, about 17 km.
+- A road record can now carry a 4th element, its width in dm. `roadWidth()` in config.js reads it, and city.js, life.js, check-data and check-overlap all use it.
+- city.js draws each median as a pale-grey kerb with grass inside and small shrubs along it.
+- Exception: within 90 m of chợ Đông Ba, Trần Hưng Đạo keeps its old look, with full width and trees in the middle, as the issue asks.
+- Road palette darkened to the cầu Trường Tiền deck grey (#76716e…). If that is too dark, it is a one-line change to `PAL.road`.
+- `npm run check` passes. Checked in the preview on port 5191.

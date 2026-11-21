@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre, pathLength, chunked, rand, pick } from './buf.js';
 import { cityMaterial, landMaterial, enc, glowPoints } from './materials.js';
 import { initDistricts } from './districts.js';
-import { LAND_Y, WALL_H, PAL, quality, ROAD_W, ROAD_MAX } from '../config.js';
+import { LAND_Y, WALL_H, PAL, quality, ROAD_W, ROAD_MAX, roadWidth } from '../config.js';
 import polygonClipping from 'polygon-clipping';
 import { gateAxis, rectRing, inRing, CITADEL_PASSAGE } from './gates.js';
 import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
@@ -190,17 +190,38 @@ function along(pts, dist) {
   return { p: b, a: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
+// Low clipped shrubs along a median strip, about every 2.5 m, left out where the strip is too narrow to hold them.
+function medianShrubs(S, medians) {
+  const greens = PAL.shrubs.map(hex);
+  const k0 = S.kind;
+  S.kind = KIND.PLAIN;
+  let n = 0;
+  for (const m of medians) {
+    if (m.w < 1.6) continue;
+    const len = pathLength(m.pts), r = Math.min(0.75, m.w / 2 - 0.45);
+    for (let s = 1.2 + rand(n, 7) * 1.5; s < len - 1; s += 2.2 + rand(n, 3) * 1.2, n++) {
+      const { p, a } = along(m.pts, s);
+      const j = (rand(n, 11) - 0.5) * Math.max(0, m.w - 0.9 - 2 * r);
+      const x = p[0] - Math.sin(a) * j, z = p[1] + Math.cos(a) * j;
+      const g = LAND_Y + rise(x, z) + 0.05, rr = r * (0.75 + rand(n, 5) * 0.35), h = 0.55 + rand(n, 9) * 0.45;
+      S.cyl(x, z, g, g + h * 0.6, rr * 0.8, rr, 7, pick(greens, n), { cap: false, rot: rand(n, 13) });
+      S.cyl(x, z, g + h * 0.6, g + h, rr, rr * 0.45, 7, pick(greens, n + 1), { rot: rand(n, 13) });
+    }
+  }
+  S.kind = k0;
+}
+
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = (data.roads || []).map(([c, bridge, flat]) => ({ c: Math.max(0, Math.min(ROAD_MAX, c | 0)), bridge, flat, pts: unflat(flat) })); // class clamped as bridges.js does, so widths and deck profiles agree
+  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), bridge: e[1], flat: e[2], pts: unflat(e[2]) })); // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
   // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
   // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
   for (const r of [...roads]) {
     const P = r.bridge && profiles.get(r.flat);
     if (!P || !P.span) continue;
-    for (const [s0, s1] of [[0, P.span[0]], [P.span[1], P.len]]) if (s1 - s0 > 0.05) roads.push({ c: r.c, bridge: 0, flat: null, pts: subPath(r.pts, s0, s1) });
+    for (const [s0, s1] of [[0, P.span[0]], [P.span[1], P.len]]) if (s1 - s0 > 0.05) roads.push({ c: r.c, w: r.w, bridge: 0, flat: null, pts: subPath(r.pts, s0, s1) });
   }
   const casing = hex(PAL.casing);
   const cols = PAL.road.map(hex);
@@ -209,16 +230,25 @@ function buildRoads(data, group, structures) {
   // Edges are drawn the way a map draws them: every outline first, then the fills from minor to major, so a side
   // street opens into the road it meets and no line runs across a junction. KIND.LINE is a kerb joint in the
   // realistic look and the pen in the drawn one.
-  const pavW = (c) => ROAD_W[c] + (c <= 2 ? 3.6 : 2.4);
+  const pavW = (r) => r.w + (r.c <= 2 ? 3.6 : 2.4);
   const kerb = shade(casing, 0.8), verge = shade(casing, 0.9);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r.c) + 0.5, y - 0.005, verge);
+  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r) + 0.5, y - 0.005, verge);
   B.kind = KIND.ROAD;
-  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r.c), y, casing);
+  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r), y, casing);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, ROAD_W[r.c] + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85));
+  for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, r.w + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85));
+  // the medians of the divided roads (issue #15): a planted strip inside a pale stone kerb, under the carriageways'
+  // own edges, with low clipped shrubs along it
+  const medians = (data.medians || []).map(([w, flat]) => ({ w: w / 10, pts: unflat(flat) }));
+  const kerbStone = hex(PAL.medianKerb), turf = hex(PAL.median);
   B.kind = KIND.ROAD;
-  for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, ROAD_W[c], y + 0.01, cols[c]);
+  for (const m of medians) ribbon(B, m.pts, m.w, y + 0.006, kerbStone);
+  B.kind = KIND.GROUND;
+  for (const m of medians) if (m.w > 0.9) ribbon(B, m.pts, m.w - 0.6, y + 0.008, turf);
+  medianShrubs(structures, medians);
+  B.kind = KIND.ROAD;
+  for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, r.w, y + 0.01, cols[c]);
   const paint = hex('#f4eedd');
   for (const r of roads) {
     if (r.bridge || r.c > 1) continue;
@@ -309,7 +339,7 @@ function buildRoads(data, group, structures) {
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {
       const { p, a } = along(r.pts, s);
-      const off = (ROAD_W[r.c] / 2 + 0.5) * (k % 2 ? 1 : -1);
+      const off = (r.w / 2 + 0.5) * (k % 2 ? 1 : -1);
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
       lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 + profiles.get(r.flat).bump(s) : 7.5), lz);
       const warm = 0.85 + rand(k, r.c) * 0.3;

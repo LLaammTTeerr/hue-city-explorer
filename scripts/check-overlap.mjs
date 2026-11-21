@@ -63,10 +63,10 @@ for (const s of sources) {
 // city.js gives kerbs and pavements): service ways (4) are drives and lanes inside the very compounds the models pave,
 // and footpaths (5) cross courts and stairs; bridges stand over what is under them ----
 const carriage = new Map(); // cell -> the indices of the streets over it
-(data.roads || []).forEach(([c0, bridge, f], wi) => {
+(data.roads || []).forEach(([c0, bridge, f, w], wi) => {
   const c = Math.max(0, Math.min(ROAD_W.length - 1, c0 | 0));
   if (bridge || c > 3) return;
-  const hw = ROAD_W[c] / 2 - TOL;
+  const hw = (w > 0 ? w / 10 : ROAD_W[c]) / 2 - TOL;
   for (let i = 0; i + 3 < f.length; i += 2) {
     const ax = f[i] / 10, az = f[i + 1] / 10, bx = f[i + 2] / 10, bz = f[i + 3] / 10, dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
     for (let ix = Math.floor(Math.min(ax, bx) - hw); ix <= Math.floor(Math.max(ax, bx) + hw); ix++)
@@ -94,10 +94,10 @@ const carriage = new Map(); // cell -> the indices of the streets over it
 const JOIN_WAY = 2, JOIN_OUTLINE = 45, APPROACH_ANG = 40, REACH = 40;
 const COS_APP = Math.cos((APPROACH_ANG * Math.PI) / 180);
 const decks = []; // { pts: [[x, z], ...], hw, join }
-for (const [c0, bridge, f] of data.roads || []) {
+for (const [c0, bridge, f, w] of data.roads || []) {
   if (!bridge || (c0 | 0) > 3) continue;
   const pts = []; for (let i = 0; i + 1 < f.length; i += 2) pts.push([f[i] / 10, f[i + 1] / 10]);
-  decks.push({ pts, hw: ROAD_W[c0 | 0] / 2, join: JOIN_WAY });
+  decks.push({ pts, hw: (w > 0 ? w / 10 : ROAD_W[c0 | 0]) / 2, join: JOIN_WAY });
 }
 if (data.nguyenhoang) {
   const nh = data.nguyenhoang, cx = nh.c[0] / 10, cz = nh.c[1] / 10, a = nh.a / 1000, h = nh.w / 20;
@@ -105,7 +105,7 @@ if (data.nguyenhoang) {
 }
 if (data.truongtien?.box) decks.push({ pts: [data.truongtien.a.map((q) => q / 10), data.truongtien.b.map((q) => q / 10)], hw: data.truongtien.box.d / 20, join: JOIN_OUTLINE });
 const streets = []; // street index -> its two ends: [x, z, direction leaving that end] (class 0-3, not bridges)
-(data.roads || []).forEach(([c0, bridge, f], wi) => {
+(data.roads || []).forEach(([c0, bridge, f, w], wi) => {
   if (bridge || (c0 | 0) > 3 || f.length < 4) return;
   const end = (k, k2) => { const dx = f[k2] - f[k], dz = f[k2 + 1] - f[k + 1], dl = Math.hypot(dx, dz) || 1; return [f[k] / 10, f[k + 1] / 10, [dx / dl, dz / dl]]; };
   streets[wi] = [end(0, 2), end(f.length - 2, f.length - 4)];

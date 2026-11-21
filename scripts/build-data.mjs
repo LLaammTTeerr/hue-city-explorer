@@ -416,19 +416,81 @@ for (const e of els) {
     // and several canals have been filled in, and a raised deck with piers there stands on dry land.
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
-    roads.push({ c, bridge, name: t.name || '', pts });
-    if (c < 5) stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD);
-    else stampLine(pts, 1.2, ROAD);
+    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: ROAD_W[c], pts });
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges);
+// Divided roads (issue #15). Each carriageway of a dual road is its own one-way OSM way, its centreline 6-14 m from its
+// twin's. Drawn at the class width (15 m for a primary) the two overlapped into one broad slab with the median trees
+// standing in the middle of it. A one-way way with a twin of the same name running the other way alongside is laid at
+// a one-way width instead: two lanes, narrowed where the twins run so close that no median would be left. The median
+// between them is found again in section 5b, with these widths.
+const marketArea = get('way', 161714451).geometry.map(proj);
+// Exception: Trần Hưng Đạo in front of chợ Đông Ba is kept as it was, at its class width with its median trees.
+const MEDIAN_KEEP = 90; // m from the market's outline
+const nearMarket = (p) => marketArea.some((m) => Math.hypot(m[0] - p[0], m[1] - p[1]) < MEDIAN_KEEP);
+const ONEWAY_W = [8, 7, 6]; // m, by class 0-2: two lanes and a little shoulder
+const MEDIAN_MIN = 1.2, MEDIAN_MAX = 18, MEDIAN_STEP = 3; // m
+const divided = roads.filter((r) => r.ow && !r.bridge && r.c <= 2 && r.name);
+const twinAt = (() => {
+  const G = 30, grid = new Map();
+  divided.forEach((r, ri) => {
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], m = MEDIAN_MAX + 16;
+      for (let x = Math.floor((Math.min(a[0], b[0]) - m) / G); x <= Math.floor((Math.max(a[0], b[0]) + m) / G); x++)
+        for (let z = Math.floor((Math.min(a[1], b[1]) - m) / G); z <= Math.floor((Math.max(a[1], b[1]) + m) / G); z++) {
+          const k = x + ',' + z;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push([ri, a, b]);
+        }
+    }
+  });
+  // the twin of divided[ai] at (px, pz), heading (tx, tz): the nearest point on another one-way way of the same name,
+  // running the other way, straight across. { ri, dist, nx, nz } (n: the unit vector towards it) or null.
+  return (ai, px, pz, tx, tz) => {
+    let best = null;
+    for (const [ri, c, d] of grid.get(Math.floor(px / G) + ',' + Math.floor(pz / G)) || []) {
+      if (ri === ai || divided[ri].name !== divided[ai].name) continue;
+      const dx = d[0] - c[0], dz = d[1] - c[1], L2 = dx * dx + dz * dz;
+      if (!L2 || (dx * tx + dz * tz) / Math.sqrt(L2) > -0.9) continue;
+      const t = Math.max(0, Math.min(1, ((px - c[0]) * dx + (pz - c[1]) * dz) / L2));
+      const qx = c[0] + t * dx - px, qz = c[1] + t * dz - pz, dist = Math.hypot(qx, qz);
+      if (!dist || dist > MEDIAN_MAX + 16 || Math.abs(qx * tx + qz * tz) / dist > 0.35) continue;
+      if (!best || dist < best.dist) best = { ri, dist, nx: qx / dist, nz: qz / dist };
+    }
+    return best;
+  };
+})();
+// walk a way in MEDIAN_STEP steps: fn(px, pz, tx, tz) at each, and fn(null) at a break in the line
+function walkLine(pts, fn) {
+  let carry = 0;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 0.01) continue;
+    const tx = (b[0] - a[0]) / len, tz = (b[1] - a[1]) / len;
+    let s = carry;
+    for (; s < len; s += MEDIAN_STEP) fn(a[0] + tx * s, a[1] + tz * s, tx, tz);
+    carry = s - len;
+  }
+}
+let nDivided = 0;
+divided.forEach((r, ri) => {
+  const D = [];
+  walkLine(r.pts, (px, pz, tx, tz) => { const t = twinAt(ri, px, pz, tx, tz); if (t) D.push(t.dist); });
+  if (D.length < 3 || r.pts.some(nearMarket)) return;
+  D.sort((a, b) => a - b);
+  r.w = Math.max(4.5, Math.min(ONEWAY_W[r.c], D[Math.floor(D.length * 0.3)] - MEDIAN_MIN));
+  nDivided++;
+});
+console.log('divided roads:', nDivided, 'one-way carriageways laid at one-way width');
+for (const r of roads) stampLine(r.pts, r.c < 5 ? r.w / 2 + 1.2 : 1.2, ROAD);
 // Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
 // lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
-const onCarriageway = (() => {
+function carriagewayTest(maxC) {
   const G = 20, grid = new Map();
   for (const r of roads) {
-    if (r.c > 4) continue;
-    const hw = ROAD_W[r.c] / 2;
+    if (r.c > maxC) continue;
+    const hw = r.w / 2;
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1], s = [a, b, hw], m = hw + 2;
       for (let x = Math.floor((Math.min(a[0], b[0]) - m) / G); x <= Math.floor((Math.max(a[0], b[0]) + m) / G); x++)
@@ -447,7 +509,8 @@ const onCarriageway = (() => {
     }
     return false;
   };
-})();
+}
+const onCarriageway = carriagewayTest(4);
 const rails = [];
 for (const e of els) {
   const t = e.tags || {};
@@ -627,7 +690,6 @@ const periodKept = { 1: 0, 2: 0 }; // surveyed buildings too tall for their dist
 const gates = [];
 const buildings = [];
 const smeared = new Set(), surveyed = new Set(); // buildings whose height is the satellite prediction / the city survey's reading
-const marketArea = get('way', 161714451).geometry.map(proj);
 const hash = (id) => { let h = (id * 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; };
 const num = (s) => { const v = parseFloat(String(s || '').replace(',', '.')); return Number.isFinite(v) ? v : 0; };
 const wallBandTest = (p) => { for (let a = 0; a < 8; a++) { const t = (a * Math.PI) / 4; if (pipMulti([p[0] + Math.cos(t) * 28, p[1] + Math.sin(t) * 28], wall)) return true; } return pipMulti(p, wall); };
@@ -746,7 +808,7 @@ console.log("roof families (unseen, red, blue, pale, grey):", roofCount.join(" "
   };
   for (const r of roads) {
     if (r.bridge || r.c > 4) continue;
-    const hw = ROAD_W[r.c] / 2 + 0.3;
+    const hw = r.w / 2 + 0.3;
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1], s = { a, b, hw, poly: null };
       const x0 = Math.floor((Math.min(a[0], b[0]) - hw) / G), x1 = Math.floor((Math.max(a[0], b[0]) + hw) / G);
@@ -828,6 +890,64 @@ for (const id in sites) console.log('site', id, sites[id].items.length, 'items:'
 console.log('special', Object.keys(special));
 
 // =====================================================================
+// 5b. Medians (issue #15)
+// =====================================================================
+// A divided road is two one-way OSM ways of the same name running opposite ways side by side; the ground between
+// their inner kerbs is the median. It is a planted strip with a pale kerb, not a row of street trees: nothing is
+// planted on it (plant() and the avenue rows below test inMedian), and the client draws it as a green strip with low
+// shrubs. A strip stops where a road (up to residential) crosses it, so it ends at each junction and U-turn gap.
+// Exception: the road in front of chợ Đông Ba (Trần Hưng Đạo) keeps its median trees as they are.
+const MEDIAN_RUN = 10; // m: the shortest strip kept
+const medians = [];
+{
+  const crossing = carriagewayTest(3);
+  divided.forEach((A, ai) => {
+    let run = [];
+    const flush = () => {
+      let L = 0;
+      for (let i = 1; i < run.length; i++) L += Math.hypot(run[i].p[0] - run[i - 1].p[0], run[i].p[1] - run[i - 1].p[1]);
+      if (run.length >= 2 && L >= MEDIAN_RUN) medians.push({ pts: run.map((s) => s.p), w: run.reduce((s, x) => s + x.w, 0) / run.length });
+      run = [];
+    };
+    walkLine(A.pts, (px, pz, tx, tz) => {
+      const t = twinAt(ai, px, pz, tx, tz);
+      // each strip once: from the twin with the lower index
+      const gap = t && t.ri > ai ? t.dist - A.w / 2 - divided[t.ri].w / 2 : 0;
+      if (gap < MEDIAN_MIN || gap > MEDIAN_MAX) return flush();
+      const o = A.w / 2 + gap / 2, p = [px + t.nx * o, pz + t.nz * o];
+      if (crossing(p[0], p[1], 1.5) || nearMarket(p)) return flush();
+      run.push({ p, w: gap });
+    });
+    flush();
+  });
+}
+// Is (x, z) on a median strip, widened by pad? Exact against the strip lines, as onCarriageway is.
+const inMedian = (() => {
+  const G = 20, grid = new Map();
+  for (const m of medians) {
+    const hw = m.w / 2;
+    for (let i = 0; i + 1 < m.pts.length; i++) {
+      const a = m.pts[i], b = m.pts[i + 1], s = [a, b, hw], r = hw + 2;
+      for (let x = Math.floor((Math.min(a[0], b[0]) - r) / G); x <= Math.floor((Math.max(a[0], b[0]) + r) / G); x++)
+        for (let z = Math.floor((Math.min(a[1], b[1]) - r) / G); z <= Math.floor((Math.max(a[1], b[1]) + r) / G); z++) {
+          const k = x + ',' + z;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(s);
+        }
+    }
+  }
+  return (x, z, pad = 0) => {
+    for (const [a, b, hw] of grid.get(Math.floor(x / G) + ',' + Math.floor(z / G)) || []) {
+      const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+      const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;
+      if (Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz) < hw + pad) return true;
+    }
+    return false;
+  };
+})();
+console.log('medians:', medians.length, 'strips,', Math.round(medians.reduce((s, m) => s + m.pts.length - 1, 0) * MEDIAN_STEP), 'm');
+
+// =====================================================================
 // 6. Illustrated infill houses where OSM has streets but no footprints
 // =====================================================================
 const infill = [];
@@ -877,7 +997,7 @@ for (const road of roads) {
   const hills = inHills(road.pts[0]);
   if (hills && road.c > 3) continue;
   const density = (road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86) * (hills ? 0.42 : inVillages(road.pts[0]) ? 0.6 : 1);
-  const half = ROAD_W[road.c] / 2;
+  const half = road.w / 2;
   for (const side of [1, -1]) {
     let carry = rr(0, 6);
     for (let i = 0; i + 1 < road.pts.length; i++) {
@@ -944,7 +1064,7 @@ const trees = [];
 const TBLOCK = WATER | ROAD | BLD | TREE;
 const TRUNK = 0.6; // a trunk's reach: no tree stands closer than this to a carriageway's edge
 function plant(x, z, s, kind) {
-  if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK)) return false;
+  if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK) || inMedian(x, z, TRUNK)) return false;
   trees.push(q(x), q(z), Math.round(s * 10), kind);
   stamp(x, z, 3.2, TREE);
   return true;
@@ -966,7 +1086,7 @@ for (const g of green) {
 }
 for (const road of roads) {
   if (road.c > 2 || road.bridge) continue;
-  const half = ROAD_W[road.c] / 2 + 1.6;
+  const half = road.w / 2 + 1.6;
   for (const side of [1, -1]) {
     let s = rr(0, 10);
     for (let i = 0; i + 1 < road.pts.length; i++) {
@@ -978,7 +1098,7 @@ for (const road of roads) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
         // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
         // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
-        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
         s += rr(13, 20);
       }
       s -= len;
@@ -1606,7 +1726,8 @@ const out = {
   ponds: ponds.map(flatPoly),
   pondLv: pondLv.map((v) => Math.round(v * 10)),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
-  roads: roads.map((r) => [r.c, r.bridge, flat(r.pts)]),
+  roads: roads.map((r) => (r.w === ROAD_W[r.c] ? [r.c, r.bridge, flat(r.pts)] : [r.c, r.bridge, flat(r.pts), q(r.w)])), // 4th: carriageway width (dm) where it is not the class width
+  medians: medians.map((m) => [q(m.w), flat(m.pts)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),
   bld: buildings,
   infill: infillOut,

@@ -7,6 +7,9 @@ export const POND_Y = LAND_Y - 1.3; // lakes, ponds and the moat stand just belo
 // carriageway width in metres by road class, 0 (widest) … ROAD_MAX (narrowest); road data is clamped to that range on load
 export const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 export const ROAD_MAX = ROAD_W.length - 1;
+// a data.roads entry's carriageway width in metres: its own (4th element, dm) where it has one, e.g. each carriageway of
+// a divided road (issue #15), otherwise its class width
+export const roadWidth = (r) => (r[3] > 0 ? r[3] / 10 : ROAD_W[Math.max(0, Math.min(ROAD_MAX, r[0] | 0))]);
 export const WALL_H = 6.6; // Citadel wall height, from the OSM tag on the wall relation
 
 export const isCoarse = () => matchMedia('(pointer: coarse)').matches;
@@ -30,8 +33,14 @@ export const PAL = {
   bank: '#8d8574',
   base: '#5e554c',
   green: { park: '#9cb070', wood: '#829e5e', grass: '#acb97f', farm: '#bcc086', cemetery: '#b8b498', pitch: '#94b26f', sacred: '#c9bc93' },
-  road: ['#d6cec0', '#d8d0c2', '#dad2c4', '#dcd4c6', '#d8cfbd', '#e5dbc4'],
+  // carriageways in the asphalt grey of the cầu Trường Tiền deck (PAL.deck), minor streets a shade lighter; footways
+  // stay pale paving (issue #15)
+  road: ['#76716e', '#787370', '#7b7673', '#807b77', '#8f8a84', '#e5dbc4'],
   casing: '#ede4d0',
+  // a divided road's median (issue #15): turf inside a pale grey stone kerb, low clipped shrubs on it
+  median: '#8fa865',
+  medianKerb: '#d2d0cb',
+  shrubs: ['#5d7f45', '#53763f', '#68894b', '#4c6c3a'],
   rail: '#544c58',
   ballast: '#b9ad9a',
   // weathered clay rather than new tile: old roofs in Huế have had a century of rain
