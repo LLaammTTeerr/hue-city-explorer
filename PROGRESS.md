@@ -1,6 +1,11 @@
 # Progress
 
 ## Done
+- Riverside lights (issue #21, 2026-11-21): build-data.mjs derives `riverLamps` from the Hương banks (embankment posts
+  every ~24 m where a road reaches the bank) and the riverside footways/lanes (low lights every ~16 m), and flags
+  buildings facing the river (bit 256: ≥4.5 m, within 130 m, unobstructed) as floodlit. city.js marks their faces
+  KIND_FLOOD; materials.js paints warm uplight scallops after dark. `src/landmarks/riverlights.js` builds the posts and
+  two glow clouds. 896 posts, 1648 walkway lights, 161 facades; frame time unchanged within noise.
 - Waving flags (2026-11-21): shared `src/landmarks/anim.js` flag, wave in metres on the shared clock/wind (the old Kỳ Đài
   wave was scaled to ~0.1 m and invisible). Used at Kỳ Đài, Bảo tàng HCM (2) and Đông Ba (7), and the old citadel builder.
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).

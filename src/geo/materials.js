@@ -83,6 +83,7 @@ varying vec3 vWPos;
 varying vec3 vWNrm;
 varying float vKind;
 varying float vBase;
+varying float vFlood;
 uniform float uGlow;
 uniform float uLandY;
 uniform float uWet;
@@ -441,7 +442,7 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     sh.uniforms.uLook = shared.uLook;
     cascades(sh);
     sh.vertexShader = patch(sh.vertexShader)
-      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
+      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nvarying float vFlood;\nuniform float uTime;\nuniform float uWind;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND)
       .replace(
         '#include <project_vertex>',
@@ -457,10 +458,13 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           #endif
           vWPos = ( modelMatrix * wp ).xyz;
           vWNrm = normalize( mat3( modelMatrix ) * wn );
+          // KIND_FLOOD (64) rides on the kind: a floodlit facade (riverside lights after dark)
+          vFlood = step( 63.5, aKind );
+          float hueK = aKind - 64.0 * vFlood;
           #ifdef HUE_STYLED
-            vKind = aKind + ( aKind > 0.5 && aKind < 1.5 ? aStyle : 0.0 ); // per-house facade family on instanced walls
+            vKind = hueK + ( hueK > 0.5 && hueK < 1.5 ? aStyle : 0.0 ); // per-house facade family on instanced walls
           #else
-            vKind = aKind;
+            vKind = hueK;
           #endif
           vBase = aBase;
         }
@@ -498,6 +502,18 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
             #endif
             totalEmissiveRadiance += vec3( 1.0, 0.72, 0.38 ) * fres * wetSurf * uWet * uGlow * puddles * 0.22;
           }
+        }
+        // riverside facade lighting (issue #21): warm uplighters at the foot of the walls, one every 5 m, each throwing
+        // a cone that widens and fades as it climbs, over a soft general wash; the wall's own colour comes through
+        if ( uGlow > 0.01 && vFlood > 0.5 ) {
+          float hueUp = max( hueH, 0.0 );
+          float hueRun = dot( vWPos.xz, normalize( vec2( -hueN.z, hueN.x ) + 1e-4 ) ); // metres along the wall
+          float hueDx = abs( fract( hueRun / 5.0 ) - 0.5 ) * 5.0; // to the nearest fixture
+          float hueW = 0.5 + hueUp * 0.28;
+          float hueCone = exp( -hueDx * hueDx / ( hueW * hueW ) ) * exp( -hueUp / 11.0 ) * 1.4;
+          float hueWash = 0.34 * exp( -hueUp / 24.0 );
+          float hueFace = hueWall * step( -0.2, hueH );
+          totalEmissiveRadiance += diffuseColor.rgb * vec3( 1.0, 0.64, 0.3 ) * ( hueCone + hueWash ) * hueFace * uGlow * 1.35;
         }
         #else
         {

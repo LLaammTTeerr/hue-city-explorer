@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre, pathLength, chunked, rand, pick } from './buf.js';
+import { Buf, KIND, KIND_FLOOD, hex, shade, mix, unflat, obb, signedArea, ringCentre, pathLength, chunked, rand, pick } from './buf.js';
 import { cityMaterial, landMaterial, enc, glowPoints } from './materials.js';
 import { initDistricts } from './districts.js';
 import { LAND_Y, WALL_H, PAL, quality, ROAD_W, ROAD_MAX } from '../config.js';
@@ -443,7 +443,9 @@ function buildBuildings(data, group, off = null) {
     const ring = unflat(b[0]);
     if (off && off(ring, ringCentre(ring))) return; // a landmark model already stands on this footprint
     if (b[2] === 2 && dainoiOwns(ring)) return; // a gallery or hall places/dainoi.js draws
+    const start = B.n;
     draw(b, i);
+    if (b[4] & 256) for (let v = start; v < B.n; v++) B.knd[v] |= KIND_FLOOD; // faces the Hương: floodlit after dark (build-data.mjs)
   });
   const mesh = new THREE.Mesh(B.geometry(), cityMaterial({ windows: true }));
   mesh.castShadow = true;
