@@ -3,7 +3,7 @@ import { KIND, Buf, hex, shade, inRing } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
-import { fence, leaves, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
+import { fence, leaves, roadsNear, buildingsNear, offStreets, FENCE } from '../enclosure.js';
 
 // Nhà thờ Dòng Chúa Cứu Thế Huế (Đức Mẹ Hằng Cứu Giúp; Nguyễn Mỹ Lộc, 1959-62). See docs/places/dcct.md.
 //
@@ -73,7 +73,11 @@ export function build({ data, S, group }) {
     S.box(m[0], m[1], gy - 0.6, gy + 0.32, len, 7, ang, stD, { top: pave, topKind: KIND.ROAD });
   }
   (S.paved = S.paved || []).push([paved0, S.n]);
-  for (const s of [-1, 1]) box(-16, s * 22, yf - 1.0, yf - 0.05, 26, 10, stL, { top: lawn });
+  for (const s of [-1, 1]) { // the lawns, kept off the street that cuts across the south one's outer corner
+    const r = offStreets(data, [[-29, s * 17], [-3, s * 17], [-3, s * 27], [-29, s * 27]].map(([a, b]) => W(a, b)));
+    S.kind = KIND.MASONRY;
+    S.prism(r, yf - 1.0, yf - 0.05, stL, lawn);
+  }
   // the statue of Christ on a stepped round pedestal, on the axis
   { const q = W(-20, 0); S.kind = KIND.MASONRY;
     S.cyl(q[0], q[1], yf - 0.2, yf + 0.5, 3.4, 3.4, 12, stL); S.cyl(q[0], q[1], yf + 0.5, y + 2.2, 1.2, 1.0, 8, trim);

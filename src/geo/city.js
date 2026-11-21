@@ -764,13 +764,16 @@ export function populate(world, data) {
   const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
   // a tree: its trunk and the reach of its lower branches
   const treeOff = (x, z, r) => { if (cover.hitTall(x, z)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
-  // a house: its plan sampled 3 x 3
+  // a house: its plan sampled every metre (the middle of each metre strip, and both edges), so a model's step or
+  // terrace edge that reaches a corner of it is caught, not just one that reaches a third of the way in
+  const along = (w) => { const out = [-w / 2]; for (let t = -w / 2 + 0.5; t < w / 2; t += 1) out.push(t); out.push(w / 2); return out; };
   const houseOff = (x, z, w, d, ang) => {
-    const ux = Math.cos(ang), uz = Math.sin(ang);
-    for (const u of [-0.5, 0, 0.5]) for (const v of [-0.5, 0, 0.5]) if (cover.hit(x + ux * u * w - uz * v * d, z + uz * u * w + ux * v * d)) return true;
+    const ux = Math.cos(ang), uz = Math.sin(ang), vs = along(d);
+    for (const u of along(w)) for (const v of vs) if (cover.hit(x + ux * u - uz * v, z + uz * u + ux * v)) return true;
     return false;
   };
   world.cover = cover;
+  world.houseOff = houseOff; // the check (scripts/check-overlap.mjs) asks this, so it mirrors populate exactly
   // a mapped building: gone when a model covers its middle and most of its outline (the pavilion in front of cung An
   // Định is mapped as a building and modelled with the palace)
   const buildingOff = (ring, c) => {

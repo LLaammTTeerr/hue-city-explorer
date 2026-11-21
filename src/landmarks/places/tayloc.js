@@ -2,6 +2,7 @@ import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { lightMaterial } from '../../geo/materials.js';
+import { offStreets } from '../enclosure.js';
 
 // Chợ Tây Lộc (209 Nguyễn Trãi, the north-west of the Citadel; once chợ Phú Xuân), as it stands today. Sources and
 // estimates: docs/places/tayloc.md.
@@ -35,7 +36,8 @@ const GOODS = [hex('#c0392b'), hex('#e0a526'), hex('#2e7d9a'), hex('#5b8c3a'), h
 const TARP = [hex('#2f63b5'), hex('#3d7dd0'), hex('#d9502f'), hex('#3e8f5a')];
 const W1 = [1, 1, 1];
 
-// the yard: the block inside its kerbs (road centre lines at u -72/+72, v -58/+58; Nguyễn Trãi 12 m wide)
+// the yard: the block, at most this far out; build() trims it off the mapped streets (offStreets), which run a few
+// metres inside these lines on three sides, so the kerb stands at the carriageway's edge
 const YU0 = -67.5, YU1 = 64.5, YV0 = -54.5, YV1 = 55;
 
 let Y0 = 0; // the yard's top: every building stands on it
@@ -151,7 +153,7 @@ function signTexture(THREE) {
   return tex;
 }
 
-export function build({ S, group, THREE }) {
+export function build({ data, S, group, THREE }) {
   // the yard's level: the highest ground under the block, so no corner sinks into it
   let top = -Infinity;
   for (let u = YU0; u <= YU1 + 0.1; u += 11) for (let v = YV0; v <= YV1 + 0.1; v += 11) { const p = P(u, v); top = Math.max(top, rise(p[0], p[1])); }
@@ -160,7 +162,7 @@ export function build({ S, group, THREE }) {
   // ---- the yard: concrete over the whole block, a kerb round it ----
   const n0 = S.n;
   S.kind = KIND.PLAIN;
-  const ring = [P(YU0, YV0), P(YU1, YV0), P(YU1, YV1), P(YU0, YV1)];
+  const ring = offStreets(data, [P(YU0, YV0), P(YU1, YV0), P(YU1, YV1), P(YU0, YV1)]);
   S.prism(ring, Y0 - 1.0, Y0, KERB, PAVE, { topKind: KIND.ROAD });
   (S.paved = S.paved || []).push([n0, S.n]);
 

@@ -518,3 +518,13 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 
 - #5 south bank: roof families read per building from a Sentinel-2 scene (`scripts/fetch-roofs.py`, `data/raw/dem/roofrgb.json`), stored in flag bits 4-6 (mapped) and infill bits 4-6; the Lê Lợi ward (290 m) gets whitewashed walls (bit 7); Hai Bà Trưng joins Quốc Học's dark-red campus styling.
 - Remaining: #8 (landmark accuracy), and the newer #15–#22.
+## Non-bridge overlap findings (2026-11-21, branch `worktree-agent-a09688f46d572038b`)
+- check:overlap went from 38 to 17 findings. Of the 17, 7 are bridge or causeway road findings (left to the bridge agent).
+- Shared fixes: `offStreets`/`clipTo` keep compound fills and lawns behind the kerb. `fence()` stops where a mapped
+  building stands in its line (`solidSpans`), with no piers there. populate's `houseOff` samples every metre, and the
+  check now asks `world.houseOff` instead of keeping its own copy.
+- Check changes: the barycentric eps fix, plus the isolated `inGatePassage` rule (a gate's piers inside its mapped
+  block, where the street passes through).
+- Left over: tuphuong, duyetthi, canchanh and hungmieu+themieu are edge contact that the 1 m cells alias. Real
+  interpenetration there is 0.03 m or less. Also left: quochoc (block plinth against the mapped hall), gahue
+  (contact, 7 m²), phucam (7 m²), and hoquyen, thuyquan, mangca and conhen (not looked at).
