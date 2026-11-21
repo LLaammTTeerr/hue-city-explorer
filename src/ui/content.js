@@ -34,7 +34,9 @@ export const STR = {
       <h3>Phần minh họa</h3>
       <p>Chiều cao nhà đo từ ảnh vệ tinh nên chỉ gần đúng (thường thấp hơn thực tế khoảng một phần mười); nơi không đo được thì ước lượng theo loại và diện tích. Ở những con phố OSM chưa có khối nhà, {infill} căn nhà nhỏ được vẽ thêm để giữ nhịp phố; cây xanh, sen trên hồ, thuyền, xe cộ, mái hiên, ban công và đèn cũng là minh họa. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, điện Thái Hòa, tháp Phước Duyên, cổng Quốc Học, các cửa thành và lầu chuông chợ Đông Ba được dựng bằng tay trên đúng nền móng trong OSM.</p>
       <h3>Điều khiển</h3>
-      <p>Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng, chuột phải (hoặc xoay hai ngón) để đổi hướng nhìn. Nhấp đúp để lại gần. La bàn đưa bạn về góc nhìn ban đầu. Phím tắt: <kbd>H</kbd> về đầu, <kbd>R</kbd> mưa, <kbd>N</kbd> đổi buổi, <kbd>L</kbd> nhãn, <kbd>/</kbd> tìm địa danh.</p>`,
+      <p>Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng, chuột phải (hoặc xoay hai ngón) để đổi hướng nhìn. Nhấp đúp để lại gần. La bàn đưa bạn về góc nhìn ban đầu. Phím tắt: <kbd>H</kbd> về đầu, <kbd>R</kbd> mưa, <kbd>N</kbd> đổi buổi, <kbd>L</kbd> nhãn, <kbd>/</kbd> tìm địa danh.</p>
+      <h3>Đóng góp</h3>
+      <p>Cảm ơn <a href="https://github.com/sleepyluno" target="_blank" rel="noopener">sleepyluno</a> đã <a href="https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno" target="_blank" rel="noopener">báo lỗi và đề xuất</a> giúp mô hình sát với Huế thật hơn.</p>`,
     osmOnly: 'Chỉ hiện nhà có trong OSM',
   },
   en: {
@@ -71,7 +73,9 @@ export const STR = {
       <h3>What is illustration</h3>
       <p>Building heights are measured from satellite imagery, so they are approximate (typically about a tenth low); where the measurement sees nothing they are estimated from type and footprint. Where OSM has streets but no footprints yet, {infill} small houses are drawn in to keep the grain of the streets; trees, lotus on the lakes, boats, traffic, awnings, balconies and lights are illustrative too. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, tháp Phước Duyên, the Quốc Học gate, the Citadel gates and the bell tower of chợ Đông Ba are modelled by hand on their OSM footprints.</p>
       <h3>Controls</h3>
-      <p>Drag to move, scroll or pinch to zoom, right-drag (or twist two fingers) to turn. Double-click to come closer. The compass returns you to the opening view. Keys: <kbd>H</kbd> home, <kbd>R</kbd> rain, <kbd>N</kbd> time of day, <kbd>L</kbd> labels, <kbd>/</kbd> search.</p>`,
+      <p>Drag to move, scroll or pinch to zoom, right-drag (or twist two fingers) to turn. Double-click to come closer. The compass returns you to the opening view. Keys: <kbd>H</kbd> home, <kbd>R</kbd> rain, <kbd>N</kbd> time of day, <kbd>L</kbd> labels, <kbd>/</kbd> search.</p>
+      <h3>Contributors</h3>
+      <p>Thanks to <a href="https://github.com/sleepyluno" target="_blank" rel="noopener">sleepyluno</a> for the <a href="https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno" target="_blank" rel="noopener">bug reports and suggestions</a> that bring the model closer to the real Huế.</p>`,
     osmOnly: 'Show only buildings mapped in OSM',
   },
 };
