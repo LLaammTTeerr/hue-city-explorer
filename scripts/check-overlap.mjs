@@ -13,7 +13,7 @@ import { owns as dainoiOwns } from '../src/landmarks/places/dainoi.js';
 const TOL = 0.5; // a face this far inside the carriageway's edge counts (kerbs, gate piers at the edge pass)
 const ROAD_LO = 0.15, ROAD_HI = 5.0; // above this the face is overhead (an arch, a roof over the street)
 const RAISED = 0.3; // a face this high over the ground is part of a model, not paving at grade
-const LIMIT = { road: 2, overlap: 8, building: 6 }; // m² per source, pair or building
+const LIMIT = { road: 2, overlap: 2, building: 2 }; // m² per source, pair or building (overlap and building count only interpenetration deeper than DEEP, so touching faces add nothing and a real one shows small)
 const showAll = process.argv.includes('--all');
 
 const t0 = Date.now();
