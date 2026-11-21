@@ -9,7 +9,7 @@ import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain
 import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
-import { bridgeProfiles, resample } from './bridges.js';
+import { bridgeProfiles, resample, subPath } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
@@ -195,6 +195,13 @@ function buildRoads(data, group, structures) {
   B.kind = KIND.ROAD;
   const roads = (data.roads || []).map(([c, bridge, flat]) => ({ c: Math.max(0, Math.min(ROAD_MAX, c | 0)), bridge, flat, pts: unflat(flat) })); // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
+  // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
+  // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
+  for (const r of [...roads]) {
+    const P = r.bridge && profiles.get(r.flat);
+    if (!P || !P.span) continue;
+    for (const [s0, s1] of [[0, P.span[0]], [P.span[1], P.len]]) if (s1 - s0 > 0.05) roads.push({ c: r.c, bridge: 0, flat: null, pts: subPath(r.pts, s0, s1) });
+  }
   const casing = hex(PAL.casing);
   const cols = PAL.road.map(hex);
   const y = LAND_Y + 0.05;
@@ -250,7 +257,10 @@ function buildRoads(data, group, structures) {
     if (P.name === 'Đông Thành Thủy Quan' && replaced('thuyquan')) continue; // modelled in landmarks/places/thuyquan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
-    if (P.rise > 0) {
+    if (P.span) { // the structure only: the street beyond its abutments was laid with the roads above
+      const s0 = P.span[0], R = resample(subPath(r.pts, s0, P.span[1]), Math.min(2, P.len / 16));
+      slab(structures, R.pts, w, (s) => P.y(s0 + s), P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
+    } else if (P.rise > 0) {
       const R = resample(r.pts, P.arches ? 0.5 : Math.min(2, P.len / 16), P.breaks);
       const k0 = structures.kind;
       if (P.arches) structures.kind = KIND.MASONRY; // old brick-and-stone vaults read as masonry
@@ -294,7 +304,7 @@ function buildRoads(data, group, structures) {
   // street lamps along the main streets (drawn only when the mood calls for light)
   const lp = [], lc = [];
   for (const r of roads) {
-    if (r.c > 2) continue;
+    if (r.c > 2 || !r.flat) continue; // (a bridge way's street ends are lit as part of the way: life.js posts)
     const len = pathLength(r.pts);
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {
