@@ -125,6 +125,7 @@ Data credits and licences:
   from it are used here with attribution and should not be taken as openly licensed.
 - Building heights: Google Open Buildings 2.5D Temporal v1, CC BY 4.0.
 - Tree cover (where the forest is planted): ESA WorldCover 10 m 2021 v200, © ESA WorldCover project / contains modified Copernicus Sentinel data (2021), CC BY 4.0 (`scripts/fetch-landcover.py`).
+- Roof colours (each building's roof family: red tile, blue sheet, pale or grey concrete): Copernicus Sentinel-2 L2A, scene of 30 March 2026, contains modified Copernicus Sentinel data (2026) (`scripts/fetch-roofs.py`).
 
 ## Layout
 

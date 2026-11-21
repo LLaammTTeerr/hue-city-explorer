@@ -1,6 +1,8 @@
 # Progress
 
 ## Done
+- Waving flags (2026-11-21): shared `src/landmarks/anim.js` flag, wave in metres on the shared clock/wind (the old Kỳ Đài
+  wave was scaled to ~0.1 m and invisible). Used at Kỳ Đài, Bảo tàng HCM (2) and Đông Ba (7), and the old citadel builder.
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).
 - 3D scene: land cut around real water, roads, rail, 5,159 OSM buildings, illustrated infill and trees.
 - Hand-modelled landmarks on OSM footprints: cầu Trường Tiền, Citadel wall and gates, Kỳ Đài, Ngọ Môn,
@@ -514,6 +516,8 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
   - hungmieu with themieu;
   - about 15 small (7-16 m²) kept buildings or infill houses under models.
 
+- #5 south bank: roof families read per building from a Sentinel-2 scene (`scripts/fetch-roofs.py`, `data/raw/dem/roofrgb.json`), stored in flag bits 4-6 (mapped) and infill bits 4-6; the Lê Lợi ward (290 m) gets whitewashed walls (bit 7); Hai Bà Trưng joins Quốc Học's dark-red campus styling.
+- Remaining: #8 (landmark accuracy), and the newer #15–#22.
 ## Non-bridge overlap findings (2026-11-21, branch `worktree-agent-a09688f46d572038b`)
 - check:overlap went from 38 to 17 findings. Of the 17, 7 are bridge or causeway road findings (left to the bridge agent).
 - Shared fixes: `offStreets`/`clipTo` keep compound fills and lawns behind the kerb. `fence()` stops where a mapped

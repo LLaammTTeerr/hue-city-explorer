@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { KIND, Buf, hex, shade, signedArea, inRing } from '../../geo/buf.js';
 import { LAND_Y, WALL_H } from '../../config.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
+import { flag } from '../anim.js';
 
 // Kỳ Đài, the flag tower of the Huế Citadel, on the Nam Chánh bastion in the middle of the south face (1807, rebuilt
 // 1829-1840; concrete pole 1948). Sources and estimates: docs/places/kydai.md.
@@ -192,59 +193,15 @@ export function build({ S, group }) {
   group.add(pts);
 
   // ---- the flag, 12 × 8 m, at the masthead ----
-  const flag = makeFlag();
-  flag.scale.set(12, 8, 1);
-  flag.position.set(c[0], yt + POLE - 4.4, c[1]);
-  flag.rotation.y = -0.55; // streaming down-wind, toward the river mouth
-  flag.userData.landmark = id;
-  group.add(flag);
+  flag(group, { at: [c[0], yt + POLE - 0.4, c[1]], w: 12, h: 8, look: 'vn', landmark: id }); // waves down-wind (anim.js)
 
   const col = new THREE.Color();
   return {
-    update(time, glow) {
-      flag.material.uniforms.uTime.value = time;
-      flag.material.uniforms.uLight.value = 1 - 0.4 * Math.min(1, glow || 0);
+    update(time) {
       // slow drift through the colours, with a warm-white pause each cycle
       const t = (time / 40) % 1;
       if (t < 0.2) col.setRGB(1, 0.86, 0.62); else col.setHSL((t - 0.2) / 0.8, 0.85, 0.55);
       ledMat.uniforms.uColor.value.copy(col);
     },
   };
-}
-
-// red field, yellow star; a small vertex wave
-function makeFlag() {
-  const cv = document.createElement('canvas');
-  cv.width = 192; cv.height = 128;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#da251d'; g.fillRect(0, 0, 192, 128);
-  g.fillStyle = '#ffdf00';
-  g.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const r = i % 2 ? 15.5 : 40, t = -Math.PI / 2 + (i * Math.PI) / 5;
-    g[i ? 'lineTo' : 'moveTo'](96 + Math.cos(t) * r, 67 + Math.sin(t) * r);
-  }
-  g.closePath(); g.fill();
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const geo = new THREE.PlaneGeometry(1, 1, 14, 6);
-  geo.translate(0.5, 0, 0);
-  const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 } },
-    side: THREE.DoubleSide,
-    vertexShader: `uniform float uTime; varying vec2 vUv; varying float vSh;
-      void main() { vUv = uv; vec3 p = position;
-        float w = sin( p.x * 7.0 - uTime * 4.2 ) * 0.07 * p.x + sin( p.x * 3.0 - uTime * 2.6 + p.y * 2.0 ) * 0.05 * p.x;
-        p.z += w; p.y -= p.x * p.x * 0.05; vSh = 0.86 + w * 2.4;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( p, 1.0 ); }`,
-    fragmentShader: `uniform sampler2D map; uniform float uLight; varying vec2 vUv; varying float vSh;
-      void main() { vec4 c = texture2D( map, vUv );
-        gl_FragColor = vec4( c.rgb * vSh * uLight, 1.0 );
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }`,
-  });
-  const m = new THREE.Mesh(geo, mat);
-  m.frustumCulled = false;
-  return m;
 }
