@@ -4,7 +4,9 @@
 // building heights changed, by the nearest landmark, so a rebuild that moves a hill is noticed).
 // scripts/build-data.mjs runs the same checks on every build, against the file it is replacing.
 import fs from 'node:fs';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { withTiles } from './lib/data.mjs';
 
 const unflat = (r) => { const o = []; for (let i = 0; i + 1 < r.length; i += 2) o.push([r[i] / 10, r[i + 1] / 10]); return o; };
 const inside = ([x, z], poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, zi] = poly[i], [xj, zj] = poly[j]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c; } return c; };
@@ -43,6 +45,13 @@ export function checkData(data) {
   const fails = [], notes = [];
   const check = (ok, what, detail) => { (ok ? notes : fails).push(`${ok ? 'ok  ' : 'FAIL'} ${what}: ${detail}`); };
   const T = grid(data);
+
+  // the trees and infill houses of the tiles are all here (withTiles in lib/data.mjs merges them before the checks)
+  {
+    const c = data.meta.counts || {}, nt = (data.trees || []).length / 4, ni = (data.infill || []).length / 8;
+    check(!(data.meta.tiles || []).length && (c.trees == null || c.trees === nt) && (c.infill == null || c.infill === ni), 'tiles merged',
+      `${nt} trees and ${ni} infill houses for ${c.trees} and ${c.infill} counted${(data.meta.tiles || []).length ? `, ${data.meta.tiles.length} tiles not merged` : ''}`);
+  }
 
   // the grid itself
   {
@@ -193,7 +202,7 @@ export function diffData(prev, data, { terrainStep = 2, buildingStep = 3 } = {})
 // command line
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const file = process.argv.find((a, i) => i > 1 && !a.startsWith('--') && process.argv[i - 1] !== '--against') || 'public/data/hue.json';
-  const data = JSON.parse(fs.readFileSync(file));
+  const data = withTiles(JSON.parse(fs.readFileSync(file)), (f) => JSON.parse(fs.readFileSync(path.join(path.dirname(file), f)))); // tiles beside it
   const { fails, notes } = checkData(data);
   for (const l of [...notes, ...fails]) console.log(l);
   const ai = process.argv.indexOf('--against');

@@ -3,6 +3,7 @@
 // added to the dynamic group (objs); the replicas come out one source per place ('place:<id>').
 import fs from 'node:fs';
 import * as THREE from 'three';
+import { readTiles, withTiles } from './data.mjs';
 
 // the builders read a few browser globals at import time and draw a few canvas textures
 const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => ({ addColorStop() {}, data: new Uint8ClampedArray(4) })), set: (t, k, v) => ((t[k] = v), true) });
@@ -16,10 +17,12 @@ Object.assign(globalThis, {
 const root = new URL('../../', import.meta.url);
 const src = (p) => new URL('src/' + p, root).href;
 
-export async function buildScene() {
+// opts.whole: build from one data set with every tile merged in (check-tiles compares that with the app's way)
+export async function buildScene(opts = {}) {
   const warn0 = console.warn;
   console.warn = () => {}; // check-heights reports builder warnings; here only geometry matters
   const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
+  if (opts.whole) withTiles(data);
   const { initTerrain, groundY } = await import(src('geo/terrain.js'));
   const { initDistricts } = await import(src('geo/districts.js'));
   initTerrain(data);
@@ -65,7 +68,9 @@ export async function buildScene() {
     if (world.group.children.length > g) sources.push({ name: 'replicas', range: [S.n, S.n], objs: world.group.children.slice(g) });
   }
   step('populate', () => city.populate(world, data));
+  const tiles = readTiles(data); // the trees and houses the app plants after the first frame, the way it plants them
+  step('tiles', () => { for (const t of tiles) world.addTile(t); });
   step('street', () => life.buildStreetLife(data, dyn));
   console.warn = warn0;
-  return { data, world, S, dyn, sources, errors, groundY, isLand, ROAD_W: config.ROAD_W, LAND_Y: config.LAND_Y };
+  return { data, tiles, world, S, dyn, sources, errors, groundY, isLand, ROAD_W: config.ROAD_W, LAND_Y: config.LAND_Y };
 }

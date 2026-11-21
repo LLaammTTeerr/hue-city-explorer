@@ -1,6 +1,13 @@
 # Progress
 
 ## Done
+- Tiled trees and infill (2026-11-21): `hue.json` keeps only the trees and infill houses of the opening view (a wedge
+  in front of the home camera out to 3.6 km) and those within reach of the 13 place builders that read or edit them;
+  the rest go to ten 4 km tiles in `public/data/tiles/`, fetched after the first frame nearest first and planted one
+  per frame through the same builders (`world.addTile`, near-water records still on the reflection layer). `hue.json`
+  8.23 MB / 2.95 MB gzip -> 3.47 MB / 1.18 MB gzip; tiles 4.77 MB / 1.77 MB gzip. At 9 Mbps / 60 ms (headless,
+  gzip server): first 3D frame 6.7 s -> 4.1 s, all tiles in at 6.3 s. `npm run check:tiles` proves the split
+  changes no builder's input.
 - Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
   `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
   lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with
