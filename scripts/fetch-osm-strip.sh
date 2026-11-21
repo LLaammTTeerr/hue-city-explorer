@@ -4,7 +4,8 @@
 # Usage: sh scripts/fetch-osm-strip.sh "16.4455,107.5385,16.4965,107.5520" west [timeout-seconds]
 #        (name "main" writes data/raw/hue-osm.json, any other name data/raw/hue-osm-<name>.json)
 # The name "paved" fetches only the paved-ground classes (squares, area:highway yards, surface car parks; issue #22),
-# a light query run over the whole model box so the paved yards arrive without re-fetching every extract.
+# a light query run over the whole model box so the paved yards arrive without re-fetching every extract. It also
+# carries the bus stations (amenity=bus_station, their yards and the node of one mapped without an outline, issue #71).
 # The response goes to a temporary file and replaces the committed extract only once it parses as JSON, holds an
 # "elements" array and carries no "remark" (Overpass answers a timed-out or out-of-memory query with HTTP 200, a
 # partial element list and a remark).
@@ -12,7 +13,7 @@ set -eu
 BBOX="$1"; NAME="${2:-strip}"; TIMEOUT="${3:-120}"
 case "$NAME" in main) OUT=data/raw/hue-osm.json ;; *) OUT="data/raw/hue-osm-$NAME.json" ;; esac
 B="($BBOX)"
-PAVED="way[place=square]$B;relation[place=square]$B;way[\"area:highway\"]$B;way[amenity=parking]$B;"
+PAVED="way[place=square]$B;relation[place=square]$B;way[\"area:highway\"]$B;way[amenity=parking]$B;way[amenity=bus_station]$B;node[amenity=bus_station]$B;"
 Q="[out:json][timeout:$TIMEOUT];(\
 ${PAVED}\
 way[building]$B;relation[building]$B;\

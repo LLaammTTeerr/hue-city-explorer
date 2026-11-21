@@ -1,6 +1,13 @@
 # Progress
 
 ## Done
+- Bus stations (2026-11-22, issue #71, branch claude/issue-71-places-c31c0c): Bến xe phía Nam (`benxenam`, OSM way
+  260244336) and Bến xe phía Bắc (`benxebac`, OSM way 1435288831 + node 4797504422) are searchable places with
+  replica files, stories and `docs/places/` notes. The paved extract now includes `amenity=bus_station` lots. Bắc has no
+  mapped yard, so build-data clears infill and trees from the hull of its hall and service roads. No published heights,
+  so no `heights-reference.json` entries. Infill reshuffles citywide on any build-data change (sequential RNG), as before.
+  Not done, needs the owner: Aeon Mall Huế lies 30-430 m east of the model's east edge (bbox in `scripts/frame.json`);
+  Bến xe Nguyễn Hoàng has no OSM feature, address or coordinates.
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
   the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them

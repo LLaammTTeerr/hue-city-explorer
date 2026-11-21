@@ -746,7 +746,9 @@ const thienMuSmall = [];
 const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall',
   // named places that get their own model instead of a generic extrusion (src/landmarks/civic.js)
   175063593: 'gahue', 118792054: 'phucam', 1172894102: 'dcct', 1172897446: 'andinh', 771244228: 'dieude', 771244225: 'dieudeGate',
-  172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong' };
+  172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong',
+  // the terminal halls of the two intercity bus stations (src/landmarks/places/benxebac.js, benxenam.js; issue #71)
+  1435288831: 'benxebac', 260244336: 'benxenam' };
 const special = {};
 // The southern sites (royal tombs, đàn Nam Giao, hồ Thủy Tiên, Thiên An): everything mapped inside each circle is
 // handed to the site's own model (src/landmarks/tombs.js, south.js) instead of being extruded as an ordinary building.
@@ -759,6 +761,19 @@ const SITE_DEFS = [
 const sites = {};
 // Bia Quốc Học stands in an open riverside court: keep generated trees and houses off it
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; stamp(c[0], c[1], 26, TREE | NOBUILD); }
+// Bến xe phía Bắc (issue #71) is mapped only as its hall (way 1435288831) and a node, with no outline for its yard: keep
+// generated houses and trees off the ground its own service roads (ways 656647882, 656647880) enclose and off its
+// forecourt out to Lý Thái Tổ, the way the bus loop leaves from. That is about 0.6 ha of the station's 1.95 ha lot.
+{
+  const hall = get('way', 1435288831), loop = get('way', 656647882), exit = get('way', 656647880);
+  if (hall && loop && exit) {
+    const pts = [...hall.geometry, ...loop.geometry, ...exit.geometry].map(proj);
+    const street = els.filter((e) => e.type === 'way' && e.tags && e.tags.name === 'Lý Thái Tổ' && e.nodes && e.nodes.includes(loop.nodes[0]) && e.geometry).map((e) => e.geometry.map(proj));
+    const foot = (p, line) => { let b = null, bd = Infinity; for (let i = 1; i < line.length; i++) { const a = line[i - 1], c = line[i], dx = c[0] - a[0], dz = c[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz))), q = [a[0] + dx * t, a[1] + dz * t], d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; b = q; } } return b; };
+    for (const line of street) for (const p of hall.geometry.map(proj)) pts.push(foot(p, line));
+    fillPoly([hull(pts)], TREE | NOBUILD);
+  }
+}
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
 
@@ -767,7 +782,7 @@ const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(
 // Thương Bạc and the other riverside pavilions. Planting every park as close woodland buried them. A paved yard is
 // laid as its own ground ('paved' in green, drawn over the park) and nothing is grown or built on it. Two sources:
 //  1. what OSM maps as paved ground: highway areas (area=yes: pedestrian squares, footway courts), area:highway,
-//     place=square and surface car parks (amenity=parking, not multi-storey, underground or on a roof). These were
+//     place=square, surface car parks (amenity=parking, not multi-storey, underground or on a roof) and bus station yards. These were
 //     dropped altogether before (the road pass skips area=yes). A hand-modelled site lays its own ground.
 //  2. what OSM leaves inside a park: the Sentinel-2 scene (the roof-colour grid) shows bare paving as bright, grey to
 //     buff 10 m pixels with no green in them, where lawn and canopy are green. Such cells inside a park or lawn
@@ -787,7 +802,8 @@ const paved = [];
   for (const e of els) {
     const t = e.tags || {};
     if (e.type === 'node' || t.building || t['building:part']) continue;
-    const lot = t.amenity === 'parking' && !/multi-storey|underground|rooftop/.test(t.parking || '');
+    // a bus station's yard (amenity=bus_station, from the paved extract) is paved ground as a car park is
+    const lot = (t.amenity === 'parking' && !/multi-storey|underground|rooftop/.test(t.parking || '')) || t.amenity === 'bus_station';
     if (!((t.highway in ROAD_CLASS || PAVED_HW.has(t.highway)) && t.area === 'yes') && !t['area:highway'] && t.place !== 'square' && !lot) continue;
     let polys = evenOdd(elementRings(e));
     if (!polys.length || siteOf(centroid(openRing(polys[0][0])))) continue;
@@ -1503,6 +1519,11 @@ addPlace('quochoc', 'Trường Quốc Học', wayCentre(695775622), 3, 'place', 
   if (gh) addPlace('giahoi', 'Cầu Gia Hội', wayCentre(1431132258), 3, 'bridge', 12);
   const vin = findByName(/Vincom Plaza/);
   if (vin && vin.geometry) addPlace('vincom', 'Vincom Plaza Huế', centroid(openRing(vin.geometry.map(proj))), 3, 'place', 165);
+  // the two intercity bus stations (issue #71): phía Nam is mapped as its yard, phía Bắc only as a node on Lý Thái Tổ
+  const bxN = els.find((e) => e.tags && e.tags.amenity === 'bus_station' && /phía Nam/i.test(e.tags.name || '') && e.geometry);
+  if (bxN) addPlace('benxenam', 'Bến xe phía Nam', centroid(openRing(bxN.geometry.map(proj))), 3, 'place', 12);
+  const bxB = els.find((e) => e.tags && e.tags.amenity === 'bus_station' && /ph[íi]a B[ắăa]c/i.test(e.tags.name || ''));
+  if (bxB) addPlace('benxebac', 'Bến xe phía Bắc', bxB.type === 'node' ? proj(bxB) : centroid(openRing(bxB.geometry.map(proj))), 3, 'place', 12);
   const cath = els.find((e) => e.tags && e.tags.building === 'cathedral');
   if (cath && cath.geometry) addPlace('phucam', 'Nhà thờ Phủ Cam', centroid(openRing(cath.geometry.map(proj))), 3, 'place', 46);
 }

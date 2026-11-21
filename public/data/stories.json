@@ -6960,5 +6960,187 @@
     "url": "https://doanhnhanplus.vn/xuat-lo-hai-chiec-cong-doc-dao-trong-khu-thuong-thanh-hue-516375.html"
    }
   ]
+ },
+ "benxenam": {
+  "title": {
+   "vi": "Bến xe phía Nam",
+   "en": "Southern Bus Station (Bến xe phía Nam)"
+  },
+  "kind": {
+   "vi": "Bến xe khách liên tỉnh",
+   "en": "Intercity bus station"
+  },
+  "when": {
+   "vi": "Công ty quản lý bến xe lập ngày 14/4/1994",
+   "en": "Operating company founded 14 April 1994"
+  },
+  "summary": {
+   "vi": "Bến xe khách lớn nhất bờ Nam, ở 97 An Dương Vương, nơi xe đi Đà Nẵng, Quảng Nam và các tỉnh phía Nam xuất bến.",
+   "en": "The main bus station on the south side of the city, at 97 An Dương Vương, where coaches leave for Đà Nẵng, Quảng Nam and the provinces further south."
+  },
+  "story": {
+   "vi": "Đến Huế bằng xe khách từ phía Nam, phần lớn hành khách xuống ở đây, trên đường An Dương Vương, cách trung tâm chừng ba cây số.\n\nBến do Công ty Cổ phần Bến xe Huế quản lý. Công ty ra đời ngày 14/4/1994 từ trung tâm quản lý bến xe của tỉnh, đặt trụ sở ngay trên tầng hai nhà điều hành của bến. Tầng dưới là phòng vé và phòng chờ, phía sau là một sân bãi rộng với các dãy ki-ốt của nhà xe chạy quanh.\n\nKhu đất rộng hơn 14.000 m², được thuê đến năm 2064. Năm 2024, dịp kỷ niệm 30 năm thành lập công ty, bến được sửa sang: màn hình LED, nhà vệ sinh, camera, barie tự động và biển chỉ dẫn mới.",
+   "en": "Most travellers arriving in Huế by coach from the south get off here, on An Dương Vương Street, about three kilometres from the centre.\n\nThe station is run by Huế Bus Station JSC (Công ty Cổ phần Bến xe Huế), formed on 14 April 1994 from the province's bus-station authority, with its head office upstairs in the station's own building. The ticket hall and waiting room are downstairs; behind lies a wide yard ringed by rows of bus companies' kiosks.\n\nThe site covers just over 14,000 m² and is leased until 2064. In 2024, for the company's 30th anniversary, the station was smartened up with an LED screen, new toilets, cameras, an automatic barrier and new signs."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Địa chỉ",
+     "en": "Address"
+    },
+    "value": {
+     "vi": "97 An Dương Vương, TP Huế",
+     "en": "97 An Dương Vương Street, Huế"
+    }
+   },
+   {
+    "label": {
+     "vi": "Diện tích đất",
+     "en": "Land area"
+    },
+    "value": {
+     "vi": "14.190 m², thuê đến 2064",
+     "en": "14,190 m², leased until 2064"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nhà điều hành",
+     "en": "Main building"
+    },
+    "value": {
+     "vi": "2 tầng: phòng vé dưới, văn phòng trên",
+     "en": "2 storeys: tickets below, offices above"
+    }
+   },
+   {
+    "label": {
+     "vi": "Sửa sang",
+     "en": "Refurbished"
+    },
+    "value": {
+     "vi": "2024",
+     "en": "2024"
+    }
+   }
+  ],
+  "eras": {
+   "0": {
+    "vi": "Bến xe này chưa có.",
+    "en": "This bus station did not exist yet."
+   },
+   "1": {
+    "vi": "Bến xe này chưa có.",
+    "en": "This bus station did not exist yet."
+   }
+  },
+  "sources": [
+   {
+    "title": "Lịch sử hình thành – Công ty CP Bến xe Huế",
+    "url": "https://benxehue.vn/lich-su-hinh-thanh"
+   },
+   {
+    "title": "Hiện trạng sử dụng đất đai tại Công ty CP Bến xe Huế",
+    "url": "https://benxehue.vn/danh-muc/co-so-vat-chat/hien-trang-su-dung-dat-dai-tai-cong-ty-co-phan-ben-xe-hue"
+   },
+   {
+    "title": "Bến xe phía Nam đầu tư nâng cấp, chỉnh trang sửa chữa hướng đến kỷ niệm 30 năm thành lập công ty – benxehue.vn",
+    "url": "https://benxehue.vn/danh-muc/ben-xe-phia-nam/ben-xe-phia-nam-dau-t-nang-cap-chinh-trang-sua-chua-h-ong-den-ky-niem-30-n-m-thanh-lap-cong-ty"
+   },
+   {
+    "title": "Sơ đồ bến xe phía Nam – benxehue.vn",
+    "url": "https://benxehue.vn/so-do-ben-xe?ben=phia-nam"
+   },
+   {
+    "title": "Bến xe phía Nam thành phố Huế – Paracel Resort",
+    "url": "https://paracelresort.com/ben-xe-phia-nam-thanh-pho-hue-dia-chi-gia-ve-lich-trinh-va-cach-dat-ve/"
+   }
+  ]
+ },
+ "benxebac": {
+  "title": {
+   "vi": "Bến xe phía Bắc",
+   "en": "Northern Bus Station (Bến xe phía Bắc)"
+  },
+  "kind": {
+   "vi": "Bến xe khách liên tỉnh",
+   "en": "Intercity bus station"
+  },
+  "when": {
+   "vi": "Công ty quản lý bến xe lập ngày 14/4/1994",
+   "en": "Operating company founded 14 April 1994"
+  },
+  "summary": {
+   "vi": "Bến xe ở 132B Lý Thái Tổ, phía tây bắc Kinh thành, đầu mối xe đi Quảng Trị, Quảng Bình, Hà Nội và sang Lào.",
+   "en": "The bus station at 132B Lý Thái Tổ, north-west of the Citadel, for coaches to Quảng Trị, Quảng Bình, Hà Nội and across the border to Laos."
+  },
+  "story": {
+   "vi": "Ra khỏi Kinh thành theo cửa An Hòa, đi thêm một đoạn trên quốc lộ 1 là đến bến xe phía Bắc, nơi xe khách đi các tỉnh phía Bắc và xe sang Lào đón khách.\n\nNhà điều hành là một khối hai tầng sơn vàng, mái bằng với tấm mái trắng chìa rộng, ở giữa tầng trên có một ô cửa vòm bán nguyệt. Bên cạnh là dãy mái che các chỗ đỗ xe với cột và viền mái cũng sơn vàng.\n\nBến thuộc Công ty Cổ phần Bến xe Huế, lập năm 1994. Khu đất rộng gần 19.550 m², lớn hơn bến phía Nam, cũng được thuê đến năm 2064.",
+   "en": "Leave the Citadel through the An Hòa gate and follow Highway 1 a little further, and you reach the Northern Bus Station, where coaches for the northern provinces and for Laos pick up passengers.\n\nThe station building is a two-storey block painted bright yellow under a flat roof with a broad, overhanging white slab, with a semicircular arched window in the middle of the upper floor. Beside it, a canopy on yellow columns shelters the bus bays.\n\nThe station belongs to Huế Bus Station JSC, founded in 1994. Its site of almost 19,550 m² is larger than the southern station's and is likewise leased until 2064."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Địa chỉ",
+     "en": "Address"
+    },
+    "value": {
+     "vi": "132B Lý Thái Tổ, TP Huế",
+     "en": "132B Lý Thái Tổ Street, Huế"
+    }
+   },
+   {
+    "label": {
+     "vi": "Diện tích đất",
+     "en": "Land area"
+    },
+    "value": {
+     "vi": "19.546,8 m², thuê đến 2064",
+     "en": "19,546.8 m², leased until 2064"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nhà điều hành",
+     "en": "Main building"
+    },
+    "value": {
+     "vi": "2 tầng",
+     "en": "2 storeys"
+    }
+   }
+  ],
+  "eras": {
+   "0": {
+    "vi": "Bến xe này chưa có.",
+    "en": "This bus station did not exist yet."
+   },
+   "1": {
+    "vi": "Bến xe này chưa có.",
+    "en": "This bus station did not exist yet."
+   }
+  },
+  "sources": [
+   {
+    "title": "Lịch sử hình thành – Công ty CP Bến xe Huế",
+    "url": "https://benxehue.vn/lich-su-hinh-thanh"
+   },
+   {
+    "title": "Hiện trạng sử dụng đất đai tại Công ty CP Bến xe Huế",
+    "url": "https://benxehue.vn/danh-muc/co-so-vat-chat/hien-trang-su-dung-dat-dai-tai-cong-ty-co-phan-ben-xe-hue"
+   },
+   {
+    "title": "Northern Bus Station Hue – Bookaway",
+    "url": "https://bookaway.com/routes/vietnam/hue/northern-bus-station-hue"
+   },
+   {
+    "title": "Bến xe phía Bắc Huế – Mia.vn",
+    "url": "https://mia.vn/cam-nang-du-lich/ben-xe-phia-bac-hue-19365"
+   },
+   {
+    "title": "Các bến xe Huế: địa chỉ, lịch trình, giá vé – Vivu Today",
+    "url": "https://vivutoday.com/cac-ben-xe-hue-dia-chi-lich-trinh-gia-ve/"
+   }
+  ]
  }
 }
