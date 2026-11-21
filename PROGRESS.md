@@ -1,6 +1,8 @@
 # Progress
 
 ## Done
+- Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
+  along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).
 - 3D scene: land cut around real water, roads, rail, 5,159 OSM buildings, illustrated infill and trees.
 - Hand-modelled landmarks on OSM footprints: cầu Trường Tiền, Citadel wall and gates, Kỳ Đài, Ngọ Môn,
