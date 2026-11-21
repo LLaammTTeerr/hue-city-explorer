@@ -1,6 +1,15 @@
 # Progress
 
 ## Done
+- Churches from the photo audit (2026-11-21): Dòng Chúa Cứu Thế has one tower, over the crossing (the old front
+  tower and the 32 m crossing crown were the same tower counted twice), with the photo-read tiers, gallery and
+  terracotta spire to the sourced 53 m cross. The front is its own block: stepped gable, pointed window, clock,
+  canopy on four pillars over three doors, curved wings. The sanctuary lantern is gone. Phủ Cam's centre screen is
+  replaced by two stone shoulders sloping inward to the low centre, lattice strips, and the nave gable with its
+  cross. The towers are continuous prisms (no stage caps) with the setbacks on the inner side, to the sourced 43.5 m.
+  Photo-derived figures are marked *est.* in docs/places/dcct.md and phucam.md. Views `dcct-front`, `dcct-aerial`,
+  `phucam-front`, `phucam-aerial`. Note: shot.mjs poses pass through clampView, which puts the target at y 2.6 and
+  drops the camera by the same amount, so a view's target should sit on the ground (phucam-front aims past the church).
 - Shadow maps cached (2026-11-21): csm.js redraws a map only when its snapped box, the sun direction, a casting
   LOD chunk reaching into it (lodFlips in lod.js) or `shadows.invalidate()` changes; moving casters (traffic, boats,
   tree sway) refresh on a cadence (near 33-100 ms, wide 100-330 ms). ~0.44 map renders per frame instead of 1.0
