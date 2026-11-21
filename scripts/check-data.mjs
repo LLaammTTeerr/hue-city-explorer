@@ -115,10 +115,10 @@ export function checkData(data) {
   // trees of one carriageway of a dual road once stood on the other, and filled the Nguyễn Hoàng bridge heads (3,997)
   {
     const W = [15, 12, 9.5, 6.5, 4], G = 20, idx = new Map();
-    for (const [c, , p] of data.roads) {
+    for (const [c, , p, w] of data.roads) {
       if (c > 4) continue;
       for (let i = 0; i + 3 < p.length; i += 2) {
-        const s = [p[i] / 10, p[i + 1] / 10, p[i + 2] / 10, p[i + 3] / 10, W[c] / 2], m = s[4] + 1;
+        const s = [p[i] / 10, p[i + 1] / 10, p[i + 2] / 10, p[i + 3] / 10, (w > 0 ? w / 10 : W[c]) / 2], m = s[4] + 1;
         for (let x = Math.floor((Math.min(s[0], s[2]) - m) / G); x <= Math.floor((Math.max(s[0], s[2]) + m) / G); x++)
           for (let z = Math.floor((Math.min(s[1], s[3]) - m) / G); z <= Math.floor((Math.max(s[1], s[3]) + m) / G); z++) {
             const k = x + ',' + z;

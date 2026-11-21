@@ -575,3 +575,11 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - #19: every bridge inside the walls or within 90 m of a citadel gate is `bridge = 2` in hue.json (31 ways). They are all drawn by `src/geo/citadel-bridge.js`: brick body, round vaults ringed in plaster, a plaster string course, a solid parapet with coping and medallions, and end posts. `bridges.js` `citadelRule` sets the rise to len/10 (clamped 1.2–2.2 m) and the vaults over the water crossed (one vault, or three if the water is wider than 22 m). Nhà Đồ, Thượng Tứ and Ngoại Kim Thủy dropped out of NAMED.
 - Kept bespoke: Cửa Ngăn, Thủy Quan, Trung Đạo, and the Tịnh Tâm and Tàng Thư Lâu lake footbridges (`HAND_BRIDGES` way ids).
 - Verified in the preview: Đông Ba gate, Ngoại Kim Thủy, Nhà Đồ, Ngự Hà and Trường Tiền. `npm run check` passes.
+## Medians and darker asphalt on the divided roads (2026-11-21, issue #15, branch `claude/issue-15-roads-e59be1`)
+- Root cause: each carriageway of a divided road is its own one-way OSM way, but each was drawn at the full class width. The two overlapped into one slab, and the median trees ended up standing in the road.
+- `build-data.mjs`: a one-way twin (same name, running the opposite way, straight across) is now laid at a one-way width (8/7/6 m, never wider than the gap allows). The gap between the twins' inner kerbs becomes a median (`medians` in hue.json: `[width dm, pts]`). It stops at crossing roads and roundabouts, and no trees are planted on it. 106 carriageways narrowed, 119 strips, about 17 km.
+- A road record can now carry a 4th element, its width in dm. `roadWidth()` in config.js reads it, and city.js, life.js, check-data and check-overlap all use it.
+- city.js draws each median as a pale-grey kerb with grass inside and small shrubs along it.
+- Exception: within 90 m of chợ Đông Ba, Trần Hưng Đạo keeps its old look, with full width and trees in the middle, as the issue asks.
+- Road palette darkened to the cầu Trường Tiền deck grey (#76716e…). If that is too dark, it is a one-line change to `PAL.road`.
+- `npm run check` passes. Checked in the preview on port 5191.
