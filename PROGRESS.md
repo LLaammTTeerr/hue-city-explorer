@@ -616,3 +616,18 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   - generic decks ended 0.36 m above the street: bridges.js now ramps class 0-3 decks onto the street's height;
   - cầu Nguyễn Hoàng's fixed cross-section now blends, over its last 24 m, into its approach carriageways' bands, colours and cross-fall. Its deck ends, and Phú Xuân's, are exported via `deckEnds()`.
 - New `npm run check:joints` (scripts/check-joints.mjs), now part of `npm run check`: 81 joints, 0 failing (bare seam ≤ 0.5 m², step ≤ 0.35 m). The old code had 66 of 77 failing. check:overlap is still clean.
+
+## Four interaction bugs (2026-11-21, branch `worktree-agent-a3d055188011d1313`)
+- Resize no longer sends the camera home once a place or the overview is chosen: the rig tracks `opening` (still on the
+  opening view), cleared by any flight or user interaction and set again when a flight home lands; `resize()` re-frames
+  home only while it is set. Checked in the app: Ngọ Môn from search, then a phone-size resize, keeps the camera put.
+  A resize on a fresh visit still re-frames home.
+- Adaptive resolution works at any low rate: each slow frame counts for at most 250 ms, background frames are not counted,
+  and the count restarts on `visibilitychange`. A simulation that runs the real `adapt()` from main.js shows the change:
+  300 ms frames used to stay at 1.6 and now step down from 4 s, 100 ms frames step down from 3.4 s, and a 5 s stall or
+  2 s stalls every 10 s change nothing. Checked in the app with forced ~300 ms frames (1.5 → 1.25).
+- A drag that ends near its start no longer counts as a tap: `dragged` is set once movement passes 6 px.
+- Choosing from search with the keyboard passes the input to `showCard(id, from)` as the card's opener, so closing
+  the card returns focus to search.
+- Not verified: the single-stall case in a live tab, because the hidden browser pane pauses requestAnimationFrame
+  while still reporting the page as visible. The simulation covers that case.
