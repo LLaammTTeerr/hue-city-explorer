@@ -78,4 +78,4 @@ Found something wrong, or know Huế well? [Open an issue](https://github.com/LL
 
 ## For developers
 
-Running the project locally, the data pipeline, the checks and how to contribute are covered in [docs/development.md](docs/development.md).
+Running the project locally, the data pipeline, the checks and how to contribute are covered in [docs/development.md](docs/development.md). Ideas for larger features are kept in [docs/ideas.md](docs/ideas.md).

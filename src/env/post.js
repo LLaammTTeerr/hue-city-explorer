@@ -108,6 +108,9 @@ class OcclusionPass extends Pass {
         vec3 inkN( vec3 a, vec3 b ) { vec3 n = cross( a, b ); float l = length( n ); return l > 1e-12 ? n / l : vec3( 0.0, 0.0, 1.0 ); }
         void main() {
           vec3 col = texture2D( tDiffuse, vUv ).rgb;
+          // one NaN or infinite pixel from the scene would be smeared over the whole frame by the focus blur and the
+          // bloom mips, and its NaN alpha leaves the canvas transparent; a comparison fails for NaN, so it is caught too
+          if ( !all( lessThan( abs( col ), vec3( 6.0e4 ) ) ) ) col = vec3( 0.0 );
           float ao = texture2D( tAO, vUv ).r;
           col *= mix( uTint, vec3( 1.0 ), ao );
           // river mist: thin haze that pools low over the water and the banks, drifting in soft patches
@@ -301,7 +304,11 @@ export function createPost(renderer, scene, camera) {
   composer.addPass(occlusion);
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.55, 1.0);
   composer.addPass(bloom);
-  composer.addPass(new OutputPass());
+  // The canvas has an alpha channel (three always asks for one) over the page's paper colour, so the last pass
+  // writes an opaque alpha: whatever went wrong upstream, the page can never show through the model.
+  const output = new OutputPass();
+  output.material.fragmentShader = output.material.fragmentShader.replace(/\}\s*$/, '\tgl_FragColor.a = 1.0;\n}');
+  composer.addPass(output);
   // The composer multiplies by its own pixel ratio; we hand it device pixels already, so pin that to 1.
   composer.setPixelRatio(1);
   composer.setSize(size.x, size.y);
