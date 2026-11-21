@@ -71,5 +71,33 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-1106.0, 9.6, 34.2], "target": [-1121.0, 6.8, 14.2] }
+  },
+  "dcct-front": {
+    "note": "Nhà thờ Dòng Chúa Cứu Thế from the forecourt, about 70 m east of the front, matched to VietNamNet's front photograph (the stepped gable, the great window, the canopy).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [804, 5, 1201.5], "target": [722, 17, 1206.6] }
+  },
+  "dcct-aerial": {
+    "note": "Nhà thờ Dòng Chúa Cứu Thế from a drone over the crossroads east of the grounds, matched to VietNamNet's aerial (the front block and the crossing tower behind).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [863.7, 75, 1197.8], "target": [705, 10, 1207.6] }
+  },
+  "phucam-front": {
+    "note": "Phủ Cam from 20 m above the forecourt stair, about 50 m in front on the axis, matched to the Commons 2024 front photographs (the towers, the shoulders, the nave gable behind).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-145.4, 30, 1723.4], "target": [-90, 2.6, 1885.2] }
+  },
+  "phucam-aerial": {
+    "note": "Phủ Cam from above Đoàn Hữu Trưng, 170 m in front on the axis, looking down on the front and the cross plan.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-187, 70, 1602.7], "target": [-123.5, 12, 1787] }
   }
 }
