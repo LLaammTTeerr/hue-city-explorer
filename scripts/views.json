@@ -120,5 +120,12 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-187, 70, 1602.7], "target": [-123.5, 12, 1787] }
+  },
+  "citadel-west-moat": {
+    "note": "The citadel's west face around cửa Chánh Tây, from outside above Lê Duẩn: the moat (Hộ Thành Hào) between Tây Thành Đài and Tây Thành Thủy Quan, crossed by cầu Chánh Tây.",
+    "viewport": [1720, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-3450, 650, -150], "target": [-2875, 2.6, -560] }
   }
 }
