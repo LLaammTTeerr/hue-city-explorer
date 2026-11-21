@@ -1,12 +1,13 @@
 # Progress
 
 ## Done
+- Shadow maps cached (2026-11-21): csm.js redraws a map only when its snapped box, the sun direction, a casting
+  LOD chunk reaching into it (lodFlips in lod.js) or `shadows.invalidate()` changes; moving casters (traffic, boats,
+  tree sway) refresh on a cadence (near 33-100 ms, wide 100-330 ms). ~0.44 map renders per frame instead of 1.0
+  with a still camera; 0 % stale pixels after orbit, zoom, night/day and look switch. `shadows.stats` counts redraws.
 - Focus pass skipped when nothing can blur (2026-11-21): post.js sends the grade straight to the output when
   aperture × max blur radius is under the shader's 0.7 px cut-off (always in the drawn look, and in the real look
   below ~120 m), saving one full-screen read/write pass. Output is the same by construction; both looks checked live.
-  Next perf ideas (from external review, not yet done): label anchor heights computed at data build instead of
-  `modelTops()` in the browser; tile distant trees/infill out of hue.json; reuse the wide shadow map while its
-  coverage and sun direction are unchanged. (The adaptive-resolution stall bug that review named was fixed in #55.)
 
 - Label heights at build time (2026-11-21): `modelTops()` (scene walk for each tag's anchor, ~100-120 ms on the M-series
   GPU page, more on phones) moved out of startup into the data build: `scripts/build-label-tops.mjs` (run at the end of
@@ -14,6 +15,13 @@
   labels.js reads it (fallback ground + `h`) and now takes its places from the index. Vọng Cảnh's record, moved onto the
   lookout by its replica at build, is moved in the index too. All 80 anchors match the old browser ones within 5 cm
   (rounding); `npm run check:labels` (also `--browser`).
+- Tiled trees and infill (2026-11-21): `hue.json` keeps only the trees and infill houses of the opening view (a wedge
+  in front of the home camera out to 3.6 km) and those within reach of the 13 place builders that read or edit them;
+  the rest go to ten 4 km tiles in `public/data/tiles/`, fetched after the first frame nearest first and planted one
+  per frame through the same builders (`world.addTile`, near-water records still on the reflection layer). `hue.json`
+  8.23 MB / 2.95 MB gzip -> 3.47 MB / 1.18 MB gzip; tiles 4.77 MB / 1.77 MB gzip. At 9 Mbps / 60 ms (headless,
+  gzip server): first 3D frame 6.7 s -> 4.1 s, all tiles in at 6.3 s. `npm run check:tiles` proves the split
+  changes no builder's input.
 - Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
   `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
   lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with

@@ -63,6 +63,7 @@ try {
   ws.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails?.exception?.description); if (m.method === 'Runtime.consoleAPICalled' && (m.params.type === 'error' || m.params.type === 'warning')) errors.push(m.params.args.map((a) => a.value ?? a.description).join(' ')); });
   await send('Page.navigate', { url: `${base}/?look=${look}` });
   for (let i = 0; i < 360; i++) { if (await evaluate('!!window.__hue')) break; await sleep(500); if (i === 359) throw new Error('scene never became ready'); }
+  await evaluate('window.__hue.tiles'); // the trees and houses that arrive after the first frame (public/data/tiles/)
   const info = await evaluate(`(() => {
     const H = window.__hue, p = H.data.places.find((q) => q.id === ${JSON.stringify(id)});
     if (!p) return null;

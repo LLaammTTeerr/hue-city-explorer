@@ -19,6 +19,9 @@ import { lamp, flushLamps } from '../enclosure.js';
 //             OSM node 5314360729 in its riverside court (identification of the OSM node with Pháp Hải estimated).
 //   boats     the clam-rakers' sampans (ghe cào hến) tied up at the landings, and white heaps of hến shells.
 export const id = 'conhen';
+// how far from the place point this builder reads data.trees / data.infill (the island is 1.7 km long); build-data.mjs
+// keeps every record within it in hue.json, out of the tiles (default 520 m)
+export const dataReach = 880;
 
 // shoreline (metres, x east, z south), from hue.json land[25] (OSM)
 const SHORE = [[351, -1464], [358, -1716], [368, -1855], [382, -1966], [394, -2022], [406, -2059], [418, -2106], [429, -2170], [433, -2185], [439, -2187], [445, -2183], [449, -2165], [454, -2138], [477, -2034], [514, -1857], [557, -1637], [564, -1572], [574, -1506], [578, -1468], [578, -1455], [579, -1448], [583, -1363], [583, -1239], [579, -1180], [560, -1011], [551, -944], [546, -832], [540, -794], [532, -760], [514, -695], [506, -669], [493, -647], [463, -609], [440, -576], [434, -563], [430, -561], [428, -564], [429, -570], [438, -587], [442, -603], [445, -618], [443, -632], [436, -651], [421, -682], [411, -717], [392, -782], [385, -816], [382, -850], [387, -904], [384, -934], [381, -947], [378, -964], [376, -988], [377, -1059], [365, -1202]];

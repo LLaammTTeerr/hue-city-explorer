@@ -6,7 +6,7 @@ import { LAND_Y, WALL_H, PAL, quality, ROAD_W, ROAD_MAX, roadWidth } from '../co
 import polygonClipping from 'polygon-clipping';
 import { gateAxis, rectRing, inRing, CITADEL_PASSAGE } from './gates.js';
 import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain.js';
-import { buildTrees } from './foliage.js';
+import { treePlanter } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample, subPath } from './bridges.js';
@@ -593,10 +593,10 @@ function buildBuildings(data, group, off = null, roofOff = null) {
 // Records arrive with the near-water ones first; those are also drawn into the river's reflection (layer 0),
 // the rest only into the main view (layer 1). Houses on main streets mostly become row houses: gable roofs
 // with the ridge running along the street, so a block reads as one long tiled roofline.
-function buildInfill(data, group, off = null) {
-  const a = data.infill || [], S = 8;
-  const n = a.length / S;
-  const nearCount = data.meta?.counts?.infillNear ?? n;
+// Returns plant(records, nearCount, i0): plants one batch (hue.json's own, then each tile's) with the shared
+// geometry and materials and returns its meshes; i0 is the batch's first index in the whole model (dice seeds).
+function infillPlanter(group, off = null) {
+  const S = 8;
   const W = [1, 1, 1];
 
   const wallGeo = new Buf(16);
@@ -646,16 +646,17 @@ function buildInfill(data, group, off = null) {
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
   const zero = new THREE.Matrix4().makeScale(0, 0, 0);
-  const meshes = [];
+  let meshes = [];
 
-  const collect = (start, end) => {
+  const collect = (a, i0, start, end) => {
     // break up the monotony of one box per plot: about half the houses get a lower rear wing
     const parts = [];
-    for (let i = start; i < end; i++) {
-      const x = a[i * S] / 10, z = a[i * S + 1] / 10;
-      const w = a[i * S + 2] / 10, d = a[i * S + 3] / 10, ang = a[i * S + 4] / 1000, h = a[i * S + 5] / 10, main = a[i * S + 6] === 1;
+    for (let j = start; j < end; j++) {
+      const i = i0 + j;
+      const x = a[j * S] / 10, z = a[j * S + 1] / 10;
+      const w = a[j * S + 2] / 10, d = a[j * S + 3] / 10, ang = a[j * S + 4] / 1000, h = a[j * S + 5] / 10, main = a[j * S + 6] === 1;
       if (off && off(x, z, w, d, ang)) continue; // a landmark model stands here
-      const bits = a[i * S + 7], side = bits & 3, era = (bits >> 2) & 3, rc = (bits >> 4) & 7; // era: 0 modern, 1 Indochine, 2 Nguyễn-period timber; rc: roof family seen from orbit
+      const bits = a[j * S + 7], side = bits & 3, era = (bits >> 2) & 3, rc = (bits >> 4) & 7; // era: 0 modern, 1 Indochine, 2 Nguyễn-period timber; rc: roof family seen from orbit
       const front = side === 2 ? 0 : side === 1 ? -1 : 1; // which way the street lies along the plot's depth axis (0: a house behind the street row)
       let wallCol, roofCol;
       if (era === 1) { wallCol = shade(pick(PAL.indochine, i, 31), 0.93 + rand(i, 32) * 0.12); roofCol = shade(pick(PAL.indochineRoof, i, 34), 0.9 + rand(i, 35) * 0.18); }
@@ -777,10 +778,14 @@ function buildInfill(data, group, off = null) {
     inst(geos.slab, roofMat, extras, layer, false, true);
     inst(geos.tank, tankMat, tanks, layer, false, true);
   };
-  for (const list of chunked(collect(0, nearCount))) place(list, 0);
-  for (const list of chunked(collect(nearCount, n))) place(list, 1);
-
-  return meshes;
+  return (a, nearCount, i0 = 0) => {
+    a = a || [];
+    nearCount ??= a.length / S;
+    meshes = [];
+    for (const list of chunked(collect(a, i0, 0, nearCount))) place(list, 0);
+    for (const list of chunked(collect(a, i0, nearCount, a.length / S))) place(list, 1);
+    return meshes;
+  };
 }
 
 // ---------- Citadel wall & Imperial City enclosure ----------
@@ -950,8 +955,17 @@ export function populate(world, data) {
     return n >= ring.length * 0.7;
   };
   world.buildings = buildBuildings(data, world.group, buildingOff, roofClash(world.structures.roofs || []));
-  world.infill = buildInfill(data, world.group, houseOff);
-  world.trees = buildTrees(data, world.group, treeOff);
+  const plantInfill = infillPlanter(world.group, houseOff), plantTrees = treePlanter(data, world.group, treeOff);
+  world.infill = plantInfill(data.infill, data.meta?.counts?.infillNear, 0);
+  world.trees = plantTrees(data.trees, data.meta?.counts?.treesNear, 0);
+  // the trees and houses of a tile (public/data/tiles/, see build-data.mjs), after the first frame: planted by the same
+  // rules (off the models' ground, near-water ones into the reflection) and added to the scene; returns the new meshes
+  world.addTile = (tile) => {
+    const houses = plantInfill(tile.infill, tile.infillNear, tile.i0[1]), trees = plantTrees(tile.trees, tile.treesNear, tile.i0[0]);
+    world.infill.push(...houses);
+    world.trees.push(...trees);
+    return [...houses, ...trees];
+  };
 }
 
 export function finishStructures(structures, group) {

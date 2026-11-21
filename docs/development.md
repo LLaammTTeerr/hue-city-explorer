@@ -16,14 +16,18 @@ fonts via npm). No map service is contacted at runtime.
 
 Startup order (`main()` in `src/main.js`): the place index `places.json` (~32 kB, ~13 kB gzip) and the WebGL renderer
 come first, together. Search and the cards work as soon as the index is in, above the loader, while the city loads. The
-geometry bundle `hue.json` (~8 MB, ~3 MB gzip) is fetched only once a renderer exists. Without WebGL, or when the load
+geometry bundle `hue.json` (~3.5 MB, ~1.2 MB gzip) is fetched only once a renderer exists; it holds the trees and infill
+houses of the opening view, and the rest arrive after the first frame as ten 4 km tiles (`public/data/tiles/*.json`,
+~4.8 MB, ~1.8 MB gzip in all), fetched nearest first and planted one per frame (`world.addTile` in `src/geo/city.js`).
+Without WebGL, or when the load
 fails, `src/ui/fallback.js` shows a bilingual recovery screen with "Thử lại 3D / Retry 3D" and "Xem bản đồ 2D / Browse
 places": a flat SVG map of the places over the land outline (from `places.json`), with search and the cards.
 
 `window.__hue` exposes the scene for debugging, and `__hue.step(dt)` advances one frame by hand. `?look=real` or
 `?look=ink` in the URL picks the rendering. `?nogl` makes the page behave like a device without WebGL (canvas
 `getContext('webgl*')` returns null), to try the recovery screen and the 2D fallback. The performance marks
-`hue:search-ready`, `hue:geometry-loaded` and `hue:first-frame` time the startup.
+`hue:search-ready`, `hue:geometry-loaded`, `hue:first-frame` and `hue:tiles-loaded` time the startup; `__hue.tiles` is a
+promise that resolves once every tile is in (each tile also fires a `hue:scene-changed` window event).
 
 ## Checks
 
@@ -38,6 +42,7 @@ places": a flat SVG map of the places over the land outline (from `places.json`)
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
 | `npm run check:roofs` | no hip roof runs through another: side-by-side roofs meet in a valley gutter, an upper tier clears the slope below |
 | `npm run check:labels` | the label anchor heights in `places.json` (`a`) match the model tops of a freshly built scene; `--browser` (after `npm run build`) runs the same on the live page |
+| `npm run check:tiles` | loading trees and infill by tile changes nothing: the scene built the app's way (hue.json, then the tiles) matches one built from every record at once |
 
 ## Contributing
 
@@ -46,6 +51,7 @@ places": a flat SVG map of the places over the land outline (from `places.json`)
 - PRs are squash-merged, so each PR lands as one commit.
 - Label heights: `npm run data:build` ends with `scripts/build-label-tops.mjs`, which builds the scene headless (`scripts/lib/scene.mjs`) and writes each place's model top into `places.json` as `a` (decimetres); `src/ui/labels.js` reads it and falls back to ground + `h` without it. Changing a model under `src/landmarks/` or `src/geo/` moves its tops: run `node scripts/build-label-tops.mjs` (or the whole data build) and commit `places.json`; `npm run check` catches a stale one.
 - After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` and `public/data/places.json` with the change.
+- After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json`, `public/data/tiles/` and `public/data/places.json` with the change.
 - Fix a problem where it starts (the source data, the parser or a shared builder) and rebuild, rather than patching one place.
 - Work in progress and history are in [`PROGRESS.md`](../PROGRESS.md). Per-place research notes are in [`docs/places/`](places/).
 
@@ -90,7 +96,10 @@ elements and carries no Overpass `remark` (a timed-out, partial result); a piece
 script exits 1. Where an element appears in several extracts the build keeps the newest copy (by the extract's
 timestamp), and `meta.osmExtracts` in the bundle lists every extract with its date. The model's origin and box live
 in `scripts/frame.json`, read by the build and by every raw-data fetcher. `scripts/build-data.mjs` turns it all into
-the ~8 MB geometry bundle the app loads (`public/data/hue.json`), plus the small place index `public/data/places.json`
+the geometry bundle the app loads (`public/data/hue.json`) with its tree and infill tiles (`public/data/tiles/`: what
+the opening view and the place builders that read `data.trees` / `data.infill` need stays in `hue.json`; a place file
+whose builder reads farther than 520 m from its point says so with `export const dataReach = <metres>`; scripts read
+the whole set through `scripts/lib/data.mjs`), plus the small place index `public/data/places.json`
 (places, water labels and a simplified land and Citadel outline in whole metres for the 2D map; the places stay in
 `hue.json` too, since the scene builders read them there):
 

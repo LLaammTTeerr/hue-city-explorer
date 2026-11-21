@@ -415,8 +415,31 @@ async function main() {
   if (ui.cardId) pick(ui.cardId, true); // a place opened from the search box while the city loaded: go there now
   setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
 
-  // handle for debugging and automated checks
-  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
+  // ---------- the rest of the trees and houses ----------
+  // hue.json carries the first frame's; the others come in tiles (data.meta.tiles, nearest the opening view first,
+  // see build-data.mjs), fetched one behind the other after the first frame and each planted between two frames.
+  // Every tile added fires 'hue:scene-changed' on window (detail.meshes: what was added), for anything that keeps a
+  // drawing of the scene between frames; the shadow maps are told directly.
+  const tiles = (async () => {
+    const list = data.meta.tiles || [];
+    const get = (t) => getJSON(t.f).catch((err) => { console.warn('[hue] tile not loaded', t.f, err); return null; });
+    let next = list.length ? get(list[0]) : null;
+    for (let k = 0; k < list.length; k++) {
+      const body = await next;
+      next = k + 1 < list.length ? get(list[k + 1]) : null; // download the next one while this one is planted
+      if (!body) continue;
+      await frame();
+      const meshes = world.addTile(body);
+      for (const o of meshes) if (o.material?.defines && 'HUE_FOLIAGE' in o.material.defines && !leafMats.has(o.material)) { leafMats.add(o.material); setLook(look); }
+      if (shadows.invalidate) shadows.invalidate();
+      else { sun.shadow.needsUpdate = true; if (shadows.near) shadows.near.shadow.needsUpdate = true; }
+      dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
+    }
+    performance.mark('hue:tiles-loaded');
+  })();
+
+  // handle for debugging and automated checks (tiles: resolves once every tile is in the scene)
+  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, tiles };
 }
 
 main().catch((err) => {
