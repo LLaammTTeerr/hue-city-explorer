@@ -528,3 +528,11 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - Left over: tuphuong, duyetthi, canchanh and hungmieu+themieu are edge contact that the 1 m cells alias. Real
   interpenetration there is 0.03 m or less. Also left: quochoc (block plinth against the mapped hall), gahue
   (contact, 7 m²), phucam (7 m²), and hoquyen, thuyquan, mangca and conhen (not looked at).
+
+## Visual-bug round merged (2026-11-21, PRs #33, #35, #36, #37)
+- #33: ink outlines only where the surface turns (view-space normals from depth), so flat triangle seams no longer draw lines.
+- #35: Cầu Gia Hội's deck covers only the water plus 1.8 m abutments, with square ends, and lands flush with its streets (`bridgeProfiles` water spans). The crown rises 2.0 m.
+- #36: Nguyễn Hoàng's deck ends where the slip roads begin, so the junction islands are clear. The dropped carriageways still mark the ground as road, so nothing is planted under them. Dry-land rail bridges are laid at grade. check:overlap exempts deck-to-approach-street contact at bridge heads.
+- #37: the non-bridge fixes described above, merged with the bridge-head exemption.
+- check:overlap on main: 11 findings, mostly edge contact (dainoi+tuphuong 172, dainoi+duyetthi 43, canchanh 27, hungmieu 17), plus hoquyen 33, mangca 14, giahoi 13, quochoc 15, gahue 7, phucam 7, conhen 3.
+- Next: decide between per-sample and per-cell overlap counting so edge contact stops aliasing. Then fix hoquyen and mangca. Once it reaches 0, add check:overlap to `npm run check`.
