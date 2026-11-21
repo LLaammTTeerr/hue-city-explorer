@@ -1,77 +1,38 @@
-// Builds the landmark models headless and checks each one's height against the documented figure in
-// docs/heights-reference.json. Run: npm run check:heights  (add --all to print every entry, not just failures).
+// Builds the landmark models headless (scripts/lib/scene.mjs, through buildLandmarks) and checks each one's height
+// against the documented figure in docs/heights-reference.json. Run: npm run check:heights  (add --all to print every entry, not just failures).
 // Exits 1 when a model is outside its range (with the tolerance), when a locator finds nothing, or when a
 // builder throws or warns, so a regression shows up in CI before deploy.
 import fs from 'node:fs';
 import * as THREE from 'three';
-
-// the builders read a few browser globals at import time and draw one canvas texture (Kỳ Đài's flag)
-const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => ({ addColorStop() {} })), set: (t, k, v) => ((t[k] = v), true) });
-Object.assign(globalThis, {
-  innerWidth: 1280, innerHeight: 800, devicePixelRatio: 1, window: globalThis,
-  matchMedia: () => ({ matches: false, addEventListener() {} }),
-  location: { search: '', hash: '' }, localStorage: { getItem: () => null, setItem() {} },
-  document: { createElement: () => ({ width: 0, height: 0, style: {}, getContext: () => ctx2d }) },
-});
-const warnings = [];
-const warn0 = console.warn;
-console.warn = (...a) => { warnings.push(a.map(String).join(' ')); };
+import { buildScene } from './lib/scene.mjs';
 
 const root = new URL('../', import.meta.url);
 const src = (p) => new URL('src/' + p, root).href;
-const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
 const ref = JSON.parse(fs.readFileSync(new URL('docs/heights-reference.json', root)));
 const showAll = process.argv.includes('--all');
 
-const { initTerrain, groundY, rise } = await import(src('geo/terrain.js'));
-const { initDistricts } = await import(src('geo/districts.js'));
-const { buildWalls } = await import(src('geo/city.js'));
-const { Buf } = await import(src('geo/buf.js'));
-// the per-place replicas (src/landmarks/places/*.js): import them before any builder, so places/index.js sees them
-globalThis.__hueReplicas = {};
-for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.js') && f !== 'index.js'))
-  globalThis.__hueReplicas[f] = await import(src('landmarks/places/' + f));
-const { buildPlaces } = await import(src('landmarks/places/index.js'));
-const L = (m) => import(src('landmarks/' + m + '.js'));
-const [truongtien, citadel, more, civic, memorial, boardwalk, floating, south, tombs] = await Promise.all(
-  ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'floating', 'south', 'tombs'].map(L));
+// ---- the scene, built through buildLandmarks as src/main.js builds it (scripts/lib/scene.mjs) ----
+const { data, sources, S, errors, warnings, groundY } = await buildScene();
+const { rise } = await import(src('geo/terrain.js'));
 
-// ---- the scene, in the order src/main.js builds it ----
-initTerrain(data);
-initDistricts(data);
-const S = new Buf(160000), dyn = new THREE.Group();
-const errors = [];
-const step = (name, f) => { try { f(); } catch (e) { errors.push(`${name} threw: ${e.message}`); } };
-const w0 = S.n;
-step('walls', () => buildWalls(data, S));
-const wallRange = [w0, S.n];
-step('truongtien', () => truongtien.buildTruongTien(data, S, dyn));
-step('citadel', () => citadel.buildCitadel(data, S, dyn));
-step('market', () => citadel.buildMarket(data, S, dyn));
-step('thienmu', () => citadel.buildThienMu(data, S, dyn));
-step('nguyenhoang', () => more.buildNguyenHoang(data, S, dyn));
-step('quochocgate', () => more.buildQuocHocGate(data, S));
-step('civic', () => civic.buildCivic(data, S));
-step('biaquochoc', () => memorial.buildBiaQuocHoc(data, S));
-step('boardwalk', () => boardwalk.buildBoardwalk(data, S, dyn));
-step('floating', () => floating.buildFloatingRestaurants(data, S, dyn));
-step('south', () => south.buildSouth(data, S));
-step('tombs', () => tombs.buildTombs(data, S));
-step('replicas', () => buildPlaces(data, S, dyn));
-console.warn = warn0;
-
-// every vertex of the landmark models (the merged mesh, minus the Citadel rampart, plus the separate meshes)
+// every vertex of the landmark models: the faces each landmark step added to the merged buffer and the objects it
+// added, minus the Citadel rampart, the city's own buildings, houses and trees (populate) and the moving things
+const notLandmarks = new Set(['walls', 'populate', 'boats', 'lanterns', 'lotus', 'traffic', 'street']);
 const pts = [];
 {
-  const P = S.pos;
-  for (let i = 0; i < S.n; i++) if (i < wallRange[0] || i >= wallRange[1]) pts.push(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]);
-  dyn.updateMatrixWorld(true);
-  const v = new THREE.Vector3();
-  dyn.traverse((o) => {
-    const p = o.geometry?.attributes?.position;
-    if (!p || o.isPoints || o.isSprite) return;
-    for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); pts.push(v.x, v.y, v.z); }
-  });
+  const P = S.pos, v = new THREE.Vector3();
+  for (const s of sources) {
+    if (notLandmarks.has(s.name)) continue;
+    for (let i = s.range[0]; i < s.range[1]; i++) pts.push(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]);
+    for (const r of s.objs) {
+      r.updateMatrixWorld(true);
+      r.traverse((o) => {
+        const p = o.geometry?.attributes?.position;
+        if (!p || o.isPoints || o.isSprite) return;
+        for (let i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); pts.push(v.x, v.y, v.z); }
+      });
+    }
+  }
 }
 
 // ---- locating a reference entry ----
@@ -132,7 +93,7 @@ for (const e of ref.landmarks) {
   const ok = h != null && h >= lo * (1 - tol) && h <= hi * (1 + tol);
   rows.push({ name: e.name, want: lo === hi ? `${lo}` : `${lo}–${hi}`, got: h == null ? (poly ? 'no model' : 'not found') : h.toFixed(1), ok, known: e.known, tol, note: e.base === 'model' ? 'on its floor' : '' });
 }
-for (const w of warnings) errors.push(`warning while building: ${w}`);
+for (const [, w] of warnings) errors.push(`warning while building: ${w}`);
 
 if (process.argv.includes('--diag')) { // what each base would give, for working out why an entry fails
   for (const e of ref.landmarks) {

@@ -1,0 +1,19 @@
+{
+  "_": "Named views for scripts/shot.mjs --view <name> and scripts/compare.mjs. Coordinates are scene metres: x east, y up, z south of the middle of cầu Trường Tiền; the river is at y 0 and the city's ground at y 2.6 (LAND_Y). A view is either a fixed camera (camera: { pos, target }) or an arrival: the camera starts at start, the visitor's pick of place runs (the same call a search result or a label makes), and frames are taken that many seconds into it. viewport is CSS pixels at device scale 1; look real|ink; time 0 morning, 1 afternoon, 2 evening; reducedMotion emulates prefers-reduced-motion. Add a view when a task needs one; change an existing view only on purpose, since earlier captures stop being comparable.",
+  "ngo-mon-arrival": {
+    "note": "A visitor over Trường Tiền searches for Ngọ Môn and flies there; landscape desktop window.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "start": { "pos": [-150, 240, 420], "target": [-650, 2.6, 150] },
+    "pick": "ngomon",
+    "frames": [0, 0.8, 1.6, 2.6, 4]
+  },
+  "truong-tien-river-level": {
+    "note": "Cầu Trường Tiền from a boat on the Hương, downstream (east) of the bridge, looking upstream.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [260, 2, -90], "target": [0, 8, 0] }
+  }
+}

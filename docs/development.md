@@ -1,6 +1,6 @@
 # Development
 
-Notes for working on the code and the data. If you only want to look at the model, open https://hue-city.lamter.cc. The [README](../README.md) is the user guide.
+Notes for working on the code and the data. If you only want to look at the model, open https://hue-city.lamter.cc. The [README](../README.md) is the user guide. Agents (and newcomers) start with [AGENTS.md](../AGENTS.md).
 
 ## Run and build
 
@@ -28,6 +28,39 @@ places": a flat SVG map of the places over the land outline (from `places.json`)
 `getContext('webgl*')` returns null), to try the recovery screen and the 2D fallback. The performance marks
 `hue:search-ready`, `hue:geometry-loaded`, `hue:first-frame` and `hue:tiles-loaded` time the startup; `__hue.tiles` is a
 promise that resolves once every tile is in (each tile also fires a `hue:scene-changed` window event).
+`hue:search-ready`, `hue:geometry-loaded` and `hue:first-frame` time the startup. `?still` stops the frame loop (no drift,
+no adaptive resolution), so only `__hue.step` moves time.
+
+`node scripts/shot.mjs --view <name>` captures a named view from `scripts/views.json`; `node scripts/compare.mjs <view>
+--base <ref>` captures it on another revision too and writes a side-by-side page to `scratch/compare/`.
+
+### Shared views (`?v=1`)
+
+The share button ("Chia sẻ góc nhìn" / "Share this view", on the place card and in the tool column) builds a link that
+reopens the view (`src/ui/share.js`). It uses the system share sheet where there is one, otherwise it copies the link.
+
+```
+?v=1&c=<x>,<y>,<z>&t=<x>,<z>&a=<aspect>&f=<fov>&m=<time><rain><look>[&p=<place id>]
+```
+
+| Key | Meaning |
+| --- | --- |
+| `v` | format version, `1`; any other value is ignored |
+| `c` | camera position, scene metres, 1 decimal |
+| `t` | camera target on the ground (x, z; its height is always `LAND_Y`) |
+| `a` | width / height of the window the link was made in, 2 decimals |
+| `f` | vertical field of view then, degrees |
+| `m` | time of day `0` morning, `1` late afternoon, `2` lights on; rain `0`/`1`; look `i` ink or `r` realistic |
+| `p` | place id whose card is open (`data.places`); left out for a free view |
+
+Example: `?v=1&c=300.7,116.6,-395.5&t=0,0&a=1.78&f=37.6&m=20i&p=truongtien` (Trường Tiền, lights on, ink).
+On load a valid link sets the atmosphere at once (no fade), places the camera (no opening flight) and opens the card;
+the camera counts as moved, so a resize keeps it. The target and direction are kept and only the distance changes for
+the new window: the link's full frame height, and as much of its width as the landmark needs (a centred landmark keeps
+half the width, one near the edge all of it). On a phone, where the card covers the lower half, the camera tips down so
+the view's centre sits in the strip above the card. A link that fails any check (wrong version, malformed number,
+target off the map, distance out of the controls' range, unknown place) is ignored and the normal opening plays.
+Other params (`?look=`) are not carried into a shared link; a shared link's look does not change the saved choice.
 
 ## Checks
 
@@ -40,9 +73,11 @@ promise that resolves once every tile is in (each tile also fires a `hue:scene-c
 | `npm run check:burial` | no model sunk into the ground |
 | `npm run check:overlap` | no model on a carriageway, inside another model or under a kept building |
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
+| `npm run test:joints` | fixture test of the joining step (`src/geo/joints.js`) on real road ends (`scripts/fixtures/joints-real.json`), within 1 cm; milliseconds |
 | `npm run check:roofs` | no hip roof runs through another: side-by-side roofs meet in a valley gutter, an upper tier clears the slope below |
 | `npm run check:labels` | the label anchor heights in `places.json` (`a`) match the model tops of a freshly built scene; `--browser` (after `npm run build`) runs the same on the live page |
 | `npm run check:tiles` | loading trees and infill by tile changes nothing: the scene built the app's way (hue.json, then the tiles) matches one built from every record at once |
+| `npm run check:markings` | no lane dash crosses another major carriageway or lies in a junction hole (markings stop at the junction mouth), and dashes away from junctions are kept |
 
 ## Contributing
 
@@ -50,7 +85,6 @@ promise that resolves once every tile is in (each tile also fires a `hue:scene-c
 - The `check` workflow (`.github/workflows/check.yml`) must pass, and the branch must be up to date with `main`.
 - PRs are squash-merged, so each PR lands as one commit.
 - Label heights: `npm run data:build` ends with `scripts/build-label-tops.mjs`, which builds the scene headless (`scripts/lib/scene.mjs`) and writes each place's model top into `places.json` as `a` (decimetres); `src/ui/labels.js` reads it and falls back to ground + `h` without it. Changing a model under `src/landmarks/` or `src/geo/` moves its tops: run `node scripts/build-label-tops.mjs` (or the whole data build) and commit `places.json`; `npm run check` catches a stale one.
-- After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` and `public/data/places.json` with the change.
 - After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json`, `public/data/tiles/` and `public/data/places.json` with the change.
 - Fix a problem where it starts (the source data, the parser or a shared builder) and rebuild, rather than patching one place.
 - Work in progress and history are in [`PROGRESS.md`](../PROGRESS.md). Per-place research notes are in [`docs/places/`](places/).
@@ -77,6 +111,13 @@ Every push to `main` is checked, built and published to GitHub Pages by `.github
 - `src/geo/foliage.js` — leaf-card trees and areca palms; `src/geo/terrain.js` — ground height
 - `src/landmarks/` — Trường Tiền, Citadel monuments and gates, market, Thiên Mụ, cầu Nguyễn Hoàng, boats,
   lotus ponds and street traffic
+- `src/landmarks/build.js` — `buildLandmarks(data, world, group, opts)`, the one sequence that builds every landmark,
+  then `populate`, then the moving things (boats, lanterns, lotus, traffic, street life). The browser (`src/main.js`)
+  and the geometry checks (`scripts/lib/scene.mjs`, used by check:overlap, check:burial, check:heights and
+  check:joints) both call it, so **a new landmark is added there, never in `main.js`**: added anywhere else it would
+  show in the city but escape the checks. It returns the handles the frame loop animates. The checks pass a `step`
+  observer, called around each named step, to record what each one added; per-place replicas in
+  `src/landmarks/places/` are picked up by `buildPlaces` without being listed.
 - `src/env/` — sky, water, rain, mood presets, and the desktop post pass (ambient occlusion, river mist,
   tilt-shift focus, bloom, grade)
 - `src/camera/` — map controls

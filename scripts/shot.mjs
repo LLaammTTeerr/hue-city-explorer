@@ -1,30 +1,41 @@
-// Headless screenshots of one place, for checking a model without the browser pane.
+// Headless screenshots of one place, or of one named view, for checking a model without the browser pane.
 //
 //   npm run build && node scripts/shot.mjs <placeId> [--out dir] [--port 5300] [--dist 160] [--time 1] [--look real|ink] [--at x,z]
+//   npm run build && node scripts/shot.mjs --view <name> [--out dir] [--build dir]
+//
+// --view takes a view from scripts/views.json: a fixed camera, or an arrival (start pose, the visitor's pick of a
+// place, frames at set seconds into the flight). The page runs with ?still, so time moves only by fixed steps and the
+// same view gives the same frames on every run and revision, to within a few scattered pixels of GPU noise; scripts/compare.mjs uses that for before/after.
+// --build serves another built site instead of dist/ (compare.mjs passes the base revision's).
 //
 // Serves dist/ with `vite preview` on --port (pick a free one when several run at once), opens it in headless Chrome
 // (SwiftShader WebGL, so it is slow: allow a minute or two), puts the camera on the place from four sides plus one
 // from above, and writes PNGs to --out (default scratch/shots/<placeId>/). --time 0 morning, 1 afternoon, 2 evening.
 import { spawn } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { setTimeout as sleep } from 'node:timers/promises';
 import path from 'node:path';
 import net from 'node:net';
 
 const args = process.argv.slice(2);
-const id = args.find((a) => !a.startsWith('--'));
 const opt = (k, d) => { const i = args.indexOf('--' + k); return i >= 0 ? args[i + 1] : d; };
-if (!id) { console.error('usage: node scripts/shot.mjs <placeId> [--out dir] [--port n] [--dist m] [--time 0|1|2] [--look real|ink]'); process.exit(2); }
+const id = args.find((a, i) => !a.startsWith('--') && !(i > 0 && args[i - 1].startsWith('--')));
+const viewName = opt('view', null);
+const VIEWS = JSON.parse(readFileSync(new URL('./views.json', import.meta.url)));
+const view = viewName ? VIEWS[viewName] : null;
+if (viewName && (!view || viewName === '_')) { console.error(`no view ${viewName}; views: ${Object.keys(VIEWS).filter((k) => k !== '_').join(', ')}`); process.exit(2); }
+if (!id && !view) { console.error('usage: node scripts/shot.mjs <placeId> [--out dir] [--port n] [--dist m] [--time 0|1|2] [--look real|ink]\n       node scripts/shot.mjs --view <name> [--out dir] [--build dir]'); process.exit(2); }
 // Several agents shoot at once: a port another preview already holds would photograph *its* build, so take the
 // asked port only if it and its CDP partner are free, else a random free pair.
 const free = (p) => new Promise((r) => { const s = net.createServer().once('error', () => r(false)).once('listening', () => s.close(() => r(true))).listen(p, '127.0.0.1'); });
 let port = +opt('port', 5300 + Math.floor(Math.random() * 600));
 for (let i = 0; i < 200 && !((await free(port)) && (await free(port + 1000))); i++) port = 5300 + Math.floor(Math.random() * 1600);
 const cdp = port + 1000;
-const out = opt('out', path.join('scratch', 'shots', id.replace(/[^\w-]/g, '_')));
+const out = opt('out', path.join('scratch', 'shots', view ? viewName : id.replace(/[^\w-]/g, '_')));
+const build = opt('build', 'dist');
 const dist = opt('dist', null);
-const time = +opt('time', 1);
-const look = opt('look', 'real');
+const time = +opt('time', view?.time ?? 1);
+const look = opt('look', view?.look ?? 'real');
 const at = opt('at', null);
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 mkdirSync(out, { recursive: true });
@@ -34,7 +45,7 @@ const kids = [];
 const done = (code) => { for (const k of kids) { try { process.kill(-k.pid, 'SIGKILL'); } catch { try { k.kill('SIGKILL'); } catch { /* gone */ } } } process.exit(code); };
 process.on('SIGINT', () => done(130));
 
-const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { stdio: 'ignore', detached: true });
+const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort', '--outDir', path.resolve(build)], { stdio: 'ignore', detached: true });
 kids.push(server);
 const profile = path.join(process.env.TMPDIR || '/tmp', `hue-shot-${port}`);
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${cdp}`, `--user-data-dir=${profile}`, '--window-size=1400,900',
@@ -44,6 +55,39 @@ kids.push(chrome);
 async function json(u) { for (let i = 0; i < 60; i++) { try { return await (await fetch(u)).json(); } catch { await sleep(500); } } throw new Error('no ' + u); }
 async function up(u) { for (let i = 0; i < 60; i++) { try { if ((await fetch(u)).ok) return; } catch { /* not yet */ } await sleep(500); } throw new Error('server did not start on ' + u); }
 
+// A named view: same viewport, look, time of day and steps on every run. Under ?still nothing moves between steps.
+const DT = 1 / 30;
+async function shootView() {
+  const grab = async (file, js) => {
+    const png = await evaluate(`(() => { const H = window.__hue, T = H.THREE, c = H.rig.camera, k = H.rig.controls; ${js}
+      return H.renderer.domElement.toDataURL('image/png'); })()`); // read in the same task as the last draw
+    if (!png) throw new Error('no image from the canvas');
+    writeFileSync(path.join(out, file), Buffer.from(png.split(',')[1], 'base64'));
+    return file;
+  };
+  const steps = (s) => { const n = Math.round(s / DT); return n ? `for (let i = 0; i < ${n}; i++) H.step(${DT});` : 'H.step(0);'; }; // at least one draw
+  const pose = (p) => `H.rig.cancelFly(); c.position.set(${p.pos.join(',')}); k.target.set(${p.target.join(',')}); k.update();`;
+  // the time of day is set outright (it would otherwise ease in over several seconds), then the light probe settles
+  await evaluate(`(() => { const H = window.__hue; H.rig.controls.autoRotate = false; H.mood.setTime(${time}); H.mood.state.time = ${time}; })()`);
+  const files = [];
+  if (view.camera) files.push(await grab('view.png', pose(view.camera) + steps(2)));
+  else {
+    if (!view.start || !view.pick) throw new Error('a view needs camera, or start and pick');
+    await evaluate(`(() => { const H = window.__hue, c = H.rig.camera, k = H.rig.controls; ${pose(view.start)} ${steps(2)} })()`);
+    if (!(await evaluate(`!!window.__hue.data.places.find((q) => q.id === ${JSON.stringify(view.pick)})`))) throw new Error('no place with id ' + view.pick);
+    await evaluate(`window.__hue.pick(${JSON.stringify(view.pick)}, true)`);
+    let t = 0;
+    for (const f of [...view.frames].sort((a, b) => a - b)) {
+      files.push(await grab(`t${f.toFixed(1)}.png`, steps(f - t)));
+      t = f;
+    }
+  }
+  writeFileSync(path.join(out, 'view.json'), JSON.stringify({ view: viewName, ...view, files }, null, 2) + '\n');
+  console.log(`${viewName}: ${files.join(' ')} → ${out} (port ${port})`);
+  if (errors.length) console.log('page errors/warnings:\n  ' + errors.slice(0, 10).join('\n  '));
+}
+
+let evaluate, errors;
 try {
   const base = `http://localhost:${port}`;
   await up(base + '/');
@@ -53,17 +97,23 @@ try {
   let seq = 0; const wait = new Map();
   ws.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (m.id && wait.has(m.id)) { wait.get(m.id)(m); wait.delete(m.id); } });
   const send = (method, params = {}) => new Promise((r) => { const i = ++seq; wait.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
-  const evaluate = async (expr) => {
+  evaluate = async (expr) => {
     const m = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true });
     if (m.result?.exceptionDetails) throw new Error(m.result.exceptionDetails.exception?.description || 'eval failed');
     return m.result?.result?.value;
   };
   await send('Page.enable'); await send('Runtime.enable');
-  const errors = [];
+  errors = [];
   ws.addEventListener('message', (e) => { const m = JSON.parse(e.data); if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails?.exception?.description); if (m.method === 'Runtime.consoleAPICalled' && (m.params.type === 'error' || m.params.type === 'warning')) errors.push(m.params.args.map((a) => a.value ?? a.description).join(' ')); });
-  await send('Page.navigate', { url: `${base}/?look=${look}` });
+  if (view) {
+    const [w, h] = view.viewport || [1400, 900];
+    await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < h });
+    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: view.reducedMotion ? 'reduce' : 'no-preference' }] });
+  }
+  await send('Page.navigate', { url: `${base}/?look=${look}${view ? '&still' : ''}` });
   for (let i = 0; i < 360; i++) { if (await evaluate('!!window.__hue')) break; await sleep(500); if (i === 359) throw new Error('scene never became ready'); }
   await evaluate('window.__hue.tiles'); // the trees and houses that arrive after the first frame (public/data/tiles/)
+  if (view) { await shootView(); done(0); }
   const info = await evaluate(`(() => {
     const H = window.__hue, p = H.data.places.find((q) => q.id === ${JSON.stringify(id)});
     if (!p) return null;

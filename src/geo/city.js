@@ -10,11 +10,13 @@ import { treePlanter } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample, subPath } from './bridges.js';
+import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
+import { junctionHoles, holeRects, markingGuard, inPoly } from './junctions.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -243,61 +245,6 @@ function medianShrubs(S, medians) {
   S.kind = k0;
 }
 
-// Where a bridge way and a street meet end to end, each takes a point of the other just past the joint (r.ends, see
-// ribbonPoints), so the deck's end and the street's end are cut on one line: no wedge of bare ground opens on the
-// outside of the bend and nothing overlaps on the inside. The partner is the most nearly straight-on of the ways of
-// the other kind (bridge / street) that end there; a bridge's own street ends (head) count as street.
-const JOINT_ANG = Math.cos((50 * Math.PI) / 180);
-function bridgeJoints(roads) {
-  const key = (p) => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10);
-  const at = new Map();
-  for (const r of roads) {
-    if (r.c > 3 || r.pts.length < 2) continue;
-    for (const e of [0, 1]) {
-      const k = key(e ? r.pts[r.pts.length - 1] : r.pts[0]);
-      if (!at.has(k)) at.set(k, []);
-      at.get(k).push([r, e]);
-    }
-  }
-  // the first point of r at least 0.5 m from its end e, and the unit heading from that end into r
-  const inward = (r, e) => {
-    const p = e ? r.pts[r.pts.length - 1] : r.pts[0];
-    for (let i = 1; i < r.pts.length; i++) {
-      const q = r.pts[e ? r.pts.length - 1 - i : i], d = Math.hypot(q[0] - p[0], q[1] - p[1]);
-      if (d >= 0.5 || i === r.pts.length - 1) return { q, dx: (q[0] - p[0]) / (d || 1), dz: (q[1] - p[1]) / (d || 1) };
-    }
-  };
-  const kind = (r) => (r.bridge || r.head ? 1 : 0);
-  for (const list of at.values()) {
-    for (const [r, e] of list) {
-      if (r.cut?.[e]) continue;
-      const own = inward(r, e);
-      let best = null, bestDot = JOINT_ANG;
-      for (const [q, f] of list) {
-        if (q === r || kind(q) === kind(r) || q.cut?.[f]) continue;
-        const o = inward(q, f), dot = -(own.dx * o.dx + own.dz * o.dz); // 1: straight on
-        if (dot > bestDot) { bestDot = dot; best = o.q; }
-      }
-      if (best) { r.ends = r.ends || [null, null]; r.ends[e] = best; }
-    }
-  }
-}
-
-// The same for a hand-modelled deck (landmarks/places): its end is a straight line square to the deck, given as
-// { p, u (outward), hw, reach }. A street that starts within reach beyond it, inside its width, is cut on that line.
-function handDeckJoints(roads, decks) {
-  for (const D of decks) for (const r of roads) {
-    if (r.bridge || r.c > 3) continue;
-    for (const e of [0, 1]) {
-      const P = e ? r.pts[r.pts.length - 1] : r.pts[0], dx = P[0] - D.p[0], dz = P[1] - D.p[1];
-      const s = dx * D.u[0] + dz * D.u[1], t = -dx * D.u[1] + dz * D.u[0];
-      if (Math.abs(t) > D.hw || s < -1 || s > D.reach) continue;
-      r.ends = r.ends || [null, null];
-      r.ends[e] = { dir: D.u, line: D }; // tangent along the deck: the cut runs across it
-    }
-  }
-}
-
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
@@ -328,6 +275,22 @@ function buildRoads(data, group, structures) {
   for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r), y, casing, r.ends);
   B.kind = KIND.LINE;
   for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, r.w + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85), r.ends);
+  // junction boxes (geo/junctions.js): the patches that meeting carriageways enclose but none covers are asphalt,
+  // over the pavement and kerb lines that showed there as pale squares and triangles out in the road
+  const cw = [];
+  roads.forEach((r, id) => {
+    if (r.bridge || r.c > 4) return;
+    const [L, R] = ribbonPoints(drape(snapEnds(r.pts, r.ends)), r.w, r.ends);
+    cw.push({ id, c: r.c, pts: r.pts, L, R });
+  });
+  const greens = (data.green || []).filter(([k]) => k !== 'paved').map(([, poly]) => unflat(poly[0]));
+  const { holes, cells: holeCells } = junctionHoles(cw, (x, z) => greens.some((g) => inPoly(g, x, z)));
+  B.kind = KIND.ROAD;
+  for (const h of holes) {
+    const lift = rise(h.x, h.z) > 0 ? 0.12 : 0, col = cols[Math.min(h.c, ROAD_MAX)];
+    const v = (x, z) => [x, y + 0.0055 + rise(x, z) + lift, z];
+    for (const [x0, x1, z0, z1] of holeRects(h)) B.quad(v(x0, z0), v(x0, z1), v(x1, z1), v(x1, z0), col, [0, 1, 0]);
+  }
   // the medians of the divided roads (issue #15): a planted strip inside a pale stone kerb, under the carriageways'
   // own edges, with low clipped shrubs along it
   const medians = (data.medians || []).map(([w, flat]) => ({ w: w / 10, pts: unflat(flat) }));
@@ -339,15 +302,34 @@ function buildRoads(data, group, structures) {
   medianShrubs(structures, medians);
   B.kind = KIND.ROAD;
   for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, r.w, y + 0.01, cols[c], r.ends);
+  // lane markings: a dashed line along the major roads, stopped short of every carriageway it meets and of the
+  // junction holes, so the junction box itself is left plain (geo/junctions.js)
   const paint = hex('#f4eedd');
-  for (const r of roads) {
-    if (r.bridge || r.c > 1) continue;
+  const guard = markingGuard(roads.map((r, id) => ({ id, c: r.c, w: r.w, pts: r.pts, bridge: r.bridge })).filter((r) => !r.bridge && r.c <= 2), holeCells);
+  const dashes = [];
+  roads.forEach((r, id) => {
+    if (r.bridge || r.c > 1) return;
     const len = pathLength(r.pts);
-    for (let s0 = 4; s0 + 5 < len; s0 += 13) {
+    // where along the road (every metre) a dash may lie
+    const free = [];
+    for (let s = 0; s <= len; s++) { const { p, a } = along(r.pts, s); free.push(guard(id, p[0], p[1], a)); }
+    const clear = (s0) => { for (let k = 0; k <= 5; k++) if (!free[s0 + k]) return false; return true; };
+    const starts = [];
+    for (let s0 = 4; s0 + 5 < len; s0 += 13) if (clear(s0)) starts.push(s0); // the steady 13 m rhythm
+    // a stretch the rhythm misses (between two carriageways inside a junction, a short way) gets one dash in its middle
+    for (let a = 0; a < free.length; ) {
+      if (!free[a]) { a++; continue; }
+      let b = a;
+      while (b + 1 < free.length && free[b + 1]) b++;
+      if (b - a >= 7 && !starts.some((s0) => s0 + 5 >= a && s0 <= b)) starts.push(Math.floor((a + b) / 2) - 2);
+      a = b + 1;
+    }
+    for (const s0 of starts) {
       const p0 = along(r.pts, s0).p, p1 = along(r.pts, s0 + 5).p;
       ribbon(B, [p0, p1], 0.32, y + 0.02, paint);
+      dashes.push({ id, s0, p0, p1 });
     }
-  }
+  });
   for (const [main, bridge, flat] of data.rails || []) {
     const pts = unflat(flat);
     if (bridge) continue;
@@ -447,7 +429,7 @@ function buildRoads(data, group, structures) {
   const lamps = glowPoints(lp, lc, 7);
   lamps.material.uniforms.uBoost.value = 0.6;
   group.add(lamps);
-  return { lamps };
+  return { lamps, marks: { roads, cw, holes, holeCells, dashes } };
 }
 
 // ---------- buildings from OSM footprints ----------
@@ -858,11 +840,11 @@ export function buildCity(data) {
   const hills = buildTerrainMesh();
   if (hills) group.add(hills);
   buildGreen(data, group);
-  const { lamps } = buildRoads(data, group, structures);
+  const { lamps, marks } = buildRoads(data, group, structures);
   const w0 = structures.n;
   buildWalls(data, structures);
   structures.wallRange = [w0, structures.n];
-  return { group, structures, lamps, infill: [], trees: [] };
+  return { group, structures, lamps, marks, infill: [], trees: [] };
 }
 
 // Ground the landmark models stand on: every 1 m cell under a face of theirs that looks up and stands clear of the

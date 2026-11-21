@@ -35,9 +35,13 @@ export function buildLotus(data, group) {
       const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
       // lotus grows in drifts, thickest toward the banks
       if (Math.sin(x * 0.045) * Math.cos(z * 0.052) + Math.sin((x + z) * 0.021) < 0.15 - rnd() * 0.5) continue;
-      if (!inRing(x, z, outer) || rings.slice(1).some((h) => inRing(x, z, h))) continue;
-      // leaves are drawn about twice life size so the drifts read from the air
-      pads.push([x, z, 1.1 + rnd() * 1.2, rnd() * 6.28, Y]);
+      const wet = (px, pz) => inRing(px, pz, outer) && !rings.slice(1).some((h) => inRing(px, pz, h));
+      if (!wet(x, z)) continue;
+      // leaves are drawn about twice life size so the drifts read from the air; the whole leaf floats on the pond,
+      // none of it reaching over the bank, where it would run under the ground (check-burial)
+      const r = 1.1 + rnd() * 1.2;
+      if (![0, 1, 2, 3, 4, 5].every((j) => wet(x + r * Math.cos(j * 1.047), z + r * Math.sin(j * 1.047)))) continue;
+      pads.push([x, z, r, rnd() * 6.28, Y]);
       if (rnd() < 0.2) blooms.push([x + (rnd() - 0.5) * 1.2, z + (rnd() - 0.5) * 1.2, 1.3 + rnd() * 0.9, Y]);
       k++;
     }

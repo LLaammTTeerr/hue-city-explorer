@@ -22,6 +22,40 @@
   8.23 MB / 2.95 MB gzip -> 3.47 MB / 1.18 MB gzip; tiles 4.77 MB / 1.77 MB gzip. At 9 Mbps / 60 ms (headless,
   gzip server): first 3D frame 6.7 s -> 4.1 s, all tiles in at 6.3 s. `npm run check:tiles` proves the split
   changes no builder's input.
+- Junction markings (2026-11-21, branch worktree-agent-a495b5cffec0ae1d6): lane dashes were laid along every class 0-1
+  centre line unclipped, so they ran straight through junction boxes and crossed each other (big junction at
+  x≈-200, z≈550). Patches enclosed by carriageways that none covers showed the pale casing and kerb as small white
+  triangles and squares (x≈-219, z≈544; x≈1433, z≈-2608). New `src/geo/junctions.js`: `junctionHoles` rasterises the
+  carriageways (0.5 m) around each cluster of junction nodes and flood-fills from outside; enclosed patches under
+  150 m² (not mapped greens) are painted as asphalt under the medians. `markingGuard` stops a dash 1.5 m short of any
+  other class 0-2 carriageway (its own end-to-end continuations excepted) and of a hole. `npm run check:markings`
+  tests every dash outline against the exact carriageway triangles and the holes (in `npm run check`). Swept top-down
+  and oblique: the main junction, the median square, roundabout (639, 604), divided crossing (214, 572), divided T
+  (1373, -1685), T (2202, 2342), bridge-head junction (-2007, 879). No stop lines drawn (the 1.5 m pad leaves room).
+  Follow-up: ways within 30° of parallel (fork arms, slip roads, twin carriageways, whose 15 m default-width ribbons
+  overlap for tens of metres) no longer clip each other's dashes, and a clear stretch the 13 m rhythm misses gets one
+  centred dash. check:markings also fails if more than 0.1% of the dash slots clear of junction zones lose their dash
+  (the first version would have missed 0.17%; now 0.02%).
+- Agent workflow (2026-11-21): root `AGENTS.md` (CLAUDE.md imports it); named views in `scripts/views.json`
+  (`ngo-mon-arrival`, `truong-tien-river-level`) shot with `node scripts/shot.mjs --view <name>` under `?still`, which
+  stops the frame loop so repeat runs differ by at most ~10 scattered pixels; `scripts/compare.mjs <view> --base <ref>` shoots base and
+  head side by side; `.github/ISSUE_TEMPLATE/experience.md`. Next: try a real issue (the Ngọ Môn arrival) and see where
+  the agent gets stuck; captures are not in CI yet (needs Chrome with WebGL on the runner).
+- Share a view (2026-11-21): "Chia sẻ góc nhìn" / "Share this view" button on the place card and in the tool column
+  builds a `?v=1&c=…&t=…&a=…&f=…&m=…&p=…` link (format in docs/development.md, code in src/ui/share.js): navigator.share
+  where available, otherwise the clipboard with "Đã sao chép liên kết". Opening it sets the mood without a fade, puts
+  the camera there (no home flight), opens the card and marks the camera as moved (`rig.leaveOpening()` in
+  controls.js) so resize and drift leave it alone. Distance adapts to the window's aspect; on phones the camera tips
+  so the view centre sits above the card sheet. Invalid params fall back to the normal opening. Checked in headless
+  Chrome: Trường Tiền at night (desktop → new tab → phone), rainy night at Đông Ba (fresh session, first frame), free
+  view, seven malformed links.
+- One landmark sequence (2026-11-21): `buildLandmarks` in src/landmarks/build.js is the only place the landmarks,
+  populate and the moving things are built, in order; src/main.js and scripts/lib/scene.mjs both call it (the checks
+  through a per-step observer), and check-heights now builds through scene.mjs too. Previously browser-only steps now
+  checked: riverlights, boats, lanterns, lotus, traffic. They revealed two real faults, fixed at the source: 66
+  embankment lamp posts stood on carriageways (build-data.mjs now keeps lamps off class 0-3 streets; posts 901 → 835,
+  walkway lights 1609 → 1621) and lotus leaves reached over pond banks under the ground (life.js keeps each whole leaf
+  on the water). Browser scene graph identical before/after the refactor.
 - Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
   `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
   lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with
@@ -34,8 +68,6 @@
   error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
   `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
   first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
-
-
 - Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
   the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
   and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground
@@ -677,6 +709,10 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   - generic decks ended 0.36 m above the street: bridges.js now ramps class 0-3 decks onto the street's height;
   - cầu Nguyễn Hoàng's fixed cross-section now blends, over its last 24 m, into its approach carriageways' bands, colours and cross-fall. Its deck ends, and Phú Xuân's, are exported via `deckEnds()`.
 - New `npm run check:joints` (scripts/check-joints.mjs), now part of `npm run check`: 81 joints, 0 failing (bare seam ≤ 0.5 m², step ≤ 0.35 m). The old code had 66 of 77 failing. check:overlap is still clean.
+
+## Joint step as a module with a fixture test (2026-11-21, branch `claude/joint-fixture`)
+- `bridgeJoints`, `handDeckJoints` and `JOINT_ANG` moved unchanged from `src/geo/city.js` to `src/geo/joints.js` (city.js imports them); `check:joints --all` and `check:overlap` output identical before and after.
+- `npm run test:joints` (scripts/test-joints-fixture.mjs, part of `npm run check`) runs them on real road ends in scripts/fixtures/joints-real.json within 1 cm: cầu Nguyễn Hoàng's Kim Long end, cầu Phú Xuân (both ends), bridge way 129. Trường Tiền has no joint (hand model, carriageway not laid), so Phú Xuân stands in. A sign flip in `bridgeJoints` fails 6 ends. `check:joints` stays the city-wide check.
 
 ## Four interaction bugs (2026-11-21, branch `worktree-agent-a3d055188011d1313`)
 - Resize no longer sends the camera home once a place or the overview is chosen: the rig tracks `opening` (still on the
