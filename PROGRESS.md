@@ -475,7 +475,7 @@ were more than 1 m under the ground across eight places. Each was fixed where it
 
 ## Issue pass with the user (2026-11-21)
 Issues from sleepyluno, worked one at a time and fixed at the root (the source data, the parser or a shared builder),
-one PR per issue. sleepyluno is credited in the README and the About panel.
+one PR per issue. sleepyluno is credited in the README (Contributors) and the About panel.
 - #6 (Nam Giao orientation): already fixed on main by the per-place replica (`places/namgiao.js`, 13° off the compass from the OSM lawns).
 - #11 done: the language control was a lone button labelled with the *other* language; it is now a VI | EN radiogroup on the shared `.seg` component (the dead `.chip` style is gone). The same pass fixed the phone compass, which was pinned at a hard-coded +144px and overlapped the tool column; `ui.js` now publishes the column's measured height as `--tools-h`.
 - #14 craft villages (partly done, "Refs #14"):
