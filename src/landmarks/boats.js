@@ -229,14 +229,14 @@ const WAKE_FRAG = /* glsl */ `
     float foam = vn( q * vec2( 0.9, 1.3 ) ) * 0.6 + vn( q * vec2( 2.3, 3.1 ) + 7.0 ) * 0.4;
     // the arms: crests that sit along each line, broken into chevrons
     float edge = 1.0 / 1.2;
-    float arm = exp( -pow( ( a - edge ) / ( 0.07 + 0.05 * smoothstep( 0.0, uLen, d ) ), 2.0 ) );
+    float armX = ( a - edge ) / ( 0.07 + 0.05 * smoothstep( 0.0, uLen, d ) ), arm = exp( -armX * armX ); // pow() is undefined below 0
     float chev = 0.68 + 0.32 * sin( ( d * 0.95 - abs( y ) * 0.55 ) * 1.6 + foam * 2.4 );
     // transverse waves between the arms, one wavelength 2πv²/g apart
     float lam = max( 3.0, 6.283 * uSpd * uSpd / 9.81 );
     float trans = ( 0.5 + 0.5 * cos( 6.283 * d / lam ) ) * smoothstep( edge, 0.2, a ) * 0.22;
     // churn behind the stern, spreading as it goes
     float sw = 1.3 + 0.07 * max( 0.0, d - uStern );
-    float wash = exp( -pow( y / sw, 2.0 ) ) * smoothstep( uStern - 3.0, uStern + 4.0, d ) * ( 0.35 + 0.65 * foam );
+    float wash = exp( -( y / sw ) * ( y / sw ) ) * smoothstep( uStern - 3.0, uStern + 4.0, d ) * ( 0.35 + 0.65 * foam );
     float fade = smoothstep( 0.0, 2.8, d ) * exp( -d / ( uLen * mix( 0.42, 0.28, uGlow ) ) ) * smoothstep( uLen, uLen * 0.55, d );
     float k = ( arm * chev * ( 0.5 + 0.5 * foam ) * 0.9 + wash * 0.68 + trans * ( 1.0 - uGlow * 0.65 ) ) * fade * uAmt;
     // silver by day, catching a gentle warm lantern shimmer near the stern at night

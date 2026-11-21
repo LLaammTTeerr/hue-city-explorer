@@ -613,6 +613,21 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   Hương below Trường Tiền at golden hour, before and after.
 - `npm run check` and `npm run build` pass.
 
+## Blank canvas at some views (2026-11-21, branch `worktree-agent-a33a47132b06bcc2c`)
+- Symptom: the whole model vanished (page background #e6e2d8) and stayed gone while the view held; labels and UI fine.
+  Not context loss (`isContextLost` false throughout) and not the resize path. Cause: single NaN pixels from the
+  city shader, which the focus blur and above all the bloom mips smeared over the frame; NaN alpha made the canvas
+  transparent. Two sources in src/geo/materials.js:
+  - roof tiles (any weather): the tile frame `normalize( cross( hueN, up ) )` was guarded only for faces pointing up,
+    so downward faces (eave and canopy undersides) got normalize(0) = NaN. The guard is now `abs( hueN.y )`.
+  - wet film (rain): `pow( 1.0 - ndv, 3.5 )` with `ndv = dot(N, V)` slightly over 1 on faces seen head-on. Clamped,
+    and the same in landMaterial, water.js, and the two `pow()` of negative bases in the boat wakes.
+- Robustness: post.js zeroes non-finite scene pixels before the comp, and the final OutputPass writes alpha 1;
+  main.js handles `webglcontextlost` (preventDefault) / `webglcontextrestored` (IBL probe, shadows and buffers redone).
+- Evidence (Apple M5, Chrome Metal, 1280x800; sunset, Phủ Cam, ink; 720 poses round Phủ Cam, dist 150-3000 m):
+  before, rain 28 fully blank poses (13 with NaN in the scene), dry 25 (12); after, 0 and 0, no NaN. Post guard alone
+  on the old shaders: still NaN in 13 scene renders, 0 blank. `npm run check` and `npm run build` pass.
+
 ## Seamless bridge-to-street joints (2026-11-21, branch `worktree-agent-ab59d4954699589fb`)
 - Trigger: cầu Nguyễn Hoàng's north (Kim Long) end met its divided approach with a wedge of bare ground, a skewed cut, misaligned medians and lanes, and red strips ending in the air.
 - Root causes, fixed in shared code:
