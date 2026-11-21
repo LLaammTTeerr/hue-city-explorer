@@ -10,6 +10,7 @@ import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample, subPath } from './bridges.js';
+import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
@@ -257,6 +258,7 @@ function buildRoads(data, group, structures) {
     if (P.name === 'Đông Thành Thủy Quan' && replaced('thuyquan')) continue; // modelled in landmarks/places/thuyquan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
+    if (P.citadel) { citadelBridge(structures, r.pts, w, P, cols[Math.min(r.c, 3)]); continue; } // geo/citadel-bridge.js: masonry vaults, no piers
     if (P.span) { // the structure only: the street beyond its abutments was laid with the roads above
       const s0 = P.span[0], R = resample(subPath(r.pts, s0, P.span[1]), Math.min(2, P.len / 16));
       slab(structures, R.pts, w, (s) => P.y(s0 + s), P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);

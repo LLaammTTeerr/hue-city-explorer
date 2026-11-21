@@ -12,23 +12,23 @@ import { inRing, pathLength, unflat } from './buf.js';
 //    (Trương Hồng Trường, Tạp chí Khoa học ĐH Khoa học Huế; Đại Nam nhất thống chí via laodong.vn).
 //  - Cầu Trung Đạo (Gia Long; over hồ Thái Dịch between Ngọ Môn and Thái Hòa) is a brick bridge on several vaults
 //    (mia.vn); it is drawn with Thái Hòa (src/landmarks/places/thaihoa.js), so it gets no profile here (`own`) and
-//    city.js leaves its generic deck out. The three Ngoại Kim Thủy bridges are small single-vault stone bridges in front of it.
+//    city.js leaves its generic deck out.
+//  - Every other bridge of the Kinh thành (bridge = 2 from scripts/build-data.mjs: inside the walls, or over the moat
+//    before a gate) is one shared brick bridge on round vaults: weathered brick, a lime-plastered ring round each arch,
+//    a solid parapet with plastered coping and round medallions (the reference photo in issue #19). Its rise and
+//    vaults come from the `citadel` rule below and src/geo/citadel-bridge.js draws it.
 // Illustrative: the crown rises (no surveyed long sections were found), the number of vaults, the default rule.
 // Big modern river bridges keep a level deck: Dã Viên (and its approaches), any run over 150 m; Phú Xuân climbs (below).
 // Trường Tiền and Nguyễn Hoàng are hand models elsewhere; the Bạch Hổ rail bridge is not a road.
 
 const NAMED = {
   'Cầu Trung Đạo': { own: true },
-  'Cầu Ngoại Kim Thuỷ': { rise: 1.4, arches: 1 },
-  'Cầu Ngoại Kim Thủy': { rise: 1.4, arches: 1 },
   // one 8.4 m vault in a 71.7 m masonry dam, 8.05 m high; the deck crowns over the vault (landmarks/places/thuyquan.js)
   'Đông Thành Thủy Quan': { rise: 4.3, ramp: 0.45 },
   // a humped girder bridge over sông Đông Ba that lands at grade on both banks (landmarks/places/giahoi.js has the
   // sources and why 2 m): the crown stands over the water, the mapped ways run on at street level past the abutments
   'Cầu Gia Hội': { rise: 2.0, water: true },
-  'Cầu Nhà Đồ': { rise: 1.0 },
-  'Cầu Cửa Ngăn': { rise: 1.0 },
-  'Cầu Cửa Thượng Tứ': { rise: 1.0 },
+  'Cầu Cửa Ngăn': { rise: 1.0 }, // its own causeway with balustrades (landmarks/places/gate-cua-ngan.js)
   // 1971 girder bridge: the deck climbs off each bank within ~40 m, then crowns gently (landmarks/places/phuxuan.js)
   'Cầu Phú Xuân': { rise: 4.2, ramp: 0.1 },
   'Cầu Dã Viên': { rise: 0 },
@@ -55,7 +55,7 @@ export function bridgeProfiles(data) {
   for (const r of data.roads || []) {
     if (!Array.isArray(r) || !r[1] || !Array.isArray(r[2]) || r[2].length < 4) continue;
     const pts = unflat(r[2]);
-    list.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), flat: r[2], pts, len: pathLength(pts) });
+    list.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), citadel: r[1] === 2, flat: r[2], pts, len: pathLength(pts) });
   }
   // bridges mapped in pieces (a river bridge and its approach spans) are one run: measure the whole of it
   const key = (p) => Math.round(p[0]) + ',' + Math.round(p[1]);
@@ -81,20 +81,44 @@ export function bridgeProfiles(data) {
     let named = null;
     for (const q of bridges) if (q.n && NAMED[q.n] && inRing(m[0], m[1], unflat(q.ring))) { named = q.n; break; }
     if (named && NAMED[named].own) return;
-    let r, arches = 0, ramp = 0;
+    let r, arches = 0, ramp = 0, vaults = null;
     if (named) ({ rise: r, arches = 0, ramp = 0 } = NAMED[named]);
+    else if (b.citadel) ({ r, arches, vaults } = citadelRule(data, b));
     else if (runLen[runOf[i]] > RUN_FLAT || b.len > RUN_FLAT || runN[runOf[i]] > 1) r = 0; // (a run in pieces would hump twice)
     // footbridges and lanes over canals hump noticeably; road bridges over the moat and the canals get a camber
     else if (b.c >= 4) r = clamp(b.len / 14, 0.5, 1.5);
     else r = clamp(b.len * 0.02, 0.4, 1.1);
-    const t = { b, named, r, arches, ramp, span: null };
+    const t = { b, named, r, arches, ramp, span: null, vaults };
     todo.push(t);
     if (named && NAMED[named].water) { if (!water.has(named)) water.set(named, []); water.get(named).push(t); }
   });
   for (const ways of water.values()) waterSpans(data, ways);
-  for (const { b, named, r, arches, ramp, span } of todo) map.set(b.flat, Object.assign(makeProfile(b.pts, b.len, b.c, r, arches, ramp, span), { name: named }));
+  for (const { b, named, r, arches, ramp, span, vaults } of todo) {
+    const P = makeProfile(b.pts, b.len, b.c, r, arches, ramp, span, vaults);
+    map.set(b.flat, Object.assign(P, { name: named, citadel: !!vaults && !named }));
+  }
   cache = { data, map };
   return map;
+}
+
+// The citadel's bridge: a hump of about a tenth of its length (rise to span ~1/6 over the water, as Khánh Ninh and
+// Vĩnh Lợi), on one vault over a narrow crossing and three over a wide one, the vaults spread over the water it
+// crosses (not the way's whole length: the gate causeways run on over the moat's banks), between solid abutments.
+const CIT_DECK = 0.55; // the vault crown's masonry over the arch, under the road
+function citadelRule(data, b) {
+  const { pts, len } = b;
+  let first = null, last = null;
+  for (let s = 0; s <= len + 1e-6; s += 0.5) {
+    const { x, z } = at(pts, s);
+    if (rise(x, z) > 0.05 || onLand(data, x, z)) continue;
+    if (first === null) first = s;
+    last = s;
+  }
+  const r = clamp(len / 10, 1.2, 2.2);
+  if (first === null || last - first < 2) return { r, arches: 0, vaults: [] }; // over no drawn water: the solid hump
+  const wet = last - first, arches = wet > 22 ? 3 : 1;
+  const a = clamp(first - 0.6, len * 0.12, len * 0.5 - 1), e = clamp(last + 0.6, len * 0.5 + 1, len * 0.88);
+  return { r, arches, vaults: [a, e] };
 }
 
 // data.land is the dry ground (rings with holes, even-odd, in decimetres); the canals and rivers lie outside it
@@ -195,7 +219,7 @@ function at(pts, s) {
   return { x: pts[0][0], z: pts[0][1] };
 }
 
-function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null) {
+function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = null) {
   // the bank-to-bank deck as it was: level at the bank, or climbing between banks of different height, or at the
   // level of a lake in the hills
   const p0 = pts[0], pn = pts[pts.length - 1], mp = pts[pts.length >> 1];
@@ -212,18 +236,21 @@ function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null) {
   const G = STREET - DECK;
   const bump = span ? (s) => (s <= span[0] || s >= span[1] ? G : G + riseM * hump((s - span[0]) / (span[1] - span[0])))
     : climb ? (s) => { const t = s / (len || 1); return riseM * ss(t / climb) * ss((1 - t) / climb) * (0.82 + 0.18 * hump(t)); } : (s) => riseM * hump(s / (len || 1));
-  const thick = c <= 2 ? 1.3 : 0.7;
+  const thick = zone ? CIT_DECK : c <= 2 ? 1.3 : 0.7;
   const prof = { len, c, rise: riseM, arches, top, lift, thick, base, bump, y: (s) => base(s) + bump(s), breaks: span ? [...span] : [], span };
   if (arches) {
     // vaults springing just above the water, between solid abutments; each as high as the deck above lets it be
     const spring = waterY(mp[0], mp[1]) + 0.15;
-    const z0 = len * (arches === 1 ? 0.24 : 0.12), z1 = len - z0, pier = arches === 1 ? 0 : Math.max(0.9, ((z1 - z0) / arches) * 0.22);
+    const z0 = zone && zone.length ? zone[0] : len * (arches === 1 ? 0.24 : 0.12), z1 = zone && zone.length ? zone[1] : len - z0;
+    const pier = arches === 1 ? 0 : Math.max(0.9, ((z1 - z0) / arches) * 0.22);
     const span = (z1 - z0 - pier * (arches - 1)) / arches;
     const vaults = [];
     for (let k = 0; k < arches; k++) {
-      const a = z0 + k * (span + pier), b = a + span, h = Math.min(span * 0.5, prof.y((a + b) / 2) - thick - 0.3 - spring);
+      const a = z0 + k * (span + pier), b = a + span, h = Math.min(span * 0.5, prof.y((a + b) / 2) - thick - (zone ? 0 : 0.3) - spring);
       if (h > 0.5) { vaults.push([a, b, h]); prof.breaks.push(a, a + 0.12, b - 0.12, b); }
     }
+    prof.vaults = vaults.map(([a, b, h]) => ({ a, b, h, spring }));
+    prof.spring = spring;
     prof.bottom = (s) => {
       const deckBot = prof.y(s) - thick;
       for (const [a, b, h] of vaults) if (s > a && s < b) { const u = (2 * (s - a)) / (b - a) - 1; return Math.min(deckBot, spring + h * Math.sqrt(Math.max(0, 1 - u * u))); }

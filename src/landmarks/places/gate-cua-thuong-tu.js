@@ -10,7 +10,7 @@ import { pavilion } from '../citadel.js';
 // gates it is a brick block in the rampart with one arched passage (vòm cuốn 3.82 m wide, 5.19 m high), a stone name
 // tablet (2.31 × 1.10 m) over the arch on each face, a crenellated parapet round its flat top and on it a two-storey
 // timber vọng lâu under tubular tiles, rising "more than 9 m above the wall top", 16-17 m in all. The gate takes
-// Đinh Tiên Hoàng street, one way, into the Citadel over the moat bridge (drawn by bridges.js as Cầu Cửa Thượng Tứ).
+// Đinh Tiên Hoàng street, one way, into the Citadel over the moat bridge (Cầu Cửa Thượng Tứ, drawn as the shared citadel bridge, geo/citadel-bridge.js).
 //
 // Plan: the OSM outline (way 173614468, data.gates) is 18.8 m along the wall × 14.8 m through it. Its inner face is
 // the mapped wall band's edge (a 9 m notch opens behind it, t -7.4 to -12.3); the band's outer face runs 1.6 m beyond
