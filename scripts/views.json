@@ -29,5 +29,40 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-464.1, 85.6, -49.0], "target": [-464.1, 2.6, -49.1] }
+  },
+  "junction-phu-xuan-south": {
+    "note": "Straight down on the south end of cầu Phú Xuân, where the bridge, Hà Nội and Lê Lợi meet, with the slip roads between them (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-240, 110, 545], "target": [-240, 2.6, 544.9] }
+  },
+  "junction-phu-xuan-north": {
+    "note": "Straight down on the north end of cầu Phú Xuân, where the bridge meets Trần Hưng Đạo and Lê Duẩn (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-545, 100, 190], "target": [-545, 2.6, 189.9] }
+  },
+  "junction-truong-tien-north": {
+    "note": "Straight down on the north end of cầu Trường Tiền, where its approach meets Trần Hưng Đạo and Chương Dương (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-195, 100, -180], "target": [-195, 2.6, -180.1] }
+  },
+  "junction-ly-thuong-kiet-ha-noi": {
+    "note": "Straight down on the six-way junction of Lý Thường Kiệt and Hà Nội (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [212, 100, 578], "target": [212, 2.6, 577.9] }
+  },
+  "junction-phu-xuan-south-oblique": {
+    "note": "The south end of cầu Phú Xuân from above the Hà Nội side, looking north-west across the junction to the bridge (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-150, 70, 610], "target": [-245, 2.6, 535] }
   }
 }

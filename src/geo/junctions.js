@@ -9,6 +9,9 @@
 // junctionHoles() finds those patches; markingGuard() says where a road's markings may run.
 
 export const HOLE_MAX = 150; // m²: an enclosed patch smaller than this is part of the junction, not an island
+// m²: an enclosed patch a slip road (an unmarked road type, issue #67) runs along is a traffic island from this size
+// up: the kerbed triangle between the slip road and the roads it joins. Below it, it is a gap where ribbons fail to meet.
+export const ISLAND_MIN = 10;
 export const MARK_PAD = 1.5; // m: markings stop this far short of another carriageway (room for a stop line)
 export const CELL = 0.5; // m: the raster the holes are found on
 const LINK = 30, REACH = 10; // m: junction nodes this close form one junction, looked at this far around
@@ -18,7 +21,8 @@ const CONT_COS = Math.cos((40 * Math.PI) / 180); // a way meeting another end to
 const ck = (i, j) => i * 1048576 + j; // a cell's key (|j| < 2^19 cells: ±260 km)
 const pkey = (p) => Math.round(p[0] * 2) + ',' + Math.round(p[1] * 2);
 
-// cw: [{ id, c, pts, L, R }] (pts the centre line, L, R its ribbon's two edges, as ribbonPoints gives them).
+// cw: [{ id, c, pts, L, R, u }] (pts the centre line, L, R its ribbon's two edges, as ribbonPoints gives them; u: an
+// unmarked slip road, whose islands are kept, see ISLAND_MIN).
 // skip(x, z): leave a patch whose middle is here alone (a mapped green island).
 // Returns { holes: [{ cells: [[i, j]...], c, x, z, area }], cells: Set of cell keys }: the patches the carriageways
 // enclose and none covers, smaller than HOLE_MAX, found on a CELL raster around each junction (flood-filled from the
@@ -32,7 +36,7 @@ export function junctionHoles(cw, skip = null) {
     for (let i = 0; i + 1 < L.length; i++) for (const t of [[L[i], R[i], R[i + 1]], [L[i], R[i + 1], L[i + 1]]]) {
       const x0 = Math.min(t[0][0], t[1][0], t[2][0]), x1 = Math.max(t[0][0], t[1][0], t[2][0]);
       const z0 = Math.min(t[0][1], t[1][1], t[2][1]), z1 = Math.max(t[0][1], t[1][1], t[2][1]);
-      const T = { t, c: r.c, x0, x1, z0, z1, stamp: -1 };
+      const T = { t, c: r.c, u: !!r.u, x0, x1, z0, z1, stamp: -1 };
       for (let x = Math.floor(x0 / G); x <= Math.floor(x1 / G); x++) for (let z = Math.floor(z0 / G); z <= Math.floor(z1 / G); z++) {
         const k = ck(x, z), list = grid.get(k);
         if (list) list.push(T); else grid.set(k, [T]);
@@ -61,7 +65,7 @@ export function junctionHoles(cw, skip = null) {
 
   const holes = [], cells = new Set();
   const maxCells = HOLE_MAX / (CELL * CELL);
-  let m = new Uint8Array(0), cls = m, q = new Int32Array(0), stamp = 0;
+  let m = new Uint8Array(0), cls = m, un = m, q = new Int32Array(0), stamp = 0;
   for (const ps of clusters.values()) {
     if (ps.length < 2) continue; // a hole is ringed by a loop of carriageways: two junctions at least (a slip road and the road it leaves)
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
@@ -69,16 +73,17 @@ export function junctionHoles(cw, skip = null) {
     const i0 = Math.floor((x0 - REACH) / CELL), j0 = Math.floor((z0 - REACH) / CELL);
     const W = Math.ceil((x1 + REACH) / CELL) - i0 + 1, H = Math.ceil((z1 + REACH) / CELL) - j0 + 1;
     if (W * H > 4e6) continue;
-    if (m.length < W * H) { m = new Uint8Array(W * H * 2); cls = new Uint8Array(W * H * 2); q = new Int32Array(W * H * 2); }
+    if (m.length < W * H) { m = new Uint8Array(W * H * 2); cls = new Uint8Array(W * H * 2); un = new Uint8Array(W * H * 2); q = new Int32Array(W * H * 2); }
     m.fill(0, 0, W * H); // 0 open, 1 carriageway, 2 reached from outside, 3 enclosed
     cls.fill(9, 0, W * H);
+    un.fill(0, 0, W * H); // 1: a slip road covers the cell
     stamp++;
     for (let x = Math.floor((i0 * CELL) / G); x <= Math.floor(((i0 + W) * CELL) / G); x++)
       for (let z = Math.floor((j0 * CELL) / G); z <= Math.floor(((j0 + H) * CELL) / G); z++)
         for (const T of grid.get(ck(x, z)) || []) {
           if (T.stamp === stamp) continue;
           T.stamp = stamp;
-          fillTri(T, m, cls, i0, j0, W, H);
+          fillTri(T, m, cls, un, i0, j0, W, H);
         }
     // flood the open cells from the window's edge
     let qh = 0, qt = 0;
@@ -96,9 +101,9 @@ export function junctionHoles(cw, skip = null) {
     for (let k0 = 0; k0 < W * H; k0++) {
       if (m[k0] !== 0) continue;
       const patch = [];
-      let c = 9;
+      let c = 9, slip = false;
       m[k0] = 3; q[0] = k0; qh = 0; qt = 1;
-      const visit = (n) => { if (m[n] === 0) { m[n] = 3; q[qt++] = n; } else if (m[n] === 1 && cls[n] < c) c = cls[n]; };
+      const visit = (n) => { if (m[n] === 0) { m[n] = 3; q[qt++] = n; } else if (m[n] === 1) { if (cls[n] < c) c = cls[n]; if (un[n]) slip = true; } };
       while (qh < qt) {
         const k = q[qh++], i = k % W;
         patch.push(k);
@@ -107,7 +112,7 @@ export function junctionHoles(cw, skip = null) {
         if (k >= W) visit(k - W);
         if (k < (H - 1) * W) visit(k + W);
       }
-      if (patch.length > maxCells) continue;
+      if (patch.length > maxCells || (slip && patch.length * CELL * CELL >= ISLAND_MIN)) continue; // too big, or a slip road's island
       let sx = 0, sz = 0;
       const out = patch.map((k) => { const i = i0 + (k % W), j = j0 + ((k / W) | 0); sx += i; sz += j; return [i, j]; });
       if (cells.has(ck(out[0][0], out[0][1]))) continue; // found from a neighbouring junction's window already
@@ -121,7 +126,7 @@ export function junctionHoles(cw, skip = null) {
 }
 
 // mark the cells whose centres a triangle covers (1), with the most important class covering each
-function fillTri(T, m, cls, i0, j0, W, H) {
+function fillTri(T, m, cls, un, i0, j0, W, H) {
   const [a, b, c] = T.t;
   const area = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
   if (Math.abs(area) < 1e-6) return;
@@ -137,6 +142,7 @@ function fillTri(T, m, cls, i0, j0, W, H) {
       if (((a[0] - c[0]) * (z - c[1]) - (a[1] - c[1]) * (x - c[0])) * s < 0) continue;
       const k = j * W + i;
       m[k] = 1;
+      if (T.u) un[k] = 1;
       if (T.c < cls[k]) cls[k] = T.c;
     }
   }

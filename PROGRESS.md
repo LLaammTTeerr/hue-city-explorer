@@ -1,6 +1,14 @@
 # Progress
 
 ## Done
+- Junctions and unmarked road types (2026-11-22, branch claude/issue-67-junctions-76663f, issue #67): on main the
+  north end of cầu Trường Tiền and Lý Thường Kiệt × Hà Nội were already right after #68/#72; both ends of cầu Phú Xuân
+  were not: their `*_link` slip roads were drawn as 15 m dashed, lit carriageways that swallowed the islands. New
+  unmarked road types (6th road element `lanes`; `data/road-types.json` for ways beyond `*_link`): slip roads are
+  lanes × 3.5 m + 0.5 m, no dashes or lamps; e.g. Hà Nội → Lê Lợi (way 1169292366) is 1 lane. Islands ≥ 10 m² between
+  slip roads are kept (junctions.js `ISLAND_MIN`). Views `junction-phu-xuan-south(-oblique)`, `junction-phu-xuan-north`,
+  `junction-truong-tien-north`, `junction-ly-thuong-kiet-ha-noi`. Follow-up: 10 trees still stand on painted junction
+  holes elsewhere (12 on main).
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
   the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them
