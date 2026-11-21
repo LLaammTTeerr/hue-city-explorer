@@ -92,7 +92,7 @@ function railing(S, cx, cz, r, y, h, seg, col, gaps) {
 
 // ------------------------------------------------------------------ the aquarium and its dragon
 function dragon(S, C, Rd, hd, bridgeAngles) {
-  const yb = waterY(C[0], C[1]), yp = LAND_Y + rise(C[0], C[1]) + 0.46; // the lake's own level; the landing, level with the footbridges
+  const yb = waterY(C[0], C[1]), yp = yb - 0.08 + 0.46; // the lake's own level; the landing, level with the footbridges
   const conc = hex('#a3a69b'), concD = hex('#7f847a'), pale = hex('#b9c4c2'), glass = hex('#2c444b');
   const r1 = Rd * 0.8, rS = Rd + 1.7, r2 = Rd * 0.7, Rp = Rd + 4.4;
   const yD = yp + 9.0, hD = 3.6; // spring of the dome, its height: three storeys under a low dome, ~12.6 m (VnExpress: the whole dragon 20 m tall)
@@ -254,10 +254,10 @@ function footbridge(S, from, to) {
   const dx = to[0] - from[0], dz = to[1] - from[1];
   let len = Math.hypot(dx, dz);
   if (len < 4) return;
-  const d = [dx / len, dz / len], ac = [-d[1], d[0]], ang = Math.atan2(d[1], d[0]), lift = rise(from[0], from[1]), y = LAND_Y + lift + 0.5, wd = 3.0;
+  const d = [dx / len, dz / len], ac = [-d[1], d[0]], ang = Math.atan2(d[1], d[0]), y = waterY(from[0], from[1]) - 0.08 + 0.5, wd = 3.0;
   // the deck is level: it lands where the bank comes up to it, not past that, where it would run on into the slope
-  // (the mapped ends lie up to 4 m inside the steeper banks)
-  for (let s = 4; s < len; s += 0.5) if (gy(from[0] + d[0] * s, from[1] + d[1] * s) >= y - 0.1) { len = s + 0.5; break; }
+  // (the mapped ends lie up to 4 m inside the steeper banks); either edge of the deck may meet the bank first
+  for (let s = 4; s < len; s += 0.5) if ([-wd / 2, 0, wd / 2].some((o) => gy(from[0] + d[0] * s + ac[0] * o, from[1] + d[1] * s + ac[1] * o) >= y - 0.1)) { len = s; break; }
   const P = (s, o, h = 0) => [from[0] + d[0] * s + ac[0] * o, y + h, from[1] + d[1] * s + ac[1] * o];
   const mid = P(len / 2, 0);
   S.base = y - LAND_Y; // the deck stands on the lake's raised ground, so the shader's foot darkening starts there
