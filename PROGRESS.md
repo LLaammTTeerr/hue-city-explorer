@@ -537,6 +537,19 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - check:overlap on main: 11 findings, mostly edge contact (dainoi+tuphuong 172, dainoi+duyetthi 43, canchanh 27, hungmieu 17), plus hoquyen 33, mangca 14, giahoi 13, quochoc 15, gahue 7, phucam 7, conhen 3.
 - Next: decide between per-sample and per-cell overlap counting so edge contact stops aliasing. Then fix hoquyen and mangca. Once it reaches 0, add check:overlap to `npm run check`.
 
+## check:overlap counts interpenetration, not contact (2026-11-21, branch `claude/overlap-edge-contact`)
+- Rule (scripts/check-overlap.mjs, `DEEP` = 0.1 m): overlap and building areas count only sample points that lie
+  inside both footprints eroded by DEEP (the point and its ±DEEP x/z neighbours all inside each), at 1/5 m² per
+  point instead of a whole 1 m cell. Touching faces add nothing. The road test is unchanged. Building hits now
+  consider every source over a cell, not only the first one.
+- Before: 11 FAIL. After: 8 FAIL. canchanh+dainoi (3.8 m²), hungmieu+themieu (3 m²) and gahue (0) now pass.
+  Road findings are unchanged (hoquyen 33, mangca 14, giahoi 13, phucam 7, conhen 3).
+- Still failing, and they are real overlaps in plan, not aliasing: dainoi+tuphuong 23.2 m² (tuphuong's 6.35 m deck
+  overlaps dainoi's wall top by ~0.24 m at the same height, and its 0.26 m parapet strip stands on that wall top);
+  dainoi+duyetthi 14.2 m² (duyetthi's roof eave reaches 0.3–1.9 m over dainoi's gallery roof). quochoc is 7.8 m².
+- Proof: a copy of canchanh shifted 2 m / 0.15 m / 0.05 m still FAILs at ~1470–1580 m² (old: 1520–1630); a hungmieu
+  copy shifted 2 m gives 697 m² (old 854); gahue moved 2 m into its hall FAILs at 11.2 m².
+
 ## Bridges: duplicate decks and one citadel bridge (2026-11-21, branch `claude/issue-17-19-bridges-32c6fd`, issues #17 and #19)
 - #17: bridge ways tagged `footway=sidewalk` (14 of them) were laid as a second flat deck beside or under the real one: under Trường Tiền's trusses, and beside Dã Viên and Phú Xuân. build-data now leaves them to their carriageway's deck or hand model and still marks their ground as road.
 - #19: every bridge inside the walls or within 90 m of a citadel gate is `bridge = 2` in hue.json (31 ways). They are all drawn by `src/geo/citadel-bridge.js`: brick body, round vaults ringed in plaster, a plaster string course, a solid parapet with coping and medallions, and end posts. `bridges.js` `citadelRule` sets the rise to len/10 (clamped 1.2–2.2 m) and the vaults over the water crossed (one vault, or three if the water is wider than 22 m). Nhà Đồ, Thượng Tứ and Ngoại Kim Thủy dropped out of NAMED.
