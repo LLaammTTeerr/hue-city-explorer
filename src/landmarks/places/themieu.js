@@ -5,7 +5,7 @@ import { glowPoints } from '../../geo/materials.js';
 import { pavilion } from '../citadel.js';
 import { fence, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
 import { REAR_GATE_CUTS } from './hungmieu.js';
-import { planter, kylan } from '../props.js';
+import { planter, kylan, kiosk } from '../props.js';
 
 // Thế Miếu (Thế Tổ Miếu), the dynastic temple of the Nguyễn emperors in the south-west of the Imperial City, built
 // 1821-22 under Minh Mạng. Sources and estimates: docs/places/themieu.md.
@@ -136,10 +136,12 @@ function court(S) {
     if (Math.abs(u) < 3) continue;
     planter(S, p[0], g + 0.06, p[1], ANG, { r: 0.4, stand: 0.55, standCol: shade(STONE, 0.95) });
   }
-  // a pair of bronze kỳ lân on stone plinths either side of the walk, facing down it toward Hiển Lâm Các
+  // a pair of bronze kỳ lân, one on each side of the court, each in its metal kiosk (thiết đình, vi.wikipedia),
+  // facing the walk; the kiosk's form and both positions are estimated (docs/places/courtyard-objects.md)
   for (const s of [-1, 1]) {
-    const p = P(s * 6, 26);
-    kylan(S, p[0], g + 0.06, p[1], ANG + Math.PI / 2, { s: 1.15, col: BRONZE, plinth: 0.9, plinthCol: STONE });
+    const p = P(s * 25, 28);
+    kiosk(S, p[0], g + 0.06, p[1], ANG, { w: 2.6, h: 3.3, slabCol: STONE });
+    kylan(S, p[0], g + 0.31, p[1], ANG + (s > 0 ? Math.PI : 0), { s: 1.15, col: BRONZE, plinth: 0.7, plinthCol: STONE });
   }
   // the old pine by the west end of the hall
   const t = P(-33, 4), y = gy(t);
