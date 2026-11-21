@@ -583,3 +583,13 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - Exception: within 90 m of chợ Đông Ba, Trần Hưng Đạo keeps its old look, with full width and trees in the middle, as the issue asks.
 - Road palette darkened to the cầu Trường Tiền deck grey (#76716e…). If that is too dark, it is a one-line change to `PAL.road`.
 - `npm run check` passes. Checked in the preview on port 5191.
+
+## Last model-pair overlaps; check:overlap is required (2026-11-21, branch `claude/model-pair-overlaps`)
+- Fixed the last five check:overlap findings without changing the check, its limits or its exemptions:
+  - Đại Nội + Tứ Phương shared the Bắc Khuyết Đài bastion wall. Tứ Phương now owns it. The shared wall helper is in `src/landmarks/hoangthanh.js`.
+  - Tả Trường Lang (beside Duyệt Thị) is redrawn from OSM at 3.5 m.
+  - The Cần Chánh galleries end at the platform face (gallery `butt`).
+  - Thế Miếu's wall stops clear of Hưng Miếu's rear gates (`REAR_GATE_CUTS`).
+  - The Quốc Học link blocks stop their eaves at the old hall (`link`).
+- `npm run check`, and with it the required CI check, now runs check:overlap: 0 findings, 78 sources.
+- Also merged from the incoming queue this round: #34, #39, #40, #42, #46 (bridges), #45 (river lights), #44 (plazas) and #41 (medians). After each one, the merge with main was rebuilt and checked.
