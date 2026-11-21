@@ -1,6 +1,7 @@
 import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
+import * as props from '../props.js';
 
 // Lăng Khải Định (Ứng Lăng), the tomb of Emperor Khải Định on the slope of Châu Chữ hill, built 1920-1931 in
 // reinforced concrete, now weathered grey-black. Notes and sources: docs/places/khaidinh.md.
@@ -220,29 +221,17 @@ function flight(S, s0, s1, ya, yb, n, lanes, rails, dragon) {
   }
 }
 
-// a standing figure on level y facing across the axis: mandarin (k = 1) or soldier (smaller)
+// a standing figure on level y facing across the axis (face: the sign along t): a civil mandarin (k = 1) or a
+// smaller soldier in a helmet (src/landmarks/props.js)
 function figure(S, s, t, y, face, k) {
-  const p = P(s, t), a = A;
-  S.kind = KIND.FLAT; S.base = y - LAND_Y;
-  S.box(p[0], p[1], y, y + 0.35, 0.8, 0.8, a, shade(STAT, 0.85));
-  S.box(p[0], p[1], y + 0.35, y + 0.35 + 1.45 * k, 0.5 * k + 0.1, 0.62 * k, a, STAT, { taper: 0.85 });
-  const q = P(s, t + face * 0.05);
-  S.box(q[0], q[1], y + 0.35 + 1.45 * k, y + 0.35 + 1.8 * k, 0.3, 0.3, a, shade(STAT, 1.06));
+  const p = P(s, t);
+  props.mandarin(S, p[0], y, p[1], A + face * Math.PI / 2, { military: k < 1, h: 2.15 * k, col: STAT });
 }
 // an elephant (big) or a horse on level y, facing up the axis
 function beast(S, s, t, y, big) {
-  const p = P(s, t), q = P(s + (big ? 1.4 : 1.0), t);
-  S.kind = KIND.FLAT; S.base = y - LAND_Y;
-  S.box(p[0], p[1], y, y + 0.3, big ? 3.0 : 2.2, big ? 1.6 : 0.9, A, shade(STAT, 0.85));
-  if (big) {
-    S.box(p[0], p[1], y + 0.3, y + 1.2, 2.0, 1.0, A, STAT);
-    S.box(p[0], p[1], y + 1.2, y + 2.2, 2.5, 1.3, A, STAT);
-    S.box(q[0], q[1], y + 0.6, y + 2.2, 0.8, 1.0, A, shade(STAT, 0.95));
-  } else {
-    S.box(p[0], p[1], y + 0.3, y + 1.1, 1.4, 0.45, A, STAT);
-    S.box(p[0], p[1], y + 1.1, y + 1.7, 1.8, 0.6, A, STAT);
-    S.box(q[0], q[1], y + 1.4, y + 2.3, 0.5, 0.42, A, shade(STAT, 0.95));
-  }
+  const p = P(s, t);
+  if (big) props.elephant(S, p[0], y, p[1], A, { col: STAT });
+  else props.horse(S, p[0], y, p[1], A, { col: STAT });
 }
 // a trụ biểu: stepped base, a square shaft tapering, a lotus collar and a stupa-like finial
 function obelisk(S, s, t, y) {

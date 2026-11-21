@@ -2,6 +2,7 @@ import { KIND, hex, shade, unflat, obb } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { pavilion } from '../citadel.js';
+import * as props from '../props.js';
 
 // ---- Lăng Đồng Khánh (Tư Lăng), tomb of Emperor Đồng Khánh, Thủy Xuân, Huế ----
 //
@@ -342,28 +343,16 @@ function truBieu(S, F, s, t, y) {
   S.box(p[0], p[1], y + h - 1.4, y + h - 0.9, 1.25, 1.25, a, shade(C.stucco, 1.1));
   S.box(p[0], p[1], y + h - 0.9, y + h, 0.7, 0.7, a, C.stuccoDark, { taper: 0.1 });
 }
+// the cement statues of the salutation court (src/landmarks/props.js): mandarins facing the axis, beasts facing
+// down it
 function statue(S, F, s, t, y, col) {
   const p = F.P(s, t), face = t > 0 ? F.a - Math.PI / 2 : F.a + Math.PI / 2;
-  S.kind = KIND.PLAIN; S.base = y - LAND_Y;
-  S.box(p[0], p[1], y, y + 0.35, 0.8, 0.7, face, shade(col, 0.9));
-  S.box(p[0], p[1], y + 0.35, y + 2.15, 0.62, 0.42, face, col, { taper: 0.85 });
-  S.box(p[0], p[1], y + 2.15, y + 2.55, 0.3, 0.3, face, shade(col, 0.95));
-  S.box(p[0], p[1], y + 2.55, y + 2.7, 0.42, 0.36, face, shade(col, 0.8));
+  props.mandarin(S, p[0], y, p[1], face, { h: 2.6, col });
 }
 function beast(S, F, s, t, y, big, col = C.mandarin) {
-  const a = F.a + Math.PI, P = (ds) => F.P(s - ds, t);
-  S.kind = KIND.PLAIN; S.base = y - LAND_Y;
-  const p = P(0);
-  S.box(p[0], p[1], y, y + 0.25, big ? 3.2 : 2.4, big ? 1.6 : 1.0, a, shade(col, 0.9));
-  if (big) { // elephant
-    S.box(p[0], p[1], y + 0.25, y + 1.2, 2.0, 0.95, a, col);
-    S.box(p[0], p[1], y + 1.2, y + 2.2, 2.5, 1.3, a, col);
-    const h = P(1.45); S.box(h[0], h[1], y + 0.7, y + 2.3, 0.8, 1.0, a, shade(col, 0.95));
-  } else { // horse
-    S.box(p[0], p[1], y + 0.25, y + 1.0, 1.4, 0.5, a, col);
-    S.box(p[0], p[1], y + 1.0, y + 1.6, 1.9, 0.6, a, col);
-    const h = P(0.95); S.box(h[0], h[1], y + 1.4, y + 2.3, 0.5, 0.4, a, shade(col, 0.95));
-  }
+  const p = F.P(s, t), a = F.a + Math.PI;
+  if (big) props.elephant(S, p[0], y, p[1], a, { col });
+  else props.horse(S, p[0], y, p[1], a, { col });
 }
 
 // ---------- the small family tombs and outbuildings mapped in the precinct ----------

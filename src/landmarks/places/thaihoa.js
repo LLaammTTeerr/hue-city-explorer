@@ -2,6 +2,7 @@ import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { lightMaterial, glowPoints } from '../../geo/materials.js';
+import { vac, dinh, crane } from '../props.js';
 
 // Điện Thái Hòa (Throne Palace) with sân Đại Triều Nghi and cầu Trung Đạo over hồ Thái Dịch, as restored in
 // 2021-2024 (reopened 23 Nov 2024). Sources and estimates: docs/places/thaihoa.md.
@@ -102,12 +103,13 @@ export function build({ S, group, THREE }) {
     for (let k = 0; k < 12; k++) stele(s * 4.6, vDB1 + 2.4 + k * 1.85, G + H_LT);
   }
   (S.paved = S.paved || []).push([paved0, S.n]); // stone paving: no trees, no houses (src/geo/city.js coverOf)
-  // two bronze cauldrons (vạc đồng) on Đan Bệ, either side
+  // two bronze cauldrons (vạc đồng, cast under the Nguyễn lords; one confirmed left of the hall) on Đan Bệ either
+  // side, and between them and the steles a pair of lidded bronze censers (lư đỉnh; estimated). The cranes on their
+  // tortoises stand in the verandah, further down. src/landmarks/props.js; docs/places/courtyard-objects.md
   for (const s of [-1, 1]) {
-    const p = W(s * 15, vDB0 + 6.5), y = G + H_DB;
-    S.cyl(p[0], p[1], y, y + 0.5, 0.25, 0.3, 6, BRONZE, { cap: false });
-    S.cyl(p[0], p[1], y + 0.5, y + 1.3, 0.75, 0.95, 10, BRONZE, { cap: false });
-    S.cyl(p[0], p[1], y + 1.3, y + 1.42, 1.0, 0.95, 10, shade(BRONZE, 1.2), { cap: true });
+    const p = W(s * 15, vDB0 + 6.5), q = W(s * 9.5, vDB0 + 2.2);
+    vac(S, p[0], G + H_DB, p[1], A, { d: 1.9, col: BRONZE });
+    dinh(S, q[0], G + H_DB, q[1], A + Math.PI / 2, { h: 1.6, col: BRONZE, lid: true, stand: 0.3, standCol: STONE });
   }
 
   // ======== the hall's two-stage base ========
@@ -147,6 +149,9 @@ export function build({ S, group, THREE }) {
     S.cyl(p[0], p[1], FL + 0.3, top, 0.3, 0.28, 8, RED, { cap: false });
     S.cyl(p[0], p[1], FL + 2.2, FL + 2.5, 0.305, 0.3, 8, GOLD, { cap: false }); // a gilded dragon band
   }
+  // a pair of bronze cranes on tortoises (hạc đồng) flanking the middle bay in the verandah, facing out (estimated)
+  for (const s of [-1, 1]) { const p = W(s * 2.0, (cv[0] + cv[1]) / 2); crane(S, p[0], FL, p[1], A + Math.PI / 2, { h: 1.8 }); }
+  S.kind = KIND.TIMBER;
   // the eave plates along the outer column lines
   for (const j of [0, 7]) beam(P3(cu[0], FL + CH - 0.15, cv[j]), P3(cu[9], FL + CH - 0.15, cv[j]), 0.34, 0.4, RED_DK);
   for (const i of [0, 9]) beam(P3(cu[i], FL + CH - 0.15, cv[0]), P3(cu[i], FL + CH - 0.15, cv[7]), 0.34, 0.4, RED_DK);

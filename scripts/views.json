@@ -15,5 +15,26 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [260, 2, -90], "target": [0, 8, 0] }
+    },
+  "courtyard-vac-ta-vu": {
+    "note": "Close view of the bronze cauldron (vạc đồng) before Tả Vu in the Cần Chánh court, from the axis side (src/landmarks/courtyard.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1142.4, 4.0, -51.6], "target": [-1140.7, 3.3, -55.5] }
+  },
+  "courtyard-cannons-quang-duc": {
+    "note": "The five holy cannons (Cửu vị thần công, Ngũ hành) in their house inside Cửa Quảng Đức, from in front of the muzzles (src/landmarks/courtyard.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1109.2, 4.6, 324.1], "target": [-1118.8, 3.4, 329.3] }
+  },
+  "courtyard-cannons-the-nhon": {
+    "note": "The four holy cannons (Cửu vị thần công, Tứ thời) in their house inside Cửa Thể Nhơn, from in front of the muzzles (src/landmarks/courtyard.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-822.8, 4.6, 113.2], "target": [-813.4, 3.4, 108.1] }
   }
 }
