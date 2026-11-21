@@ -165,9 +165,16 @@ export function buildWater(data) {
           float reflW = mix( 0.48, 0.62, uGlow ) * fres;
           vec3 drawn = mix( washW, refl, reflW );
           // fine directional ripple strokes stretched across the line of sight instead of round foam blobs
-          vec2 viewSide = normalize( vec2( -V.z, V.x ) + 1e-5 );
-          vec2 viewFwd = vec2( V.x, V.z );
-          vec2 sp = vec2( dot( p, viewSide ) * 0.085, dot( p, viewFwd ) * 0.58 - uTime * 0.24 );
+          // The stroke frame is the camera's heading, one for the whole frame. It used to be each pixel's own view ray
+          // (V), but p is a world position hundreds of metres from the origin, so the slightest turn of V from pixel to
+          // pixel swept the noise coordinate by whole cells: the strokes lined up on curves of constant dot( p, V ) and
+          // came out as rings of broken arcs round the middle of the view. Forward plus up keeps the heading defined
+          // when the camera looks straight down (forward is then vertical, and up points along the heading).
+          vec3 camFwd = -vec3( viewMatrix[ 0 ][ 2 ], viewMatrix[ 1 ][ 2 ], viewMatrix[ 2 ][ 2 ] );
+          vec3 camUp = vec3( viewMatrix[ 0 ][ 1 ], viewMatrix[ 1 ][ 1 ], viewMatrix[ 2 ][ 1 ] );
+          vec2 viewFwd = normalize( camFwd.xz + camUp.xz + 1e-5 );
+          vec2 viewSide = vec2( -viewFwd.y, viewFwd.x );
+          vec2 sp = vec2( dot( p, viewSide ) * 0.085, dot( p, viewFwd ) * 0.45 - uTime * 0.24 );
           float streakN = vnoise( sp ) * 0.65 + vnoise( sp * vec2( 2.1, 2.4 ) + 5.1 ) * 0.35;
           float fineStroke = smoothstep( 0.72, 0.88, streakN ) * ( 0.45 + 0.55 * clamp( crest + 0.3, 0.0, 1.0 ) ) * near * ( 1.0 - uRain * 0.55 );
           vec3 strokeCol = mix( mix( uSkyHorizon, vec3( 1.0 ), 0.42 ), uSunCol * 0.95, 0.35 * uSunDisk );
