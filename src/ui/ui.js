@@ -13,9 +13,13 @@ const webUrl = (u) => { try { const x = new URL(u, location.href); return x.prot
 
 export function createUI(data, handlers) {
   let lang = (store.get('hue-lang') || (navigator.language || 'vi').slice(0, 2)) === 'vi' ? 'vi' : 'en';
-  // until the scene is ready the interface behind the loader is out of reach, for the keyboard too
-  const behind = [...document.body.children].filter((el) => el.id !== 'loader' && el.tagName !== 'SCRIPT');
-  behind.forEach((el) => { el.inert = true; });
+  // until the scene is ready the interface behind the loader is out of reach, for the keyboard too. The search box and
+  // the card are the exception: they stand above the loader (body.loading in style.css) and work from the place
+  // index alone, so a visitor can look a place up while the city is still downloading.
+  const live = new Set(['search', 'card']);
+  const behind = [...document.body.children].filter((el) => el.id !== 'loader' && el.tagName !== 'SCRIPT' && !live.has(el.id));
+  function lock() { $('loader').classList.remove('done'); document.body.classList.add('loading'); behind.forEach((el) => { el.inert = true; }); }
+  lock();
   let T = STR[lang];
   let current = null; // place shown in the card
   const placeById = new Map(data.places.map((p) => [p.id, p]));
@@ -66,7 +70,7 @@ export function createUI(data, handlers) {
     $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
     $('seg-lang').setAttribute('aria-label', T.langGroup);
     document.querySelectorAll('#seg-lang button').forEach((b) => b.setAttribute('aria-checked', b.dataset.lang === lang));
-    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
+    const tips = { 'btn-share': T.share, 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
     document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
     $('attrib').textContent = T.attrib;
@@ -205,6 +209,9 @@ export function createUI(data, handlers) {
   $('btn-labels').addEventListener('click', () => handlers.labels());
   $('btn-look').addEventListener('click', () => handlers.look());
   $('btn-about').addEventListener('click', () => $('about').showModal());
+  // share the view as it stands, with the open card if there is one (src/ui/share.js)
+  $('btn-share').addEventListener('click', () => handlers.share(current && current.id));
+  $('card-share').addEventListener('click', () => handlers.share(current && current.id));
   $('attrib').addEventListener('click', () => $('about').showModal());
   $('about-close').addEventListener('click', () => $('about').close());
   $('about').addEventListener('click', (e) => { if (e.target === $('about')) $('about').close(); });
@@ -258,6 +265,8 @@ export function createUI(data, handlers) {
       if (deg !== heading) { heading = deg; $('needle').style.transform = `rotate(${deg}deg)`; }
     },
     loaderProgress(p) { $('loader-bar').style.width = Math.round(p * 100) + '%'; },
-    loaderDone() { $('loader').classList.add('done'); behind.forEach((el) => { el.inert = false; }); },
+    loaderDone() { $('loader').classList.add('done'); document.body.classList.remove('loading'); behind.forEach((el) => { el.inert = false; }); },
+    lock, // the loader back over the interface (a retried start after the 2D fallback)
+    applyText,
   };
 }

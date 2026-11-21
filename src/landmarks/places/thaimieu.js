@@ -118,13 +118,13 @@ function front(S, lamps) {
   S.kind = KIND.MASONRY;
   S.box(tm[0], tm[1], y - 0.3, y + 0.35, 15.2, 5.6, ANG, STONE, { topKind: KIND.ROAD });
   gate(S, tm, ANG, 13.8, 4.0, y + 0.35, { h: 3.9, doors: 3 });
-  // a second, smaller roof tier over the middle door
+  // a second, smaller roof tier over the middle door, its eave clear of the gate roof's ridge (y + 5.8) under it
   const m = P(2.9, 100.6);
   S.kind = KIND.MASONRY;
-  S.box(m[0], m[1], y + 4.5, y + 5.5, 5.0, 2.2, ANG, WALL);
-  S.hip(m[0], m[1], 5.0, 2.2, ANG, y + 5.5, 1.3, ROOF, { flare: 0.35, over: 0.6, ridgeCol: RIDGE, fascia: 0.16, fasciaCol: shade(LAC, 0.7), hips: true, glazed: true, segs: 3 });
+  S.box(m[0], m[1], y + 4.5, y + 6.0, 5.0, 2.2, ANG, WALL);
+  S.hip(m[0], m[1], 5.0, 2.2, ANG, y + 6.0, 1.3, ROOF, { flare: 0.35, over: 0.6, ridgeCol: RIDGE, fascia: 0.16, fasciaCol: shade(LAC, 0.7), hips: true, glazed: true, segs: 3 });
   S.kind = KIND.PLAIN;
-  S.box(m[0], m[1], y + 7.0, y + 7.6, 0.9, 0.3, ANG, ENAMEL[2]);
+  S.box(m[0], m[1], y + 7.5, y + 8.1, 0.9, 0.3, ANG, ENAMEL[2]);
   lamps.push(at(2.9, 103.3, y + 3.6));
 
   // the bình phong (screen wall) inside the gate, restored 2025: plastered brick, tile coping, an enamel medallion

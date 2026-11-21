@@ -184,6 +184,10 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .tog, .seg, #card, dialog, 
 #card-name { margin: 0 30px 8px 0; font-family: var(--serif); font-weight: 540; font-size: 25px; line-height: 1.12; font-variation-settings: 'opsz' 60; }
 #card-note { margin: 0; font-size: 14px; line-height: 1.58; color: color-mix(in srgb, var(--ink) 88%, transparent); text-wrap: pretty; }
 #card-meta { margin: 10px 0 0; font-size: 11px; letter-spacing: 0.04em; color: var(--indigo); opacity: 0.8; font-variant-numeric: tabular-nums; }
+#card-share { display: inline-flex; align-items: center; gap: 7px; margin: 12px 0 2px; padding: 7px 12px 7px 9px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--indigo); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+#card-share:hover { background: color-mix(in srgb, var(--indigo) 8%, transparent); }
+#card-share:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+#card-share svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
 
@@ -235,6 +239,46 @@ dialog kbd { font: 600 11px var(--ui); padding: 1px 6px; border-radius: 3px; bor
 #loader p { margin: 14px 0 18px; font-size: 13px; letter-spacing: 0.04em; opacity: 0.7; }
 #loader .bar { width: 180px; height: 2px; margin: 0 auto; background: rgba(44, 36, 30, 0.14); overflow: hidden; }
 #loader .bar i { display: block; height: 100%; width: 0%; background: var(--seal); transition: width 0.3s; }
+#loader [hidden] { display: none; }
+/* while the city loads, the search box and the card already work from the place index, above the loader */
+body.loading #search, body.loading #card { z-index: 11; }
+
+/* ---------- when the scene cannot start: the recovery screen in the loader, then the 2D map (src/ui/fallback.js) ---------- */
+#loader.failed h1 { font-size: clamp(56px, 10vw, 96px); }
+#fail { max-width: min(460px, calc(100vw - 2 * var(--edge))); margin: 16px auto 0; animation: rise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#fail h2 { margin: 0 0 8px; font-family: var(--serif); font-weight: 520; font-size: 21px; line-height: 1.25; font-variation-settings: 'opsz' 72; }
+#loader #fail p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; letter-spacing: 0; opacity: 1; color: color-mix(in srgb, var(--ink) 88%, transparent); text-wrap: pretty; }
+#loader #fail-alt { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--ink-soft); }
+.fail-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 18px 0 10px; }
+.fail-actions .tog { flex-direction: column; gap: 1px; height: auto; min-width: 168px; padding: 8px 18px; line-height: 1.2; }
+.fail-actions .tog small { font-size: 11px; font-weight: 400; opacity: 0.72; }
+.fail-actions .tog.primary { color: var(--cream); background-color: var(--seal); background-image: none; border-color: var(--seal-deep); }
+.fail-actions .tog.primary:hover { background-color: var(--seal-deep); }
+#loader #fail-status { min-height: 1.5em; font-size: 12.5px; color: var(--accent-ink); }
+
+body.flat #scene, body.flat #labels, body.flat #nav, body.flat #actions, body.flat #btn-labels, body.flat #btn-look { display: none; }
+#map2d { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #c9d4d3; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+#map2d[hidden] { display: none; }
+#map2d:active { cursor: grabbing; }
+#map2d .land { fill: #efe6d2; stroke: #b9b19d; stroke-width: 0; }
+#map2d .wall { fill: none; stroke: var(--seal); stroke-opacity: 0.55; }
+#map2d text { font-family: var(--ui); fill: var(--ink); stroke: #f5efe2; stroke-linejoin: round; paint-order: stroke; pointer-events: none; }
+#map2d .water { font-family: var(--serif); font-style: italic; fill: #4f6e80; stroke: #c9d4d3; }
+#map2d .pt { cursor: pointer; }
+#map2d .pt circle { fill: var(--cream); stroke: var(--seal); }
+#map2d .pt.t1 circle { fill: var(--seal); stroke: var(--cream); }
+#map2d .pt.t1 text { font-weight: 600; }
+#map2d .pt:hover circle { fill: var(--seal-deep); }
+#map2d .pt:hover text, #map2d .pt.on text { fill: var(--seal-deep); font-weight: 600; }
+#map2d .pt.on circle { fill: var(--seal); stroke: var(--cream); }
+#flat-bar { position: fixed; left: 50%; bottom: calc(var(--bottom) + 30px); transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 5px 5px 5px 14px; border-radius: 6px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; background-color: var(--panel); border: 1px solid var(--gold-line); box-shadow: var(--shadow); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+#flat-bar[hidden] { display: none; }
+#flat-bar .tog { height: 34px; padding: 0 14px; font-size: 13px; }
+@media (max-width: 720px) {
+  #flat-bar { bottom: calc(var(--bottom) + 20px); max-width: calc(100vw - 2 * var(--edge)); }
+  #flat-bar > span { overflow: hidden; text-overflow: ellipsis; }
+  body.flat #places { bottom: calc(var(--bottom) + 72px); }
+}
 
 
 /* ---------- phones ---------- */

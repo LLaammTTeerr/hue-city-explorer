@@ -85,6 +85,8 @@ export function createCamera(canvas, bounds) {
     jumpHome() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); },
     goHome(duration = 2.6) { flyTo(home.pos, home.target, { duration, onDone: () => { opening = true; } }); },
     startDrift() { if (!touched && !calm.matches) controls.autoRotate = true; },
+    // the camera was placed by a shared link (src/ui/share.js): treat it as moved, so resize and drift leave it alone
+    leaveOpening() { touched = true; opening = false; controls.autoRotate = false; },
     flyTo,
     cancelFly() { fly = null; },
     zoomBy(k) {

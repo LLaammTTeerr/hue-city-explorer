@@ -10,6 +10,7 @@ import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample, subPath } from './bridges.js';
+import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
@@ -244,61 +245,6 @@ function medianShrubs(S, medians) {
   S.kind = k0;
 }
 
-// Where a bridge way and a street meet end to end, each takes a point of the other just past the joint (r.ends, see
-// ribbonPoints), so the deck's end and the street's end are cut on one line: no wedge of bare ground opens on the
-// outside of the bend and nothing overlaps on the inside. The partner is the most nearly straight-on of the ways of
-// the other kind (bridge / street) that end there; a bridge's own street ends (head) count as street.
-const JOINT_ANG = Math.cos((50 * Math.PI) / 180);
-function bridgeJoints(roads) {
-  const key = (p) => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10);
-  const at = new Map();
-  for (const r of roads) {
-    if (r.c > 3 || r.pts.length < 2) continue;
-    for (const e of [0, 1]) {
-      const k = key(e ? r.pts[r.pts.length - 1] : r.pts[0]);
-      if (!at.has(k)) at.set(k, []);
-      at.get(k).push([r, e]);
-    }
-  }
-  // the first point of r at least 0.5 m from its end e, and the unit heading from that end into r
-  const inward = (r, e) => {
-    const p = e ? r.pts[r.pts.length - 1] : r.pts[0];
-    for (let i = 1; i < r.pts.length; i++) {
-      const q = r.pts[e ? r.pts.length - 1 - i : i], d = Math.hypot(q[0] - p[0], q[1] - p[1]);
-      if (d >= 0.5 || i === r.pts.length - 1) return { q, dx: (q[0] - p[0]) / (d || 1), dz: (q[1] - p[1]) / (d || 1) };
-    }
-  };
-  const kind = (r) => (r.bridge || r.head ? 1 : 0);
-  for (const list of at.values()) {
-    for (const [r, e] of list) {
-      if (r.cut?.[e]) continue;
-      const own = inward(r, e);
-      let best = null, bestDot = JOINT_ANG;
-      for (const [q, f] of list) {
-        if (q === r || kind(q) === kind(r) || q.cut?.[f]) continue;
-        const o = inward(q, f), dot = -(own.dx * o.dx + own.dz * o.dz); // 1: straight on
-        if (dot > bestDot) { bestDot = dot; best = o.q; }
-      }
-      if (best) { r.ends = r.ends || [null, null]; r.ends[e] = best; }
-    }
-  }
-}
-
-// The same for a hand-modelled deck (landmarks/places): its end is a straight line square to the deck, given as
-// { p, u (outward), hw, reach }. A street that starts within reach beyond it, inside its width, is cut on that line.
-function handDeckJoints(roads, decks) {
-  for (const D of decks) for (const r of roads) {
-    if (r.bridge || r.c > 3) continue;
-    for (const e of [0, 1]) {
-      const P = e ? r.pts[r.pts.length - 1] : r.pts[0], dx = P[0] - D.p[0], dz = P[1] - D.p[1];
-      const s = dx * D.u[0] + dz * D.u[1], t = -dx * D.u[1] + dz * D.u[0];
-      if (Math.abs(t) > D.hw || s < -1 || s > D.reach) continue;
-      r.ends = r.ends || [null, null];
-      r.ends[e] = { dir: D.u, line: D }; // tangent along the deck: the cut runs across it
-    }
-  }
-}
-
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
@@ -498,7 +444,7 @@ function waterTank(B, x, z, y, ang, s = 1) {
   B.kind = k;
 }
 
-function buildBuildings(data, group, off = null) {
+function buildBuildings(data, group, off = null, roofOff = null) {
   const B = new Buf(420000);
   const P = PAL;
   const ridgeGold = hex('#f1d77a'), ridgeGrey = hex('#cfc4a4');
@@ -562,6 +508,9 @@ function buildBuildings(data, group, off = null) {
     // a building whose height is known (b[5], to the top: measured, or a monument's): the eave is what is left under its roof
     const known = b[5];
     if (known) { h = Math.max(2.6, b[5] / 10 - (pitched ? rh + 0.3 : 0.8)); y1 = LAND_Y + floor + h; }
+    // a pitched roof that would run through a model's roof: the model already draws this building (a mapped outline
+    // a few metres off the replica, as the pavilion in Diên Thọ's pond), so the mapped one is left out
+    if (pitched && roofOff && roofOff(o, over, y1, rh)) return;
     wall = shade(wall, quocHoc ? 0.96 + rand(i, 7) * 0.08 : jitter);
     roof = shade(roof, 0.9 + rand(i, 9) * 0.2);
     if (flags & 1) {
@@ -603,14 +552,17 @@ function buildBuildings(data, group, off = null) {
       }
     }
   };
-  data.bld.forEach((b, i) => {
+  // neighbouring pitched roofs (a row of temple halls, houses wall to wall) meet in valleys (Buf.joined)
+  B.joined(() => data.bld.forEach((b, i) => {
     const ring = unflat(b[0]);
     if (off && off(ring, ringCentre(ring))) return; // a landmark model already stands on this footprint
     if (b[2] === 2 && dainoiOwns(ring)) return; // a gallery or hall places/dainoi.js draws
     const start = B.n;
+    B.mark = b[4] & 256 ? KIND_FLOOD : 0; // faces the Hương: floodlit after dark (build-data.mjs); the roof is drawn later
     draw(b, i);
-    if (b[4] & 256) for (let v = start; v < B.n; v++) B.knd[v] |= KIND_FLOOD; // faces the Hương: floodlit after dark (build-data.mjs)
-  });
+    if (B.mark) for (let v = start; v < B.n; v++) B.knd[v] |= KIND_FLOOD;
+  }));
+  B.mark = 0;
   const mesh = new THREE.Mesh(B.geometry(), cityMaterial({ windows: true }));
   mesh.castShadow = true;
   mesh.receiveShadow = true;
@@ -876,6 +828,7 @@ export function buildWalls(data, structures) {
 export function buildCity(data) {
   const group = new THREE.Group();
   const structures = new Buf(160000); // walls, bridges, landmarks: one mesh, no window lights
+  structures.roofs = []; // every hip roof the models draw (Buf.hip), for the mapped buildings to keep clear of
   initTerrain(data);
   initDistricts(data);
   buildLand(data, group);
@@ -923,6 +876,36 @@ function coverOf(structures) {
   return { hit: (x, z) => cells.has(key(Math.floor(x), Math.floor(z))), hitTall: (x, z) => tall.has(key(Math.floor(x), Math.floor(z))) };
 }
 
+// A mapped building's hip roof against the models' roofs: true when its eave plan lies over a third inside a model
+// roof's eave plan and the two stand at heights where they would cross (the model's slope, not far above or below).
+function roofClash(roofs) {
+  const G = 40, grid = new Map(), key = (i, j) => i * 100003 + j;
+  for (const r of roofs) {
+    const R = Math.hypot(r.w, r.d) / 2 + r.over;
+    for (let i = Math.floor((r.cx - R) / G); i <= Math.floor((r.cx + R) / G); i++) for (let j = Math.floor((r.cz - R) / G); j <= Math.floor((r.cz + R) / G); j++) {
+      const k = key(i, j); (grid.get(k) || grid.set(k, []).get(k)).push(r);
+    }
+  }
+  return (o, over, y1, rh) => {
+    const near = new Set(grid.get(key(Math.floor(o.c[0] / G), Math.floor(o.c[1] / G))) || []);
+    if (!near.size) return false;
+    const ux = Math.cos(o.a), uz = Math.sin(o.a), W = o.w + over * 2, D = o.d + over * 2;
+    const nu = Math.max(2, Math.ceil(W)), nv = Math.max(2, Math.ceil(D));
+    for (const r of near) {
+      if (r.y0 > y1 + rh || r.y0 + r.h < y1) continue;
+      const rx = Math.cos(r.ang), rz = Math.sin(r.ang), hw = r.w / 2 + r.over, hd = r.d / 2 + r.over;
+      let n = 0;
+      for (let a = 0; a < nu; a++) for (let b = 0; b < nv; b++) {
+        const u = -W / 2 + (W * (a + 0.5)) / nu, v = -D / 2 + (D * (b + 0.5)) / nv;
+        const x = o.c[0] + ux * u - uz * v - r.cx, z = o.c[1] + uz * u + ux * v - r.cz;
+        if (Math.abs(x * rx + z * rz) < hw && Math.abs(-x * rz + z * rx) < hd) n++;
+      }
+      if (n > nu * nv / 3) return true;
+    }
+    return false;
+  };
+}
+
 // Buildings, houses and trees go in last, once every landmark is modelled, and stay off whatever a model covers: the data only
 // keeps the mapped outline clear, but a model reaches past it with its platform, terraces, stairs and eaves.
 export function populate(world, data) {
@@ -948,7 +931,7 @@ export function populate(world, data) {
     for (const q of ring) if (cover.hit(c[0] + (q[0] - c[0]) * 0.8, c[1] + (q[1] - c[1]) * 0.8)) n++;
     return n >= ring.length * 0.7;
   };
-  world.buildings = buildBuildings(data, world.group, buildingOff);
+  world.buildings = buildBuildings(data, world.group, buildingOff, roofClash(world.structures.roofs || []));
   world.infill = buildInfill(data, world.group, houseOff);
   world.trees = buildTrees(data, world.group, treeOff);
 }

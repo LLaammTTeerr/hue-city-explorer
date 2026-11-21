@@ -11,6 +11,44 @@
   tests every dash outline against the exact carriageway triangles and the holes (in `npm run check`). Swept top-down
   and oblique: the main junction, the median square, roundabout (639, 604), divided crossing (214, 572), divided T
   (1373, -1685), T (2202, 2342), bridge-head junction (-2007, 879). No stop lines drawn (the 1.5 m pad leaves room).
+  Follow-up: ways within 30° of parallel (fork arms, slip roads, twin carriageways, whose 15 m default-width ribbons
+  overlap for tens of metres) no longer clip each other's dashes, and a clear stretch the 13 m rhythm misses gets one
+  centred dash. check:markings also fails if more than 0.1% of the dash slots clear of junction zones lose their dash
+  (the first version would have missed 0.17%; now 0.02%).
+- Share a view (2026-11-21): "Chia sẻ góc nhìn" / "Share this view" button on the place card and in the tool column
+  builds a `?v=1&c=…&t=…&a=…&f=…&m=…&p=…` link (format in docs/development.md, code in src/ui/share.js): navigator.share
+  where available, otherwise the clipboard with "Đã sao chép liên kết". Opening it sets the mood without a fade, puts
+  the camera there (no home flight), opens the card and marks the camera as moved (`rig.leaveOpening()` in
+  controls.js) so resize and drift leave it alone. Distance adapts to the window's aspect; on phones the camera tips
+  so the view centre sits above the card sheet. Invalid params fall back to the normal opening. Checked in headless
+  Chrome: Trường Tiền at night (desktop → new tab → phone), rainy night at Đông Ba (fresh session, first frame), free
+  view, seven malformed links.
+- One landmark sequence (2026-11-21): `buildLandmarks` in src/landmarks/build.js is the only place the landmarks,
+  populate and the moving things are built, in order; src/main.js and scripts/lib/scene.mjs both call it (the checks
+  through a per-step observer), and check-heights now builds through scene.mjs too. Previously browser-only steps now
+  checked: riverlights, boats, lanterns, lotus, traffic. They revealed two real faults, fixed at the source: 66
+  embankment lamp posts stood on carriageways (build-data.mjs now keeps lamps off class 0-3 streets; posts 901 → 835,
+  walkway lights 1609 → 1621) and lotus leaves reached over pond banks under the ground (life.js keeps each whole leaf
+  on the water). Browser scene graph identical before/after the refactor.
+- Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
+  `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
+  lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with
+  `joinRoofs = false`) and the mapped buildings (city.js) run inside it. city.js also drops a mapped house whose roof
+  would run through a model roof (the yellow house through Tạ Trường Du, Diên Thọ). Own numbers fixed: An Định towers,
+  Kiến Trung and Thái Miếu upper tiers; Tự Đức's duplicate Minh Khiêm footprint skipped. `npm run check:roofs` checks
+  all 2082 roofs.
+- No-WebGL recovery and fast search (2026-11-21): the renderer is created before the geometry is fetched; without WebGL
+  a bilingual recovery screen offers Retry 3D and a 2D place map with search and cards (`src/ui/fallback.js`); a load
+  error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
+  `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
+  first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
+
+
+- Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
+  the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
+  and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground
+  (slab top, hills, overlays) now writes alpha `GROUND_A` (0.96, materials.js); post.js raises the turn threshold to
+  about 45-63 degrees where all five samples are ground. Wall, kerb, roof, bank and hill-silhouette ink unchanged.
 - Ink lines across roads at hill rims (2026-11-21): the terrain mesh stood 3 cm proud of the slab at every node,
   including the rim nodes where the ground stops rising, so each drawn cell meeting the plain slab ended in a 3 cm step
   along the 25 m lattice. Roads and greens write no depth, so the ink's depth edges drew those steps as long straight
@@ -647,6 +685,10 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   - generic decks ended 0.36 m above the street: bridges.js now ramps class 0-3 decks onto the street's height;
   - cầu Nguyễn Hoàng's fixed cross-section now blends, over its last 24 m, into its approach carriageways' bands, colours and cross-fall. Its deck ends, and Phú Xuân's, are exported via `deckEnds()`.
 - New `npm run check:joints` (scripts/check-joints.mjs), now part of `npm run check`: 81 joints, 0 failing (bare seam ≤ 0.5 m², step ≤ 0.35 m). The old code had 66 of 77 failing. check:overlap is still clean.
+
+## Joint step as a module with a fixture test (2026-11-21, branch `claude/joint-fixture`)
+- `bridgeJoints`, `handDeckJoints` and `JOINT_ANG` moved unchanged from `src/geo/city.js` to `src/geo/joints.js` (city.js imports them); `check:joints --all` and `check:overlap` output identical before and after.
+- `npm run test:joints` (scripts/test-joints-fixture.mjs, part of `npm run check`) runs them on real road ends in scripts/fixtures/joints-real.json within 1 cm: cầu Nguyễn Hoàng's Kim Long end, cầu Phú Xuân (both ends), bridge way 129. Trường Tiền has no joint (hand model, carriageway not laid), so Phú Xuân stands in. A sign flip in `bridgeJoints` fails 6 ends. `check:joints` stays the city-wide check.
 
 ## Four interaction bugs (2026-11-21, branch `worktree-agent-a3d055188011d1313`)
 - Resize no longer sends the camera home once a place or the overview is chosen: the rig tracks `opening` (still on the

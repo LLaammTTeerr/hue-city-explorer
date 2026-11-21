@@ -7,19 +7,9 @@ import './ui/style.css';
 
 import * as THREE from 'three';
 import { LAND_Y, quality } from './config.js';
-import { buildCity, populate, finishStructures, updateDetail } from './geo/city.js';
-import { buildTruongTien } from './landmarks/truongtien.js';
-import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
-import { buildBoats, buildLanterns } from './landmarks/boats.js';
-import { buildNguyenHoang, buildQuocHocGate } from './landmarks/more.js';
-import { buildCivic } from './landmarks/civic.js';
-import { buildSouth } from './landmarks/south.js';
-import { buildTombs } from './landmarks/tombs.js';
-import { buildBiaQuocHoc } from './landmarks/memorial.js';
-import { buildBoardwalk } from './landmarks/boardwalk.js';
-import { buildRiverLights } from './landmarks/riverlights.js';
+import { buildCity, updateDetail } from './geo/city.js';
+import { buildLandmarks } from './landmarks/build.js';
 import { shared } from './geo/materials.js';
-import { buildLotus, buildTraffic, buildStreetLife } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
 import { buildRain } from './env/rain.js';
@@ -30,39 +20,74 @@ import { createCascades } from './env/csm.js';
 import { createCamera, fromForm } from './camera/controls.js';
 import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
+import { createShare } from './ui/share.js';
 import { VIEWS } from './ui/content.js';
 import { rise } from './geo/terrain.js';
-import { buildFloatingRestaurants } from './landmarks/floating.js';
-import { buildPlaces } from './landmarks/places/index.js';
+import { createFallback } from './ui/fallback.js';
 
 const canvas = document.getElementById('scene');
 // yield to the event loop between build steps (a message task is not throttled in background tabs, unlike rAF and timers)
 const frame = () => new Promise((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
 
+// `?nogl` (debugging): behave as a device without WebGL, so the recovery screen and the 2D fallback can be tried
+const NOGL = new URLSearchParams(location.search).has('nogl');
+if (NOGL) {
+  const getContext = HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = function (type, ...rest) { return /webgl/i.test(type) ? null : getContext.call(this, type, ...rest); };
+}
+// The renderer doubles as the capability check, made before anything heavy is fetched. null when WebGL is unavailable;
+// the exception stays in the console. A second try without antialiasing and the high-performance hint catches the
+// drivers that refuse only those.
+function createRenderer() {
+  for (const opts of [{ antialias: true, powerPreference: 'high-performance' }, { antialias: false }]) {
+    try { return new THREE.WebGLRenderer({ canvas, ...opts }); } catch (err) { console.error(err); }
+  }
+  return null;
+}
+const getJSON = async (name) => {
+  const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
+  if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+  return res.json();
+};
+
+let ui = null, index = null, fallback = null;
 async function main() {
   const t0 = performance.now();
-  const res = await fetch(`${import.meta.env.BASE_URL}data/hue.json`);
-  const data = await res.json();
+  // the place index (~30 kB: names, kinds, positions, counts) comes first: search and the cards need nothing else
+  const indexP = getJSON('places.json');
+  let renderer = createRenderer();
+  // the geometry bundle (~8 MB) only once the device has shown it can render it, then alongside the index
+  let geometryP = renderer ? getJSON('hue.json') : null;
+  if (geometryP) geometryP.catch(() => {}); // a failure is reported where it is awaited, below
+  index = await indexP;
 
-  let rig, mood, labels;
-  const ui = createUI(data, {
+  let rig, mood, labels, data, sharing;
+  const live = (f) => (...a) => (rig ? f(...a) : undefined); // controls that need the 3D scene
+  ui = createUI(index, {
     pick: (id, fly, from) => pick(id, fly, from),
-    overview: () => { ui.hideCard(); const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
-    lang: () => labels && labels.remeasure(),
-    labels: () => toggleLabels(),
-    osmOnly: (on) => { world.infill.forEach((m) => { m.visible = !on; }); },
-    home: () => { rig.goHome(); ui.hideCard(); },
-    zoom: (k) => rig.zoomBy(k),
+    overview: () => { ui.hideCard(); if (!rig) { fallback && fallback.home(); return; } const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
+    lang: () => { if (labels) labels.remeasure(); if (fallback) fallback.relabel(); },
+    labels: live(() => toggleLabels()),
+    osmOnly: live((on) => { world.infill.forEach((m) => { m.visible = !on; }); }),
+    home: () => { ui.hideCard(); if (rig) rig.goHome(); else if (fallback) fallback.home(); },
+    zoom: (k) => { if (rig) rig.zoomBy(k); else if (fallback) fallback.zoom(k); },
     cardClosed: () => {},
-    rain: () => mood.setRain(!mood.state.rainTarget),
-    time: (i) => mood.setTime(i),
-    look: () => setLook(!look, true),
+    rain: live(() => mood.setRain(!mood.state.rainTarget)),
+    time: live((i) => mood.setTime(i)),
+    look: live(() => setLook(!look, true)),
+    share: (id) => sharing && sharing.share(id),
   });
+  performance.mark('hue:search-ready');
+  fallback = createFallback({ ui, index, tryRenderer: createRenderer, onPick: (id) => pick(id, true) });
+  ui.loaderProgress(0.05);
+  // no WebGL: the recovery screen, and hue.json is never fetched unless "Retry 3D" gets a renderer
+  if (!renderer) renderer = await fallback.recover();
+  data = await (geometryP || getJSON('hue.json'));
+  performance.mark('hue:geometry-loaded');
   ui.loaderProgress(0.15);
   await frame();
 
   // ---------- renderer ----------
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
   // at 1, but the adaptive fallback (adapt) may still take quality.pixelRatio below 1 on a slow 1x screen
   const fitRatio = () => (quality.low ? quality.pixelRatio : Math.min(quality.pixelRatio, Math.max(1, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
@@ -78,28 +103,8 @@ async function main() {
   ui.loaderProgress(0.55);
   await frame();
   const dynamic = new THREE.Group();
-  const S = world.structures;
-  const bridge = buildTruongTien(data, S, dynamic);
-  const citadel = buildCitadel(data, S, dynamic);
-  buildMarket(data, S, dynamic);
-  buildThienMu(data, S, dynamic);
-  const extraGlows = buildNguyenHoang(data, S, dynamic);
-  buildQuocHocGate(data, S);
-  buildCivic(data, world.structures);
-  buildBiaQuocHoc(data, world.structures);
-  buildBoardwalk(data, world.structures, dynamic);
-  buildRiverLights(data, world.structures, dynamic); // lamps along the Hương's banks and walkways (issue #21)
-  const floating = buildFloatingRestaurants(data, world.structures, dynamic); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
-  buildSouth(data, world.structures);
-  buildTombs(data, world.structures);
-  const replicas = buildPlaces(data, S, dynamic); // per-place replica models in src/landmarks/places/
-  populate(world, data); // buildings, houses and trees, kept off the ground the landmark models cover
-  finishStructures(world.structures, world.group);
-  const boats = buildBoats(data, dynamic);
-  const lanterns = buildLanterns(data, dynamic); // hoa đăng drifting past the Citadel after dark
-  buildLotus(data, dynamic);
-  const traffic = buildTraffic(data, dynamic);
-  const street = buildStreetLife(data, dynamic);
+  // every landmark, populate and the moving things, in the sequence the geometry checks build too (src/landmarks/build.js)
+  const { bridge, citadel, extraGlows, floating, replicas, boats, lanterns, traffic, street } = buildLandmarks(data, world, dynamic);
   scene.add(world.group, dynamic);
   const lanternGlows = []; // lanternGlows: glow points that landmarks flagged for the per-frame update
   dynamic.traverse((o) => { if (o.userData.glow) lanternGlows.push(o); });
@@ -162,9 +167,10 @@ async function main() {
   function toggleLabels() { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); }
 
   function pick(id, fly, from) {
-    const p = data.places.find((q) => q.id === id);
+    const p = index.places.find((q) => q.id === id);
     if (!p) return;
     ui.showCard(id, from);
+    if (!rig) { if (fallback) fallback.show(id); return; } // still loading, or the 2D map: the card alone
     labels.markVisited(id);
     if (fly) {
       const v = VIEWS[id] || VIEWS.default;
@@ -367,6 +373,9 @@ async function main() {
   let savedLook = null;
   try { savedLook = localStorage.getItem('hue-look'); } catch { /* private mode */ }
   setLook((new URLSearchParams(location.search).get('look') || savedLook || 'ink') !== 'real');
+  // a shared view (?v=1…, src/ui/share.js) replaces the opening: atmosphere, camera and card are set before the first draw
+  sharing = createShare({ data, rig, mood, setLook, pick, ui, bounds: { minX: b[0] + 250, minZ: b[1] + 250, maxX: b[2] - 250, maxZ: b[3] - 250 } });
+  const sharedView = sharing.apply();
   mood.update(0, 0);
   updateShadow();
   draw(); // compile shaders before the curtain lifts
@@ -374,15 +383,17 @@ async function main() {
   ui.loaderProgress(1);
   await frame();
   ui.loaderDone();
+  performance.mark('hue:first-frame');
   requestAnimationFrame(tick);
+  if (ui.cardId && !sharedView) pick(ui.cardId, true); // a place opened from the search box while the city loaded: go there now
   setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
 
   // handle for debugging and automated checks
-  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
+  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing };
 }
 
 main().catch((err) => {
   console.error(err);
-  const t = document.getElementById('loader-text');
-  if (t) t.textContent = 'Không tải được mô hình · Could not load the scene. ' + (err && err.message ? err.message : '');
+  // the recovery screen with a reload; the 2D map too if the place index arrived
+  (fallback || createFallback({ ui, index: ui && index })).fail(err);
 });

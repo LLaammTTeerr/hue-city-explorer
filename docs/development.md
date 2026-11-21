@@ -11,9 +11,47 @@ npm run build    # static site in dist/ (relative paths, host anywhere)
 npm run preview  # serve the built site
 ```
 
-Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). No map service is contacted at runtime.
+Everything the scene needs is bundled (`public/data/places.json`, `public/data/hue.json`, `public/data/stories.json`,
+fonts via npm). No map service is contacted at runtime.
 
-`window.__hue` exposes the scene for debugging, and `__hue.step(dt)` advances one frame by hand. `?look=real` or `?look=ink` in the URL picks the rendering.
+Startup order (`main()` in `src/main.js`): the place index `places.json` (~32 kB, ~13 kB gzip) and the WebGL renderer
+come first, together. Search and the cards work as soon as the index is in, above the loader, while the city loads. The
+geometry bundle `hue.json` (~8 MB, ~3 MB gzip) is fetched only once a renderer exists. Without WebGL, or when the load
+fails, `src/ui/fallback.js` shows a bilingual recovery screen with "Thử lại 3D / Retry 3D" and "Xem bản đồ 2D / Browse
+places": a flat SVG map of the places over the land outline (from `places.json`), with search and the cards.
+
+`window.__hue` exposes the scene for debugging, and `__hue.step(dt)` advances one frame by hand. `?look=real` or
+`?look=ink` in the URL picks the rendering. `?nogl` makes the page behave like a device without WebGL (canvas
+`getContext('webgl*')` returns null), to try the recovery screen and the 2D fallback. The performance marks
+`hue:search-ready`, `hue:geometry-loaded` and `hue:first-frame` time the startup.
+
+### Shared views (`?v=1`)
+
+The share button ("Chia sẻ góc nhìn" / "Share this view", on the place card and in the tool column) builds a link that
+reopens the view (`src/ui/share.js`). It uses the system share sheet where there is one, otherwise it copies the link.
+
+```
+?v=1&c=<x>,<y>,<z>&t=<x>,<z>&a=<aspect>&f=<fov>&m=<time><rain><look>[&p=<place id>]
+```
+
+| Key | Meaning |
+| --- | --- |
+| `v` | format version, `1`; any other value is ignored |
+| `c` | camera position, scene metres, 1 decimal |
+| `t` | camera target on the ground (x, z; its height is always `LAND_Y`) |
+| `a` | width / height of the window the link was made in, 2 decimals |
+| `f` | vertical field of view then, degrees |
+| `m` | time of day `0` morning, `1` late afternoon, `2` lights on; rain `0`/`1`; look `i` ink or `r` realistic |
+| `p` | place id whose card is open (`data.places`); left out for a free view |
+
+Example: `?v=1&c=300.7,116.6,-395.5&t=0,0&a=1.78&f=37.6&m=20i&p=truongtien` (Trường Tiền, lights on, ink).
+On load a valid link sets the atmosphere at once (no fade), places the camera (no opening flight) and opens the card;
+the camera counts as moved, so a resize keeps it. The target and direction are kept and only the distance changes for
+the new window: the link's full frame height, and as much of its width as the landmark needs (a centred landmark keeps
+half the width, one near the edge all of it). On a phone, where the card covers the lower half, the camera tips down so
+the view's centre sits in the strip above the card. A link that fails any check (wrong version, malformed number,
+target off the map, distance out of the controls' range, unknown place) is ignored and the normal opening plays.
+Other params (`?look=`) are not carried into a shared link; a shared link's look does not change the saved choice.
 
 ## Checks
 
@@ -26,14 +64,16 @@ Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). N
 | `npm run check:burial` | no model sunk into the ground |
 | `npm run check:overlap` | no model on a carriageway, inside another model or under a kept building |
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
-| `npm run check:markings` | no lane dash crosses another major carriageway or lies in a junction hole: markings stop at the junction mouth |
+| `npm run test:joints` | fixture test of the joining step (`src/geo/joints.js`) on real road ends (`scripts/fixtures/joints-real.json`), within 1 cm; milliseconds |
+| `npm run check:roofs` | no hip roof runs through another: side-by-side roofs meet in a valley gutter, an upper tier clears the slope below |
+| `npm run check:markings` | no lane dash crosses another major carriageway or lies in a junction hole (markings stop at the junction mouth), and dashes away from junctions are kept |
 
 ## Contributing
 
 - `main` is protected: every change goes through a pull request.
 - The `check` workflow (`.github/workflows/check.yml`) must pass, and the branch must be up to date with `main`.
 - PRs are squash-merged, so each PR lands as one commit.
-- After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` with the change.
+- After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` and `public/data/places.json` with the change.
 - Fix a problem where it starts (the source data, the parser or a shared builder) and rebuild, rather than patching one place.
 - Work in progress and history are in [`PROGRESS.md`](../PROGRESS.md). Per-place research notes are in [`docs/places/`](places/).
 
@@ -59,6 +99,13 @@ Every push to `main` is checked, built and published to GitHub Pages by `.github
 - `src/geo/foliage.js` — leaf-card trees and areca palms; `src/geo/terrain.js` — ground height
 - `src/landmarks/` — Trường Tiền, Citadel monuments and gates, market, Thiên Mụ, cầu Nguyễn Hoàng, boats,
   lotus ponds and street traffic
+- `src/landmarks/build.js` — `buildLandmarks(data, world, group, opts)`, the one sequence that builds every landmark,
+  then `populate`, then the moving things (boats, lanterns, lotus, traffic, street life). The browser (`src/main.js`)
+  and the geometry checks (`scripts/lib/scene.mjs`, used by check:overlap, check:burial, check:heights and
+  check:joints) both call it, so **a new landmark is added there, never in `main.js`**: added anywhere else it would
+  show in the city but escape the checks. It returns the handles the frame loop animates. The checks pass a `step`
+  observer, called around each named step, to record what each one added; per-place replicas in
+  `src/landmarks/places/` are picked up by `buildPlaces` without being listed.
 - `src/env/` — sky, water, rain, mood presets, and the desktop post pass (ambient occlusion, river mist,
   tilt-shift focus, bloom, grade)
 - `src/camera/` — map controls
@@ -78,7 +125,9 @@ elements and carries no Overpass `remark` (a timed-out, partial result); a piece
 script exits 1. Where an element appears in several extracts the build keeps the newest copy (by the extract's
 timestamp), and `meta.osmExtracts` in the bundle lists every extract with its date. The model's origin and box live
 in `scripts/frame.json`, read by the build and by every raw-data fetcher. `scripts/build-data.mjs` turns it all into
-the ~5 MB bundle the app loads:
+the ~8 MB geometry bundle the app loads (`public/data/hue.json`), plus the small place index `public/data/places.json`
+(places, water labels and a simplified land and Citadel outline in whole metres for the 2D map; the places stay in
+`hue.json` too, since the scene builders read them there):
 
 | From OSM, positions and proportions kept | Generated, shown as illustration |
 | --- | --- |
