@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Buf, hex, unflat, inRing } from '../geo/buf.js';
 import { cityMaterial, lightMaterial, shared } from '../geo/materials.js';
 import { quality } from '../config.js';
+import { makeObstacles } from '../geo/clearance.js';
 
 // A smooth hull lofted through stations along x (local +x is the bow): each station's section runs from the keel
 // up a rounded bilge to the sheer. bands: [t, colour] rows up the side (t 0 keel … 1 sheer); the deck closes it.
@@ -291,7 +292,75 @@ function makeWake(group, time, { bow = 9.8, stern = 20.5, len = 110 } = {}) {
   };
 }
 
-export function buildBoats(data, group) {
+// Where each dragon boat may run. A boat keeps right at a fixed lane (its offset from the centre line) and turns round
+// in a half-ellipse at the two ends of its stretch (see update in buildBoats). Both have to leave room for it: the lane
+// must thread a span of every bridge it passes under (Phú Xuân's piers stand 34 m apart, Trường Tiền's ~67 m), and
+// each end must leave water clear of bridge piers, decks and landings to turn in. structures is the closed static
+// buffer of the city and every landmark; the boat is tested against it exactly (geo/clearance.js), in both
+// directions, a pose every 3 m. Without structures (or with no clear lane near the one asked for) the boat gets the
+// lane it asked for over the whole track.
+// route(want) → { lane, lo, hi }: the lane within ±LANE_SLIDE m of want with the longest clear stretch, and that
+// stretch's two ends as arc lengths on the track.
+const LANE_SLIDE = 4, ROUTE_STEP = 3, MIN_RUN = 300;
+function fleetRouter(track, structures, lo, hi) {
+  const whole = (want) => ({ lane: want, lo: 5, hi: track.total - 5 });
+  if (!structures || !structures.pos || !(track.total > MIN_RUN)) return whole;
+  // the faces near the water the fleet could reach: 10 m cells within the widest lane, a turn and a hull of the line
+  const reach = 42 + LANE_SLIDE + 16, near = new Set(), C = 10;
+  for (let s = 0; s <= track.total; s += C / 2) {
+    const p = track.at(s);
+    for (let x = Math.floor((p.x - reach) / C); x <= Math.floor((p.x + reach) / C); x++)
+      for (let z = Math.floor((p.z - reach) / C); z <= Math.floor((p.z + reach) / C); z++) near.add(x * 65536 + z);
+  }
+  const keep = (x0, z0, x1, z1) => {
+    for (let x = Math.floor(x0 / C); x <= Math.floor(x1 / C); x++) for (let z = Math.floor(z0 / C); z <= Math.floor(z1 / C); z++) if (near.has(x * 65536 + z)) return true;
+    return false;
+  };
+  const obs = makeObstacles({ top: hi[1] + 0.5, keep });
+  for (let i = 0, P = structures.pos; i + 2 < structures.n; i += 3) obs.add(P, null, i * 3);
+  const p = { x: 0, z: 0, tx: 1, tz: 0 };
+  // a pose: arc length s, lateral offset lat (+ to the left of the track's direction), heading (hx, hz)
+  const clear = (s, lat, hx, hz) => {
+    track.at(s, p);
+    return !obs.hits(p.x - p.tz * lat, p.z + p.tx * lat, Math.atan2(-hz, hx), lo, hi, 1, true).length;
+  };
+  // the turn at one end, as update draws it: the boat leaves lane dir * L at e − dir * R and comes back on the other
+  // (its R, ahead, is the lane: update's min(lane, half the stretch − 6) on any stretch longer than MIN_RUN)
+  const turnClear = (e, dir, L) => {
+    const R = L, s0 = e - dir * R;
+    for (let k = 0; k <= 16; k++) {
+      const a = (Math.PI * k) / 16, c = Math.cos(a), sn = Math.sin(a);
+      track.at(s0 + dir * R * sn, p);
+      const f = dir * R * c, l = -dir * L * sn;
+      if (!clear(s0 + dir * R * sn, dir * L * c, p.tx * f - p.tz * l, p.tz * f + p.tx * l)) return false;
+    }
+    return true;
+  };
+  return (want) => {
+    let best = null;
+    for (let d = 0; d <= LANE_SLIDE; d += 2) for (const L of d ? [want + d, want - d] : [want]) {
+      // straight poses both ways at ±L, and the longest clear run of them
+      let run0 = -1, a = 0, b = -1;
+      const n = Math.floor((track.total - 10) / ROUTE_STEP);
+      for (let i = 0; i <= n + 1; i++) {
+        const s = 5 + i * ROUTE_STEP;
+        let ok = i <= n;
+        if (ok) { track.at(s, p); ok = clear(s, L, p.tx, p.tz) && clear(s, -L, -p.tx, -p.tz); }
+        if (ok && run0 < 0) run0 = s;
+        if (!ok && run0 >= 0) { if (s - ROUTE_STEP - run0 > b - a) { a = run0; b = s - ROUTE_STEP; } run0 = -1; }
+      }
+      // pull each end in until the turn there is clear
+      while (b - a > MIN_RUN && !turnClear(b, 1, L)) b -= ROUTE_STEP;
+      while (b - a > MIN_RUN && !turnClear(a, -1, L)) a += ROUTE_STEP;
+      if (!(b - a > MIN_RUN)) continue;
+      const score = b - a - 20 * d; // a little shorter stretch is worth keeping the lane asked for
+      if (!best || score > best.score) best = { score, lane: L, lo: a, hi: b };
+    }
+    return best || whole(want);
+  };
+}
+
+export function buildBoats(data, group, structures = null) {
   const geo = dragonBoatGeometry();
   const mat = cityMaterial();
   // lights: geometry and materials built once and shared by every boat
@@ -332,7 +401,13 @@ export function buildBoats(data, group) {
   const fleet = [];
   if (track) {
     const n = 5;
-    for (let i = 0; i < n; i++) fleet.push({ mesh: make(), s: (track.total * (i + 0.5)) / n, dir: i % 2 ? 1 : -1, speed: 3.2 + (i % 3) * 0.9, lane: 26 + (i % 3) * 16, phase: i * 1.7, turn: -1 });
+    geo.computeBoundingBox();
+    const route = fleetRouter(track, structures, geo.boundingBox.min.toArray(), geo.boundingBox.max.toArray());
+    for (let i = 0; i < n; i++) {
+      // three lanes a side, all inside one span of Phú Xuân (its piers leave 26-42 m off the centre line clear)
+      const { lane, lo, hi } = route(26 + (i % 3) * 8);
+      fleet.push({ mesh: make(), s: lo + ((hi - lo) * (i + 0.5)) / n, lo, hi, dir: i % 2 ? 1 : -1, speed: 3.2 + (i % 3) * 0.9, lane, phase: i * 1.7, turn: -1 });
+    }
   }
 
   // wakes: one per boat
@@ -348,7 +423,7 @@ export function buildBoats(data, group) {
         // keep right: the lateral offset is lat along the track's left normal (-tz, tx), dir * lane on the straight.
         // Near a track end the boat swings across to the other lane in a half-ellipse (R ahead, lane to either side),
         // at its cruising speed, so its position and heading stay continuous for a camera that follows it.
-        const R = Math.min(b.lane, Math.max(1, track.total / 2 - 6));
+        const R = Math.min(b.lane, Math.max(1, (b.hi - b.lo) / 2 - 6));
         let lat, hx, hz;
         if (b.turn >= 0) {
           b.turn = Math.min(1, b.turn + (b.speed * dt) / ((Math.PI * (R + b.lane)) / 2));
@@ -360,7 +435,7 @@ export function buildBoats(data, group) {
           if (b.turn >= 1) { b.dir = -b.dir; b.turn = -1; }
         } else {
           b.s += b.dir * b.speed * dt;
-          if (b.dir > 0 ? b.s > track.total - 5 - R : b.s < 5 + R) { b.s = b.dir > 0 ? track.total - 5 - R : 5 + R; b.turn = 0; }
+          if (b.dir > 0 ? b.s > b.hi - R : b.s < b.lo + R) { b.s = b.dir > 0 ? b.hi - R : b.lo + R; b.turn = 0; }
           track.at(b.s, pt);
           lat = b.dir * b.lane; hx = pt.tx * b.dir; hz = pt.tz * b.dir;
         }
