@@ -12,12 +12,12 @@ export const STR = {
     about: 'Giới thiệu & nguồn dữ liệu',
     home: 'Về góc nhìn ban đầu',
     zoomIn: 'Lại gần', zoomOut: 'Ra xa',
-    lang: 'English',
+    langGroup: 'Ngôn ngữ',
     places: 'Địa danh',
     overview: 'Toàn cảnh',
-    groups: ['Kinh thành & di sản', 'Dọc sông Hương', 'Lăng tẩm & ngoại ô'],
-    search: 'Tìm địa danh ở Huế', searchShort: 'Tìm địa danh', clear: 'Xóa', browse: 'Danh sách địa danh', langShort: 'EN',
-    filters: ['Tất cả', 'Di tích', 'Cầu', 'Chợ', 'Cửa thành', 'Sông nước', 'Nơi khác'],
+    groups: ['Kinh thành & di sản', 'Dọc sông Hương', 'Lăng tẩm & ngoại ô', 'Làng nghề'],
+    search: 'Tìm địa danh ở Huế', searchShort: 'Tìm địa danh', clear: 'Xóa', browse: 'Danh sách địa danh',
+    filters: ['Tất cả', 'Di tích', 'Cầu', 'Chợ', 'Cửa thành', 'Sông nước', 'Làng nghề', 'Nơi khác'],
     noResults: 'Không tìm thấy địa danh nào khớp với «{q}».', noneOfKind: 'Không có địa danh loại này.',
     close: 'Đóng',
     hintMouse: 'Kéo để lướt · cuộn để lại gần · chuột phải để xoay',
@@ -25,16 +25,18 @@ export const STR = {
     hintLabels: 'Đã ẩn nhãn — bạn nhận ra những đâu?',
     loading: 'Đang dựng thành phố từ dữ liệu OpenStreetMap…',
     attrib: '© Những người đóng góp OpenStreetMap',
-    kinds: { bridge: 'Cầu', market: 'Chợ', monument: 'Di tích', area: 'Quần thể', water: 'Mặt nước', place: 'Địa điểm', island: 'Cồn', gate: 'Cửa thành' },
+    kinds: { bridge: 'Cầu', market: 'Chợ', monument: 'Di tích', area: 'Quần thể', water: 'Mặt nước', place: 'Địa điểm', island: 'Cồn', gate: 'Cửa thành', craft: 'Làng nghề' },
     aboutTitle: 'Huế, bên dòng Hương',
     aboutBody: `
       <p>Một mô hình 3D của trung tâm Huế để bạn tự do bay lượn: sông Hương, cầu Trường Tiền, chợ Đông Ba và Kinh thành với tường, hào và các cửa.</p>
       <h3>Dữ liệu</h3>
-      <p>Bờ sông, hào, đường phố, đường sắt, vòng thành và {buildings} khối nhà được lấy từ <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© những người đóng góp OpenStreetMap, giấy phép ODbL), giữ nguyên vị trí và tỉ lệ. Độ cao địa hình (các đồi phía tây và tây nam, đồi Hà Khê dưới chùa Thiên Mụ) lấy từ <a href="https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn" target="_blank" rel="noopener">FABDEM v1-2</a> (Đại học Bristol / Fathom, CC BY-NC-SA 4.0) và Copernicus DEM GLO-30 (© DLR, © Airbus, do EU và ESA cung cấp), hiệu chỉnh theo các điểm đo mặt đất bằng laser của vệ tinh ICESat-2 (NASA) và độ cao đã công bố của các ngọn núi quanh Huế; chiều cao nhà lấy từ bản khảo sát công trình 3D của thành phố trên <a href="https://gishue.hue.gov.vn" target="_blank" rel="noopener">GISHue</a>, chỗ còn thiếu lấy từ <a href="https://sites.research.google/gr/open-buildings/temporal/" target="_blank" rel="noopener">Google Open Buildings 2.5D</a> (CC BY 4.0). Toàn bộ dữ liệu được đóng gói sẵn — không cần dịch vụ bản đồ trực tuyến.</p>
+      <p>Bờ sông, hào, đường phố, đường sắt, vòng thành và {buildings} khối nhà được lấy từ <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© những người đóng góp OpenStreetMap, giấy phép ODbL), giữ nguyên vị trí và tỉ lệ. Độ cao địa hình (các đồi phía tây và tây nam, đồi Hà Khê dưới chùa Thiên Mụ) lấy từ <a href="https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn" target="_blank" rel="noopener">FABDEM v1-2</a> (Đại học Bristol / Fathom, CC BY-NC-SA 4.0) và Copernicus DEM GLO-30 (© DLR, © Airbus, do EU và ESA cung cấp), hiệu chỉnh theo các điểm đo mặt đất bằng laser của vệ tinh ICESat-2 (NASA) và độ cao đã công bố của các ngọn núi quanh Huế; chiều cao nhà lấy từ bản khảo sát công trình 3D của thành phố trên <a href="https://gishue.hue.gov.vn" target="_blank" rel="noopener">GISHue</a>, chỗ còn thiếu lấy từ <a href="https://sites.research.google/gr/open-buildings/temporal/" target="_blank" rel="noopener">Google Open Buildings 2.5D</a> (CC BY 4.0); rừng quanh các lăng và trên đồi trồng theo bản đồ lớp phủ cây của <a href="https://esa-worldcover.org" target="_blank" rel="noopener">ESA WorldCover 2021</a> (CC BY 4.0). Toàn bộ dữ liệu được đóng gói sẵn — không cần dịch vụ bản đồ trực tuyến.</p>
       <h3>Phần minh họa</h3>
       <p>Chiều cao nhà đo từ ảnh vệ tinh nên chỉ gần đúng (thường thấp hơn thực tế khoảng một phần mười); nơi không đo được thì ước lượng theo loại và diện tích. Ở những con phố OSM chưa có khối nhà, {infill} căn nhà nhỏ được vẽ thêm để giữ nhịp phố; cây xanh, sen trên hồ, thuyền, xe cộ, mái hiên, ban công và đèn cũng là minh họa. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, điện Thái Hòa, tháp Phước Duyên, cổng Quốc Học, các cửa thành và lầu chuông chợ Đông Ba được dựng bằng tay trên đúng nền móng trong OSM.</p>
       <h3>Điều khiển</h3>
-      <p>Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng, chuột phải (hoặc xoay hai ngón) để đổi hướng nhìn. Nhấp đúp để lại gần. La bàn đưa bạn về góc nhìn ban đầu. Phím tắt: <kbd>H</kbd> về đầu, <kbd>R</kbd> mưa, <kbd>N</kbd> đổi buổi, <kbd>L</kbd> nhãn, <kbd>/</kbd> tìm địa danh.</p>`,
+      <p>Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng, chuột phải (hoặc xoay hai ngón) để đổi hướng nhìn. Nhấp đúp để lại gần. La bàn đưa bạn về góc nhìn ban đầu. Phím tắt: <kbd>H</kbd> về đầu, <kbd>R</kbd> mưa, <kbd>N</kbd> đổi buổi, <kbd>L</kbd> nhãn, <kbd>/</kbd> tìm địa danh.</p>
+      <h3>Đóng góp</h3>
+      <p>Cảm ơn <a href="https://github.com/sleepyluno" target="_blank" rel="noopener">sleepyluno</a> đã <a href="https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno" target="_blank" rel="noopener">báo lỗi và đề xuất</a> giúp mô hình sát với Huế thật hơn.</p>`,
     osmOnly: 'Chỉ hiện nhà có trong OSM',
   },
   en: {
@@ -49,12 +51,12 @@ export const STR = {
     about: 'About & data sources',
     home: 'Back to the opening view',
     zoomIn: 'Closer', zoomOut: 'Further',
-    lang: 'Tiếng Việt',
+    langGroup: 'Language',
     places: 'Places',
     overview: 'Whole model',
-    groups: ['Citadel & heritage', 'Along the river', 'Tombs & outskirts'],
-    search: 'Search places in Huế', searchShort: 'Search places', clear: 'Clear', browse: 'Browse places', langShort: 'VI',
-    filters: ['All', 'Monuments', 'Bridges', 'Markets', 'Gates', 'Water & islets', 'Other places'],
+    groups: ['Citadel & heritage', 'Along the river', 'Tombs & outskirts', 'Craft villages'],
+    search: 'Search places in Huế', searchShort: 'Search places', clear: 'Clear', browse: 'Browse places',
+    filters: ['All', 'Monuments', 'Bridges', 'Markets', 'Gates', 'Water & islets', 'Craft villages', 'Other places'],
     noResults: 'No place matches “{q}”.', noneOfKind: 'No places of this kind.',
     close: 'Close',
     hintMouse: 'Drag to glide · scroll to come closer · right-drag to turn',
@@ -62,16 +64,18 @@ export const STR = {
     hintLabels: 'Labels hidden — what can you still recognise?',
     loading: 'Raising the city from OpenStreetMap data…',
     attrib: '© OpenStreetMap contributors',
-    kinds: { bridge: 'Bridge', market: 'Market', monument: 'Monument', area: 'Ensemble', water: 'Water', place: 'Place', island: 'Islet', gate: 'Citadel gate' },
+    kinds: { bridge: 'Bridge', market: 'Market', monument: 'Monument', area: 'Ensemble', water: 'Water', place: 'Place', island: 'Islet', gate: 'Citadel gate', craft: 'Craft village' },
     aboutTitle: 'Huế, on the Perfume River',
     aboutBody: `
       <p>A 3D model of central Huế to fly through: the Hương river, cầu Trường Tiền, chợ Đông Ba, and the Citadel with its walls, moat and gates.</p>
       <h3>Data</h3>
-      <p>Riverbanks, moats, streets, railway, the city wall and {buildings} building footprints come from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© OpenStreetMap contributors, ODbL), kept in their true positions and proportions. Ground height (the hills to the west and south-west, and Hà Khê hill under chùa Thiên Mụ) comes from <a href="https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn" target="_blank" rel="noopener">FABDEM v1-2</a> (University of Bristol / Fathom, CC BY-NC-SA 4.0) and Copernicus DEM GLO-30 (© DLR, © Airbus, provided by the EU and ESA), calibrated against ground heights measured by NASA's ICESat-2 satellite laser and the published heights of the hills round Huế; building heights from the city's own 3D building survey on <a href="https://gishue.hue.gov.vn" target="_blank" rel="noopener">GISHue</a>, and where it has none from <a href="https://sites.research.google/gr/open-buildings/temporal/" target="_blank" rel="noopener">Google Open Buildings 2.5D</a> (CC BY 4.0). Everything is bundled — no live map service is needed.</p>
+      <p>Riverbanks, moats, streets, railway, the city wall and {buildings} building footprints come from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> (© OpenStreetMap contributors, ODbL), kept in their true positions and proportions. Ground height (the hills to the west and south-west, and Hà Khê hill under chùa Thiên Mụ) comes from <a href="https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn" target="_blank" rel="noopener">FABDEM v1-2</a> (University of Bristol / Fathom, CC BY-NC-SA 4.0) and Copernicus DEM GLO-30 (© DLR, © Airbus, provided by the EU and ESA), calibrated against ground heights measured by NASA's ICESat-2 satellite laser and the published heights of the hills round Huế; building heights from the city's own 3D building survey on <a href="https://gishue.hue.gov.vn" target="_blank" rel="noopener">GISHue</a>, and where it has none from <a href="https://sites.research.google/gr/open-buildings/temporal/" target="_blank" rel="noopener">Google Open Buildings 2.5D</a> (CC BY 4.0); the forest round the tombs and over the hills follows the tree-cover map of <a href="https://esa-worldcover.org" target="_blank" rel="noopener">ESA WorldCover 2021</a> (CC BY 4.0). Everything is bundled — no live map service is needed.</p>
       <h3>What is illustration</h3>
       <p>Building heights are measured from satellite imagery, so they are approximate (typically about a tenth low); where the measurement sees nothing they are estimated from type and footprint. Where OSM has streets but no footprints yet, {infill} small houses are drawn in to keep the grain of the streets; trees, lotus on the lakes, boats, traffic, awnings, balconies and lights are illustrative too. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, tháp Phước Duyên, the Quốc Học gate, the Citadel gates and the bell tower of chợ Đông Ba are modelled by hand on their OSM footprints.</p>
       <h3>Controls</h3>
-      <p>Drag to move, scroll or pinch to zoom, right-drag (or twist two fingers) to turn. Double-click to come closer. The compass returns you to the opening view. Keys: <kbd>H</kbd> home, <kbd>R</kbd> rain, <kbd>N</kbd> time of day, <kbd>L</kbd> labels, <kbd>/</kbd> search.</p>`,
+      <p>Drag to move, scroll or pinch to zoom, right-drag (or twist two fingers) to turn. Double-click to come closer. The compass returns you to the opening view. Keys: <kbd>H</kbd> home, <kbd>R</kbd> rain, <kbd>N</kbd> time of day, <kbd>L</kbd> labels, <kbd>/</kbd> search.</p>
+      <h3>Contributors</h3>
+      <p>Thanks to <a href="https://github.com/sleepyluno" target="_blank" rel="noopener">sleepyluno</a> for the <a href="https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno" target="_blank" rel="noopener">bug reports and suggestions</a> that bring the model closer to the real Huế.</p>`,
     osmOnly: 'Show only buildings mapped in OSM',
   },
 };
@@ -210,16 +214,29 @@ export const NOTES = {
     vi: 'Bia Quốc Học — đài tưởng niệm bên bờ sông Hương, đối diện cổng trường Quốc Học, dựng khoảng năm 1920.',
     en: 'Bia Quốc Học, the memorial on the riverbank facing the gate of Quốc Học school, built around 1920.',
   },
+  thuyxuan: {
+    vi: 'Làng hương Thủy Xuân, dưới chân đồi gần lăng Tự Đức: người làng nhuộm chân hương đủ màu rồi xòe thành từng bó hình hoa bên đường — góc chụp ảnh quen thuộc của du khách.',
+    en: 'Thủy Xuân incense village, below the hills near Tự Đức’s tomb: the villagers dye incense sticks in bright colours and fan the bundles out like flowers along the road, a favourite photo stop.',
+  },
+  phuongduc: {
+    vi: 'Phường Đúc — làng đúc đồng có từ thời các chúa Nguyễn. Thợ ở đây đúc Cửu Đỉnh (1835–1837) đặt trước Thế Miếu, và nay vẫn đúc chuông, tượng, đồ thờ.',
+    en: 'Phường Đúc, the bronze-casting quarter since the Nguyễn lords. Its founders cast the Nine Dynastic Urns (1835–37) that stand before Thế Miếu, and still cast bells, statues and altar pieces.',
+  },
+  sinh: {
+    vi: 'Làng Sình (Lại Ân) bên ngã ba sông Hương và sông Bồ: tranh khắc gỗ in trên giấy dó, tô màu bằng tay, vốn để thờ cúng rồi hóa đi sau lễ.',
+    en: 'Sình village (Lại Ân), where the Bồ meets the Hương: woodblock prints on dó paper, coloured by hand, made for worship and burnt after the rite.',
+  },
   gate: { vi: 'Một trong các cửa của Kinh thành, phía trên là vọng lâu.', en: 'One of the Citadel’s gates, with a watch pavilion on top.' },
 };
 
 // Places offered in the quick list, in the order a visitor might walk them.
-// The place list, in three groups (titles in STR.groups, same order). `overview` puts the whole-model button at the
+// The place list, in four groups (titles in STR.groups, same order). `overview` puts the whole-model button at the
 // head of that group.
 export const PLACE_GROUPS = [
   { ids: ['kydai', 'ngomon', 'nghenhluong', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'namgiao'] },
   { overview: true, ids: ['truongtien', 'dongba', 'biaquochoc', 'ndchieu', 'golim', 'photay', 'nguyenhoang', 'conhen', 'thienmu'] },
   { ids: ['tuduc', 'thuytien', 'khaidinh', 'minhmang'] },
+  { ids: ['thuyxuan', 'phuongduc', 'sinh'] },
 ];
 export const QUICK = PLACE_GROUPS.flatMap((g) => g.ids);
 
@@ -253,5 +270,8 @@ export const VIEWS = {
   ngubinh: { off: [500, 420, 700], look: [0, 0] },
   biaquochoc: { off: [-40, 30, 85], look: [0, -6] },
   golim: { off: [-90, 45, -110], look: [0, 0] },
+  thuyxuan: { off: [110, 70, 150], look: [0, 0] },
+  phuongduc: { off: [110, 75, 160], look: [0, 0] },
+  sinh: { off: [170, 110, 230], look: [0, 0] },
   default: { off: [170, 170, 280], look: [0, 0] },
 };
