@@ -12,7 +12,7 @@ import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample, subPath } from './bridges.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
-import { replaced } from '../landmarks/places/index.js';
+import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
 
@@ -92,12 +92,16 @@ function buildGreen(data, group) {
 }
 
 // ---------- roads ----------
-function ribbonPoints(pts, width) {
+// ends: [before, after], points just beyond the path's first and last points on the way that continues it (or null).
+// Without them each end is cut square to its own last segment; with them it is cut on the bisector of the joint, as
+// an inner vertex is, so two ribbons that meet end to end at an angle share one cut line and leave no wedge between.
+function ribbonPoints(pts, width, ends = null) {
   const n = pts.length;
   const L = [], R = [];
   for (let i = 0; i < n; i++) {
     const p = pts[i];
-    const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)];
+    const end = i === 0 ? ends?.[0] : i === n - 1 ? ends?.[1] : null, cut = end && end.dir; // a hand deck's end line
+    const a = i === 0 && end && !cut ? end : pts[Math.max(0, i - 1)], b = i === n - 1 && end && !cut ? end : pts[Math.min(n - 1, i + 1)];
     let d1x = p[0] - a[0], d1z = p[1] - a[1], d2x = b[0] - p[0], d2z = b[1] - p[1];
     let l1 = Math.hypot(d1x, d1z), l2 = Math.hypot(d2x, d2z);
     if (l1 < 1e-6) { d1x = d2x; d1z = d2z; l1 = l2; }
@@ -107,6 +111,7 @@ function ribbonPoints(pts, width) {
     let tx = d1x + d2x, tz = d1z + d2z;
     const tl = Math.hypot(tx, tz);
     if (tl < 1e-6) { tx = d1x; tz = d1z; } else { tx /= tl; tz /= tl; }
+    if (cut) { const sg = cut[0] * d1x + cut[1] * d1z < 0 ? -1 : 1; tx = cut[0] * sg; tz = cut[1] * sg; } // cut square to the deck
     const nx = -tz, nz = tx;
     const k = (width / 2) / Math.max(0.55, nx * -d1z + nz * d1x);
     L.push([p[0] + nx * k, p[1] + nz * k]);
@@ -114,9 +119,27 @@ function ribbonPoints(pts, width) {
   }
   return [L, R];
 }
-function ribbon(B, pts0, width, y, col) {
-  const pts = drape(pts0);
-  const [L, R] = ribbonPoints(pts, width);
+// a path whose end is cut on a hand deck's end line (ends[k].line) starts on that line: its end point is moved along
+// its own end segment onto it (a little out or back), so a street mapped a metre or two short of the deck reaches it
+function snapEnds(pts, ends) {
+  if (!ends || !(ends[0]?.line || ends[1]?.line)) return pts;
+  const out = pts.slice();
+  for (const k of [0, 1]) {
+    const L = ends[k]?.line;
+    if (!L || out.length < 2) continue;
+    const i = k ? out.length - 1 : 0, P = out[i], Q = out[k ? i - 1 : 1];
+    const len = Math.hypot(P[0] - Q[0], P[1] - Q[1]), dx = (P[0] - Q[0]) / len, dz = (P[1] - Q[1]) / len;
+    const du = dx * L.u[0] + dz * L.u[1];
+    if (!(len > 0.5) || Math.abs(du) < 0.3) continue;
+    const lam = -((P[0] - L.p[0]) * L.u[0] + (P[1] - L.p[1]) * L.u[1]) / du;
+    if (lam < -(len - 0.3) || lam > 8) continue;
+    out[i] = [P[0] + dx * lam, P[1] + dz * lam];
+  }
+  return out;
+}
+function ribbon(B, pts0, width, y, col, ends = null) {
+  const pts = drape(snapEnds(pts0, ends));
+  const [L, R] = ribbonPoints(pts, width, ends);
   // y is the height above the flat floor; on raised ground each edge point takes the terrain's own height
   const lift = pts === pts0 ? 0 : 0.12;
   const yL = L.map((p) => y + rise(p[0], p[1]) + lift), yR = R.map((p) => y + rise(p[0], p[1]) + lift);
@@ -125,8 +148,11 @@ function ribbon(B, pts0, width, y, col) {
 // yTop: one height for a level deck, [start, end] for a deck that climbs from one bank to the other, or a function
 // of the distance along the path (a humped deck: pass points dense enough to follow it). bottom(s, top), if given,
 // is the underside instead of top - thick: a vaulted bridge's arches.
-function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0, bottom = null) {
-  const [L, R] = ribbonPoints(pts, width);
+// opt.ends: as ribbonPoints. opt.lane { w, col }: a carriageway of that width laid along the middle of the top, the
+// rest of the top (col) being the footways, so the deck carries on the street's own pavement and carriageway.
+function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0, bottom = null, opt = {}) {
+  const [L, R] = ribbonPoints(pts, width, opt.ends);
+  const lane = opt.lane && opt.lane.w < width - 0.2 ? ribbonPoints(pts, opt.lane.w, opt.ends) : null;
   const ys = pts.map(() => yTop), bs = [];
   const len = pathLength(pts) || 1;
   let s = 0;
@@ -139,6 +165,10 @@ function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0, bottom = nu
   for (let i = 0; i + 1 < pts.length; i++) {
     const j = i + 1, ti = ys[i], tj = ys[j], bi = bs[i], bj = bs[j];
     B.quad([L[i][0], ti, L[i][1]], [R[i][0], ti, R[i][1]], [R[j][0], tj, R[j][1]], [L[j][0], tj, L[j][1]], col, [0, 1, 0]);
+    if (lane) {
+      const [l, r] = lane, e = 0.012;
+      B.quad([l[i][0], ti + e, l[i][1]], [r[i][0], ti + e, r[i][1]], [r[j][0], tj + e, r[j][1]], [l[j][0], tj + e, l[j][1]], opt.lane.col, [0, 1, 0]);
+    }
     B.quad([L[i][0], bi, L[i][1]], [R[i][0], bi, R[i][1]], [R[j][0], bj, R[j][1]], [L[j][0], bj, L[j][1]], sideCol, [0, -1, 0]);
     const nx = L[i][0] - R[i][0], nz = L[i][1] - R[i][1];
     B.quad([L[i][0], bi, L[i][1]], [L[j][0], bj, L[j][1]], [L[j][0], tj + parapet, L[j][1]], [L[i][0], ti + parapet, L[i][1]], sideCol, [nx, 0, nz]);
@@ -213,6 +243,61 @@ function medianShrubs(S, medians) {
   S.kind = k0;
 }
 
+// Where a bridge way and a street meet end to end, each takes a point of the other just past the joint (r.ends, see
+// ribbonPoints), so the deck's end and the street's end are cut on one line: no wedge of bare ground opens on the
+// outside of the bend and nothing overlaps on the inside. The partner is the most nearly straight-on of the ways of
+// the other kind (bridge / street) that end there; a bridge's own street ends (head) count as street.
+const JOINT_ANG = Math.cos((50 * Math.PI) / 180);
+function bridgeJoints(roads) {
+  const key = (p) => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10);
+  const at = new Map();
+  for (const r of roads) {
+    if (r.c > 3 || r.pts.length < 2) continue;
+    for (const e of [0, 1]) {
+      const k = key(e ? r.pts[r.pts.length - 1] : r.pts[0]);
+      if (!at.has(k)) at.set(k, []);
+      at.get(k).push([r, e]);
+    }
+  }
+  // the first point of r at least 0.5 m from its end e, and the unit heading from that end into r
+  const inward = (r, e) => {
+    const p = e ? r.pts[r.pts.length - 1] : r.pts[0];
+    for (let i = 1; i < r.pts.length; i++) {
+      const q = r.pts[e ? r.pts.length - 1 - i : i], d = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (d >= 0.5 || i === r.pts.length - 1) return { q, dx: (q[0] - p[0]) / (d || 1), dz: (q[1] - p[1]) / (d || 1) };
+    }
+  };
+  const kind = (r) => (r.bridge || r.head ? 1 : 0);
+  for (const list of at.values()) {
+    for (const [r, e] of list) {
+      if (r.cut?.[e]) continue;
+      const own = inward(r, e);
+      let best = null, bestDot = JOINT_ANG;
+      for (const [q, f] of list) {
+        if (q === r || kind(q) === kind(r) || q.cut?.[f]) continue;
+        const o = inward(q, f), dot = -(own.dx * o.dx + own.dz * o.dz); // 1: straight on
+        if (dot > bestDot) { bestDot = dot; best = o.q; }
+      }
+      if (best) { r.ends = r.ends || [null, null]; r.ends[e] = best; }
+    }
+  }
+}
+
+// The same for a hand-modelled deck (landmarks/places): its end is a straight line square to the deck, given as
+// { p, u (outward), hw, reach }. A street that starts within reach beyond it, inside its width, is cut on that line.
+function handDeckJoints(roads, decks) {
+  for (const D of decks) for (const r of roads) {
+    if (r.bridge || r.c > 3) continue;
+    for (const e of [0, 1]) {
+      const P = e ? r.pts[r.pts.length - 1] : r.pts[0], dx = P[0] - D.p[0], dz = P[1] - D.p[1];
+      const s = dx * D.u[0] + dz * D.u[1], t = -dx * D.u[1] + dz * D.u[0];
+      if (Math.abs(t) > D.hw || s < -1 || s > D.reach) continue;
+      r.ends = r.ends || [null, null];
+      r.ends[e] = { dir: D.u, line: D }; // tangent along the deck: the cut runs across it
+    }
+  }
+}
+
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
@@ -223,8 +308,11 @@ function buildRoads(data, group, structures) {
   for (const r of [...roads]) {
     const P = r.bridge && profiles.get(r.flat);
     if (!P || !P.span) continue;
-    for (const [s0, s1] of [[0, P.span[0]], [P.span[1], P.len]]) if (s1 - s0 > 0.05) roads.push({ c: r.c, w: r.w, bridge: 0, flat: null, pts: subPath(r.pts, s0, s1) });
+    r.cut = [P.span[0] > 0.05, P.span[1] < P.len - 0.05]; // the deck does not reach that end: its street piece does
+    for (const [s0, s1] of [[0, P.span[0]], [P.span[1], P.len]]) if (s1 - s0 > 0.05) roads.push({ c: r.c, w: r.w, bridge: 0, flat: null, head: true, pts: subPath(r.pts, s0, s1) });
   }
+  bridgeJoints(roads);
+  handDeckJoints(roads, placeDeckEnds(data)); // the replicas' decks (cầu Nguyễn Hoàng, cầu Phú Xuân)
   const casing = hex(PAL.casing);
   const cols = PAL.road.map(hex);
   const y = LAND_Y + 0.05;
@@ -235,11 +323,11 @@ function buildRoads(data, group, structures) {
   const pavW = (r) => r.w + (r.c <= 2 ? 3.6 : 2.4);
   const kerb = shade(casing, 0.8), verge = shade(casing, 0.9);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r) + 0.5, y - 0.005, verge);
+  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r) + 0.5, y - 0.005, verge, r.ends);
   B.kind = KIND.ROAD;
-  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r), y, casing);
+  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r), y, casing, r.ends);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, r.w + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85));
+  for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, r.w + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85), r.ends);
   // the medians of the divided roads (issue #15): a planted strip inside a pale stone kerb, under the carriageways'
   // own edges, with low clipped shrubs along it
   const medians = (data.medians || []).map(([w, flat]) => ({ w: w / 10, pts: unflat(flat) }));
@@ -250,7 +338,7 @@ function buildRoads(data, group, structures) {
   for (const m of medians) if (m.w > 0.9) ribbon(B, m.pts, m.w - 0.6, y + 0.008, turf);
   medianShrubs(structures, medians);
   B.kind = KIND.ROAD;
-  for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, r.w, y + 0.01, cols[c]);
+  for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, r.w, y + 0.01, cols[c], r.ends);
   const paint = hex('#f4eedd');
   for (const r of roads) {
     if (r.bridge || r.c > 1) continue;
@@ -279,7 +367,13 @@ function buildRoads(data, group, structures) {
     if (!r.bridge || ownDeck.has(r.flat)) continue;
     if (replaced('giahoi') && giaHoiRoads(data).has(r.flat)) continue; // cầu Gia Hội is modelled in landmarks/places/giahoi.js
     if (replaced('golim') && r.c === 5 && r.pts.some((p) => Math.hypot(p[0] + 72.9, p[1] - 281.6) < 1 || Math.hypot(p[0] + 298, p[1] - 500.2) < 1)) continue; // the lim walkway's OSM ways: landmarks/places/golim.js
-    const w = ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5);
+    // The deck is as wide as the street's pavement (carriageway + footways) and carries its carriageway at the street's
+    // own width (narrowed on a divided road's one-way twins), so the street runs onto it edge to edge. Left at the
+    // class width, a pair of twin decks overhung their 7 m streets as one broad slab. Citadel bridges keep their
+    // masonry proportions (geo/citadel-bridge.js).
+    const w = r.bridge === 2 ? ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5) : r.c <= 3 ? pavW(r) : r.w + 1.5;
+    const opt = r.c <= 3 ? { lane: { w: r.w, col: cols[Math.min(r.c, 3)] }, ends: r.ends } : { ends: r.ends };
+    const deckTop = r.c <= 3 ? casing : cols[Math.min(r.c, 3)];
     // the deck: level at the banks (or climbing between banks of different height, or at a hill lake's level), and
     // on all but the long river bridges rising to a crown at mid-span (geo/bridges.js)
     const P = profiles.get(r.flat);
@@ -292,14 +386,15 @@ function buildRoads(data, group, structures) {
     if (P.citadel) { citadelBridge(structures, r.pts, w, P, cols[Math.min(r.c, 3)]); continue; } // geo/citadel-bridge.js: masonry vaults, no piers
     if (P.span) { // the structure only: the street beyond its abutments was laid with the roads above
       const s0 = P.span[0], R = resample(subPath(r.pts, s0, P.span[1]), Math.min(2, P.len / 16));
-      slab(structures, R.pts, w, (s) => P.y(s0 + s), P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
+      const ends = [s0 < 0.05 ? r.ends?.[0] : null, P.span[1] > P.len - 0.05 ? r.ends?.[1] : null];
+      slab(structures, R.pts, w, (s) => P.y(s0 + s), P.thick, deckTop, deckSide, parapet, null, { ...opt, ends });
     } else if (P.rise > 0) {
       const R = resample(r.pts, P.arches ? 0.5 : Math.min(2, P.len / 16), P.breaks);
       const k0 = structures.kind;
       if (P.arches) structures.kind = KIND.MASONRY; // old brick-and-stone vaults read as masonry
-      slab(structures, R.pts, w, P.y, P.thick, cols[Math.min(r.c, 3)], P.arches ? hex('#b3a58c') : deckSide, parapet, P.bottom || null);
+      slab(structures, R.pts, w, P.y, P.thick, P.arches ? cols[Math.min(r.c, 3)] : deckTop, P.arches ? hex('#b3a58c') : deckSide, parapet, P.bottom || null, P.arches ? { ends: r.ends } : opt);
       structures.kind = k0;
-    } else slab(structures, r.pts, w, P.y, P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
+    } else slab(structures, r.pts, w, P.y, P.thick, deckTop, deckSide, parapet, null, opt);
     const len = pathLength(r.pts);
     // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
     const dv = vongDone || replaced('bachho') ? null : (data.places || []).find((q) => q.id === 'bachho');

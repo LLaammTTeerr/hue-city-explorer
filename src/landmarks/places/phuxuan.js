@@ -26,6 +26,21 @@ const SLAB = 0.25, GIRDER = 1.6, KERB = 0.2;
 const BRIDGE_TOP = LAND_Y + 0.42; // as landmarks/life.js rides it
 const STEP = 2; // deck sampling (m)
 
+// the deck's two end lines (places/index.js placeDeckEnds): square to the chord, at the road's two ends
+export function deckEnds(data) {
+  const r = (data.roads || []).find((q) => q[1] && (q[0] | 0) <= 1 && phuXuanRoad(data, q));
+  if (!r) return [];
+  const pts = unflat(r[2]), A = pts[0], E = pts[pts.length - 1], RL = Math.hypot(E[0] - A[0], E[1] - A[1]);
+  const d = [(E[0] - A[0]) / RL, (E[1] - A[1]) / RL];
+  return [{ p: A, u: [-d[0], -d[1]], hw: W / 2, reach: 4 }, { p: E, u: d, hw: W / 2, reach: 4 }];
+}
+function phuXuanRoad(data, r) {
+  const br = (data.bridges || []).find((q) => q.n === 'Cầu Phú Xuân');
+  if (!br) return false;
+  const ring = unflat(br.ring), pts = unflat(r[2]), a = pts[0], e = pts[pts.length - 1];
+  return inRing((a[0] + e[0]) / 2, (a[1] + e[1]) / 2, ring) && !!bridgeProfiles(data).get(r[2]);
+}
+
 export function build({ data, S }) {
   const br = (data.bridges || []).find((q) => q.n === 'Cầu Phú Xuân');
   if (!br) throw new Error('no Cầu Phú Xuân outline in data.bridges');
