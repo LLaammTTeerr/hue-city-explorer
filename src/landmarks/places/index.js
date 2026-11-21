@@ -9,6 +9,7 @@ import { KIND } from '../../geo/buf.js';
 //          S is the shared static buffer (world.structures), group the dynamic THREE.Group for lights and moving
 //          parts, place the record from data.places with x/z already in metres. It may return
 //          { update(time, glow, rain) } to be called every frame.
+//          Flags (and other moving parts in ../anim.js) animate on the shared clock and wind; they need no update().
 // The older builder that drew the same place checks `replaced(id)` and leaves it out, so the two never overlap.
 // Vite collects the replica files; plain node (scripts/check-heights.mjs) imports them itself and hands them over
 // on globalThis.__hueReplicas. The list is read on first use, not at import: builders (and city.js through

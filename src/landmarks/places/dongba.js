@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { lightMaterial, shared } from '../../geo/materials.js';
 import { landTest } from '../boats.js';
+import { flag } from '../anim.js';
 
 // Chợ Đông Ba, Huế's central market, as it stands today. Sources and estimates: docs/places/dongba.md.
 //
@@ -126,8 +127,7 @@ export function build({ data, S, group, THREE }) {
   for (let i = 0; i < 7; i++) {
     const u = -6 + i * 2, p = P(u, EV1 - 1.2), y = gy(p);
     S.cyl(p[0], p[1], y + BY1, y + 10.2, 0.05, 0.04, 4, hex('#d8d8d8'));
-    const q = P(u + 0.55, EV1 - 1.2);
-    S.box(q[0], q[1], y + 9.4, y + 10.1, 1.0, 0.04, ANG, FLAGS[i % 4]);
+    flag(group, { at: [p[0], y + 10.1, p[1]], w: 1.0, h: 0.7, look: FLAGS[i % 4], landmark: id }); // waves down-wind (anim.js)
   }
 
   // ---- the forecourt: rows of stalls either side of the entrance, and the two corner buildings ----
