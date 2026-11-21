@@ -64,6 +64,7 @@ Other params (`?look=`) are not carried into a shared link; a shared link's look
 | `npm run check:burial` | no model sunk into the ground |
 | `npm run check:overlap` | no model on a carriageway, inside another model or under a kept building |
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
+| `npm run test:joints` | fixture test of the joining step (`src/geo/joints.js`) on real road ends (`scripts/fixtures/joints-real.json`), within 1 cm; milliseconds |
 | `npm run check:roofs` | no hip roof runs through another: side-by-side roofs meet in a valley gutter, an upper tier clears the slope below |
 
 ## Contributing

@@ -672,6 +672,10 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   - cầu Nguyễn Hoàng's fixed cross-section now blends, over its last 24 m, into its approach carriageways' bands, colours and cross-fall. Its deck ends, and Phú Xuân's, are exported via `deckEnds()`.
 - New `npm run check:joints` (scripts/check-joints.mjs), now part of `npm run check`: 81 joints, 0 failing (bare seam ≤ 0.5 m², step ≤ 0.35 m). The old code had 66 of 77 failing. check:overlap is still clean.
 
+## Joint step as a module with a fixture test (2026-11-21, branch `claude/joint-fixture`)
+- `bridgeJoints`, `handDeckJoints` and `JOINT_ANG` moved unchanged from `src/geo/city.js` to `src/geo/joints.js` (city.js imports them); `check:joints --all` and `check:overlap` output identical before and after.
+- `npm run test:joints` (scripts/test-joints-fixture.mjs, part of `npm run check`) runs them on real road ends in scripts/fixtures/joints-real.json within 1 cm: cầu Nguyễn Hoàng's Kim Long end, cầu Phú Xuân (both ends), bridge way 129. Trường Tiền has no joint (hand model, carriageway not laid), so Phú Xuân stands in. A sign flip in `bridgeJoints` fails 6 ends. `check:joints` stays the city-wide check.
+
 ## Four interaction bugs (2026-11-21, branch `worktree-agent-a3d055188011d1313`)
 - Resize no longer sends the camera home once a place or the overview is chosen: the rig tracks `opening` (still on the
   opening view), cleared by any flight or user interaction and set again when a flight home lands; `resize()` re-frames
