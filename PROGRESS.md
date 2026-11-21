@@ -1,6 +1,11 @@
 # Progress
 
 ## Done
+- Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
+  the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
+  and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground
+  (slab top, hills, overlays) now writes alpha `GROUND_A` (0.96, materials.js); post.js raises the turn threshold to
+  about 45-63 degrees where all five samples are ground. Wall, kerb, roof, bank and hill-silhouette ink unchanged.
 - Ink lines across roads at hill rims (2026-11-21): the terrain mesh stood 3 cm proud of the slab at every node,
   including the rim nodes where the ground stops rising, so each drawn cell meeting the plain slab ended in a 3 cm step
   along the 25 m lattice. Roads and greens write no depth, so the ink's depth edges drew those steps as long straight
