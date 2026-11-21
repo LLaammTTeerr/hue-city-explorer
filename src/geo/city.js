@@ -267,7 +267,7 @@ function medianShrubs(S, medians) {
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), bridge: e[1], flat: e[2], pts: unflat(e[2]) })); // class clamped as bridges.js does, so widths and deck profiles agree
+  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]) })); // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
   // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
   // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
@@ -286,20 +286,23 @@ function buildRoads(data, group, structures) {
   // Edges are drawn the way a map draws them: every outline first, then the fills from minor to major, so a side
   // street opens into the road it meets and no line runs across a junction. KIND.LINE is a kerb joint in the
   // realistic look and the pen in the drawn one.
-  const pavW = (r) => r.w + (r.c <= 2 ? 3.6 : 2.4);
+  // a road's width plus add: one number, or one per point where it tapers (r.ws)
+  const W = (r, add = 0) => (r.ws ? r.ws.map((w) => w + add) : r.w + add);
+  const pavW = (r) => W(r, r.c <= 2 ? 3.6 : 2.4);
   const kerb = shade(casing, 0.8), verge = shade(casing, 0.9);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r) + 0.5, y - 0.005, verge, r.ends);
+  for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, W(r, (r.c <= 2 ? 3.6 : 2.4) + 0.5), y - 0.005, verge, r.ends);
   B.kind = KIND.ROAD;
   for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r), y, casing, r.ends);
   B.kind = KIND.LINE;
-  for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, r.w + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85), r.ends);
+  for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, W(r, r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85), r.ends);
   // junction boxes (geo/junctions.js): the patches that meeting carriageways enclose but none covers are asphalt,
   // over the pavement and kerb lines that showed there as pale squares and triangles out in the road
   const cw = [];
   roads.forEach((r, id) => {
     if (r.bridge || r.c > 4) return;
-    const [L, R] = ribbonPoints(drape(snapEnds(r.pts, r.ends)), r.w, r.ends);
+    const pts = drape(snapEnds(r.pts, r.ends));
+    const [L, R] = ribbonPoints(pts, r.ws ? pts.map((p) => widthAt(r.pts, r.ws, p)) : r.w, r.ends);
     cw.push({ id, c: r.c, pts: r.pts, L, R });
   });
   const greens = (data.green || []).filter(([k]) => k !== 'paved').map(([, poly]) => unflat(poly[0]));
@@ -322,7 +325,7 @@ function buildRoads(data, group, structures) {
   for (const m of medians) if (m.w > 0.9) ribbon(B, m.pts, m.ws.map((w) => Math.max(0.05, w - 0.6)), y + 0.008, turf);
   medianShrubs(structures, medians);
   B.kind = KIND.ROAD;
-  for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, r.w, y + 0.01, cols[c], r.ends);
+  for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, W(r), y + 0.01, cols[c], r.ends);
   // lane markings: a dashed line along the major roads, stopped short of every carriageway it meets and of the
   // junction holes, so the junction box itself is left plain (geo/junctions.js)
   const paint = hex('#f4eedd');
@@ -440,7 +443,7 @@ function buildRoads(data, group, structures) {
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {
       const { p, a } = along(r.pts, s);
-      const off = (r.w / 2 + 0.5) * (k % 2 ? 1 : -1);
+      const off = ((r.ws ? widthAt(r.pts, r.ws, p) : r.w) / 2 + 0.5) * (k % 2 ? 1 : -1);
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
       lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 + profiles.get(r.flat).bump(s) : 7.5), lz);
       const warm = 0.85 + rand(k, r.c) * 0.3;

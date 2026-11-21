@@ -538,6 +538,88 @@ divided.forEach((r, ri) => {
   nDivided++;
 });
 console.log('divided roads:', nDivided, 'one-way carriageways laid at one-way width');
+// Width steps. Where a carriageway carries straight on into one of another width (the twins in front of chợ Đông Ba,
+// kept at the class width, meeting their narrowed continuations; a one-way way meeting a two-way street) the wide end
+// stood square out past the narrow one's kerb, a pale pavement step across the road. The wider way now narrows over
+// its last TAPER metres to the other's width at the joint (r.ws: one width per point; r.w stays the widest, for the
+// clearances that only need an outer bound).
+const TAPER = 30, TAPER_SIN = Math.sin((30 * Math.PI) / 180);
+let nTaper = 0;
+{
+  const key = (p) => p[0].toFixed(2) + ',' + p[1].toFixed(2), ends = new Map();
+  roads.forEach((r) => {
+    if (r.bridge || r.c > 4 || r.pts.length < 2) return;
+    for (const k of [0, 1]) {
+      const n = r.pts.length, P = r.pts[k ? n - 1 : 0], Q = r.pts[k ? n - 2 : 1], l = Math.hypot(P[0] - Q[0], P[1] - Q[1]);
+      if (!l) continue;
+      const K = key(P);
+      if (!ends.has(K)) ends.set(K, []);
+      ends.get(K).push({ r, k, ox: (P[0] - Q[0]) / l, oz: (P[1] - Q[1]) / l }); // o: outward along the way
+    }
+  });
+  const want = new Map(); // road -> [width wanted at its start, at its end]
+  for (const E of ends.values()) {
+    for (const a of E) {
+      // the way a carries straight on into: the best-aligned other end here, outward directions opposite
+      let best = null, bd = -1;
+      for (const b of E) {
+        if (b.r === a.r) continue;
+        const dot = -(a.ox * b.ox + a.oz * b.oz);
+        if (dot > bd) { bd = dot; best = b; }
+      }
+      if (!best || bd < Math.sqrt(1 - TAPER_SIN * TAPER_SIN) || a.r.w - best.r.w < 0.4) continue;
+      if (a.r.name && best.r.name && a.r.name !== best.r.name) continue;
+      if (!want.has(a.r)) want.set(a.r, [null, null]);
+      want.get(a.r)[a.k] = best.r.w;
+    }
+  }
+  for (const [r, [w0, w1]] of want) {
+    const len = pathLength(r.pts), T = Math.min(TAPER, len * (w0 != null && w1 != null ? 0.45 : 0.6));
+    // points at T from each tapering end, so the narrowing starts there and not at the next mapped node
+    let pts = r.pts;
+    if (w0 != null) pts = insertAt(pts, T);
+    if (w1 != null) pts = insertAt(pts, pathLength(pts) - T);
+    const L = pathLength(pts);
+    let s = 0;
+    r.ws = pts.map((p, i) => {
+      if (i) s += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
+      let w = r.w;
+      if (w0 != null && s < T) w = Math.min(w, w0 + ((r.w - w0) * s) / T);
+      if (w1 != null && L - s < T) w = Math.min(w, w1 + ((r.w - w1) * (L - s)) / T);
+      return w;
+    });
+    r.pts = pts;
+    nTaper++;
+  }
+}
+console.log('width steps tapered:', nTaper);
+// the carriageway width of r at p (a point on or beside its line): r.ws interpolated along the nearest segment
+function widthOn(r, p) {
+  if (!r.ws) return r.w;
+  let best = Infinity, w = r.w;
+  for (let i = 0; i + 1 < r.pts.length; i++) {
+    const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2)) : 0;
+    const d = Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dz);
+    if (d < best) { best = d; w = r.ws[i] + (r.ws[i + 1] - r.ws[i]) * t; }
+  }
+  return w;
+}
+function pathLength(pts) { let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); return L; }
+// pts with a point added at distance s along it (unless a node is already within 0.5 m)
+function insertAt(pts, s) {
+  let acc = 0;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (acc + l >= s) {
+      const u = s - acc;
+      if (u < 0.5 || l - u < 0.5) return pts;
+      return [...pts.slice(0, i + 1), [a[0] + ((b[0] - a[0]) * u) / l, a[1] + ((b[1] - a[1]) * u) / l], ...pts.slice(i + 1)];
+    }
+    acc += l;
+  }
+  return pts;
+}
 for (const r of roads) stampLine(r.pts, r.c < 5 ? r.w / 2 + 1.2 : 1.2, ROAD);
 // Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
 // lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
@@ -1082,10 +1164,10 @@ const medians = [];
     walkLine(A.pts, (px, pz, tx, tz) => {
       const t = twinAt(ai, px, pz, tx, tz);
       // each strip once: from the twin with the lower index
-      const gap = t && t.ri > ai ? t.dist - A.w / 2 - divided[t.ri].w / 2 : 0;
+      const wa = t ? widthOn(A, [px, pz]) : 0, gap = t && t.ri > ai ? t.dist - wa / 2 - widthOn(divided[t.ri], [px + t.nx * t.dist, pz + t.nz * t.dist]) / 2 : 0;
       // no planted strip between twin bridge decks: the gap there is open water (or the deck's own slab)
       if (gap < MEDIAN_MIN || gap > MEDIAN_MAX || A.bridge || divided[t.ri].bridge) { cross = null; return flush(); }
-      const o = A.w / 2 + gap / 2, s = { p: [px + t.nx * o, pz + t.nz * o], w: gap };
+      const o = wa / 2 + gap / 2, s = { p: [px + t.nx * o, pz + t.nz * o], w: gap };
       if (nearMarket(s.p)) { cross = null; return flush(); }
       if (crossing(s.p[0], s.p[1], 1.5)) {
         if (run.length) { run.push(s); run.push(over(run.at(-2), s)); }
@@ -2061,7 +2143,7 @@ const out = {
   ponds: ponds.map(flatPoly),
   pondLv: pondLv.map((v) => Math.round(v * 10)),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
-  roads: roads.map((r) => (r.w === ROAD_W[r.c] ? [r.c, r.bridge, flat(r.pts)] : [r.c, r.bridge, flat(r.pts), q(r.w)])), // 4th: carriageway width (dm) where it is not the class width
+  roads: roads.map((r) => (r.ws ? [r.c, r.bridge, flat(r.pts), q(r.w), r.ws.map(q)] : r.w === ROAD_W[r.c] ? [r.c, r.bridge, flat(r.pts)] : [r.c, r.bridge, flat(r.pts), q(r.w)])), // 4th: carriageway width (dm) where it is not the class width; 5th: one width per point where it tapers
   medians: medians.map((m) => [q(m.w), flat(m.pts), m.ws.map(q)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),
   bld: buildings,
