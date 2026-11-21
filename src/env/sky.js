@@ -35,10 +35,33 @@ export function buildSky() {
         if ( d.y > 0.015 ) {
           vec2 cuv = d.xz / ( d.y + 0.22 ) * 0.85 + vec2( uTime * 0.0045, uTime * 0.0018 );
           float wisp = fbm( cuv + vec2( fbm( cuv * 1.4 ) * 0.35 ) );
-          float mask = smoothstep( 0.48 - uHaze * 0.14, 0.78 - uHaze * 0.1, wisp )
-                     * smoothstep( 0.02, 0.2, d.y ) * smoothstep( 0.88, 0.28, d.y );
-          vec3 cloudCol = mix( uHorizon * 1.06, uGlow * 1.12, pow( sd, 2.5 ) * 0.65 * ( 1.0 - uHaze * 0.7 ) );
-          col = mix( col, cloudCol, mask * mix( 0.34, 0.22, uHaze ) );
+          float mask = smoothstep( 0.46 - uHaze * 0.14, 0.76 - uHaze * 0.1, wisp )
+                     * smoothstep( 0.02, 0.18, d.y ) * smoothstep( 0.88, 0.26, d.y );
+          vec3 cloudCol = mix( uHorizon * 1.08, uGlow * 1.14, pow( sd, 2.5 ) * 0.65 * ( 1.0 - uHaze * 0.7 ) );
+          col = mix( col, cloudCol, mask * mix( 0.42, 0.26, uHaze ) );
+        }
+        // faint night stars above the horizon mist when the sky is clear
+        float nightK = smoothstep( 0.45, 0.15, uSunDisk ) * ( 1.0 - uHaze * 0.85 );
+        if ( nightK > 0.01 && d.y > 0.08 ) {
+          vec2 sg = d.xz / ( d.y + 0.35 ) * 62.0;
+          vec2 sid = floor( sg ), sf = fract( sg ) - 0.5;
+          float sh = hash21( sid );
+          float star = step( 0.986, sh ) * smoothstep( 0.22, 0.02, length( sf - ( vec2( hash21( sid + 4.3 ), hash21( sid + 9.1 ) ) - 0.5 ) * 0.55 ) );
+          float twink = 0.7 + 0.3 * sin( uTime * ( 1.4 + sh * 3.0 ) + sh * 40.0 );
+          col += vec3( 0.92, 0.94, 1.0 ) * star * twink * nightK * smoothstep( 0.08, 0.32, d.y ) * 0.55;
+        }
+        // distant Trường Sơn / Ngự Bình mountain ridge washes along the horizon (strongest south-west)
+        if ( d.y > -0.02 && d.y < 0.095 ) {
+          float az = atan( d.z, d.x );
+          float swBias = 0.55 + 0.45 * smoothstep( -0.6, 0.8, -d.x * 0.45 + d.z * 0.89 );
+          float rFar = ( 0.018 + 0.036 * fbm( vec2( az * 3.1 + 1.4, 2.7 ) ) ) * swBias;
+          float rNear = ( 0.008 + 0.022 * fbm( vec2( az * 5.6 + 6.2, 5.1 ) ) ) * swBias;
+          float mFar = ( 1.0 - smoothstep( rFar - 0.006, rFar + 0.005, d.y ) ) * smoothstep( -0.018, 0.004, d.y );
+          float mNear = ( 1.0 - smoothstep( rNear - 0.005, rNear + 0.004, d.y ) ) * smoothstep( -0.018, 0.003, d.y );
+          vec3 ridgeFar = mix( uFog, uTop * 0.72, 0.36 );
+          vec3 ridgeNear = mix( uFog * 0.82, uTop * 0.52, 0.42 );
+          col = mix( col, ridgeFar, mFar * ( 0.34 - uHaze * 0.14 ) );
+          col = mix( col, ridgeNear, mNear * ( 0.42 - uHaze * 0.18 ) );
         }
         // soft misty horizon veil blending the distant ridges into the sky
         float band = exp( -abs( d.y ) * 11.0 );
