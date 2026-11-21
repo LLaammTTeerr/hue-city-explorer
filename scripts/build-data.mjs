@@ -1050,7 +1050,7 @@ console.log('special', Object.keys(special));
 // shrubs. A strip stops where a road (up to residential) crosses it, so it ends at each junction and U-turn gap.
 // Exception: the road in front of chợ Đông Ba (Trần Hưng Đạo) keeps its median trees as they are.
 const MEDIAN_RUN = 10; // m: the shortest strip kept
-const MEDIAN_TOL = 0.5; // m: how far a strip's gap may stray from its width before the strip is cut
+const MEDIAN_OVER = 3; // m: how far a strip runs on under the carriageway of the road crossing it
 const medians = [];
 {
   const crossing = carriagewayTest(3);
@@ -1059,34 +1059,42 @@ const medians = [];
     const flush = () => {
       let L = 0;
       for (let i = 1; i < run.length; i++) L += Math.hypot(run[i].p[0] - run[i - 1].p[0], run[i].p[1] - run[i - 1].p[1]);
-      // A strip has one width. Where the gap between the twins widens or narrows (fanning out from a bridge head),
-      // one averaged width left bare ground beside the kerb at one end and ran under the carriageways at the other:
-      // the run is cut into pieces whose gap stays within MEDIAN_TOL of the piece's mean, each starting where the
-      // last one ends.
+      // The gap between the twins widens or narrows (fanning out from a bridge head, tapering into a junction). A strip
+      // of one width left bare ground beside the kerb at one end and ran under the carriageways at the other, and cut
+      // into constant-width pieces it stepped, a pale kerb tick at every step: each point keeps its own gap instead,
+      // lightly smoothed (the twin sampling is noisy by a few centimetres), and the client draws the strip tapering.
       if (run.length >= 2 && L >= MEDIAN_RUN) {
-        const mean = (a) => a.reduce((s, x) => s + x.w, 0) / a.length;
-        let cur = [run[0]];
-        for (let i = 1; i < run.length; i++) {
-          if (cur.length >= 2 && Math.abs(run[i].w - mean(cur)) > MEDIAN_TOL) {
-            medians.push({ pts: cur.map((s) => s.p), w: mean(cur) });
-            cur = [cur.at(-1)];
-          }
-          cur.push(run[i]);
-        }
-        if (cur.length >= 2) medians.push({ pts: cur.map((s) => s.p), w: mean(cur) });
+        const ws = run.map((_, i) => {
+          let s = 0, n = 0;
+          for (let j = Math.max(0, i - 2); j <= Math.min(run.length - 1, i + 2); j++) { s += run[j].w; n++; }
+          return s / n;
+        });
+        medians.push({ pts: run.map((s) => s.p), w: Math.max(...ws), ws });
       }
       run = [];
     };
+    // A strip used to stop at the last sample clear of a crossing road, up to a walk step and the 1.5 m pad short of
+    // its kerb, and the pale pavement under the twins showed there as a square nose between the green and the junction.
+    // Now a strip that meets a crossing road takes in the sample on it and runs MEDIAN_OVER on under that carriageway,
+    // which is drawn over it, so the green reaches the junction's kerb line whatever angle the road crosses at.
+    let cross = null; // the last sample on a crossing road, where a strip leaving the junction starts
+    const over = (a, b) => { const dx = b.p[0] - a.p[0], dz = b.p[1] - a.p[1], l = Math.hypot(dx, dz) || 1; return { p: [b.p[0] + (dx / l) * MEDIAN_OVER, b.p[1] + (dz / l) * MEDIAN_OVER], w: b.w }; };
     walkLine(A.pts, (px, pz, tx, tz) => {
       const t = twinAt(ai, px, pz, tx, tz);
       // each strip once: from the twin with the lower index
       const gap = t && t.ri > ai ? t.dist - A.w / 2 - divided[t.ri].w / 2 : 0;
-      if (gap < MEDIAN_MIN || gap > MEDIAN_MAX) return flush();
       // no planted strip between twin bridge decks: the gap there is open water (or the deck's own slab)
-      if (A.bridge || divided[t.ri].bridge) return flush();
-      const o = A.w / 2 + gap / 2, p = [px + t.nx * o, pz + t.nz * o];
-      if (crossing(p[0], p[1], 1.5) || nearMarket(p)) return flush();
-      run.push({ p, w: gap });
+      if (gap < MEDIAN_MIN || gap > MEDIAN_MAX || A.bridge || divided[t.ri].bridge) { cross = null; return flush(); }
+      const o = A.w / 2 + gap / 2, s = { p: [px + t.nx * o, pz + t.nz * o], w: gap };
+      if (nearMarket(s.p)) { cross = null; return flush(); }
+      if (crossing(s.p[0], s.p[1], 1.5)) {
+        if (run.length) { run.push(s); run.push(over(run.at(-2), s)); }
+        cross = s;
+        return flush();
+      }
+      if (!run.length && cross) { run.push(over(s, cross)); run.push(cross); }
+      cross = null;
+      run.push(s);
     });
     flush();
   });
@@ -1095,8 +1103,8 @@ const medians = [];
 const inMedian = (() => {
   const G = 20, grid = new Map();
   for (const m of medians) {
-    const hw = m.w / 2;
     for (let i = 0; i + 1 < m.pts.length; i++) {
+      const hw = Math.max(m.ws[i], m.ws[i + 1]) / 2;
       const a = m.pts[i], b = m.pts[i + 1], s = [a, b, hw], r = hw + 2;
       for (let x = Math.floor((Math.min(a[0], b[0]) - r) / G); x <= Math.floor((Math.max(a[0], b[0]) + r) / G); x++)
         for (let z = Math.floor((Math.min(a[1], b[1]) - r) / G); z <= Math.floor((Math.max(a[1], b[1]) + r) / G); z++) {
@@ -1533,6 +1541,10 @@ const water_labels = [];
 }
 
 // Moorings: places along the central riverbanks where small sampans tie up (illustrative; positions on the real bank line)
+// The moorings start from their own seed, so that a change upstream that draws more or fewer numbers (planting along a
+// new median) does not move every sampan on the river: 579897935 is where the shared stream stood here before the
+// tapering medians, so the moorings, and everything drawn after them, stay as they were.
+seed = 579897935;
 const moorings = [];
 for (const poly of water) {
   if (!touchesEdge(poly) && Math.abs(ringArea(poly[0])) < 400000) continue;
@@ -2050,7 +2062,7 @@ const out = {
   pondLv: pondLv.map((v) => Math.round(v * 10)),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
   roads: roads.map((r) => (r.w === ROAD_W[r.c] ? [r.c, r.bridge, flat(r.pts)] : [r.c, r.bridge, flat(r.pts), q(r.w)])), // 4th: carriageway width (dm) where it is not the class width
-  medians: medians.map((m) => [q(m.w), flat(m.pts)]),
+  medians: medians.map((m) => [q(m.w), flat(m.pts), m.ws.map(q)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),
   bld: buildings,
   infill: infillOut,

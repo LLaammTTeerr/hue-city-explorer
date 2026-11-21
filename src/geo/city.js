@@ -97,6 +97,7 @@ function buildGreen(data, group) {
 // ends: [before, after], points just beyond the path's first and last points on the way that continues it (or null).
 // Without them each end is cut square to its own last segment; with them it is cut on the bisector of the joint, as
 // an inner vertex is, so two ribbons that meet end to end at an angle share one cut line and leave no wedge between.
+// width: one width, or one per point (a tapering strip)
 function ribbonPoints(pts, width, ends = null) {
   const n = pts.length;
   const L = [], R = [];
@@ -115,7 +116,7 @@ function ribbonPoints(pts, width, ends = null) {
     if (tl < 1e-6) { tx = d1x; tz = d1z; } else { tx /= tl; tz /= tl; }
     if (cut) { const sg = cut[0] * d1x + cut[1] * d1z < 0 ? -1 : 1; tx = cut[0] * sg; tz = cut[1] * sg; } // cut square to the deck
     const nx = -tz, nz = tx;
-    const k = (width / 2) / Math.max(0.55, nx * -d1z + nz * d1x);
+    const k = ((Array.isArray(width) ? width[i] : width) / 2) / Math.max(0.55, nx * -d1z + nz * d1x);
     L.push([p[0] + nx * k, p[1] + nz * k]);
     R.push([p[0] - nx * k, p[1] - nz * k]);
   }
@@ -141,6 +142,8 @@ function snapEnds(pts, ends) {
 }
 function ribbon(B, pts0, width, y, col, ends = null) {
   const pts = drape(snapEnds(pts0, ends));
+  // per-point widths follow the points drape adds on raised ground
+  if (Array.isArray(width) && pts.length !== pts0.length) width = pts.map((p) => widthAt(pts0, width, p));
   const [L, R] = ribbonPoints(pts, width, ends);
   // y is the height above the flat floor; on raised ground each edge point takes the terrain's own height
   const lift = pts === pts0 ? 0 : 0.12;
@@ -224,6 +227,18 @@ function along(pts, dist) {
   return { p: b, a: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
+// the width of a tapering strip (pts, ws) at the point p on it: interpolated along the nearest segment
+function widthAt(pts, ws, p) {
+  let best = Infinity, w = ws[0];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2)) : 0;
+    const d = Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dz);
+    if (d < best) { best = d; w = ws[i] + (ws[i + 1] - ws[i]) * t; }
+  }
+  return w;
+}
+
 // Low clipped shrubs along a median strip, about every 2.5 m, left out where the strip is too narrow to hold them.
 function medianShrubs(S, medians) {
   const greens = PAL.shrubs.map(hex);
@@ -232,10 +247,14 @@ function medianShrubs(S, medians) {
   let n = 0;
   for (const m of medians) {
     if (m.w < 1.6) continue;
-    const len = pathLength(m.pts), r = Math.min(0.75, m.w / 2 - 0.45);
-    for (let s = 1.2 + rand(n, 7) * 1.5; s < len - 1; s += 2.2 + rand(n, 3) * 1.2, n++) {
+    const len = pathLength(m.pts);
+    // a strip runs on under the road crossing it (build-data MEDIAN_OVER): no shrubs in its last few metres
+    for (let s = 4.5 + rand(n, 7) * 1.5; s < len - 4.5; s += 2.2 + rand(n, 3) * 1.2, n++) {
       const { p, a } = along(m.pts, s);
-      const j = (rand(n, 11) - 0.5) * Math.max(0, m.w - 0.9 - 2 * r);
+      const w = widthAt(m.pts, m.ws, p);
+      if (w < 1.6) continue;
+      const r = Math.min(0.75, w / 2 - 0.45);
+      const j = (rand(n, 11) - 0.5) * Math.max(0, w - 0.9 - 2 * r);
       const x = p[0] - Math.sin(a) * j, z = p[1] + Math.cos(a) * j;
       const g = LAND_Y + rise(x, z) + 0.05, rr = r * (0.75 + rand(n, 5) * 0.35), h = 0.55 + rand(n, 9) * 0.45;
       S.cyl(x, z, g, g + h * 0.6, rr * 0.8, rr, 7, pick(greens, n), { cap: false, rot: rand(n, 13) });
@@ -293,12 +312,12 @@ function buildRoads(data, group, structures) {
   }
   // the medians of the divided roads (issue #15): a planted strip inside a pale stone kerb, under the carriageways'
   // own edges, with low clipped shrubs along it
-  const medians = (data.medians || []).map(([w, flat]) => ({ w: w / 10, pts: unflat(flat) }));
+  const medians = (data.medians || []).map(([w, flat, ws]) => { const pts = unflat(flat); return { w: w / 10, pts, ws: ws ? ws.map((v) => v / 10) : pts.map(() => w / 10) }; });
   const kerbStone = hex(PAL.medianKerb), turf = hex(PAL.median);
   B.kind = KIND.ROAD;
-  for (const m of medians) ribbon(B, m.pts, m.w, y + 0.006, kerbStone);
+  for (const m of medians) ribbon(B, m.pts, m.ws, y + 0.006, kerbStone);
   B.kind = KIND.GROUND;
-  for (const m of medians) if (m.w > 0.9) ribbon(B, m.pts, m.w - 0.6, y + 0.008, turf);
+  for (const m of medians) if (m.w > 0.9) ribbon(B, m.pts, m.ws.map((w) => Math.max(0.05, w - 0.6)), y + 0.008, turf);
   medianShrubs(structures, medians);
   B.kind = KIND.ROAD;
   for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, r.w, y + 0.01, cols[c], r.ends);
