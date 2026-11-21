@@ -561,6 +561,103 @@ const sites = {};
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; stamp(c[0], c[1], 26, TREE | NOBUILD); }
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
+
+// ---------- paved yards and squares (issue #22) ----------
+// The parks along the Hương are not lawn throughout: grey paved yards open before Nghênh Lương Đình, tiểu đình
+// Thương Bạc and the other riverside pavilions. Planting every park as close woodland buried them. A paved yard is
+// laid as its own ground ('paved' in green, drawn over the park) and nothing is grown or built on it. Two sources:
+//  1. what OSM maps as paved ground: highway areas (area=yes: pedestrian squares, footway courts), area:highway,
+//     place=square and surface car parks (amenity=parking, not multi-storey, underground or on a roof). These were
+//     dropped altogether before (the road pass skips area=yes). A hand-modelled site lays its own ground.
+//  2. what OSM leaves inside a park: the Sentinel-2 scene (the roof-colour grid) shows bare paving as bright, grey to
+//     buff 10 m pixels with no green in them, where lawn and canopy are green. Such cells inside a park or lawn
+//     (not woods, farms, graves, pitches or the hand-modelled sites) are gathered into yards; a compact yard is laid
+//     as a rectangle squared to the nearest street, as the city lays its squares, a ragged one as its cells.
+const PAVED_HW = new Set(['pedestrian', 'footway', 'service', 'living_street', 'residential', 'unclassified', 'track', 'cycleway', 'path', 'platform']);
+const pavedPx = (x, z) => {
+  if (!ROOF) return false;
+  const acc = [0, 0, 0, 0]; roofPx(x, z, acc);
+  if (!acc[3]) return false;
+  const [r, g, b] = acc, br = (r + g + b) / 3, exg = 2 * g - r - b;
+  return br >= 80 && exg <= 12 && r - b <= 40; // bright, no green; warmer than this is bare earth or sand
+};
+const paved = [];
+{
+  let nOsm = 0;
+  for (const e of els) {
+    const t = e.tags || {};
+    if (e.type === 'node' || t.building || t['building:part']) continue;
+    const lot = t.amenity === 'parking' && !/multi-storey|underground|rooftop/.test(t.parking || '');
+    if (!((t.highway in ROAD_CLASS || PAVED_HW.has(t.highway)) && t.area === 'yes') && !t['area:highway'] && t.place !== 'square' && !lot) continue;
+    let polys = evenOdd(elementRings(e));
+    if (!polys.length || siteOf(centroid(openRing(polys[0][0])))) continue;
+    try { polys = pc.intersection(polys, [slabRect]); } catch { continue; }
+    for (const poly of polys) if (poly[0].some((p) => inBox(p))) { paved.push(poly); nOsm++; }
+  }
+  // the street directions near a point: the yard is squared to the nearest carriageway
+  const streetAngle = (c) => {
+    let best = Infinity, ang = 0;
+    for (const r of roads) {
+      if (r.c > 4) continue;
+      for (let i = 0; i + 1 < r.pts.length; i++) {
+        const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
+        if (!l2) continue;
+        const s = Math.max(0, Math.min(1, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dz) / l2));
+        const d = Math.hypot(a[0] + dx * s - c[0], a[1] + dz * s - c[1]);
+        if (d < best) { best = d; ang = Math.atan2(dz, dx); }
+      }
+    }
+    return best < 150 ? ang : null;
+  };
+  const G = 10, cells = new Map(); // key "i,j" on a 10 m lattice -> the park it lies in
+  for (const g of green) {
+    if (g.k !== 'park' && g.k !== 'grass') continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of g.p[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    for (let i = Math.floor(x0 / G); i * G < x1; i++) for (let j = Math.floor(z0 / G); j * G < z1; j++) {
+      const x = (i + 0.5) * G, z = (j + 0.5) * G;
+      if (!pipPoly([x, z], g.p) || at(x, z) & WATER || inImperial([x, z]) || siteOf([x, z]) || onCarriageway(x, z, 1)) continue;
+      if (pavedPx(x, z)) cells.set(i + ',' + j, g);
+    }
+  }
+  // gather the cells into yards (4-neighbours); a yard of fewer than three cells is a path crossing or a bench
+  const seen = new Set();
+  let nSat = 0, nRect = 0;
+  for (const k0 of cells.keys()) {
+    if (seen.has(k0)) continue;
+    const comp = [], stack = [k0]; seen.add(k0);
+    while (stack.length) {
+      const k = stack.pop(); comp.push(k.split(',').map(Number));
+      const [i, j] = comp[comp.length - 1];
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = i + di + ',' + (j + dj); if (cells.has(n) && !seen.has(n)) { seen.add(n); stack.push(n); } }
+    }
+    if (comp.length < 3) continue;
+    const g = cells.get(k0);
+    const c = [comp.reduce((s, [i]) => s + (i + 0.5) * G, 0) / comp.length, comp.reduce((s, [, j]) => s + (j + 0.5) * G, 0) / comp.length];
+    const a = streetAngle(c);
+    let shape = null;
+    if (a != null) {
+      // the cells' extent across and along the street, from cell centres (a 10 m pixel is mixed at a yard's edge)
+      const ux = Math.cos(a), uz = Math.sin(a);
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      for (const [i, j] of comp) {
+        const dx = (i + 0.5) * G - c[0], dz = (j + 0.5) * G - c[1], u = dx * ux + dz * uz, v = -dx * uz + dz * ux;
+        u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v);
+      }
+      u0 -= G / 2; u1 += G / 2; v0 -= G / 2; v1 += G / 2;
+      if (comp.length * G * G >= 0.5 * (u1 - u0) * (v1 - v0)) {
+        const P = (u, v) => [c[0] + u * ux - v * uz, c[1] + u * uz + v * ux];
+        shape = [[[P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1), P(u0, v0)]]];
+        nRect++;
+      }
+    }
+    if (!shape) { try { shape = pc.union(...comp.map(([i, j]) => rect(i * G, j * G, (i + 1) * G, (j + 1) * G))); } catch { continue; } }
+    try { shape = pc.intersection(shape, g.p); } catch { continue; }
+    for (const poly of shape) { paved.push(poly); nSat++; }
+  }
+  for (const poly of paved) { green.push({ k: 'paved', p: poly }); fillPoly(poly, BLD | NOBUILD); }
+  console.log('paved yards:', nOsm, 'mapped in OSM |', nSat, 'read from the satellite scene in parks (', nRect, 'squared to the street ) from', cells.size, 'cells');
+}
 // Building heights, on 2 m grids in the model's frame. Two sources, the better one first:
 //  1. the city's own 3D building survey (GISHue; scripts/fetch-gishue-heights.py): for every footprint, the height
 //     of a surface model above the ground, flown by drone over the urban core. Against the heights that are
@@ -1524,7 +1621,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     console.log('lake shores:', shoreHigh, 'nodes stand over 2 m above their lake (they were held flat at its level)');
     for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
     // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
-    const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7 };
+    const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7, paved: 8 };
     let cover = '', lifted = 0, peak = 0;
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const k = j * nx + i;
@@ -1532,7 +1629,8 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       if (h[k] > 0) {
         lifted++; peak = Math.max(peak, h[k]);
         const p = [GX0 + i * STEP, GZ0 + j * STEP];
-        for (const g of green) if (pipPoly(p, g.p)) { c = COVER[g.k] || 0; break; }
+        for (const g of green) if (g.k === 'paved' && pipPoly(p, g.p)) { c = COVER.paved; break; } // a yard is laid over its park
+        if (!c) for (const g of green) if (pipPoly(p, g.p)) { c = COVER[g.k] || 0; break; }
         if (!c && isWooded(p[0], p[1])) c = COVER.wood; // the forest floor under WorldCover's tree cover
       }
       cover += c;

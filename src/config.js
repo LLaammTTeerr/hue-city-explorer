@@ -29,7 +29,7 @@ export const PAL = {
   land: '#ccc09d',
   bank: '#8d8574',
   base: '#5e554c',
-  green: { park: '#9cb070', wood: '#829e5e', grass: '#acb97f', farm: '#bcc086', cemetery: '#b8b498', pitch: '#94b26f', sacred: '#c9bc93' },
+  green: { park: '#9cb070', wood: '#829e5e', grass: '#acb97f', farm: '#bcc086', cemetery: '#b8b498', pitch: '#94b26f', sacred: '#c9bc93', paved: '#b9b4aa' },
   road: ['#d6cec0', '#d8d0c2', '#dad2c4', '#dcd4c6', '#d8cfbd', '#e5dbc4'],
   casing: '#ede4d0',
   rail: '#544c58',
