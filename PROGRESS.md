@@ -12,7 +12,8 @@
   Nội vạc. Tombs, Cửu Đỉnh, Thế Miếu, Hưng Miếu, Kiến Trung and Thái Hòa use them; sources per object in
   docs/places/courtyard-objects.md. Second pass (sources sought): Thái Hòa keeps one vạc, gains a kỳ lân pair on
   Đan Bệ, cranes moved inside by the throne, second vạc and censers removed; Thế Miếu kỳ lân stand in thiết đình
-  (kiosk shape estimated). Thái Hòa's three middle front bays now stand open so the cranes show. Open for the owner: kiosk shape; 1842
+  (kiosk shape estimated). Thái Hòa's three middle front bays now stand open so the cranes and the throne (sourced size, three tiers, gilt
+  bửu tán) show. Open for the owner: kiosk shape; 1842
   dragon pair.
 
 ## Done

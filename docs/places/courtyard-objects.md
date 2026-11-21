@@ -168,6 +168,18 @@ a size, or the shape of an object no source describes.
   | Khải Định | 2.15 m (its smaller soldiers are military) | |
   | Đồng Khánh | 2.6 m | |
 
+## Thái Hòa throne (ngai vàng) and bửu tán
+
+- **Sourced: the throne's size.** daidoanket.vn, "Ngai vàng duy nhất còn lại ở Việt Nam" (2016), republished by
+  nguoiquansat.vn (2024): "Ngai cao 101 cm, rộng 72 cm, dài 87 cm"; base "dài 118 cm, rộng 90 cm, cao 20 cm"; wood,
+  carved and gilt; "đặt giữa điện Thái Hòa", never moved. Modelled at those sizes.
+- **Sourced: three tiers and a gilt canopy.** vtcnews.vn / baophapluat.vn (after the restoration): a throne on "ba
+  tầng bệ gỗ" under a gilt bửu tán. daidoanket.vn, "Ngắm vẻ đẹp lộng lẫy của bửu tán" (2024): carved gilt wood since
+  Khải Định (1923; nguoiquansat gives 1916–1925), two dragons facing a Thọ on each face, a dragon head at each corner.
+- **Estimated:** the tiers (3.4 × 3.0, 2.7 × 2.4, 2.0 × 1.8 m, 0.2 m each), the canopy (2.4 m square, its valance
+  1.1 m below the ceiling lid) and the throne's back and arms. Dais centre W(0, −4.0), between the cranes.
+- No source gives the canopy's size or how it hangs; a photo of the hall's interior would settle both.
+
 ## Not placed, and still unsourced
 
 - **Kỳ lân at the Đại Nội gates** (Ngọ Môn, Hiển Nhơn, Chương Đức) and at Hiển Lâm Các: no source found. The
