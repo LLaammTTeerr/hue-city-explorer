@@ -60,6 +60,10 @@ You can hide the extra houses from the info panel (ⓘ).
 
 Fonts and three.js come from npm under their own licences. No live map service is used. Everything the model needs is bundled with the site.
 
+## Versions
+
+Each release is listed in [CHANGELOG.md](CHANGELOG.md) and on the [releases page](https://github.com/LLaammTTeerr/hue-city-explorer/releases). The version you are looking at is shown at the bottom of the About dialog (ⓘ).
+
 ## Licensing
 
 - **Code:** no licence has been chosen yet, so the code is all rights reserved for now. You are welcome to look at it and explore the model.

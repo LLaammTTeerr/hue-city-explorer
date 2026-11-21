@@ -20,6 +20,7 @@ Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). N
 | Command | What it checks |
 | --- | --- |
 | `npm run check` | runs all of the checks below; CI runs exactly this |
+| `npm run check:version` | `package.json`'s version has a section in `CHANGELOG.md` |
 | `npm run check:data` | sanity checks on the built bundle |
 | `npm run check:heights` | landmark heights against `docs/heights-reference.json` |
 | `npm run check:burial` | no model sunk into the ground |
@@ -33,6 +34,17 @@ Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). N
 - After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` with the change.
 - Fix a problem where it starts (the source data, the parser or a shared builder) and rebuild, rather than patching one place.
 - Work in progress and history are in [`PROGRESS.md`](../PROGRESS.md). Per-place research notes are in [`docs/places/`](places/).
+
+## Versioning and releases
+
+The app's version is `version` in `package.json`, following [Semantic Versioning](https://semver.org/) as [`CHANGELOG.md`](../CHANGELOG.md) defines it for this project (major: a new edition; minor: new places, features or data; patch: fixes only). The build stamps it, with the short commit hash, into the About dialog.
+
+Not every PR needs a release. To cut one:
+
+1. In a PR, raise `version` in `package.json` (`npm version minor --no-git-tag-version`, or `patch` / `major`) and add a `## X.Y.Z (date)` section at the top of `CHANGELOG.md`, listing the PRs since the last release. `npm run check:version` fails until the section exists.
+2. Merge the PR. `.github/workflows/release.yml` sees a version with no tag, tags the merge commit `vX.Y.Z` and publishes a GitHub release whose notes are that changelog section.
+
+Tags are never made by hand, and a tag that exists is never moved.
 
 ## Deploy
 
