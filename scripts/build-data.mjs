@@ -454,6 +454,44 @@ const FRENCH = streetPts(/^Lê Lợi$/), OLDTOWN = streetPts(/^(Chi Lăng|Trần
 console.log('era streets: french', FRENCH.length, 'old town', OLDTOWN.length, 'garden', GARDEN.length);
 const hash2 = (i, j) => { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const vnoise = (x, z) => { const i = Math.floor(x), j = Math.floor(z); let fx = x - i, fz = z - j; fx = fx * fx * (3 - 2 * fx); fz = fz * fz * (3 - 2 * fz); return (hash2(i, j) * (1 - fx) + hash2(i + 1, j) * fx) * (1 - fz) + (hash2(i, j + 1) * (1 - fx) + hash2(i + 1, j + 1) * fx) * fz; };
+// Roof colour as seen from orbit (issue #5): OSM tags almost no roof colours, so each building's roof family is read
+// from a cloud-free Sentinel-2 scene (scripts/fetch-roofs.py). 1 = red tile, 2 = blue sheet, 3 = pale (whitewashed
+// concrete, light sheet), 4 = grey (weathered concrete, dark tile); 0 = not seen (trees over it, off the scene).
+const ROOF = (() => {
+  const f = 'data/raw/dem/roofrgb.json';
+  if (!fs.existsSync(f)) { console.warn('no roof colours (run scripts/fetch-roofs.py)'); return null; }
+  const t = JSON.parse(fs.readFileSync(f, 'utf8'));
+  return { ...t, px: zlib.inflateSync(Buffer.from(t.rgb, 'base64')) };
+})();
+const roofPx = (x, z, acc) => {
+  const i = Math.floor((ORIGIN.lon + x / KX - ROOF.west) / ROOF.dlon), j = Math.floor((ROOF.north - (ORIGIN.lat - z / KZ)) / ROOF.dlat);
+  if (i < 0 || j < 0 || i >= ROOF.nx || j >= ROOF.ny) return;
+  const k = (j * ROOF.nx + i) * 3;
+  acc[0] += ROOF.px[k]; acc[1] += ROOF.px[k + 1]; acc[2] += ROOF.px[k + 2]; acc[3]++;
+};
+const roofClass = ([r, g, b, n]) => {
+  if (!n) return 0;
+  r /= n; g /= n; b /= n;
+  if (r > g * 1.12 && r > b * 1.3) return 1;
+  if (b > r * 1.03 && b >= g) return 2;
+  if (g > r * 1.02 && g > b * 1.08) return 0; // canopy over the roof
+  return (r + g + b) / 3 > 95 ? 3 : 4;
+};
+// the mean over the pixels whose 8 m sample lattice falls inside the footprint, or the pixel under its centre
+function roofOf(ring, c) {
+  if (!ROOF) return 0;
+  const acc = [0, 0, 0, 0];
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  for (let x = x0 + 4; x < x1; x += 8) for (let z = z0 + 4; z < z1; z += 8) if (pip([x, z], ring)) roofPx(x, z, acc);
+  if (!acc[3]) roofPx(c[0], c[1], acc);
+  return roofClass(acc);
+}
+const roofAt = (x, z) => { if (!ROOF) return 0; const acc = [0, 0, 0, 0]; roofPx(x, z, acc); return roofClass(acc); };
+const roofCount = [0, 0, 0, 0, 0];
+// The Lê Lợi district on the south bank is whitewashed almost throughout (issue #5: everything but the two
+// French-period schools, Quốc Học and Hai Bà Trưng, which keep their dark red).
+const whiteWard = (c) => nearPts(FRENCH, c, 290);
 function eraOf(c, area) {
   // clumps of a period, with single houses breaking rank
   const k = vnoise(c[0] / 85 + 3.1, c[1] / 85 + 7.7) * 0.7 + hash2(Math.round(c[0] * 3), Math.round(c[1] * 3)) * 0.3;
@@ -469,7 +507,7 @@ function eraOf(c, area) {
 // =====================================================================
 // Quốc Học campus and the Thiên Mụ compound: buildings inside them are styled as a group
 const ringOf = (id) => { const e = get('way', id); return e ? openRing(e.geometry.map(proj)) : null; };
-const quocHoc = ringOf(695775622);
+const quocHoc = ringOf(695775622), haiBaTrung = ringOf(695770482); // the two French-period schools on Lê Lợi
 const thienMu = ringOf(205794912);
 const towerC = (() => { const r = ringOf(205795043); return r ? centroid(r) : null; })();
 const thienMuSmall = [];
@@ -620,7 +658,7 @@ for (const e of els) {
   if (inCitadel(c) && !hTag && !lv && kind !== 2) h = Math.min(h, 11.5);
   let flags = 0;
   if (thienMu && pip(c, thienMu) && t.historic !== 'city_gate') { kind = 3; if (!hTag && !lv) h = area > 300 ? 4.6 : 3.8; }
-  if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
+  if ((quocHoc && pip(c, quocHoc)) || (haiBaTrung && pip(c, haiBaTrung))) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
   // what the building really measures, where the raster sees it and OSM gives no height of its own: h then runs to the
   // top of the building (sixth field), and the builder fits the eave under whatever roof it draws
   const mh = !hTag && !lv && kind !== 8 ? measured(ring, holes) : 0, src = mh ? measured.src : 0;
@@ -638,6 +676,9 @@ for (const e of els) {
 
   // flags: 1 = mapped over the water (drawn on a piled deck), 2 = Quốc Học campus
   if (at(c[0], c[1]) & WATER) flags |= 1;
+  // flags 16-64 (bits 4-6): the roof family seen from orbit; 128: a whitewashed ward
+  const rc = roofOf(ring, c); roofCount[rc]++; flags |= rc << 4;
+  if (whiteWard(c) && !(flags & 2)) flags |= 128;
   const b = [flat(ring), q(h), kind, t.name || 0, flags];
   if (mh && !(flags & 8)) b[5] = q(h);
   if (src === 2) smeared.add(b); else if (src === 1) surveyed.add(b);
@@ -645,6 +686,7 @@ for (const e of els) {
   fillPoly([ring], BLD);
   stampLine([...ring, ring[0]], 1.2, BLD); // its eaves: generated houses keep clear of them
 }
+console.log("roof families (unseen, red, blue, pale, grey):", roofCount.join(" "));
 // A building mapped inside a landmark's own outline (Lầu Ngũ Phụng on Ngọ Môn, the block inside Kỳ Đài) belongs to
 // that landmark's model: drawn as well, it would stand inside it.
 {
@@ -838,7 +880,7 @@ for (const road of roads) {
             const r2 = rnd();
             const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
             const m2 = houseH(bx, bz, w2, d2, ang, h2);
-            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2)); // 2 = no street face; era in the upper bits
+            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2) | (roofAt(bx, bz) << 4) | (whiteWard([bx, bz]) ? 128 : 0)); // 2 = no street face; era in bits 2-3, roof family 4-6, white ward 7
             housePlace(o2);
           }
         }
@@ -852,7 +894,7 @@ for (const road of roads) {
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
           h = houseH(cx, cz, w, d, ang, h);
           if (era === 2) h = Math.min(h, 4.4); else if (era === 1) h = Math.min(Math.max(h, 7.2), 11.4);
-          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2));
+          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2) | (roofAt(cx, cz) << 4) | (whiteWard([cx, cz]) ? 128 : 0));
           housePlace(o1);
         }
         s += w + gap;
