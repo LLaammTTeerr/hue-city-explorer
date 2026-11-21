@@ -30,6 +30,8 @@ export function createIBL(renderer, scene) {
   const key = new Float64Array(16), last = new Float64Array(16).fill(NaN);
   const putColor = (c, i) => { key[i] = Math.round(c.r * 255); key[i + 1] = Math.round(c.g * 255); key[i + 2] = Math.round(c.b * 255); };
   return {
+    // after a lost GPU context the probe's texture is gone: rebuild it on the next update
+    invalidate() { last.fill(NaN); wait = 0; },
     // cur: the mood's current colours (src/env/mood.js)
     update(cur, sunDir, dt) {
       wait -= dt;

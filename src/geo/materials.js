@@ -304,7 +304,9 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   hueMetal = 0.1 * hueGlass * ( 1.0 - uLook );
 } else if ( ( vKind > 1.5 && vKind < 2.5 ) || ( vKind > 8.5 && vKind < 9.5 ) ) {
   // ---------------- roof tiles (kind 9: glazed imperial tiles, which catch the sun) ----------------
-  vec3 e = hueN.y > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
+  // abs: the underside of an eave or a canopy faces straight down, and cross( down, up ) is zero, which normalize()
+  // turns into NaN; post's focus blur and bloom then spread that one pixel over the whole canvas (see post.js)
+  vec3 e = abs( hueN.y ) > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
   vec3 s = cross( e, hueN );
   vec2 uv = vec2( dot( vWPos, e ) / 1.15, dot( vWPos, s ) / 1.5 );
   float fw = fwidth( uv.x ) + fwidth( uv.y );
@@ -515,7 +517,9 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           // mưa Huế: wet streets, roofs and terraces pick up the sky at a low angle, most where the water pools;
           // after dark the same film carries the lamps
           if ( uWet > 0.01 ) {
-            float ndv = max( dot( hueN, hueV ), 0.0 );
+            // clamped at 1 too: two unit vectors that face each other can dot to 1 + 1e-7, and pow() of the
+            // negative 1 - ndv is NaN, which the post chain spread over the whole canvas (see post.js)
+            float ndv = clamp( dot( hueN, hueV ), 0.0, 1.0 );
             float fres = pow( 1.0 - ndv, 3.5 );
             float puddles = huePuddle, wetSurf = hueWetSurf;
             #ifndef USE_ENVMAP
@@ -634,7 +638,7 @@ export function landMaterial(color, turf = false, bank = false) {
         // rain pools on open ground and catches the sky at a low angle
         if ( uWet > 0.01 ) {
           #ifndef USE_ENVMAP
-          float lndv = abs( dot( normal, normalize( vViewPosition ) ) );
+          float lndv = min( abs( dot( normal, normalize( vViewPosition ) ) ), 1.0 ); // pow() of a negative is NaN
           totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.36;
           #endif
         }`,
