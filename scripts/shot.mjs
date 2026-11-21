@@ -1,6 +1,6 @@
 // Headless screenshots of one place, for checking a model without the browser pane.
 //
-//   npm run build && node scripts/shot.mjs <placeId> [--out dir] [--port 5300] [--dist 160] [--time 1] [--look real|ink]
+//   npm run build && node scripts/shot.mjs <placeId> [--out dir] [--port 5300] [--dist 160] [--time 1] [--look real|ink] [--at x,z]
 //
 // Serves dist/ with `vite preview` on --port (pick a free one when several run at once), opens it in headless Chrome
 // (SwiftShader WebGL, so it is slow: allow a minute or two), puts the camera on the place from four sides plus one
@@ -25,6 +25,7 @@ const out = opt('out', path.join('scratch', 'shots', id.replace(/[^\w-]/g, '_'))
 const dist = opt('dist', null);
 const time = +opt('time', 1);
 const look = opt('look', 'real');
+const at = opt('at', null);
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 mkdirSync(out, { recursive: true });
 
@@ -69,6 +70,7 @@ try {
     return { n: p.n, x: p.x / 10, z: p.z / 10, r: p.r || 0, h: p.h || 0 }; // place coordinates are stored in decimetres
   })()`);
   if (!info) throw new Error('no place with id ' + id);
+  if (at) [info.x, info.z] = at.split(',').map(Number); // --at x,z (metres): look at a point near the place instead
   const D = dist ? +dist : Math.max(90, (info.r || 30) * 4, info.h * 4);
   const views = [['n', 0], ['e', 90], ['s', 180], ['w', 270], ['top', null]];
   for (const [name, bearing] of views) {

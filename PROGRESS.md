@@ -477,3 +477,13 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
   - `build-data.mjs` plants on a 10 m grid where WorldCover has trees: fully inside 125 heritage rings (the tombs, Vọng Cảnh, Ngự Bình, and named OSM tombs, ruins, monuments, attractions and places of worship), and 15% of cells elsewhere in the hills and villages. The city keeps its garden canopy, and terrain cover takes `wood` from WorldCover. Replicas still clear their paved ground at runtime.
   - +127k trees (to 201k), 2,000–2,600 within 300 m of each tomb; `hue.json` gzip 2.9 MB. The `forest round the tombs` check holds each tomb at 1,000 or more.
 - Remaining: #5 (south bank remodel), #8 (landmark accuracy), and the newer #15–#22.
+
+## Trees on the roads at the Nguyễn Hoàng bridge heads (2026-11-21, branch `worktree-agent-a66ef976516add427`)
+- Cause: the avenue trees in `build-data.mjs` (section 7) were placed `ROAD_W/2 + 1.6` m off each trunk/primary/
+  secondary way and checked only against water, buildings and other trees, never roads. A dual carriageway is two
+  ways, so each side's avenue landed on the other carriageway, and at junctions on the crossing roads; the bridge
+  heads (four short carriageways and ramps meeting) were filled with them.
+- Fix: `onCarriageway(x, z, pad)` (exact distance to the road lines, roads up to service class, bridges included)
+  keeps every tree trunk 0.6 m off any carriageway, in `plant()` and the avenue loop. Data rebuilt.
+- Trees on a carriageway: 3,997 of 60,922 → 0 of 56,637. New check in `check-data.mjs` ("no trees on the roads").
+- `shot.mjs --at x,z` looks at a point instead of the place's centre (used for the bridge heads).

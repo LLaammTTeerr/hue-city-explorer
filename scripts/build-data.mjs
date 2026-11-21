@@ -420,6 +420,32 @@ for (const e of els) {
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges);
+// Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
+// lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
+const onCarriageway = (() => {
+  const G = 20, grid = new Map();
+  for (const r of roads) {
+    if (r.c > 4) continue;
+    const hw = ROAD_W[r.c] / 2;
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], s = [a, b, hw], m = hw + 2;
+      for (let x = Math.floor((Math.min(a[0], b[0]) - m) / G); x <= Math.floor((Math.max(a[0], b[0]) + m) / G); x++)
+        for (let z = Math.floor((Math.min(a[1], b[1]) - m) / G); z <= Math.floor((Math.max(a[1], b[1]) + m) / G); z++) {
+          const k = x + ',' + z;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(s);
+        }
+    }
+  }
+  return (x, z, pad = 0) => {
+    for (const [a, b, hw] of grid.get(Math.floor(x / G) + ',' + Math.floor(z / G)) || []) {
+      const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+      const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;
+      if (Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz) < hw + pad) return true;
+    }
+    return false;
+  };
+})();
 const rails = [];
 for (const e of els) {
   const t = e.tags || {};
@@ -868,8 +894,9 @@ console.log('infill houses', infill.length / 8);
 // =====================================================================
 const trees = [];
 const TBLOCK = WATER | ROAD | BLD | TREE;
+const TRUNK = 0.6; // a trunk's reach: no tree stands closer than this to a carriageway's edge
 function plant(x, z, s, kind) {
-  if (!inBox([x, z], -4) || at(x, z) & TBLOCK) return false;
+  if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK)) return false;
   trees.push(q(x), q(z), Math.round(s * 10), kind);
   stamp(x, z, 3.2, TREE);
   return true;
@@ -901,7 +928,9 @@ for (const road of roads) {
       const tx = (b[0] - a[0]) / len, tz = (b[1] - a[1]) / len;
       while (s < len) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
-        if (!(at(x, z) & (WATER | BLD | TREE))) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
+        // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
+        // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
         s += rr(13, 20);
       }
       s -= len;
