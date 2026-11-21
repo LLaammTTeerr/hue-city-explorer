@@ -9,7 +9,7 @@ import { pavilion } from '../citadel.js';
 // The arched passage dates from 1809 (Gia Long), the watch tower (vọng lâu) on top from Minh Mạng's reign (1829).
 // Arch and tower fell in the 1953 flood and were rebuilt later. The popular name comes from the Gia Long-era
 // arsenal and workshop (Võ khố, Đồ gia) that stood by it. Today Nguyễn Trãi street runs one way through the single
-// passage, out over the moat on Cầu Nhà Đồ (a modern beam bridge, drawn by the generic bridge code).
+// passage, out over the moat on Cầu Nhà Đồ (drawn as the shared citadel bridge, geo/citadel-bridge.js).
 //
 // Form, as for the other Kinh thành gates: a brick block the full thickness of the rampart, one round-arched passage
 // through it with a lime-plaster surround, the name panel over the arch, a terrace on top walled with a crenellated

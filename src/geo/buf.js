@@ -12,6 +12,8 @@ export const shade = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
 // What a face is made of. The fragment shader paints the matching surface detail
 // (window bays, roof tiles, brick courses…) so geometry stays light.
 export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11, LINE: 12 };
+// Added to a face's kind: the face is floodlit after dark (riverside facade lighting, issue #21). Kinds stay below it.
+export const KIND_FLOOD = 64;
 
 
 export class Buf {

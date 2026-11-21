@@ -32,7 +32,7 @@ export const PAL = {
   land: '#ccc09d',
   bank: '#8d8574',
   base: '#5e554c',
-  green: { park: '#9cb070', wood: '#829e5e', grass: '#acb97f', farm: '#bcc086', cemetery: '#b8b498', pitch: '#94b26f', sacred: '#c9bc93' },
+  green: { park: '#9cb070', wood: '#829e5e', grass: '#acb97f', farm: '#bcc086', cemetery: '#b8b498', pitch: '#94b26f', sacred: '#c9bc93', paved: '#b9b4aa' },
   // carriageways in the asphalt grey of the cầu Trường Tiền deck (PAL.deck), minor streets a shade lighter; footways
   // stay pale paving (issue #15)
   road: ['#76716e', '#787370', '#7b7673', '#807b77', '#8f8a84', '#e5dbc4'],
