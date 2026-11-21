@@ -409,7 +409,9 @@ for (const e of els) {
   const c = ROAD_CLASS[t.highway];
   const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
   for (const pts of clipLine(e.geometry.map(proj))) {
-    if (tagged && inNH(pts[Math.floor(pts.length / 2)])) continue;
+    // the bridge's own carriageways are not laid (nguyenhoang.js models the deck), but their ground stays road in
+    // the mask, so no tree, garden or infill house is planted under the deck and its ramps
+    if (tagged && inNH(pts[Math.floor(pts.length / 2)])) { stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD); continue; }
     // A way tagged as a bridge that crosses no drawn water is laid as ordinary road: the moat before cửa Chánh Tây
     // and several canals have been filled in, and a raised deck with piers there stands on dry land.
     const bridge = tagged && overWater(pts) ? 1 : 0;
@@ -451,7 +453,11 @@ for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || t.railway !== 'rail') continue;
   for (const pts of clipLine(e.geometry.map(proj))) {
-    rails.push({ main: t.service ? 0 : 1, bridge: t.bridge ? 1 : 0, pts });
+    // as for roads: a rail bridge that crosses no drawn water is laid at grade (where the line meets a street that is
+    // a level crossing, not a girder standing on the carriageway)
+    const tagged = t.bridge && t.bridge !== 'no';
+    if (tagged && !overWater(pts)) console.log('rail bridge over dry land laid at grade:', e.id, pts.length);
+    rails.push({ main: t.service ? 0 : 1, bridge: tagged && overWater(pts) ? 1 : 0, pts });
     stampLine(pts, 5, ROAD | NOBUILD);
   }
 }
