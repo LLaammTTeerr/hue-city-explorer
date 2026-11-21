@@ -124,6 +124,7 @@ Data credits and licences:
   ADB support). The service is public but **states no licence**; `data/raw/heights/gishue.*` and the heights derived
   from it are used here with attribution and should not be taken as openly licensed.
 - Building heights: Google Open Buildings 2.5D Temporal v1, CC BY 4.0.
+- Tree cover (where the forest is planted): ESA WorldCover 10 m 2021 v200, © ESA WorldCover project / contains modified Copernicus Sentinel data (2021), CC BY 4.0 (`scripts/fetch-landcover.py`).
 
 ## Layout
 
