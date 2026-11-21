@@ -25,7 +25,8 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
   4.5 m thick together, with a walk between. The circumference is 140–145 m and the
   inner "basin" is ~44 m across in the sources.
 - The outer wall face leans 10–15° (battered).
-- The king's stand is to the north. The stair on the left (24 steps) was for the king
+- The king's stand is on the north-west arc, facing south-east (vi.wikipedia: the stand
+  "faces the south-east"; the OSM entry footway 1075016120 arrives at about -41 deg). The stair on the left (24 steps) was for the king
   and the one on the right for officials.
 - Five cages are opposite the stand (one caption says 3 tiger and 2 elephant). One
   cage door is larger.
@@ -38,7 +39,8 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
 ## Estimates
 - Outer radius 22.0 m and inner radius 17.5 m. These are a compromise between OSM
   (21.2 / 16.5) and the published 44 m diameter.
-- The stair bearings (±0.44 rad from north) and the stair width.
+- The front bearing FRONT = -0.5 rad (NW): between the wiki's SE-facing stand, the OSM entry path
+  and the lane west of the ring (way 1267047360). The stairs are at FRONT ±0.44 rad.
 - The cage spacing (±0.3 rad around south), door sizes, and the larger cage on the east.
 - The gate's form: a brick block, pillars, and an arch with a grille.
 - The stand: a raised platform 0.5 m above the walk over ±0.36 rad, with a parapet and railing.
@@ -48,6 +50,11 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
   around the site, and the apron and earth ring follow the terrain.
 
 ## What changed
+- Street fix (scripts/build-data.mjs `clearMonuments`): OSM residential way 870617584 is drawn on the
+  line of the perimeter footway 1075016119, ~23 m from the centre, through the outer wall (the sources'
+  44 m / 140-145 m make the outer radius ~22 m). The street way was wrong, not the footprint, so the data
+  build pushes it out to the outline plus half its carriageway plus 0.3 m. The stand, gate and stairs
+  moved from north to FRONT (NW); the old east stair ran onto that street.
 - New replica `src/landmarks/places/hoquyen.js`. It has a battered outer wall with a
   lattice parapet and the inner wall with a parapet. It also has the wall-walk, five
   south cages, the north elephant gate, two stairs, the king's stand, the lawn, and a
