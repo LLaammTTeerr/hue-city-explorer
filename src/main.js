@@ -75,7 +75,7 @@ async function main() {
   let rig, mood, labels, data;
   const live = (f) => (...a) => (rig ? f(...a) : undefined); // controls that need the 3D scene
   ui = createUI(index, {
-    pick: (id, fly) => pick(id, fly),
+    pick: (id, fly, from) => pick(id, fly, from),
     overview: () => { ui.hideCard(); if (!rig) { fallback && fallback.home(); return; } const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
     lang: () => { if (labels) labels.remeasure(); if (fallback) fallback.relabel(); },
     labels: live(() => toggleLabels()),
@@ -196,10 +196,10 @@ async function main() {
   labels = createLabels(document.getElementById('labels'), data, camera, (id) => pick(id, true), scene);
   function toggleLabels() { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); }
 
-  function pick(id, fly) {
+  function pick(id, fly, from) {
     const p = index.places.find((q) => q.id === id);
     if (!p) return;
-    ui.showCard(id);
+    ui.showCard(id, from);
     if (!rig) { if (fallback) fallback.show(id); return; } // still loading, or the 2D map: the card alone
     labels.markVisited(id);
     if (fly) {
@@ -225,6 +225,7 @@ async function main() {
     const down = downs.get(e.pointerId);
     if (!down) return;
     down.lx = e.clientX; down.ly = e.clientY;
+    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) down.dragged = true; // a drag stays a drag even if it ends near its start
   });
   const up = (e) => {
     const down = downs.get(e.pointerId);
@@ -232,7 +233,7 @@ async function main() {
     if (!downs.size) canvas.classList.remove('dragging');
     if (!down) return;
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
-    if (down.multi || moved > 6 || dt > 450 || e.type === 'pointercancel') return;
+    if (down.multi || down.dragged || moved > 6 || dt > 450 || e.type === 'pointercancel') return;
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     let best = null, bd = Infinity;
@@ -307,9 +308,22 @@ async function main() {
     labels.remeasure();
     hv = homeView();
     rig.setHome(hv.pos, hv.target);
-    if (!rig.touched && !rig.flying) rig.jumpHome();
+    if (rig.opening && !rig.flying) rig.jumpHome(); // otherwise keep the current view or flight destination
   }
   addEventListener('resize', () => { pendingSize = 2; });
+
+  // ---------- lost GPU context ----------
+  // A driver reset or memory pressure can take the WebGL context away. three prevents the default (so the browser
+  // may give it back) and rebuilds its own state when it returns; what the app keeps on the GPU between frames, the
+  // sky's light probe and the shadow maps, is drawn again here. Meanwhile the loop runs on and three skips the draws.
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('[hue] WebGL context lost'); });
+  canvas.addEventListener('webglcontextrestored', () => {
+    console.warn('[hue] WebGL context restored');
+    if (ibl) ibl.invalidate();
+    sun.shadow.needsUpdate = true;
+    if (shadows.near) shadows.near.shadow.needsUpdate = true;
+    pendingSize = Math.max(pendingSize, 1);
+  });
 
   // ---------- frame loop ----------
   let last = performance.now();
@@ -331,12 +345,15 @@ async function main() {
     adapt(now);
     requestAnimationFrame(tick);
   }
-  // Drop render resolution a notch if the device cannot hold ~30 fps (ignores background-tab stalls).
+  // Drop render resolution a notch if the device cannot hold ~30 fps. Slow frames add up, each counting for at most
+  // 250 ms, so one stall cannot trigger a step down but a device stuck at any low rate does; a background tab is not
+  // counted, and the count restarts when the tab comes back.
   let slow = 0, lastT = 0, pr = quality.pixelRatio;
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { slow = 0; lastT = performance.now(); } });
   function adapt(now) {
     const ft = now - lastT; lastT = now;
-    if (ft > 250 || document.visibilityState !== 'visible') { slow = 0; return; }
-    slow = ft > 36 ? slow + ft : Math.max(0, slow - ft * 2);
+    if (document.visibilityState !== 'visible') { slow = 0; return; }
+    slow = ft > 36 ? slow + Math.min(ft, 250) : Math.max(0, slow - ft * 2);
     if (slow > 2500 && pr > 0.8) {
       // step down from the ratio actually in use, so the first steps are not swallowed by the pixel cap in fitRatio
       pr = Math.max(0.75, Math.min(pr, renderer.getPixelRatio()) - 0.25); slow = 0;

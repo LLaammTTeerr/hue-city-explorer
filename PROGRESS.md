@@ -6,6 +6,13 @@
   error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
   `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
   first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
+
+- Ink lines across roads at hill rims (2026-11-21): the terrain mesh stood 3 cm proud of the slab at every node,
+  including the rim nodes where the ground stops rising, so each drawn cell meeting the plain slab ended in a 3 cm step
+  along the 25 m lattice. Roads and greens write no depth, so the ink's depth edges drew those steps as long straight
+  lines across asphalt (riverside road under chùa Thiên Mụ; the boulevard at x≈77, z≈564). terrain.js now sinks
+  non-rising nodes 3 cm under the slab (fine lake cells take the same offset on the coarse triangles, so no seam), and
+  the mesh dives into the slab along a shallow crease the ink ignores. Wall, kerb and roof ink unchanged.
 - Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
   along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
 - Riverside lights (issue #21, 2026-11-21): build-data.mjs derives `riverLamps` from the Hương banks (embankment posts
@@ -612,6 +619,21 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   Hương below Trường Tiền at golden hour, before and after.
 - `npm run check` and `npm run build` pass.
 
+## Blank canvas at some views (2026-11-21, branch `worktree-agent-a33a47132b06bcc2c`)
+- Symptom: the whole model vanished (page background #e6e2d8) and stayed gone while the view held; labels and UI fine.
+  Not context loss (`isContextLost` false throughout) and not the resize path. Cause: single NaN pixels from the
+  city shader, which the focus blur and above all the bloom mips smeared over the frame; NaN alpha made the canvas
+  transparent. Two sources in src/geo/materials.js:
+  - roof tiles (any weather): the tile frame `normalize( cross( hueN, up ) )` was guarded only for faces pointing up,
+    so downward faces (eave and canopy undersides) got normalize(0) = NaN. The guard is now `abs( hueN.y )`.
+  - wet film (rain): `pow( 1.0 - ndv, 3.5 )` with `ndv = dot(N, V)` slightly over 1 on faces seen head-on. Clamped,
+    and the same in landMaterial, water.js, and the two `pow()` of negative bases in the boat wakes.
+- Robustness: post.js zeroes non-finite scene pixels before the comp, and the final OutputPass writes alpha 1;
+  main.js handles `webglcontextlost` (preventDefault) / `webglcontextrestored` (IBL probe, shadows and buffers redone).
+- Evidence (Apple M5, Chrome Metal, 1280x800; sunset, Phủ Cam, ink; 720 poses round Phủ Cam, dist 150-3000 m):
+  before, rain 28 fully blank poses (13 with NaN in the scene), dry 25 (12); after, 0 and 0, no NaN. Post guard alone
+  on the old shaders: still NaN in 13 scene renders, 0 blank. `npm run check` and `npm run build` pass.
+
 ## Seamless bridge-to-street joints (2026-11-21, branch `worktree-agent-ab59d4954699589fb`)
 - Trigger: cầu Nguyễn Hoàng's north (Kim Long) end met its divided approach with a wedge of bare ground, a skewed cut, misaligned medians and lanes, and red strips ending in the air.
 - Root causes, fixed in shared code:
@@ -621,3 +643,18 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   - generic decks ended 0.36 m above the street: bridges.js now ramps class 0-3 decks onto the street's height;
   - cầu Nguyễn Hoàng's fixed cross-section now blends, over its last 24 m, into its approach carriageways' bands, colours and cross-fall. Its deck ends, and Phú Xuân's, are exported via `deckEnds()`.
 - New `npm run check:joints` (scripts/check-joints.mjs), now part of `npm run check`: 81 joints, 0 failing (bare seam ≤ 0.5 m², step ≤ 0.35 m). The old code had 66 of 77 failing. check:overlap is still clean.
+
+## Four interaction bugs (2026-11-21, branch `worktree-agent-a3d055188011d1313`)
+- Resize no longer sends the camera home once a place or the overview is chosen: the rig tracks `opening` (still on the
+  opening view), cleared by any flight or user interaction and set again when a flight home lands; `resize()` re-frames
+  home only while it is set. Checked in the app: Ngọ Môn from search, then a phone-size resize, keeps the camera put.
+  A resize on a fresh visit still re-frames home.
+- Adaptive resolution works at any low rate: each slow frame counts for at most 250 ms, background frames are not counted,
+  and the count restarts on `visibilitychange`. A simulation that runs the real `adapt()` from main.js shows the change:
+  300 ms frames used to stay at 1.6 and now step down from 4 s, 100 ms frames step down from 3.4 s, and a 5 s stall or
+  2 s stalls every 10 s change nothing. Checked in the app with forced ~300 ms frames (1.5 → 1.25).
+- A drag that ends near its start no longer counts as a tap: `dragged` is set once movement passes 6 px.
+- Choosing from search with the keyboard passes the input to `showCard(id, from)` as the card's opener, so closing
+  the card returns focus to search.
+- Not verified: the single-stall case in a live tab, because the hidden browser pane pauses requestAnimationFrame
+  while still reporting the page as visible. The simulation covers that case.
