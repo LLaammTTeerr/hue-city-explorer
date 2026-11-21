@@ -193,7 +193,7 @@ async function main() {
 
   // ---------- labels & picking ----------
   let labelsOn = true;
-  labels = createLabels(document.getElementById('labels'), data, camera, (id) => pick(id, true), scene);
+  labels = createLabels(document.getElementById('labels'), index, camera, (id) => pick(id, true)); // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
   function toggleLabels() { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); }
 
   function pick(id, fly, from) {
