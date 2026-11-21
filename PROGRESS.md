@@ -1,6 +1,14 @@
 # Progress
 
 ## Done
+- Share a view (2026-11-21): "Chia sẻ góc nhìn" / "Share this view" button on the place card and in the tool column
+  builds a `?v=1&c=…&t=…&a=…&f=…&m=…&p=…` link (format in docs/development.md, code in src/ui/share.js): navigator.share
+  where available, otherwise the clipboard with "Đã sao chép liên kết". Opening it sets the mood without a fade, puts
+  the camera there (no home flight), opens the card and marks the camera as moved (`rig.leaveOpening()` in
+  controls.js) so resize and drift leave it alone. Distance adapts to the window's aspect; on phones the camera tips
+  so the view centre sits above the card sheet. Invalid params fall back to the normal opening. Checked in headless
+  Chrome: Trường Tiền at night (desktop → new tab → phone), rainy night at Đông Ba (fresh session, first frame), free
+  view, seven malformed links.
 - Ink lines across roads at hill rims (2026-11-21): the terrain mesh stood 3 cm proud of the slab at every node,
   including the rim nodes where the ground stops rising, so each drawn cell meeting the plain slab ended in a 3 cm step
   along the 25 m lattice. Roads and greens write no depth, so the ink's depth edges drew those steps as long straight
