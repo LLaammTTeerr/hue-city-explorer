@@ -9,6 +9,7 @@ import { KIND } from '../../geo/buf.js';
 //          S is the shared static buffer (world.structures), group the dynamic THREE.Group for lights and moving
 //          parts, place the record from data.places with x/z already in metres. It may return
 //          { update(time, glow, rain) } to be called every frame.
+//          Flags (and other moving parts in ../anim.js) animate on the shared clock and wind; they need no update().
 // The older builder that drew the same place checks `replaced(id)` and leaves it out, so the two never overlap.
 // Vite collects the replica files; plain node (scripts/check-heights.mjs) imports them itself and hands them over
 // on globalThis.__hueReplicas. The list is read on first use, not at import: builders (and city.js through
@@ -24,14 +25,15 @@ function load() {
 
 export const replaced = (id) => { load(); return ids.has(String(id).normalize('NFC')); };
 
-export function buildPlaces(data, S, group) {
+// onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
+export function buildPlaces(data, S, group, onEach = null) {
   load();
   const live = [];
   for (const m of list) {
     const id = String(m.id).normalize('NFC');
     const p = (data.places || []).find((q) => String(q.id).normalize('NFC') === id);
     const place = p ? { ...p, x: p.x / 10, z: p.z / 10 } : null;
-    const n0 = S.n; // on a throw, roll the shared buffer back so no half-built model is left behind
+    const n0 = S.n, k0 = group ? group.children.length : 0; // on a throw, roll the shared buffer back so no half-built model is left behind
     try {
       const r = m.build({ data, S, group, place, THREE });
       if (r && typeof r.update === 'function') live.push(r);
@@ -41,6 +43,7 @@ export function buildPlaces(data, S, group) {
     }
     S.kind = KIND.PLAIN;
     S.base = 0;
+    if (onEach) onEach(id, [n0, S.n], k0);
   }
   return { update(time, glow, rain) { for (const r of live) r.update(time, glow, rain); } };
 }
