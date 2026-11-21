@@ -26,6 +26,7 @@ Everything the scene needs is bundled (`public/data/hue.json`, fonts via npm). N
 | `npm run check:burial` | no model sunk into the ground |
 | `npm run check:overlap` | no model on a carriageway, inside another model or under a kept building |
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
+| `npm run test:joints` | fixture test of the joining step (`src/geo/joints.js`) on real road ends (`scripts/fixtures/joints-real.json`), within 1 cm; milliseconds |
 
 ## Contributing
 

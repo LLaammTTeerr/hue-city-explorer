@@ -12,10 +12,11 @@
     "check:heights": "node scripts/check-heights.mjs",
     "check:burial": "node scripts/check-burial.mjs",
     "check:data": "node scripts/check-data.mjs",
-    "check": "npm run check:version && npm run check:data && npm run check:heights && npm run check:burial && npm run check:overlap && npm run check:joints",
+    "check": "npm run check:version && npm run check:data && npm run check:heights && npm run check:burial && npm run check:overlap && npm run check:joints && npm run test:joints",
     "shot": "node scripts/shot.mjs",
     "check:overlap": "node scripts/check-overlap.mjs",
     "check:joints": "node scripts/check-joints.mjs",
+    "test:joints": "node scripts/test-joints-fixture.mjs",
     "check:version": "node scripts/check-version.mjs"
   },
   "dependencies": {
