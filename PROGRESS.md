@@ -593,3 +593,16 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
   - The Quốc Học link blocks stop their eaves at the old hall (`link`).
 - `npm run check`, and with it the required CI check, now runs check:overlap: 0 findings, 78 sources.
 - Also merged from the incoming queue this round: #34, #39, #40, #42, #46 (bridges), #45 (river lights), #44 (plazas) and #41 (medians). After each one, the merge with main was rebuilt and checked.
+
+## Zoom flicker and river-stroke rings (2026-11-21, branch `claude/zoom-flicker`)
+- Flicker: the canvas showed the page background (#e6e2d8) for a frame, wholly or in part. Cause: a canvas resize
+  clears its drawing buffer, and `adapt()` (drop resolution when slow, which zooming triggers) resized it at the end
+  of `tick`, after the draw; window resizes ran in a rAF queued behind `tick` too. The browser composited the cleared,
+  transparent canvas. Now both only set `pendingSize`; `step()` applies it before rendering (`resizeBuffers` / `resize`
+  in src/main.js). Frame check (alpha at the end of each tick): before, 5 of 5 resolution steps gave a fully blank
+  frame; after, 910 frames over 5 steps and a window resize, none blank.
+- Pale broken arcs in rings on the river (ink look, no rain): the water's pen strokes (src/env/water.js) took their
+  frame from each pixel's view ray against the absolute world position, so the noise followed curves of constant
+  dot(p, V). The frame is now the camera's heading (forward + up from viewMatrix), one per frame. Checked over the
+  Hương below Trường Tiền at golden hour, before and after.
+- `npm run check` and `npm run build` pass.

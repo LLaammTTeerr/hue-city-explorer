@@ -253,22 +253,27 @@ async function main() {
   }
 
   // ---------- resize ----------
-  function resize() {
-    const w = innerWidth, h = innerHeight;
+  // Changing the canvas size clears its drawing buffer. Done after the frame's draw (from the adaptive fallback at the
+  // end of tick, or from a resize callback queued behind tick in the same animation frame), the browser composites the
+  // cleared, transparent canvas and the page background flashes through. So a size change is only ever requested
+  // here and applied at the top of the next step(), before anything is drawn into the new buffer.
+  let pendingSize = 0; // 1: the render resolution (adapt), 2: the window as well
+  function resizeBuffers() {
     renderer.setPixelRatio(fitRatio());
-    renderer.setSize(w, h, false);
-    if (post) post.resize();
-    camera.aspect = w / h;
+    renderer.setSize(innerWidth, innerHeight, false);
+    if (post) post.resize(); // each resize reallocates the multisampled post targets and the mirror's
+    water.mesh.userData.resize(innerWidth, innerHeight);
+  }
+  function resize() {
+    resizeBuffers();
+    camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
-    water.mesh.userData.resize(w, h);
     labels.remeasure();
     hv = homeView();
     rig.setHome(hv.pos, hv.target);
     if (!rig.touched && !rig.flying) rig.jumpHome();
   }
-  // one resize per frame at most: each one reallocates the multisampled post targets and the mirror's
-  let resizeQueued = false;
-  addEventListener('resize', () => { if (!resizeQueued) { resizeQueued = true; requestAnimationFrame(() => { resizeQueued = false; resize(); }); } });
+  addEventListener('resize', () => { pendingSize = 2; });
 
   // ---------- frame loop ----------
   let last = performance.now();
@@ -300,12 +305,11 @@ async function main() {
       // step down from the ratio actually in use, so the first steps are not swallowed by the pixel cap in fitRatio
       pr = Math.max(0.75, Math.min(pr, renderer.getPixelRatio()) - 0.25); slow = 0;
       quality.pixelRatio = pr;
-      renderer.setPixelRatio(fitRatio());
-      if (post) post.resize();
-      water.mesh.userData.resize(innerWidth, innerHeight);
+      pendingSize = Math.max(pendingSize, 1); // applied before the next draw (see resize)
     }
   }
   function step(dt) {
+    if (pendingSize) { const full = pendingSize === 2; pendingSize = 0; if (full) resize(); else resizeBuffers(); }
     time += dt;
     rig.update(dt);
     mood.update(dt, time);
