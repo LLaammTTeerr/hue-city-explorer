@@ -21,7 +21,7 @@ from rasterio.windows import from_bounds
 
 URL = '/vsizip//vsicurl/https://data.bris.ac.uk/datasets/s5hqmjcdj8yo2ibzi9b4ew3sn/N10E100-N20E110_FABDEM_V1-2.zip/N16E107_FABDEM_V1-2.tif'
 COP = '/vsicurl/https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N16_00_E107_00_DEM/Copernicus_DSM_COG_10_N16_00_E107_00_DEM.tif'
-W, S, E, N = 107.530, 16.375, 107.620, 16.503  # the model's box (scripts/build-data.mjs BBOX) with a margin
+W, S, E, N = 107.530, 16.375, 107.620, 16.537  # the model's box (scripts/build-data.mjs BBOX) with a margin
 OUT = 'data/raw/dem/terrain.json'
 
 with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR', CPL_VSIL_CURL_ALLOWED_EXTENSIONS='.tif,.zip', GDAL_HTTP_MAX_RETRY='3'):
