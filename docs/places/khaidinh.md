@@ -50,3 +50,8 @@ Replica: `src/landmarks/places/khaidinh.js` (id `khaidinh`). The older generic t
 ## What's left
 - Palace interior (the glass and porcelain mosaics, the bronze statue under its canopy) is not modelled.
 - Exact heights, the gate's real form and the statue arrangement need on-site or survey figures.
+- **The Bái Đình's depth waits on a survey drawing** (owner's call, 2026-11-21): the 40.5 m stays unapplied until a
+  measured plan settles which axis it measures and where the court ends. Searched 2026-11-21 (vi/en web, the
+  heritage and travel write-ups, thesis repositories): no published site plan or measured drawing; every source
+  repeats vi.wikipedia's figures. Likely holders: the Huế Monuments Conservation Centre (Trung tâm Bảo tồn Di tích Cố
+  đô Huế) and the EFEO archives. When one turns up, check the court ends against OSM's Bi Đình (s 42–49) first.
