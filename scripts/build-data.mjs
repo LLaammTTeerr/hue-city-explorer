@@ -2126,18 +2126,85 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
 }
 
 // =====================================================================
+// split: trees and infill houses for the first frame, the rest in tiles
+// =====================================================================
+// Trees and infill houses are two thirds of the bundle. hue.json keeps the ones the opening view shows (the ground in
+// front of the home camera, src/main.js homeView, out to the trees' draw distance) and the ones a place builder reads
+// or edits (any src/landmarks/places/*.js that mentions data.trees or data.infill: every record within PLACE_REACH, or
+// the file's own `export const dataReach`, of that place's point, so the builder sees exactly what it saw with the whole
+// set; check-tiles proves it). The rest go to coarse square tiles, public/data/tiles/<col>_<row>.json, which the app
+// fetches after the first frame, nearest to the opening view first, and plants through the same builders (city.js addTile). Each tile is near-water first like
+// the main arrays, and carries i0: the index its first record would have in one array of everything (the builders
+// seed each record's dice with its index, so a tile's trees do not repeat the main set's).
+const TILE = 4000, PLACE_REACH = 520;
+const TILE_DIR = 'public/data/tiles';
+const splitTest = (() => {
+  const a = tt[0], b = tt[tt.length - 1], c = ttBox.c, dl = Math.hypot(b[0] - a[0], b[1] - a[1]);
+  const d = [(b[0] - a[0]) / dl, (b[1] - a[1]) / dl], upR = [-d[1], d[0]];
+  // the two ends of homeView's range (wide window, tall phone): camera and target on the ground
+  const views = [[790, 140, 90, 40], [1300, 110, 150, 55]].map(([back, side, ahead, north]) => {
+    const cam = [c[0] - upR[0] * back - d[0] * side, c[1] - upR[1] * back - d[1] * side];
+    const tg = [c[0] + upR[0] * ahead - d[0] * north, c[1] + upR[1] * ahead - d[1] * north];
+    const L = Math.hypot(tg[0] - cam[0], tg[1] - cam[1]);
+    return { cam, f: [(tg[0] - cam[0]) / L, (tg[1] - cam[1]) / L] };
+  });
+  // a wedge a little wider than the widest lens the opening uses (29 degrees tall on a 16:10 screen is 45 wide), out to
+  // 3.6 km (city.js and foliage.js stop drawing tree chunks past about that), with 250 m to spare on each side
+  const inView = (x, z) => views.some(({ cam, f }) => {
+    const vx = x - cam[0], vz = z - cam[1], along = vx * f[0] + vz * f[1], across = Math.abs(-vx * f[1] + vz * f[0]);
+    return along > -250 && along < 3600 && across < Math.max(0, along) * 0.5 + 250;
+  });
+  const dir = 'src/landmarks/places/';
+  const readers = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'index.js').map((f) => fs.readFileSync(dir + f, 'utf8'))
+    .filter((s) => /data\.(trees|infill)\b/.test(s))
+    .map((s) => [(s.match(/export const id = '([^']+)'/) || [])[1], +(s.match(/export const dataReach = (\d+)/) || [])[1] || PLACE_REACH]).filter(([id]) => id);
+  const spots = readers.map(([id, r]) => [places.find((p) => p.id.normalize('NFC') === id.normalize('NFC')), r]).filter(([p]) => p).map(([p, r]) => [p.x / 10, p.z / 10, r]);
+  console.log('tiles: places that read trees or infill', readers.length, '(' + spots.length + ' placed):', readers.map(([id, r]) => id + (r !== PLACE_REACH ? ` (${r} m)` : '')).join(' '));
+  if (spots.length < readers.length) console.warn('tiles: a place that reads trees or infill has no place point; its records may land in a tile');
+  return (x, z) => inView(x, z) || spots.some((s) => (x - s[0]) ** 2 + (z - s[1]) ** 2 < s[2] * s[2]);
+})();
+function split(arr, stride) {
+  const first = [], tiles = new Map();
+  for (let i = 0; i < arr.length; i += stride) {
+    const x = arr[i] / 10, z = arr[i + 1] / 10, rec = arr.slice(i, i + stride);
+    if (splitTest(x, z)) { first.push(...rec); continue; }
+    const key = Math.floor((x - MINX) / TILE) + '_' + Math.floor((z - MINZ) / TILE);
+    if (!tiles.has(key)) tiles.set(key, []);
+    tiles.get(key).push(...rec);
+  }
+  return [first, tiles];
+}
+const [infillFirst, infillTiles] = split(infill, 8);
+const [treesFirst, treesTiles] = split(trees, 4);
+// =====================================================================
 // write
 // =====================================================================
-const [infillOut, infillNear] = nearFirst(infill, 8);
-const [treesOut, treesNear] = nearFirst(trees, 4);
-console.log('near water: infill', infillNear, 'of', infill.length / 8, '| trees', treesNear, 'of', trees.length / 4);
+const [infillOut, infillNear] = nearFirst(infillFirst, 8);
+const [treesOut, treesNear] = nearFirst(treesFirst, 4);
+console.log('near water: infill', infillNear, 'of', infillFirst.length / 8, '| trees', treesNear, 'of', treesFirst.length / 4, '(first frame)');
+const tileList = (() => {
+  const keys = [...new Set([...infillTiles.keys(), ...treesTiles.keys()])];
+  const c = ttBox.c; // nearest the opening view first (the bridge)
+  const centre = (k) => { const [i, j] = k.split('_').map(Number); return [MINX + (i + 0.5) * TILE, MINZ + (j + 0.5) * TILE]; };
+  keys.sort((p, q) => Math.hypot(...centre(p).map((v, n) => v - c[n])) - Math.hypot(...centre(q).map((v, n) => v - c[n])));
+  let ti = treesOut.length / 4, ii = infillOut.length / 8;
+  return keys.map((k) => {
+    const [tr, trN] = nearFirst(treesTiles.get(k) || [], 4), [inf, infN] = nearFirst(infillTiles.get(k) || [], 8);
+    const tile = { f: 'tiles/' + k + '.json', c: centre(k).map(q), trees: tr.length / 4, infill: inf.length / 8, body: { i0: [ti, ii], treesNear: trN, infillNear: infN, trees: tr, infill: inf } };
+    ti += tile.trees; ii += tile.infill;
+    return tile;
+  });
+})();
 const out = {
   meta: {
     origin: ORIGIN,
     bounds: [q(MINX), q(MINZ), q(MAXX), q(MAXZ)],
     osmTimestamp: raw.osm3s && raw.osm3s.timestamp_osm_base,
     osmExtracts, // every extract merged, with its Overpass timestamp (null: fetched from the OSM API, no timestamp)
+    // infill and trees: the whole model's; infillNear / treesNear: of the arrays in this file (the first frame's)
     counts: { buildings: buildings.length, infill: infill.length / 8, roads: roads.length, trees: trees.length / 4, infillNear, treesNear },
+    // the rest of the trees and infill houses, fetched after the first frame in this order: file (under data/), centre (dm), counts
+    tiles: tileList.map(({ f, c, trees: t, infill: n }) => ({ f, c, trees: t, infill: n })),
   },
   land: land.map(flatPoly),
   ponds: ponds.map(flatPoly),
@@ -2173,6 +2240,14 @@ const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT)) : null;
 fs.mkdirSync('public/data', { recursive: true });
 fs.writeFileSync(OUT, JSON.stringify(out));
 console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB', '| extent m', Math.round(MAXX - MINX), 'x', Math.round(MAXZ - MINZ));
+fs.rmSync(TILE_DIR, { recursive: true, force: true }); // a tile no longer in the list must not linger
+fs.mkdirSync(TILE_DIR, { recursive: true });
+for (const t of tileList) fs.writeFileSync('public/data/' + t.f, JSON.stringify(t.body));
+{
+  const size = (f) => fs.statSync(f).size, gz = (f) => zlib.gzipSync(fs.readFileSync(f)).length;
+  const files = tileList.map((t) => 'public/data/' + t.f);
+  console.log('wrote', files.length, 'tiles in', TILE_DIR, (files.reduce((s2, f) => s2 + size(f), 0) / 1e6).toFixed(2), 'MB (' + (files.reduce((s2, f) => s2 + gz(f), 0) / 1e6).toFixed(2), 'MB gzip) | first frame', OUT, (size(OUT) / 1e6).toFixed(2), 'MB (' + (gz(OUT) / 1e6).toFixed(2), 'MB gzip):', treesOut.length / 4, 'of', trees.length / 4, 'trees,', infillOut.length / 8, 'of', infill.length / 8, 'houses');
+}
 // ---- the place index: what search, the cards and the About dialog need, small enough to arrive before the city ----
 // The app reads it first, so the search box works while hue.json downloads, and the 2D fallback (no WebGL) never
 // fetches hue.json at all. `map` is a coarse plan for that fallback, in whole metres: the land (water is what is
@@ -2200,7 +2275,7 @@ console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB', '| ext
   const ring = (r, tol, minArea) => { const o = openRing(r); if (ringArea(o) < minArea) return null; const s = simplify([...o, o[0]], tol).slice(0, -1); return s.length >= 3 ? m(s) : null; };
   const polys = (mp, tol, minArea) => mp.map((poly) => poly.map((r) => ring(r, tol, minArea)).filter(Boolean)).filter((p) => p.length);
   const index = {
-    meta: out.meta,
+    meta: { ...out.meta, tiles: undefined }, // the tile list is the scene's business
     places,
     waterLabels: water_labels,
     map: { land: polys(land, 6, 2500), wall: polys(wall, 3, 0) },
@@ -2214,7 +2289,8 @@ console.log('truong tien obb', ttBox.w.toFixed(1), 'x', ttBox.d.toFixed(1), 'cen
 // ---- checks: the terrain must not get worse without anyone noticing (see scripts/check-data.mjs) ----
 {
   const { checkData, diffData } = await import('./check-data.mjs');
-  const { fails, notes } = checkData(JSON.parse(JSON.stringify(out)));
+  const { withTiles } = await import('./lib/data.mjs');
+  const { fails, notes } = checkData(withTiles(JSON.parse(JSON.stringify(out)), (f) => tileList.find((t) => t.f === f).body)); // the whole model, tiles included
   // the calibration against the laser and the named summits, against the figures of November 2026 (1.31 and 1.2 m)
   const limit = { lidarRms: 1.5, peakRms: 1.5 };
   for (const [k, v] of Object.entries(limit)) {
@@ -2227,3 +2303,6 @@ console.log('truong tien obb', ttBox.w.toFixed(1), 'x', ttBox.d.toFixed(1), 'cen
   if (previous) { console.log('changes against the previous ' + OUT + ':'); for (const l of diffData(previous, out)) console.log('  ' + l); }
   if (fails.length) { console.error(`build-data: ${fails.length} check(s) failed; ${OUT} was written so it can be inspected, but do not ship it`); process.exit(1); }
 }
+
+// ---- label anchor heights: the scene built headless from the new hue.json, its model tops written into places.json ----
+await (await import('./build-label-tops.mjs')).buildLabelTops();

@@ -278,6 +278,14 @@ class OcclusionPass extends Pass {
     cu.uCamWorld.value.copy(cam.matrixWorld);
     cu.uCamPos.value.copy(cam.position);
     this.quad.material = this.compMat;
+    // No pixel can blur when the widest circle of confusion is under the shader's 0.7 px cut-off (the drawn look, or
+    // low over the streets, where the aperture is 0): then the grade goes straight to the output and the focus pass,
+    // a full-screen read and write that would copy it unchanged, is skipped.
+    if (this.aperture * this.dofMat.uniforms.uMaxPx.value < 0.7) {
+      renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
+      this.quad.render(renderer);
+      return;
+    }
     renderer.setRenderTarget(this.compRT);
     this.quad.render(renderer);
     const du = this.dofMat.uniforms;

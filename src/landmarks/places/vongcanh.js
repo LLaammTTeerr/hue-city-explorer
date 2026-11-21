@@ -20,6 +20,9 @@ import { glowPoints } from '../../geo/materials.js';
 // left from before 1975. The viewing terrace's size, the bunkers' places and the tower's exact form are estimated.
 
 export const id = 'vongcanh';
+// how far from the place point this builder reads data.trees (the pine wood's box below reaches 1.1 km from the record's
+// point); build-data.mjs keeps every record within it in hue.json, out of the tiles (default 520 m)
+export const dataReach = 1150;
 
 const VIEW = [-2641.6, 4524.1]; // OSM node 4603986390: the lookout over the river bend
 const TOWER = [-2782.0, 4347.3]; // OSM node 13516013279: the rangers' observation tower
