@@ -363,5 +363,19 @@ the parser or a shared builder), then rebuild.
     - Sình (node 9960092017)
   - The `craft villages` data check covers all three, and that Sình lies inside the bounds.
   - Thanh Tiên paper flowers is not in OSM. We asked sleepyluno for a pin in issue #14 (comment 7048587422). Once a pin arrives, add it to `EXTRA` and widen the BBOX if needed.
-- Remaining: #7 (trees around heritage sites), #5 (south bank remodel), #8 (landmark accuracy, large).
+- #7 done (forest at the tombs and other heritage sites):
+  - Root cause: OSM maps almost no forest around the tombs, and the hills were filled with random trees at a 0.06 chance, so Thiệu Trị had only 35 trees within 300 m.
+  - New source: ESA WorldCover 2021 v200, 10 m, class 10 (tree cover). `scripts/fetch-landcover.py` reads only the model box from the public COG and writes `data/raw/dem/treecover.json` (1080×1944 bitmap, 43% tree share, 350 KB).
+  - `build-data.mjs` plants on a 10 m grid wherever WorldCover shows tree cover:
+    - Rings around heritage sites: tombs from `SITE_DEFS`, Vọng Cảnh, Ngự Bình, and named OSM tomb/ruin/monument/attraction/place-of-worship features, 125 rings in all.
+    - Away from the rings, 15% of cells in the hills and villages. The city keeps its garden canopy.
+    - Terrain cover also takes `wood` from WorldCover.
+  - Results:
+    - +127k trees, from 74k to 202k in total.
+    - Tombs went from 30–380 to about 2,100–2,600 trees within 300 m.
+    - `hue.json` gzip grew from 2.4 to 3.2 MB.
+    - Frame rate is unchanged (Thiệu Trị 33 fps before, 35 fps after).
+  - The `forest round the tombs` check needs at least 1,000 trees within 300 m of each of the five tombs. ESA WorldCover is credited in the README and the in-app credits.
+  - Not fixed: the white tree crowns seen in the preview pane predate this change.
+- Remaining: #5 (south bank remodel), #8 (landmark accuracy, large).
 - Next: the user picks the next issue.

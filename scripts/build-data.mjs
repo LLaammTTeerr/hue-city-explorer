@@ -820,6 +820,48 @@ for (const [id, , x, z, r] of SITE_DEFS) {
     if (Math.hypot(px - x, pz - z) <= R) plant(px, pz, rr(0.9, 1.5), 3);
   }
 }
+// Real forest (issue #7): OSM maps almost none of the woods that close over the tombs and hills, so the forest is
+// planted from ESA WorldCover's 10 m tree-cover map (scripts/fetch-landcover.py). Close planting in a ring round each
+// heritage site, where people look; a looser stand over the rest of the wooded hills and villages.
+const TC = (() => {
+  const f = 'data/raw/dem/treecover.json';
+  if (!fs.existsSync(f)) { console.warn('no tree cover (run scripts/fetch-landcover.py)'); return null; }
+  const t = JSON.parse(fs.readFileSync(f, 'utf8'));
+  return { ...t, b: Buffer.from(t.bits, 'base64') };
+})();
+const isWooded = (x, z) => {
+  if (!TC) return false;
+  const i = Math.floor((ORIGIN.lon + x / KX - TC.west) / TC.dlon), j = Math.floor((TC.north - (ORIGIN.lat - z / KZ)) / TC.dlat);
+  if (i < 0 || j < 0 || i >= TC.nx || j >= TC.ny) return false;
+  const k = j * TC.nx + i;
+  return (TC.b[k >> 3] >> (7 - (k & 7))) & 1;
+};
+const heritage = SITE_DEFS.map(([, , x, z, r]) => [x, z, r + 250]);
+heritage.push([-2784, 5161, 350], [770, 2990, 400]); // the pine-clad hills of Vọng Cảnh and Ngự Bình (places added in §8)
+{
+  const HER = new Set(['tomb', 'ruins', 'archaeological_site', 'memorial', 'monument', 'castle', 'heritage_building', 'manor']);
+  for (const e of els) {
+    const t = e.tags;
+    if (!t || !t.name || !(HER.has(t.historic) || t.tourism === 'attraction' || t.amenity === 'place_of_worship')) continue;
+    const c = e.type === 'node' ? proj(e) : e.geometry ? centroid(openRing(e.geometry.map(proj))) : e.bounds ? proj({ lat: (e.bounds.minlat + e.bounds.maxlat) / 2, lon: (e.bounds.minlon + e.bounds.maxlon) / 2 }) : null;
+    if (c && inBox(c) && !inCitadel(c)) heritage.push([c[0], c[1], inHills(c) ? 200 : 170]);
+  }
+}
+const nearHeritage = (x, z) => heritage.some(([hx, hz, r]) => (x - hx) ** 2 + (z - hz) ** 2 < r * r);
+if (TC) {
+  const before = trees.length / 4;
+  let ring = 0;
+  for (let z = MINZ; z < MAXZ; z += 10) for (let x = MINX; x < MAXX; x += 10) {
+    const near = nearHeritage(x + 5, z + 5);
+    const outside = inHills([x, z]) || inVillages([x, z]);
+    if (!near && !outside) continue; // the city keeps its garden canopy
+    if (!near && rnd() > 0.15) continue; // about one tree per 26 m away from the sites
+    const px = x + rr(0, 10), pz = z + rr(0, 10);
+    if (!isWooded(px, pz) || inCitadel([px, pz]) || at(px, pz) & (TBLOCK | NOBUILD)) continue;
+    if (plant(px, pz, rr(0.85, 1.5), inHills([px, pz]) ? hillKind() : treeKind(false)) && near) ring++;
+  }
+  console.log('tree cover:', heritage.length, 'heritage rings,', trees.length / 4 - before, 'trees planted from WorldCover (', ring, 'in the rings )');
+}
 console.log('trees', trees.length / 4);
 
 // =====================================================================
@@ -1293,6 +1335,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
         lifted++; peak = Math.max(peak, h[k]);
         const p = [MINX + i * STEP, MINZ + j * STEP];
         for (const g of green) if (pipPoly(p, g.p)) { c = COVER[g.k] || 0; break; }
+        if (!c && isWooded(p[0], p[1])) c = COVER.wood; // the forest floor under WorldCover's tree cover
       }
       cover += c;
     }

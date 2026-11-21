@@ -106,6 +106,15 @@ export function checkData(data) {
     for (const b of data.bld) { const h = b[1] / 10; if (!Number.isFinite(h) || h <= 0) bad++; else if (h > 180) tall++; }
     check(bad === 0 && tall === 0, 'building heights', `${data.bld.length} buildings, ${bad} missing or zero, ${tall} over 180 m`);
   }
+  // the forest round the royal tombs (#7): planted from WorldCover's tree cover, not only from OSM's few woods
+  {
+    const ids = ['thieutri', 'tuduc', 'dongkhanh', 'minhmang', 'khaidinh'];
+    const t = data.trees;
+    const count = (c) => { let n = 0; for (let i = 0; i < t.length; i += 4) if ((t[i] / 10 - c[0]) ** 2 + (t[i + 1] / 10 - c[1]) ** 2 < 300 * 300) n++; return n; };
+    const got = ids.map((id) => [id, place(data, id) ? count(place(data, id)) : 0]);
+    const thin = got.filter(([, n]) => n < 1000);
+    check(!thin.length, 'forest round the tombs', got.map(([id, n]) => `${id} ${n}`).join(', ') + ' trees within 300 m (at least 1000 each)');
+  }
   // làng nghề (#14): every craft village is a place, and the model reaches far enough north to stand Sình on real ground
   {
     const ids = ['thuyxuan', 'phuongduc', 'sinh'];
