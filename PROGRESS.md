@@ -513,3 +513,14 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
     z-fight);
   - hungmieu with themieu;
   - about 15 small (7-16 m²) kept buildings or infill houses under models.
+
+## Non-bridge overlap findings (2026-11-21, branch `worktree-agent-a09688f46d572038b`)
+- check:overlap went from 38 to 17 findings. Of the 17, 7 are bridge or causeway road findings (left to the bridge agent).
+- Shared fixes: `offStreets`/`clipTo` keep compound fills and lawns behind the kerb. `fence()` stops where a mapped
+  building stands in its line (`solidSpans`), with no piers there. populate's `houseOff` samples every metre, and the
+  check now asks `world.houseOff` instead of keeping its own copy.
+- Check changes: the barycentric eps fix, plus the isolated `inGatePassage` rule (a gate's piers inside its mapped
+  block, where the street passes through).
+- Left over: tuphuong, duyetthi, canchanh and hungmieu+themieu are edge contact that the 1 m cells alias. Real
+  interpenetration there is 0.03 m or less. Also left: quochoc (block plinth against the mapped hall), gahue
+  (contact, 7 m²), phucam (7 m²), and hoquyen, thuyquan, mangca and conhen (not looked at).

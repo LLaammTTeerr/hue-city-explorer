@@ -1,7 +1,7 @@
 import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
-import { fence } from '../enclosure.js';
+import { fence, offStreets } from '../enclosure.js';
 
 // ---- Quốc Tử Giám, the Nguyễn imperial academy, inside the Citadel (moved here in 1908) ----
 //
@@ -50,7 +50,7 @@ const gY = (x, z) => LAND_Y + rise(x, z);
 
 export const id = 'quoctugiam';
 
-export function build({ S }) {
+export function build({ data, S }) {
   const y0 = gY(C[0], C[1]);
   const box = (u, v, ya, yb, w, d, col, o) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ANG, col, o); };
   // (the ridge runs along the longer side: a deep plan is handed over turned a quarter)
@@ -124,7 +124,7 @@ export function build({ S }) {
 
   // ---- the precinct wall, open at the tam quan ----
   S.base = 0;
-  const ring = inset(PARK, 2.5);
+  const ring = offStreets(data, inset(PARK, 2.5)); // and off the street OSM draws along its east side
   const g = P(0, GATE_V);
   fence(S, ring, WALL, { closed: true, openings: [[g[0], g[1], 7.0]] });
   S.kind = KIND.PLAIN;

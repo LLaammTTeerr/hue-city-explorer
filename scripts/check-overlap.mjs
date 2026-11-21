@@ -43,11 +43,12 @@ for (const s of sources) {
     const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.floor(Math.max(ax, bx, cx)), z0 = Math.floor(Math.min(az, bz, cz)), z1 = Math.floor(Math.max(az, bz, cz));
     if ((x1 - x0) * (z1 - z0) > 4e6) continue;
     const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+    const eps = -Math.min(0.02, 0.1 / Math.max(1, x1 - x0, z1 - z0)); // edge slack ~ 0.1 m, not 2 % of a 100 m yard face
     for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
       for (const [ox, oz] of SUB) {
         const px = ix + ox, pz = iz + oz;
         const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
-        if (l1 > -0.02 && l2 > -0.02 && 1 - l1 - l2 > -0.02) {
+        if (l1 > eps && l2 > eps && 1 - l1 - l2 > eps) {
           const c = key(ix, iz), was = cells.get(c);
           if (was === undefined || up < was) { cells.set(c, up); kinds.set(c, K[i]); } // the lowest raised face: what stands on the ground there
           break;
@@ -87,8 +88,25 @@ const clusters = (cells) => {
 };
 const add = (kind, name, cells) => { if (cells.length) { const cl = clusters(cells); found.push({ kind, name, area: cells.length, at: cl[0].at, cl }); } };
 
+// a Citadel gate carries its street through the rampart: inside the gate's mapped block (data.gates, the OSM outline)
+// the carriageway narrows to the passage, so the block's piers and damp plinths there stand where the street's nominal
+// width would be. Passage rule: a 'place:gate:<name>' cell is exempt inside that outline, 0.5 m wider along the wall
+// and 4 m deeper on each face (blocks stand proud of the rampart); a step, apron or ramp beyond it still counts.
+const inGatePassage = (() => {
+  const boxes = new Map();
+  for (const g of data.gates || []) {
+    const a = g.a / 1000;
+    boxes.set('place:gate:' + g.n, { x: g.c[0] / 10, z: g.c[1] / 10, ux: Math.cos(a), uz: Math.sin(a), hs: g.w / 20 + 0.5, ht: g.d / 20 + 4 });
+  }
+  return (name, c) => {
+    const b = boxes.get(name); if (!b) return false;
+    const [x, z] = unkey(c), dx = x - b.x, dz = z - b.z;
+    return Math.abs(dx * b.ux + dz * b.uz) <= b.hs && Math.abs(-dx * b.uz + dz * b.ux) <= b.ht;
+  };
+})();
+
 for (const r of raster) {
-  const cells = [...r.cells].filter(([c, up]) => up <= ROAD_HI && carriage.has(c)).map(([c]) => c);
+  const cells = [...r.cells].filter(([c, up]) => up <= ROAD_HI && carriage.has(c) && !inGatePassage(r.name, c)).map(([c]) => c);
   if (process.env.DEBUG && cells.length) { const h = {}; for (const c of cells) { const k = r.kinds.get(c) + ':' + (r.cells.get(c) < 0.6 ? 'lo' : r.cells.get(c) < 2 ? 'mid' : 'hi'); h[k] = (h[k] || 0) + 1; } console.log('DBG', r.name, JSON.stringify(h)); }
   add('road', r.name, cells);
 }
@@ -128,12 +146,11 @@ const rasterHit = (c) => tall.get(c);
   }
   for (const [n, cells] of by) add('building', `${n} under mapped building ${b[3] ? '"' + b[3] + '"' : '@' + cx.toFixed(0) + ',' + cz.toFixed(0)}`, cells);
 });
-{ // infill houses: populate samples each plan 3 x 3; here every square metre of it
+{ // infill houses: the ones populate keeps (its own houseOff test); here every square metre of each
   const a = data.infill || [], N = 8, by = new Map();
   for (let i = 0; i + N <= a.length; i += N) {
     const x = a[i] / 10, z = a[i + 1] / 10, w = a[i + 2] / 10, d = a[i + 3] / 10, ang = a[i + 4] / 1000, ux = Math.cos(ang), uz = Math.sin(ang);
-    const samp = []; for (const u of [-0.5, 0, 0.5]) for (const v of [-0.5, 0, 0.5]) samp.push([x + ux * u * w - uz * v * d, z + uz * u * w + ux * v * d]);
-    if (samp.some(([px, pz]) => cover.hit(px, pz))) continue; // populate leaves it out
+    if (world.houseOff(x, z, w, d, ang)) continue; // populate leaves it out
     for (let u = -w / 2 + 0.5; u < w / 2; u += 1) for (let v = -d / 2 + 0.5; v < d / 2; v += 1) {
       const c = key(Math.floor(x + ux * u - uz * v), Math.floor(z + uz * u + ux * v)), n = rasterHit(c);
       if (!n) continue;
