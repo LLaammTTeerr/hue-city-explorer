@@ -1,6 +1,13 @@
 # Progress
 
 ## Done
+- Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
+  `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
+  lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with
+  `joinRoofs = false`) and the mapped buildings (city.js) run inside it. city.js also drops a mapped house whose roof
+  would run through a model roof (the yellow house through Tạ Trường Du, Diên Thọ). Own numbers fixed: An Định towers,
+  Kiến Trung and Thái Miếu upper tiers; Tự Đức's duplicate Minh Khiêm footprint skipped. `npm run check:roofs` checks
+  all 2082 roofs.
 - Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
   along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
 - Riverside lights (issue #21, 2026-11-21): build-data.mjs derives `riverLamps` from the Hương banks (embankment posts
