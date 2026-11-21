@@ -56,6 +56,7 @@ export function createLabels(root, data, camera, onPick, scene) {
   // Lesser places also wait for the camera to come down: the opening view (250-430 m up) and the overview show only
   // the landmarks of tiers 1-2; the framed views of single places (mostly 30-150 m up) bring the rest in.
   const TIER_CEIL = { 3: 210, 4: 160 };
+  const FADE = 0.2; // the last fifth of a tag's range (distance or height) fades it out
   const STEM = 14; // .label-place > span sits this far above its anchor (style.css), stem included
   const items = [];
   const v = new THREE.Vector3();
@@ -116,28 +117,35 @@ export function createLabels(root, data, camera, onPick, scene) {
         }
       }
       const placed = blocked.slice();
-      for (const it of items) {
-        let show = enabled;
-        let x = 0, y = 0;
+      // A tag already showing keeps its slot against newcomers of its own tier, and a newcomer needs a little more room
+      // than a tag that is staying, so an orbit does not flip neighbouring tags on and off from frame to frame.
+      const order = items.slice().sort((a, b) => (a.pri - (a.shown ? 0.75 : 0)) - (b.pri - (b.shown ? 0.75 : 0)));
+      for (const it of order) {
+        let show = enabled, fade = 1;
+        let x = 0, y = 0, onScreen = false;
         if (show) {
           const dist = camera.position.distanceTo(it.pos);
-          show = dist < TIER_DIST[it.p.t] && dist > 40 && (it.water || !(camera.position.y - LAND_Y > TIER_CEIL[it.p.t]));
-          if (show) {
-            v.copy(it.pos).project(camera);
-            show = v.z < 1 && v.z > -1 && Math.abs(v.x) < 1.05 && Math.abs(v.y) < 1.05;
-            x = (v.x * 0.5 + 0.5) * width; y = (-v.y * 0.5 + 0.5) * height;
-          }
+          const far = TIER_DIST[it.p.t], ceil = TIER_CEIL[it.p.t], hgt = camera.position.y - LAND_Y;
+          show = dist < far && dist > 40 && (it.water || !(hgt > ceil));
+          // fade with distance (and, for lesser places, with height) instead of popping at the cut-off
+          fade = Math.min(1, (far - dist) / (far * FADE), (dist - 40) / 20, it.water || !ceil ? 1 : (ceil - hgt) / (ceil * FADE));
+          v.copy(it.pos).project(camera);
+          onScreen = v.z < 1 && v.z > -1;
+          x = (v.x * 0.5 + 0.5) * width; y = (-v.y * 0.5 + 0.5) * height;
+          if (show) show = onScreen && Math.abs(v.x) < 1.2 && Math.abs(v.y) < 1.2;
         }
         if (show) {
-          const hw = it.w / 2 + 6, top = it.water ? y - it.h / 2 : y - it.h - 4, bottom = it.water ? y + it.h / 2 : y + 4;
-          // a tag the window edge would cut is not drawn at all
-          if (x - hw < 8 || x + hw > width - 8 || top < 8 || bottom > height - 8) show = false;
-          else {
-            for (const q of placed) if (x - hw < q.r && x + hw > q.l && top < q.b && bottom > q.t) { show = false; break; }
-            if (show) placed.push({ l: x - hw, r: x + hw, t: top, b: bottom });
-          }
+          // a tag near the window edge slides off with its place (#labels clips it); only the interface panels and
+          // other tags take it down
+          const pad = it.shown ? 0 : 4;
+          const hw = it.w / 2 + 6 + pad, top = (it.water ? y - it.h / 2 : y - it.h - 4) - pad, bottom = (it.water ? y + it.h / 2 : y + 4) + pad;
+          for (const q of placed) if (x - hw < q.r && x + hw > q.l && top < q.b && bottom > q.t) { show = false; break; }
+          if (show) placed.push({ l: x - hw + pad, r: x + hw - pad, t: top + pad, b: bottom - pad });
         }
-        if (show) it.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+        // Keep moving a tag with its place while it fades out, too: a tag frozen at its last screen point while the
+        // city turns under it is the ghost the orbit used to leave behind.
+        if (onScreen) it.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+        if (show) it.el.style.setProperty('--fade', Math.max(0, fade).toFixed(2));
         if (show !== it.shown) { it.shown = show; it.el.classList.toggle('show', show); it.el.setAttribute('aria-hidden', !show); }
       }
     },
