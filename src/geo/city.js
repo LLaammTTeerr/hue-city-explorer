@@ -16,6 +16,7 @@ import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
+import { junctionHoles, holeRects, markingGuard, inPoly } from './junctions.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -274,6 +275,22 @@ function buildRoads(data, group, structures) {
   for (const r of roads) if (!r.bridge && r.c <= 3) ribbon(B, r.pts, pavW(r), y, casing, r.ends);
   B.kind = KIND.LINE;
   for (const r of roads) if (!r.bridge && r.c <= 4) ribbon(B, r.pts, r.w + (r.c <= 2 ? 0.56 : 0.44), y + 0.005, r.c <= 3 ? kerb : shade(cols[4], 0.85), r.ends);
+  // junction boxes (geo/junctions.js): the patches that meeting carriageways enclose but none covers are asphalt,
+  // over the pavement and kerb lines that showed there as pale squares and triangles out in the road
+  const cw = [];
+  roads.forEach((r, id) => {
+    if (r.bridge || r.c > 4) return;
+    const [L, R] = ribbonPoints(drape(snapEnds(r.pts, r.ends)), r.w, r.ends);
+    cw.push({ id, c: r.c, pts: r.pts, L, R });
+  });
+  const greens = (data.green || []).filter(([k]) => k !== 'paved').map(([, poly]) => unflat(poly[0]));
+  const { holes, cells: holeCells } = junctionHoles(cw, (x, z) => greens.some((g) => inPoly(g, x, z)));
+  B.kind = KIND.ROAD;
+  for (const h of holes) {
+    const lift = rise(h.x, h.z) > 0 ? 0.12 : 0, col = cols[Math.min(h.c, ROAD_MAX)];
+    const v = (x, z) => [x, y + 0.0055 + rise(x, z) + lift, z];
+    for (const [x0, x1, z0, z1] of holeRects(h)) B.quad(v(x0, z0), v(x0, z1), v(x1, z1), v(x1, z0), col, [0, 1, 0]);
+  }
   // the medians of the divided roads (issue #15): a planted strip inside a pale stone kerb, under the carriageways'
   // own edges, with low clipped shrubs along it
   const medians = (data.medians || []).map(([w, flat]) => ({ w: w / 10, pts: unflat(flat) }));
@@ -285,15 +302,34 @@ function buildRoads(data, group, structures) {
   medianShrubs(structures, medians);
   B.kind = KIND.ROAD;
   for (let c = ROAD_MAX; c >= 0; c--) for (const r of roads) if (r.c === c && !r.bridge) ribbon(B, r.pts, r.w, y + 0.01, cols[c], r.ends);
+  // lane markings: a dashed line along the major roads, stopped short of every carriageway it meets and of the
+  // junction holes, so the junction box itself is left plain (geo/junctions.js)
   const paint = hex('#f4eedd');
-  for (const r of roads) {
-    if (r.bridge || r.c > 1) continue;
+  const guard = markingGuard(roads.map((r, id) => ({ id, c: r.c, w: r.w, pts: r.pts, bridge: r.bridge })).filter((r) => !r.bridge && r.c <= 2), holeCells);
+  const dashes = [];
+  roads.forEach((r, id) => {
+    if (r.bridge || r.c > 1) return;
     const len = pathLength(r.pts);
-    for (let s0 = 4; s0 + 5 < len; s0 += 13) {
+    // where along the road (every metre) a dash may lie
+    const free = [];
+    for (let s = 0; s <= len; s++) { const { p, a } = along(r.pts, s); free.push(guard(id, p[0], p[1], a)); }
+    const clear = (s0) => { for (let k = 0; k <= 5; k++) if (!free[s0 + k]) return false; return true; };
+    const starts = [];
+    for (let s0 = 4; s0 + 5 < len; s0 += 13) if (clear(s0)) starts.push(s0); // the steady 13 m rhythm
+    // a stretch the rhythm misses (between two carriageways inside a junction, a short way) gets one dash in its middle
+    for (let a = 0; a < free.length; ) {
+      if (!free[a]) { a++; continue; }
+      let b = a;
+      while (b + 1 < free.length && free[b + 1]) b++;
+      if (b - a >= 7 && !starts.some((s0) => s0 + 5 >= a && s0 <= b)) starts.push(Math.floor((a + b) / 2) - 2);
+      a = b + 1;
+    }
+    for (const s0 of starts) {
       const p0 = along(r.pts, s0).p, p1 = along(r.pts, s0 + 5).p;
       ribbon(B, [p0, p1], 0.32, y + 0.02, paint);
+      dashes.push({ id, s0, p0, p1 });
     }
-  }
+  });
   for (const [main, bridge, flat] of data.rails || []) {
     const pts = unflat(flat);
     if (bridge) continue;
@@ -393,7 +429,7 @@ function buildRoads(data, group, structures) {
   const lamps = glowPoints(lp, lc, 7);
   lamps.material.uniforms.uBoost.value = 0.6;
   group.add(lamps);
-  return { lamps };
+  return { lamps, marks: { roads, cw, holes, holeCells, dashes } };
 }
 
 // ---------- buildings from OSM footprints ----------
@@ -799,11 +835,11 @@ export function buildCity(data) {
   const hills = buildTerrainMesh();
   if (hills) group.add(hills);
   buildGreen(data, group);
-  const { lamps } = buildRoads(data, group, structures);
+  const { lamps, marks } = buildRoads(data, group, structures);
   const w0 = structures.n;
   buildWalls(data, structures);
   structures.wallRange = [w0, structures.n];
-  return { group, structures, lamps, infill: [], trees: [] };
+  return { group, structures, lamps, marks, infill: [], trees: [] };
 }
 
 // Ground the landmark models stand on: every 1 m cell under a face of theirs that looks up and stands clear of the
