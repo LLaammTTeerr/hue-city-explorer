@@ -84,11 +84,15 @@ export function createUI(data, handlers) {
   // ---- card ----
   // The explorer: stories, facts and picture references live in data/stories.json, fetched the first time a card
   // opens. Pictures are Wikimedia Commons files under free licences, shown with their credit; without a
-  // connection the card simply has no picture.
+  // connection the card simply has no picture. Only a successful load is kept: a failed one (offline, an HTTP error,
+  // a bad body) clears the pending flag and leaves stories unset, so the next card or search opening asks again.
   function loadStories() {
-    if (storiesAsked) return;
+    if (stories || storiesAsked) return;
     storiesAsked = true;
-    fetch('data/stories.json').then((r) => (r.ok ? r.json() : {})).then((j) => { stories = j || {}; if (current) fillCard(current); search.refresh(current); }).catch(() => { stories = {}; });
+    fetch('data/stories.json')
+      .then((r) => { if (!r.ok) throw new Error('stories.json: HTTP ' + r.status); return r.json(); })
+      .then((j) => { stories = j || {}; if (current) fillCard(current); search.refresh(current); })
+      .catch((e) => { console.warn(e); storiesAsked = false; });
   }
   const show = (id, on) => { $(id).hidden = !on; };
   function fillMedia(st) {
