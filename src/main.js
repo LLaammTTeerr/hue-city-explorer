@@ -7,19 +7,9 @@ import './ui/style.css';
 
 import * as THREE from 'three';
 import { LAND_Y, quality } from './config.js';
-import { buildCity, populate, finishStructures, updateDetail } from './geo/city.js';
-import { buildTruongTien } from './landmarks/truongtien.js';
-import { buildCitadel, buildMarket, buildThienMu } from './landmarks/citadel.js';
-import { buildBoats, buildLanterns } from './landmarks/boats.js';
-import { buildNguyenHoang, buildQuocHocGate } from './landmarks/more.js';
-import { buildCivic } from './landmarks/civic.js';
-import { buildSouth } from './landmarks/south.js';
-import { buildTombs } from './landmarks/tombs.js';
-import { buildBiaQuocHoc } from './landmarks/memorial.js';
-import { buildBoardwalk } from './landmarks/boardwalk.js';
-import { buildRiverLights } from './landmarks/riverlights.js';
+import { buildCity, updateDetail } from './geo/city.js';
+import { buildLandmarks } from './landmarks/build.js';
 import { shared } from './geo/materials.js';
-import { buildLotus, buildTraffic, buildStreetLife } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
 import { buildWater } from './env/water.js';
 import { buildRain } from './env/rain.js';
@@ -32,8 +22,6 @@ import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
 import { VIEWS } from './ui/content.js';
 import { rise } from './geo/terrain.js';
-import { buildFloatingRestaurants } from './landmarks/floating.js';
-import { buildPlaces } from './landmarks/places/index.js';
 import { createFallback } from './ui/fallback.js';
 
 const canvas = document.getElementById('scene');
@@ -113,28 +101,8 @@ async function main() {
   ui.loaderProgress(0.55);
   await frame();
   const dynamic = new THREE.Group();
-  const S = world.structures;
-  const bridge = buildTruongTien(data, S, dynamic);
-  const citadel = buildCitadel(data, S, dynamic);
-  buildMarket(data, S, dynamic);
-  buildThienMu(data, S, dynamic);
-  const extraGlows = buildNguyenHoang(data, S, dynamic);
-  buildQuocHocGate(data, S);
-  buildCivic(data, world.structures);
-  buildBiaQuocHoc(data, world.structures);
-  buildBoardwalk(data, world.structures, dynamic);
-  buildRiverLights(data, world.structures, dynamic); // lamps along the Hương's banks and walkways (issue #21)
-  const floating = buildFloatingRestaurants(data, world.structures, dynamic); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
-  buildSouth(data, world.structures);
-  buildTombs(data, world.structures);
-  const replicas = buildPlaces(data, S, dynamic); // per-place replica models in src/landmarks/places/
-  populate(world, data); // buildings, houses and trees, kept off the ground the landmark models cover
-  finishStructures(world.structures, world.group);
-  const boats = buildBoats(data, dynamic);
-  const lanterns = buildLanterns(data, dynamic); // hoa đăng drifting past the Citadel after dark
-  buildLotus(data, dynamic);
-  const traffic = buildTraffic(data, dynamic);
-  const street = buildStreetLife(data, dynamic);
+  // every landmark, populate and the moving things, in the sequence the geometry checks build too (src/landmarks/build.js)
+  const { bridge, citadel, extraGlows, floating, replicas, boats, lanterns, traffic, street } = buildLandmarks(data, world, dynamic);
   scene.add(world.group, dynamic);
   const lanternGlows = []; // lanternGlows: glow points that landmarks flagged for the per-frame update
   dynamic.traverse((o) => { if (o.userData.glow) lanternGlows.push(o); });

@@ -1,6 +1,13 @@
 # Progress
 
 ## Done
+- One landmark sequence (2026-11-21): `buildLandmarks` in src/landmarks/build.js is the only place the landmarks,
+  populate and the moving things are built, in order; src/main.js and scripts/lib/scene.mjs both call it (the checks
+  through a per-step observer), and check-heights now builds through scene.mjs too. Previously browser-only steps now
+  checked: riverlights, boats, lanterns, lotus, traffic. They revealed two real faults, fixed at the source: 66
+  embankment lamp posts stood on carriageways (build-data.mjs now keeps lamps off class 0-3 streets; posts 901 → 835,
+  walkway lights 1609 → 1621) and lotus leaves reached over pond banks under the ground (life.js keeps each whole leaf
+  on the water). Browser scene graph identical before/after the refactor.
 - Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
   `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
   lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with

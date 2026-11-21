@@ -69,6 +69,13 @@ Every push to `main` is checked, built and published to GitHub Pages by `.github
 - `src/geo/foliage.js` — leaf-card trees and areca palms; `src/geo/terrain.js` — ground height
 - `src/landmarks/` — Trường Tiền, Citadel monuments and gates, market, Thiên Mụ, cầu Nguyễn Hoàng, boats,
   lotus ponds and street traffic
+- `src/landmarks/build.js` — `buildLandmarks(data, world, group, opts)`, the one sequence that builds every landmark,
+  then `populate`, then the moving things (boats, lanterns, lotus, traffic, street life). The browser (`src/main.js`)
+  and the geometry checks (`scripts/lib/scene.mjs`, used by check:overlap, check:burial, check:heights and
+  check:joints) both call it, so **a new landmark is added there, never in `main.js`**: added anywhere else it would
+  show in the city but escape the checks. It returns the handles the frame loop animates. The checks pass a `step`
+  observer, called around each named step, to record what each one added; per-place replicas in
+  `src/landmarks/places/` are picked up by `buildPlaces` without being listed.
 - `src/env/` — sky, water, rain, mood presets, and the desktop post pass (ambient occlusion, river mist,
   tilt-shift focus, bloom, grade)
 - `src/camera/` — map controls
