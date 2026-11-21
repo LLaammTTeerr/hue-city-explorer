@@ -411,9 +411,10 @@ function tomb(S) {
     for (const sd of [-1, 1]) { const p = T.at(115.6, sd * 0.85); S.box(p[0], p[1], g, g + 3.3, 0.14, 1.6, T.a, COL.bronze); S.box(p[0], p[1], g + 1.4, g + 1.7, 0.18, 1.5, T.a, COL.bronzeHi); }
     flight(S, T.at(111.2), g - 0.4, T.at(114.6), g + 0.1, 5, COL.stoneGrey, false);
     // inside: the grave mound (a round earth tumulus in a stone kerb), pines round it
-    const gm = gY(cB[0], cB[1]);
+    // the kerb is set on the highest ground under it (the hill climbs ~2 m across it), bedded at the lowest
+    const sp = span(T, sB, 0, 23, 23), gm = sp.hi;
     S.kind = KIND.MASONRY; S.base = gm - LAND_Y;
-    S.cyl(cB[0], cB[1], gm - 0.8, gm + 0.7, 11.5, 11.5, 24, COL.stoneGrey);
+    S.cyl(cB[0], cB[1], sp.lo - 0.8, gm + 0.7, 11.5, 11.5, 24, COL.stoneGrey);
     S.kind = KIND.GROUND;
     S.cyl(cB[0], cB[1], gm + 0.7, gm + 3.6, 11, 3, 24, COL.moss);
     S.cyl(cB[0], cB[1], gm + 3.6, gm + 4.2, 3, 0.4, 12, shade(COL.moss, 0.95));

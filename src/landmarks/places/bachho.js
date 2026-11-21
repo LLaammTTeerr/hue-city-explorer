@@ -3,6 +3,7 @@ import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { bridgeProfiles } from '../../geo/bridges.js';
 import { lightMaterial, glowPoints } from '../../geo/materials.js';
+import { landTest } from '../boats.js';
 
 // Cầu Dã Viên and the railway bridges beside it (docs/places/bachho.md).
 //
@@ -70,15 +71,18 @@ export function build({ data, S, group }) {
       L.box(p[0], p[1], 0.05, 0.25, 0.25, pierW * 0.9, ang, [1, 1, 1]);
     }
   }
-  // the girders deepen towards each pier: a soffit that reads as a row of shallow arches from the water
+  // the girders deepen towards each pier: a soffit that reads as a row of shallow arches from the water. The end
+  // spans meet the banks, where the girder sits on its abutment: no haunch is drawn over the mapped land
   S.kind = KIND.PLAIN;
-  const N = 10;
+  const N = 10, isLand = landTest(data), hw = (ROAD_W - 1.2) / 2;
   for (let k = 0; k < spans; k++) {
     for (let i = 0; i < N; i++) {
       const u = (i + 0.5) / N, t = 2 * u - 1;
       const d = haunch * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
       if (d < 0.05) continue;
-      const [x, z] = at(k * sl + u * sl, 0);
+      const s = k * sl + u * sl;
+      if ([-hw, 0, hw].some((v) => isLand(...at(s, v)))) continue;
+      const [x, z] = at(s, 0);
       S.box(x, z, deckBot - d, deckBot + 0.02, sl / N + 0.02, ROAD_W - 1.2, ang, CONC, { bottom: true });
     }
   }

@@ -2,6 +2,7 @@ import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { lightMaterial, shared } from '../../geo/materials.js';
+import { landTest } from '../boats.js';
 
 // Chợ Đông Ba, Huế's central market, as it stands today. Sources and estimates: docs/places/dongba.md.
 //
@@ -82,7 +83,7 @@ function glowMaterial(THREE, mask, color, boost) {
   });
 }
 
-export function build({ S, group, THREE }) {
+export function build({ data, S, group, THREE }) {
   // ---- the main hall: three storeys on the mapped footprint, the upper floors carried out over a front arcade ----
   const HU = 36.0, HV = 21.3, FV = 27.0; // half length, half depth, the face of the front gallery
   const TOP = 10.4; // the roof slab (GISHue survey: 11 m over the hall with the hoods)
@@ -157,7 +158,13 @@ export function build({ S, group, THREE }) {
   // ---- the wharf on the river behind the fruit market: a stone quay edge with steps and bollards ----
   const QV = -90.0;
   boxUV(S, -40, 90, QV - 3, QV, -1.8, 0.12, PAL.stone || hex('#a59f92'));
-  for (let k = 0; k < 4; k++) boxUV(S, 18, 26, QV - 3 - (k + 1) * 0.45, QV - 3 - k * 0.45, -1.8, -0.4 - k * 0.35, shade(hex('#a59f92'), 0.9));
+  // the steps go down from the quay edge, or where the mapped bank runs out past it, from a landing at the quay's
+  // level carried out to the shore: their third step (a metre under the street) stands at the water
+  const land = landTest(data);
+  let QE = QV - 3;
+  for (let v = QE - 0.9; v > QE - 30; v -= 0.25) if (![18, 22, 26].some((u) => land(...P(u, v)))) { QE = Math.min(QE, v + 0.9); break; }
+  if (QE < QV - 3) boxUV(S, 18, 26, QE, QV - 3 + 0.05, -1.8, 0.12, PAL.stone || hex('#a59f92'));
+  for (let k = 0; k < 4; k++) boxUV(S, 18, 26, QE - (k + 1) * 0.45, QE - k * 0.45, -1.8, -0.4 - k * 0.35, shade(hex('#a59f92'), 0.9));
   for (let u = -35; u <= 85; u += 10) { const p = P(u, QV - 2.6), y = gy(p); S.cyl(p[0], p[1], y + 0.1, y + 0.7, 0.2, 0.17, 6, DARK); }
   S.kind = KIND.PLAIN;
 

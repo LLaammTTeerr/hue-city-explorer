@@ -101,14 +101,21 @@ export function build({ data, S }) {
     S.quad(at(s - 0.08, -hc, y), at(s - 0.08, hc, y), at(s + 0.08, hc, y), at(s + 0.08, -hc, y), joint, [0, 1, 0]);
   }
 
-  // ---- girders: 5 precast beams per span, following the deck between supports
+  // ---- girders: 5 precast beams per span, following the deck between supports. Where an end span reaches over the
+  // bank the beams rest on the abutment's seat in the fill: each one stops where its soffit would go into the ground
   const gv = [-6.4, -3.2, 0, 3.2, 6.4];
+  const sunk = (u, v) => onLand(xz(u, v)) && top(u) - SLAB - GIRDER < ground(u, v) - 0.5;
   for (let k = 0; k < SPANS; k++) {
     const a = s0 + k * span + 0.4, b = s0 + (k + 1) * span - 0.4;
     const nseg = 4;
     for (let j = 0; j < nseg; j++) {
       const u0 = a + ((b - a) * j) / nseg, u1 = a + ((b - a) * (j + 1)) / nseg;
-      for (const v of gv) S.beam(at(u0, v, top(u0) - SLAB - GIRDER / 2), at(u1, v, top(u1) - SLAB - GIRDER / 2), 0.45, GIRDER, girderCol);
+      for (const v of gv) {
+        let g0 = u0, g1 = u1;
+        while (g0 < g1 && sunk(g0, v)) g0 += 0.25;
+        while (g1 > g0 && sunk(g1, v)) g1 -= 0.25;
+        if (g1 - g0 > 0.3) S.beam(at(g0, v, top(g0) - SLAB - GIRDER / 2), at(g1, v, top(g1) - SLAB - GIRDER / 2), 0.45, GIRDER, girderCol);
+      }
     }
   }
 

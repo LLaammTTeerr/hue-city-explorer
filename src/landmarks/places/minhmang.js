@@ -258,9 +258,8 @@ export function build({ data, S }) {
     S.box(p[0], p[1], y, y + 3.0, 2.5, 3.0, F.a, hex('#5a4a2c'));
     hip(sG, -2.2, 6.8, 2.8, y + 4.4, 0.9, TILE, { over: 0.4 });
     // the wooded mound: the hill rises inside the wall, crowned by a low tumulus under pines
-    const g = gY(c[0], c[1]);
-    S.kind = KIND.GROUND; S.base = 0;
-    S.cyl(c[0], c[1], g - 2.5, g + 1.8, 26, 6, 18, MOSS);
+    // draped over the hill's own slope (it climbs ~5 m across the ring), not a cone set at the centre's ground
+    tumulus(S, c[0], c[1], 26, 1.8, MOSS);
     S.kind = KIND.PLAIN;
     for (let i = 0; i < 22; i++) {
       const ang = i * 2.399 + 0.3, r = 6 + ((i * 37) % 31);
@@ -279,6 +278,23 @@ export function build({ data, S }) {
     hallAt(S, it.c[0], it.c[1], it.w, it.d, it.a, { plinth: 0.4, roof: tiny ? C.roofTile : C.roofYOld, wall: C.lacquerOld, wallH: tiny ? 2.8 : 3.2, over: 0.8 });
   }
   S.kind = KIND.PLAIN; S.base = 0;
+}
+
+// a low tumulus draped over the local ground: a flattened crown h over the ground under each point, easing to a rim
+// bedded 0.6 m (as tombs.js mound() does)
+function tumulus(S, cx, cz, r, h, col) {
+  const prof = (t) => (t <= 0.23 ? 1 : Math.cos(((t - 0.23) / 0.77) * Math.PI * 0.5));
+  const at = (t, a) => { const x = cx + Math.cos(a) * r * t, z = cz + Math.sin(a) * r * t; return [x, gY(x, z) + h * prof(t) - (t >= 1 ? 0.6 : 0), z]; };
+  const T = [0, 0.23, 0.45, 0.65, 0.82, 1], N = 18;
+  S.kind = KIND.GROUND; S.base = 0;
+  for (let j = 0; j < N; j++) {
+    const a0 = (j / N) * Math.PI * 2, a1 = ((j + 1) / N) * Math.PI * 2, am = (a0 + a1) / 2;
+    for (let k = 0; k + 1 < T.length; k++) {
+      const hint = [Math.cos(am) * T[k + 1], 1, Math.sin(am) * T[k + 1]];
+      if (k === 0) S.tri(at(0, 0), at(T[1], a0), at(T[1], a1), col, hint);
+      else S.quad(at(T[k], a0), at(T[k], a1), at(T[k + 1], a1), at(T[k + 1], a0), col, hint);
+    }
+  }
 }
 
 // a trụ biểu: square shaft on a stepped base, a lotus bud and finial on top

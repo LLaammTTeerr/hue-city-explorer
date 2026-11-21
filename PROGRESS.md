@@ -277,7 +277,7 @@ Known weak points:
   3 m above the water; the real Phú Xuân and Dã Viên decks are higher.
 - Ground lower than the city floor (paddies, river flats) is still drawn at the floor.
 - No lidar pass crosses the Ngự Bình or Vọng Cảnh summits; they rest on published figures.
-- Not merged to `main`, not deployed.
+- Merged to `main` as `520534e` and deployed on 2026-11-21; the live data file matches the local build byte for byte.
 
 ## Wrong heights at the tombs and lakeside hills (2026-11-21, branch `claude/lang-minh-mang-height-69ee42`)
 Lăng Minh Mạng looked wrong; the sweep found two root causes, each affecting many places.
@@ -444,3 +444,17 @@ Goal: each of the 77 places in `hue.json` re-modelled as it stands today, one ag
   - Trường Sanh's bridges are grey (should be red, `city.js`); Cầu Quảng Đức and most other moat bridges still come from the shared bridge code.
 - Merge notes: conflicts so far were neighbouring import lines (keep both) and one `bridges.js` line (own + ramp). After each merge run `scratch/dupimports.sh`; two merges once added the same `replaced` import twice. `shot.mjs` now picks free ports and kills vite's process group.
 - Shared changes made by agents: `structures.paved` ranges honoured by `coverOf` in `city.js` (thaihoa); `own: true` and `climb` bridge profiles in `bridges.js` (thaihoa, phuxuan); `owns(ring)` from `dainoi.js` and `ownRoads` from `giahoi.js` used in `city.js`; quochoc removes infill houses inside its campus at runtime.
+
+## Replicas meet the burial check (2026-11-21, PR #23)
+Merging main brought in `check:burial` (PR #24), which the replicas had never run against: 6,972 m² of upward faces
+were more than 1 m under the ground across eight places. Each was fixed where it was built:
+- **Đàn Nam Giao:** the grassed bank round the lower tier was one tapered box; it is now a skirt sampled round the
+  tier's foot that meets the local ground (4,875 m² → 0).
+- **Lăng Minh Mạng:** the Bửu Thành tumulus was a cone from the centre's ground; it is now draped over the slope, as
+  `tombs.js` `mound()` is (742 → 0).
+- **Lăng Khải Định:** the riser is fitted to the highest ground on the palace terrace, not one point on the axis
+  (r = 0.194, inside the documented 0.15–0.2) (703 → 0).
+- **Lăng Thiệu Trị:** the grave-mound kerb sits on the highest ground under it, bedded at the lowest (85 → 0).
+- **Cầu Dã Viên / cầu gỗ lim:** girder undersides over the banks are cut where they would enter the ground (536 → 0).
+- **Thiên Mụ / Đông Ba:** the river stairs start at the mapped shore, with a landing out to it (29 → 0).
+`check-burial` now loads the replicas the way `check-heights` does and checks them as their own step.

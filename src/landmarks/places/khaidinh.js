@@ -42,9 +42,12 @@ export function build({ S }) {
   const keep = S.kind;
   const box = (s, t, y0, y1, ss, st, col, o) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, o); };
 
-  // ---- levels: the riser is set so the palace floor sits just under the hill behind it ----
+  // ---- levels: the riser is set so the palace terrace sits no more than 0.8 m under the highest ground anywhere on
+  // it (the hill climbs across the axis too, so the axis alone would leave its upper corner sunk) ----
   const y0 = gY(-10);
-  const r = Math.max(0.15, Math.min(0.2, (gY(105) - 0.8 - y0) / 127));
+  let gTop = -Infinity;
+  for (let s = LV.L7[0]; s <= LV.L7[1]; s += 1) for (let t = -W2; t <= W2; t += 2) gTop = Math.max(gTop, gY(s, t));
+  const r = Math.max(0.15, Math.min(0.2, (gTop - 0.8 - y0) / 127));
   const Y = {};
   let y = y0;
   ['L2', 'L3', 'L4', 'L5', 'L6', 'L7'].forEach((k, i) => { y += STEPS[i] * r; Y[k] = y; });

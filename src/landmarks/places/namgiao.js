@@ -62,8 +62,27 @@ export function build({ S }) {
   S.base = y1 - LAND_Y;
   S.kind = KIND.GROUND;
   if (yFoot > gMin) {
-    const hb = yFoot - gMin + 0.4, run = hb * 2.2;
-    box(0, 0, gMin - 0.4, yFoot, 2 * (A1 + 0.6 + run), 2 * (A1 + 0.6 + run), BANK, { taper: (A1 + 0.6) / (A1 + 0.6 + run) });
+    // the bank is a skirt round the tier: from the plinth's foot it falls at 1 in 2.2 until it meets the ground
+    // under each stretch of the wall, so it is wide on the low west and nothing where the knoll is high (one
+    // frustum sized for the lowest ground would sink metres into the high side)
+    const A = A1 + 0.6, SLOPE = 2.2, ROWS = 8, step = 3;
+    const ring = []; // the tier's foot, corner to corner, counter-clockwise in (u, v)
+    for (const [u0, v0, du, dv] of [[-A, -A, 1, 0], [A, -A, 0, 1], [A, A, -1, 0], [-A, A, 0, -1]])
+      for (let t = 0; t < 2 * A - 0.01; t += (2 * A) / Math.round((2 * A) / step)) ring.push([u0 + du * t, v0 + dv * t]);
+    const prof = ring.map(([u, v]) => { // run of the bank out from this point, along the frustum's scaling
+      const out = (r) => { const k = (A + r) / A; return [u * k, v * k]; };
+      let run = 0;
+      while (run < 60 && yFoot - run / SLOPE > gy(...out(run)) - 0.3) run += 0.25;
+      return Array.from({ length: ROWS + 1 }, (_, j) => {
+        const r = (run * j) / ROWS, q = out(r), p = P(...q);
+        const y = j === ROWS ? Math.min(yFoot, gy(...q) - 0.3) : Math.max(yFoot - r / SLOPE, gy(...q) - 0.3);
+        return [p[0], Math.min(yFoot, y), p[1]];
+      });
+    });
+    for (let i = 0; i < prof.length; i++) {
+      const a = prof[i], b = prof[(i + 1) % prof.length];
+      for (let j = 0; j < ROWS; j++) S.quad(a[j], b[j], b[j + 1], a[j + 1], BANK, [0, 1, 0]);
+    }
   }
 
   // ---- the lowest tier: laterite walls, a walk round the inside of the railing and across, four lawns ----

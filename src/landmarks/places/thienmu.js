@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
 import { pavilion } from '../citadel.js';
+import { landTest } from '../boats.js';
 
 // ---- Chùa Thiên Mụ, the pagoda on Hà Khê hill above the Hương river ----
 //
@@ -191,11 +192,18 @@ export function build({ data, S, group, THREE }) {
     box(0, 41, gy - 1.2, gy + 0.25, 16, 10, shade(STONE, 0.98), { topKind: KIND.ROAD });
     S.kind = KIND.ROAD;
     const steps = 18, top = gy + 0.25, bot = 0.4, run = 0.6;
-    for (let k = 0; k < steps; k++) box(0, 46 + run * (k + 0.5), bot - 1.2, top - ((top - bot) * (k + 1)) / steps, 10, run + 0.02, shade(STONE, 0.92 - k * 0.015), { topKind: KIND.ROAD });
+    // the flight goes down the bank: the first step that drops a metre below the city floor stands at the mapped
+    // shore, and where the shore lies farther out the platform runs on to the head of the flight (on a fixed run the
+    // lower steps were sunk in the bank)
+    const land = landTest(data), kIn = Math.ceil(((top - (LAND_Y - 0.9)) / (top - bot)) * steps) - 1;
+    let v0 = 46;
+    for (let v = 46 + kIn * run; v < 90; v += 0.25) if (![-5, 0, 5].some((u) => land(...P(u, v)))) { v0 = Math.max(46, v - kIn * run); break; }
+    if (v0 > 46) box(0, (46 + v0) / 2, gy - 1.2, gy + 0.25, 10, v0 - 46 + 0.1, shade(STONE, 0.98), { topKind: KIND.ROAD });
+    for (let k = 0; k < steps; k++) box(0, v0 + run * (k + 0.5), bot - 1.2, top - ((top - bot) * (k + 1)) / steps, 10, run + 0.02, shade(STONE, 0.92 - k * 0.015), { topKind: KIND.ROAD });
     (S.paved = S.paved || []).push([n0, S.n]);
     S.kind = KIND.MASONRY;
     for (const sg of [-1, 1]) {
-      box(sg * 6.5, 46 + steps * run / 2, bot - 1.2, top + 0.5, 3.0, steps * run, shade(STONE, 0.9));
+      box(sg * 6.5, (46 + v0 + steps * run) / 2, bot - 1.2, top + 0.5, 3.0, v0 - 46 + steps * run, shade(STONE, 0.9));
       box(sg * 7.6, 36.4, top, top + 0.8, 0.6, 0.6, LIME);
       cyl(sg * 7.6, 36.4, top + 0.8, top + 1.15, 0.28, 0.1, 6, GREY);
     }
