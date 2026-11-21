@@ -4,6 +4,7 @@ import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
+import { landTest } from './boats.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -666,8 +667,15 @@ function citadel(data, S, group) {
       lantern(q[0] - f[1] * k * 1.3, LAND_Y + 0.9 + 1.6, q[1] + f[0] * k * 1.3);
     }
     S.kind = KIND.MASONRY;
-    for (let i = 0; i < 13; i++) { const q = at(side / 2 + 5.2 + i * 0.42); S.box(q[0], q[1], LAND_Y - 2.4, LAND_Y + 0.86 - i * 0.2, 0.44, 6, fa, PAL.stone, { topKind: KIND.ROAD }); }
-    { const q = at(side / 2 + 5.2 + 13 * 0.42 + 2.2); S.box(q[0], q[1], LAND_Y - 3.2, LAND_Y - 1.75, 4.6, 16, fa, PAL.stone, { topKind: KIND.ROAD }); }
+    // the flight goes down the embankment face: its first step below the bank (the fifth) stands at the mapped shore,
+    // and a paved walk at the base's level runs out to it where the shore lies farther off (on a fixed run the lower
+    // steps and the landing were sunk in the bank)
+    const land = landTest(data);
+    let s0 = side / 2 + 5.2;
+    for (let a = s0 + 5 * 0.42; a < s0 + 40; a += 0.25) { const q = at(a); if (!land(q[0], q[1])) { s0 = a - 5 * 0.42; break; } }
+    if (s0 > side / 2 + 5.3) { const q = at((side / 2 + 4.7 + s0) / 2); S.box(q[0], q[1], LAND_Y - 0.4, LAND_Y + 0.86, s0 - side / 2 - 4.7, 6, fa, PAL.stone, { topKind: KIND.ROAD }); }
+    for (let i = 0; i < 13; i++) { const q = at(s0 + i * 0.42); S.box(q[0], q[1], LAND_Y - 2.4, LAND_Y + 0.86 - i * 0.2, 0.44, 6, fa, PAL.stone, { topKind: KIND.ROAD }); }
+    { const q = at(s0 + 13 * 0.42 + 2.2); S.box(q[0], q[1], LAND_Y - 3.2, LAND_Y - 1.75, 4.6, 16, fa, PAL.stone, { topKind: KIND.ROAD }); }
     S.kind = KIND.PLAIN;
   }
 

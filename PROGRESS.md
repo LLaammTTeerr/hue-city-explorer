@@ -401,6 +401,27 @@ Merged in that order; each later branch took `main` first and was reconciled bef
 - Checked: `npm run check` (8/8 data, 24/24 heights), `npm run build`, and in the browser the day and night views,
   the Trường Tiền show, the floating restaurant and Chợ Đông Ba, with no console errors.
 - Not seen in the browser after the merge: the tombs, Thái Hòa, the churches, An Định, the Quốc Học gate.
+
+## Models sunk into the ground, and CI required on main (2026-11-21, branch `claude/height-merge-ci-validation-01d511`)
+Done:
+- Terrain grid stopped up to one 25 m step short of the east and south bounds (`floor` in build-data.mjs); 15 trees
+  past the edge stood at the 2.6 m city floor beside the hills, about 157 m under them. Now `ceil`; data rebuilt
+  (grid 320 × 508). check-data now fails if any tree lies outside the grid.
+- Thủy Tiên footbridges: the level deck ran on into the higher far bank (up to 4.4 m in); it now ends where the bank
+  comes up to it.
+- Minh Mạng Bửu Thành mound: a cone stood on the centre's ground, so its uphill flank was buried in the hillside
+  (about 2000 m²). `mound()` in tombs.js now drapes the profile over the local ground.
+- Nghênh Lương Đình river stair: a fixed run that stopped short of the shore, so its lower steps and landing were
+  inside the bank. It now starts at the mapped shore, with a paved walk out to it.
+- New `scripts/check-burial.mjs` (`npm run check:burial`, part of `npm run check`): builds the full scene headless and
+  fails when upward faces lie more than 1 m under the ground on land over more than 1 m² per source. It fails on the
+  old code (citadel, south, tombs) and passes now, in about 1 s. Tree crowns are skipped: on steep hills they
+  brush the uphill slope while the trunk is on the ground.
+- Branch protection on `main`: the `check` job (Check workflow, GitHub Actions) is required, the branch must be up to
+  date, the rule applies to admins too, and force-pushes and deletion are off.
+Left as is (within tolerance): the civic rib feet (0.77 m, intentionally bedded), Thiên Mụ (0.6 m), and mound rim
+bedding (≤0.6 m).
+
 - Buildings off streets and yards (branch `claude/zombie-housing-issue-cefb73`, 2026-11-21):
   - Mapped buildings are trimmed back to the kerb (carriageway + 0.3 m; bridges and footpaths excepted) in
     `build-data.mjs`, after the inside-landmark pass. A building the street runs through (under half its plan left, a
