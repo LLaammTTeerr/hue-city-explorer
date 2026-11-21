@@ -231,15 +231,17 @@ function hall(S, lamps) {
   const mid = P(0, 10.7 - 21.0 / 2);
   S.hip(mid[0], mid[1], 21.0, 13.0, ANG + Math.PI / 2, yr, 2.8, ROOF, { flare: 0.35, over: 0.8, ...eave });
   S.kind = KIND.PLAIN;
-  fbox(S, 0, 0.2, yr + 1.2, yr + 2.0, 9.0, 7.0, WALL);
-  mosaic(S, -4.5, 4.5, 3.74, yr + 1.35, yr + 1.85, 2);
+  // the drum stands the tier's eave clear of the avant-corps' ridge (yr + 2.8) and the body's (yr + 2.4) under it
+  const ytt = yr + 3.0;
+  fbox(S, 0, 0.2, yr + 1.2, ytt, 9.0, 7.0, WALL);
+  mosaic(S, -4.5, 4.5, 3.74, ytt - 0.65, ytt - 0.15, 2);
   const tt = P(0, 0.2);
-  S.hip(tt[0], tt[1], 9.0, 7.0, ANG, yr + 2.0, 1.6, ROOF, { flare: 0.45, over: 0.9, ...eave });
+  S.hip(tt[0], tt[1], 9.0, 7.0, ANG, ytt, 1.6, ROOF, { flare: 0.45, over: 0.9, ...eave });
   const rb = P(0.6, -12.2);
   S.hip(rb[0], rb[1], 21.2, 3.8, ANG, yr, 1.6, ROOF, { flare: 0.25, over: 0.6, ...eave });
   // ridge ornament on the top tier: a flaming pearl (hỏa châu) between two dragons, in enamel
   S.kind = KIND.PLAIN;
-  const top = yr + 2.0 + 1.6;
+  const top = ytt + 1.6;
   const pc = P(0, 0.2);
   S.cyl(pc[0], pc[1], top + 0.2, top + 0.85, 0.35, 0.12, 8, GOLD);
   for (const s of [-1, 1]) {
