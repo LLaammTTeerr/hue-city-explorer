@@ -8,6 +8,25 @@
   embankment lamp posts stood on carriageways (build-data.mjs now keeps lamps off class 0-3 streets; posts 901 → 835,
   walkway lights 1609 → 1621) and lotus leaves reached over pond banks under the ground (life.js keeps each whole leaf
   on the water). Browser scene graph identical before/after the refactor.
+- Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
+  `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
+  lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with
+  `joinRoofs = false`) and the mapped buildings (city.js) run inside it. city.js also drops a mapped house whose roof
+  would run through a model roof (the yellow house through Tạ Trường Du, Diên Thọ). Own numbers fixed: An Định towers,
+  Kiến Trung and Thái Miếu upper tiers; Tự Đức's duplicate Minh Khiêm footprint skipped. `npm run check:roofs` checks
+  all 2082 roofs.
+- No-WebGL recovery and fast search (2026-11-21): the renderer is created before the geometry is fetched; without WebGL
+  a bilingual recovery screen offers Retry 3D and a 2D place map with search and cards (`src/ui/fallback.js`); a load
+  error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
+  `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
+  first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
+
+
+- Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
+  the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
+  and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground
+  (slab top, hills, overlays) now writes alpha `GROUND_A` (0.96, materials.js); post.js raises the turn threshold to
+  about 45-63 degrees where all five samples are ground. Wall, kerb, roof, bank and hill-silhouette ink unchanged.
 - Ink lines across roads at hill rims (2026-11-21): the terrain mesh stood 3 cm proud of the slab at every node,
   including the rim nodes where the ground stops rising, so each drawn cell meeting the plain slab ended in a 3 cm step
   along the 25 m lattice. Roads and greens write no depth, so the ink's depth edges drew those steps as long straight
@@ -619,6 +638,21 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   dot(p, V). The frame is now the camera's heading (forward + up from viewMatrix), one per frame. Checked over the
   Hương below Trường Tiền at golden hour, before and after.
 - `npm run check` and `npm run build` pass.
+
+## Blank canvas at some views (2026-11-21, branch `worktree-agent-a33a47132b06bcc2c`)
+- Symptom: the whole model vanished (page background #e6e2d8) and stayed gone while the view held; labels and UI fine.
+  Not context loss (`isContextLost` false throughout) and not the resize path. Cause: single NaN pixels from the
+  city shader, which the focus blur and above all the bloom mips smeared over the frame; NaN alpha made the canvas
+  transparent. Two sources in src/geo/materials.js:
+  - roof tiles (any weather): the tile frame `normalize( cross( hueN, up ) )` was guarded only for faces pointing up,
+    so downward faces (eave and canopy undersides) got normalize(0) = NaN. The guard is now `abs( hueN.y )`.
+  - wet film (rain): `pow( 1.0 - ndv, 3.5 )` with `ndv = dot(N, V)` slightly over 1 on faces seen head-on. Clamped,
+    and the same in landMaterial, water.js, and the two `pow()` of negative bases in the boat wakes.
+- Robustness: post.js zeroes non-finite scene pixels before the comp, and the final OutputPass writes alpha 1;
+  main.js handles `webglcontextlost` (preventDefault) / `webglcontextrestored` (IBL probe, shadows and buffers redone).
+- Evidence (Apple M5, Chrome Metal, 1280x800; sunset, Phủ Cam, ink; 720 poses round Phủ Cam, dist 150-3000 m):
+  before, rain 28 fully blank poses (13 with NaN in the scene), dry 25 (12); after, 0 and 0, no NaN. Post guard alone
+  on the old shaders: still NaN in 13 scene renders, 0 blank. `npm run check` and `npm run build` pass.
 
 ## Seamless bridge-to-street joints (2026-11-21, branch `worktree-agent-ab59d4954699589fb`)
 - Trigger: cầu Nguyễn Hoàng's north (Kim Long) end met its divided approach with a wedge of bare ground, a skewed cut, misaligned medians and lanes, and red strips ending in the air.

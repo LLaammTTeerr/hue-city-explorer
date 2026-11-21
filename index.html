@@ -115,6 +115,17 @@
         <h1>Huế</h1>
         <p id="loader-text"></p>
         <div class="bar"><i id="loader-bar"></i></div>
+        <!-- shown instead of the bar when the scene cannot start (no WebGL, or a load error): src/ui/fallback.js -->
+        <div id="fail" hidden>
+          <h2 id="fail-title"></h2>
+          <p id="fail-body"></p>
+          <p id="fail-alt"></p>
+          <div class="fail-actions">
+            <button id="btn-retry" class="tog primary" type="button"></button>
+            <button id="btn-browse" class="tog" type="button" hidden></button>
+          </div>
+          <p id="fail-status" role="status"></p>
+        </div>
       </div>
     </div>
 

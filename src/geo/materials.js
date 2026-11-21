@@ -13,6 +13,12 @@ export const shared = {
   uLook: { value: 0 }, // 0 realistic (reflections, relief, rooms behind glass), 1 illustrated (flat washes; the ink is drawn in post.js)
 };
 
+// In the drawn look the ground (the slab, the hills and the streets, greens and yards laid on them, none of which
+// write depth) writes this alpha, so the ink in post.js can tell it from built form: its 25 m triangles fold by
+// 10-25 degrees on the hills, and seen through a street those folds drew as triangles. Leaves write 0, the rest 1.
+// GLSL float literal; post.js reads it back as the band 0.9-0.965 (all four MSAA samples on ground).
+export const GROUND_A = '0.96';
+
 // Wind on instanced foliage, in object space after begin_vertex; shared by the leaves and by their shadow pass.
 const WIND = /* glsl */ `
         #if defined( HUE_FOLIAGE ) && defined( USE_INSTANCING )
@@ -304,7 +310,9 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   hueMetal = 0.1 * hueGlass * ( 1.0 - uLook );
 } else if ( ( vKind > 1.5 && vKind < 2.5 ) || ( vKind > 8.5 && vKind < 9.5 ) ) {
   // ---------------- roof tiles (kind 9: glazed imperial tiles, which catch the sun) ----------------
-  vec3 e = hueN.y > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
+  // abs: the underside of an eave or a canopy faces straight down, and cross( down, up ) is zero, which normalize()
+  // turns into NaN; post's focus blur and bloom then spread that one pixel over the whole canvas (see post.js)
+  vec3 e = abs( hueN.y ) > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
   vec3 s = cross( e, hueN );
   vec2 uv = vec2( dot( vWPos, e ) / 1.15, dot( vWPos, s ) / 1.5 );
   float fw = fwidth( uv.x ) + fwidth( uv.y );
@@ -499,7 +507,8 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = hueMetal;')
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n#ifndef HUE_FOLIAGE\nnormal = normalize( normal + mat3( viewMatrix ) * ( hueNp - hueN ) );\n#endif')
       // drawn look: leaves mark themselves in the alpha channel, so post.js can outline a crown as one shape
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 ) gl_FragColor.a = 0.0;\n#endif')
+      // and ribbons laid on the ground (streets, greens, yards) mark themselves as ground, as the land does (GROUND_A)
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 ) gl_FragColor.a = 0.0;\n#endif\n#ifdef HUE_OVERLAY\nif ( uLook > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
@@ -515,7 +524,9 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           // mưa Huế: wet streets, roofs and terraces pick up the sky at a low angle, most where the water pools;
           // after dark the same film carries the lamps
           if ( uWet > 0.01 ) {
-            float ndv = max( dot( hueN, hueV ), 0.0 );
+            // clamped at 1 too: two unit vectors that face each other can dot to 1 + 1e-7, and pow() of the
+            // negative 1 - ndv is NaN, which the post chain spread over the whole canvas (see post.js)
+            float ndv = clamp( dot( hueN, hueV ), 0.0, 1.0 );
             float fres = pow( 1.0 - ndv, 3.5 );
             float puddles = huePuddle, wetSurf = hueWetSurf;
             #ifndef USE_ENVMAP
@@ -628,13 +639,15 @@ export function landMaterial(color, turf = false, bank = false) {
         float lpud = smoothstep( 0.35, 0.72, lNoise( vWPos.xz * 0.18 ) * 0.65 + lNoise( vWPos.xz * 0.85 ) * 0.35 );`,
       )
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = uLook > 0.5 ? 1.0 : mix( roughnessFactor, 0.1, lpud * uWet * 0.85 );')
+      // drawn look: the ground's top (the slab and the hills) marks itself in the alpha channel (GROUND_A)
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_TURF\nif ( uLook > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
         // rain pools on open ground and catches the sky at a low angle
         if ( uWet > 0.01 ) {
           #ifndef USE_ENVMAP
-          float lndv = abs( dot( normal, normalize( vViewPosition ) ) );
+          float lndv = min( abs( dot( normal, normalize( vViewPosition ) ) ), 1.0 ); // pow() of a negative is NaN
           totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.36;
           #endif
         }`,

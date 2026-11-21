@@ -2079,6 +2079,42 @@ const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT)) : null;
 fs.mkdirSync('public/data', { recursive: true });
 fs.writeFileSync(OUT, JSON.stringify(out));
 console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB', '| extent m', Math.round(MAXX - MINX), 'x', Math.round(MAXZ - MINZ));
+// ---- the place index: what search, the cards and the About dialog need, small enough to arrive before the city ----
+// The app reads it first, so the search box works while hue.json downloads, and the 2D fallback (no WebGL) never
+// fetches hue.json at all. `map` is a coarse plan for that fallback, in whole metres: the land (water is what is
+// left) and the Citadel wall, simplified to a few metres.
+{
+  const simplify = (pts, tol) => { // Douglas-Peucker on an open polyline
+    if (pts.length < 3) return pts;
+    const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+    const stack = [[0, pts.length - 1]];
+    while (stack.length) {
+      const [a, b] = stack.pop();
+      const [ax, az] = pts[a], [bx, bz] = pts[b], dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz);
+      let best = -1, bd = tol;
+      for (let i = a + 1; i < b; i++) {
+        const ex = pts[i][0] - ax, ez = pts[i][1] - az;
+        const d = L > 1e-6 ? Math.abs(ex * dz - ez * dx) / L : Math.hypot(ex, ez); // a closed ring: distance from its start
+        if (d > bd) { bd = d; best = i; }
+      }
+      if (best > 0) { keep[best] = 1; stack.push([a, best], [best, b]); }
+    }
+    return pts.filter((_, i) => keep[i]);
+  };
+  const ringArea = (r) => { let s = 0; for (let i = 0, j = r.length - 1; i < r.length; j = i++) s += (r[j][0] - r[i][0]) * (r[j][1] + r[i][1]); return Math.abs(s / 2); };
+  const m = (pts) => pts.flatMap((p) => [Math.round(p[0]), Math.round(p[1])]);
+  const ring = (r, tol, minArea) => { const o = openRing(r); if (ringArea(o) < minArea) return null; const s = simplify([...o, o[0]], tol).slice(0, -1); return s.length >= 3 ? m(s) : null; };
+  const polys = (mp, tol, minArea) => mp.map((poly) => poly.map((r) => ring(r, tol, minArea)).filter(Boolean)).filter((p) => p.length);
+  const index = {
+    meta: out.meta,
+    places,
+    waterLabels: water_labels,
+    map: { land: polys(land, 6, 2500), wall: polys(wall, 3, 0) },
+  };
+  const PLACES_OUT = 'public/data/places.json';
+  fs.writeFileSync(PLACES_OUT, JSON.stringify(index));
+  console.log('wrote', PLACES_OUT, (fs.statSync(PLACES_OUT).size / 1e3).toFixed(1), 'kB');
+}
 console.log('truong tien obb', ttBox.w.toFixed(1), 'x', ttBox.d.toFixed(1), 'centre', ttBox.c.map((v) => v.toFixed(1)), 'centreline', tt.map((p) => p.map((v) => v.toFixed(1))));
 
 // ---- checks: the terrain must not get worse without anyone noticing (see scripts/check-data.mjs) ----
