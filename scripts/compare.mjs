@@ -5,6 +5,7 @@
 // Builds the base revision in a detached git worktree (scratch/compare/base-<sha>, sharing this checkout's
 // node_modules) and the working tree here, shoots every view on both with this checkout's scripts/shot.mjs, and
 // writes <out>/index.html with the frames side by side, plus <out>/<view>/{base,head}/*.png to attach to a PR.
+// The base worktree is kept for the next run; drop it with `git worktree remove <out>/base-<sha>`.
 // The base must understand ?still (any revision since named views landed); an older one renders in real time and its
 // frames will not line up.
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -37,8 +38,8 @@ try {
   if (!readFileSync(path.join(tree, 'src/main.js'), 'utf8').includes("has('still')"))
     console.warn(`warning: ${ref} (${sha}) predates ?still; its frames run in real time and will not line up`);
   console.log(`building base ${ref} (${sha}) and head ${head}`);
-  run('npx', ['vite', 'build', '--outDir', path.join(tree, 'dist'), '--emptyOutDir'], tree);
-  run('npx', ['vite', 'build', '--outDir', path.join(out, 'head-dist'), '--emptyOutDir'], process.cwd());
+  run('npx', ['vite', 'build', '--outDir', path.join(tree, 'dist'), '--emptyOutDir', '--logLevel', 'error'], tree);
+  run('npx', ['vite', 'build', '--outDir', path.join(out, 'head-dist'), '--emptyOutDir', '--logLevel', 'error'], process.cwd());
 
   const rows = [];
   for (const v of views) {

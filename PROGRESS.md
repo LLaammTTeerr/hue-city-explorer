@@ -1,6 +1,12 @@
 # Progress
 
 ## Done
+- Agent workflow (2026-11-21): root `AGENTS.md` (CLAUDE.md imports it); named views in `scripts/views.json`
+  (`ngo-mon-arrival`, `truong-tien-river-level`) shot with `node scripts/shot.mjs --view <name>` under `?still`, which
+  stops the frame loop so repeat runs are pixel-identical; `scripts/compare.mjs <view> --base <ref>` shoots base and
+  head side by side; `.github/ISSUE_TEMPLATE/experience.md`. Next: try a real issue (the Ngọ Môn arrival) and see where
+  the agent gets stuck; captures are not in CI yet (needs Chrome with WebGL on the runner); `check-heights.mjs` still
+  builds its own scene instead of `scripts/lib/scene.mjs`.
 - Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
   the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
   and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground
