@@ -40,10 +40,12 @@ a size, or the shape of an object no source describes.
     - before Tả Vu and Hữu Vu: u ±27, v 31
     - either side of the front of Càn Thành: u ±20, v −55
     - before Kiến Trung: `places/kientrung.js`, on the axis at the foot of the forecourt
-    - left of Thái Hòa: `places/thaihoa.js`, a pair on Đan Bệ at W(±15, 26.5)
+    - left of Thái Hòa: `places/thaihoa.js`, one vạc on Đan Bệ on the hall's left (the east, as the hall faces
+      Ngọ Môn) at W(15, 26.5)
 
     The exact spots are estimated.
-  - The second Thái Hòa vạc (right side) is estimated: the sources name only the left one. It makes the court symmetric.
+  - The second Thái Hòa vạc (right side) that the model used to draw for symmetry is **removed**: no source gives
+    it. khamphahue pairs "the left side of the Thái Hòa Palace" with "the right side of the Càn Thành Palace".
 - **Not placed:** the Đồng Khánh tomb vạc, because its position is not known.
 
 ## Cửu vị thần công (the nine holy cannons)
@@ -83,10 +85,19 @@ a size, or the shape of an object no source describes.
 - **Confirmed** (vi.wikipedia, see `themieu.md`):
   - 14 stone stools (đôn) in one row, each carrying a potted tree
   - a pair of bronze kỳ lân
+- **Confirmed: the exact wording** (vi.wikipedia, Thế Tổ Miếu (hoàng thành Huế)):
+  - "Trên sân đặt 1 hàng 14 chiếc đôn đá, bên trên đặt các chậu sứ trồng hoa": the pots on the stools are
+    porcelain (chậu sứ). This is the one source found for glazed pots in a Đại Nội court; the blue-and-white
+    `planter` pots match it.
+  - "Hai bên sân lại có một đôi kỳ lân bằng đồng đứng trong thiết đình": the two bronze kỳ lân stand on the two
+    sides of the court, each **inside a metal kiosk (thiết đình)**.
 - **Model.**
   - 12 planters are drawn. The two stools that would fall on the middle walk are left out, as in the earlier layout.
-  - The kỳ lân stand on 0.9 m stone plinths either side of the walk, facing down it.
-- **Estimated:** the kỳ lân's pose and size (about 1.5 m long).
+  - **Changed:** the kỳ lân moved from beside the walk (u ±6) to the two sides of the court (u ±25, v 28), each in a
+    `kiosk` (new builder in `props.js`: stone slab, four posts, side rails, flared pyramid roof, 2.6 m square, posts
+    3.3 m), on a 0.7 m plinth, facing the walk. View: `themieu-kylan-kiosk`.
+- **Estimated:** the kiosk's form (no source describes it), the exact spots, and the kỳ lân's pose and size (about
+  1.5 m long).
 
 ## Hưng Miếu court
 
@@ -109,12 +120,26 @@ a size, or the shape of an object no source describes.
 
 ## Thái Hòa court (Sân Đại Triều Nghi)
 
-- **Estimated: bronze cranes and censers.** No fetched source gives cranes on tortoises or censers at Thái Hòa.
-  The model draws:
-  - two cranes standing on tortoises inside the hall, either side of the throne (`crane`, 1.8 m)
-  - two lidded censers on Đan Bệ (`dinh`, 1.6 m on a 0.3 m stand)
-
-  Both are common in Huế's halls. **The owner should decide whether to keep them.**
+- **Confirmed: crane and tortoise statues inside the hall.** Frommers ("Thai Hoa Palace"): "Note the statues of the
+  heron and turtle inside the palace's ornate lacquered interior". It names no count, material or spot.
+  - Model: two bronze cranes standing on tortoises (`crane`, 1.8 m) either side of the throne in the main hall's middle
+    bay, W(±2.3, −3.2), facing out. They were in the open verandah before, which the source contradicts. The doors
+    are drawn shut, so they are not visible from outside today.
+  - Estimated: the count (a pair, as such statues usually stand), bronze, the size and the spot. The throne's place,
+    "in the central compartment of the main palace", is from khamphahue ("Thai Hoa Palace").
+- **Confirmed: a pair of kỳ lân in front of the hall.** Frommers: "In front are two mythical ky lin animals". A
+  Bridgeman Images photo (David Henley) is captioned as a qilin "in the courtyard of the Dien Thai Hoa (Palace of
+  Supreme Harmony)"; its page could not be fetched, only the search-result title.
+  - Model: `kylan`, bronze, on 0.55 m stone plinths on Đan Bệ either side of the foot of the middle flight,
+    W(±4.3, 19.4), facing Ngọ Môn. View: `thaihoa-kylan-front`.
+  - Estimated: bronze (not stated), pose, size and spot.
+- **Confirmed: one vạc on the hall's left** (khamphahue, see the cauldron section). Drawn on Đan Bệ, east side.
+- **Removed: the second vạc and the two lidded censers** on Đan Bệ. No fetched source gives a censer, đỉnh or lư
+  hương on Đan Bệ or in the hall, or a vạc on the right.
+- **Found, not drawn: a pair of bronze dragon statues** of Thiệu Trị's reign (1842), a national treasure since 2025,
+  "hiện trưng bày tại điện Thái Hòa"; they first stood before the verandah of Càn Thành (tuoitre.vn, "4 hiện vật của
+  nhiều thời vua vừa được công nhận là bảo vật quốc gia"). They are on display inside the closed hall, and no source
+  gives their size or spot.
 - The phẩm sơn steles were already modelled.
 
 ## Tomb salutation courts (sân chầu)
@@ -142,7 +167,42 @@ a size, or the shape of an object no source describes.
   | Khải Định | 2.15 m (its smaller soldiers are military) | |
   | Đồng Khánh | 2.6 m | |
 
-## Not placed
+## Not placed, and still unsourced
 
-- **Kỳ lân at the gates.** No source.
-- **Glazed jars.** Nothing found. The builder exists (`jar`) for when a source turns up.
+- **Kỳ lân at the Đại Nội gates** (Ngọ Môn, Hiển Nhơn, Chương Đức) and at Hiển Lâm Các: no source found. The
+  sources describe dragons on the gates' roofs (vietnamplus.vn, "Linh vật trên di sản Huế"), not statues before them.
+- **Glazed jars (chum) and porcelain basins in other courts** (Duyệt Thị Đường, Diên Thọ, Tử Cấm Thành, the tombs):
+  nothing found. The `jar` builder stays unused.
+- **Censers on Đan Bệ or in Thái Hòa**: nothing found; removed.
+- **The Đồng Khánh tomb vạc**: its position is still not known.
+- **More vạc at Thế Miếu or Hưng Miếu**: none found. vi.wikipedia lists only the stools, the kỳ lân and Cửu Đỉnh
+  at Thế Miếu.
+- **The Ngọ Môn bell** (1822, Minh Mạng; national treasure 2025) hangs in Lầu Ngũ Phụng (tuoitre.vn, above). The
+  pavilion's interior is not modelled.
+- **The crane and tortoise statues at Khải Định's tomb**: thailex.info places such a pair at "a shrine devoted to the
+  Emperor Khai Dinh" without saying where in it. Not placed.
+- **Hưng Miếu's planters and burner**: these are from `hungmieu.md`; this pass found nothing newer.
+
+## Sources fetched in this pass
+
+- khamphahue.com.vn, "The Nguyen Dynasty Copper Cauldrons":
+  https://khamphahue.com.vn/en-us/Discover-Hue/Detail/tid/The-Nguyen-Dynasty-Copper-Cauldrons.html/pid/15910/cid/485
+- khamphahue.com.vn, "Thai Hoa Palace" (throne in the central bay of the main hall; no statues named):
+  https://khamphahue.com.vn/en-us/Discover-Hue/Detail/tid/Thai-Hoa-Palace.html/pid/17681/cid/464
+- Frommers, "Thai Hoa Palace" (kỳ lân in front, heron and turtle inside):
+  https://www.frommers.com/destinations/hue/attractions/thai-hoa-palace. A guidebook, not a heritage source; it is the
+  only page found that names objects at Thái Hòa, so it is used, and everything beyond its words is marked estimated.
+- Bridgeman Images, David Henley, qilin in the courtyard of Điện Thái Hòa (title only; the page refused the fetch):
+  https://bridgemanimages.com/en/david-henley/vietnam-a-qilin-mythical-hooved-chimerical-creature-in-the-courtyard-of-the-dien-thai-hoa-palace-of/nomedium/asset/1186297
+- vi.wikipedia, Thế Tổ Miếu (hoàng thành Huế) (stools with porcelain pots; kỳ lân in thiết đình):
+  https://vi.wikipedia.org/wiki/Thế_Tổ_Miếu_(hoàng_thành_Huế)
+- tuoitre.vn, the 2025 national treasures (dragon pair at Thái Hòa, Ngọ Môn bell):
+  https://tuoitre.vn/4-hien-vat-cua-nhieu-thoi-vua-vua-duoc-cong-nhan-la-bao-vat-quoc-gia-2025010311222724.htm
+- en.vietnamplus.vn, "Nguyen dynasty bronze cauldrons in Hue imperial citadel" (photo captions: the 1662 vạc and "a
+  pair of bronze cauldrons in Can Chanh courtyard"):
+  https://en.vietnamplus.vn/nguyen-dynasty-bronze-cauldrons-in-hue-imperial-citadel-post169107.vnp
+- thailex.info, "Vietnamese crane on tortoise" (a pair at a Khải Định shrine; not placed).
+
+vi.wikipedia's Điện Thái Hòa (Hoàng thành Huế) article names only the steles on the two terraces; it has no statues,
+vạc or censers. No source disagreed with another about how an object looks; the disagreements are counts and dates of
+the vạc, noted above.

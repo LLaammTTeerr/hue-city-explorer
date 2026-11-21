@@ -10,8 +10,9 @@
   `src/landmarks/props.js` holds shared builders (mandarins, elephant, horse, kỳ lân, vạc, đỉnh, crane on tortoise,
   cannon, jar, planter); `src/landmarks/courtyard.js` draws the Quảng Đức and Thể Nhơn cannon houses and four Đại
   Nội vạc. Tombs, Cửu Đỉnh, Thế Miếu, Hưng Miếu, Kiến Trung and Thái Hòa use them; sources per object in
-  docs/places/courtyard-objects.md. Open: the Thái Hòa censers, cranes and second vạc have no source (owner to
-  decide); kỳ lân at gates and glazed jars not placed for lack of sources.
+  docs/places/courtyard-objects.md. Second pass (sources sought): Thái Hòa keeps one vạc, gains a kỳ lân pair on
+  Đan Bệ, cranes moved inside by the throne, second vạc and censers removed; Thế Miếu kỳ lân stand in thiết đình
+  (kiosk shape estimated). Open for the owner: cranes hidden behind closed doors; kiosk shape; 1842 dragon pair.
 
 ## Done
 - Junction markings (2026-11-21, branch worktree-agent-a495b5cffec0ae1d6): lane dashes were laid along every class 0-1

@@ -36,5 +36,19 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-822.8, 4.6, 113.2], "target": [-813.4, 3.4, 108.1] }
+  },
+  "thaihoa-kylan-front": {
+    "note": "The front of điện Thái Hòa from Long Trì just west of the axis: the pair of bronze kỳ lân at the foot of the middle flight and the one vạc on the hall's left, the east (src/landmarks/places/thaihoa.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1097.9, 6.4, 51.9], "target": [-1102.6, 4.8, 30.4] }
+  },
+  "themieu-kylan-kiosk": {
+    "note": "The east bronze kỳ lân of Thế Miếu's court in its metal kiosk (thiết đình), from the walk side (src/landmarks/places/themieu.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1261.0, 4.6, 212.5], "target": [-1256.9, 3.8, 199.6] }
   }
 }

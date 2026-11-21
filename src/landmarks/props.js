@@ -268,6 +268,27 @@ export function crane(S, x, y, z, a, { h = 1.9, col = C.bronze } = {}) {
   end(S);
 }
 
+// Thiết đình: the small open metal kiosk that shelters a bronze beast in a temple court (Thế Miếu's kỳ lân stand
+// in a pair of them, vi.wikipedia). Its form is estimated: a stone slab, four slender posts, a low railing on the
+// sides, and a flared pyramid roof with a knob. `w` the plan's side, `h` the posts' height above the slab. Draw the
+// statue inside separately. About 90 triangles.
+export function kiosk(S, x, y, z, a, { w = 2.6, h = 3.2, col = C.iron, slab = 0.25, slabCol = C.stone } = {}) {
+  const L = local(x, z, a), b = y + slab, t = b + h, e = w / 2 - 0.1, dk = shade(col, 0.8);
+  begin(S, y);
+  L.box(S, 0, 0, y - 0.3, b, w + 0.3, w + 0.3, slabCol, { topKind: KIND.ROAD });
+  S.kind = KIND.PLAIN;
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) L.box(S, su * e, sv * e, b, t, 0.12, 0.12, col);
+  for (const sd of [-1, 1]) { // a low rail on the two sides, open front and back
+    L.box(S, 0, sd * e, b + 0.55, b + 0.62, 2 * e, 0.06, col);
+    L.box(S, sd * e, 0, b + 0.55, b + 0.62, 0.06, 2 * e, col);
+  }
+  L.box(S, 0, 0, t, t + 0.16, w + 0.2, w + 0.2, dk); // the eave plate
+  L.box(S, 0, 0, t + 0.16, t + 0.3, w + 0.7, w + 0.7, col, { taper: 0.82 }); // the flared skirt
+  L.box(S, 0, 0, t + 0.3, t + 1.05, (w + 0.7) * 0.82, (w + 0.7) * 0.82, col, { taper: 0.12 }); // the pyramid
+  L.box(S, 0, 0, t + 1.0, t + 1.25, 0.16, 0.16, shade(col, 1.3), { taper: 0.5 }); // the knob
+  end(S);
+}
+
 // Thần công: a long bronze cannon on its low wooden carriage, the muzzle toward a. `len` the barrel with its knob
 // (the Huế nine are about 5.1 m); `r` the breech radius. About 260 triangles.
 export function cannon(S, x, y, z, a, { len = 5.1, r = null, col = C.bronze, wood = C.wood, carriage = true } = {}) {
