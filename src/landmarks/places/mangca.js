@@ -1,5 +1,6 @@
 import { KIND, hex, shade, mix, inRing, rand } from '../../geo/buf.js';
 import { LAND_Y, WALL_H, PAL } from '../../config.js';
+import { streetTest } from '../enclosure.js';
 
 // Trấn Bình Đài (đồn Mang Cá), the outwork at the Citadel's north-east corner, and Trấn Bình Môn, the gate in the
 // Citadel's own wall that leads out to it over the common moat.
@@ -37,7 +38,7 @@ const GATE_C = [-1458.2, -2179.9];
 const GT = [0.589, 0.808], GN = [0.808, -0.589]; // along the wall; out of the Citadel (north-east)
 const GATE_HALF_D = 6.7, WALL_OUTER = 10.3, AXIS = 2.0; // inner face, the Citadel wall's outer face, axis offset (m)
 
-export function build({ S }) {
+export function build({ S, data }) {
   const brick = shade(PAL.brick, 0.86), damp = hex('#3a3833'), dark = hex('#46443e'), relaid = hex('#655e57'), lichen = hex('#4a4d3e');
   const walk = PAL.moss, ivy = hex('#34482a'), ivy2 = hex('#4a5e34');
   const y0 = LAND_Y - 0.5, yW = LAND_Y + FORT_H;
@@ -122,6 +123,8 @@ export function build({ S }) {
   // ---- Trường Định môn: the ruined gate in the south flank ----
   // OSM maps an 11 m breach between the two pieces, and a lane runs through it: the 2 m passage and its 3 m arch are
   // gone. What is drawn: the broken wall ends, stepping down into the breach, the stump of each jamb, and fallen brick.
+  // The lane OSM maps through it crosses a metre off the breach's middle, towards the south-west end, so
+  // each piece is laid only where its footprint stays off the carriageway: the rubble lies either side of the lane.
   {
     const A = [(BAND_SW[1][0] + BAND_SW[2][0]) / 2, (BAND_SW[1][1] + BAND_SW[2][1]) / 2]; // end of the south-west piece
     const B = [(BAND_NE[17][0] + BAND_NE[18][0]) / 2, (BAND_NE[17][1] + BAND_NE[18][1]) / 2]; // end of the north-east piece
@@ -129,6 +132,13 @@ export function build({ S }) {
     const depth = Math.hypot(BAND_SW[2][0] - BAND_SW[1][0], BAND_SW[2][1] - BAND_SW[1][1]);
     const nx = -uz, nz = ux; // across the wall
     const ruin = shade(brick, 1.05);
+    const street = streetTest(data, A, 40);
+    // a box (centre x, z; length l along the wall, width w across it; turned by ang) clear of the lane, 0.3 m to spare
+    const clear = (x, z, l, w, a = ang) => {
+      const ca = Math.cos(a), sa = Math.sin(a);
+      for (const [p, q] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0, 0]]) if (street(x + ca * p * l - sa * q * w, z + sa * p * l + ca * q * w, 0.3)) return false;
+      return true;
+    };
     S.kind = KIND.MASONRY;
     for (const [end, dir] of [[A, 1], [B, -1]]) {
       // the broken end: three steps of masonry reaching into the breach, each lower, in slices across the wall
@@ -136,16 +146,19 @@ export function build({ S }) {
         const reach = 0.7 + j * 0.7, v = -depth / 2 + (k + 0.5) * (depth / 3);
         const h = LAND_Y + FORT_H * (0.78 - j * 0.22) - rand(j * 5 + k + dir * 11, 31) * 0.9;
         const u = dir * (reach - 0.35);
+        if (!clear(end[0] + ux * u + nx * v, end[1] + uz * u + nz * v, 0.72, depth / 3 + 0.04)) continue;
         S.box(end[0] + ux * u + nx * v, end[1] + uz * u + nz * v, y0, h, 0.72, depth / 3 + 0.04, ang, j ? shade(ruin, 0.95 - j * 0.04) : ruin, { top: walk });
       }
       // the jamb's stump, lime-faced, where the passage once ran
       const u = dir * 2.4;
-      S.box(end[0] + ux * u, end[1] + uz * u, y0, LAND_Y + 1.1 + rand(dir + 3, 32) * 0.6, 0.8, 2.2, ang, hex('#8d877a'), { top: shade(walk, 0.9) });
+      if (clear(end[0] + ux * u, end[1] + uz * u, 0.8, 2.2)) S.box(end[0] + ux * u, end[1] + uz * u, y0, LAND_Y + 1.1 + rand(dir + 3, 32) * 0.6, 0.8, 2.2, ang, hex('#8d877a'), { top: shade(walk, 0.9) });
     }
     S.kind = KIND.PLAIN;
     const c = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
     for (let k = 0; k < 9; k++) { // fallen brick along the foot of the breach, clear of the lane
       const side = k % 2 ? 1 : -1, u = side * (3.2 + rand(k, 13) * 1.6), v = (rand(k, 14) - 0.5) * (depth + 2);
+      const bl = 0.6 + rand(k, 16) * 0.8, bw = 0.5 + rand(k, 17) * 0.6;
+      if (!clear(c[0] + ux * u + nx * v, c[1] + uz * u + nz * v, Math.hypot(bl, bw), Math.hypot(bl, bw))) continue;
       S.box(c[0] + ux * u + nx * v, c[1] + uz * u + nz * v, LAND_Y - 0.1, LAND_Y + 0.2 + rand(k, 15) * 0.4, 0.6 + rand(k, 16) * 0.8, 0.5 + rand(k, 17) * 0.6, ang + rand(k, 18), dark);
     }
   }
