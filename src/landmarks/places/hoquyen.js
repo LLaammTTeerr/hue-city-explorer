@@ -32,6 +32,11 @@ const R_OUT = 22.0, R_IN = 17.5; // outer foot, inner face of the inner wall
 const BRICK = hex('#5d5049'), BRICK_D = hex('#4a3f39'), TOPB = hex('#8a5c49'), LIME = hex('#a9a69d'), LIME_D = hex('#7d7a73');
 const DARK = hex('#211d1a'), IRON = hex('#2c2a28'), LAWN = hex('#7e9c55'), PAVE = hex('#9a6250'), EARTH = hex('#a88d6c');
 const SEG = 72;
+// The king's stand "faces the south-east of the arena" (vi.wikipedia), so the front with the gate and the two stairs
+// is on the north-west arc, where OSM's footway 1075016120 comes in from the road fork (at about -41°). It is turned
+// to -0.5 rad (-29°), a little short of due north-west: the lane OSM maps round the west foot (way 1267047360) leaves
+// no room for a stair projecting 7 m any further round, and the stairs stop clear of both forks.
+const FRONT = -0.5; // bearing of the stand and gate (radians, 0 = north, clockwise)
 
 export const id = 'hoquyen';
 
@@ -42,7 +47,7 @@ export function build({ S }) {
   // walls are levelled on the front, the north side with the gate and stairs; the arena floor is level, just above
   // the highest ground inside, and the outer wall's foot runs down to the lowest point outside.
   const gr = (x, z) => LAND_Y + rise(x, z);
-  const y0 = gr(...P(0, R_OUT + 1));
+  const y0 = gr(...P(FRONT, R_OUT + 1));
   let yLow = Infinity, yHi = -Infinity;
   for (let i = 0; i < 24; i++) { const p = P((i / 24) * Math.PI * 2, R_OUT + 3); yLow = Math.min(yLow, gr(p[0], p[1])); }
   for (let i = 0; i < 24; i++) for (const r of [0, 8, 13, R_IN]) { const p = P((i / 24) * Math.PI * 2, r); yHi = Math.max(yHi, gr(p[0], p[1])); }
@@ -91,7 +96,7 @@ export function build({ S }) {
   S.kind = KIND.PLAIN;
   const rL = R_OUT - 0.79, nL = 240;
   for (let i = 0; i < nL; i++) for (let row = 0; row < 2; row++) {
-    if ((i + row) % 2 || Math.abs(Math.sin((i / nL) * Math.PI)) < 0.18) continue; // not behind the stand
+    if ((i + row) % 2 || Math.abs(Math.sin((i / nL) * Math.PI - FRONT / 2)) < 0.18) continue; // not behind the stand
     const a = (i / nL) * TAU, w = (TAU / nL) * 0.3, ya = yP + 0.14 + row * 0.24;
     const p0 = P(a - w, rL), p1 = P(a + w, rL), o = [Math.sin(a), 0, -Math.cos(a)];
     S.quad([p0[0], ya, p0[1]], [p1[0], ya, p1[1]], [p1[0], ya + 0.2, p1[1]], [p0[0], ya + 0.2, p0[1]], DARK, o);
@@ -119,7 +124,7 @@ export function build({ S }) {
   };
   const cages = [[-0.3, 1.3, 1.9], [-0.15, 0.9, 1.3], [0, 0.9, 1.3], [0.15, 0.9, 1.3], [0.3, 1.1, 1.6]]; // offset from due south (rad), door w, h
   for (const [da, w, h] of cages) {
-    const a = Math.PI - da; // east of south when da < 0 (the stand's left)
+    const a = FRONT + Math.PI - da; // round from the point opposite the stand; da < 0 is the stand's left
     arch(a, R_IN - 0.03, w, h, yF, true);
     // the pit seen from the wall walk: a dark square sunk in the walk, with a lime lintel over the door
     const p = P(a, 18.4), t = Math.atan2(-Math.cos(a), Math.sin(a));
@@ -127,9 +132,9 @@ export function build({ S }) {
     S.box(P(a, R_IN - 0.05)[0], P(a, R_IN - 0.05)[1], yF + h + 0.05, yF + h + 0.25, 0.1, w + 0.5, t, LIME_D);
   }
 
-  // ---- the elephant gate on the north face: an arch between two pillars with lantern caps, an iron grille ----
+  // ---- the elephant gate on the front (north-west) face: an arch between two pillars with lantern caps, an iron grille ----
   {
-    const a = 0, pr = R_OUT + 0.15, ang = Math.atan2(-Math.cos(a), Math.sin(a)); // box local x radial
+    const a = FRONT, pr = R_OUT + 0.15, ang = Math.atan2(-Math.cos(a), Math.sin(a)); // box local x radial
     const g = P(a, R_OUT - 0.3);
     S.kind = KIND.MASONRY;
     S.box(g[0], g[1], y0 - 0.3, yP, 1.6, 4.6, ang, shade(BRICK, 0.92), { top: LIME }); // the gate block, proud of the wall
@@ -153,7 +158,7 @@ export function build({ S }) {
   // ---- the two stairs either side of the king's stand: 24 steps up the outer wall, sloping lime cheeks, posts ----
   const nSt = 24, run = 0.28, rise1 = (yP - y0) / nSt, sw = 3.0;
   for (const s of [-1, 1]) {
-    const a = s * 0.44, ang = Math.atan2(-Math.cos(a), Math.sin(a)); // local x radial (outward)
+    const a = FRONT + s * 0.44, ang = Math.atan2(-Math.cos(a), Math.sin(a)); // local x radial (outward)
     const rTop = R_OUT - 0.9;
     S.kind = KIND.MASONRY;
     for (let k = 0; k < nSt; k++) {
@@ -177,19 +182,19 @@ export function build({ S }) {
     }
   }
 
-  // ---- the king's stand: a raised platform over the gate, on the north arc between the stairs ----
+  // ---- the king's stand: a raised platform over the gate, on the front arc between the stairs ----
   {
     const yS = yW + 0.5;
     S.kind = KIND.MASONRY;
-    band(-0.36, 0.36, 10, yP, yS, R_OUT - 0.85, R_OUT - 0.85, R_IN, R_IN, shade(BRICK, 1.05), shade(TOPB, 1.08));
-    band(-0.36, 0.36, 10, yS, yS + 0.45, R_IN + 0.4, R_IN + 0.4, R_IN, R_IN, shade(BRICK, 1.12), LIME_D); // parapet to the arena
+    band(FRONT - 0.36, FRONT + 0.36, 10, yP, yS, R_OUT - 0.85, R_OUT - 0.85, R_IN, R_IN, shade(BRICK, 1.05), shade(TOPB, 1.08));
+    band(FRONT - 0.36, FRONT + 0.36, 10, yS, yS + 0.45, R_IN + 0.4, R_IN + 0.4, R_IN, R_IN, shade(BRICK, 1.12), LIME_D); // parapet to the arena
     // the iron railing along its outer edge and down its open sides
     S.kind = KIND.PLAIN;
     const rr = R_OUT - 1.0;
-    for (let k = 0; k <= 28; k++) { const p = P(-0.36 + (0.72 * k) / 28, rr); S.box(p[0], p[1], yS, yS + 1.1, 0.05, 0.05, 0, IRON); }
-    band(-0.36, 0.36, 10, yS + 1.0, yS + 1.08, rr + 0.03, rr + 0.03, rr - 0.03, rr - 0.03, IRON);
+    for (let k = 0; k <= 28; k++) { const p = P(FRONT - 0.36 + (0.72 * k) / 28, rr); S.box(p[0], p[1], yS, yS + 1.1, 0.05, 0.05, 0, IRON); }
+    band(FRONT - 0.36, FRONT + 0.36, 10, yS + 1.0, yS + 1.08, rr + 0.03, rr + 0.03, rr - 0.03, rr - 0.03, IRON);
     for (const s of [-1, 1]) {
-      const a = s * 0.36, p0 = P(a, rr), p1 = P(a, R_IN + 0.4);
+      const a = FRONT + s * 0.36, p0 = P(a, rr), p1 = P(a, R_IN + 0.4);
       for (let k = 0; k <= 5; k++) { const t = k / 5; S.box(p0[0] + (p1[0] - p0[0]) * t, p0[1] + (p1[1] - p0[1]) * t, yS, yS + 1.1, 0.05, 0.05, 0, IRON); }
       S.beam([p0[0], yS + 1.04, p0[1]], [p1[0], yS + 1.04, p1[1]], 0.06, 0.06, IRON);
     }
@@ -199,7 +204,7 @@ export function build({ S }) {
   S.kind = KIND.PLAIN;
   for (let i = 0; i < 12; i++) {
     const a = ((i + 0.5) / 12) * TAU;
-    if (Math.abs(Math.sin(a / 2)) < 0.28) continue; // not on the gate and stair front
+    if (Math.abs(Math.sin((a - FRONT) / 2)) < 0.28) continue; // not on the gate and stair front
     const p = P(a, R_OUT - 0.02), ang = Math.atan2(-Math.cos(a), Math.sin(a));
     S.box(p[0], p[1], y0 + 0.35, y0 + 0.85, 0.3, 0.55, ang, LIME_D);
     const q = P(a, R_OUT + 0.14);

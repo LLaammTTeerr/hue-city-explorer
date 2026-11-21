@@ -1,4 +1,4 @@
-import { LAND_Y, ROAD_MAX } from '../config.js';
+import { LAND_Y, ROAD_MAX, ROAD_W } from '../config.js';
 import { rise, waterY } from './terrain.js';
 import { inRing, pathLength, unflat } from './buf.js';
 
@@ -138,12 +138,53 @@ function waterSpans(data, ways) {
     W = Math.min(W, ub, last + ABUT);
   }
   if (!(W - E > 4)) return;
+  // a street crossing at grade by the bank (Gia Hội's west end lands on Huỳnh Thúc Kháng, which runs along the quay
+  // about a metre back from the water) is street, not abutment: the deck and its raised footways stop at its kerb
+  // instead of standing on its carriageway. Streets that start where a bridge way ends are its approaches and meet
+  // the deck edge to edge, so they are left out.
+  const cross = crossingStreets(data, ways), mid = (E + W) / 2;
+  for (const w of ways) {
+    const { pts } = w.b, half = ROAD_W[w.b.c] / 2 + FOOTWAY;
+    for (const [s, u] of w.u) {
+      const { x, z } = at(pts, s), a = at(pts, Math.max(0, s - 0.5)), b = at(pts, s + 0.5);
+      const l = Math.hypot(b.x - a.x, b.z - a.z) || 1, nx = -(b.z - a.z) / l, nz = (b.x - a.x) / l;
+      if (![0, -half, half].some((o) => cross(x + nx * o, z + nz * o))) continue;
+      if (u > mid) W = Math.min(W, u - 0.25);
+      else E = Math.max(E, u + 0.25);
+    }
+  }
+  if (!(W - E > 4)) return;
   for (const w of ways) {
     const sAt = (u0) => { let best = w.u[0]; for (const q of w.u) if (Math.abs(q[1] - u0) < Math.abs(best[1] - u0)) best = q; return best[0]; };
     const a = sAt(E), b = sAt(W), len = w.b.len, snap = (v) => (v < 0.3 ? 0 : v > len - 0.3 ? len : v);
     w.span = [snap(Math.min(a, b)), snap(Math.max(a, b))];
     delete w.u;
   }
+}
+const FOOTWAY = 2.1; // a road bridge's footway and parapet beyond its carriageway, each side
+const CROSS_PAD = 0.3;
+// (x, z) on a street (class 0-3, not a bridge) near the bridge that is not one of its approaches
+function crossingStreets(data, ways) {
+  const ends = ways.flatMap((w) => [w.b.pts[0], w.b.pts[w.b.pts.length - 1]]);
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const w of ways) for (const p of w.b.pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const M = 30, segs = [];
+  for (const r of data.roads || []) {
+    if (!Array.isArray(r) || r[1] || !Array.isArray(r[2]) || r[2].length < 4 || (r[0] | 0) > 3) continue;
+    const f = r[2], n = f.length;
+    const touches = [[f[0] / 10, f[1] / 10], [f[n - 2] / 10, f[n - 1] / 10]].some((p) => ends.some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) < 1.5));
+    if (touches) continue;
+    for (let i = 0; i + 3 < n; i += 2) {
+      const ax = f[i] / 10, az = f[i + 1] / 10, bx = f[i + 2] / 10, bz = f[i + 3] / 10;
+      if (Math.max(ax, bx) < x0 - M || Math.min(ax, bx) > x1 + M || Math.max(az, bz) < z0 - M || Math.min(az, bz) > z1 + M) continue;
+      segs.push([ax, az, bx, bz, ROAD_W[r[0] | 0] / 2 + CROSS_PAD]);
+    }
+  }
+  return (x, z) => segs.some(([ax, az, bx, bz, hw]) => {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const t = l2 ? clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1) : 0;
+    return Math.hypot(ax + dx * t - x, az + dz * t - z) < hw;
+  });
 }
 function at(pts, s) {
   for (let i = 0; i + 1 < pts.length; i++) {

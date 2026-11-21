@@ -380,8 +380,10 @@ function chua(S, reserved) {
       seg(a, m(0.5 - g)); seg(m(0.5 + g), b);
     } else seg(a, b);
   }
-  // tam quan: three openings under small tiled roofs, the middle one higher
-  const gx = (ring[3][0] + ring[0][0]) / 2, gz = (ring[3][1] + ring[0][1]) / 2, ANG = Math.PI / 2;
+  // tam quan: three openings under small tiled roofs, the middle one higher. The west lane's carriageway comes to
+  // within 0.7 m of the court wall here, so the gate stands 0.7 m back inside the gap, and its eaves (1.1 m out from
+  // the gate's axis) stop over the kerb instead of reaching out over the lane.
+  const gx = (ring[3][0] + ring[0][0]) / 2 + 0.7, gz = (ring[3][1] + ring[0][1]) / 2, ANG = Math.PI / 2;
   S.kind = KIND.PLAIN;
   for (const v of [-4.6, -1.6, 1.6, 4.6]) S.box(gx, gz + v, y, y + (Math.abs(v) < 2 ? 4.4 : 3.4), 0.7, 0.7, 0, C.yellow, { top: C.lime });
   S.box(gx, gz, y + 3.5, y + 4.4, 0.5, 3.6, 0, C.yellow);

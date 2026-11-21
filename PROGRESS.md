@@ -549,3 +549,11 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
   dainoi+duyetthi 14.2 m² (duyetthi's roof eave reaches 0.3–1.9 m over dainoi's gallery roof). quochoc is 7.8 m².
 - Proof: a copy of canchanh shifted 2 m / 0.15 m / 0.05 m still FAILs at ~1470–1580 m² (old: 1520–1630); a hungmieu
   copy shifted 2 m gives 697 m² (old 854); gahue moved 2 m into its hall FAILs at 11.2 m².
+## Last road intrusions (2026-11-21, branch `claude/last-place-intrusions`)
+- check:overlap road findings are 0 (hoquyen 33, mangca 14, giahoi 13, phucam 7, conhen 3 before). The remaining FAILs are the edge-contact overlaps and the two building ones.
+- Hổ Quyền: OSM way 870617584 runs on the perimeter footway line through the outer wall. `clearMonuments` in build-data.mjs (CLEAR_OF relation 19381147) moves it off. The stand, gate and stairs now face SE from the NW arc (FRONT -0.5).
+- Mang Cá: the lane through the Trường Định breach crosses off-centre, so the ruins skip the street using `streetTest`.
+- Phủ Cam: the apse plinth is trimmed with `offStreets`.
+- Cồn Hến: the tam quan is set back 0.7 m from the west lane.
+- Gia Hội: `waterSpans` (geo/bridges.js) stops the abutment at the kerb of a street crossing at grade. Huỳnh Thúc Kháng lies within a metre of the west bank, and approach streets are left out.
+- Next: settle the edge-contact counting. Then add check:overlap to `npm run check`.
