@@ -1,6 +1,12 @@
 # Progress
 
 ## Done
+- Ink lines across roads at hill rims (2026-11-21): the terrain mesh stood 3 cm proud of the slab at every node,
+  including the rim nodes where the ground stops rising, so each drawn cell meeting the plain slab ended in a 3 cm step
+  along the 25 m lattice. Roads and greens write no depth, so the ink's depth edges drew those steps as long straight
+  lines across asphalt (riverside road under chùa Thiên Mụ; the boulevard at x≈77, z≈564). terrain.js now sinks
+  non-rising nodes 3 cm under the slab (fine lake cells take the same offset on the coarse triangles, so no seam), and
+  the mesh dives into the slab along a shallow crease the ink ignores. Wall, kerb and roof ink unchanged.
 - Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
   along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
 - Riverside lights (issue #21, 2026-11-21): build-data.mjs derives `riverLamps` from the Hương banks (embankment posts
