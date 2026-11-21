@@ -22,7 +22,8 @@ import { bridgeProfiles, onLand, ABUT } from '../../geo/bridges.js';
 // without a shared node), to Trần Hưng Đạo; on the Chi Lăng side their ends are staggered by 4 m, one at the water's
 // edge. Huỳnh Thúc Kháng runs at grade along the bank, so the structure is only the stretch over the water and its
 // abutments (geo/bridges.js `water`: both ends square across the bridge, as the mapped outline's are, and inside both
-// ways), and the ways run on as street from there (geo/city.js lays them with the other roads). The deck ends at
+// ways; on the west bank Huỳnh Thúc Kháng's carriageway reaches to within about a metre of the water, so the
+// abutment stops at its kerb and the deck's raised footways, median and parapet ends no longer stand on it), and the ways run on as street from there (geo/city.js lays them with the other roads). The deck ends at
 // street level exactly where city.js starts that street, square across the same way: deck and road meet edge to
 // edge and flush. (The old model ran the deck to the ways' own ends: skewed 23 degrees by the stagger, so neither
 // approach road's square end lined up with it, and raised as a filled ramp across Huỳnh Thúc Kháng.)

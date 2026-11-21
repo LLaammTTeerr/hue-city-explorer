@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { KIND, hex, shade, Buf } from '../geo/buf.js';
-import { glowPoints, lightMaterial } from '../geo/materials.js';
+import { glowPoints, lightMaterial, shared } from '../geo/materials.js';
 import { LAND_Y, PAL } from '../config.js';
 
 // Cầu Trường Tiền. Position, axis and width come from the OSM bridge outline (way 1431129413); the six bow-string
@@ -111,6 +111,10 @@ export function buildTruongTien(data, S, group) {
 
   // the bows
   const spanLights = [], spanStrips = [];
+  // one colour band runs the length of the bridge and slides along it (see bandColor below); the LED strips sample it
+  // per pixel on the GPU, the bow lamps per lamp on the CPU, both from the same position along the bridge
+  const band = bandMaterial(c, d, L);
+  const lampS = []; // each bow lamp's position along the bridge, span by span
   for (let i = 0; i < SPANS; i++) {
     const s0 = -L / 2 + i * span;
     const lp = [], lc = [];
@@ -147,6 +151,9 @@ export function buildTruongTien(data, S, group) {
     const pts = glowPoints(lp, lc, 3.4);
     group.add(pts);
     spanLights.push(pts);
+    const ls = [];
+    for (let j = 0; j < lp.length; j += 3) ls.push((lp[j] - c[0]) * d[0] + (lp[j + 2] - c[1]) * d[1]);
+    lampS.push(ls);
     // the LED wash: a strip riding each bow, lines down the hangers and along the bottom chord, on the outer faces
     const LB = new Buf(700), W1 = [1, 1, 1];
     const out = (p, side, o = 0.5, up = 0) => [p[0] + n[0] * side * o, p[1] + up, p[2] + n[1] * side * o];
@@ -157,7 +164,7 @@ export function buildTruongTien(data, S, group) {
       }
       LB.beam(out(bot(0, side), side, 0.36), out(bot(N, side), side, 0.36), 0.14, 0.28, W1);
     }
-    const strip = new THREE.Mesh(LB.geometry(), lightMaterial(0xffffff, 1.5));
+    const strip = new THREE.Mesh(LB.geometry(), band);
     strip.renderOrder = 19;
     strip.userData.landmark = true;
     group.add(strip);
@@ -181,43 +188,64 @@ export function buildTruongTien(data, S, group) {
   const col = new THREE.Color();
   return {
     centre: c, dir: d, across: n, length: L, width: W, span, deckTop, deckBottom: deckTop - deckT, lights: spanLights, lamps,
-    // After dark the bridge runs a light programme like the real one's: it changes colour every few seconds,
-    // cycling through scenes — the whole bridge in one colour stepping round Huế's palette, a chase running bow to
-    // bow, a slow rainbow drift, and a pulse of the city's violet. In rain it settles on a warm white.
+    // After dark the bridge carries a continuous band of colour — Huế violet through blue, cyan, green, gold, red and
+    // magenta, blending into each other along its length — and the colours change by the band sliding along the
+    // bridge, so each bow flows into the next instead of the whole bridge switching at once. In rain the band settles
+    // toward a warm white.
     update(time, glow, rain) {
-      const SCENE = 24, k = Math.floor(time / SCENE), f = (time % SCENE) / SCENE, scene = k % 4;
+      const warm = Math.min(1, rain * 0.85);
+      band.uniforms.uWarmMix.value = warm;
+      band.uniforms.uBoost.value = 1.5 + rain * 0.4;
       for (let i = 0; i < spanLights.length; i++) {
-        let boost = 0.55;
-        if (scene === 0) {
-          // solid colour, stepping every 4 s with a short crossfade
-          const step = time / 4, a = Math.floor(step), m = Math.min(1, (step - a) / 0.25);
-          col.copy(PALETTE[(a + PALETTE.length - 1) % PALETTE.length]).lerp(PALETTE[a % PALETTE.length], m);
-        } else if (scene === 1) {
-          // chase: each bow takes the next colour a beat after its neighbour, north to south
-          const beat = time * 1.6 - i, a = Math.floor(beat);
-          col.copy(PALETTE[((a % PALETTE.length) + PALETTE.length) % PALETTE.length]);
-          boost = 0.4 + 0.35 * Math.max(0, 1 - (beat - a) * 1.5);
-        } else if (scene === 2) {
-          const hue = (time * 0.06 + i * 0.09) % 1;
-          col.setHSL(hue, 0.92, 0.56);
-        } else {
-          // the violet breathing in and out, a white pulse running across it
-          col.copy(VIOLET);
-          const run = Math.max(0, 1 - Math.abs(((f * 3) % 1) * 7 - i) * 0.8);
-          col.lerp(WHITE, run * 0.7);
-          boost = 0.45 + 0.2 * Math.sin(time * 1.3) ** 2 + run * 0.2;
+        const u = spanLights[i].material.uniforms, attr = spanLights[i].geometry.attributes.color, ls = lampS[i];
+        u.uTint.value.setRGB(1, 1, 1);
+        u.uBoost.value = 0.55 + rain * 0.25;
+        for (let j = 0; j < ls.length; j++) {
+          bandColor(ls[j], time, L, col).lerp(WARM, warm).multiplyScalar(0.6);
+          attr.setXYZ(j, col.r, col.g, col.b);
         }
-        // scenes cross-fade into each other over their last second
-        if (f > 1 - 1 / SCENE) col.lerp(VIOLET, (f - (1 - 1 / SCENE)) * SCENE * 0.5);
-        col.lerp(WARM, Math.min(1, rain * 0.85));
-        const u = spanLights[i].material.uniforms;
-        u.uTint.value.copy(col);
-        u.uBoost.value = boost + rain * 0.25;
-        spanStrips[i].material.uniforms.uColor.value.copy(col);
+        attr.needsUpdate = true;
       }
     },
   };
 }
-const WARM = new THREE.Color(1.0, 0.82, 0.55), VIOLET = new THREE.Color('#8a3cff'), WHITE = new THREE.Color(1, 1, 1);
-// the colours the bridge steps through: Huế violet, blue, cyan, green, gold, red, magenta, white
+
+// The band: PALETTE laid end to end, one full round every BAND_LEN of the bridge's length, each colour easing into the
+// next, sliding along the bridge at BAND_SPEED m/s. bandColor (CPU) and the shader below compute the same thing.
+const BAND_LEN = 0.85, BAND_SPEED = 9;
+function bandColor(s, time, L, out) {
+  const n = PALETTE.length, x = ((((s - time * BAND_SPEED) / (L * BAND_LEN)) % 1) + 1) % 1 * n;
+  const a = Math.floor(x) % n, f = x - Math.floor(x), m = f * f * (3 - 2 * f);
+  return out.copy(PALETTE[a]).lerp(PALETTE[(a + 1) % n], m);
+}
+function bandMaterial(c, d, L) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uGlow: shared.uGlow, uTime: shared.uTime, uPal: { value: PALETTE },
+      uC: { value: new THREE.Vector2(c[0], c[1]) }, uD: { value: new THREE.Vector2(d[0], d[1]) },
+      uLen: { value: L * BAND_LEN }, uSpeed: { value: BAND_SPEED },
+      uBoost: { value: 1.5 }, uWarm: { value: WARM }, uWarmMix: { value: 0 },
+    },
+    vertexShader: `uniform vec2 uC, uD; varying float vS;
+      void main() { vec4 w = modelMatrix * vec4( position, 1.0 ); vS = dot( w.xz - uC, uD );
+        gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `
+      uniform vec3 uPal[ ${PALETTE.length} ]; uniform vec3 uWarm; uniform float uGlow, uBoost, uTime, uLen, uSpeed, uWarmMix;
+      varying float vS;
+      void main() {
+        float x = fract( ( vS - uTime * uSpeed ) / uLen ) * ${PALETTE.length}.0;
+        int a = int( floor( x ) ) % ${PALETTE.length};
+        float f = fract( x ), m = f * f * ( 3.0 - 2.0 * f );
+        vec3 c = mix( mix( uPal[ a ], uPal[ ( a + 1 ) % ${PALETTE.length} ], m ), uWarm, uWarmMix );
+        gl_FragColor = vec4( c * uBoost * uGlow, 1.0 );
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    transparent: true,
+  });
+}
+const WARM = new THREE.Color(1.0, 0.82, 0.55);
+// the colours of the band, in order along it: Huế violet, blue, cyan, green, gold, red, magenta, white
 const PALETTE = ['#8a3cff', '#2f5bff', '#19c6ff', '#2fe07a', '#ffc21a', '#ff3b2f', '#ff3fb4', '#f4f0ff'].map((c) => new THREE.Color(c));

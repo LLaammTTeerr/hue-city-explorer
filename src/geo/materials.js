@@ -141,6 +141,9 @@ vec3 hueNp = hueN;       // the normal after relief
 vec3 hueRoomC = vec3( 1.0 ); // the room seen through a lit window
 
 #ifdef HUE_FOLIAGE
+  // the leaf cards (aKind 2, see PART in foliage.js) carry the atlas, a grey pattern whose mean is about 0.45 (linear):
+  // bring it back to 1, so a crown shows its own colour rather than a third of it
+  if ( vKind > 1.5 ) diffuseColor.rgb *= 2.2;
   // leaf clumps: two scales of mottling, cooler in the hollows
   float leafA = hueNoise( vWPos.xz * 1.9 + vWPos.y * 1.3 );
   float leafB = hueNoise( vWPos.xz * 6.0 - vWPos.y * 4.0 );
@@ -151,6 +154,12 @@ vec3 hueRoomC = vec3( 1.0 ); // the room seen through a lit window
   diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.8, 0.94, 1.1 ), diffuseColor.rgb * vec3( 1.1, 1.06, 0.78 ), smoothstep( 0.35, 0.75, leaf ) );
   // drawn: one clear wash per crown
   if ( uLook > 0.5 ) diffuseColor.rgb = mix( diffuseColor.rgb, vColor.rgb * vColor.rgb * 1.5, 0.75 );
+  // a crown is pigment, not a lamp: past 0.6 the brightest channel is eased toward 0.85 with the hue kept, or the
+  // light blossom (hoàng mai, bằng lăng, phượng) and the sunlit leaf tips go out to white in the sun
+  {
+    float hueTop = max( diffuseColor.r, max( diffuseColor.g, diffuseColor.b ) );
+    if ( hueTop > 0.6 ) diffuseColor.rgb *= ( 0.6 + 0.25 * ( 1.0 - exp( ( 0.6 - hueTop ) / 0.25 ) ) ) / hueTop;
+  }
   hueRough = 0.8;
 #else
 
@@ -421,6 +430,18 @@ hueRough = mix( hueRough, 0.1, hueWetSurf * uWet * 0.85 );
 if ( uLook > 0.5 ) { hueRough = 1.0; hueMetal = 0.0; hueNp = hueN; }
 `;
 
+// Trees: the instance colour is the crown's. Trunks and limbs (aKind 0, see PART in foliage.js) keep their baked bark.
+const FOLIAGE_COLOR = /* glsl */ `
+#if defined( USE_COLOR ) || defined( USE_INSTANCING_COLOR )
+  vColor = vec4( 1.0 );
+#endif
+#ifdef USE_COLOR
+  vColor.rgb *= color;
+#endif
+#ifdef USE_INSTANCING_COLOR
+  if ( aKind > 0.5 ) vColor.rgb *= instanceColor.rgb;
+#endif`;
+
 // PBR material for baked vertex-colour geometry (colours are stored sqrt-encoded
 // in 8 bits, see Buf.tri) with the procedural surface detail above.
 export function cityMaterial({ windows = false, foliage = false, styled = false, overlay = false, ...opts } = {}) {
@@ -443,6 +464,7 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     sh.vertexShader = patch(sh.vertexShader)
       .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nuniform float uTime;\nuniform float uWind;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND)
+      .replace('#include <color_vertex>', foliage ? FOLIAGE_COLOR : '#include <color_vertex>')
       .replace(
         '#include <project_vertex>',
         `#include <project_vertex>

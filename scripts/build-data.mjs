@@ -402,13 +402,61 @@ function overWater(pts) {
   }
   return false;
 }
+// Monuments whose walls a street is drawn along, on the wall foot. At Hổ Quyền (relation 19381147) the unnamed
+// residential way 870617584 runs round the north-east of the arena on the same line as the footway mapped round its
+// foot (OSM way 1075016119, 1-2 m off the outer wall), so a carriageway of the residential width centred there runs
+// 2.5 m into a wall the sources put at 44 m across (140-145 m round). The way is moved out, point by point, until its
+// carriageway clears the outline by CLEAR_PAD; its course round the arena is kept.
+const CLEAR_OF = [19381147];
+const CLEAR_PAD = 0.3;
+const clearRings = CLEAR_OF.map((id) => { const e = get('relation', id); const rs = e ? elementRings(e) : []; return rs.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; }) // the outer ring.filter(Boolean);
+function clearMonuments(pts, c) {
+  if (c > 3 || !clearRings.length) return pts;
+  const need = ROAD_W[c] / 2 + CLEAR_PAD;
+  let out = pts;
+  for (const ring of clearRings) {
+    const cx = ring.reduce((s, p) => s + p[0], 0) / ring.length, cz = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+    const far = Math.max(...ring.map((p) => Math.hypot(p[0] - cx, p[1] - cz))) + need + 2;
+    if (!out.some((p) => Math.hypot(p[0] - cx, p[1] - cz) < far * 2)) continue;
+    const dense = []; // every 2 m near the monument, so a long segment cannot cut the corner between moved points
+    for (let i = 0; i < out.length; i++) {
+      const a = out[i], b = out[i + 1];
+      dense.push(a);
+      if (!b || (Math.hypot(a[0] - cx, a[1] - cz) > far * 2 && Math.hypot(b[0] - cx, b[1] - cz) > far * 2)) continue;
+      const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 2);
+      for (let k = 1; k < n; k++) dense.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+    }
+    let moved = false;
+    const next = dense.map((p) => {
+      let best = Infinity, q = null;
+      for (let i = 0; i + 1 < ring.length; i++) {
+        const a = ring[i], b = ring[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+        const t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2)) : 0;
+        const x = a[0] + t * dx, z = a[1] + t * dz, d = Math.hypot(p[0] - x, p[1] - z);
+        if (d < best) { best = d; q = [x, z]; }
+      }
+      const inside = pip(p, ring);
+      if (!inside && best >= need) return p;
+      // outward: away from the nearest point of the outline (from the centre when on or inside it)
+      let ux = p[0] - q[0], uz = p[1] - q[1], L = Math.hypot(ux, uz);
+      if (inside || L < 1e-3) { ux = q[0] - cx; uz = q[1] - cz; L = Math.hypot(ux, uz) || 1; }
+      moved = true;
+      return [q[0] + (ux / L) * need, q[1] + (uz / L) * need];
+    });
+    if (moved) out = next;
+  }
+  return out;
+}
+let nCleared = 0;
 for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
   if (e.id === TT_WAY) continue;
   const c = ROAD_CLASS[t.highway];
   const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
-  for (const pts of clipLine(e.geometry.map(proj))) {
+  for (const line of clipLine(e.geometry.map(proj))) {
+    const pts = clearMonuments(line, c);
+    if (pts !== line) nCleared++;
     // the bridge's own carriageways are not laid (nguyenhoang.js models the deck), but their ground stays road in
     // the mask, so no tree, garden or infill house is planted under the deck and its ramps
     if (tagged && inNH(pts[Math.floor(pts.length / 2)])) { stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD); continue; }
@@ -426,7 +474,7 @@ for (const e of els) {
     else stampLine(pts, 1.2, ROAD);
   }
 }
-console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges);
+console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges, '| streets moved off monument walls:', nCleared);
 // Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
 // lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
 const onCarriageway = (() => {
