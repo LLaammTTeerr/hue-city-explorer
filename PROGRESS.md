@@ -458,3 +458,13 @@ were more than 1 m under the ground across eight places. Each was fixed where it
 - **Cầu Dã Viên / cầu gỗ lim:** girder undersides over the banks are cut where they would enter the ground (536 → 0).
 - **Thiên Mụ / Đông Ba:** the river stairs start at the mapped shore, with a landing out to it (29 → 0).
 `check-burial` now loads the replicas the way `check-heights` does and checks them as their own step.
+
+## Trees on the roads at the Nguyễn Hoàng bridge heads (2026-11-21, branch `worktree-agent-a66ef976516add427`)
+- Cause: the avenue trees in `build-data.mjs` (section 7) were placed `ROAD_W/2 + 1.6` m off each trunk/primary/
+  secondary way and checked only against water, buildings and other trees, never roads. A dual carriageway is two
+  ways, so each side's avenue landed on the other carriageway, and at junctions on the crossing roads; the bridge
+  heads (four short carriageways and ramps meeting) were filled with them.
+- Fix: `onCarriageway(x, z, pad)` (exact distance to the road lines, roads up to service class, bridges included)
+  keeps every tree trunk 0.6 m off any carriageway, in `plant()` and the avenue loop. Data rebuilt.
+- Trees on a carriageway: 3,997 of 60,922 → 0 of 56,637. New check in `check-data.mjs` ("no trees on the roads").
+- `shot.mjs --at x,z` looks at a point instead of the place's centre (used for the bridge heads).
