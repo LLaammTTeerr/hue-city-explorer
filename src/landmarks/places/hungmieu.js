@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { fence, FENCE } from '../enclosure.js';
 import { rectRing } from '../../geo/gates.js';
+import { planter, dinh } from '../props.js';
 
 // ---- Hưng Miếu (Hưng Tổ Miếu), the temple of Gia Long's parents, behind Thế Miếu in the Imperial City ----
 //
@@ -126,19 +127,13 @@ export function build({ S }) {
 
   // ---- in the court: six blue-and-white planters on stands, the bronze incense burner, two steles ----
   for (const u of [-8.6, -5.2, -1.8, 1.8, 5.2, 8.6]) {
-    S.kind = KIND.MASONRY;
-    box(u, 11.0, y0, y0 + 0.55, 0.8, 0.8, STONE);
-    S.kind = KIND.PLAIN;
-    cyl(u, 11.0, y0 + 0.55, y0 + 1.1, 0.42, 0.5, 8, hex('#dfe6ea'), { cap: false });
-    cyl(u, 11.0, y0 + 0.75, y0 + 0.9, 0.47, 0.48, 8, hex('#3c5a8a'), { cap: false });
-    cyl(u, 11.0, y0 + 1.05, y0 + 1.75, 0.5, 0.2, 6, hex('#4f7a3c'));
+    const q = P(u, 11.0);
+    planter(S, q[0], y0, q[1], ang, { r: 0.46, stand: 0.55, standCol: STONE, col: hex('#dfe6ea'), band: hex('#3c5a8a'), square: true });
   }
-  const bronze = hex('#5b5a48');
-  S.kind = KIND.MASONRY;
-  box(0, 19.0, y0, y0 + 0.4, 1.6, 1.6, STONE);
-  S.kind = KIND.PLAIN;
-  cyl(0, 19.0, y0 + 0.4, y0 + 1.5, 0.6, 0.72, 10, bronze);
-  cyl(0, 19.0, y0 + 1.5, y0 + 1.95, 0.45, 0.2, 8, shade(bronze, 1.15));
+  { // the bronze incense burner (lư đỉnh) on its stone plinth, facing down the court
+    const q = P(0, 19.0);
+    dinh(S, q[0], y0, q[1], ang + Math.PI / 2, { h: 1.95, col: hex('#5b5a48'), lid: true, stand: 0.4, standCol: STONE, standW: 1.6 });
+  }
   for (const v of [13.5, 18.0]) {
     S.kind = KIND.MASONRY;
     box(12.5, v, y0, y0 + 0.45, 1.6, 0.9, STONE);

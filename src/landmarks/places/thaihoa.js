@@ -2,6 +2,7 @@ import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { lightMaterial, glowPoints } from '../../geo/materials.js';
+import { vac, crane, kylan } from '../props.js';
 
 // Điện Thái Hòa (Throne Palace) with sân Đại Triều Nghi and cầu Trung Đạo over hồ Thái Dịch, as restored in
 // 2021-2024 (reopened 23 Nov 2024). Sources and estimates: docs/places/thaihoa.md.
@@ -102,13 +103,13 @@ export function build({ S, group, THREE }) {
     for (let k = 0; k < 12; k++) stele(s * 4.6, vDB1 + 2.4 + k * 1.85, G + H_LT);
   }
   (S.paved = S.paved || []).push([paved0, S.n]); // stone paving: no trees, no houses (src/geo/city.js coverOf)
-  // two bronze cauldrons (vạc đồng) on Đan Bệ, either side
-  for (const s of [-1, 1]) {
-    const p = W(s * 15, vDB0 + 6.5), y = G + H_DB;
-    S.cyl(p[0], p[1], y, y + 0.5, 0.25, 0.3, 6, BRONZE, { cap: false });
-    S.cyl(p[0], p[1], y + 0.5, y + 1.3, 0.75, 0.95, 10, BRONZE, { cap: false });
-    S.cyl(p[0], p[1], y + 1.3, y + 1.42, 1.0, 0.95, 10, shade(BRONZE, 1.2), { cap: true });
-  }
+  // one bronze cauldron (vạc đồng, cast under the Nguyễn lords) on the hall's left, the east (khamphahue: "on the left
+  // side of the Thái Hòa Palace"); its spot on Đan Bệ is estimated. No source gives a second vạc or any censer here.
+  { const p = W(15, vDB0 + 6.5); vac(S, p[0], G + H_DB, p[1], A, { d: 1.9, col: BRONZE }); }
+  // a pair of kỳ lân in front of the hall (Frommers: "In front are two mythical ky lin animals"), bronze, either side
+  // of the foot of the middle flight, facing out toward Ngọ Môn; material, pose and spot are estimated.
+  // src/landmarks/props.js; docs/places/courtyard-objects.md
+  for (const s of [-1, 1]) { const p = W(s * 4.3, 19.4); kylan(S, p[0], G + H_DB, p[1], A + Math.PI / 2, { s: 1.0, col: BRONZE, plinth: 0.55, plinthCol: STONE }); }
 
   // ======== the hall's two-stage base ========
   // the lower base at Đan Bệ's level all round (9 steps up at the back), the stone platform 1 m above it
@@ -147,6 +148,46 @@ export function build({ S, group, THREE }) {
     S.cyl(p[0], p[1], FL + 0.3, top, 0.3, 0.28, 8, RED, { cap: false });
     S.cyl(p[0], p[1], FL + 2.2, FL + 2.5, 0.305, 0.3, 8, GOLD, { cap: false }); // a gilded dragon band
   }
+  // the crane and tortoise statues inside the hall (Frommers: "the statues of the heron and turtle inside the palace's
+  // ornate lacquered interior"): drawn as a bronze pair of cranes on tortoises either side of the throne in the main
+  // hall's middle bay, facing out; count, material, size and spot are estimated
+  for (const s of [-1, 1]) { const p = W(s * 2.3, -3.2); crane(S, p[0], FL, p[1], A + Math.PI / 2, { h: 1.8 }); }
+  // the throne (ngai vàng) in the middle of the hall, between the cranes, facing Ngọ Môn. daidoanket.vn (2016):
+  // "Ngai cao 101 cm, rộng 72 cm, dài 87 cm", its base "dài 118 cm, rộng 90 cm, cao 20 cm", carved and gilt; vtcnews
+  // / baophapluat: a throne on three wooden tiers ("ba tầng bệ gỗ") under a gilt bửu tán. daidoanket.vn (2024): the
+  // bửu tán is carved gilt wood (Khải Định, 1923), two dragons facing a Thọ on each face, a dragon head at each corner.
+  // Tier sizes and heights and the canopy's size and height are estimated.
+  {
+    const TV = -4.0; // the dais's centre, in the middle bay between the column rows at v -1.75 and -7.15
+    let y = FL;
+    for (const [w, d, h, c] of [[3.4, 3.0, 0.2, RED_DK], [2.7, 2.4, 0.2, RED], [2.0, 1.8, 0.2, RED_DK]]) {
+      box(0, TV, y, y + h, w, d, c);
+      box(0, TV, y + h - 0.04, y + h, w + 0.04, d + 0.04, GOLD); // a gilt edge on each tier
+      y += h;
+    }
+    box(0, TV, y, y + 0.2, 1.18, 0.9, GOLD); // the throne's base, 118 x 90 x 20 cm
+    y += 0.2;
+    const tv = TV - 0.05, sy = y + 0.45; // the seat
+    box(0, tv, y, sy, 0.72, 0.87, shade(GOLD, 0.9));
+    box(0, tv - 0.39, sy, y + 1.01, 0.72, 0.09, GOLD); // the back, to 101 cm
+    box(0, tv - 0.39, y + 0.95, y + 1.01, 0.82, 0.12, shade(GOLD, 1.1)); // its carved crest
+    for (const s of [-1, 1]) box(s * 0.33, tv, sy, sy + 0.25, 0.07, 0.8, GOLD); // the arms
+    box(0, tv - 0.34, sy + 0.05, y + 0.92, 0.5, 0.02, RED); // the red lacquer panel of the back
+    // the bửu tán: a square gilt canopy hung from the roof framing over the throne, a carved valance on each face and a
+    // dragon head rising at each corner
+    const cw = 2.4, cy0 = FL + 3.3, cy1 = FL + 3.75;
+    box(0, TV, cy1, cy1 + 0.08, cw + 0.2, cw + 0.2, shade(GOLD, 0.85));
+    for (const s of [-1, 1]) {
+      box(0, TV + s * cw / 2, cy0, cy1, cw, 0.06, GOLD);
+      box(s * cw / 2, TV, cy0, cy1, 0.06, cw, GOLD);
+      box(0, TV + s * (cw / 2 + 0.035), cy0 + 0.12, cy1 - 0.1, cw * 0.6, 0.02, RED);
+      for (const t of [-1, 1]) {
+        box(s * cw / 2, TV + t * cw / 2, cy1, cy1 + 0.35, 0.14, 0.14, shade(GOLD, 1.1)); // the corner dragon heads
+        box(s * (cw / 2 - 0.1), TV + t * (cw / 2 - 0.1), cy1 + 0.08, FL + CH - 0.3, 0.04, 0.04, RED_DK); // the hangers
+      }
+    }
+  }
+  S.kind = KIND.TIMBER;
   // the eave plates along the outer column lines
   for (const j of [0, 7]) beam(P3(cu[0], FL + CH - 0.15, cv[j]), P3(cu[9], FL + CH - 0.15, cv[j]), 0.34, 0.4, RED_DK);
   for (const i of [0, 9]) beam(P3(cu[i], FL + CH - 0.15, cv[0]), P3(cu[i], FL + CH - 0.15, cv[7]), 0.34, 0.4, RED_DK);
@@ -155,18 +196,28 @@ export function build({ S, group, THREE }) {
   // the front: the outer row stands free along a verandah; behind it, the 7 middle bays are door leaves (52 in all),
   // the end bays solid. Gables and the back are walled, with doors in the middle bays at the back.
   S.kind = KIND.TIMBER;
-  const doorRow = (v, from, to, h) => {
+  // `open`: bays whose leaves stand folded back against the jambs, swung into the hall, so the throne bay can be seen
+  const doorRow = (v, from, to, h, open = []) => {
     for (let i = from; i < to; i++) {
       const u0 = cu[i] + 0.3, u1 = cu[i + 1] - 0.3, w = u1 - u0, uc = (u0 + u1) / 2;
-      box(uc, v, FL, FL + h, w, 0.14, shade(RED, 0.8));
-      box(uc, v + Math.sign(v) * 0.08, FL + h - 0.7, FL + h - 0.5, w, 0.04, GOLD); // the gilt rail above the leaves
       const leaves = Math.max(2, Math.round(w / 0.85));
-      for (let k = 1; k < leaves; k++) box(u0 + (w * k) / leaves, v + Math.sign(v) * 0.08, FL, FL + h - 0.7, 0.06, 0.04, RED_DK);
+      if (open.includes(i)) {
+        const lw = w / leaves, t = 0.07 * Math.ceil(leaves / 2), inn = -Math.sign(v);
+        for (const [ue, sg] of [[u0, 1], [u1, -1]]) {
+          box(ue + sg * t / 2, v + inn * lw / 2, FL, FL + h - 0.7, t, lw, shade(RED, 0.8)); // the folded stack
+          box(ue + sg * (t + 0.01), v + inn * lw / 2, FL + 0.3, FL + h - 1.0, 0.02, lw * 0.7, shade(GOLD, 0.8));
+        }
+        box(uc, v, FL + h - 0.7, FL + h, w, 0.14, shade(RED, 0.8)); // the head over the opening
+      } else {
+        box(uc, v, FL, FL + h, w, 0.14, shade(RED, 0.8));
+        for (let k = 1; k < leaves; k++) box(u0 + (w * k) / leaves, v + Math.sign(v) * 0.08, FL, FL + h - 0.7, 0.06, 0.04, RED_DK);
+      }
+      box(uc, v + Math.sign(v) * 0.08, FL + h - 0.7, FL + h - 0.5, w, 0.04, GOLD); // the gilt rail above the leaves
       box(uc, v, FL + h, FL + CH - 0.3, w, 0.12, RED_DK); // the transom of carved, gilt panels
       box(uc, v + Math.sign(v) * 0.07, FL + h + 0.15, FL + CH - 0.45, w * 0.8, 0.04, shade(GOLD, 0.8));
     }
   };
-  doorRow(cv[1], 1, 8, 3.1);
+  doorRow(cv[1], 1, 8, 3.1, [3, 4, 5]); // the three middle front bays open (owner's choice: show the cranes)
   doorRow(cv[7] + 0.1, 2, 7, 3.1);
   // solid end bays at the front and back, and the gable walls
   for (const s of [-1, 1]) {

@@ -36,5 +36,47 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-436.7, 48.1, -63.9], "target": [-458.9, 2.6, -52.2] }
+  },
+  "courtyard-vac-ta-vu": {
+    "note": "Close view of the bronze cauldron (vạc đồng) before Tả Vu in the Cần Chánh court, from the axis side (src/landmarks/courtyard.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1142.4, 4.0, -51.6], "target": [-1140.7, 3.3, -55.5] }
+  },
+  "courtyard-cannons-quang-duc": {
+    "note": "The five holy cannons (Cửu vị thần công, Ngũ hành) in their house inside Cửa Quảng Đức, from in front of the muzzles (src/landmarks/courtyard.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1109.2, 4.6, 324.1], "target": [-1118.8, 3.4, 329.3] }
+  },
+  "courtyard-cannons-the-nhon": {
+    "note": "The four holy cannons (Cửu vị thần công, Tứ thời) in their house inside Cửa Thể Nhơn, from in front of the muzzles (src/landmarks/courtyard.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-822.8, 4.6, 113.2], "target": [-813.4, 3.4, 108.1] }
+  },
+  "thaihoa-kylan-front": {
+    "note": "The front of điện Thái Hòa from Long Trì just west of the axis: the pair of bronze kỳ lân at the foot of the middle flight and the one vạc on the hall's left, the east (src/landmarks/places/thaihoa.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1097.9, 6.4, 51.9], "target": [-1102.6, 4.8, 30.4] }
+  },
+  "themieu-kylan-kiosk": {
+    "note": "The east bronze kỳ lân of Thế Miếu's court in its metal kiosk (thiết đình), from the walk side (src/landmarks/places/themieu.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1261.0, 4.6, 212.5], "target": [-1256.9, 3.8, 199.6] }
+  },
+  "thaihoa-open-doors": {
+    "note": "Into điện Thái Hòa through the three open middle front bays, from Đan Bệ on the axis: the bronze cranes on tortoises either side of the throne bay (src/landmarks/places/thaihoa.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1106.0, 9.6, 34.2], "target": [-1121.0, 6.8, 14.2] }
   }
 }

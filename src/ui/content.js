@@ -157,7 +157,7 @@ export const NOTES = {
   truongsanh: { vi: 'Cung Trường Sanh — cung của các Thái hoàng thái hậu, phía sau cung Diên Thọ.', en: 'Trường Sanh Residence, for the grand queen mothers, behind Diên Thọ.' },
   duyetthi: { vi: 'Duyệt Thị Đường — nhà hát cung đình trong Tử Cấm thành, dựng năm 1826.', en: 'Duyệt Thị Đường, the royal theatre inside the Forbidden Purple City, built in 1826.' },
   kientrung: { vi: 'Điện Kiến Trung — bị phá hủy năm 1947, phục dựng xong năm 2024.', en: 'Kiến Trung Palace — destroyed in 1947, its reconstruction completed in 2024.' },
-  canchanh: { vi: 'Nền điện Cần Chánh — nơi vua thiết triều thường ngày; điện bị thiêu hủy năm 1947.', en: 'The footing of Cần Chánh Palace, where the emperor held daily court; the hall burned in 1947.' },
+  canchanh: { vi: 'Điện Cần Chánh — nơi vua thiết triều thường ngày; bị thiêu hủy năm 1947, đang phục dựng.', en: 'Cần Chánh Palace, where the emperor held daily court; burned in 1947, now being rebuilt.' },
   hiennhon: { vi: 'Cửa Hiển Nhơn — cửa phía đông của Hoàng thành.', en: 'Hiển Nhơn Gate, the east gate of the Imperial City.' },
   chuongduc: { vi: 'Cửa Chương Đức — cửa phía tây của Hoàng thành.', en: 'Chương Đức Gate, the west gate of the Imperial City.' },
   tuphuong: { vi: 'Lầu Tứ Phương Vô Sự — lầu trên Bắc Khuyết Đài, mặt bắc Hoàng thành, xây năm 1923.', en: 'Tứ Phương Vô Sự Pavilion on the northern bastion of the Imperial City, built in 1923.' },

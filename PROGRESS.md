@@ -1,5 +1,21 @@
 # Progress
 
+## In progress
+- Finished buildings, not building sites (2026-11-21, branch `claude/rebuild-mode-concerns-fcf0b6`): owner decision —
+  a hall that is lost, being rebuilt or only a foundation is drawn complete, as it stood before its loss, instead of
+  as it stands today. First four: Điện Cần Chánh (was a bare lim frame), Đại Cung Môn (foundation), Thái Miếu's main
+  hall and its smaller halls (bases), Đức Hinh lâu at Lăng Thiệu Trị (ruin). One agent per place; heights merged into
+  docs/heights-reference.json afterwards.
+- Courtyard objects (2026-11-21, same branch): owner asked for the statues, jars and bronzes in the courts.
+  `src/landmarks/props.js` holds shared builders (mandarins, elephant, horse, kỳ lân, vạc, đỉnh, crane on tortoise,
+  cannon, jar, planter); `src/landmarks/courtyard.js` draws the Quảng Đức and Thể Nhơn cannon houses and four Đại
+  Nội vạc. Tombs, Cửu Đỉnh, Thế Miếu, Hưng Miếu, Kiến Trung and Thái Hòa use them; sources per object in
+  docs/places/courtyard-objects.md. Second pass (sources sought): Thái Hòa keeps one vạc, gains a kỳ lân pair on
+  Đan Bệ, cranes moved inside by the throne, second vạc and censers removed; Thế Miếu kỳ lân stand in thiết đình
+  (kiosk shape estimated). Thái Hòa's three middle front bays now stand open so the cranes and the throne (sourced size, three tiers, gilt
+  bửu tán) show. Open for the owner: kiosk shape; 1842
+  dragon pair.
+
 ## Done
 - Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
   Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
@@ -194,7 +210,7 @@
   now thin railed walkways on piers.
 - Boat ride: the guided ride under cầu Trường Tiền was removed (2026-11-21). Gone: `src/camera/ride.js`, the ride
   button, HUD and scrub bar, the `B` key, the spare ride boat, and click-a-boat-to-follow. Kept: the dragon-boat fleet as scenery.
-- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
+- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only (except lost halls, which are drawn complete: see "Finished buildings"). Gone: `src/era.js`,
   the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
   `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and
   unused: the `eras` texts in `public/data/stories.json` (43 places).

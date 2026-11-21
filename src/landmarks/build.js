@@ -12,6 +12,7 @@ import { buildRiverLights } from './riverlights.js';
 import { buildLotus, buildTraffic, buildStreetLife } from './life.js';
 import { buildFloatingRestaurants } from './floating.js';
 import { buildPlaces } from './places/index.js';
+import { buildCourtyard } from './courtyard.js';
 
 // Every landmark, in one sequence, for the browser (src/main.js) and the headless geometry checks
 // (scripts/lib/scene.mjs: check-overlap, check-burial, check-heights, check-joints). A new landmark goes in here and
@@ -52,6 +53,7 @@ export function buildLandmarks(data, world, group, { step = (name, run) => run()
   run('south', () => buildSouth(data, S));
   run('tombs', () => buildTombs(data, S));
   const replicas = run('replicas', () => buildPlaces(data, S, group, onPlace)); // per-place replica models in src/landmarks/places/
+  run('courtyard', () => buildCourtyard(data, S)); // bronze cannons and cauldrons of the Imperial City's courts (courtyard.js)
   run('populate', () => populate(world, data)); // buildings, houses and trees, kept off the ground the landmark models cover
   if (finish) finishStructures(S, world.group);
   const boats = run('boats', () => buildBoats(data, group, S)); // S, closed: the fleet keeps clear of the bridges and landings in it
