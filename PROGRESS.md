@@ -1,6 +1,14 @@
 # Progress
 
 ## Done
+- Share a view (2026-11-21): "Chia sẻ góc nhìn" / "Share this view" button on the place card and in the tool column
+  builds a `?v=1&c=…&t=…&a=…&f=…&m=…&p=…` link (format in docs/development.md, code in src/ui/share.js): navigator.share
+  where available, otherwise the clipboard with "Đã sao chép liên kết". Opening it sets the mood without a fade, puts
+  the camera there (no home flight), opens the card and marks the camera as moved (`rig.leaveOpening()` in
+  controls.js) so resize and drift leave it alone. Distance adapts to the window's aspect; on phones the camera tips
+  so the view centre sits above the card sheet. Invalid params fall back to the normal opening. Checked in headless
+  Chrome: Trường Tiền at night (desktop → new tab → phone), rainy night at Đông Ba (fresh session, first frame), free
+  view, seven malformed links.
 - One landmark sequence (2026-11-21): `buildLandmarks` in src/landmarks/build.js is the only place the landmarks,
   populate and the moving things are built, in order; src/main.js and scripts/lib/scene.mjs both call it (the checks
   through a per-step observer), and check-heights now builds through scene.mjs too. Previously browser-only steps now
