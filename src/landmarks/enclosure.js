@@ -33,7 +33,7 @@ export function strips(L, color, boost = 1.6) {
   if (!L || L.n === 0) return;
   const m = new THREE.Mesh(L.geometry(), lightMaterial(color, boost));
   m.renderOrder = 19;
-  m.userData.landmark = true; // counts towards label heights (ui/labels.js)
+  m.userData.landmark = true; // counts towards label heights (scripts/lib/label-tops.mjs)
   night.add(m);
 }
 export function flushLamps() {

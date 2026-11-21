@@ -1,6 +1,12 @@
 # Progress
 
 ## Done
+- Label heights at build time (2026-11-21): `modelTops()` (scene walk for each tag's anchor, ~100-120 ms on the M-series
+  GPU page, more on phones) moved out of startup into the data build: `scripts/build-label-tops.mjs` (run at the end of
+  build-data.mjs) builds the app scene headless and writes `a` (model top, decimetres) per place into `places.json`;
+  labels.js reads it (fallback ground + `h`) and now takes its places from the index. Vọng Cảnh's record, moved onto the
+  lookout by its replica at build, is moved in the index too. All 80 anchors match the old browser ones within 5 cm
+  (rounding); `npm run check:labels` (also `--browser`).
 - Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
   `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
   lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with

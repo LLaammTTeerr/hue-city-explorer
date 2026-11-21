@@ -2117,3 +2117,6 @@ console.log('truong tien obb', ttBox.w.toFixed(1), 'x', ttBox.d.toFixed(1), 'cen
   if (previous) { console.log('changes against the previous ' + OUT + ':'); for (const l of diffData(previous, out)) console.log('  ' + l); }
   if (fails.length) { console.error(`build-data: ${fails.length} check(s) failed; ${OUT} was written so it can be inspected, but do not ship it`); process.exit(1); }
 }
+
+// ---- label anchor heights: the scene built headless from the new hue.json, its model tops written into places.json ----
+await (await import('./build-label-tops.mjs')).buildLabelTops();

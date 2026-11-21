@@ -16,7 +16,9 @@ Object.assign(globalThis, {
 const root = new URL('../../', import.meta.url);
 const src = (p) => new URL('src/' + p, root).href;
 
-export async function buildScene() {
+// opts.app: also the parts src/main.js adds that the geometry checks leave out (the riverside lamps, and the merged
+// 'structures' mesh built from the shared buffer), so build-label-tops.mjs sees the scene the browser sees.
+export async function buildScene(opts = {}) {
   const warn0 = console.warn;
   console.warn = () => {}; // check-heights reports builder warnings; here only geometry matters
   const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
@@ -33,8 +35,8 @@ export async function buildScene() {
   const city = await import(src('geo/city.js'));
   const config = await import(src('config.js'));
   const L = (m) => import(src('landmarks/' + m + '.js'));
-  const [truongtien, citadel, more, civic, memorial, boardwalk, floating, south, tombs, boats, life] = await Promise.all(
-    ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'floating', 'south', 'tombs', 'boats', 'life'].map(L));
+  const [truongtien, citadel, more, civic, memorial, boardwalk, floating, south, tombs, boats, life, riverlights] = await Promise.all(
+    ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'floating', 'south', 'tombs', 'boats', 'life', 'riverlights'].map(L));
   const isLand = boats.landTest(data, { ponds: true });
 
   const world = city.buildCity(data);
@@ -54,6 +56,7 @@ export async function buildScene() {
   step('civic', () => civic.buildCivic(data, S));
   step('biaquochoc', () => memorial.buildBiaQuocHoc(data, S));
   step('boardwalk', () => boardwalk.buildBoardwalk(data, S, dyn));
+  if (opts.app) step('riverlights', () => riverlights.buildRiverLights(data, S, dyn));
   step('floating', () => floating.buildFloatingRestaurants(data, S, dyn));
   step('south', () => south.buildSouth(data, S));
   step('tombs', () => tombs.buildTombs(data, S));
@@ -65,6 +68,7 @@ export async function buildScene() {
     if (world.group.children.length > g) sources.push({ name: 'replicas', range: [S.n, S.n], objs: world.group.children.slice(g) });
   }
   step('populate', () => city.populate(world, data));
+  if (opts.app) city.finishStructures(S, world.group);
   step('street', () => life.buildStreetLife(data, dyn));
   console.warn = warn0;
   return { data, world, S, dyn, sources, errors, groundY, isLand, ROAD_W: config.ROAD_W, LAND_Y: config.LAND_Y };

@@ -37,12 +37,14 @@ places": a flat SVG map of the places over the land outline (from `places.json`)
 | `npm run check:overlap` | no model on a carriageway, inside another model or under a kept building |
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
 | `npm run check:roofs` | no hip roof runs through another: side-by-side roofs meet in a valley gutter, an upper tier clears the slope below |
+| `npm run check:labels` | the label anchor heights in `places.json` (`a`) match the model tops of a freshly built scene; `--browser` (after `npm run build`) runs the same on the live page |
 
 ## Contributing
 
 - `main` is protected: every change goes through a pull request.
 - The `check` workflow (`.github/workflows/check.yml`) must pass, and the branch must be up to date with `main`.
 - PRs are squash-merged, so each PR lands as one commit.
+- Label heights: `npm run data:build` ends with `scripts/build-label-tops.mjs`, which builds the scene headless (`scripts/lib/scene.mjs`) and writes each place's model top into `places.json` as `a` (decimetres); `src/ui/labels.js` reads it and falls back to ground + `h` without it. Changing a model under `src/landmarks/` or `src/geo/` moves its tops: run `node scripts/build-label-tops.mjs` (or the whole data build) and commit `places.json`; `npm run check` catches a stale one.
 - After changing anything under `scripts/` or `data/`, rebuild the bundle with `npm run data:build` and commit `public/data/hue.json` and `public/data/places.json` with the change.
 - Fix a problem where it starts (the source data, the parser or a shared builder) and rebuild, rather than patching one place.
 - Work in progress and history are in [`PROGRESS.md`](../PROGRESS.md). Per-place research notes are in [`docs/places/`](places/).

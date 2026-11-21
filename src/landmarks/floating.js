@@ -299,7 +299,7 @@ export function buildFloatingRestaurants(data, S, group) {
         if (!B.n) return;
         const m = new THREE.Mesh(B.geometry(), mat);
         m.renderOrder = 19;
-        m.userData.landmark = true; // counts towards label heights (ui/labels.js)
+        m.userData.landmark = true; // counts towards label heights (scripts/lib/label-tops.mjs)
         group.add(m);
       };
       add(LB.warm, washMaterial(0xffc98a, 0.32));
