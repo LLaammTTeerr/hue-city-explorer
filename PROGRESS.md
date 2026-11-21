@@ -612,3 +612,13 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   dot(p, V). The frame is now the camera's heading (forward + up from viewMatrix), one per frame. Checked over the
   Hương below Trường Tiền at golden hour, before and after.
 - `npm run check` and `npm run build` pass.
+
+## Seamless bridge-to-street joints (2026-11-21, branch `worktree-agent-ab59d4954699589fb`)
+- Trigger: cầu Nguyễn Hoàng's north (Kim Long) end met its divided approach with a wedge of bare ground, a skewed cut, misaligned medians and lanes, and red strips ending in the air.
+- Root causes, fixed in shared code:
+  - twin bridge carriageways were not narrowed like their streets (build-data `divided` now includes bridges), and decks were sized from ROAD_W, not the way's width;
+  - street end caps were square to their own last segment: `bridgeJoints`/`handDeckJoints` in geo/city.js now cut both ends on the joint's bisector, or square to a replica deck's end;
+  - each median strip had one averaged width: strips are now split where the gap drifts more than 0.5 m;
+  - generic decks ended 0.36 m above the street: bridges.js now ramps class 0-3 decks onto the street's height;
+  - cầu Nguyễn Hoàng's fixed cross-section now blends, over its last 24 m, into its approach carriageways' bands, colours and cross-fall. Its deck ends, and Phú Xuân's, are exported via `deckEnds()`.
+- New `npm run check:joints` (scripts/check-joints.mjs), now part of `npm run check`: 81 joints, 0 failing (bare seam ≤ 0.5 m², step ≤ 0.35 m). The old code had 66 of 77 failing. check:overlap is still clean.
