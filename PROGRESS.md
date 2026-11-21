@@ -17,6 +17,15 @@
   dragon pair.
 
 ## Done
+- Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
+  Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
+  bridges; 11 of them sat under a deck (Thượng Tứ, Cồn Dã Viên, …). They now keep 3 m from every bridge road, rail and
+  mapped outline along ±6 m of hull. The dragon boats had the same blind spot: they turned around under cầu Dã Viên,
+  ran into Cồn Hến's landings and the outer lane (58 m) hit Phú Xuân's piers. `fleetRouter` in
+  `src/landmarks/boats.js` now picks each boat's lane (26/34/42 m, slid ±4 m if needed) and stretch of river from the
+  built structures, using the exact hull-box test in `src/geo/clearance.js`. `npm run check:boats` (in `npm run check`)
+  tests every moored sampan and a full round trip of every dragon boat against all static faces. Cost: ~100 ms more at
+  load for the routing (an inline y prefilter could cut it).
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
   the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them
@@ -770,3 +779,17 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   the card returns focus to search.
 - Not verified: the single-stall case in a live tab, because the hidden browser pane pauses requestAnimationFrame
   while still reporting the page as visible. The simulation covers that case.
+
+## Geometry audit: Ngọ Môn, Ngự Bình, Khải Định (2026-11-21, branch `claude/peaceful-varahamihira-11124f`, uncommitted, awaiting owner)
+- Ngọ Môn: footprint now the published 57.96 m front × 27.5 m wings (vi.wikipedia citing Phan Thanh Hải 2015; the
+  audit's 57.77 is Lê Đình Phúc's figure, 0.2 m off). The OSM outline was 55.8 × 24.75 m (the header's 25.3 was OSM's east
+  wing alone). The back face stays on OSM's line; the ends move out 1.08 m and the wing tips 2.75 m. The Lầu plinth and end roof units
+  follow. Tả/Hữu Dịch Môn are now real bent, vaulted tunnels cut through the wings (polygon-clipping difference of the
+  half-base): in at the inner face, a right-angle turn, out at the back. The central three stay rectangular (bronze beams).
+  New view `ngo-mon-dich-mon`.
+- Ngự Bình: cap moved to the crest that the FABDEM DEM and the grid both show (220 × 40 m from (+20,−15) to (−195,+35)
+  about the summit; was 130 × 40 m, east part only, about 23° off). New view `ngu-binh-north`.
+- Khải Định: the 40.5 m of the Bái Đình reads as along-axis by the article's own convention, but it cannot fit between
+  OSM's Bi Đình and palace positions. The court is unchanged and the finding is documented in `docs/places/khaidinh.md`.
+- `npm run check` and `npm run build` pass. Captures are in `scratch/compare/index.html` and `scratch/shots/`. Open questions for
+  the owner: 57.96 vs 57.77, and how to read the Khải Định figure.

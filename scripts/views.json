@@ -30,6 +30,13 @@
     "time": 1,
     "camera": { "pos": [-464.1, 85.6, -49.0], "target": [-464.1, 2.6, -49.1] }
   },
+  "thuong-tu-boat": {
+    "note": "A visitor's report of a boat running through a bridge: above cầu Cửa Thượng Tứ by the Citadel's east corner, where a moored sampan sat under the deck (shared link c=-436.7,48.1,-63.9 t=-458.9,-52.2 a=1.91 f=44.7 m=10r).",
+    "viewport": [1400, 733],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-436.7, 48.1, -63.9], "target": [-458.9, 2.6, -52.2] }
+  },
   "courtyard-vac-ta-vu": {
     "note": "Close view of the bronze cauldron (vạc đồng) before Tả Vu in the Cần Chánh court, from the axis side (src/landmarks/courtyard.js).",
     "viewport": [1400, 900],
@@ -71,6 +78,20 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-1106.0, 9.6, 34.2], "target": [-1121.0, 6.8, 14.2] }
+  },
+  "ngo-mon-dich-mon": {
+    "note": "Standing in Ngọ Môn's forecourt between the wings, at eye height, looking at the west wing's inner face: Tả Dịch Môn and the west Giáp Môn from the side.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1016.5, 4.2, 149.8], "target": [-1041.3, 3.2, 145.6] }
+  },
+  "ngu-binh-north": {
+    "note": "Núi Ngự Bình from the north, over the An Cựu quarter, looking south along the Citadel's axis at the flat top.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [690, 150, 1750], "target": [690, 80, 3020] }
   },
   "dcct-front": {
     "note": "Nhà thờ Dòng Chúa Cứu Thế from the forecourt, about 70 m east of the front, matched to VietNamNet's front photograph (the stepped gable, the great window, the canopy).",
