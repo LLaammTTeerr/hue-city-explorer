@@ -20,6 +20,7 @@ import { createCascades } from './env/csm.js';
 import { createCamera, fromForm } from './camera/controls.js';
 import { createLabels } from './ui/labels.js';
 import { createUI } from './ui/ui.js';
+import { createShare } from './ui/share.js';
 import { VIEWS } from './ui/content.js';
 import { rise } from './geo/terrain.js';
 import { createFallback } from './ui/fallback.js';
@@ -60,7 +61,7 @@ async function main() {
   if (geometryP) geometryP.catch(() => {}); // a failure is reported where it is awaited, below
   index = await indexP;
 
-  let rig, mood, labels, data;
+  let rig, mood, labels, data, sharing;
   const live = (f) => (...a) => (rig ? f(...a) : undefined); // controls that need the 3D scene
   ui = createUI(index, {
     pick: (id, fly, from) => pick(id, fly, from),
@@ -74,6 +75,7 @@ async function main() {
     rain: live(() => mood.setRain(!mood.state.rainTarget)),
     time: live((i) => mood.setTime(i)),
     look: live(() => setLook(!look, true)),
+    share: (id) => sharing && sharing.share(id),
   });
   performance.mark('hue:search-ready');
   fallback = createFallback({ ui, index, tryRenderer: createRenderer, onPick: (id) => pick(id, true) });
@@ -371,6 +373,9 @@ async function main() {
   let savedLook = null;
   try { savedLook = localStorage.getItem('hue-look'); } catch { /* private mode */ }
   setLook((new URLSearchParams(location.search).get('look') || savedLook || 'ink') !== 'real');
+  // a shared view (?v=1…, src/ui/share.js) replaces the opening: atmosphere, camera and card are set before the first draw
+  sharing = createShare({ data, rig, mood, setLook, pick, ui, bounds: { minX: b[0] + 250, minZ: b[1] + 250, maxX: b[2] - 250, maxZ: b[3] - 250 } });
+  const sharedView = sharing.apply();
   mood.update(0, 0);
   updateShadow();
   draw(); // compile shaders before the curtain lifts
@@ -379,7 +384,7 @@ async function main() {
   await frame();
   ui.loaderDone();
   performance.mark('hue:first-frame');
-  if (ui.cardId) pick(ui.cardId, true); // a place opened from the search box while the city loaded: go there now
+  if (ui.cardId && !sharedView) pick(ui.cardId, true); // a place opened from the search box while the city loaded: go there now
   // `?still`: no frame loop, no drift, no adaptive resolution. Time moves only when __hue.step(dt) is called, so
   // scripts/shot.mjs gets the same frame for the same steps on every run and revision (to within a few pixels of GPU noise).
   const still = new URLSearchParams(location.search).has('still');
@@ -389,7 +394,7 @@ async function main() {
   }
 
   // handle for debugging and automated checks
-  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows };
+  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing };
 }
 
 main().catch((err) => {

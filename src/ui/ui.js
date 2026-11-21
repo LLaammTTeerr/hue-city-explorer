@@ -70,7 +70,7 @@ export function createUI(data, handlers) {
     $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
     $('seg-lang').setAttribute('aria-label', T.langGroup);
     document.querySelectorAll('#seg-lang button').forEach((b) => b.setAttribute('aria-checked', b.dataset.lang === lang));
-    const tips = { 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
+    const tips = { 'btn-share': T.share, 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
     document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
     $('attrib').textContent = T.attrib;
@@ -209,6 +209,9 @@ export function createUI(data, handlers) {
   $('btn-labels').addEventListener('click', () => handlers.labels());
   $('btn-look').addEventListener('click', () => handlers.look());
   $('btn-about').addEventListener('click', () => $('about').showModal());
+  // share the view as it stands, with the open card if there is one (src/ui/share.js)
+  $('btn-share').addEventListener('click', () => handlers.share(current && current.id));
+  $('card-share').addEventListener('click', () => handlers.share(current && current.id));
   $('attrib').addEventListener('click', () => $('about').showModal());
   $('about-close').addEventListener('click', () => $('about').close());
   $('about').addEventListener('click', (e) => { if (e.target === $('about')) $('about').close(); });

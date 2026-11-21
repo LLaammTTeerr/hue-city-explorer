@@ -184,6 +184,10 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .tog, .seg, #card, dialog, 
 #card-name { margin: 0 30px 8px 0; font-family: var(--serif); font-weight: 540; font-size: 25px; line-height: 1.12; font-variation-settings: 'opsz' 60; }
 #card-note { margin: 0; font-size: 14px; line-height: 1.58; color: color-mix(in srgb, var(--ink) 88%, transparent); text-wrap: pretty; }
 #card-meta { margin: 10px 0 0; font-size: 11px; letter-spacing: 0.04em; color: var(--indigo); opacity: 0.8; font-variant-numeric: tabular-nums; }
+#card-share { display: inline-flex; align-items: center; gap: 7px; margin: 12px 0 2px; padding: 7px 12px 7px 9px; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: var(--indigo); font: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; }
+#card-share:hover { background: color-mix(in srgb, var(--indigo) 8%, transparent); }
+#card-share:focus-visible { outline: 2px solid var(--indigo); outline-offset: 2px; }
+#card-share svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
 
 

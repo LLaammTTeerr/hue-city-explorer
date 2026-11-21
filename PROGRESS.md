@@ -6,6 +6,14 @@
   stops the frame loop so repeat runs differ by at most ~10 scattered pixels; `scripts/compare.mjs <view> --base <ref>` shoots base and
   head side by side; `.github/ISSUE_TEMPLATE/experience.md`. Next: try a real issue (the Ngọ Môn arrival) and see where
   the agent gets stuck; captures are not in CI yet (needs Chrome with WebGL on the runner).
+- Share a view (2026-11-21): "Chia sẻ góc nhìn" / "Share this view" button on the place card and in the tool column
+  builds a `?v=1&c=…&t=…&a=…&f=…&m=…&p=…` link (format in docs/development.md, code in src/ui/share.js): navigator.share
+  where available, otherwise the clipboard with "Đã sao chép liên kết". Opening it sets the mood without a fade, puts
+  the camera there (no home flight), opens the card and marks the camera as moved (`rig.leaveOpening()` in
+  controls.js) so resize and drift leave it alone. Distance adapts to the window's aspect; on phones the camera tips
+  so the view centre sits above the card sheet. Invalid params fall back to the normal opening. Checked in headless
+  Chrome: Trường Tiền at night (desktop → new tab → phone), rainy night at Đông Ba (fresh session, first frame), free
+  view, seven malformed links.
 - One landmark sequence (2026-11-21): `buildLandmarks` in src/landmarks/build.js is the only place the landmarks,
   populate and the moving things are built, in order; src/main.js and scripts/lib/scene.mjs both call it (the checks
   through a per-step observer), and check-heights now builds through scene.mjs too. Previously browser-only steps now
@@ -666,6 +674,10 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   - generic decks ended 0.36 m above the street: bridges.js now ramps class 0-3 decks onto the street's height;
   - cầu Nguyễn Hoàng's fixed cross-section now blends, over its last 24 m, into its approach carriageways' bands, colours and cross-fall. Its deck ends, and Phú Xuân's, are exported via `deckEnds()`.
 - New `npm run check:joints` (scripts/check-joints.mjs), now part of `npm run check`: 81 joints, 0 failing (bare seam ≤ 0.5 m², step ≤ 0.35 m). The old code had 66 of 77 failing. check:overlap is still clean.
+
+## Joint step as a module with a fixture test (2026-11-21, branch `claude/joint-fixture`)
+- `bridgeJoints`, `handDeckJoints` and `JOINT_ANG` moved unchanged from `src/geo/city.js` to `src/geo/joints.js` (city.js imports them); `check:joints --all` and `check:overlap` output identical before and after.
+- `npm run test:joints` (scripts/test-joints-fixture.mjs, part of `npm run check`) runs them on real road ends in scripts/fixtures/joints-real.json within 1 cm: cầu Nguyễn Hoàng's Kim Long end, cầu Phú Xuân (both ends), bridge way 129. Trường Tiền has no joint (hand model, carriageway not laid), so Phú Xuân stands in. A sign flip in `bridgeJoints` fails 6 ends. `check:joints` stays the city-wide check.
 
 ## Four interaction bugs (2026-11-21, branch `worktree-agent-a3d055188011d1313`)
 - Resize no longer sends the camera home once a place or the overview is chosen: the rig tracks `opening` (still on the

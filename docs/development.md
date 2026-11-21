@@ -29,6 +29,34 @@ no adaptive resolution), so only `__hue.step` moves time.
 `node scripts/shot.mjs --view <name>` captures a named view from `scripts/views.json`; `node scripts/compare.mjs <view>
 --base <ref>` captures it on another revision too and writes a side-by-side page to `scratch/compare/`.
 
+### Shared views (`?v=1`)
+
+The share button ("Chia sẻ góc nhìn" / "Share this view", on the place card and in the tool column) builds a link that
+reopens the view (`src/ui/share.js`). It uses the system share sheet where there is one, otherwise it copies the link.
+
+```
+?v=1&c=<x>,<y>,<z>&t=<x>,<z>&a=<aspect>&f=<fov>&m=<time><rain><look>[&p=<place id>]
+```
+
+| Key | Meaning |
+| --- | --- |
+| `v` | format version, `1`; any other value is ignored |
+| `c` | camera position, scene metres, 1 decimal |
+| `t` | camera target on the ground (x, z; its height is always `LAND_Y`) |
+| `a` | width / height of the window the link was made in, 2 decimals |
+| `f` | vertical field of view then, degrees |
+| `m` | time of day `0` morning, `1` late afternoon, `2` lights on; rain `0`/`1`; look `i` ink or `r` realistic |
+| `p` | place id whose card is open (`data.places`); left out for a free view |
+
+Example: `?v=1&c=300.7,116.6,-395.5&t=0,0&a=1.78&f=37.6&m=20i&p=truongtien` (Trường Tiền, lights on, ink).
+On load a valid link sets the atmosphere at once (no fade), places the camera (no opening flight) and opens the card;
+the camera counts as moved, so a resize keeps it. The target and direction are kept and only the distance changes for
+the new window: the link's full frame height, and as much of its width as the landmark needs (a centred landmark keeps
+half the width, one near the edge all of it). On a phone, where the card covers the lower half, the camera tips down so
+the view's centre sits in the strip above the card. A link that fails any check (wrong version, malformed number,
+target off the map, distance out of the controls' range, unknown place) is ignored and the normal opening plays.
+Other params (`?look=`) are not carried into a shared link; a shared link's look does not change the saved choice.
+
 ## Checks
 
 | Command | What it checks |
@@ -40,6 +68,7 @@ no adaptive resolution), so only `__hue.step` moves time.
 | `npm run check:burial` | no model sunk into the ground |
 | `npm run check:overlap` | no model on a carriageway, inside another model or under a kept building |
 | `npm run check:joints` | every bridge deck meets its approach street: no step, gap or width jump at the joint |
+| `npm run test:joints` | fixture test of the joining step (`src/geo/joints.js`) on real road ends (`scripts/fixtures/joints-real.json`), within 1 cm; milliseconds |
 | `npm run check:roofs` | no hip roof runs through another: side-by-side roofs meet in a valley gutter, an upper tier clears the slope below |
 
 ## Contributing
