@@ -74,7 +74,7 @@ export function createUI(data, handlers) {
     const n = (v) => v.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
     $('about-body').innerHTML = T.aboutBody.replace('{buildings}', n(data.meta.counts.buildings)).replace('{infill}', n(data.meta.counts.infill));
     const ts = (data.meta.osmTimestamp || '').slice(0, 10);
-    $('about-fine').textContent = (lang === 'vi' ? 'Dữ liệu OSM trích ngày ' : 'OSM extract dated ') + ts + ' · Overpass API · three.js';
+    $('about-fine').textContent = (lang === 'vi' ? 'Dữ liệu OSM trích ngày ' : 'OSM extract dated ') + ts + ' · Overpass API · three.js · v' + __APP_VERSION__ + (__APP_COMMIT__ ? ' (' + __APP_COMMIT__ + ')' : '');
     $('loader-text').textContent = T.loading;
     $('scene').setAttribute('aria-label', T.scene);
     $('seg-time').setAttribute('aria-label', T.timeOfDay);
