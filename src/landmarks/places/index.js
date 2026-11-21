@@ -10,6 +10,10 @@ import { KIND } from '../../geo/buf.js';
 //          parts, place the record from data.places with x/z already in metres. It may return
 //          { update(time, glow, rain) } to be called every frame.
 //          Flags (and other moving parts in ../anim.js) animate on the shared clock and wind; they need no update().
+//   joinRoofs  optional, false to opt out. A model's hip roofs that stand side by side (a double hall, halls end to
+//          end, a gallery against a hall) meet in valley gutters instead of running through each other: build runs
+//          inside S.joined (geo/buf.js), so its roofs are drawn after the rest of it and an index range it reads
+//          (S.paved, S.noCover) does not include them.
 // The older builder that drew the same place checks `replaced(id)` and leaves it out, so the two never overlap.
 // Vite collects the replica files; plain node (scripts/check-heights.mjs) imports them itself and hands them over
 // on globalThis.__hueReplicas. The list is read on first use, not at import: builders (and city.js through
@@ -48,7 +52,9 @@ export function buildPlaces(data, S, group, onEach = null) {
     const place = p ? { ...p, x: p.x / 10, z: p.z / 10 } : null;
     const n0 = S.n, k0 = group ? group.children.length : 0; // on a throw, roll the shared buffer back so no half-built model is left behind
     try {
-      const r = m.build({ data, S, group, place, THREE });
+      let r;
+      if (m.joinRoofs !== false) S.joined(() => { r = m.build({ data, S, group, place, THREE }); });
+      else r = m.build({ data, S, group, place, THREE });
       if (r && typeof r.update === 'function') live.push(r);
     } catch (e) {
       S.n = n0;
