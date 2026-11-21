@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Buf, hex, shade, unflat, inRing, pathLength } from '../geo/buf.js';
 import { cityMaterial, enc, glowPoints } from '../geo/materials.js';
 import { rise, pondY } from '../geo/terrain.js';
-import { LAND_Y, quality, ROAD_W, ROAD_MAX } from '../config.js';
+import { LAND_Y, quality, ROAD_W, ROAD_MAX, roadWidth } from '../config.js';
 import { bridgeProfiles, resample } from '../geo/bridges.js';
 import { landTest } from './boats.js';
 import { TT_LENGTH } from './truongtien.js';
@@ -109,7 +109,7 @@ function readRoads(data) {
     const pts = unflat(r[2]);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1]; }
-    out.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), x0, x1, z0, z1 });
+    out.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), w: roadWidth(r), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), x0, x1, z0, z1 });
   }
   return out;
 }
@@ -450,7 +450,7 @@ function buildLampPosts(data, group, out = {}) {
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < r.len; s += step, k++) {
       const { p, a } = along(r.pts, s);
-      const side = k % 2 ? 1 : -1, off = (ROAD_W[r.c] / 2 + 0.5) * side;
+      const side = k % 2 ? 1 : -1, off = (r.w / 2 + 0.5) * side;
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
       const P = r.bridge && profiles.get(r.flat), up = P ? P.bump(s) : 0; // on a humped deck the post rides the curve
       const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 + up : 7.5);
@@ -501,10 +501,10 @@ function buildPedestrians(data, group) {
   const N = quality.low ? 300 : 900;
 
   // a pedestrian path keeps how far from its centreline people walk
-  const roadPath = (pts, c) => {
+  const roadPath = (pts, c, w = ROAD_W[c]) => {
     const p = mkPath(pts);
-    if (c <= 2) { p.pav = ROAD_W[c] / 2 + 1.5; p.half = 0.4; } // on the pavements
-    else { p.pav = 0; p.half = Math.max(0.3, ROAD_W[c] / 2 - 0.4); } // lanes and walking streets: anywhere across
+    if (c <= 2) { p.pav = w / 2 + 1.5; p.half = 0.4; } // on the pavements
+    else { p.pav = 0; p.half = Math.max(0.3, w / 2 - 0.4); } // lanes and walking streets: anywhere across
     return p;
   };
   const freePath = (pts, half = 2.5) => { const p = mkPath(pts); p.pav = 0; p.half = half; return p; };
@@ -512,7 +512,7 @@ function buildPedestrians(data, group) {
     const out = [], r2 = r * r;
     for (const rd of roads) {
       if (rd.c > maxC || rd.x1 < cx - r || rd.x0 > cx + r || rd.z1 < cz - r || rd.z0 > cz + r) continue;
-      for (const run of clipRuns(rd.pts, (x, z) => (x - cx) ** 2 + (z - cz) ** 2 < r2, 5, 14)) out.push(roadPath(run, rd.c));
+      for (const run of clipRuns(rd.pts, (x, z) => (x - cx) ** 2 + (z - cz) ** 2 < r2, 5, 14)) out.push(roadPath(run, rd.c, rd.w));
     }
     return out;
   };
@@ -567,7 +567,7 @@ function buildPedestrians(data, group) {
   for (const rd of roads) {
     if (rd.c > 2) continue;
     for (const run of clipRuns(rd.pts, (x, z) => ctr.some(([cx, cz, r]) => (x - cx) ** 2 + (z - cz) ** 2 < r * r), 8, 30)) {
-      pave.push(roadPath(run, rd.c));
+      pave.push(roadPath(run, rd.c, rd.w));
     }
   }
   spots.push({ paths: pave, share: 0.24, aodai: 0.12 });

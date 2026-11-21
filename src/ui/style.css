@@ -197,7 +197,7 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .tog, .seg, #card, dialog, 
 #labels.off .label { pointer-events: none !important; }
 .label { position: absolute; left: 0; top: 0; opacity: 0; visibility: hidden; transition: opacity 0.35s, visibility 0s linear 0.35s; will-change: transform; white-space: nowrap; pointer-events: none; }
 /* a hidden tag also leaves the tab order and the accessibility tree (visibility), once its fade is over */
-.label.show { opacity: 1; visibility: visible; transition: opacity 0.35s, visibility 0s; }
+.label.show { opacity: var(--fade, 1); visibility: visible; transition: opacity 0.35s, visibility 0s; }
 .label-place.show { pointer-events: auto; }
 .label-place:focus-visible { outline: none; }
 /* the tag stands STEM (14px, labels.js) above its anchor: a 12px gold stem runs from the tag's lower edge to the dot */

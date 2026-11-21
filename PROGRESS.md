@@ -1,6 +1,18 @@
 # Progress
 
 ## Done
+- Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
+  along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
+- Riverside lights (issue #21, 2026-11-21): build-data.mjs derives `riverLamps` from the Hương banks (embankment posts
+  every ~24 m where a road reaches the bank) and the riverside footways/lanes (low lights every ~16 m), and flags
+  buildings facing the river (bit 256: ≥4.5 m, within 130 m, unobstructed) as floodlit. city.js marks their faces
+  KIND_FLOOD; materials.js paints warm uplight scallops after dark. `src/landmarks/riverlights.js` builds the posts and
+  two glow clouds. 896 posts, 1648 walkway lights, 161 facades; frame time unchanged within noise.
+- Paved yards and squares (issue #22, 2026-11-21): new 'paved' ground drawn over the parks as paving, kept free of
+  trees and buildings. From OSM: highway areas (area=yes), area:highway, place=square and surface car parks, the last
+  three from the new light extract `data/raw/hue-osm-paved.json` (`fetch-osm-strip.sh … paved`, in data:fetch). From
+  the Sentinel-2 scene: bright, non-green 10 m cells inside parks and lawns, squared to the nearest street. 80 yards
+  (49 OSM, 31 satellite); checked at Nghênh Lương Đình, Thương Bạc and the south bank by Trường Tiền.
 - Waving flags (2026-11-21): shared `src/landmarks/anim.js` flag, wave in metres on the shared clock/wind (the old Kỳ Đài
   wave was scaled to ~0.1 m and invisible). Used at Kỳ Đài, Bảo tàng HCM (2) and Đông Ba (7), and the old citadel builder.
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).
@@ -557,3 +569,17 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - Cồn Hến: the tam quan is set back 0.7 m from the west lane.
 - Gia Hội: `waterSpans` (geo/bridges.js) stops the abutment at the kerb of a street crossing at grade. Huỳnh Thúc Kháng lies within a metre of the west bank, and approach streets are left out.
 - Next: settle the edge-contact counting. Then add check:overlap to `npm run check`.
+
+## Bridges: duplicate decks and one citadel bridge (2026-11-21, branch `claude/issue-17-19-bridges-32c6fd`, issues #17 and #19)
+- #17: bridge ways tagged `footway=sidewalk` (14 of them) were laid as a second flat deck beside or under the real one: under Trường Tiền's trusses, and beside Dã Viên and Phú Xuân. build-data now leaves them to their carriageway's deck or hand model and still marks their ground as road.
+- #19: every bridge inside the walls or within 90 m of a citadel gate is `bridge = 2` in hue.json (31 ways). They are all drawn by `src/geo/citadel-bridge.js`: brick body, round vaults ringed in plaster, a plaster string course, a solid parapet with coping and medallions, and end posts. `bridges.js` `citadelRule` sets the rise to len/10 (clamped 1.2–2.2 m) and the vaults over the water crossed (one vault, or three if the water is wider than 22 m). Nhà Đồ, Thượng Tứ and Ngoại Kim Thủy dropped out of NAMED.
+- Kept bespoke: Cửa Ngăn, Thủy Quan, Trung Đạo, and the Tịnh Tâm and Tàng Thư Lâu lake footbridges (`HAND_BRIDGES` way ids).
+- Verified in the preview: Đông Ba gate, Ngoại Kim Thủy, Nhà Đồ, Ngự Hà and Trường Tiền. `npm run check` passes.
+## Medians and darker asphalt on the divided roads (2026-11-21, issue #15, branch `claude/issue-15-roads-e59be1`)
+- Root cause: each carriageway of a divided road is its own one-way OSM way, but each was drawn at the full class width. The two overlapped into one slab, and the median trees ended up standing in the road.
+- `build-data.mjs`: a one-way twin (same name, running the opposite way, straight across) is now laid at a one-way width (8/7/6 m, never wider than the gap allows). The gap between the twins' inner kerbs becomes a median (`medians` in hue.json: `[width dm, pts]`). It stops at crossing roads and roundabouts, and no trees are planted on it. 106 carriageways narrowed, 119 strips, about 17 km.
+- A road record can now carry a 4th element, its width in dm. `roadWidth()` in config.js reads it, and city.js, life.js, check-data and check-overlap all use it.
+- city.js draws each median as a pale-grey kerb with grass inside and small shrubs along it.
+- Exception: within 90 m of chợ Đông Ba, Trần Hưng Đạo keeps its old look, with full width and trees in the middle, as the issue asks.
+- Road palette darkened to the cầu Trường Tiền deck grey (#76716e…). If that is too dark, it is a one-line change to `PAL.road`.
+- `npm run check` passes. Checked in the preview on port 5191.

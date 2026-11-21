@@ -165,10 +165,13 @@ function leafAtlas() {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// What a vertex belongs to (the aKind attribute; materials.js reads it under HUE_FOLIAGE): wood keeps its bark colour,
+// the crown takes the instance colour, and only the leaf cards carry the atlas, whose grey is brought back to 1 on average.
+const PART = { WOOD: 0, CORE: 1, LEAF: 2 };
 class Soup {
-  constructor() { this.p = []; this.n = []; this.uv = []; this.c = []; }
-  // v: three points, n: three normals, uv: three uvs, lum: three brightness values (linear), tint: [r,g,b]
-  tri(v, n, uv, lum, tint = [1, 1, 1]) {
+  constructor() { this.p = []; this.n = []; this.uv = []; this.c = []; this.k = []; }
+  // v: three points, n: three normals, uv: three uvs, lum: three brightness values (linear), tint: [r,g,b], part: PART
+  tri(v, n, uv, lum, tint = [1, 1, 1], part = PART.LEAF) {
     for (let k = 0; k < 3; k++) {
       this.p.push(...v[k]);
       const l = Math.hypot(...n[k]) || 1;
@@ -176,11 +179,12 @@ class Soup {
       this.uv.push(...uv[k]);
       // colours are sqrt-encoded (the city shader squares them)
       this.c.push(Math.sqrt(lum[k] * tint[0]), Math.sqrt(lum[k] * tint[1]), Math.sqrt(lum[k] * tint[2]));
+      this.k.push(part);
     }
   }
-  quad(a, b, c, d, n, uvs, lum, tint) {
-    this.tri([a, b, c], [n[0], n[1], n[2]], [uvs[0], uvs[1], uvs[2]], [lum[0], lum[1], lum[2]], tint);
-    this.tri([a, c, d], [n[0], n[2], n[3]], [uvs[0], uvs[2], uvs[3]], [lum[0], lum[2], lum[3]], tint);
+  quad(a, b, c, d, n, uvs, lum, tint, part) {
+    this.tri([a, b, c], [n[0], n[1], n[2]], [uvs[0], uvs[1], uvs[2]], [lum[0], lum[1], lum[2]], tint, part);
+    this.tri([a, c, d], [n[0], n[2], n[3]], [uvs[0], uvs[2], uvs[3]], [lum[0], lum[2], lum[3]], tint, part);
   }
   geometry() {
     const g = new THREE.BufferGeometry();
@@ -188,7 +192,7 @@ class Soup {
     g.setAttribute('normal', new THREE.Float32BufferAttribute(this.n, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2));
     g.setAttribute('color', new THREE.Float32BufferAttribute(this.c, 3));
-    g.setAttribute('aKind', new THREE.Float32BufferAttribute(new Float32Array(this.p.length / 3), 1));
+    g.setAttribute('aKind', new THREE.Float32BufferAttribute(this.k, 1));
     g.setAttribute('aBase', new THREE.Float32BufferAttribute(new Float32Array(this.p.length / 3), 1));
     g.computeBoundingSphere();
     return g;
@@ -213,7 +217,7 @@ function limb(S, a, b, r0, r1, sides, tint = BARK, l0 = 0.5, l1 = 0.62) {
   for (let i = 0; i < sides; i++) {
     const a0 = (i / sides) * Math.PI * 2, a1 = ((i + 1) / sides) * Math.PI * 2;
     const n0 = add(u.map((x) => x * Math.cos(a0)), w, Math.sin(a0)), n1 = add(u.map((x) => x * Math.cos(a1)), w, Math.sin(a1));
-    S.quad(ring(a, r0, a0), ring(a, r0, a1), ring(b, r1, a1), ring(b, r1, a0), [n0, n1, n1, n0], [SOLID, SOLID, SOLID, SOLID], [l0, l0, l1, l1], tint);
+    S.quad(ring(a, r0, a0), ring(a, r0, a1), ring(b, r1, a1), ring(b, r1, a0), [n0, n1, n1, n0], [SOLID, SOLID, SOLID, SOLID], [l0, l0, l1, l1], tint, PART.WOOD);
   }
 }
 
@@ -238,7 +242,7 @@ function core(S, c, sx, sy, sz, lum = [0.36, 0.38, 0.34]) {
   const ico = new THREE.OctahedronGeometry(1, 0), ip = ico.attributes.position.array;
   for (let i = 0; i < ip.length; i += 9) {
     const v = [0, 1, 2].map((k) => [c[0] + ip[i + k * 3] * sx, c[1] + ip[i + k * 3 + 1] * sy, c[2] + ip[i + k * 3 + 2] * sz]);
-    S.tri(v, v.map((q) => [q[0] - c[0], q[1] - c[1] + 0.3 * sy, q[2] - c[2]]), [SOLID, SOLID, SOLID], lum);
+    S.tri(v, v.map((q) => [q[0] - c[0], q[1] - c[1] + 0.3 * sy, q[2] - c[2]]), [SOLID, SOLID, SOLID], lum, undefined, PART.CORE);
   }
 }
 
@@ -481,7 +485,7 @@ export function buildTrees(data, group, off = null) {
       #endif
       #include <alphatest_fragment>`).src;
   };
-  mat.customProgramCacheKey = () => 'hue-foliage-cards-2';
+  mat.customProgramCacheKey = () => 'hue-foliage-cards-3';
   const depthMat = foliageDepthMaterial({ map: tex, alphaTest: 0.4, side: THREE.DoubleSide }); // shadows sway with the crowns
   const low = quality.low;
   const geos = { spreading: spreadingGeometry(low), upright: uprightGeometry(low), flamboyant: flamboyantGeometry(low), willow: willowGeometry(low), pine: pineGeometry(low), palm: palmGeometry(low) };

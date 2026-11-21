@@ -394,7 +394,7 @@ const ROAD_CLASS = { trunk: 0, primary: 0, trunk_link: 0, primary_link: 0, secon
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 const TT_WAY = 174759688; // the truss spans; modelled by hand
 const roads = [];
-let nDryBridges = 0;
+let nDryBridges = 0, nSidewalkBridges = 0;
 function overWater(pts) {
   for (let i = 0; i + 1 < pts.length; i++) {
     const a = pts[i], b = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.5));
@@ -460,23 +460,90 @@ for (const e of els) {
     // the bridge's own carriageways are not laid (nguyenhoang.js models the deck), but their ground stays road in
     // the mask, so no tree, garden or infill house is planted under the deck and its ramps
     if (tagged && inNH(pts[Math.floor(pts.length / 2)])) { stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD); continue; }
+    // A sidewalk mapped on a bridge (footway=sidewalk) is the walkway of the road bridge beside it, not a structure of
+    // its own: laid as a bridge it became a second, flat deck with its own parapets and piers alongside the carriageway's
+    // (under cầu Trường Tiền's trusses, beside cầu Dã Viên's and cầu Phú Xuân's decks). The carriageway's deck (or the
+    // hand model) carries it; its ground stays road in the mask, as under the deck.
+    if (tagged && t.footway === 'sidewalk') { stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD); nSidewalkBridges++; continue; }
     // A way tagged as a bridge that crosses no drawn water is laid as ordinary road: the moat before cửa Chánh Tây
     // and several canals have been filled in, and a raised deck with piers there stands on dry land.
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
-    roads.push({ c, bridge, name: t.name || '', pts });
-    if (c < 5) stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD);
-    else stampLine(pts, 1.2, ROAD);
+    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: ROAD_W[c], pts, id: e.id });
   }
 }
-console.log('bridge ways over dry land laid as road:', nDryBridges, '| streets moved off monument walls:', nCleared);
+console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges, '| streets moved off monument walls:', nCleared);
+// Divided roads (issue #15). Each carriageway of a dual road is its own one-way OSM way, its centreline 6-14 m from its
+// twin's. Drawn at the class width (15 m for a primary) the two overlapped into one broad slab with the median trees
+// standing in the middle of it. A one-way way with a twin of the same name running the other way alongside is laid at
+// a one-way width instead: two lanes, narrowed where the twins run so close that no median would be left. The median
+// between them is found again in section 5b, with these widths.
+const marketArea = get('way', 161714451).geometry.map(proj);
+// Exception: Trần Hưng Đạo in front of chợ Đông Ba is kept as it was, at its class width with its median trees.
+const MEDIAN_KEEP = 90; // m from the market's outline
+const nearMarket = (p) => marketArea.some((m) => Math.hypot(m[0] - p[0], m[1] - p[1]) < MEDIAN_KEEP);
+const ONEWAY_W = [8, 7, 6]; // m, by class 0-2: two lanes and a little shoulder
+const MEDIAN_MIN = 1.2, MEDIAN_MAX = 18, MEDIAN_STEP = 3; // m
+const divided = roads.filter((r) => r.ow && !r.bridge && r.c <= 2 && r.name);
+const twinAt = (() => {
+  const G = 30, grid = new Map();
+  divided.forEach((r, ri) => {
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], m = MEDIAN_MAX + 16;
+      for (let x = Math.floor((Math.min(a[0], b[0]) - m) / G); x <= Math.floor((Math.max(a[0], b[0]) + m) / G); x++)
+        for (let z = Math.floor((Math.min(a[1], b[1]) - m) / G); z <= Math.floor((Math.max(a[1], b[1]) + m) / G); z++) {
+          const k = x + ',' + z;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push([ri, a, b]);
+        }
+    }
+  });
+  // the twin of divided[ai] at (px, pz), heading (tx, tz): the nearest point on another one-way way of the same name,
+  // running the other way, straight across. { ri, dist, nx, nz } (n: the unit vector towards it) or null.
+  return (ai, px, pz, tx, tz) => {
+    let best = null;
+    for (const [ri, c, d] of grid.get(Math.floor(px / G) + ',' + Math.floor(pz / G)) || []) {
+      if (ri === ai || divided[ri].name !== divided[ai].name) continue;
+      const dx = d[0] - c[0], dz = d[1] - c[1], L2 = dx * dx + dz * dz;
+      if (!L2 || (dx * tx + dz * tz) / Math.sqrt(L2) > -0.9) continue;
+      const t = Math.max(0, Math.min(1, ((px - c[0]) * dx + (pz - c[1]) * dz) / L2));
+      const qx = c[0] + t * dx - px, qz = c[1] + t * dz - pz, dist = Math.hypot(qx, qz);
+      if (!dist || dist > MEDIAN_MAX + 16 || Math.abs(qx * tx + qz * tz) / dist > 0.35) continue;
+      if (!best || dist < best.dist) best = { ri, dist, nx: qx / dist, nz: qz / dist };
+    }
+    return best;
+  };
+})();
+// walk a way in MEDIAN_STEP steps: fn(px, pz, tx, tz) at each, and fn(null) at a break in the line
+function walkLine(pts, fn) {
+  let carry = 0;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 0.01) continue;
+    const tx = (b[0] - a[0]) / len, tz = (b[1] - a[1]) / len;
+    let s = carry;
+    for (; s < len; s += MEDIAN_STEP) fn(a[0] + tx * s, a[1] + tz * s, tx, tz);
+    carry = s - len;
+  }
+}
+let nDivided = 0;
+divided.forEach((r, ri) => {
+  const D = [];
+  walkLine(r.pts, (px, pz, tx, tz) => { const t = twinAt(ri, px, pz, tx, tz); if (t) D.push(t.dist); });
+  if (D.length < 3 || r.pts.some(nearMarket)) return;
+  D.sort((a, b) => a - b);
+  r.w = Math.max(4.5, Math.min(ONEWAY_W[r.c], D[Math.floor(D.length * 0.3)] - MEDIAN_MIN));
+  nDivided++;
+});
+console.log('divided roads:', nDivided, 'one-way carriageways laid at one-way width');
+for (const r of roads) stampLine(r.pts, r.c < 5 ? r.w / 2 + 1.2 : 1.2, ROAD);
 // Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
 // lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
-const onCarriageway = (() => {
+function carriagewayTest(maxC) {
   const G = 20, grid = new Map();
   for (const r of roads) {
-    if (r.c > 4) continue;
-    const hw = ROAD_W[r.c] / 2;
+    if (r.c > maxC) continue;
+    const hw = r.w / 2;
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1], s = [a, b, hw], m = hw + 2;
       for (let x = Math.floor((Math.min(a[0], b[0]) - m) / G); x <= Math.floor((Math.max(a[0], b[0]) + m) / G); x++)
@@ -495,7 +562,8 @@ const onCarriageway = (() => {
     }
     return false;
   };
-})();
+}
+const onCarriageway = carriagewayTest(4);
 const rails = [];
 for (const e of els) {
   const t = e.tags || {};
@@ -609,6 +677,103 @@ const sites = {};
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; stamp(c[0], c[1], 26, TREE | NOBUILD); }
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
+
+// ---------- paved yards and squares (issue #22) ----------
+// The parks along the Hương are not lawn throughout: grey paved yards open before Nghênh Lương Đình, tiểu đình
+// Thương Bạc and the other riverside pavilions. Planting every park as close woodland buried them. A paved yard is
+// laid as its own ground ('paved' in green, drawn over the park) and nothing is grown or built on it. Two sources:
+//  1. what OSM maps as paved ground: highway areas (area=yes: pedestrian squares, footway courts), area:highway,
+//     place=square and surface car parks (amenity=parking, not multi-storey, underground or on a roof). These were
+//     dropped altogether before (the road pass skips area=yes). A hand-modelled site lays its own ground.
+//  2. what OSM leaves inside a park: the Sentinel-2 scene (the roof-colour grid) shows bare paving as bright, grey to
+//     buff 10 m pixels with no green in them, where lawn and canopy are green. Such cells inside a park or lawn
+//     (not woods, farms, graves, pitches or the hand-modelled sites) are gathered into yards; a compact yard is laid
+//     as a rectangle squared to the nearest street, as the city lays its squares, a ragged one as its cells.
+const PAVED_HW = new Set(['pedestrian', 'footway', 'service', 'living_street', 'residential', 'unclassified', 'track', 'cycleway', 'path', 'platform']);
+const pavedPx = (x, z) => {
+  if (!ROOF) return false;
+  const acc = [0, 0, 0, 0]; roofPx(x, z, acc);
+  if (!acc[3]) return false;
+  const [r, g, b] = acc, br = (r + g + b) / 3, exg = 2 * g - r - b;
+  return br >= 80 && exg <= 12 && r - b <= 40; // bright, no green; warmer than this is bare earth or sand
+};
+const paved = [];
+{
+  let nOsm = 0;
+  for (const e of els) {
+    const t = e.tags || {};
+    if (e.type === 'node' || t.building || t['building:part']) continue;
+    const lot = t.amenity === 'parking' && !/multi-storey|underground|rooftop/.test(t.parking || '');
+    if (!((t.highway in ROAD_CLASS || PAVED_HW.has(t.highway)) && t.area === 'yes') && !t['area:highway'] && t.place !== 'square' && !lot) continue;
+    let polys = evenOdd(elementRings(e));
+    if (!polys.length || siteOf(centroid(openRing(polys[0][0])))) continue;
+    try { polys = pc.intersection(polys, [slabRect]); } catch { continue; }
+    for (const poly of polys) if (poly[0].some((p) => inBox(p))) { paved.push(poly); nOsm++; }
+  }
+  // the street directions near a point: the yard is squared to the nearest carriageway
+  const streetAngle = (c) => {
+    let best = Infinity, ang = 0;
+    for (const r of roads) {
+      if (r.c > 4) continue;
+      for (let i = 0; i + 1 < r.pts.length; i++) {
+        const a = r.pts[i], b = r.pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
+        if (!l2) continue;
+        const s = Math.max(0, Math.min(1, ((c[0] - a[0]) * dx + (c[1] - a[1]) * dz) / l2));
+        const d = Math.hypot(a[0] + dx * s - c[0], a[1] + dz * s - c[1]);
+        if (d < best) { best = d; ang = Math.atan2(dz, dx); }
+      }
+    }
+    return best < 150 ? ang : null;
+  };
+  const G = 10, cells = new Map(); // key "i,j" on a 10 m lattice -> the park it lies in
+  for (const g of green) {
+    if (g.k !== 'park' && g.k !== 'grass') continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of g.p[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    for (let i = Math.floor(x0 / G); i * G < x1; i++) for (let j = Math.floor(z0 / G); j * G < z1; j++) {
+      const x = (i + 0.5) * G, z = (j + 0.5) * G;
+      if (!pipPoly([x, z], g.p) || at(x, z) & WATER || inImperial([x, z]) || siteOf([x, z]) || onCarriageway(x, z, 1)) continue;
+      if (pavedPx(x, z)) cells.set(i + ',' + j, g);
+    }
+  }
+  // gather the cells into yards (4-neighbours); a yard of fewer than three cells is a path crossing or a bench
+  const seen = new Set();
+  let nSat = 0, nRect = 0;
+  for (const k0 of cells.keys()) {
+    if (seen.has(k0)) continue;
+    const comp = [], stack = [k0]; seen.add(k0);
+    while (stack.length) {
+      const k = stack.pop(); comp.push(k.split(',').map(Number));
+      const [i, j] = comp[comp.length - 1];
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = i + di + ',' + (j + dj); if (cells.has(n) && !seen.has(n)) { seen.add(n); stack.push(n); } }
+    }
+    if (comp.length < 3) continue;
+    const g = cells.get(k0);
+    const c = [comp.reduce((s, [i]) => s + (i + 0.5) * G, 0) / comp.length, comp.reduce((s, [, j]) => s + (j + 0.5) * G, 0) / comp.length];
+    const a = streetAngle(c);
+    let shape = null;
+    if (a != null) {
+      // the cells' extent across and along the street, from cell centres (a 10 m pixel is mixed at a yard's edge)
+      const ux = Math.cos(a), uz = Math.sin(a);
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      for (const [i, j] of comp) {
+        const dx = (i + 0.5) * G - c[0], dz = (j + 0.5) * G - c[1], u = dx * ux + dz * uz, v = -dx * uz + dz * ux;
+        u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v);
+      }
+      u0 -= G / 2; u1 += G / 2; v0 -= G / 2; v1 += G / 2;
+      if (comp.length * G * G >= 0.5 * (u1 - u0) * (v1 - v0)) {
+        const P = (u, v) => [c[0] + u * ux - v * uz, c[1] + u * uz + v * ux];
+        shape = [[[P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1), P(u0, v0)]]];
+        nRect++;
+      }
+    }
+    if (!shape) { try { shape = pc.union(...comp.map(([i, j]) => rect(i * G, j * G, (i + 1) * G, (j + 1) * G))); } catch { continue; } }
+    try { shape = pc.intersection(shape, g.p); } catch { continue; }
+    for (const poly of shape) { paved.push(poly); nSat++; }
+  }
+  for (const poly of paved) { green.push({ k: 'paved', p: poly }); fillPoly(poly, BLD | NOBUILD); }
+  console.log('paved yards:', nOsm, 'mapped in OSM |', nSat, 'read from the satellite scene in parks (', nRect, 'squared to the street ) from', cells.size, 'cells');
+}
 // Building heights, on 2 m grids in the model's frame. Two sources, the better one first:
 //  1. the city's own 3D building survey (GISHue; scripts/fetch-gishue-heights.py): for every footprint, the height
 //     of a surface model above the ground, flown by drone over the urban core. Against the heights that are
@@ -675,7 +840,6 @@ const periodKept = { 1: 0, 2: 0 }; // surveyed buildings too tall for their dist
 const gates = [];
 const buildings = [];
 const smeared = new Set(), surveyed = new Set(); // buildings whose height is the satellite prediction / the city survey's reading
-const marketArea = get('way', 161714451).geometry.map(proj);
 const hash = (id) => { let h = (id * 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; };
 const num = (s) => { const v = parseFloat(String(s || '').replace(',', '.')); return Number.isFinite(v) ? v : 0; };
 const wallBandTest = (p) => { for (let a = 0; a < 8; a++) { const t = (a * Math.PI) / 4; if (pipMulti([p[0] + Math.cos(t) * 28, p[1] + Math.sin(t) * 28], wall)) return true; } return pipMulti(p, wall); };
@@ -756,7 +920,7 @@ for (const e of els) {
 
   // flags: 1 = mapped over the water (drawn on a piled deck), 2 = Quốc Học campus
   if (at(c[0], c[1]) & WATER) flags |= 1;
-  // flags 16-64 (bits 4-6): the roof family seen from orbit; 128: a whitewashed ward
+  // flags 16-64 (bits 4-6): the roof family seen from orbit; 128: a whitewashed ward; 256: floodlit at night (riverside lights, below)
   const rc = roofOf(ring, c); roofCount[rc]++; flags |= rc << 4;
   if (whiteWard(c) && !(flags & 2)) flags |= 128;
   const b = [flat(ring), q(h), kind, t.name || 0, flags];
@@ -794,7 +958,7 @@ console.log("roof families (unseen, red, blue, pale, grey):", roofCount.join(" "
   };
   for (const r of roads) {
     if (r.bridge || r.c > 4) continue;
-    const hw = ROAD_W[r.c] / 2 + 0.3;
+    const hw = r.w / 2 + 0.3;
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1], s = { a, b, hw, poly: null };
       const x0 = Math.floor((Math.min(a[0], b[0]) - hw) / G), x1 = Math.floor((Math.max(a[0], b[0]) + hw) / G);
@@ -876,6 +1040,64 @@ for (const id in sites) console.log('site', id, sites[id].items.length, 'items:'
 console.log('special', Object.keys(special));
 
 // =====================================================================
+// 5b. Medians (issue #15)
+// =====================================================================
+// A divided road is two one-way OSM ways of the same name running opposite ways side by side; the ground between
+// their inner kerbs is the median. It is a planted strip with a pale kerb, not a row of street trees: nothing is
+// planted on it (plant() and the avenue rows below test inMedian), and the client draws it as a green strip with low
+// shrubs. A strip stops where a road (up to residential) crosses it, so it ends at each junction and U-turn gap.
+// Exception: the road in front of chợ Đông Ba (Trần Hưng Đạo) keeps its median trees as they are.
+const MEDIAN_RUN = 10; // m: the shortest strip kept
+const medians = [];
+{
+  const crossing = carriagewayTest(3);
+  divided.forEach((A, ai) => {
+    let run = [];
+    const flush = () => {
+      let L = 0;
+      for (let i = 1; i < run.length; i++) L += Math.hypot(run[i].p[0] - run[i - 1].p[0], run[i].p[1] - run[i - 1].p[1]);
+      if (run.length >= 2 && L >= MEDIAN_RUN) medians.push({ pts: run.map((s) => s.p), w: run.reduce((s, x) => s + x.w, 0) / run.length });
+      run = [];
+    };
+    walkLine(A.pts, (px, pz, tx, tz) => {
+      const t = twinAt(ai, px, pz, tx, tz);
+      // each strip once: from the twin with the lower index
+      const gap = t && t.ri > ai ? t.dist - A.w / 2 - divided[t.ri].w / 2 : 0;
+      if (gap < MEDIAN_MIN || gap > MEDIAN_MAX) return flush();
+      const o = A.w / 2 + gap / 2, p = [px + t.nx * o, pz + t.nz * o];
+      if (crossing(p[0], p[1], 1.5) || nearMarket(p)) return flush();
+      run.push({ p, w: gap });
+    });
+    flush();
+  });
+}
+// Is (x, z) on a median strip, widened by pad? Exact against the strip lines, as onCarriageway is.
+const inMedian = (() => {
+  const G = 20, grid = new Map();
+  for (const m of medians) {
+    const hw = m.w / 2;
+    for (let i = 0; i + 1 < m.pts.length; i++) {
+      const a = m.pts[i], b = m.pts[i + 1], s = [a, b, hw], r = hw + 2;
+      for (let x = Math.floor((Math.min(a[0], b[0]) - r) / G); x <= Math.floor((Math.max(a[0], b[0]) + r) / G); x++)
+        for (let z = Math.floor((Math.min(a[1], b[1]) - r) / G); z <= Math.floor((Math.max(a[1], b[1]) + r) / G); z++) {
+          const k = x + ',' + z;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(s);
+        }
+    }
+  }
+  return (x, z, pad = 0) => {
+    for (const [a, b, hw] of grid.get(Math.floor(x / G) + ',' + Math.floor(z / G)) || []) {
+      const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+      const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;
+      if (Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz) < hw + pad) return true;
+    }
+    return false;
+  };
+})();
+console.log('medians:', medians.length, 'strips,', Math.round(medians.reduce((s, m) => s + m.pts.length - 1, 0) * MEDIAN_STEP), 'm');
+
+// =====================================================================
 // 6. Illustrated infill houses where OSM has streets but no footprints
 // =====================================================================
 const infill = [];
@@ -925,7 +1147,7 @@ for (const road of roads) {
   const hills = inHills(road.pts[0]);
   if (hills && road.c > 3) continue;
   const density = (road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86) * (hills ? 0.42 : inVillages(road.pts[0]) ? 0.6 : 1);
-  const half = ROAD_W[road.c] / 2;
+  const half = road.w / 2;
   for (const side of [1, -1]) {
     let carry = rr(0, 6);
     for (let i = 0; i + 1 < road.pts.length; i++) {
@@ -992,7 +1214,7 @@ const trees = [];
 const TBLOCK = WATER | ROAD | BLD | TREE;
 const TRUNK = 0.6; // a trunk's reach: no tree stands closer than this to a carriageway's edge
 function plant(x, z, s, kind) {
-  if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK)) return false;
+  if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK) || inMedian(x, z, TRUNK)) return false;
   trees.push(q(x), q(z), Math.round(s * 10), kind);
   stamp(x, z, 3.2, TREE);
   return true;
@@ -1014,7 +1236,7 @@ for (const g of green) {
 }
 for (const road of roads) {
   if (road.c > 2 || road.bridge) continue;
-  const half = ROAD_W[road.c] / 2 + 1.6;
+  const half = road.w / 2 + 1.6;
   for (const side of [1, -1]) {
     let s = rr(0, 10);
     for (let i = 0; i + 1 < road.pts.length; i++) {
@@ -1026,7 +1248,7 @@ for (const road of roads) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
         // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
         // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
-        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
         s += rr(13, 20);
       }
       s -= len;
@@ -1104,6 +1326,21 @@ console.log('trees', trees.length / 4);
 // =====================================================================
 // 8. Bridges, river line, places
 // =====================================================================
+// The bridges of the Kinh thành: every bridge way inside the citadel (over Ngự Hà, the lakes and the palace moats) or
+// over the moat in front of one of its gates (the gate bridges stand 10-75 m out from the gate building) is marked
+// bridge = 2, so that they are all drawn with the one masonry vaulted bridge of the citadel (src/geo/citadel-bridge.js)
+// instead of the modern deck on piers. Bridges with their own model keep it (city.js leaves those out).
+const GATE_BRIDGE_R = 90;
+// footbridges drawn by hand on their own lakes, on the generic profile (landmarks/places/tangthulau.js, tinhtam.js): kept off
+const HAND_BRIDGES = new Set([372295922, 1489091232, 1489091245]);
+let nCitadelBridges = 0;
+for (const r of roads) {
+  if (!r.bridge || HAND_BRIDGES.has(r.id)) continue;
+  const m = r.pts[r.pts.length >> 1];
+  const atGate = gates.some((g) => g.k === 'citadel' && Math.hypot(g.c[0] / 10 - m[0], g.c[1] / 10 - m[1]) < GATE_BRIDGE_R);
+  if (inCitadel(m) || atGate) { r.bridge = 2; nCitadelBridges++; }
+}
+console.log('citadel bridges (shared masonry model):', nCitadelBridges);
 const tt = get('way', TT_WAY).geometry.map(proj);
 const ttOutline = openRing(get('way', 1431129413).geometry.map(proj));
 const ttBox = obb(ttOutline);
@@ -1300,6 +1537,127 @@ for (const poly of water) {
   }
 }
 console.log('moorings', moorings.length / 3);
+
+// Riverside lights (issue #21). After dark the Hương is lit along its city banks: lamp posts on the embankments,
+// garden lights along the riverside walkways, and warm floodlight on the facades that face the water. All three are
+// read from the data: the Hương's own bank (the river-system water near its centreline, between the villages and the
+// hills), the OSM footways and paths along it, and the buildings in the front row facing it. The lamp design and
+// spacing are illustrative.
+const riverLamps = []; // [x, z, type] in decimetres; type 0 = embankment post, 1 = walkway light
+let nFlood = 0;
+{
+  const segDist = (p, a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / l2));
+    return Math.hypot(p[0] - a[0] - dx * t, p[1] - a[1] - dz * t);
+  };
+  const toCentre = (p) => { let d = Infinity; for (let i = 0; i + 1 < riverLine.length; i++) d = Math.min(d, segDist(p, riverLine[i], riverLine[i + 1])); return d; };
+  const inTown = (p) => !inHills(p) && !inVillages(p);
+  // the Hương's banks, sampled every 4 m, in a 40 m hash for nearest-bank queries
+  const HC = 40, bankHash = new Map(), bankRuns = [];
+  const hkey = (x, z) => Math.floor(x / HC) * 100003 + Math.floor(z / HC);
+  for (const poly of water) {
+    if (!touchesEdge(poly) && Math.abs(ringArea(poly[0])) < 400000) continue;
+    for (const ring of poly) {
+      let run = [];
+      const cut = () => { if (run.length > 1) bankRuns.push(run); run = []; };
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        for (let s = 0; s < len; s += 4) {
+          const p = [a[0] + ((b[0] - a[0]) * s) / len, a[1] + ((b[1] - a[1]) * s) / len];
+          // the slab edge is a cut, not a bank
+          if (!inBox(p, -3) || !inTown(p) || toCentre(p) > 380) { cut(); continue; }
+          run.push(p);
+          const k = hkey(p[0], p[1]);
+          if (!bankHash.has(k)) bankHash.set(k, []);
+          bankHash.get(k).push(p);
+        }
+      }
+      cut();
+    }
+  }
+  const nearestBank = (x, z, r) => {
+    let best = null, bd = r;
+    const c0 = Math.floor((x - r) / HC), c1 = Math.floor((x + r) / HC), r0 = Math.floor((z - r) / HC), r1 = Math.floor((z + r) / HC);
+    for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) {
+      for (const p of bankHash.get(cx * 100003 + cz) || []) { const d = Math.hypot(p[0] - x, p[1] - z); if (d < bd) { bd = d; best = p; } }
+    }
+    return best ? { p: best, d: bd } : null;
+  };
+  // lamps keep a few metres from each other, whichever rule placed them first
+  const lampHash = new Map();
+  const place = (x, z, type, gap) => {
+    if (at(x, z) & (WATER | BLD)) return false;
+    const c0 = Math.floor((x - gap) / HC), c1 = Math.floor((x + gap) / HC), r0 = Math.floor((z - gap) / HC), r1 = Math.floor((z + gap) / HC);
+    for (let cx = c0; cx <= c1; cx++) for (let cz = r0; cz <= r1; cz++) for (const p of lampHash.get(cx * 100003 + cz) || []) if (Math.hypot(p[0] - x, p[1] - z) < gap) return false;
+    const k = hkey(x, z);
+    if (!lampHash.has(k)) lampHash.set(k, []);
+    lampHash.get(k).push([x, z]);
+    riverLamps.push(q(x), q(z), type);
+    return true;
+  };
+  // is there a street or path within r metres (an embankment people walk along, not a field running into the water)?
+  const reached = (x, z, r) => {
+    for (let dz = -r; dz <= r; dz += CELL) for (let dx = -r; dx <= r; dx += CELL) if (dx * dx + dz * dz <= r * r && at(x + dx, z + dz) & ROAD) return true;
+    return false;
+  };
+  // 1. embankment posts every 24 m, 3 m in from the water's edge
+  let nPost = 0;
+  for (const run of bankRuns) {
+    for (let i = 0; i + 1 < run.length; i += 6) {
+      const a = run[i], b = run[Math.min(run.length - 1, i + 1)], len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const nx = -(b[1] - a[1]) / len, nz = (b[0] - a[0]) / len;
+      for (const sgn of [1, -1]) {
+        const x = a[0] + nx * 3 * sgn, z = a[1] + nz * 3 * sgn;
+        if (at(x, z) & WATER || !(at(a[0] - nx * 3 * sgn, a[1] - nz * 3 * sgn) & WATER)) continue;
+        if (reached(x, z, 28) && place(x, z, 0, 14)) nPost++;
+        break;
+      }
+    }
+  }
+  // 2. walkway lights every 16 m along the OSM footways, paths and lanes within 70 m of the bank
+  let nWalk = 0;
+  for (const r of roads) {
+    if (r.bridge || r.c < 3) continue; // the main streets are lit by the street lamps (src/geo/city.js)
+    const reach = r.c === 5 ? 70 : 30;
+    let s = 8, side = 1;
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 0.01) continue;
+      const nx = -(b[1] - a[1]) / len, nz = (b[0] - a[0]) / len, off = (r.c === 5 ? 1.4 : ROAD_W[r.c] / 2 + 0.6);
+      for (; s < len; s += 16) {
+        const x = a[0] + ((b[0] - a[0]) * s) / len, z = a[1] + ((b[1] - a[1]) * s) / len;
+        if (!inTown([x, z]) || !nearestBank(x, z, reach)) continue;
+        side = -side;
+        if (place(x + nx * off * side, z + nz * off * side, 1, 9)) nWalk++;
+      }
+      s -= len;
+    }
+  }
+  // 3. floodlit facades: buildings within 130 m of the bank with no other building between them and the water
+  //    (flag 256). The test walks the mask from the footprint's nearest corner to the bank.
+  const FLOOD_R = 130;
+  for (const b of buildings) {
+    const flags = b[4], kind = b[2];
+    if (flags & 1 || kind === 8 || b[1] < 45) continue;
+    const ring = []; for (let i = 0; i < b[0].length; i += 2) ring.push([b[0][i] / 10, b[0][i + 1] / 10]);
+    if (Math.abs(ringArea(ring)) < 90 || !inTown(centroid(ring))) continue;
+    let best = null;
+    for (const p of ring) { const n = nearestBank(p[0], p[1], FLOOD_R); if (n && (!best || n.d < best.d)) best = { ...n, from: p }; }
+    if (!best) continue;
+    const [fx, fz] = best.from, [bx, bz] = best.p, steps = Math.ceil(best.d / CELL);
+    let blocked = 0, out = false;
+    for (let k = 1; k < steps; k++) {
+      const x = fx + ((bx - fx) * k) / steps, z = fz + ((bz - fz) * k) / steps;
+      if (!out) { if (pip([x, z], ring) || k * CELL < 3) continue; out = true; }
+      if (at(x, z) & BLD) blocked++;
+    }
+    if (blocked > 3) continue;
+    b[4] = flags | 256;
+    nFlood++;
+  }
+  console.log('riverside lights: embankment posts', nPost, '| walkway lights', nWalk, '| floodlit facades', nFlood, '| bank samples', bankRuns.reduce((s, r) => s + r.length, 0));
+}
 
 let quocHocGate = null;
 if (quocHoc) {
@@ -1572,7 +1930,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     console.log('lake shores:', shoreHigh, 'nodes stand over 2 m above their lake (they were held flat at its level)');
     for (let k = 0; k < h.length; k++) if (lock[k] === 1 || h[k] < 0.35) h[k] = 0;
     // ground cover on raised ground (flat land takes its colour from the polygon overlay instead)
-    const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7 };
+    const COVER = { park: 1, wood: 2, grass: 3, farm: 4, cemetery: 5, pitch: 6, sacred: 7, paved: 8 };
     let cover = '', lifted = 0, peak = 0;
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
       const k = j * nx + i;
@@ -1580,7 +1938,8 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       if (h[k] > 0) {
         lifted++; peak = Math.max(peak, h[k]);
         const p = [GX0 + i * STEP, GZ0 + j * STEP];
-        for (const g of green) if (pipPoly(p, g.p)) { c = COVER[g.k] || 0; break; }
+        for (const g of green) if (g.k === 'paved' && pipPoly(p, g.p)) { c = COVER.paved; break; } // a yard is laid over its park
+        if (!c) for (const g of green) if (pipPoly(p, g.p)) { c = COVER[g.k] || 0; break; }
         if (!c && isWooded(p[0], p[1])) c = COVER.wood; // the forest floor under WorldCover's tree cover
       }
       cover += c;
@@ -1654,7 +2013,8 @@ const out = {
   ponds: ponds.map(flatPoly),
   pondLv: pondLv.map((v) => Math.round(v * 10)),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
-  roads: roads.map((r) => [r.c, r.bridge, flat(r.pts)]),
+  roads: roads.map((r) => (r.w === ROAD_W[r.c] ? [r.c, r.bridge, flat(r.pts)] : [r.c, r.bridge, flat(r.pts), q(r.w)])), // 4th: carriageway width (dm) where it is not the class width
+  medians: medians.map((m) => [q(m.w), flat(m.pts)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),
   bld: buildings,
   infill: infillOut,
@@ -1670,6 +2030,7 @@ const out = {
   terrain,
   hakhe,
   moorings,
+  riverLamps,
   nguyenhoang: nhBox ? { c: [q(nhBox.c[0]), q(nhBox.c[1])], w: q(nhBox.w), d: q(nhBox.d), a: Math.round(nhBox.a * 1000) } : null,
   quocHocGate,
   bridges: bridgeOutlines,
