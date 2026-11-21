@@ -536,3 +536,16 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - #37: the non-bridge fixes described above, merged with the bridge-head exemption.
 - check:overlap on main: 11 findings, mostly edge contact (dainoi+tuphuong 172, dainoi+duyetthi 43, canchanh 27, hungmieu 17), plus hoquyen 33, mangca 14, giahoi 13, quochoc 15, gahue 7, phucam 7, conhen 3.
 - Next: decide between per-sample and per-cell overlap counting so edge contact stops aliasing. Then fix hoquyen and mangca. Once it reaches 0, add check:overlap to `npm run check`.
+
+## check:overlap counts interpenetration, not contact (2026-11-21, branch `claude/overlap-edge-contact`)
+- Rule (scripts/check-overlap.mjs, `DEEP` = 0.1 m): overlap and building areas count only sample points that lie
+  inside both footprints eroded by DEEP (the point and its ±DEEP x/z neighbours all inside each), at 1/5 m² per
+  point instead of a whole 1 m cell. Touching faces add nothing. The road test is unchanged. Building hits now
+  consider every source over a cell, not only the first one.
+- Before: 11 FAIL. After: 8 FAIL. canchanh+dainoi (3.8 m²), hungmieu+themieu (3 m²) and gahue (0) now pass.
+  Road findings are unchanged (hoquyen 33, mangca 14, giahoi 13, phucam 7, conhen 3).
+- Still failing, and they are real overlaps in plan, not aliasing: dainoi+tuphuong 23.2 m² (tuphuong's 6.35 m deck
+  overlaps dainoi's wall top by ~0.24 m at the same height, and its 0.26 m parapet strip stands on that wall top);
+  dainoi+duyetthi 14.2 m² (duyetthi's roof eave reaches 0.3–1.9 m over dainoi's gallery roof). quochoc is 7.8 m².
+- Proof: a copy of canchanh shifted 2 m / 0.15 m / 0.05 m still FAILs at ~1470–1580 m² (old: 1520–1630); a hungmieu
+  copy shifted 2 m gives 697 m² (old 854); gahue moved 2 m into its hall FAILs at 11.2 m².
