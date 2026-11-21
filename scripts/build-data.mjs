@@ -1517,7 +1517,7 @@ const EXTRA = [
   ['truongsanh', 'Cung Trường Sanh', 'way', 172763427, 4, 'monument', 12],
   ['duyetthi', 'Duyệt Thị Đường', 'way', 172657563, 4, 'monument', 14],
   ['kientrung', 'Điện Kiến Trung', 'way', 285990348, 4, 'monument', 16],
-  ['canchanh', 'Nền điện Cần Chánh', 'way', 285990343, 4, 'monument', 8],
+  ['canchanh', 'Điện Cần Chánh', 'way', 285990343, 4, 'monument', 8],
   ['hiennhon', 'Cửa Hiển Nhơn', 'way', 264099611, 4, 'gate', 14],
   ['chuongduc', 'Cửa Chương Đức', 'way', 531016858, 4, 'gate', 14],
   ['tuphuong', 'Lầu Tứ Phương Vô Sự', 'way', 172802373, 4, 'monument', 14],

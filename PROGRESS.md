@@ -1,5 +1,12 @@
 # Progress
 
+## In progress
+- Finished buildings, not building sites (2026-11-21, branch `claude/rebuild-mode-concerns-fcf0b6`): owner decision —
+  a hall that is lost, being rebuilt or only a foundation is drawn complete, as it stood before its loss, instead of
+  as it stands today. First four: Điện Cần Chánh (was a bare lim frame), Đại Cung Môn (foundation), Thái Miếu's main
+  hall and its smaller halls (bases), Đức Hinh lâu at Lăng Thiệu Trị (ruin). One agent per place; heights merged into
+  docs/heights-reference.json afterwards.
+
 ## Done
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
@@ -185,7 +192,7 @@
   now thin railed walkways on piers.
 - Boat ride: the guided ride under cầu Trường Tiền was removed (2026-11-21). Gone: `src/camera/ride.js`, the ride
   button, HUD and scrub bar, the `B` key, the spare ride boat, and click-a-boat-to-follow. Kept: the dragon-boat fleet as scenery.
-- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
+- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only (except lost halls, which are drawn complete: see "Finished buildings"). Gone: `src/era.js`,
   the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
   `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and
   unused: the `eras` texts in `public/data/stories.json` (43 places).
