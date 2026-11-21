@@ -15,5 +15,12 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [260, 2, -90], "target": [0, 8, 0] }
+  },
+  "thuong-tu-boat": {
+    "note": "A visitor's report of a boat running through a bridge: above cầu Cửa Thượng Tứ by the Citadel's east corner, where a moored sampan sat under the deck (shared link c=-436.7,48.1,-63.9 t=-458.9,-52.2 a=1.91 f=44.7 m=10r).",
+    "viewport": [1400, 733],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-436.7, 48.1, -63.9], "target": [-458.9, 2.6, -52.2] }
   }
 }
