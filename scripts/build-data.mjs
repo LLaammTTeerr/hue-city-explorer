@@ -650,6 +650,63 @@ for (const e of els) {
     if (inside) { console.log('inside landmark', inside[0], ':', buildings[i][3] || 'unnamed building', 'dropped'); buildings.splice(i, 1); }
   }
 }
+// Mapped buildings keep off the carriageways. OSM's footprints are older than many of its streets: houses pulled down
+// when a street was cut or widened are still mapped, and stood on the asphalt. A building is trimmed back to the kerb
+// (carriageway plus 0.3 m; the pavement may be built to); one the street runs through, keeping under half its plan or
+// only a sliver, is gone. Bridges stand over what is under them, and footpaths are often mapped through buildings.
+{
+  const G = 40, grid = new Map(), strips = [];
+  const strip = (a, b, hw) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L, nx = -uz, nz = ux;
+    const p = [], N = 6; // a capsule: the segment with a half polygon round each end, so joints leave no notch
+    for (const [e, sg] of [[b, 1], [a, -1]]) for (let k = 0; k <= N; k++) {
+      const t = (k * Math.PI) / N, c = Math.cos(t) * sg, s = Math.sin(t) * sg;
+      p.push([e[0] + hw * (c * nx + s * ux), e[1] + hw * (c * nz + s * uz)]);
+    }
+    return p;
+  };
+  for (const r of roads) {
+    if (r.bridge || r.c > 4) continue;
+    const hw = ROAD_W[r.c] / 2 + 0.3;
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], s = { a, b, hw, poly: null };
+      const x0 = Math.floor((Math.min(a[0], b[0]) - hw) / G), x1 = Math.floor((Math.max(a[0], b[0]) + hw) / G);
+      const z0 = Math.floor((Math.min(a[1], b[1]) - hw) / G), z1 = Math.floor((Math.max(a[1], b[1]) + hw) / G);
+      for (let x = x0; x <= x1; x++) for (let z = z0; z <= z1; z++) { const k = x + ',' + z; if (!grid.has(k)) grid.set(k, []); grid.get(k).push(s); }
+      strips.push(s);
+    }
+  }
+  const segDist = (p, s) => {
+    const dx = s.b[0] - s.a[0], dz = s.b[1] - s.a[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((p[0] - s.a[0]) * dx + (p[1] - s.a[1]) * dz) / L2)) : 0;
+    return Math.hypot(p[0] - s.a[0] - t * dx, p[1] - s.a[1] - t * dz);
+  };
+  let trimmed = 0, gone = 0;
+  for (let i = buildings.length - 1; i >= 0; i--) {
+    const b = buildings[i], ring = [];
+    for (let k = 0; k < b[0].length; k += 2) ring.push([b[0][k] / 10, b[0][k + 1] / 10]);
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    const near = new Set();
+    for (let x = Math.floor(x0 / G); x <= Math.floor(x1 / G); x++) for (let z = Math.floor(z0 / G); z <= Math.floor(z1 / G); z++) for (const s of grid.get(x + ',' + z) || []) near.add(s);
+    // only the streets that reach the plan: a vertex inside the strip, or the strip's line inside the plan
+    const hits = [...near].filter((s) => ring.some((p) => segDist(p, s) < s.hw) || pip(s.a, ring) || pip(s.b, ring) || pip([(s.a[0] + s.b[0]) / 2, (s.a[1] + s.b[1]) / 2], ring)
+      || ring.some((p, k) => { const q2 = ring[(k + 1) % ring.length]; return segDist([(p[0] + q2[0]) / 2, (p[1] + q2[1]) / 2], s) < s.hw; }));
+    if (!hits.length) continue;
+    let rest;
+    try { rest = pc.difference([ring], ...hits.map((s) => [(s.poly ||= strip(s.a, s.b, s.hw))])); } catch { continue; }
+    const a0 = Math.abs(ringArea(ring));
+    let best = null, ba = 0;
+    for (const poly of rest) { const r = openRing(poly[0]), ar = Math.abs(ringArea(r)); if (ar > ba) { ba = ar; best = r; } }
+    if (ba > a0 - 0.5) continue; // the street only grazed it
+    const o = best && best.length >= 3 ? obb(best) : null;
+    if (!o || ba < a0 * 0.5 || ba < 12 || Math.min(o.w, o.d) < 2.5) { buildings.splice(i, 1); gone++; continue; }
+    if (ringArea(best) < 0) best.reverse();
+    b[0] = flat(best);
+    trimmed++;
+  }
+  console.log('buildings on the street: trimmed to the kerb', trimmed, '| standing in it, dropped', gone);
+}
 // Round the 160 m Vincom tower the satellite raster is smeared with its height: buildings it measured within 220 m
 // keep to 20 m (the survey's own readings stand).
 if (special.vincom) {
