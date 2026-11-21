@@ -394,7 +394,7 @@ const ROAD_CLASS = { trunk: 0, primary: 0, trunk_link: 0, primary_link: 0, secon
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 const TT_WAY = 174759688; // the truss spans; modelled by hand
 const roads = [];
-let nDryBridges = 0;
+let nDryBridges = 0, nSidewalkBridges = 0;
 function overWater(pts) {
   for (let i = 0; i + 1 < pts.length; i++) {
     const a = pts[i], b = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.5));
@@ -412,16 +412,21 @@ for (const e of els) {
     // the bridge's own carriageways are not laid (nguyenhoang.js models the deck), but their ground stays road in
     // the mask, so no tree, garden or infill house is planted under the deck and its ramps
     if (tagged && inNH(pts[Math.floor(pts.length / 2)])) { stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD); continue; }
+    // A sidewalk mapped on a bridge (footway=sidewalk) is the walkway of the road bridge beside it, not a structure of
+    // its own: laid as a bridge it became a second, flat deck with its own parapets and piers alongside the carriageway's
+    // (under cầu Trường Tiền's trusses, beside cầu Dã Viên's and cầu Phú Xuân's decks). The carriageway's deck (or the
+    // hand model) carries it; its ground stays road in the mask, as under the deck.
+    if (tagged && t.footway === 'sidewalk') { stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD); nSidewalkBridges++; continue; }
     // A way tagged as a bridge that crosses no drawn water is laid as ordinary road: the moat before cửa Chánh Tây
     // and several canals have been filled in, and a raised deck with piers there stands on dry land.
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
-    roads.push({ c, bridge, name: t.name || '', pts });
+    roads.push({ c, bridge, name: t.name || '', pts, id: e.id });
     if (c < 5) stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD);
     else stampLine(pts, 1.2, ROAD);
   }
 }
-console.log('bridge ways over dry land laid as road:', nDryBridges);
+console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges);
 // Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
 // lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
 const onCarriageway = (() => {
@@ -1056,6 +1061,21 @@ console.log('trees', trees.length / 4);
 // =====================================================================
 // 8. Bridges, river line, places
 // =====================================================================
+// The bridges of the Kinh thành: every bridge way inside the citadel (over Ngự Hà, the lakes and the palace moats) or
+// over the moat in front of one of its gates (the gate bridges stand 10-75 m out from the gate building) is marked
+// bridge = 2, so that they are all drawn with the one masonry vaulted bridge of the citadel (src/geo/citadel-bridge.js)
+// instead of the modern deck on piers. Bridges with their own model keep it (city.js leaves those out).
+const GATE_BRIDGE_R = 90;
+// footbridges drawn by hand on their own lakes, on the generic profile (landmarks/places/tangthulau.js, tinhtam.js): kept off
+const HAND_BRIDGES = new Set([372295922, 1489091232, 1489091245]);
+let nCitadelBridges = 0;
+for (const r of roads) {
+  if (!r.bridge || HAND_BRIDGES.has(r.id)) continue;
+  const m = r.pts[r.pts.length >> 1];
+  const atGate = gates.some((g) => g.k === 'citadel' && Math.hypot(g.c[0] / 10 - m[0], g.c[1] / 10 - m[1]) < GATE_BRIDGE_R);
+  if (inCitadel(m) || atGate) { r.bridge = 2; nCitadelBridges++; }
+}
+console.log('citadel bridges (shared masonry model):', nCitadelBridges);
 const tt = get('way', TT_WAY).geometry.map(proj);
 const ttOutline = openRing(get('way', 1431129413).geometry.map(proj));
 const ttBox = obb(ttOutline);

@@ -536,3 +536,9 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
 - #37: the non-bridge fixes described above, merged with the bridge-head exemption.
 - check:overlap on main: 11 findings, mostly edge contact (dainoi+tuphuong 172, dainoi+duyetthi 43, canchanh 27, hungmieu 17), plus hoquyen 33, mangca 14, giahoi 13, quochoc 15, gahue 7, phucam 7, conhen 3.
 - Next: decide between per-sample and per-cell overlap counting so edge contact stops aliasing. Then fix hoquyen and mangca. Once it reaches 0, add check:overlap to `npm run check`.
+
+## Bridges: duplicate decks and one citadel bridge (2026-11-21, branch `claude/issue-17-19-bridges-32c6fd`, issues #17 and #19)
+- #17: bridge ways tagged `footway=sidewalk` (14 of them) were laid as a second flat deck beside or under the real one: under Trường Tiền's trusses, and beside Dã Viên and Phú Xuân. build-data now leaves them to their carriageway's deck or hand model and still marks their ground as road.
+- #19: every bridge inside the walls or within 90 m of a citadel gate is `bridge = 2` in hue.json (31 ways). They are all drawn by `src/geo/citadel-bridge.js`: brick body, round vaults ringed in plaster, a plaster string course, a solid parapet with coping and medallions, and end posts. `bridges.js` `citadelRule` sets the rise to len/10 (clamped 1.2–2.2 m) and the vaults over the water crossed (one vault, or three if the water is wider than 22 m). Nhà Đồ, Thượng Tứ and Ngoại Kim Thủy dropped out of NAMED.
+- Kept bespoke: Cửa Ngăn, Thủy Quan, Trung Đạo, and the Tịnh Tâm and Tàng Thư Lâu lake footbridges (`HAND_BRIDGES` way ids).
+- Verified in the preview: Đông Ba gate, Ngoại Kim Thủy, Nhà Đồ, Ngự Hà and Trường Tiền. `npm run check` passes.
