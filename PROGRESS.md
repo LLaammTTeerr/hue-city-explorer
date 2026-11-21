@@ -7,6 +7,18 @@
   head side by side; `.github/ISSUE_TEMPLATE/experience.md`. Next: try a real issue (the Ngọ Môn arrival) and see where
   the agent gets stuck; captures are not in CI yet (needs Chrome with WebGL on the runner); `check-heights.mjs` still
   builds its own scene instead of `scripts/lib/scene.mjs`.
+- Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
+  `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
+  lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with
+  `joinRoofs = false`) and the mapped buildings (city.js) run inside it. city.js also drops a mapped house whose roof
+  would run through a model roof (the yellow house through Tạ Trường Du, Diên Thọ). Own numbers fixed: An Định towers,
+  Kiến Trung and Thái Miếu upper tiers; Tự Đức's duplicate Minh Khiêm footprint skipped. `npm run check:roofs` checks
+  all 2082 roofs.
+- No-WebGL recovery and fast search (2026-11-21): the renderer is created before the geometry is fetched; without WebGL
+  a bilingual recovery screen offers Retry 3D and a 2D place map with search and cards (`src/ui/fallback.js`); a load
+  error gets the same screen. build-data.mjs emits `public/data/places.json` (32 kB, 13 kB gzip) read first by the UI;
+  `hue.json` (8.2 MB, 2.95 MB gzip) is unchanged. At 9 Mbps / 60 ms: search usable at ~1.0 s instead of ~7.4 s,
+  first 3D frame ~6.7 s (was ~7.4 s). `?nogl` simulates the no-WebGL device (docs/development.md).
 - Ink triangles across hill roads (2026-11-21): streets, greens and yards write no depth, so under them the ink read
   the terrain heightfield, whose 25 m triangles fold by 10-25 degrees on the hills (above the 10-20 degree turn test),
   and drew the folds as thin triangles (Thiên Mụ's south wall road, the compound plaza). In the drawn look the ground
