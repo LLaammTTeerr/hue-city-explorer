@@ -103,6 +103,9 @@ class OcclusionPass extends Pass {
         float mHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
         float mNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
           return mix( mix( mHash( i ), mHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( mHash( i + vec2( 0.0, 1.0 ) ), mHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ); }
+        // view-space position of the depth sample at uv, and a quadrant normal from two edges out of the centre
+        vec3 inkPos( vec2 uv, float d ) { vec4 v = uInvProj * vec4( uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0 ); return v.xyz / v.w; }
+        vec3 inkN( vec3 a, vec3 b ) { vec3 n = cross( a, b ); float l = length( n ); return l > 1e-12 ? n / l : vec3( 0.0, 0.0, 1.0 ); }
         void main() {
           vec3 col = texture2D( tDiffuse, vUv ).rgb;
           float ao = texture2D( tAO, vUv ).r;
@@ -156,7 +159,19 @@ class OcclusionPass extends Pass {
             float dd = texture2D( tDepth, vUv - vec2( 0.0, uPx.y ) ).x, du = texture2D( tDepth, vUv + vec2( 0.0, uPx.y ) ).x;
             float nearest = min( d0, min( min( dl, dr ), min( dd, du ) ) );
             float edge = ( abs( dl + dr - 2.0 * d0 ) + abs( dd + du - 2.0 * d0 ) ) / max( 1.0 - nearest, 1e-7 );
-            float line = smoothstep( uInkEdge.x, uInkEdge.y, edge );
+            // ...but a fold is drawn only where it is a real one. Ground, roads and yards are a heightfield and draped
+            // strips whose triangles meet at a degree or two; seen low along a street, that tiny bend still steps the
+            // depth slope past the threshold above, and every triangle seam came out as a long ink line. So the pen
+            // also asks how far the surface turns there: normals rebuilt from the four neighbours (view space), one per
+            // quadrant, and the widest angle between them. A gentle crease is let go; a kerb, a wall foot, a roof
+            // ridge or an outline against what lies behind (whose quadrant normals swing round) is kept.
+            vec3 p0 = inkPos( vUv, d0 );
+            vec3 el = inkPos( vUv - vec2( uPx.x, 0.0 ), dl ) - p0, er = inkPos( vUv + vec2( uPx.x, 0.0 ), dr ) - p0;
+            vec3 ed = inkPos( vUv - vec2( 0.0, uPx.y ), dd ) - p0, eu = inkPos( vUv + vec2( 0.0, uPx.y ), du ) - p0;
+            vec3 n1 = inkN( er, eu ), n2 = inkN( eu, el ), n3 = inkN( el, ed ), n4 = inkN( ed, er );
+            float turn = 1.0 - min( min( min( dot( n1, n2 ), dot( n2, n3 ) ), min( dot( n3, n4 ), dot( n4, n1 ) ) ), min( dot( n1, n3 ), dot( n2, n4 ) ) );
+            // 1 - cos: 0.015 is about 10 degrees, 0.06 about 20
+            float line = smoothstep( uInkEdge.x, uInkEdge.y, edge ) * smoothstep( 0.015, 0.06, turn );
             // Trees: leaves mark themselves with zero alpha (materials.js). Blurred, that mask is the crown as one
             // shape: the pen goes round it, and inside only the big steps from clump to clump are drawn.
             float leaf = 1.0 - texture2D( tDiffuse, vUv ).a;
