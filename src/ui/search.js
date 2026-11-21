@@ -30,10 +30,11 @@ const ICONS = {
   place: '<path d="M12 20.5s-6-5.6-6-10.2a6 6 0 0112 0c0 4.6-6 10.2-6 10.2z"/><circle cx="12" cy="10.3" r="2.1"/>',
   gate: '<path d="M5 19.500V10a7 7 0 0114 0v9.500M9.5 19.500V14a2.5 2.5 0 015 0v5.500M3 19.500h18"/>',
   island: '<path d="M3 17.500c2-1.6 4-1.6 6 0s4 1.6 6 0 4-1.6 6 0M6.5 14c1.2-3.2 3.2-4.8 5.5-4.800s4.3 1.6 5.5 4.8"/>',
+  craft: '<path d="M9.5 4.5h5M10.5 4.5v3C7.5 8.7 6 11.1 6 14c0 3.3 2.7 5.5 6 5.5s6-2.2 6-5.5c0-2.9-1.5-5.3-4.5-6.5v-3M7 13.5h10"/>',
   overview: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.500l-2 5-5 2 2-5z"/>',
 };
 // filter chips, in the order of STR.filters; null is "all"
-const FILTERS = [null, ['monument', 'area'], ['bridge'], ['market'], ['gate'], ['water', 'island'], ['place']];
+const FILTERS = [null, ['monument', 'area'], ['bridge'], ['market'], ['gate'], ['water', 'island'], ['craft'], ['place']];
 
 export function createSearch(ctx) {
   // ctx: { places, T(), lang(), stories(), loadStories(), seen, currentId(), pick(id), overview(), clear() }
@@ -128,7 +129,7 @@ export function createSearch(ctx) {
     results.textContent = ''; rows = [];
     let message = '';
     if (!tokens.length && filter === 0) {
-      // nothing asked yet: the whole model, then the short walk through the city in its three groups
+      // nothing asked yet: the whole model, then the short walk through the city in its groups
       const ov = document.createElement('b'); ov.textContent = T.overview;
       addRow(null, 'overview', ov, '');
       rows[0].el.classList.add('ov');

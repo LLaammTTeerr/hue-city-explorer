@@ -458,3 +458,22 @@ were more than 1 m under the ground across eight places. Each was fixed where it
 - **Cầu Dã Viên / cầu gỗ lim:** girder undersides over the banks are cut where they would enter the ground (536 → 0).
 - **Thiên Mụ / Đông Ba:** the river stairs start at the mapped shore, with a landing out to it (29 → 0).
 `check-burial` now loads the replicas the way `check-heights` does and checks them as their own step.
+
+## Issue pass with the user (2026-11-21)
+Issues from sleepyluno, worked one at a time and fixed at the root (the source data, the parser or a shared builder),
+one PR per issue. sleepyluno is credited in the README and the About panel.
+- #6 (Nam Giao orientation): already fixed on main by the per-place replica (`places/namgiao.js`, 13° off the compass from the OSM lawns).
+- #11 done: the language control was a lone button labelled with the *other* language; it is now a VI | EN radiogroup on the shared `.seg` component (the dead `.chip` style is gone). The same pass fixed the phone compass, which was pinned at a hard-coded +144px and overlapped the tool column; `ui.js` now publishes the column's measured height as `--tools-h`.
+- #14 craft villages (partly done, "Refs #14"):
+  - The model now reaches Sình: `scripts/frame.json` bbox.n is 16.530, and the new `cityNorth` = 16.4965 starts a village zone (`inVillages`: roadside houses ×0.6, random trees 0.2).
+  - Four new OSM strips came from `scripts/fetch-osm-north.sh` into `data/raw/hue-osm-north1..4.json`. The terrain was refetched up to 16.537 N.
+  - Root fix found on the way: the terrain grid was laid from the box's corner, so widening the box moved every node by a fraction of a cell and sank the Thiên Mụ replica 1–2 m (burial check). The lattice is now laid from `frame.json` `gridAnchor`, the old corner, so main's nodes stay put and new rows are added to the north.
+  - The height fetchers (`fetch-heights.py`, `fetch-gishue-heights.py`, `fetch-lidar.py`) read the same bbox but were not rerun: the northern strip uses default heights until they are.
+  - New kind `craft`: Thủy Xuân (way 1473275556), Phường Đúc (node 9960090217), Sình (node 9960092017), guarded by the `craft villages` check.
+  - Thanh Tiên paper flowers is not in OSM; asked sleepyluno for a pin in #14.
+- #7 done (forest at the tombs and other heritage sites):
+  - Root cause: OSM maps almost no forest round the tombs, and the hills had random trees at a 0.06 chance; Thiệu Trị had 35 trees within 300 m.
+  - Source: ESA WorldCover 2021 v200, 10 m, class 10 tree cover. `scripts/fetch-landcover.py` reads the model box from the public COG into `data/raw/dem/treecover.json` (1080×1944 bitmap, 43% tree, 350 KB).
+  - `build-data.mjs` plants on a 10 m grid where WorldCover has trees: fully inside 125 heritage rings (the tombs, Vọng Cảnh, Ngự Bình, and named OSM tombs, ruins, monuments, attractions and places of worship), and 15% of cells elsewhere in the hills and villages. The city keeps its garden canopy, and terrain cover takes `wood` from WorldCover. Replicas still clear their paved ground at runtime.
+  - +127k trees (to 201k), 2,000–2,600 within 300 m of each tomb; `hue.json` gzip 2.9 MB. The `forest round the tombs` check holds each tomb at 1,000 or more.
+- Remaining: #5 (south bank remodel), #8 (landmark accuracy), and the newer #15–#22.
