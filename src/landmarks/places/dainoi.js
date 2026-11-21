@@ -34,10 +34,10 @@ const GALLERIES = [
   [[[-41, 100.5], [-13.5, 100.5]], 5], // Đại Cung Môn's flanking corridors
   [[[13.5, 99.5], [40, 99.5]], 5],
   [[[-51, 63.5], [-23, 63.5]], 4.5], // in front of the Vu halls
-  [[[22, 62], [40, 62]], 4.5],
+  [[[22.6, 62], [40, 62]], 4.5], // from the face of Cần Chánh's platform plinth (u 22.45; places/canchanh.js)
   [[[-33.5, -90], [-33.5, 40]], 6], // the long corridors either side of the inner courts
   [[[28.5, -14], [30.5, 29]], 6],
-  [[[22, 33], [34, 33]], 8], // the wide end in front of Điện Cần Chánh's east side
+  [[[22.6, 33], [34, 33]], 8], // the wide end in front of Điện Cần Chánh's east side, from its plinth face
   [[[28, -91], [28, -14]], 6],
   [[[31, -51], [91, -51], [91, 22]], 5], // Tả Trường Lang
   [[[80, -53], [80, -61]], 4], // its spur to Thái Bình Lâu

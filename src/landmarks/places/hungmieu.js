@@ -184,7 +184,12 @@ export function build({ S }) {
 
   // ---- the compound's side walls (the rear and front walls are civic.js's) ----
   S.base = 0;
-  for (const w of WALLS) fence(S, w, FENCE.imperial, { closed: false });
+  // each runs from Thế Miếu's outer or cross wall (themieu.js): butt it against that wall's face, not its centreline
+  const butt = FENCE.imperial.t / 2 + 0.25;
+  for (const [a, b] of WALLS) {
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]), ex = (b[0] - a[0]) / l, ez = (b[1] - a[1]) / l;
+    fence(S, [[a[0] + ex * butt, a[1] + ez * butt], [b[0] - ex * butt, b[1] - ez * butt]], FENCE.imperial, { closed: false });
+  }
   S.kind = KIND.PLAIN;
   S.base = 0;
 }

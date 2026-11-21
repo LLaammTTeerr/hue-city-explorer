@@ -3,6 +3,8 @@
 ## Done
 - Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
   along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
+- Waving flags (2026-11-21): shared `src/landmarks/anim.js` flag, wave in metres on the shared clock/wind (the old Kỳ Đài
+  wave was scaled to ~0.1 m and invisible). Used at Kỳ Đài, Bảo tàng HCM (2) and Đông Ba (7), and the old citadel builder.
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).
 - 3D scene: land cut around real water, roads, rail, 5,159 OSM buildings, illustrated infill and trees.
 - Hand-modelled landmarks on OSM footprints: cầu Trường Tiền, Citadel wall and gates, Kỳ Đài, Ngọ Môn,
@@ -489,3 +491,50 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
   keeps every tree trunk 0.6 m off any carriageway, in `plant()` and the avenue loop. Data rebuilt.
 - Trees on a carriageway: 3,997 of 60,922 → 0 of 56,637. New check in `check-data.mjs` ("no trees on the roads").
 - `shot.mjs --at x,z` looks at a point instead of the place's centre (used for the bridge heads).
+
+## Structures overlapping roads and each other (2026-11-21, branch `worktree-agent-ad9e82e9d2b5d8d5a`)
+- Thiên Mụ's river stair (owner's screenshot): the terrace flight ended at a fixed v = 26.5 and the river landing
+  started at a fixed v = 36. Both stood on Nguyễn Phúc Nguyên's carriageway, with the posts on the asphalt. The
+  flight and the landing are now cut where `streetTest` (src/landmarks/enclosure.js) says the street begins and
+  ends. The landing starts past the far pavement. Shots: scratch/shots/thienmu-before, scratch/shots/thienmu-after.
+- Thiên Mụ's Hà Khê precinct ring now goes through `offStreets` (enclosure.js), which trims a mapped outline off
+  the c<=3 carriageways. The east lane no longer runs under its terrace.
+- Thái Miếu and Triệu Miếu both drew Thần Khố and Thần Trù. They now belong to trieumieu.js only, whose precinct
+  they stand in.
+- New `scripts/check-overlap.mjs` (`npm run check:overlap`) checks three things:
+  - replica footprints on c<=3 carriageways (non-bridge);
+  - raised faces of different sources in the same 1 m cell;
+  - kept buildings and infill houses under models.
+  Rampart faces (`S.noCover`) are excluded. The scene build it shares with check-burial now lives in
+  scripts/lib/scene.mjs, with replicas one source per place.
+  The check is not in `npm run check`: 41 findings remain and it takes about 5.7 s.
+- Left (run `npm run check:overlap` for the list):
+  - bridge ramps over their approach roads (nguyenhoang, truongtien, phuxuan, bachho) need a principled
+    exemption;
+  - road intrusions at tayloc, giahoi, tudam, phucam, dongba, quoctugiam, baotangcovat, dcct, gahue and the gate
+    passages;
+  - dainoi's wall tops coplanar with tuphuong, canchanh and duyetthi (stacked on the wall: possibly a real
+    z-fight);
+  - hungmieu with themieu;
+  - about 15 small (7-16 m²) kept buildings or infill houses under models.
+
+- #5 south bank: roof families read per building from a Sentinel-2 scene (`scripts/fetch-roofs.py`, `data/raw/dem/roofrgb.json`), stored in flag bits 4-6 (mapped) and infill bits 4-6; the Lê Lợi ward (290 m) gets whitewashed walls (bit 7); Hai Bà Trưng joins Quốc Học's dark-red campus styling.
+- Remaining: #8 (landmark accuracy), and the newer #15–#22.
+## Non-bridge overlap findings (2026-11-21, branch `worktree-agent-a09688f46d572038b`)
+- check:overlap went from 38 to 17 findings. Of the 17, 7 are bridge or causeway road findings (left to the bridge agent).
+- Shared fixes: `offStreets`/`clipTo` keep compound fills and lawns behind the kerb. `fence()` stops where a mapped
+  building stands in its line (`solidSpans`), with no piers there. populate's `houseOff` samples every metre, and the
+  check now asks `world.houseOff` instead of keeping its own copy.
+- Check changes: the barycentric eps fix, plus the isolated `inGatePassage` rule (a gate's piers inside its mapped
+  block, where the street passes through).
+- Left over: tuphuong, duyetthi, canchanh and hungmieu+themieu are edge contact that the 1 m cells alias. Real
+  interpenetration there is 0.03 m or less. Also left: quochoc (block plinth against the mapped hall), gahue
+  (contact, 7 m²), phucam (7 m²), and hoquyen, thuyquan, mangca and conhen (not looked at).
+
+## Visual-bug round merged (2026-11-21, PRs #33, #35, #36, #37)
+- #33: ink outlines only where the surface turns (view-space normals from depth), so flat triangle seams no longer draw lines.
+- #35: Cầu Gia Hội's deck covers only the water plus 1.8 m abutments, with square ends, and lands flush with its streets (`bridgeProfiles` water spans). The crown rises 2.0 m.
+- #36: Nguyễn Hoàng's deck ends where the slip roads begin, so the junction islands are clear. The dropped carriageways still mark the ground as road, so nothing is planted under them. Dry-land rail bridges are laid at grade. check:overlap exempts deck-to-approach-street contact at bridge heads.
+- #37: the non-bridge fixes described above, merged with the bridge-head exemption.
+- check:overlap on main: 11 findings, mostly edge contact (dainoi+tuphuong 172, dainoi+duyetthi 43, canchanh 27, hungmieu 17), plus hoquyen 33, mangca 14, giahoi 13, quochoc 15, gahue 7, phucam 7, conhen 3.
+- Next: decide between per-sample and per-cell overlap counting so edge contact stops aliasing. Then fix hoquyen and mangca. Once it reaches 0, add check:overlap to `npm run check`.

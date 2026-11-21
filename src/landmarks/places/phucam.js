@@ -3,7 +3,7 @@ import { KIND, Buf, hex, shade, inRing } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
-import { fence, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
+import { fence, roadsNear, buildingsNear, offStreets, FENCE } from '../enclosure.js';
 
 // Nhà thờ chính tòa Phủ Cam (Ngô Viết Thụ; begun 1963, finished May 2000) on Phước Quả hill. See docs/places/phucam.md.
 //
@@ -211,7 +211,8 @@ export function build({ data, S, group }) {
 
   // ---- the precinct: rendered wall with iron railing on the mapped outline, open at the gates and lanes
   const roads = roadsNear(data, c, 170), blds = buildingsNear(data, c, 130);
-  fence(S, PRECINCT, FENCE.church, { roads, openings: GATES, solid: blds });
+  // on the mapped outline less the street OSM draws along its south side (the wall stands at the kerb, not on it)
+  fence(S, offStreets(data, PRECINCT), FENCE.church, { roads, openings: GATES, solid: blds });
   // raised garden beds where the generator's filler houses would otherwise stand inside the grounds
   const inChurch = (x, z) => inRing(x, z, out.map(([a, b]) => W(a, b))) || inRing(x, z, [[-30, -18], [-30, 18], [0, 18], [0, -18]].map(([a, b]) => W(a, b)));
   const inf = data.infill || [];

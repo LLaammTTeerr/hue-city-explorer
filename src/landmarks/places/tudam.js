@@ -3,7 +3,7 @@ import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
 import { pavilion } from '../citadel.js';
-import { leaves } from '../enclosure.js';
+import { leaves, offStreets, clipTo } from '../enclosure.js';
 
 // ---- Chùa Từ Đàm, 1 Sư Liễu Quán, Huế: the precinct as it stands today (see docs/places/tudam.md) ----
 //
@@ -75,9 +75,11 @@ function inset(ring, d) {
   });
 }
 
-export function build({ S, group, THREE }) {
+export function build({ data, S, group, THREE }) {
   const n0 = S.n;
-  const site = inset(SITE, 1.0);
+  // the precinct less the streets OSM draws into it (Điện Biên Phủ runs a few metres inside the mapped west side):
+  // the wall stands at the kerb
+  const site = offStreets(data, inset(SITE, 1.0));
   // one level for the whole precinct, a little above its highest ground (the yard stands over the street on a stone
   // base, as the photos from Điện Biên Phủ and Sư Liễu Quán show)
   let top = -Infinity;
@@ -100,9 +102,10 @@ export function build({ S, group, THREE }) {
   S.prism(quad(-14, 12, 19.4, 55.6), Y, Y + 0.03, C.redBrick, C.redBrick, { topKind: KIND.ROAD });
   (S.paved = S.paved || []).push([paved0, S.n]); // paving: no trees, no houses (src/geo/city.js coverOf)
   // lawns: round the stupa, along the west wall, and the bed under the Bodhi tree
-  S.prism(quad(-33, -16, 30, 55), Y, Y + 0.06, C.lawn, C.lawn, { topKind: KIND.GROUND });
-  S.prism(quad(-30, -16, -30, 14), Y, Y + 0.06, C.lawn, C.lawn, { topKind: KIND.GROUND });
-  S.prism(quad(13, 19.5, 30, 50), Y, Y + 0.06, C.lawn, C.lawn, { topKind: KIND.GROUND });
+  for (const q of [quad(-33, -16, 30, 55), quad(-30, -16, -30, 14), quad(13, 19.5, 30, 50)]) {
+    const bed = clipTo(q, site); // inside the precinct wall (its west side is not square to the hall)
+    if (bed) S.prism(bed, Y, Y + 0.06, C.lawn, C.lawn, { topKind: KIND.GROUND });
+  }
 
   // ---------------- chánh điện: podium, two halls one behind the other, side towers ----------------
   const cu = -1.25, PW = 24.1, PH = 1.9; // podium centre along u, width, height

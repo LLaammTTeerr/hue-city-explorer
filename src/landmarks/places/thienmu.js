@@ -4,6 +4,7 @@ import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
 import { pavilion } from '../citadel.js';
 import { landTest } from '../boats.js';
+import { streetTest, offStreets } from '../enclosure.js';
 
 // ---- Chùa Thiên Mụ, the pagoda on Hà Khê hill above the Hương river ----
 //
@@ -71,7 +72,8 @@ function clip(ring, a, b, c) {
 
 export function build({ data, S, group, THREE }) {
   if (!data.hakhe) throw new Error('no Hà Khê terrace in the data');
-  const hkRing = unflat(data.hakhe.ring);
+  // the precinct as mapped, less the lane OSM draws a metre or two into its east side (the wall stands at the kerb)
+  const hkRing = offStreets(data, unflat(data.hakhe.ring));
   const Y = LAND_Y + data.hakhe.top / 10 + 0.06; // the walled ground of the pagoda: one level on the hill
   const keep = S.kind;
   const box = (u, v, ya, yb, w, d, col, o) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ANG, col, o); };
@@ -147,8 +149,17 @@ export function build({ data, S, group, THREE }) {
   }
 
   // ---- the stair: from the terrace at the four pillars down to the riverside road, two flights and a landing ----
+  // The riverside road (Nguyễn Phúc Nguyên, OSM) runs between the stair and the landing: the flight comes down to its
+  // land-side kerb and the landing starts past its river-side pavement, both found on the mapped street, so neither
+  // runs out over the asphalt (fixed lengths put the newel posts, the landing and its posts on the carriageway).
+  const street = streetTest(data, P(0, 35), 60);
+  const across = [-SW - 0.7, 0, SW + 0.7];
+  let vEnd = 26.5;
+  for (let v = NV + 10; v < 40; v += 0.1) if (across.some((u) => street(...P(u, v), 0.3))) { vEnd = v; break; }
+  let vKerb = 36;
+  for (let v = vEnd + 1; v < 60; v += 0.1) if (![-8, -4, 0, 4, 8].some((u) => street(...P(u, v), 'pavement'))) { vKerb = v; break; }
   {
-    const vEnd = 26.5, gEnd = LAND_Y + Math.max(0, rise(...P(0, vEnd)));
+    const gEnd = LAND_Y + Math.max(0, rise(...P(0, vEnd)));
     const n = 30, land = 1.8, run = (vEnd - NV - land) / n, fall = (Y - gEnd) / n;
     const n0 = S.n;
     S.kind = KIND.ROAD;
@@ -186,26 +197,27 @@ export function build({ data, S, group, THREE }) {
 
   // ---- across the road: the landing (bến) on the river, a stone platform and steps down to the water ----
   {
-    const gy = LAND_Y + Math.max(0, rise(...P(0, 40)));
+    const vH = Math.max(46, vKerb + 3); // the platform runs from the pavement's edge to the head of the flight
+    const gy = LAND_Y + Math.max(0, rise(...P(0, (vKerb + vH) / 2)));
     const n0 = S.n;
     S.kind = KIND.MASONRY;
-    box(0, 41, gy - 1.2, gy + 0.25, 16, 10, shade(STONE, 0.98), { topKind: KIND.ROAD });
+    box(0, (vKerb + vH) / 2, gy - 1.2, gy + 0.25, 16, vH - vKerb, shade(STONE, 0.98), { topKind: KIND.ROAD });
     S.kind = KIND.ROAD;
     const steps = 18, top = gy + 0.25, bot = 0.4, run = 0.6;
     // the flight goes down the bank: the first step that drops a metre below the city floor stands at the mapped
     // shore, and where the shore lies farther out the platform runs on to the head of the flight (on a fixed run the
     // lower steps were sunk in the bank)
     const land = landTest(data), kIn = Math.ceil(((top - (LAND_Y - 0.9)) / (top - bot)) * steps) - 1;
-    let v0 = 46;
-    for (let v = 46 + kIn * run; v < 90; v += 0.25) if (![-5, 0, 5].some((u) => land(...P(u, v)))) { v0 = Math.max(46, v - kIn * run); break; }
-    if (v0 > 46) box(0, (46 + v0) / 2, gy - 1.2, gy + 0.25, 10, v0 - 46 + 0.1, shade(STONE, 0.98), { topKind: KIND.ROAD });
+    let v0 = vH;
+    for (let v = vH + kIn * run; v < 90; v += 0.25) if (![-5, 0, 5].some((u) => land(...P(u, v)))) { v0 = Math.max(vH, v - kIn * run); break; }
+    if (v0 > vH) box(0, (vH + v0) / 2, gy - 1.2, gy + 0.25, 10, v0 - vH + 0.1, shade(STONE, 0.98), { topKind: KIND.ROAD });
     for (let k = 0; k < steps; k++) box(0, v0 + run * (k + 0.5), bot - 1.2, top - ((top - bot) * (k + 1)) / steps, 10, run + 0.02, shade(STONE, 0.92 - k * 0.015), { topKind: KIND.ROAD });
     (S.paved = S.paved || []).push([n0, S.n]);
     S.kind = KIND.MASONRY;
     for (const sg of [-1, 1]) {
-      box(sg * 6.5, (46 + v0 + steps * run) / 2, bot - 1.2, top + 0.5, 3.0, v0 - 46 + steps * run, shade(STONE, 0.9));
-      box(sg * 7.6, 36.4, top, top + 0.8, 0.6, 0.6, LIME);
-      cyl(sg * 7.6, 36.4, top + 0.8, top + 1.15, 0.28, 0.1, 6, GREY);
+      box(sg * 6.5, (vH + v0 + steps * run) / 2, bot - 1.2, top + 0.5, 3.0, v0 - vH + steps * run, shade(STONE, 0.9));
+      box(sg * 7.6, vKerb + 0.4, top, top + 0.8, 0.6, 0.6, LIME);
+      cyl(sg * 7.6, vKerb + 0.4, top + 0.8, top + 1.15, 0.28, 0.1, 6, GREY);
     }
     S.kind = KIND.PLAIN;
   }

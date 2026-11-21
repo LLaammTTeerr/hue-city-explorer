@@ -2,7 +2,7 @@ import { KIND, Buf, hex, shade } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
-import { fence, roadsNear, FENCE } from '../enclosure.js';
+import { fence, roadsNear, streetTest, FENCE } from '../enclosure.js';
 
 // ---- Ga Huế (1906–1908), 1 Bùi Thị Xuân: the passenger building as it stands in 2026 ----
 //
@@ -59,7 +59,12 @@ export function build({ data, S, group, THREE }) {
   S.box(-1154, 1351, y0 - 0.5, y0 + 0.04, 84, 26, 0, asphalt, { topKind: KIND.ROAD });
   S.kind = KIND.MASONRY;
   S.box(-1153.5, 1375.3, y0 - 0.5, y0 + 0.12, 77, 13.6, 0, pave, { topKind: KIND.ROAD });
-  S.box(CX, 1365.4, y0 - 0.4, y0 + 0.16, 30, 5.6, 0, pave, { topKind: KIND.ROAD }); // under the canopy
+  // under the canopy: the pavement from the facade to the kerb of the mapped drive (OSM runs it 6.5 m off the front,
+  // so its carriageway takes the canopy's outer two metres); the canopy's columns stand on the kerb
+  const street = streetTest(data, [CX, 1364], 60);
+  let zKerb = C.z0 - 5.6;
+  for (let z = C.z0 - 1; z > C.z0 - 5.6; z -= 0.1) if ([-14, 0, 14].some((u) => street(CX + u, z, 0.3))) { zKerb = z; break; }
+  S.box(CX, (zKerb + C.z0) / 2, y0 - 0.4, y0 + 0.16, 30, C.z0 - zKerb, 0, pave, { topKind: KIND.ROAD });
   for (let k = 0; k < 3; k++) S.box(CX, 1366.9 + k * 0.4, y0, y0 + 0.17 * (k + 1), 15 - k * 0.6, 2.6 - k * 0.8, 0, shade(pave, 1.05 - k * 0.04)); // three steps
   S.box(CX, 1368.0, y0, F, 22.6, 0.6, 0, pave);
   // white planters either side of the steps
@@ -239,9 +244,10 @@ export function build({ data, S, group, THREE }) {
     S.box(CX, zo - 0.02, F + 4.65, F + 5.05, 25, 0.04, 0, blue); // the lettering
     for (const sg of [-1, 1]) S.box(CX + sg * 14.8, zc, F + 4.3, F + 5.4, 0.3, 5.6, 0, white);
     for (const u of [-12.2, -8.0, -2.6, 2.6, 8.0, 12.2]) {
-      S.cyl(CX + u, zo + 0.6, y0 + 0.1, F + 4.4, 0.3, 0.27, 10, column);
-      S.box(CX + u, zo + 0.6, y0 + 0.1, y0 + 0.5, 0.8, 0.8, 0, white);
-      S.box(CX + u, zo + 0.6, F + 4.2, F + 4.4, 0.75, 0.75, 0, white);
+      const zc0 = Math.max(zo + 0.6, zKerb + 0.5); // at the kerb
+      S.cyl(CX + u, zc0, y0 + 0.1, F + 4.4, 0.3, 0.27, 10, column);
+      S.box(CX + u, zc0, y0 + 0.1, y0 + 0.5, 0.8, 0.8, 0, white);
+      S.box(CX + u, zc0, F + 4.2, F + 4.4, 0.75, 0.75, 0, white);
     }
     for (let u = -12; u <= 12.01; u += 4) lamp(CX + u, F + 4.2, zc);
     L.box(CX, zo - 0.04, F + 4.62, F + 5.08, 25.4, 0.02, 0, [1, 1, 1]);

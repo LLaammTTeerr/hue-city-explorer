@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import polygonClipping from 'polygon-clipping';
 import { KIND, Buf, hex, shade } from '../geo/buf.js';
 import { LAND_Y } from '../config.js';
 import { rise } from '../geo/terrain.js';
@@ -57,6 +58,63 @@ export function roadsNear(data, c, r) {
     }
   }
   return out;
+}
+
+// Is (x, z) on a mapped street near c? Streets are the classes city.js gives kerbs and pavements (0-3), bridges left
+// out. `pad` widens the carriageway; pad 'pavement' takes in the pavement city.js draws beside it. A stair, landing or
+// terrace that meets a street should stop where this turns false, not run on over the asphalt
+// (scripts/check-overlap.mjs fails when a model stands on a carriageway).
+export const PAVEMENT = (cl) => (cl <= 2 ? 1.8 : 1.2);
+export function streetTest(data, c, r) {
+  const segs = roadsNear(data, c, r).filter((s) => s[5] <= 3);
+  return (x, z, pad = 0) => segs.some(([ax, az, bx, bz, w, cl]) => {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+    return Math.hypot(ax + dx * t - x, az + dz * t - z) < w / 2 + (pad === 'pavement' ? PAVEMENT(cl) : pad);
+  });
+}
+
+// A mapped outline (a precinct, a terrace) kept off the streets, as build-data.mjs trims mapped buildings: the ring
+// less each street's carriageway plus `pad`, its largest piece kept. OSM draws a lane along a wall a metre or two
+// into it; a model built on the raw outline would stand its wall on the asphalt.
+export function offStreets(data, ring, pad = 0.3) {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const c = [(x0 + x1) / 2, (z0 + z1) / 2], r = Math.hypot(x1 - x0, z1 - z0) / 2 + 10;
+  const strips = [];
+  for (const [ax, az, bx, bz, w, cl] of roadsNear(data, c, r)) {
+    if (cl > 3) continue;
+    const hw = w / 2 + pad, L = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, p = [];
+    for (const [e, sg] of [[[bx, bz], 1], [[ax, az], -1]]) for (let k = 0; k <= 6; k++) {
+      const t = (k * Math.PI) / 6, cs = Math.cos(t) * sg, sn = Math.sin(t) * sg;
+      p.push([e[0] + hw * (cs * nx + sn * ux), e[1] + hw * (cs * nz + sn * uz)]);
+    }
+    // the strip's own box against the ring's (a long street along a side has both ends beyond the ring)
+    if (Math.max(ax, bx) + hw > x0 && Math.min(ax, bx) - hw < x1 && Math.max(az, bz) + hw > z0 && Math.min(az, bz) - hw < z1) strips.push([[...p, p[0]]]);
+  }
+  if (!strips.length) return ring;
+  let rest;
+  try { rest = polygonClipping.difference([[...ring, ring[0]]], ...strips); } catch { return ring; }
+  const area = (q) => { let a = 0; for (let i = 0, j = q.length - 1; i < q.length; j = i++) a += (q[j][0] + q[i][0]) * (q[j][1] - q[i][1]); return Math.abs(a / 2); };
+  let best = null;
+  for (const pg of rest) { const q = pg[0].slice(0, -1); if (!best || area(q) > area(best)) best = q; }
+  if (!best) return ring;
+  // keep the original winding
+  const sgn = (q) => { let a = 0; for (let i = 0, j = q.length - 1; i < q.length; j = i++) a += (q[j][0] + q[i][0]) * (q[j][1] - q[i][1]); return Math.sign(a); };
+  return sgn(best) === sgn(ring) ? best : best.reverse();
+}
+
+// A ring (a lawn, a court) cut to the part inside `bound` (the precinct it belongs to), its largest piece kept, in the
+// ring's own winding; null when nothing is left. A bed or a paving laid out in a building's frame otherwise runs on
+// past the precinct wall where the mapped outline is not square to that frame.
+export function clipTo(ring, bound) {
+  let rest;
+  try { rest = polygonClipping.intersection([[...ring, ring[0]]], [[...bound, bound[0]]]); } catch { return ring; }
+  const sa = (q) => { let a = 0; for (let i = 0, j = q.length - 1; i < q.length; j = i++) a += (q[j][0] + q[i][0]) * (q[j][1] - q[i][1]); return a / 2; };
+  let best = null;
+  for (const pg of rest) { const q = pg[0].slice(0, -1); if (!best || Math.abs(sa(q)) > Math.abs(sa(best))) best = q; }
+  if (!best || best.length < 3) return null;
+  return Math.sign(sa(best)) === Math.sign(sa(ring)) ? best : best.reverse();
 }
 
 // where along a -> b (0..1) roads cross or gates stand, as merged [from, to] gaps
@@ -118,6 +176,28 @@ export function buildingsNear(data, c, r) {
   return out;
 }
 
+// the stretches of a-b (as fractions) inside any of the outlines, or within `pad` of the line beside it (a fence
+// running along a building's face is that face), sampled every 0.25 m
+function solidSpans(a, b, len, solid, pad) {
+  const out = [];
+  if (!solid.length) return out;
+  const near = solid.filter((r) => {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const [x, z] of r) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+    return Math.max(a[0], b[0]) + pad > x0 && Math.min(a[0], b[0]) - pad < x1 && Math.max(a[1], b[1]) + pad > z0 && Math.min(a[1], b[1]) - pad < z1;
+  });
+  if (!near.length) return out;
+  const n = Math.max(2, Math.ceil(len / 0.25)), h = 0.5 / n, nx = (-(b[1] - a[1]) / len) * pad, nz = ((b[0] - a[0]) / len) * pad;
+  let from = -1;
+  for (let j = 0; j <= n; j++) {
+    const t = j / n, x = a[0] + (b[0] - a[0]) * t, z = a[1] + (b[1] - a[1]) * t, inside = near.some((r) => inRing(x, z, r) || inRing(x + nx, z + nz, r) || inRing(x - nx, z - nz, r));
+    if (inside && from < 0) from = Math.max(0, t - h);
+    if (!inside && from >= 0) { out.push([from, t - h]); from = -1; }
+  }
+  if (from >= 0) out.push([from, 1]);
+  return out;
+}
+
 export function fence(S, pts, st, { closed = true, roads = [], openings = [], solid = [], lampEvery = 0, lampCol = [1, 0.82, 0.55] } = {}) {
   const piers = [];
   const n = pts.length, m = closed ? n : n - 1;
@@ -130,8 +210,11 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
     const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
     const at = (f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
     const gaps = gapsOf(a, b, len, roads, openings), runs = [];
+    // the fence stops where a building stands in its line (no piers there): the stretches inside a solid outline
+    // come off the runs, so a small gatehouse shorter than a bay still cuts the wall
+    const cuts = [...gaps, ...solidSpans(a, b, len, solid, st.t / 2 + 0.2)].sort((p, q) => p[0] - q[0]);
     let f = 0;
-    for (const [g0, g1] of gaps) { if (g0 > f) runs.push([f, Math.min(1, g0)]); f = Math.max(f, g1); }
+    for (const [g0, g1] of cuts) { if (g0 > f) runs.push([f, Math.min(1, g0)]); f = Math.max(f, g1); }
     if (f < 1) runs.push([f, 1]);
     for (const [r0, r1] of runs) {
       const rl = (r1 - r0) * len;
@@ -141,7 +224,6 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
         const p = at(r0 + ((r1 - r0) * k) / nb), q = at(r0 + ((r1 - r0) * (k + 1)) / nb);
         const yp = gY(p[0], p[1]), yq = gY(q[0], q[1]), lo = Math.min(yp, yq) - 0.4, hi = Math.max(yp, yq);
         const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, bl = rl / nb;
-        if (solid.some((r) => inRing(mx, mz, r))) continue; // a building stands in the line here
         S.base = lo + 0.4 - LAND_Y;
         S.kind = KIND.MASONRY;
         if (st.rail) {
@@ -171,6 +253,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
     for (const [g0, g1] of gaps) for (const fp of [g0, g1]) {
       if (fp <= 0.005 || fp >= 0.995) continue;
       const p = at(fp), y = gY(p[0], p[1]), top = y + st.h + st.pierUp;
+      if (solid.some((r) => inRing(p[0], p[1], r))) continue; // a gatehouse frames the opening itself
       S.base = y - LAND_Y;
       S.kind = KIND.MASONRY;
       S.box(p[0], p[1], y - 0.4, top, st.pierW, st.pierW, ang, st.wall, { top: st.cap });

@@ -3,6 +3,8 @@ import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { lightMaterial, shared } from '../../geo/materials.js';
 import { landTest } from '../boats.js';
+import { streetTest } from '../enclosure.js';
+import { flag } from '../anim.js';
 
 // Chợ Đông Ba, Huế's central market, as it stands today. Sources and estimates: docs/places/dongba.md.
 //
@@ -126,8 +128,7 @@ export function build({ data, S, group, THREE }) {
   for (let i = 0; i < 7; i++) {
     const u = -6 + i * 2, p = P(u, EV1 - 1.2), y = gy(p);
     S.cyl(p[0], p[1], y + BY1, y + 10.2, 0.05, 0.04, 4, hex('#d8d8d8'));
-    const q = P(u + 0.55, EV1 - 1.2);
-    S.box(q[0], q[1], y + 9.4, y + 10.1, 1.0, 0.04, ANG, FLAGS[i % 4]);
+    flag(group, { at: [p[0], y + 10.1, p[1]], w: 1.0, h: 0.7, look: FLAGS[i % 4], landmark: id }); // waves down-wind (anim.js)
   }
 
   // ---- the forecourt: rows of stalls either side of the entrance, and the two corner buildings ----
@@ -142,18 +143,26 @@ export function build({ data, S, group, THREE }) {
   }
 
   // ---- the stall halls along both ends and the back (toward Chương Dương) ----
+  // the back ones reach to the street behind, their eaves (0.7 m over, flared) stopping at its kerb: the back wall
+  // is found on the mapped street, not a fixed depth (which hung the eaves a metre over the carriageway)
+  const street = streetTest(data, C, 140);
+  const backV = (u0, u1, v) => {
+    let back = v;
+    for (let u = u0; u <= u1 + 0.01; u += (u1 - u0) / 8) for (let w = -30; w > v - 6; w -= 0.1) if (street(...P(u, w), 0)) { back = Math.max(back, w + 0.9); break; }
+    return back;
+  };
   shed(S, -78, -36.2, -21, 30, 5.0, METAL);
   S.kind = KIND.CIVIC; // the two-storey spine through the south end hall
   boxUV(S, -48, -42, -21, 30, 0, 7.0, GREY, { top: shade(CONCRETE, 0.85) });
   S.kind = KIND.PLAIN;
   hipUV(S, -48, -42, -21, 30, 7.0, 0.8, METAL, { over: 0.5, flare: 0.1 });
   shed(S, 36.2, 78, -21, 30, 5.0, METAL);
-  shed(S, -78, 38, -49, -22.2, 5.0, METAL);
+  shed(S, -78, 38, backV(-78, 38, -49), -22.2, 5.0, METAL);
   S.kind = KIND.CIVIC;
   boxUV(S, 38.5, 72, -40, -22.5, 0, 7.4, GREY, { top: shade(CONCRETE, 0.85) });
   S.kind = KIND.PLAIN;
   hipUV(S, 38.5, 72, -40, -22.5, 7.4, 0.9, METAL, { over: 0.6, flare: 0.1 });
-  shed(S, 38.5, 72, -48, -40.3, 3.6, METAL);
+  shed(S, 38.5, 72, backV(38.5, 72, -48), -40.3, 3.6, METAL);
 
   // ---- the wharf on the river behind the fruit market: a stone quay edge with steps and bollards ----
   const QV = -90.0;
