@@ -78,5 +78,19 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-1106.0, 9.6, 34.2], "target": [-1121.0, 6.8, 14.2] }
+  },
+  "north-bank-pavilion-yard": {
+    "note": "Straight down on the riverside park just west of cầu Trường Tiền's north end: the six-sided pavilion in its ring of path and the paved yards around it (issue #69).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-250, 110, -60], "target": [-250, 2.6, -59.9] }
+  },
+  "north-bank-pavilion-yard-oblique": {
+    "note": "The same park from the south-east at an angle, as the issue's screenshot sees it.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-215, 70, 40], "target": [-250, 2.6, -60] }
   }
 }
