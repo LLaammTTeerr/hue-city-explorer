@@ -8,6 +8,7 @@ import { LAND_Y, POND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { replaced } from './places/index.js';
+import * as P from './props.js';
 
 const C = {
   brick: hex('#6e6253'), brickMoss: hex('#5e6249'), brickWarm: hex('#8a5c46'),
@@ -314,25 +315,14 @@ function bridge(S, p0, p1, w, { col = C.stone, arch = 0.5, rail = true } = {}) {
   for (const f of [0.3, 0.7]) { const p = P(f); S.box(p[0], p[1], POND_Y - 0.8, yAt(f) - 0.5, 1.2, w * 0.9, Math.atan2(uz, ux), shade(col, 0.85)); }
 }
 
-// statues: mandarins as slim grey boxes, elephants and horses as two or three blocks
-function mandarin(S, x, z, a, col = MANDARIN) {
-  const g = gY(x, z);
-  S.kind = KIND.MASONRY;
-  S.box(x, z, g - 0.3, g + 1.6, 0.55, 0.42, a, col);
-  S.box(x, z, g + 1.6, g + 2.0, 0.32, 0.32, a, shade(col, 0.94));
+// statues: the stone mandarins, elephants and horses of src/landmarks/props.js, each on its own ground. local +x
+// (a) is the direction the statue faces
+function mandarin(S, x, z, a, col = MANDARIN, military = false) {
+  P.mandarin(S, x, gY(x, z), z, a, { col, military });
 }
 function beast(S, x, z, a, big, col = MANDARIN) {
-  const g = gY(x, z), ux = Math.cos(a), uz = Math.sin(a);
-  S.kind = KIND.MASONRY;
-  if (big) { // elephant
-    S.box(x, z, g - 0.3, g + 1.0, 2.1, 1.0, a, col);
-    S.box(x, z, g + 1.0, g + 2.1, 2.6, 1.35, a, col);
-    S.box(x + ux * 1.45, z + uz * 1.45, g + 0.6, g + 2.2, 0.8, 1.0, a, shade(col, 0.95));
-  } else { // horse
-    S.box(x, z, g - 0.3, g + 0.9, 1.5, 0.45, a, col);
-    S.box(x, z, g + 0.9, g + 1.55, 1.9, 0.6, a, col);
-    S.box(x + ux * 1.0, z + uz * 1.0, g + 1.3, g + 2.15, 0.5, 0.42, a, shade(col, 0.95));
-  }
+  if (big) P.elephant(S, x, gY(x, z), z, a, { col });
+  else P.horse(S, x, gY(x, z), z, a, { col });
 }
 // two rows a side: beasts first (nearest the gate), then mandarins; statues face the axis
 function statueCourt(S, F, s0, s1, { inner = 5, outer = 8, beasts = true, col = MANDARIN } = {}) {
@@ -340,8 +330,8 @@ function statueCourt(S, F, s0, s1, { inner = 5, outer = 8, beasts = true, col = 
   for (const sd of [-1, 1]) for (let k = 0; k < n; k++) {
     const s = s0 + step * k, face = F.av + (sd > 0 ? Math.PI : 0);
     const pi = F.at(s, sd * inner); mandarin(S, pi[0], pi[1], face, col);
-    const po = F.at(s, sd * outer);
-    if (beasts && k < 2) beast(S, po[0], po[1], F.a, k === 0, col); else mandarin(S, po[0], po[1], face, col);
+    const po = F.at(s, sd * outer); // the outer row: the military mandarins behind the beasts
+    if (beasts && k < 2) beast(S, po[0], po[1], F.a, k === 0, col); else mandarin(S, po[0], po[1], face, col, true);
   }
 }
 function obelisk(S, x, z, h = 9, col = C.stone) {

@@ -6,6 +6,12 @@
   as it stands today. First four: Điện Cần Chánh (was a bare lim frame), Đại Cung Môn (foundation), Thái Miếu's main
   hall and its smaller halls (bases), Đức Hinh lâu at Lăng Thiệu Trị (ruin). One agent per place; heights merged into
   docs/heights-reference.json afterwards.
+- Courtyard objects (2026-11-21, same branch): owner asked for the statues, jars and bronzes in the courts.
+  `src/landmarks/props.js` holds shared builders (mandarins, elephant, horse, kỳ lân, vạc, đỉnh, crane on tortoise,
+  cannon, jar, planter); `src/landmarks/courtyard.js` draws the Quảng Đức and Thể Nhơn cannon houses and four Đại
+  Nội vạc. Tombs, Cửu Đỉnh, Thế Miếu, Hưng Miếu, Kiến Trung and Thái Hòa use them; sources per object in
+  docs/places/courtyard-objects.md. Open: the Thái Hòa censers, cranes and second vạc have no source (owner to
+  decide); kỳ lân at gates and glazed jars not placed for lack of sources.
 
 ## Done
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel

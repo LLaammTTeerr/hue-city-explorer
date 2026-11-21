@@ -2,6 +2,7 @@ import { KIND, hex, shade, obb, inRing } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { pavilion } from '../citadel.js';
+import * as props from '../props.js';
 
 // ---- Lăng Tự Đức (Khiêm Lăng), the tomb of Emperor Tự Đức, built 1864–67 in a pine valley at Dương Xuân Thượng ----
 //
@@ -227,31 +228,11 @@ function waterPavilion(S, ring, { deck, wallH, top, roof = C.roofTile }) {
   const iw = o.w - 1.0, id = o.d - 1.0;
   return pavilion(S, cx, cz, iw, id, a, deck, { wallH, rh: top - deck - wallH, roof, wall: C.lacquerOld, colonnade: true, over: 1.3, platform: 0, segs: 3 });
 }
-// statues of the salutation court, facing `a` (the direction they look)
-function mandarin(S, x, z, y, a, military = false) {
-  S.kind = KIND.MASONRY;
-  S.box(x, z, y, y + 0.22, 0.75, 0.75, a, C.stoneDark);
-  S.box(x, z, y + 0.22, y + 1.3, 0.48, 0.58, a, C.mandarin, { taper: 0.86 });
-  S.box(x, z, y + 1.3, y + 1.62, 0.3, 0.3, a, shade(C.mandarin, 0.95));
-  S.box(x, z, y + 1.62, y + (military ? 1.74 : 1.7), military ? 0.38 : 0.44, 0.34, a, shade(C.mandarin, 0.8));
-}
-function elephant(S, x, z, y, a) {
-  const ux = Math.cos(a), uz = Math.sin(a), vx = -uz, vz = ux;
-  S.kind = KIND.MASONRY;
-  S.box(x, z, y, y + 0.2, 2.8, 1.5, a, C.stoneDark);
-  for (const [u, v] of [[0.8, 0.4], [0.8, -0.4], [-0.8, 0.4], [-0.8, -0.4]]) S.box(x + ux * u + vx * v, z + uz * u + vz * v, y + 0.2, y + 1.0, 0.42, 0.42, a, C.mandarin);
-  S.box(x, z, y + 0.9, y + 1.95, 2.3, 1.2, a, C.mandarin, { taper: 0.92 });
-  S.box(x + ux * 1.3, z + uz * 1.3, y + 1.1, y + 2.05, 0.7, 0.95, a, shade(C.mandarin, 0.95));
-  S.box(x + ux * 1.6, z + uz * 1.6, y + 0.35, y + 1.3, 0.24, 0.24, a, shade(C.mandarin, 0.9));
-}
-function horse(S, x, z, y, a) {
-  const ux = Math.cos(a), uz = Math.sin(a), vx = -uz, vz = ux;
-  S.kind = KIND.MASONRY;
-  S.box(x, z, y, y + 0.2, 2.0, 0.9, a, C.stoneDark);
-  for (const [u, v] of [[0.6, 0.2], [0.6, -0.2], [-0.6, 0.2], [-0.6, -0.2]]) S.box(x + ux * u + vx * v, z + uz * u + vz * v, y + 0.2, y + 0.95, 0.2, 0.2, a, C.mandarin);
-  S.box(x, z, y + 0.9, y + 1.45, 1.6, 0.6, a, C.mandarin);
-  S.box(x + ux * 0.85, z + uz * 0.85, y + 1.2, y + 2.0, 0.4, 0.34, a, shade(C.mandarin, 0.95), { taper: 0.8 });
-}
+// statues of the salutation court (src/landmarks/props.js), facing `a` (the direction they look); Tự Đức's are
+// small, about 1.75 m with the plinth
+function mandarin(S, x, z, y, a, military = false) { props.mandarin(S, x, y, z, a, { military, h: 1.75, col: C.mandarin, plinth: true }); }
+function elephant(S, x, z, y, a) { props.elephant(S, x, y, z, a, { s: 0.95, col: C.mandarin }); }
+function horse(S, x, z, y, a) { props.horse(S, x, y, z, a, { s: 0.95, col: C.mandarin }); }
 
 export function build({ data, S }) {
   const claimed = [], claimedRings = []; // the mapped buildings drawn here, so the generic pass leaves them alone
