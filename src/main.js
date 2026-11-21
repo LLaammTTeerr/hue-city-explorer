@@ -17,6 +17,7 @@ import { buildSouth } from './landmarks/south.js';
 import { buildTombs } from './landmarks/tombs.js';
 import { buildBiaQuocHoc } from './landmarks/memorial.js';
 import { buildBoardwalk } from './landmarks/boardwalk.js';
+import { buildRiverLights } from './landmarks/riverlights.js';
 import { shared } from './geo/materials.js';
 import { buildLotus, buildTraffic, buildStreetLife } from './landmarks/life.js';
 import { buildSky } from './env/sky.js';
@@ -87,6 +88,7 @@ async function main() {
   buildCivic(data, world.structures);
   buildBiaQuocHoc(data, world.structures);
   buildBoardwalk(data, world.structures, dynamic);
+  buildRiverLights(data, world.structures, dynamic); // lamps along the Hương's banks and walkways (issue #21)
   const floating = buildFloatingRestaurants(data, world.structures, dynamic); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);

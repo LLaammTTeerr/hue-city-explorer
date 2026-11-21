@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Buf, KIND, hex, shade, mix, unflat, obb, signedArea, ringCentre, pathLength, chunked, rand, pick } from './buf.js';
+import { Buf, KIND, KIND_FLOOD, hex, shade, mix, unflat, obb, signedArea, ringCentre, pathLength, chunked, rand, pick } from './buf.js';
 import { cityMaterial, landMaterial, enc, glowPoints } from './materials.js';
 import { initDistricts } from './districts.js';
 import { LAND_Y, WALL_H, PAL, quality, ROAD_W, ROAD_MAX } from '../config.js';
@@ -10,6 +10,7 @@ import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
 import { bridgeProfiles, resample, subPath } from './bridges.js';
+import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
@@ -258,6 +259,7 @@ function buildRoads(data, group, structures) {
     if (P.name === 'Đông Thành Thủy Quan' && replaced('thuyquan')) continue; // modelled in landmarks/places/thuyquan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
+    if (P.citadel) { citadelBridge(structures, r.pts, w, P, cols[Math.min(r.c, 3)]); continue; } // geo/citadel-bridge.js: masonry vaults, no piers
     if (P.span) { // the structure only: the street beyond its abutments was laid with the roads above
       const s0 = P.span[0], R = resample(subPath(r.pts, s0, P.span[1]), Math.min(2, P.len / 16));
       slab(structures, R.pts, w, (s) => P.y(s0 + s), P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
@@ -444,7 +446,9 @@ function buildBuildings(data, group, off = null) {
     const ring = unflat(b[0]);
     if (off && off(ring, ringCentre(ring))) return; // a landmark model already stands on this footprint
     if (b[2] === 2 && dainoiOwns(ring)) return; // a gallery or hall places/dainoi.js draws
+    const start = B.n;
     draw(b, i);
+    if (b[4] & 256) for (let v = start; v < B.n; v++) B.knd[v] |= KIND_FLOOD; // faces the Hương: floodlit after dark (build-data.mjs)
   });
   const mesh = new THREE.Mesh(B.geometry(), cityMaterial({ windows: true }));
   mesh.castShadow = true;

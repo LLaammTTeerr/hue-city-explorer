@@ -36,3 +36,9 @@ Model: `src/landmarks/truongtien.js` (edited in place: the form was already righ
 ## Left to do
 - No source found for pier dimensions, deck height above mean water, or the exact panel/diagonal pattern.
 - The lamp posts and their arms are generic.
+
+## Light show (2026-11-21)
+- The night programme is now one continuous colour band (violet, blue, cyan, green, gold, red, magenta, white,
+  each easing into the next, one round per ~0.85 of the bridge's length) that slides along the bridge at 9 m/s, so
+  the colours change by flowing bow to bow rather than the whole bridge switching. LED strips sample it per pixel on
+  the GPU; the bow lamps sample the same function per lamp. Rain eases it toward warm white.

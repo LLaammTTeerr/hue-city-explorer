@@ -50,7 +50,9 @@ export function build({ data, S, group }) {
   S.kind = KIND.MASONRY;
   const out = [[-0.8, 11], [4.5, 16.6], [10.6, 11.6], [39.6, 11.6], [39.6, 21.3], [60.3, 21.3], [60.3, 10.4], [70.8, 10.4], [74.4, 6.2], [75.7, 0],
     [74.4, -6.2], [70.8, -10.4], [60.3, -10.4], [60.3, -21.3], [39.6, -21.3], [39.6, -11.6], [10.6, -11.6], [4.5, -16.6], [-0.8, -11]];
-  S.prism(out.map(([a, b]) => W(a, b)), y - 4, y, stoneD, pave, { topKind: KIND.ROAD });
+  // the street OSM maps behind the apse passes 2.9 m from its south facet: the plinth stops
+  // at the kerb there instead of running its metre-wide ledge out over the asphalt
+  S.prism(offStreets(data, out.map(([a, b]) => W(a, b)), 0), y - 4, y, stoneD, pave, { topKind: KIND.ROAD });
   S.prism([[-19, -16], [-19, 16], [0, 16], [0, -16]].map(([a, b]) => W(a, b)), yc - 4.5, yc, stoneD, pave, { topKind: KIND.ROAD });
   // three steps from the forecourt up to the doors
   S.kind = KIND.ROAD;

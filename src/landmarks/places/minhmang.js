@@ -239,8 +239,14 @@ export function build({ data, S }) {
       S.box((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, Math.min(ya, gY(b[0], b[1])) - 0.6, Math.max(ya, gY(b[0], b[1])) + 0.12, 7, 5, F.a, C.stone, { topKind: KIND.ROAD });
     });
     const a = at(358.5, t), b = at(377.2, t);
-    const yA = gY(a[0], a[1]), yB = gY(b[0], b[1]) + 0.3;
-    flight(S, a, Math.max(yA, LAND_Y + 4.5), b, yB, 6, { rail: 1, railCol: STUCCO });
+    const yA = Math.max(gY(a[0], a[1]), LAND_Y + 4.5), yB = gY(b[0], b[1]) + 0.3;
+    // the bridge lands at the water's edge and Tân Nguyệt's bank stands steeply over it: where the bank tops the
+    // straight run, the first steps climb it in a flight of their own before the long run to the Bửu Thành
+    const sK = 362.5, k = at(sK, t), gK = groundSpan(rectPts(...at((358.5 + sK) / 2, t), sK - 358.5, 6, F.a)).hi + 0.2;
+    if (gK > yA + ((yB - yA) * (sK - 358.5)) / (377.2 - 358.5)) {
+      flight(S, a, yA, k, gK, 6, { rail: 1, railCol: STUCCO });
+      flight(S, k, gK, b, yB, 6, { rail: 1, railCol: STUCCO });
+    } else flight(S, a, yA, b, yB, 6, { rail: 1, railCol: STUCCO });
   }
 
   // ---------------- the Bửu Thành and Khải Trạch Sơn ----------------
