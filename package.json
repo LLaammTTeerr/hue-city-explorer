@@ -14,6 +14,7 @@
     "check:data": "node scripts/check-data.mjs",
     "check": "npm run check:version && npm run check:data && npm run check:heights && npm run check:burial && npm run check:overlap && npm run check:joints",
     "shot": "node scripts/shot.mjs",
+    "compare": "node scripts/compare.mjs",
     "check:overlap": "node scripts/check-overlap.mjs",
     "check:joints": "node scripts/check-joints.mjs",
     "check:version": "node scripts/check-version.mjs"
