@@ -111,6 +111,51 @@ export function checkData(data) {
     for (const b of data.bld) { const h = b[1] / 10; if (!Number.isFinite(h) || h <= 0) bad++; else if (h > 180) tall++; }
     check(bad === 0 && tall === 0, 'building heights', `${data.bld.length} buildings, ${bad} missing or zero, ${tall} over 180 m`);
   }
+  // no tree trunk on a carriageway (roads up to service class at their drawn width, bridges included): the avenue
+  // trees of one carriageway of a dual road once stood on the other, and filled the Nguyễn Hoàng bridge heads (3,997)
+  {
+    const W = [15, 12, 9.5, 6.5, 4], G = 20, idx = new Map();
+    for (const [c, , p] of data.roads) {
+      if (c > 4) continue;
+      for (let i = 0; i + 3 < p.length; i += 2) {
+        const s = [p[i] / 10, p[i + 1] / 10, p[i + 2] / 10, p[i + 3] / 10, W[c] / 2], m = s[4] + 1;
+        for (let x = Math.floor((Math.min(s[0], s[2]) - m) / G); x <= Math.floor((Math.max(s[0], s[2]) + m) / G); x++)
+          for (let z = Math.floor((Math.min(s[1], s[3]) - m) / G); z <= Math.floor((Math.max(s[1], s[3]) + m) / G); z++) {
+            const k = x + ',' + z;
+            if (!idx.has(k)) idx.set(k, []);
+            idx.get(k).push(s);
+          }
+      }
+    }
+    const tr = data.trees || [];
+    let on = 0, eg = '';
+    for (let i = 0; i + 1 < tr.length; i += 4) {
+      const x = tr[i] / 10, z = tr[i + 1] / 10;
+      for (const [ax, az, bx, bz, hw] of idx.get(Math.floor(x / G) + ',' + Math.floor(z / G)) || []) {
+        const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, t = L2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2)) : 0;
+        if (Math.hypot(x - ax - t * dx, z - az - t * dz) < hw) { on++; eg ||= ` (first at ${x.toFixed(0)}, ${z.toFixed(0)})`; break; }
+      }
+    }
+    check(on === 0, 'no trees on the roads', `${on} of ${tr.length / 4} trunks on a carriageway${eg}`);
+  }
+  // the forest round the royal tombs (#7): planted from WorldCover's tree cover, not only from OSM's few woods
+  {
+    const ids = ['thieutri', 'tuduc', 'dongkhanh', 'minhmang', 'khaidinh'];
+    const t = data.trees;
+    const count = (c) => { let n = 0; for (let i = 0; i < t.length; i += 4) if ((t[i] / 10 - c[0]) ** 2 + (t[i + 1] / 10 - c[1]) ** 2 < 300 * 300) n++; return n; };
+    const got = ids.map((id) => [id, place(data, id) ? count(place(data, id)) : 0]);
+    const thin = got.filter(([, n]) => n < 1000);
+    check(!thin.length, 'forest round the tombs', got.map(([id, n]) => `${id} ${n}`).join(', ') + ' trees within 300 m (at least 1000 each)');
+  }
+  // làng nghề (#14): every craft village is a place, and the model reaches far enough north to stand Sình on real ground
+  {
+    const ids = ['thuyxuan', 'phuongduc', 'sinh'];
+    const missing = ids.filter((id) => !place(data, id));
+    const s = place(data, 'sinh');
+    const [minX, minZ, maxX] = data.meta.bounds.map((v) => v / 10);
+    const inside = s && s[1] > minZ + 150 && s[0] > minX + 150 && s[0] < maxX - 150;
+    check(!missing.length && inside, 'craft villages', missing.length ? `missing ${missing.join(', ')}` : `Sình at z ${s[1].toFixed(0)} m, model's north edge at ${minZ.toFixed(0)} m`);
+  }
   return { fails, notes };
 }
 

@@ -1,6 +1,8 @@
 # Progress
 
 ## Done
+- Waving flags (2026-11-21): shared `src/landmarks/anim.js` flag, wave in metres on the shared clock/wind (the old Kỳ Đài
+  wave was scaled to ~0.1 m and invisible). Used at Kỳ Đài, Bảo tàng HCM (2) and Đông Ba (7), and the old citadel builder.
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).
 - 3D scene: land cut around real water, roads, rail, 5,159 OSM buildings, illustrated infill and trees.
 - Hand-modelled landmarks on OSM footprints: cầu Trường Tiền, Citadel wall and gates, Kỳ Đài, Ngọ Môn,
@@ -458,3 +460,61 @@ were more than 1 m under the ground across eight places. Each was fixed where it
 - **Cầu Dã Viên / cầu gỗ lim:** girder undersides over the banks are cut where they would enter the ground (536 → 0).
 - **Thiên Mụ / Đông Ba:** the river stairs start at the mapped shore, with a landing out to it (29 → 0).
 `check-burial` now loads the replicas the way `check-heights` does and checks them as their own step.
+
+## Issue pass with the user (2026-11-21)
+Issues from sleepyluno, worked one at a time and fixed at the root (the source data, the parser or a shared builder),
+one PR per issue. sleepyluno is credited in the README and the About panel.
+- #6 (Nam Giao orientation): already fixed on main by the per-place replica (`places/namgiao.js`, 13° off the compass from the OSM lawns).
+- #11 done: the language control was a lone button labelled with the *other* language; it is now a VI | EN radiogroup on the shared `.seg` component (the dead `.chip` style is gone). The same pass fixed the phone compass, which was pinned at a hard-coded +144px and overlapped the tool column; `ui.js` now publishes the column's measured height as `--tools-h`.
+- #14 craft villages (partly done, "Refs #14"):
+  - The model now reaches Sình: `scripts/frame.json` bbox.n is 16.530, and the new `cityNorth` = 16.4965 starts a village zone (`inVillages`: roadside houses ×0.6, random trees 0.2).
+  - Four new OSM strips came from `scripts/fetch-osm-north.sh` into `data/raw/hue-osm-north1..4.json`. The terrain was refetched up to 16.537 N.
+  - Root fix found on the way: the terrain grid was laid from the box's corner, so widening the box moved every node by a fraction of a cell and sank the Thiên Mụ replica 1–2 m (burial check). The lattice is now laid from `frame.json` `gridAnchor`, the old corner, so main's nodes stay put and new rows are added to the north.
+  - The height fetchers (`fetch-heights.py`, `fetch-gishue-heights.py`, `fetch-lidar.py`) read the same bbox but were not rerun: the northern strip uses default heights until they are.
+  - New kind `craft`: Thủy Xuân (way 1473275556), Phường Đúc (node 9960090217), Sình (node 9960092017), guarded by the `craft villages` check.
+  - Thanh Tiên paper flowers is not in OSM; asked sleepyluno for a pin in #14.
+- #7 done (forest at the tombs and other heritage sites):
+  - Root cause: OSM maps almost no forest round the tombs, and the hills had random trees at a 0.06 chance; Thiệu Trị had 35 trees within 300 m.
+  - Source: ESA WorldCover 2021 v200, 10 m, class 10 tree cover. `scripts/fetch-landcover.py` reads the model box from the public COG into `data/raw/dem/treecover.json` (1080×1944 bitmap, 43% tree, 350 KB).
+  - `build-data.mjs` plants on a 10 m grid where WorldCover has trees: fully inside 125 heritage rings (the tombs, Vọng Cảnh, Ngự Bình, and named OSM tombs, ruins, monuments, attractions and places of worship), and 15% of cells elsewhere in the hills and villages. The city keeps its garden canopy, and terrain cover takes `wood` from WorldCover. Replicas still clear their paved ground at runtime.
+  - +127k trees (to 201k), 2,000–2,600 within 300 m of each tomb; `hue.json` gzip 2.9 MB. The `forest round the tombs` check holds each tomb at 1,000 or more.
+- Remaining: #5 (south bank remodel), #8 (landmark accuracy), and the newer #15–#22.
+
+## Trees on the roads at the Nguyễn Hoàng bridge heads (2026-11-21, branch `worktree-agent-a66ef976516add427`)
+- Cause: the avenue trees in `build-data.mjs` (section 7) were placed `ROAD_W/2 + 1.6` m off each trunk/primary/
+  secondary way and checked only against water, buildings and other trees, never roads. A dual carriageway is two
+  ways, so each side's avenue landed on the other carriageway, and at junctions on the crossing roads; the bridge
+  heads (four short carriageways and ramps meeting) were filled with them.
+- Fix: `onCarriageway(x, z, pad)` (exact distance to the road lines, roads up to service class, bridges included)
+  keeps every tree trunk 0.6 m off any carriageway, in `plant()` and the avenue loop. Data rebuilt.
+- Trees on a carriageway: 3,997 of 60,922 → 0 of 56,637. New check in `check-data.mjs` ("no trees on the roads").
+- `shot.mjs --at x,z` looks at a point instead of the place's centre (used for the bridge heads).
+
+## Structures overlapping roads and each other (2026-11-21, branch `worktree-agent-ad9e82e9d2b5d8d5a`)
+- Thiên Mụ's river stair (owner's screenshot): the terrace flight ended at a fixed v = 26.5 and the river landing
+  started at a fixed v = 36. Both stood on Nguyễn Phúc Nguyên's carriageway, with the posts on the asphalt. The
+  flight and the landing are now cut where `streetTest` (src/landmarks/enclosure.js) says the street begins and
+  ends. The landing starts past the far pavement. Shots: scratch/shots/thienmu-before, scratch/shots/thienmu-after.
+- Thiên Mụ's Hà Khê precinct ring now goes through `offStreets` (enclosure.js), which trims a mapped outline off
+  the c<=3 carriageways. The east lane no longer runs under its terrace.
+- Thái Miếu and Triệu Miếu both drew Thần Khố and Thần Trù. They now belong to trieumieu.js only, whose precinct
+  they stand in.
+- New `scripts/check-overlap.mjs` (`npm run check:overlap`) checks three things:
+  - replica footprints on c<=3 carriageways (non-bridge);
+  - raised faces of different sources in the same 1 m cell;
+  - kept buildings and infill houses under models.
+  Rampart faces (`S.noCover`) are excluded. The scene build it shares with check-burial now lives in
+  scripts/lib/scene.mjs, with replicas one source per place.
+  The check is not in `npm run check`: 41 findings remain and it takes about 5.7 s.
+- Left (run `npm run check:overlap` for the list):
+  - bridge ramps over their approach roads (nguyenhoang, truongtien, phuxuan, bachho) need a principled
+    exemption;
+  - road intrusions at tayloc, giahoi, tudam, phucam, dongba, quoctugiam, baotangcovat, dcct, gahue and the gate
+    passages;
+  - dainoi's wall tops coplanar with tuphuong, canchanh and duyetthi (stacked on the wall: possibly a real
+    z-fight);
+  - hungmieu with themieu;
+  - about 15 small (7-16 m²) kept buildings or infill houses under models.
+
+- #5 south bank: roof families read per building from a Sentinel-2 scene (`scripts/fetch-roofs.py`, `data/raw/dem/roofrgb.json`), stored in flag bits 4-6 (mapped) and infill bits 4-6; the Lê Lợi ward (290 m) gets whitewashed walls (bit 7); Hai Bà Trưng joins Quốc Học's dark-red campus styling.
+- Remaining: #8 (landmark accuracy), and the newer #15–#22.

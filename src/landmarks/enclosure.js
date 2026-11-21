@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import polygonClipping from 'polygon-clipping';
 import { KIND, Buf, hex, shade } from '../geo/buf.js';
 import { LAND_Y } from '../config.js';
 import { rise } from '../geo/terrain.js';
@@ -57,6 +58,49 @@ export function roadsNear(data, c, r) {
     }
   }
   return out;
+}
+
+// Is (x, z) on a mapped street near c? Streets are the classes city.js gives kerbs and pavements (0-3), bridges left
+// out. `pad` widens the carriageway; pad 'pavement' takes in the pavement city.js draws beside it. A stair, landing or
+// terrace that meets a street should stop where this turns false, not run on over the asphalt
+// (scripts/check-overlap.mjs fails when a model stands on a carriageway).
+export const PAVEMENT = (cl) => (cl <= 2 ? 1.8 : 1.2);
+export function streetTest(data, c, r) {
+  const segs = roadsNear(data, c, r).filter((s) => s[5] <= 3);
+  return (x, z, pad = 0) => segs.some(([ax, az, bx, bz, w, cl]) => {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+    return Math.hypot(ax + dx * t - x, az + dz * t - z) < w / 2 + (pad === 'pavement' ? PAVEMENT(cl) : pad);
+  });
+}
+
+// A mapped outline (a precinct, a terrace) kept off the streets, as build-data.mjs trims mapped buildings: the ring
+// less each street's carriageway plus `pad`, its largest piece kept. OSM draws a lane along a wall a metre or two
+// into it; a model built on the raw outline would stand its wall on the asphalt.
+export function offStreets(data, ring, pad = 0.3) {
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const c = [(x0 + x1) / 2, (z0 + z1) / 2], r = Math.hypot(x1 - x0, z1 - z0) / 2 + 10;
+  const strips = [];
+  for (const [ax, az, bx, bz, w, cl] of roadsNear(data, c, r)) {
+    if (cl > 3) continue;
+    const hw = w / 2 + pad, L = Math.hypot(bx - ax, bz - az) || 1, ux = (bx - ax) / L, uz = (bz - az) / L, nx = -uz, nz = ux, p = [];
+    for (const [e, sg] of [[[bx, bz], 1], [[ax, az], -1]]) for (let k = 0; k <= 6; k++) {
+      const t = (k * Math.PI) / 6, cs = Math.cos(t) * sg, sn = Math.sin(t) * sg;
+      p.push([e[0] + hw * (cs * nx + sn * ux), e[1] + hw * (cs * nz + sn * uz)]);
+    }
+    if (p.some(([x, z]) => x > x0 - 1 && x < x1 + 1 && z > z0 - 1 && z < z1 + 1)) strips.push([[...p, p[0]]]);
+  }
+  if (!strips.length) return ring;
+  let rest;
+  try { rest = polygonClipping.difference([[...ring, ring[0]]], ...strips); } catch { return ring; }
+  const area = (q) => { let a = 0; for (let i = 0, j = q.length - 1; i < q.length; j = i++) a += (q[j][0] + q[i][0]) * (q[j][1] - q[i][1]); return Math.abs(a / 2); };
+  let best = null;
+  for (const pg of rest) { const q = pg[0].slice(0, -1); if (!best || area(q) > area(best)) best = q; }
+  if (!best) return ring;
+  // keep the original winding
+  const sgn = (q) => { let a = 0; for (let i = 0, j = q.length - 1; i < q.length; j = i++) a += (q[j][0] + q[i][0]) * (q[j][1] - q[i][1]); return Math.sign(a); };
+  return sgn(best) === sgn(ring) ? best : best.reverse();
 }
 
 // where along a -> b (0..1) roads cross or gates stand, as merged [from, to] gaps

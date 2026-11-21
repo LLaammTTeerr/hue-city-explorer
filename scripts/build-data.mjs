@@ -21,11 +21,14 @@ const quality = {}; // calibration errors, checked at the end
 
 // Local frame: metres east (x) and south (z) of the middle of cầu Trường Tiền. Shared with the raw-data fetchers
 // through scripts/frame.json. The west edge reaches chùa Thiên Mụ; the south edge takes in the royal tombs down to
-// lăng Minh Mạng; south of citySouth lie the hills (sparser houses and trees, real relief).
+// lăng Minh Mạng; the north edge reaches làng Sình at the Hương–Bồ fork. South of citySouth lie the hills (sparser
+// houses and trees, real relief); north of cityNorth the riverside villages (Hương Sơ, Hương Vinh, Sình): looser houses
+// on the flat plain.
 const FRAME = JSON.parse(fs.readFileSync(new URL('./frame.json', import.meta.url), 'utf8'));
 const ORIGIN = FRAME.origin;
 const BBOX = FRAME.bbox;
 const CITY_S = FRAME.citySouth;
+const CITY_N = FRAME.cityNorth;
 const KX = Math.cos((ORIGIN.lat * Math.PI) / 180) * 111319.49;
 const KZ = FRAME.kz; // the equatorial degree of latitude, about 0.08 % short at 16.5 N: kept, see scripts/frame.json
 const proj = (p) => [(p.lon - ORIGIN.lon) * KX, -(p.lat - ORIGIN.lat) * KZ];
@@ -61,6 +64,8 @@ const [MINX, MAXZ] = proj({ lat: BBOX.s, lon: BBOX.w });
 const [MAXX, MINZ] = proj({ lat: BBOX.n, lon: BBOX.e });
 const CITY_MAXZ = proj({ lat: CITY_S, lon: BBOX.w })[1];
 const inHills = (p) => p[1] > CITY_MAXZ;
+const CITY_MINZ = proj({ lat: CITY_N, lon: BBOX.w })[1];
+const inVillages = (p) => p[1] < CITY_MINZ;
 
 // ---------- small geometry kit ----------
 let seed = 20261119;
@@ -415,6 +420,32 @@ for (const e of els) {
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges);
+// Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
+// lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
+const onCarriageway = (() => {
+  const G = 20, grid = new Map();
+  for (const r of roads) {
+    if (r.c > 4) continue;
+    const hw = ROAD_W[r.c] / 2;
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], s = [a, b, hw], m = hw + 2;
+      for (let x = Math.floor((Math.min(a[0], b[0]) - m) / G); x <= Math.floor((Math.max(a[0], b[0]) + m) / G); x++)
+        for (let z = Math.floor((Math.min(a[1], b[1]) - m) / G); z <= Math.floor((Math.max(a[1], b[1]) + m) / G); z++) {
+          const k = x + ',' + z;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(s);
+        }
+    }
+  }
+  return (x, z, pad = 0) => {
+    for (const [a, b, hw] of grid.get(Math.floor(x / G) + ',' + Math.floor(z / G)) || []) {
+      const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+      const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;
+      if (Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz) < hw + pad) return true;
+    }
+    return false;
+  };
+})();
 const rails = [];
 for (const e of els) {
   const t = e.tags || {};
@@ -449,6 +480,44 @@ const FRENCH = streetPts(/^Lê Lợi$/), OLDTOWN = streetPts(/^(Chi Lăng|Trần
 console.log('era streets: french', FRENCH.length, 'old town', OLDTOWN.length, 'garden', GARDEN.length);
 const hash2 = (i, j) => { let h = (Math.imul(i, 374761393) + Math.imul(j, 668265263)) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const vnoise = (x, z) => { const i = Math.floor(x), j = Math.floor(z); let fx = x - i, fz = z - j; fx = fx * fx * (3 - 2 * fx); fz = fz * fz * (3 - 2 * fz); return (hash2(i, j) * (1 - fx) + hash2(i + 1, j) * fx) * (1 - fz) + (hash2(i, j + 1) * (1 - fx) + hash2(i + 1, j + 1) * fx) * fz; };
+// Roof colour as seen from orbit (issue #5): OSM tags almost no roof colours, so each building's roof family is read
+// from a cloud-free Sentinel-2 scene (scripts/fetch-roofs.py). 1 = red tile, 2 = blue sheet, 3 = pale (whitewashed
+// concrete, light sheet), 4 = grey (weathered concrete, dark tile); 0 = not seen (trees over it, off the scene).
+const ROOF = (() => {
+  const f = 'data/raw/dem/roofrgb.json';
+  if (!fs.existsSync(f)) { console.warn('no roof colours (run scripts/fetch-roofs.py)'); return null; }
+  const t = JSON.parse(fs.readFileSync(f, 'utf8'));
+  return { ...t, px: zlib.inflateSync(Buffer.from(t.rgb, 'base64')) };
+})();
+const roofPx = (x, z, acc) => {
+  const i = Math.floor((ORIGIN.lon + x / KX - ROOF.west) / ROOF.dlon), j = Math.floor((ROOF.north - (ORIGIN.lat - z / KZ)) / ROOF.dlat);
+  if (i < 0 || j < 0 || i >= ROOF.nx || j >= ROOF.ny) return;
+  const k = (j * ROOF.nx + i) * 3;
+  acc[0] += ROOF.px[k]; acc[1] += ROOF.px[k + 1]; acc[2] += ROOF.px[k + 2]; acc[3]++;
+};
+const roofClass = ([r, g, b, n]) => {
+  if (!n) return 0;
+  r /= n; g /= n; b /= n;
+  if (r > g * 1.12 && r > b * 1.3) return 1;
+  if (b > r * 1.03 && b >= g) return 2;
+  if (g > r * 1.02 && g > b * 1.08) return 0; // canopy over the roof
+  return (r + g + b) / 3 > 95 ? 3 : 4;
+};
+// the mean over the pixels whose 8 m sample lattice falls inside the footprint, or the pixel under its centre
+function roofOf(ring, c) {
+  if (!ROOF) return 0;
+  const acc = [0, 0, 0, 0];
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  for (let x = x0 + 4; x < x1; x += 8) for (let z = z0 + 4; z < z1; z += 8) if (pip([x, z], ring)) roofPx(x, z, acc);
+  if (!acc[3]) roofPx(c[0], c[1], acc);
+  return roofClass(acc);
+}
+const roofAt = (x, z) => { if (!ROOF) return 0; const acc = [0, 0, 0, 0]; roofPx(x, z, acc); return roofClass(acc); };
+const roofCount = [0, 0, 0, 0, 0];
+// The Lê Lợi district on the south bank is whitewashed almost throughout (issue #5: everything but the two
+// French-period schools, Quốc Học and Hai Bà Trưng, which keep their dark red).
+const whiteWard = (c) => nearPts(FRENCH, c, 290);
 function eraOf(c, area) {
   // clumps of a period, with single houses breaking rank
   const k = vnoise(c[0] / 85 + 3.1, c[1] / 85 + 7.7) * 0.7 + hash2(Math.round(c[0] * 3), Math.round(c[1] * 3)) * 0.3;
@@ -464,7 +533,7 @@ function eraOf(c, area) {
 // =====================================================================
 // Quốc Học campus and the Thiên Mụ compound: buildings inside them are styled as a group
 const ringOf = (id) => { const e = get('way', id); return e ? openRing(e.geometry.map(proj)) : null; };
-const quocHoc = ringOf(695775622);
+const quocHoc = ringOf(695775622), haiBaTrung = ringOf(695770482); // the two French-period schools on Lê Lợi
 const thienMu = ringOf(205794912);
 const towerC = (() => { const r = ringOf(205795043); return r ? centroid(r) : null; })();
 const thienMuSmall = [];
@@ -615,7 +684,7 @@ for (const e of els) {
   if (inCitadel(c) && !hTag && !lv && kind !== 2) h = Math.min(h, 11.5);
   let flags = 0;
   if (thienMu && pip(c, thienMu) && t.historic !== 'city_gate') { kind = 3; if (!hTag && !lv) h = area > 300 ? 4.6 : 3.8; }
-  if (quocHoc && pip(c, quocHoc)) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
+  if ((quocHoc && pip(c, quocHoc)) || (haiBaTrung && pip(c, haiBaTrung))) { flags |= 2; if (!hTag && !lv) h = area > 180 ? 7.8 : 4.6; } // two tall colonial storeys under the roof
   // what the building really measures, where the raster sees it and OSM gives no height of its own: h then runs to the
   // top of the building (sixth field), and the builder fits the eave under whatever roof it draws
   const mh = !hTag && !lv && kind !== 8 ? measured(ring, holes) : 0, src = mh ? measured.src : 0;
@@ -633,6 +702,9 @@ for (const e of els) {
 
   // flags: 1 = mapped over the water (drawn on a piled deck), 2 = Quốc Học campus
   if (at(c[0], c[1]) & WATER) flags |= 1;
+  // flags 16-64 (bits 4-6): the roof family seen from orbit; 128: a whitewashed ward
+  const rc = roofOf(ring, c); roofCount[rc]++; flags |= rc << 4;
+  if (whiteWard(c) && !(flags & 2)) flags |= 128;
   const b = [flat(ring), q(h), kind, t.name || 0, flags];
   if (mh && !(flags & 8)) b[5] = q(h);
   if (src === 2) smeared.add(b); else if (src === 1) surveyed.add(b);
@@ -640,6 +712,7 @@ for (const e of els) {
   fillPoly([ring], BLD);
   stampLine([...ring, ring[0]], 1.2, BLD); // its eaves: generated houses keep clear of them
 }
+console.log("roof families (unseen, red, blue, pale, grey):", roofCount.join(" "));
 // A building mapped inside a landmark's own outline (Lầu Ngũ Phụng on Ngọ Môn, the block inside Kỳ Đài) belongs to
 // that landmark's model: drawn as well, it would stand inside it.
 {
@@ -797,7 +870,7 @@ for (const road of roads) {
   if (road.bridge || road.c > 4) continue;
   const hills = inHills(road.pts[0]);
   if (hills && road.c > 3) continue;
-  const density = (road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86) * (hills ? 0.42 : 1);
+  const density = (road.c === 4 ? 0.3 : road.c === 3 ? 0.78 : 0.86) * (hills ? 0.42 : inVillages(road.pts[0]) ? 0.6 : 1);
   const half = ROAD_W[road.c] / 2;
   for (const side of [1, -1]) {
     let carry = rr(0, 6);
@@ -833,7 +906,7 @@ for (const road of roads) {
             const r2 = rnd();
             const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
             const m2 = houseH(bx, bz, w2, d2, ang, h2);
-            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2)); // 2 = no street face; era in the upper bits
+            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2) | (roofAt(bx, bz) << 4) | (whiteWard([bx, bz]) ? 128 : 0)); // 2 = no street face; era in bits 2-3, roof family 4-6, white ward 7
             housePlace(o2);
           }
         }
@@ -847,7 +920,7 @@ for (const road of roads) {
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
           h = houseH(cx, cz, w, d, ang, h);
           if (era === 2) h = Math.min(h, 4.4); else if (era === 1) h = Math.min(Math.max(h, 7.2), 11.4);
-          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2));
+          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2) | (roofAt(cx, cz) << 4) | (whiteWard([cx, cz]) ? 128 : 0));
           housePlace(o1);
         }
         s += w + gap;
@@ -863,8 +936,9 @@ console.log('infill houses', infill.length / 8);
 // =====================================================================
 const trees = [];
 const TBLOCK = WATER | ROAD | BLD | TREE;
+const TRUNK = 0.6; // a trunk's reach: no tree stands closer than this to a carriageway's edge
 function plant(x, z, s, kind) {
-  if (!inBox([x, z], -4) || at(x, z) & TBLOCK) return false;
+  if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK)) return false;
   trees.push(q(x), q(z), Math.round(s * 10), kind);
   stamp(x, z, 3.2, TREE);
   return true;
@@ -896,7 +970,9 @@ for (const road of roads) {
       const tx = (b[0] - a[0]) / len, tz = (b[1] - a[1]) / len;
       while (s < len) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
-        if (!(at(x, z) & (WATER | BLD | TREE))) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
+        // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
+        // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
         s += rr(13, 20);
       }
       s -= len;
@@ -913,7 +989,7 @@ for (const road of roads) {
     const cit = inCitadel(p);
     const imp = cit && inImperial(p);
     if (m & NOBUILD && !imp && !cit) continue;
-    if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : 0.26)) continue;
+    if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : inVillages(p) ? 0.2 : 0.26)) continue;
     plant(p[0], p[1], rr(0.7, 1.35), inHills(p) && rnd() < 0.5 ? 3 : treeKind(false));
   }
 }
@@ -926,6 +1002,48 @@ for (const [id, , x, z, r] of SITE_DEFS) {
     const px = x + i + rr(0, cell), pz = z + j + rr(0, cell);
     if (Math.hypot(px - x, pz - z) <= R) plant(px, pz, rr(0.9, 1.5), 3);
   }
+}
+// Real forest (issue #7): OSM maps almost none of the woods that close over the tombs and hills, so the forest is
+// planted from ESA WorldCover's 10 m tree-cover map (scripts/fetch-landcover.py). Close planting in a ring round each
+// heritage site, where people look; a looser stand over the rest of the wooded hills and villages.
+const TC = (() => {
+  const f = 'data/raw/dem/treecover.json';
+  if (!fs.existsSync(f)) { console.warn('no tree cover (run scripts/fetch-landcover.py)'); return null; }
+  const t = JSON.parse(fs.readFileSync(f, 'utf8'));
+  return { ...t, b: Buffer.from(t.bits, 'base64') };
+})();
+const isWooded = (x, z) => {
+  if (!TC) return false;
+  const i = Math.floor((ORIGIN.lon + x / KX - TC.west) / TC.dlon), j = Math.floor((TC.north - (ORIGIN.lat - z / KZ)) / TC.dlat);
+  if (i < 0 || j < 0 || i >= TC.nx || j >= TC.ny) return false;
+  const k = j * TC.nx + i;
+  return (TC.b[k >> 3] >> (7 - (k & 7))) & 1;
+};
+const heritage = SITE_DEFS.map(([, , x, z, r]) => [x, z, r + 250]);
+heritage.push([-2784, 5161, 350], [770, 2990, 400]); // the pine-clad hills of Vọng Cảnh and Ngự Bình (places added in §8)
+{
+  const HER = new Set(['tomb', 'ruins', 'archaeological_site', 'memorial', 'monument', 'castle', 'heritage_building', 'manor']);
+  for (const e of els) {
+    const t = e.tags;
+    if (!t || !t.name || !(HER.has(t.historic) || t.tourism === 'attraction' || t.amenity === 'place_of_worship')) continue;
+    const c = e.type === 'node' ? proj(e) : e.geometry ? centroid(openRing(e.geometry.map(proj))) : e.bounds ? proj({ lat: (e.bounds.minlat + e.bounds.maxlat) / 2, lon: (e.bounds.minlon + e.bounds.maxlon) / 2 }) : null;
+    if (c && inBox(c) && !inCitadel(c)) heritage.push([c[0], c[1], inHills(c) ? 200 : 170]);
+  }
+}
+const nearHeritage = (x, z) => heritage.some(([hx, hz, r]) => (x - hx) ** 2 + (z - hz) ** 2 < r * r);
+if (TC) {
+  const before = trees.length / 4;
+  let ring = 0;
+  for (let z = MINZ; z < MAXZ; z += 10) for (let x = MINX; x < MAXX; x += 10) {
+    const near = nearHeritage(x + 5, z + 5);
+    const outside = inHills([x, z]) || inVillages([x, z]);
+    if (!near && !outside) continue; // the city keeps its garden canopy
+    if (!near && rnd() > 0.15) continue; // about one tree per 26 m away from the sites
+    const px = x + rr(0, 10), pz = z + rr(0, 10);
+    if (!isWooded(px, pz) || inCitadel([px, pz]) || at(px, pz) & (TBLOCK | NOBUILD)) continue;
+    if (plant(px, pz, rr(0.85, 1.5), inHills([px, pz]) ? hillKind() : treeKind(false)) && near) ring++;
+  }
+  console.log('tree cover:', heritage.length, 'heritage rings,', trees.length / 4 - before, 'trees planted from WorldCover (', ring, 'in the rings )');
 }
 console.log('trees', trees.length / 4);
 
@@ -1021,6 +1139,10 @@ const EXTRA = [
   ['tayloc', 'Chợ Tây Lộc', 'way', 372292672, 3, 'market', 10],
   ['ancuu', 'Chợ An Cựu', 'way', 118541113, 3, 'market', 10],
   ['benngu', 'Chợ Bến Ngự', 'way', 513649271, 3, 'market', 10],
+  // làng nghề (#14). Thanh Tiên's paper-flower village is not in OSM yet.
+  ['thuyxuan', 'Làng hương Thủy Xuân', 'way', 1473275556, 2, 'craft', 6],
+  ['phuongduc', 'Làng đúc đồng Phường Đúc', 'node', 9960090217, 2, 'craft', 8],
+  ['sinh', 'Làng tranh Sình', 'node', 9960092017, 2, 'craft', 8],
 ];
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
@@ -1171,7 +1293,12 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     const bareAt = sample(D.h), surfAt = sample(D.s || D.h);
     // ceil, so the last row and column reach MAXX / MAXZ: with floor the grid stopped up to one step short of the
     // east and south edges, and land in that strip read as the flat city floor beside the hills (trees sunk 160 m)
-    const STEP = 25, nx = Math.ceil((MAXX - MINX) / STEP) + 1, nz = Math.ceil((MAXZ - MINZ) / STEP) + 1;
+    // The grid's nodes sit on a fixed 25 m lattice laid from frame.json's gridAnchor (the box's north-west corner when
+    // the grid was first tuned), not from the current corner: widening the box adds rows and columns without moving a
+    // node, so every height already fitted to the grid (replicas, the burial and height checks) keeps its ground.
+    const STEP = 25, [AX, AZ] = proj(FRAME.gridAnchor);
+    const GX0 = AX + Math.floor((MINX - AX) / STEP) * STEP, GZ0 = AZ + Math.floor((MINZ - AZ) / STEP) * STEP;
+    const nx = Math.ceil((MAXX - GX0) / STEP) + 1, nz = Math.ceil((MAXZ - GZ0) / STEP) + 1;
     const sstep = (t) => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
     // ---- Calibration: the whole map against measured heights --------------------------------------------------
     // Two kinds of measurement exist. ICESat-2's laser gives the ground itself, to a few decimetres, every 10 m along
@@ -1253,7 +1380,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     // the city's own ground: the median of the calibrated ground inside the Citadel
     const flatSamples = [];
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
-      const x = MINX + i * STEP, z = MINZ + j * STEP;
+      const x = GX0 + i * STEP, z = GZ0 + j * STEP;
       if (inCitadel([x, z]) && !(at(x, z) & WATER)) flatSamples.push(demAt(x, z));
     }
     flatSamples.sort((a, b) => a - b);
@@ -1262,7 +1389,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     const floor = inWalls.length >= 50 ? inWalls[inWalls.length >> 1] : flatSamples[Math.floor(flatSamples.length * 0.5)];
     console.log('city floor: laser inside the Citadel', inWalls.length, 'points, median', inWalls.length ? inWalls[inWalls.length >> 1].toFixed(2) : '-', '| calibrated model there', flatSamples[Math.floor(flatSamples.length * 0.5)].toFixed(2));
     let h = new Float32Array(nx * nz);
-    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) h[j * nx + i] = demAt(MINX + i * STEP, MINZ + j * STEP);
+    for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) h[j * nx + i] = demAt(GX0 + i * STEP, GZ0 + j * STEP);
     const blur = (src) => {
       const out = new Float32Array(src.length);
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
@@ -1317,8 +1444,8 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
       for (const q0 of ring) { x0 = Math.min(x0, q0[0]); x1 = Math.max(x1, q0[0]); z0 = Math.min(z0, q0[1]); z1 = Math.max(z1, q0[1]); }
       const near = (x, z) => { for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < 34) return true; } return false; };
-      for (let j = Math.max(0, Math.floor((z0 - 40 - MINZ) / STEP)); j <= Math.min(nz - 1, Math.ceil((z1 + 40 - MINZ) / STEP)); j++) for (let i = Math.max(0, Math.floor((x0 - 40 - MINX) / STEP)); i <= Math.min(nx - 1, Math.ceil((x1 + 40 - MINX) / STEP)); i++) {
-        const x = MINX + i * STEP, z = MINZ + j * STEP;
+      for (let j = Math.max(0, Math.floor((z0 - 40 - GZ0) / STEP)); j <= Math.min(nz - 1, Math.ceil((z1 + 40 - GZ0) / STEP)); j++) for (let i = Math.max(0, Math.floor((x0 - 40 - GX0) / STEP)); i <= Math.min(nx - 1, Math.ceil((x1 + 40 - GX0) / STEP)); i++) {
+        const x = GX0 + i * STEP, z = GZ0 + j * STEP;
         // islands are holes in the water polygon: shore, not water
         const k = j * nx + i, wet = pip([x, z], ring) && !poly.slice(1).some((hole) => pip([x, z], hole));
         if (wet) nodeLv[k] = Math.max(nodeLv[k], lv);
@@ -1331,7 +1458,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     // hill's brow off under the tower.
     if (thienMu) {
       const inside = [];
-      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (pip([MINX + i * STEP, MINZ + j * STEP], thienMu)) inside.push(j * nx + i);
+      for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (pip([GX0 + i * STEP, GZ0 + j * STEP], thienMu)) inside.push(j * nx + i);
       const ups = inside.map((k) => fine[k] - floor).sort((a, b) => a - b);
       // the laser crossed the compound: its ground is then what was measured, not what a 25 m grid makes of the hill
       const shot = lidar ? lidar.filter((p) => pip([p.x, p.z], thienMu)).map((p) => p.ele - floor).sort((a, b) => a - b) : [];
@@ -1344,7 +1471,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     const lock = new Uint8Array(nx * nz);
     h = new Float32Array(nx * nz);
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
-      const x = MINX + i * STEP, z = MINZ + j * STEP, k = j * nx + i;
+      const x = GX0 + i * STEP, z = GZ0 + j * STEP, k = j * nx + i;
       // the slab's edge may stand high in the hills (it is cut like a model); only the city's own edges stay flat
       const edge = i === 0 || j === 0 || i === nx - 1 || j === nz - 1;
       if (nodeLv[k] > 0) { h[k] = nodeLv[k]; lock[k] = 2; continue; }
@@ -1382,7 +1509,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       for (let dj = -1; dj <= 1 && peak; dj++) for (let di = -1; di <= 1; di++) if ((di || dj) && raw[k + dj * nx + di] > raw[k]) { peak = false; break; }
       if (!peak) continue;
       let m = raw[k];
-      for (let dz = -10; dz <= 10; dz += 5) for (let dx = -10; dx <= 10; dx += 5) m = Math.max(m, demAt(MINX + i * STEP + dx, MINZ + j * STEP + dz));
+      for (let dz = -10; dz <= 10; dz += 5) for (let dx = -10; dx <= 10; dx += 5) m = Math.max(m, demAt(GX0 + i * STEP + dx, GZ0 + j * STEP + dz));
       h[k] = Math.max(h[k], m - floor);
     }
     // a lake's shore and islands stand no lower than its water
@@ -1398,12 +1525,13 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       let c = 0;
       if (h[k] > 0) {
         lifted++; peak = Math.max(peak, h[k]);
-        const p = [MINX + i * STEP, MINZ + j * STEP];
+        const p = [GX0 + i * STEP, GZ0 + j * STEP];
         for (const g of green) if (pipPoly(p, g.p)) { c = COVER[g.k] || 0; break; }
+        if (!c && isWooded(p[0], p[1])) c = COVER.wood; // the forest floor under WorldCover's tree cover
       }
       cover += c;
     }
-    terrain = { x0: q(MINX), z0: q(MINZ), step: STEP, nx, nz, h: Array.from(h, (v) => Math.round(v * 10)), cover };
+    terrain = { x0: q(GX0), z0: q(GZ0), step: STEP, nx, nz, h: Array.from(h, (v) => Math.round(v * 10)), cover };
     // A hill's tag stands on its summit: the highest ground near its given point.
     for (const [id, R] of [['ngubinh', 250], ['vongcanh', 80]]) {
       const pl = places.find((p) => p.id === id);
@@ -1411,7 +1539,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const px = pl.x / 10, pz = pl.z / 10;
       let best = -1, bx = px, bz = pz;
       for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
-        const x = MINX + i * STEP, z = MINZ + j * STEP;
+        const x = GX0 + i * STEP, z = GZ0 + j * STEP;
         if (Math.hypot(x - px, z - pz) <= R && h[j * nx + i] > best) { best = h[j * nx + i]; bx = x; bz = z; }
       }
       console.log('summit', id, [px, pz].map(Math.round), '->', [bx, bz].map(Math.round), best.toFixed(1), 'm');
@@ -1425,7 +1553,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       const modelAt = (x, z, R) => {
         if (x < MINX || x > MAXX || z < MINZ || z > MAXZ) return NaN;
         let m = 0;
-        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (Math.hypot(MINX + i * STEP - x, MINZ + j * STEP - z) <= R + STEP / 2) m = Math.max(m, h[j * nx + i]);
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) if (Math.hypot(GX0 + i * STEP - x, GZ0 + j * STEP - z) <= R + STEP / 2) m = Math.max(m, h[j * nx + i]);
         return floor + m;
       };
       const mean = (f, x, z, R) => { let s2 = 0, n = 0; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) { s2 += f(x + dx, z + dz); n++; } return s2 / n; };
@@ -1435,7 +1563,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
         const [x, z] = proj(c), R = c.r || 100, f = c.what === 'summit' ? top : mean;
         // the model's own ground: the city floor plus what the terrain rises there (water is drawn lower, by design)
         // a sample off the grid (a disc crossing the slab's edge) is left out rather than read from a neighbouring row
-        const model = c.what === 'water' ? NaN : c.what === 'summit' ? modelAt(x, z, R) : (x < MINX || x > MAXX || z < MINZ || z > MAXZ ? NaN : floor + (() => { let s2 = 0, n = 0; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) { const i = Math.round((x + dx - MINX) / STEP), k = Math.round((z + dz - MINZ) / STEP); if (i < 0 || k < 0 || i >= nx || k >= nz) continue; s2 += h[k * nx + i]; n++; } return n ? s2 / n : NaN; })());
+        const model = c.what === 'water' ? NaN : c.what === 'summit' ? modelAt(x, z, R) : (x < MINX || x > MAXX || z < MINZ || z > MAXZ ? NaN : floor + (() => { let s2 = 0, n = 0; for (let dx = -R; dx <= R; dx += 10) for (let dz = -R; dz <= R; dz += 10) if (dx * dx + dz * dz <= R * R) { const i = Math.round((x + dx - GX0) / STEP), k = Math.round((z + dz - GZ0) / STEP); if (i < 0 || k < 0 || i >= nx || k >= nz) continue; s2 += h[k * nx + i]; n++; } return n ? s2 / n : NaN; })());
         const v = { bare: f(bareAt, x, z, R), surface: f(surfAt, x, z, R), calibrated: f(demAt, x, z, R), model };
         if (!c.doubt) for (const k of Object.keys(err)) if (Number.isFinite(v[k])) err[k].push(v[k] - c.ele);
         console.log('  ' + (c.name + (c.doubt ? ' (doubtful)' : '')).padEnd(34), String(c.ele).padStart(5), '|', v.bare.toFixed(1).padStart(6), '|', v.surface.toFixed(1).padStart(6), '|', v.calibrated.toFixed(1).padStart(6), '|', Number.isFinite(v.model) ? v.model.toFixed(1).padStart(6) : '     -');
@@ -1444,7 +1572,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       quality.peakRms = Math.sqrt(err.model.reduce((s2, e) => s2 + e * e, 0) / (err.model.length || 1));
       console.log('  error: bare', stat(err.bare), '| surface', stat(err.surface), '| calibrated', stat(err.calibrated), '| model', stat(err.model));
     }
-    const probe = (x, z) => { const i = Math.round((x - MINX) / STEP), j = Math.round((z - MINZ) / STEP); return h[j * nx + i].toFixed(1); };
+    const probe = (x, z) => { const i = Math.round((x - GX0) / STEP), j = Math.round((z - GZ0) / STEP); return h[j * nx + i].toFixed(1); };
     // The river: the model draws the city LAND_Y above the water (src/config.js). The laser measures both.
     if (river !== null) {
       const drawn = +(/LAND_Y = ([\d.]+)/.exec(fs.readFileSync('src/config.js', 'utf8')) || [])[1];

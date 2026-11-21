@@ -165,7 +165,7 @@ export function build({ data, S, group, place }) {
     const x = a[i * NS] / 10, z = a[i * NS + 1] / 10;
     if (!inside(x, z)) continue;
     const w = a[i * NS + 2] / 10, d = a[i * NS + 3] / 10, ang = a[i * NS + 4] / 1000, h = a[i * NS + 5] / 10, main = a[i * NS + 6] === 1;
-    const side = a[i * NS + 7] & 3, era = a[i * NS + 7] >> 2;
+    const side = a[i * NS + 7] & 3, era = (a[i * NS + 7] >> 2) & 3;
     if (side === 2) continue;
     const fr = side === 1 ? -1 : 1, ca = Math.cos(ang), sa = Math.sin(ang);
     const f = [-sa * fr, ca * fr], o = [x + f[0] * d / 2, z + f[1] * d / 2];

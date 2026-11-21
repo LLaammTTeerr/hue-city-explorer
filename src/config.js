@@ -47,6 +47,14 @@ export const PAL = {
   thatchWall: ['#b9a07a', '#a98f6c', '#c4ab86', '#8f755a'].map(hex), // earth and bamboo walls
   pastel: ['#eef0ea', '#e4ebe6', '#dfe9ee', '#f1e9d8', '#e9dfd9', '#e6edd9', '#f3efe6', '#d9e4e6', '#efe0c9', '#e7e7e7'].map(hex),
   metalRoof: ['#5c7f9c', '#4f6f8c', '#8c3f3a', '#6c8f86', '#9aa3a8'].map(hex), // painted sheet roofs
+  // roof families read from the satellite scene (scripts/fetch-roofs.py; index = family: 1 red tile, 2 blue sheet,
+  // 3 pale concrete or light sheet, 4 grey concrete or weathered tile)
+  roofFamily: [null,
+    ['#a14d38', '#93463a', '#a8583f', '#8c4434', '#9b5240', '#b05f44'],
+    ['#5c7f9c', '#4f6f8c', '#6a8aa3', '#58788f'],
+    ['#dcd8cf', '#e3e0d8', '#d4d0c6', '#e8e4da'],
+    ['#9a958c', '#8a867f', '#a5a097', '#7f7b74', '#77706a']].map((f) => f && f.map(hex)),
+  whitewash: ['#f3f1ea', '#eeece4', '#f6f3ec', '#ebe9e2', '#f1eee5', '#e9e7e0'].map(hex), // the Lê Lợi ward (issue #5)
   modernWall: ['#e2ddd1', '#d9d5cd', '#e5decb', '#d3d8dc'].map(hex),
   imperialRoof: hex('#dca024'),
   imperialRoof2: hex('#c68a1e'),

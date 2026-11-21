@@ -140,9 +140,10 @@ export function buildWater(data) {
           vec4 uv = vUvR;
           uv.xy += ( n.xz * 0.45 + ( side * dn.x + fwd * dn.y ) * 0.55 ) * ( 0.085 + uRain * 0.06 ) * uv.w * ( 0.35 + 0.65 * lod );
           refl = texture2DProj( tDiffuse, uv ).rgb;
-          // bright reflections (lamps, LEDs) gather on the wavelet crests and fade in the troughs: dashes, not smears
+          // bright reflections (lamps, LEDs) gather on the wavelet crests and fade softly with distance so night streaks stay silky
           float lum = dot( refl, vec3( 0.299, 0.587, 0.114 ) );
-          refl *= 1.0 + smoothstep( 0.45, 1.1, lum ) * clamp( crest, -0.8, 1.2 ) * 0.9;
+          float distAtten = mix( 1.0, smoothstep( 1050.0, 140.0, dist ), uGlow );
+          refl *= 1.0 + smoothstep( 0.48, 1.15, lum ) * clamp( crest, -0.7, 1.0 ) * 0.65 * distAtten;
         }
         float tone = vnoise( p * 0.004 + 3.0 );
         vec3 body = mix( uDeep, uShallow, clamp( ndv * ndv * 0.55 + tone * 0.35, 0.0, 1.0 ) );
@@ -158,14 +159,22 @@ export function buildWater(data) {
         col = mix( col, uFog, uRain * 0.16 );
 
         if ( uLook > 0.5 ) {
-          // drawn water: one calm wash that deepens away from the eye, the mirror kept faint, and short pale strokes
-          // where the wavelets crest
-          vec3 washW = mix( uShallow, uDeep, 0.3 + 0.25 * tone ) * 1.12;
-          vec3 drawn = mix( washW, refl, 0.3 * fres );
-          float stroke = smoothstep( 0.55, 0.95, crest ) * near;
-          drawn = mix( drawn, mix( uSkyHorizon, vec3( 1.0 ), 0.5 ), stroke * 0.55 );
-          drawn += uSunCol * pow( sd, 26.0 ) * 0.16 * uSunDisk;
-          drawn += mix( uFog, vec3( 1.0 ), 0.4 ) * rip * 0.45;
+          // drawn water: calm watercolor jade wash with soft mirrored sky/bridges and fine elongated pen-and-wash strokes
+          float washTone = vnoise( p * 0.009 + 1.7 ) * 0.65 + vnoise( p * 0.032 - 2.3 ) * 0.35;
+          vec3 washW = mix( uShallow, uDeep, 0.25 + 0.35 * washTone ) * mix( 1.08, 0.96, uGlow );
+          float reflW = mix( 0.48, 0.62, uGlow ) * fres;
+          vec3 drawn = mix( washW, refl, reflW );
+          // fine directional ripple strokes stretched across the line of sight instead of round foam blobs
+          vec2 viewSide = normalize( vec2( -V.z, V.x ) + 1e-5 );
+          vec2 viewFwd = vec2( V.x, V.z );
+          vec2 sp = vec2( dot( p, viewSide ) * 0.085, dot( p, viewFwd ) * 0.58 - uTime * 0.24 );
+          float streakN = vnoise( sp ) * 0.65 + vnoise( sp * vec2( 2.1, 2.4 ) + 5.1 ) * 0.35;
+          float fineStroke = smoothstep( 0.72, 0.88, streakN ) * ( 0.45 + 0.55 * clamp( crest + 0.3, 0.0, 1.0 ) ) * near * ( 1.0 - uRain * 0.55 );
+          vec3 strokeCol = mix( mix( uSkyHorizon, vec3( 1.0 ), 0.42 ), uSunCol * 0.95, 0.35 * uSunDisk );
+          drawn = mix( drawn, strokeCol, fineStroke * mix( 0.34, 0.18, uGlow ) );
+          drawn += uSunCol * ( pow( sd, 48.0 ) * 0.28 + pow( sd, 12.0 ) * 0.08 ) * uSunDisk * ( 1.0 - uRain );
+          drawn += mix( uFog, vec3( 1.0 ), 0.45 ) * rip * 0.6;
+          drawn = mix( drawn, uFog, uRain * 0.14 );
           col = drawn;
         }
         float f = 1.0 - exp( -pow( uFogDensity * dist, 2.0 ) );

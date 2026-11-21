@@ -1,0 +1,158 @@
+// Builds the whole scene headless (scripts/lib/scene.mjs) and fails where models stand where something else is:
+//   road      a landmark or replica raises a floor, step, landing, wall top or post (an upward face ROAD_LO..ROAD_HI
+//             above the ground) inside a mapped carriageway, more than TOL in from its edge;
+//   overlap   two sources (an older builder and a replica, or two replicas) both raise faces over the same ground;
+//   building  a mapped building or an infill house that populate keeps stands on a model's raised ground.
+// Each is summed per source (or pair) over 1 m cells and fails above its area limit, so contact passes: a gate pier
+// at the kerb, a bridge ramp meeting its street, a replica's fence ending at a neighbour's wall.
+// Run: npm run check:overlap   (--all also lists what stays under the limits)
+import { buildScene } from './lib/scene.mjs';
+import { owns as dainoiOwns } from '../src/landmarks/places/dainoi.js';
+
+const TOL = 0.5; // a face this far inside the carriageway's edge counts (kerbs, gate piers at the edge pass)
+const ROAD_LO = 0.15, ROAD_HI = 5.0; // above this the face is overhead (an arch, a roof over the street)
+const RAISED = 0.3; // a face this high over the ground is part of a model, not paving at grade
+const LIMIT = { road: 2, overlap: 8, building: 6 }; // m² per source, pair or building
+const showAll = process.argv.includes('--all');
+
+const t0 = Date.now();
+const { data, world, S, sources, errors, groundY, ROAD_W } = await buildScene();
+const key = (ix, iz) => (ix + 32768) * 65536 + (iz + 32768);
+const unkey = (k) => [Math.floor(k / 65536) - 32768 + 0.5, (k % 65536) - 32768 + 0.5];
+
+// ---- each source's raised ground: 1 m cell -> the highest of its upward faces there, over the ground ----
+const SUB = [[0.5, 0.5], [0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
+const skip = new Set(['walls', 'populate', 'street']); // the rampart carries the gates; populate is checked against the rest
+// the rampart and the other planted ground models mark as not cover (S.noCover): gates, Kỳ Đài and Quan Tượng Đài
+// stand on it as they do at Huế
+const noCover = S.noCover || [];
+const raster = [];
+for (const s of sources) {
+  if (skip.has(s.name) || s.range[1] <= s.range[0]) continue;
+  const cells = new Map(), kinds = new Map(), P = S.pos, K = S.knd;
+  for (let i = s.range[0]; i + 2 < s.range[1]; i += 3) {
+    if (noCover.some(([f, t]) => i >= f && i < t)) continue;
+    const k = i * 3;
+    const ax = P[k], ay = P[k + 1], az = P[k + 2], bx = P[k + 3], by = P[k + 4], bz = P[k + 5], cx = P[k + 6], cy = P[k + 7], cz = P[k + 8];
+    const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+    const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay), nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    if (Math.abs(ny) < 0.35 * Math.hypot(nx, ny, nz) || Math.abs(ny) < 0.02) continue; // walls; a face looking up or down
+    if (ny < 0) continue;
+    const up = Math.min(ay, by, cy) - groundY((ax + bx + cx) / 3, (az + bz + cz) / 3);
+    if (up < ROAD_LO) continue;
+    const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.floor(Math.max(ax, bx, cx)), z0 = Math.floor(Math.min(az, bz, cz)), z1 = Math.floor(Math.max(az, bz, cz));
+    if ((x1 - x0) * (z1 - z0) > 4e6) continue;
+    const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+    for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
+      for (const [ox, oz] of SUB) {
+        const px = ix + ox, pz = iz + oz;
+        const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
+        if (l1 > -0.02 && l2 > -0.02 && 1 - l1 - l2 > -0.02) {
+          const c = key(ix, iz), was = cells.get(c);
+          if (was === undefined || up < was) { cells.set(c, up); kinds.set(c, K[i]); } // the lowest raised face: what stands on the ground there
+          break;
+        }
+      }
+    }
+  }
+  if (cells.size) raster.push({ name: s.name, cells, kinds });
+}
+
+// ---- carriageways: cells whose centre lies more than TOL inside a mapped street. Streets only (class 0-3, the ones
+// city.js gives kerbs and pavements): service ways (4) are drives and lanes inside the very compounds the models pave,
+// and footpaths (5) cross courts and stairs; bridges stand over what is under them ----
+const carriage = new Set();
+for (const [c0, bridge, f] of data.roads || []) {
+  const c = Math.max(0, Math.min(ROAD_W.length - 1, c0 | 0));
+  if (bridge || c > 3) continue;
+  const hw = ROAD_W[c] / 2 - TOL;
+  for (let i = 0; i + 3 < f.length; i += 2) {
+    const ax = f[i] / 10, az = f[i + 1] / 10, bx = f[i + 2] / 10, bz = f[i + 3] / 10, dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz;
+    for (let ix = Math.floor(Math.min(ax, bx) - hw); ix <= Math.floor(Math.max(ax, bx) + hw); ix++)
+      for (let iz = Math.floor(Math.min(az, bz) - hw); iz <= Math.floor(Math.max(az, bz) + hw); iz++) {
+        const px = ix + 0.5, pz = iz + 0.5, t = L2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (pz - az) * dz) / L2)) : 0;
+        if (Math.hypot(px - ax - t * dx, pz - az - t * dz) < hw) carriage.add(key(ix, iz));
+      }
+  }
+}
+
+// ---- tally ----
+const placeName = (x, z) => { let best = '', bd = Infinity; for (const p of data.places || []) { const d = Math.hypot(p.x / 10 - x, p.z / 10 - z); if (d < bd) { bd = d; best = p.n; } } return best ? ` near ${best} (${bd.toFixed(0)} m)` : ''; };
+const found = []; // { kind, name, area, at }
+// cells grouped into 24 m blocks, biggest first, so one finding names each spot it covers
+const clusters = (cells) => {
+  const m = new Map();
+  for (const c of cells) { const [x, z] = unkey(c), b = Math.floor(x / 24) + ',' + Math.floor(z / 24); if (!m.has(b)) m.set(b, { n: 0, x: 0, z: 0 }); const q = m.get(b); q.n++; q.x += x; q.z += z; }
+  return [...m.values()].sort((p, q) => q.n - p.n).map((q) => ({ n: q.n, at: [q.x / q.n, q.z / q.n] }));
+};
+const add = (kind, name, cells) => { if (cells.length) { const cl = clusters(cells); found.push({ kind, name, area: cells.length, at: cl[0].at, cl }); } };
+
+for (const r of raster) {
+  const cells = [...r.cells].filter(([c, up]) => up <= ROAD_HI && carriage.has(c)).map(([c]) => c);
+  if (process.env.DEBUG && cells.length) { const h = {}; for (const c of cells) { const k = r.kinds.get(c) + ':' + (r.cells.get(c) < 0.6 ? 'lo' : r.cells.get(c) < 2 ? 'mid' : 'hi'); h[k] = (h[k] || 0) + 1; } console.log('DBG', r.name, JSON.stringify(h)); }
+  add('road', r.name, cells);
+}
+
+const owner = new Map(); // cell -> index into raster of the first source raised there
+const pairs = new Map();
+raster.forEach((r, i) => {
+  for (const [c, up] of r.cells) {
+    if (up < RAISED) continue;
+    const j = owner.get(c);
+    if (j === undefined) { owner.set(c, i); continue; }
+    const k = raster[j].name + ' + ' + r.name;
+    if (!pairs.has(k)) pairs.set(k, []);
+    pairs.get(k).push(c);
+  }
+});
+for (const [k, cells] of pairs) add('overlap', k, cells);
+
+// populate keeps a mapped building unless a model covers its middle and most of its outline (city.js populate)
+const inRing = (x, z, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c; return c; };
+const cover = world.cover;
+const tall = new Map(); // cell -> the first source standing 0.7 m or more over the ground there (populate's cover)
+for (const r of raster) for (const [c, up] of r.cells) if (up >= 0.7 && !tall.has(c)) tall.set(c, r.name);
+const rasterHit = (c) => tall.get(c);
+(data.bld || []).forEach((b) => {
+  const ring = []; for (let i = 0; i + 1 < b[0].length; i += 2) ring.push([b[0][i] / 10, b[0][i + 1] / 10]);
+  let cx = 0, cz = 0; for (const p of ring) { cx += p[0]; cz += p[1]; } cx /= ring.length; cz /= ring.length;
+  if (cover.hit(cx, cz) && ring.filter((q) => cover.hit(cx + (q[0] - cx) * 0.8, cz + (q[1] - cz) * 0.8)).length >= ring.length * 0.7) return; // dropped
+  if (b[2] === 2 && dainoiOwns(ring)) return;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const by = new Map();
+  for (let ix = Math.floor(x0); ix <= Math.floor(x1); ix++) for (let iz = Math.floor(z0); iz <= Math.floor(z1); iz++) {
+    if (!inRing(ix + 0.5, iz + 0.5, ring)) continue;
+    const n = rasterHit(key(ix, iz)); if (!n) continue;
+    if (!by.has(n)) by.set(n, []); by.get(n).push(key(ix, iz));
+  }
+  for (const [n, cells] of by) add('building', `${n} under mapped building ${b[3] ? '"' + b[3] + '"' : '@' + cx.toFixed(0) + ',' + cz.toFixed(0)}`, cells);
+});
+{ // infill houses: populate samples each plan 3 x 3; here every square metre of it
+  const a = data.infill || [], N = 8, by = new Map();
+  for (let i = 0; i + N <= a.length; i += N) {
+    const x = a[i] / 10, z = a[i + 1] / 10, w = a[i + 2] / 10, d = a[i + 3] / 10, ang = a[i + 4] / 1000, ux = Math.cos(ang), uz = Math.sin(ang);
+    const samp = []; for (const u of [-0.5, 0, 0.5]) for (const v of [-0.5, 0, 0.5]) samp.push([x + ux * u * w - uz * v * d, z + uz * u * w + ux * v * d]);
+    if (samp.some(([px, pz]) => cover.hit(px, pz))) continue; // populate leaves it out
+    for (let u = -w / 2 + 0.5; u < w / 2; u += 1) for (let v = -d / 2 + 0.5; v < d / 2; v += 1) {
+      const c = key(Math.floor(x + ux * u - uz * v), Math.floor(z + uz * u + ux * v)), n = rasterHit(c);
+      if (!n) continue;
+      if (!by.has(n)) by.set(n, new Map()); const m = by.get(n); if (!m.has(i)) m.set(i, []); m.get(i).push(c);
+    }
+  }
+  for (const [n, m] of by) for (const [i, cells] of m) add('building', `${n} under infill house @${(a[i] / 10).toFixed(0)},${(a[i + 1] / 10).toFixed(0)}`, cells);
+}
+
+// ---- report ----
+let bad = 0;
+found.sort((p, q) => q.area - p.area);
+for (const f of found) {
+  const fail = f.area > LIMIT[f.kind];
+  if (fail) bad++;
+  if (!fail && !showAll) continue;
+  console.log(`${fail ? 'FAIL' : 'ok  '} ${f.kind.padEnd(8)} ${f.name}: ${f.area} m²${placeName(...f.at)}`);
+  for (const c of f.cl.slice(0, showAll ? 12 : 4)) console.log(`       ${String(c.n).padStart(5)} m² at (${c.at[0].toFixed(1)}, ${c.at[1].toFixed(1)})`);
+}
+for (const e of errors) console.log('FAIL ' + e);
+console.log(bad || errors.length ? `overlap: ${bad} overlap(s) over the limits` : `overlap: ok, ${raster.length} sources, no model on a carriageway, on another model or under a kept building over the limits (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+process.exit(bad || errors.length ? 1 : 0);

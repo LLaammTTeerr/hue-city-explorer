@@ -237,11 +237,14 @@ const WAKE_FRAG = /* glsl */ `
     // churn behind the stern, spreading as it goes
     float sw = 1.3 + 0.07 * max( 0.0, d - uStern );
     float wash = exp( -pow( y / sw, 2.0 ) ) * smoothstep( uStern - 3.0, uStern + 4.0, d ) * ( 0.35 + 0.65 * foam );
-    float fade = smoothstep( 0.0, 2.5, d ) * exp( -d / ( uLen * 0.42 ) ) * smoothstep( uLen, uLen * 0.6, d );
-    float k = ( arm * chev * ( 0.5 + 0.5 * foam ) * 0.95 + wash * 0.75 + trans ) * fade * uAmt;
-    // silver by day, catching the warm lantern light at night
-    vec3 tint = mix( vec3( 0.86, 0.91, 0.93 ), vec3( 1.0, 0.78, 0.46 ), uGlow ) * mix( 1.0, 0.42, uGlow );
-    gl_FragColor = vec4( tint, clamp( k, 0.0, 0.8 ) );
+    float fade = smoothstep( 0.0, 2.8, d ) * exp( -d / ( uLen * mix( 0.42, 0.28, uGlow ) ) ) * smoothstep( uLen, uLen * 0.55, d );
+    float k = ( arm * chev * ( 0.5 + 0.5 * foam ) * 0.9 + wash * 0.68 + trans * ( 1.0 - uGlow * 0.65 ) ) * fade * uAmt;
+    // silver by day, catching a gentle warm lantern shimmer near the stern at night
+    float nearLantern = exp( -d / 28.0 );
+    vec3 nightTint = mix( vec3( 0.30, 0.28, 0.46 ), vec3( 0.95, 0.70, 0.38 ), nearLantern * 0.72 );
+    vec3 tint = mix( vec3( 0.86, 0.91, 0.93 ), nightTint, uGlow );
+    float alpha = clamp( k * mix( 0.85, 0.42, uGlow ), 0.0, 0.72 );
+    gl_FragColor = vec4( tint, alpha );
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }`;

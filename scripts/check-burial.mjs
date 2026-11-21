@@ -4,67 +4,14 @@
 // Bedding is fine: foundations, piers and the rims of mounds go a little under on purpose, and are either walls (not
 // looking up) or within DEPTH. Tree crowns are left out: on a steep hillside a crown brushes the uphill slope while
 // its trunk stands on the ground; check-data guards trees by checking that the terrain grid covers every one.
-import fs from 'node:fs';
 import * as THREE from 'three';
+import { buildScene } from './lib/scene.mjs';
 
 const DEPTH = 1.0, AREA = 1.0;
 
-// the builders read a few browser globals at import time and draw a few canvas textures
-const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => ({ addColorStop() {}, data: new Uint8ClampedArray(4) })), set: (t, k, v) => ((t[k] = v), true) });
-Object.assign(globalThis, {
-  innerWidth: 1280, innerHeight: 800, devicePixelRatio: 1, window: globalThis,
-  matchMedia: () => ({ matches: false, addEventListener() {} }),
-  location: { search: '', hash: '' }, localStorage: { getItem: () => null, setItem() {} },
-  document: { createElement: () => ({ width: 0, height: 0, style: {}, getContext: () => ctx2d }) },
-});
-const warn0 = console.warn;
-console.warn = () => {}; // check-heights reports builder warnings; here only geometry matters
-
-const root = new URL('../', import.meta.url);
-const src = (p) => new URL('src/' + p, root).href;
-const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
 const showAll = process.argv.includes('--all');
-
-const { initTerrain, groundY } = await import(src('geo/terrain.js'));
-const { initDistricts } = await import(src('geo/districts.js'));
-initTerrain(data);
-initDistricts(data);
-// the per-place replicas (src/landmarks/places/*.js): plain node has no import.meta.glob, so hand them to
-// places/index.js before any builder asks for them, as check-heights does
-globalThis.__hueReplicas = {};
-for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.js') && f !== 'index.js'))
-  globalThis.__hueReplicas[f] = await import(src('landmarks/places/' + f));
-const { buildPlaces } = await import(src('landmarks/places/index.js'));
-const city = await import(src('geo/city.js'));
-const L = (m) => import(src('landmarks/' + m + '.js'));
-const [truongtien, citadel, more, civic, memorial, boardwalk, floating, south, tombs, boats, life] = await Promise.all(
-  ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'floating', 'south', 'tombs', 'boats', 'life'].map(L));
-const isLand = boats.landTest(data, { ponds: true });
-
-// ---- the scene; each step remembers the faces and objects it added ----
-const world = city.buildCity(data);
-const S = world.structures, dyn = new THREE.Group();
-const sources = [{ name: 'walls', range: S.wallRange || [0, 0], objs: [] }], errors = [];
-const step = (name, f) => {
-  const a = S.n, k = dyn.children.length, g = world.group.children.length;
-  try { f(); } catch (e) { errors.push(`${name} threw: ${e.message}`); }
-  sources.push({ name, range: [a, S.n], objs: [...dyn.children.slice(k), ...world.group.children.slice(g)] });
-};
-step('truongtien', () => truongtien.buildTruongTien(data, S, dyn));
-step('citadel', () => citadel.buildCitadel(data, S, dyn));
-step('market', () => citadel.buildMarket(data, S, dyn));
-step('thienmu', () => citadel.buildThienMu(data, S, dyn));
-step('nguyenhoang', () => more.buildNguyenHoang(data, S, dyn));
-step('quochocgate', () => more.buildQuocHocGate(data, S));
-step('civic', () => civic.buildCivic(data, S));
-step('biaquochoc', () => memorial.buildBiaQuocHoc(data, S));
-step('boardwalk', () => boardwalk.buildBoardwalk(data, S, dyn));
-step('floating', () => floating.buildFloatingRestaurants(data, S, dyn));
-step('south', () => south.buildSouth(data, S));
-step('tombs', () => tombs.buildTombs(data, S));
-step('replicas', () => buildPlaces(data, S, dyn));
-step('populate', () => city.populate(world, data));
-step('street', () => life.buildStreetLife(data, dyn));
+// the scene, one source per builder and per replica (scripts/lib/scene.mjs)
+const { data, S, sources, errors, groundY, isLand } = await buildScene();
 
 // ---- buried upward faces, summed per source in 8 m cells ----
 const hits = new Map(); // source -> Map(cell -> { area, worst, x, z, y })
@@ -113,7 +60,6 @@ for (const s of sources) {
 
 // ---- report ----
 const placeName = (x, z) => { let best = '', bd = Infinity; for (const p of data.places || []) { const d = Math.hypot(p.x / 10 - x, p.z / 10 - z); if (d < bd) { bd = d; best = p.n; } } return best ? ` near ${best} (${bd.toFixed(0)} m)` : ''; };
-console.warn = warn0;
 let bad = 0;
 for (const [name, m] of hits) {
   const list = [...m.values()].sort((p, q) => q.area * q.worst - p.area * p.worst);

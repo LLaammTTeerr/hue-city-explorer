@@ -148,9 +148,10 @@ class OcclusionPass extends Pass {
             wash *= 0.955 + 0.08 * tooth;
             float d0 = texture2D( tDepth, vUv ).x;
             if ( d0 >= 0.999995 ) {
-              // beyond the model there is only the sheet it is drawn on, keeping a breath of the hour's sky
+              // beyond the model the sky's own wash, clouds and distant ridges stay visible through the paper tooth
               vec2 gp = abs( fract( gl_FragCoord.xy / 26.0 ) - 0.5 );
-              wash = mix( col, paper, 0.72 ) * ( 0.97 + 0.05 * tooth ) * ( 1.0 - 0.07 * ( 1.0 - smoothstep( 0.03, 0.07, length( gp ) ) ) );
+              float paperMix = mix( 0.24, 0.16, uNight );
+              wash = mix( col, paper, paperMix ) * ( 0.97 + 0.055 * tooth ) * ( 1.0 - 0.045 * ( 1.0 - smoothstep( 0.03, 0.07, length( gp ) ) ) );
             }
             // Line: the depth buffer is linear across any flat face on screen, so its second difference is zero inside
             // a face and jumps at an outline or a fold. Relative to depth, one threshold serves near and far.
@@ -183,10 +184,12 @@ class OcclusionPass extends Pass {
             float round = smoothstep( 0.14, 0.3, leaf ) * ( 1.0 - smoothstep( 0.4, 0.62, leaf ) );
             line = mix( line, smoothstep( uInkEdge.y * 5.0, uInkEdge.y * 12.0, edge ) * 0.7, crown );
             line = max( line, round * 0.85 );
-            // the pen wavers, and presses less on what is far away
-            line *= 0.74 + 0.26 * mNoise( gl_FragCoord.xy * 0.2 + 3.0 );
-            line *= mix( 1.0, 0.5, smoothstep( 500.0, 4500.0, inkDist ) );
-            vec3 inked = mix( wash, mix( vec3( 0.15, 0.11, 0.095 ), vec3( 0.02, 0.02, 0.05 ), uNight ), line * 0.9 );
+            // the pen wavers, lifts gently on bright filigree steelwork (Trường Tiền) at medium range, and fades into watercolor haze in the distance
+            line *= 0.76 + 0.24 * mNoise( gl_FragCoord.xy * 0.2 + 3.0 );
+            line *= mix( 1.0, 0.36, smoothstep( 0.50, 0.82, wl ) * smoothstep( 90.0, 420.0, inkDist ) );
+            line *= mix( 1.0, 0.08, smoothstep( 320.0, 2200.0, inkDist ) );
+            vec3 inkCol = mix( vec3( 0.16, 0.12, 0.10 ), vec3( 0.025, 0.025, 0.055 ), uNight );
+            vec3 inked = mix( wash, inkCol, line * 0.86 );
             col = mix( col, inked, uInk );
           }
           col *= 1.0 - uVignette * ( 1.0 - 0.6 * uInk ) * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );

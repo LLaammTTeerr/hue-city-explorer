@@ -31,6 +31,12 @@ Mouse: drag to pan, wheel to zoom at the cursor, right-drag (or Shift-drag) to t
 double-click to approach. Touch: one finger pans, two fingers pinch, twist and tilt.
 Keys: arrows pan, `+`/`-` zoom, `R` rain, `N` time of day, `L` labels.
 
+## Contributors
+
+- [sleepyluno](https://github.com/sleepyluno): bug reports and suggestions
+  ([issues](https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno)) that shaped the Nam Giao
+  esplanade, the language switch, the craft villages and the forest round the tombs.
+
 ## Data
 
 `npm run data:fetch` (`scripts/fetch-osm-all.sh`) refreshes every OSM extract the build merges: the main Overpass
@@ -118,6 +124,8 @@ Data credits and licences:
   ADB support). The service is public but **states no licence**; `data/raw/heights/gishue.*` and the heights derived
   from it are used here with attribution and should not be taken as openly licensed.
 - Building heights: Google Open Buildings 2.5D Temporal v1, CC BY 4.0.
+- Tree cover (where the forest is planted): ESA WorldCover 10 m 2021 v200, © ESA WorldCover project / contains modified Copernicus Sentinel data (2021), CC BY 4.0 (`scripts/fetch-landcover.py`).
+- Roof colours (each building's roof family: red tile, blue sheet, pale or grey concrete): Copernicus Sentinel-2 L2A, scene of 30 March 2026, contains modified Copernicus Sentinel data (2026) (`scripts/fetch-roofs.py`).
 
 ## Layout
 
