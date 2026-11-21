@@ -1,4 +1,5 @@
-# Height and terrain checks on every pull request, so a regression is seen before it reaches main.
+# Height, terrain and burial checks (npm run check) on every pull request. Branch protection on main requires this
+# job ("check") to pass before a pull request can merge.
 # (deploy.yml runs the same checks again before it builds the site.)
 name: Check
 

@@ -52,6 +52,17 @@ export function checkData(data) {
     check(T.h.length === n && data.terrain.cover.length === n, 'terrain grid size', `${T.h.length} heights for ${T.nx} × ${T.nz}`);
     check(bad === 0 && max < 500, 'terrain values', `${bad} negative or missing, highest ${max.toFixed(1)} m (the western hills reach about 330)`);
   }
+  // the grid reaches every tree and every building: outside it the ground reads as the flat city floor, so anything
+  // planted just past an edge stood at 2.6 m beside hills that the grid's last row lifts (trees sunk 160 m once)
+  {
+    const x1 = T.x0 + T.step * (T.nx - 1), z1 = T.z0 + T.step * (T.nz - 1);
+    const inside = (x, z) => x >= T.x0 && x < x1 && z >= T.z0 && z < z1;
+    let out = 0, n = 0, eg = '';
+    const take = (x, z) => { n++; if (!inside(x, z)) { out++; eg ||= ` (first at ${x.toFixed(0)}, ${z.toFixed(0)})`; } };
+    const tr = data.trees || [];
+    for (let i = 0; i + 1 < tr.length; i += 4) take(tr[i] / 10, tr[i + 1] / 10);
+    check(out === 0, 'terrain grid covers the trees', `${out} of ${n} outside x ${T.x0.toFixed(0)}…${x1.toFixed(0)}, z ${T.z0.toFixed(0)}…${z1.toFixed(0)}${eg}`);
+  }
   // Hà Khê: chùa Thiên Mụ stands on one level about 9.8 m above the city floor (laser points 12.0–13.6 m asl)
   {
     // the plateau is the most common level within 100 m of the pagoda's label point (which sits near the river edge)

@@ -251,9 +251,13 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
 // Mapped: where each bridge runs. Drawn: a narrow concrete walkway on slim piers, tube railings gone pale,
 // a few lamp standards — the real ones are long, low and thin, not road decks.
 function footbridge(S, from, to) {
-  const dx = to[0] - from[0], dz = to[1] - from[1], len = Math.hypot(dx, dz);
+  const dx = to[0] - from[0], dz = to[1] - from[1];
+  let len = Math.hypot(dx, dz);
   if (len < 4) return;
   const d = [dx / len, dz / len], ac = [-d[1], d[0]], ang = Math.atan2(d[1], d[0]), lift = rise(from[0], from[1]), y = LAND_Y + lift + 0.5, wd = 3.0;
+  // the deck is level: it lands where the bank comes up to it, not past that, where it would run on into the slope
+  // (the mapped ends lie up to 4 m inside the steeper banks)
+  for (let s = 4; s < len; s += 0.5) if (gy(from[0] + d[0] * s, from[1] + d[1] * s) >= y - 0.1) { len = s + 0.5; break; }
   const P = (s, o, h = 0) => [from[0] + d[0] * s + ac[0] * o, y + h, from[1] + d[1] * s + ac[1] * o];
   const mid = P(len / 2, 0);
   S.base = y - LAND_Y; // the deck stands on the lake's raised ground, so the shader's foot darkening starts there

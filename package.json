@@ -10,8 +10,9 @@
     "data:fetch": "sh scripts/fetch-osm-all.sh",
     "data:build": "node scripts/build-data.mjs",
     "check:heights": "node scripts/check-heights.mjs",
+    "check:burial": "node scripts/check-burial.mjs",
     "check:data": "node scripts/check-data.mjs",
-    "check": "npm run check:data && npm run check:heights",
+    "check": "npm run check:data && npm run check:heights && npm run check:burial",
     "shot": "node scripts/shot.mjs"
   },
   "dependencies": {
