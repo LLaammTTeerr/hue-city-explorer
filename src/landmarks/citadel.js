@@ -6,6 +6,7 @@ import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
 import { landTest } from './boats.js';
 import { replaced } from './places/index.js';
+import { flag as makeFlag } from './anim.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -415,43 +416,6 @@ function gate(S, g, centre, eaves = null, coverAt = null) {
   return { cx, cz, px, pz, plen };
 }
 
-// Flag for Kỳ Đài: red field, yellow star, moved by a small vertex wave.
-function makeFlag() {
-  const cv = document.createElement('canvas');
-  cv.width = 192; cv.height = 128;
-  const g = cv.getContext('2d');
-  g.fillStyle = '#d5231d'; g.fillRect(0, 0, 192, 128);
-  g.fillStyle = '#ffdf2e';
-  g.beginPath();
-  for (let i = 0; i < 10; i++) {
-    const r = i % 2 ? 15 : 38, t = -Math.PI / 2 + (i * Math.PI) / 5;
-    g[i ? 'lineTo' : 'moveTo'](96 + Math.cos(t) * r, 66 + Math.sin(t) * r);
-  }
-  g.closePath(); g.fill();
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  const geo = new THREE.PlaneGeometry(1, 1, 14, 6);
-  geo.translate(0.5, 0, 0);
-  const mat = new THREE.ShaderMaterial({
-    uniforms: { map: { value: tex }, uTime: { value: 0 }, uLight: { value: 1 } },
-    side: THREE.DoubleSide,
-    vertexShader: `uniform float uTime; varying vec2 vUv; varying float vSh;
-      void main() { vUv = uv; vec3 p = position;
-        float w = sin( p.x * 7.0 - uTime * 4.2 ) * 0.07 * p.x + sin( p.x * 3.0 - uTime * 2.6 + p.y * 2.0 ) * 0.05 * p.x;
-        p.z += w; p.y -= p.x * p.x * 0.05; vSh = 0.86 + w * 2.4;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( p, 1.0 ); }`,
-    fragmentShader: `uniform sampler2D map; uniform float uLight; varying vec2 vUv; varying float vSh;
-      void main() { vec4 c = texture2D( map, vUv );
-        gl_FragColor = vec4( c.rgb * vSh * uLight, 1.0 );
-        #include <tonemapping_fragment>
-        #include <colorspace_fragment>
-      }`,
-  });
-  const m = new THREE.Mesh(geo, mat);
-  m.frustumCulled = false;
-  return m;
-}
-
 // A dataset that lacks what the Citadel needs leaves it out (and the shared buffer as it was) instead of stopping the
 // whole load; main.js still gets the object it calls every frame.
 export function buildCitadel(data, S, group) {
@@ -529,11 +493,7 @@ function citadel(data, S, group) {
     const poleH = 37;
     S.cyl(c[0], c[1], y, y + 3, 1.3, 1.0, 8, PAL.stone);
     S.cyl(c[0], c[1], y + 3, y + poleH, 0.5, 0.28, 8, hex('#e2dccd'));
-    flag = makeFlag();
-    flag.scale.set(15, 10, 1);
-    flag.position.set(c[0], y + poleH - 5.4, c[1]);
-    flag.rotation.y = -0.55; // streaming down-wind, toward the river mouth
-    group.add(flag);
+    flag = makeFlag(group, { at: [c[0], y + poleH - 0.4, c[1]], w: 15, h: 10, look: 'vn' }); // waves down-wind (anim.js)
   }
 
   // ---- Ngọ Môn: U-shaped masonry base from OSM, Lầu Ngũ Phụng on top ----
@@ -693,9 +653,7 @@ function citadel(data, S, group) {
   return {
     flag,
     glows,
-    update(time, light) {
-      if (flag) { flag.material.uniforms.uTime.value = time; flag.material.uniforms.uLight.value = light; }
-    },
+    update() {}, // the flag moves on the shared clock (anim.js)
   };
 }
 
