@@ -1623,11 +1623,31 @@ const water_labels = [];
 }
 
 // Moorings: places along the central riverbanks where small sampans tie up (illustrative; positions on the real bank line)
+// Not under a bridge: a sampan is tied up where nothing passes overhead, so every spot along the hull (±6 m, the
+// longest sampan's half-length with room to spare) keeps 3 m from each bridge's deck (road, rail, mapped outline).
+const bridgeSegs = [];
+{
+  const line = (pts, hw, closed) => { for (let i = 0; i + (closed ? 0 : 1) < pts.length; i++) bridgeSegs.push([pts[i], pts[(i + 1) % pts.length], hw]); };
+  for (const r of roads) if (r.bridge) line(r.pts, r.w / 2, false);
+  for (const r of rails) if (r.bridge) line(r.pts, 2, false);
+  for (const b of bridgeOutlines) { const ring = []; for (let i = 0; i < b.ring.length; i += 2) ring.push([b.ring[i] / 10, b.ring[i + 1] / 10]); line(ring, 0, true); }
+  line(ttOutline, 0, true);
+}
+const bridgeRings = [ttOutline, ...bridgeOutlines.map((b) => { const r = []; for (let i = 0; i < b.ring.length; i += 2) r.push([b.ring[i] / 10, b.ring[i + 1] / 10]); return r; })];
+const nearBridge = (x, z, m) => {
+  for (const [a, b, hw] of bridgeSegs) {
+    const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;
+    if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < hw + m) return true;
+  }
+  return bridgeRings.some((r) => pip([x, z], r));
+};
 // The moorings start from their own seed, so that a change upstream that draws more or fewer numbers (planting along a
 // new median) does not move every sampan on the river: 579897935 is where the shared stream stood here before the
 // tapering medians, so the moorings, and everything drawn after them, stay as they were.
 seed = 579897935;
 const moorings = [];
+let nUnderBridge = 0;
 for (const poly of water) {
   if (!touchesEdge(poly) && Math.abs(ringArea(poly[0])) < 400000) continue;
   for (const ring of poly) {
@@ -1643,14 +1663,17 @@ for (const poly of water) {
         if (px < -2500 || px > 900 || pz < -1000 || pz > 1700 || rnd() < 0.35) continue;
         for (const sgn of [1, -1]) {
           const x = px - tz * sgn * 7, z = pz + tx * sgn * 7;
-          if (at(x, z) & WATER && at(px - tz * sgn * 16, pz + tx * sgn * 16) & WATER) { moorings.push(q(x), q(z), Math.round(Math.atan2(tz, tx) * 1000)); break; }
+          if (!(at(x, z) & WATER && at(px - tz * sgn * 16, pz + tx * sgn * 16) & WATER)) continue;
+          if ([-6, 0, 6].some((d) => nearBridge(x + tx * d, z + tz * d, 3))) { nUnderBridge++; break; }
+          moorings.push(q(x), q(z), Math.round(Math.atan2(tz, tx) * 1000));
+          break;
         }
       }
       acc -= len;
     }
   }
 }
-console.log('moorings', moorings.length / 3);
+console.log('moorings', moorings.length / 3, `(${nUnderBridge} left out under bridges)`);
 
 // Riverside lights (issue #21). After dark the Hương is lit along its city banks: lamp posts on the embankments,
 // garden lights along the riverside walkways, and warm floodlight on the facades that face the water. All three are

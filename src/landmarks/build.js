@@ -54,7 +54,7 @@ export function buildLandmarks(data, world, group, { step = (name, run) => run()
   const replicas = run('replicas', () => buildPlaces(data, S, group, onPlace)); // per-place replica models in src/landmarks/places/
   run('populate', () => populate(world, data)); // buildings, houses and trees, kept off the ground the landmark models cover
   if (finish) finishStructures(S, world.group);
-  const boats = run('boats', () => buildBoats(data, group));
+  const boats = run('boats', () => buildBoats(data, group, S)); // S, closed: the fleet keeps clear of the bridges and landings in it
   const lanterns = run('lanterns', () => buildLanterns(data, group)); // hoa đăng drifting past the Citadel after dark
   run('lotus', () => buildLotus(data, group));
   const traffic = run('traffic', () => buildTraffic(data, group));

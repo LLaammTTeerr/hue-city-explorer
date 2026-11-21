@@ -1,6 +1,15 @@
 # Progress
 
 ## Done
+- Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
+  Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
+  bridges; 11 of them sat under a deck (Thượng Tứ, Cồn Dã Viên, …). They now keep 3 m from every bridge road, rail and
+  mapped outline along ±6 m of hull. The dragon boats had the same blind spot: they turned around under cầu Dã Viên,
+  ran into Cồn Hến's landings and the outer lane (58 m) hit Phú Xuân's piers. `fleetRouter` in
+  `src/landmarks/boats.js` now picks each boat's lane (26/34/42 m, slid ±4 m if needed) and stretch of river from the
+  built structures, using the exact hull-box test in `src/geo/clearance.js`. `npm run check:boats` (in `npm run check`)
+  tests every moored sampan and a full round trip of every dragon boat against all static faces. Cost: ~100 ms more at
+  load for the routing (an inline y prefilter could cut it).
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
   the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them
