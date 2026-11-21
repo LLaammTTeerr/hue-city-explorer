@@ -4,7 +4,8 @@
 //   overlap   two sources (an older builder and a replica, or two replicas) both raise faces over the same ground;
 //   building  a mapped building or an infill house that populate keeps stands on a model's raised ground.
 // Each is summed per source (or pair) over 1 m cells and fails above its area limit, so contact passes: a gate pier
-// at the kerb, a bridge ramp meeting its street, a replica's fence ending at a neighbour's wall.
+// at the kerb, a bridge ramp meeting its street, a replica's fence ending at a neighbour's wall. Overlap and building
+// areas count only what interpenetrates by more than DEEP (see below), so faces that merely touch add nothing.
 // Run: npm run check:overlap   (--all also lists what stays under the limits)
 import { buildScene } from './lib/scene.mjs';
 import { owns as dainoiOwns } from '../src/landmarks/places/dainoi.js';
@@ -26,10 +27,23 @@ const skip = new Set(['walls', 'populate', 'street']); // the rampart carries th
 // the rampart and the other planted ground models mark as not cover (S.noCover): gates, Kỳ Đài and Quan Tượng Đài
 // stand on it as they do at Huế
 const noCover = S.noCover || [];
+// Contact is not overlap. The cell raster below marks a cell for a source when any of its SUB points falls in one of
+// its faces (with ~0.1 m slack), so two models that merely touch along a line both mark every 1 m cell the line
+// crosses: one SUB point on each side. For the overlap and building tests each source also keeps a second, exact
+// sample: for each SUB point, which of it and its four neighbours DEEP away (±DEEP in x and in z) lie inside its
+// raised faces (no slack). A SUB point is "deep" in a source when all five do, i.e. it lies inside that source's
+// footprint eroded by DEEP. Two sources overlap in a cell only where one same SUB point is deep in both: their
+// footprints interpenetrate by more than DEEP there. Footprints that touch, or meet within DEEP, never share such a
+// point; a real overlap of more than ~2 DEEP still counts in full.
+const DEEP = 0.1;
+const NB = [[0, 0], [DEEP, 0], [-DEEP, 0], [0, DEEP], [0, -DEEP]];
+const ALL5 = (1 << NB.length) - 1;
+const deepMask = (bits) => { let m = 0; for (let s = 0; s < SUB.length; s++) if (((bits >> (s * NB.length)) & ALL5) === ALL5) m |= 1 << s; return m; };
 const raster = [];
 for (const s of sources) {
   if (skip.has(s.name) || s.range[1] <= s.range[0]) continue;
   const cells = new Map(), kinds = new Map(), P = S.pos, K = S.knd;
+  const fine = new Map(); // cell -> the lowest upward face over the ground at each of its SUB x NB points (as cells does per cell)
   for (let i = s.range[0]; i + 2 < s.range[1]; i += 3) {
     if (noCover.some(([f, t]) => i >= f && i < t)) continue;
     const k = i * 3;
@@ -45,6 +59,14 @@ for (const s of sources) {
     const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
     const eps = -Math.min(0.02, 0.1 / Math.max(1, x1 - x0, z1 - z0)); // edge slack ~ 0.1 m, not 2 % of a 100 m yard face
     for (let ix = x0; ix <= x1; ix++) for (let iz = z0; iz <= z1; iz++) {
+      let f = null;
+      for (let si = 0; si < SUB.length; si++) for (let ni = 0; ni < NB.length; ni++) {
+        const px = ix + SUB[si][0] + NB[ni][0], pz = iz + SUB[si][1] + NB[ni][1];
+        const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
+        if (!(l1 >= -1e-9 && l2 >= -1e-9 && 1 - l1 - l2 >= -1e-9)) continue;
+        if (!f) { const c = key(ix, iz); f = fine.get(c); if (!f) fine.set(c, (f = new Float32Array(SUB.length * NB.length).fill(Infinity))); }
+        const b = si * NB.length + ni; if (up < f[b]) f[b] = up;
+      }
       for (const [ox, oz] of SUB) {
         const px = ix + ox, pz = iz + oz;
         const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
@@ -56,7 +78,12 @@ for (const s of sources) {
       }
     }
   }
-  if (cells.size) raster.push({ name: s.name, cells, kinds });
+  const raised = new Map(), tallDeep = new Map();
+  for (const [c, f] of fine) {
+    let br = 0, bt = 0; f.forEach((u, b) => { if (u === Infinity) return; if (u >= RAISED) br |= 1 << b; if (u >= 0.7) bt |= 1 << b; });
+    const mr = deepMask(br), mt = deepMask(bt); if (mr) raised.set(c, mr); if (mt) tallDeep.set(c, mt);
+  }
+  if (cells.size) raster.push({ name: s.name, cells, kinds, raised, tallDeep }); // raised/tallDeep: cell -> SUB points deep in the source
 }
 
 // ---- carriageways: cells whose centre lies more than TOL inside a mapped street. Streets only (class 0-3, the ones
@@ -166,7 +193,9 @@ const clusters = (cells) => {
   for (const c of cells) { const [x, z] = unkey(c), b = Math.floor(x / 24) + ',' + Math.floor(z / 24); if (!m.has(b)) m.set(b, { n: 0, x: 0, z: 0 }); const q = m.get(b); q.n++; q.x += x; q.z += z; }
   return [...m.values()].sort((p, q) => q.n - p.n).map((q) => ({ n: q.n, at: [q.x / q.n, q.z / q.n] }));
 };
-const add = (kind, name, cells) => { if (cells.length) { const cl = clusters(cells); found.push({ kind, name, area: cells.length, at: cl[0].at, cl }); } };
+// area: m² (whole cells unless given; the overlap and building tests pass the area their deep SUB points sample)
+const add = (kind, name, cells, area = cells.length) => { if (cells.length) { const cl = clusters(cells); found.push({ kind, name, area: Math.round(area * 10) / 10, at: cl[0].at, cl }); } };
+const pop = (m) => { let n = 0; for (; m; m &= m - 1) n++; return n; };
 
 // a Citadel gate carries its street through the rampart: inside the gate's mapped block (data.gates, the OSM outline)
 // the carriageway narrows to the passage, so the block's piers and damp plinths there stand where the street's nominal
@@ -192,26 +221,39 @@ for (const r of raster) {
   add('road', r.name, cells);
 }
 
-const owner = new Map(); // cell -> index into raster of the first source raised there
+// a pair's area: the SUB points deep (see DEEP) in the raised faces of both, 1/5 m² each. A cell only half
+// covered by the interpenetration counts half, so a 0.3 m sliver along a 50 m wall reads ~5 m², not 50.
+const owner = new Map(); // cell -> [[index into raster, its deep SUB mask], ...] of the sources raised there
 const pairs = new Map();
 raster.forEach((r, i) => {
-  for (const [c, up] of r.cells) {
-    if (up < RAISED) continue;
-    const j = owner.get(c);
-    if (j === undefined) { owner.set(c, i); continue; }
-    const k = raster[j].name + ' + ' + r.name;
-    if (!pairs.has(k)) pairs.set(k, []);
-    pairs.get(k).push(c);
+  for (const [c, m] of r.raised) {
+    const os = owner.get(c);
+    if (!os) { owner.set(c, [[i, m]]); continue; }
+    for (const [j, mj] of os) {
+      const both = m & mj;
+      if (!both) continue;
+      const k = raster[j].name + ' + ' + r.name;
+      if (!pairs.has(k)) pairs.set(k, { cells: [], area: 0 });
+      const q = pairs.get(k); q.cells.push(c); q.area += pop(both) / SUB.length;
+    }
+    os.push([i, m]);
   }
 });
-for (const [k, cells] of pairs) add('overlap', k, cells);
+for (const [k, q] of pairs) add('overlap', k, q.cells, q.area);
 
 // populate keeps a mapped building unless a model covers its middle and most of its outline (city.js populate)
 const inRing = (x, z, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) if (r[i][1] > z !== r[j][1] > z && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c; return c; };
 const cover = world.cover;
-const tall = new Map(); // cell -> the first source standing 0.7 m or more over the ground there (populate's cover)
-for (const r of raster) for (const [c, up] of r.cells) if (up >= 0.7 && !tall.has(c)) tall.set(c, r.name);
-const rasterHit = (c) => tall.get(c);
+// the same contact rule as for pairs: a building's area under a source is its SUB points deep (DEEP) both in the
+// source's faces 0.7 m or more over the ground (populate's cover) and inside the building's outline, 1/5 m² each;
+// so a plinth that only meets a kept hall's wall passes
+const tall = new Map(); // cell -> [[source name, its deep SUB mask], ...] of the sources standing 0.7 m or more there
+for (const r of raster) for (const [c, m] of r.tallDeep) { if (!tall.has(c)) tall.set(c, []); tall.get(c).push([r.name, m]); }
+const tallHits = (ix, iz, inside) => { // [[source name, SUB points inside and deep in it], ...] in cell ix, iz
+  const t = tall.get(key(ix, iz)); if (!t) return [];
+  let m = 0; for (let s = 0; s < SUB.length; s++) if (NB.every(([dx, dz]) => inside(ix + SUB[s][0] + dx, iz + SUB[s][1] + dz))) m |= 1 << s;
+  return t.map(([n, mt]) => [n, pop(m & mt)]).filter(([, k]) => k);
+};
 (data.bld || []).forEach((b) => {
   const ring = []; for (let i = 0; i + 1 < b[0].length; i += 2) ring.push([b[0][i] / 10, b[0][i + 1] / 10]);
   let cx = 0, cz = 0; for (const p of ring) { cx += p[0]; cz += p[1]; } cx /= ring.length; cz /= ring.length;
@@ -221,24 +263,26 @@ const rasterHit = (c) => tall.get(c);
   for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
   const by = new Map();
   for (let ix = Math.floor(x0); ix <= Math.floor(x1); ix++) for (let iz = Math.floor(z0); iz <= Math.floor(z1); iz++) {
-    if (!inRing(ix + 0.5, iz + 0.5, ring)) continue;
-    const n = rasterHit(key(ix, iz)); if (!n) continue;
-    if (!by.has(n)) by.set(n, []); by.get(n).push(key(ix, iz));
+    for (const [n, k] of tallHits(ix, iz, (x, z) => inRing(x, z, ring))) {
+      if (!by.has(n)) by.set(n, { cells: [], area: 0 }); const q = by.get(n); q.cells.push(key(ix, iz)); q.area += k / SUB.length;
+    }
   }
-  for (const [n, cells] of by) add('building', `${n} under mapped building ${b[3] ? '"' + b[3] + '"' : '@' + cx.toFixed(0) + ',' + cz.toFixed(0)}`, cells);
+  for (const [n, q] of by) add('building', `${n} under mapped building ${b[3] ? '"' + b[3] + '"' : '@' + cx.toFixed(0) + ',' + cz.toFixed(0)}`, q.cells, q.area);
 });
 { // infill houses: the ones populate keeps (its own houseOff test); here every square metre of each
   const a = data.infill || [], N = 8, by = new Map();
   for (let i = 0; i + N <= a.length; i += N) {
     const x = a[i] / 10, z = a[i + 1] / 10, w = a[i + 2] / 10, d = a[i + 3] / 10, ang = a[i + 4] / 1000, ux = Math.cos(ang), uz = Math.sin(ang);
     if (world.houseOff(x, z, w, d, ang)) continue; // populate leaves it out
-    for (let u = -w / 2 + 0.5; u < w / 2; u += 1) for (let v = -d / 2 + 0.5; v < d / 2; v += 1) {
-      const c = key(Math.floor(x + ux * u - uz * v), Math.floor(z + uz * u + ux * v)), n = rasterHit(c);
-      if (!n) continue;
-      if (!by.has(n)) by.set(n, new Map()); const m = by.get(n); if (!m.has(i)) m.set(i, []); m.get(i).push(c);
-    }
+    const inBox = (px, pz) => { const dx = px - x, dz = pz - z; return Math.abs(dx * ux + dz * uz) < w / 2 && Math.abs(-dx * uz + dz * ux) < d / 2; };
+    let bx0 = Infinity, bx1 = -Infinity, bz0 = Infinity, bz1 = -Infinity;
+    for (const [su, sv] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const px = x + (ux * su * w - uz * sv * d) / 2, pz = z + (uz * su * w + ux * sv * d) / 2; bx0 = Math.min(bx0, px); bx1 = Math.max(bx1, px); bz0 = Math.min(bz0, pz); bz1 = Math.max(bz1, pz); }
+    for (let ix = Math.floor(bx0); ix <= Math.floor(bx1); ix++) for (let iz = Math.floor(bz0); iz <= Math.floor(bz1); iz++)
+      for (const [n, k] of tallHits(ix, iz, inBox)) {
+        if (!by.has(n)) by.set(n, new Map()); const m = by.get(n); if (!m.has(i)) m.set(i, { cells: [], area: 0 }); const q = m.get(i); q.cells.push(key(ix, iz)); q.area += k / SUB.length;
+      }
   }
-  for (const [n, m] of by) for (const [i, cells] of m) add('building', `${n} under infill house @${(a[i] / 10).toFixed(0)},${(a[i + 1] / 10).toFixed(0)}`, cells);
+  for (const [n, m] of by) for (const [i, q] of m) add('building', `${n} under infill house @${(a[i] / 10).toFixed(0)},${(a[i + 1] / 10).toFixed(0)}`, q.cells, q.area);
 }
 
 // ---- report ----
@@ -249,7 +293,7 @@ for (const f of found) {
   if (fail) bad++;
   if (!fail && !showAll) continue;
   console.log(`${fail ? 'FAIL' : 'ok  '} ${f.kind.padEnd(8)} ${f.name}: ${f.area} m²${placeName(...f.at)}`);
-  for (const c of f.cl.slice(0, showAll ? 12 : 4)) console.log(`       ${String(c.n).padStart(5)} m² at (${c.at[0].toFixed(1)}, ${c.at[1].toFixed(1)})`);
+  for (const c of f.cl.slice(0, showAll ? 12 : 4)) console.log(`       ${String(c.n).padStart(5)} cells at (${c.at[0].toFixed(1)}, ${c.at[1].toFixed(1)})`);
 }
 for (const e of errors) console.log('FAIL ' + e);
 console.log(bad || errors.length ? `overlap: ${bad} overlap(s) over the limits` : `overlap: ok, ${raster.length} sources, no model on a carriageway, on another model or under a kept building over the limits (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
