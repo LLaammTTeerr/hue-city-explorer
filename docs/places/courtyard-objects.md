@@ -123,8 +123,9 @@ a size, or the shape of an object no source describes.
 - **Confirmed: crane and tortoise statues inside the hall.** Frommers ("Thai Hoa Palace"): "Note the statues of the
   heron and turtle inside the palace's ornate lacquered interior". It names no count, material or spot.
   - Model: two bronze cranes standing on tortoises (`crane`, 1.8 m) either side of the throne in the main hall's middle
-    bay, W(±2.3, −3.2), facing out. They were in the open verandah before, which the source contradicts. The doors
-    are drawn shut, so they are not visible from outside today.
+    bay, W(±2.3, −3.2), facing out. They were in the open verandah before, which the source contradicts. The three
+    middle front bays are drawn with their leaves folded open (owner's choice, 2026-11-22) so the pair can be seen
+    from Đan Bệ; view `thaihoa-open-doors`.
   - Estimated: the count (a pair, as such statues usually stand), bronze, the size and the spot. The throne's place,
     "in the central compartment of the main palace", is from khamphahue ("Thai Hoa Palace").
 - **Confirmed: a pair of kỳ lân in front of the hall.** Frommers: "In front are two mythical ky lin animals". A

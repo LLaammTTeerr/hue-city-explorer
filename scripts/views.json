@@ -64,5 +64,12 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-1261.0, 4.6, 212.5], "target": [-1256.9, 3.8, 199.6] }
+  },
+  "thaihoa-open-doors": {
+    "note": "Into điện Thái Hòa through the three open middle front bays, from Đan Bệ on the axis: the bronze cranes on tortoises either side of the throne bay (src/landmarks/places/thaihoa.js).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1106.0, 9.6, 34.2], "target": [-1121.0, 6.8, 14.2] }
   }
 }
