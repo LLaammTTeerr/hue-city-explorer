@@ -1,12 +1,14 @@
 import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
+import { OUTER, BAC_KHUYET_DAI, wallRun } from '../hoangthanh.js';
 
 // Lầu Tứ Phương Vô Sự (1923, Khải Định; wrecked in 1968, restored 2008–2010) on Bắc Khuyết Đài, the raised bastion at
 // the middle of the Imperial City's north wall, just west of Cửa Hòa Bình. Sources and estimates: docs/places/tuphuong.md.
-//   - Bắc Khuyết Đài: a rectangular platform 64.6 × 28.5 m on top of the wall, jutting out past its line; the
-//     wall round it (data.iwalls, drawn by dainoi.js) is not redrawn here, only the platform's fill, its paving,
-//     the balustrade on the wall cap, the two flights up from inside, the turtle-shaped flower beds east and west
-//     of the pavilion and the frangipani (cây sứ) along the inner edge
+//   - Bắc Khuyết Đài: a rectangular platform 64.6 × 28.5 m on top of the wall, jutting out past its line. This
+//     model owns the bastion's three outer sides of the Imperial City wall (hoangthanh.js; dainoi.js draws the rest
+//     of the ring and skips them), so the wall, its cap and the balustrade on it are one model's: the platform's
+//     fill stops at the wall's inner face. Also the paving, the two flights up from inside, the turtle-shaped
+//     flower beds east and west of the pavilion and the frangipani (cây sứ) along the inner edge
 //   - the pavilion: brick and cement, two storeys on a 14 × 13 m (182 m²) plan, OSM way 172802373. Ground floor
 //     ringed by an arcaded verandah (hàng hiên) under a skirt roof; upper floor smaller, with a balcony all round
 //     (ban công vòng quanh); each face of each storey has one door and two windows; walls washed pale yellow,
@@ -17,8 +19,9 @@ import { LAND_Y, PAL } from '../../config.js';
 // Imperial City's centre), metres from the middle of the outer face. Points from OSM (ways 531016856, 172802373).
 export const id = 'tuphuong';
 
-const A = [-1419.8, -327.9], B = [-1367.1, -365.5]; // outer face corners (west, east)
-const J = [[-1405.6, -309.0], [-1353.1, -347.3]]; // where the main wall line meets the bastion (west, east)
+// the wall's centre line round the bastion: where the main wall line turns out (J, west and east) and the outer
+// face's corners (A, B)
+const [J0, A, B, J1] = BAC_KHUYET_DAI;
 
 const WALL = hex('#e8cf92'); // pale yellow wash
 const PIER = hex('#f1e7cf'); // cream piers, arches and cornices
@@ -26,7 +29,7 @@ const JOIN = hex('#5c2f22'); // dark red-brown doors, shutters and rails
 const ROOF = hex('#d99a22'); // yellow glazed tile, gone orange in the sun
 const RIDGE = hex('#f0d27a');
 const PAVE = hex('#b8b0a0');
-const MASON = hex('#837a6c'); // the Imperial City wall's weathered brick (as dainoi.js)
+const MASON = OUTER.body; // the Imperial City wall's weathered brick
 const BAL = hex('#aaa496'), PANEL = hex('#c39554'); // balustrade posts and their ochre panels
 const LEAF = hex('#5f7f3c'), BARK = hex('#7d7466');
 
@@ -42,12 +45,26 @@ export function build({ S }) {
   const keep = S.kind;
 
   const Y = LAND_Y;
-  const yPl = Y + 3.75; // platform floor, level with the top of the wall body (dainoi.js: 3.75 m + 0.42 m cap)
+  const yPl = Y + OUTER.h; // platform floor, level with the top of the wall body (under its 0.42 m cap)
   const D = 28.5, H = len / 2 - 0.6; // platform depth inward; half length inside the side walls
 
-  // ---- Bắc Khuyết Đài: the platform fill, paved on top ----
+  // ---- the Imperial City wall round the bastion's three outer sides: laps its corners at A and B, ends at J0
+  // against the face of the north wall coming in from the west (dainoi.js); at J1 the wall stops short of Cửa Hòa
+  // Bình's gap, as dainoi.js ends it ----
+  wallRun(S, J0, A, OUTER, [-1, 1]);
+  wallRun(S, A, B, OUTER, [1, 1]);
+  wallRun(S, B, J1, OUTER, [1, 1]);
+
+  // ---- Bắc Khuyết Đài: the platform fill, paved on top, from the wall's inner faces inward ----
   S.kind = KIND.MASONRY;
-  box(0, (0.5 + D) / 2, Y - 0.2, yPl, 2 * H, D - 0.5, MASON, { top: PAVE, topKind: KIND.ROAD });
+  {
+    const t = OUTER.t / 2, j0 = L(J0), j1 = L(J1), a = L(A), b = L(B);
+    // the side walls' inner faces, carried on to the platform's inner edge at v = D
+    const side = (p, q, s) => { const du = q[0] - p[0], dv = q[1] - p[1], n = Math.hypot(du, dv); const o = [p[0] - s * dv / n * t, p[1] + s * du / n * t]; return (v) => [o[0] + (v - o[1]) * du / dv, v]; };
+    const w = side(a, j0, -1), e = side(b, j1, 1);
+    const ring = [w(t), e(t), e(D), w(D)].map(([u, v]) => P(u, v));
+    S.prism(ring, Y - 0.2, yPl, MASON, PAVE, { topKind: KIND.ROAD });
+  }
   // the inner face's plinth and a coping along its edge
   box(0, D + 0.05, Y - 0.2, Y + 0.5, 2 * H, 0.3, shade(MASON, 0.85));
   box(0, D - 0.15, yPl - 0.05, yPl + 0.12, 2 * H, 0.5, shade(PAVE, 0.9));
@@ -66,8 +83,10 @@ export function build({ S }) {
     S.box(mx, mz, y0 + 0.16, y0 + 0.66, l, 0.12, a2, PANEL);
     S.box(mx, mz, y0 + 0.66, y0 + 0.8, l, 0.24, a2, BAL);
   };
-  const cap = Y + 4.17;
-  rail(J[0], A, cap); rail(A, B, cap); rail(B, J[1], cap);
+  const cap = Y + OUTER.h + OUTER.capH;
+  const capEnd = OUTER.capW / 2, jl = Math.hypot(A[0] - J0[0], A[1] - J0[1]);
+  const J0in = [J0[0] + (A[0] - J0[0]) * capEnd / jl, J0[1] + (A[1] - J0[1]) * capEnd / jl]; // the cap's end at J0
+  rail(J0in, A, cap); rail(A, B, cap); rail(B, J1, cap);
   // inner edge: open at the head of each flight
   const sx = 24.4; // where each flight comes up (|u|)
   rail(P(-H, D - 0.2), P(-sx - 1.6, D - 0.2), yPl);

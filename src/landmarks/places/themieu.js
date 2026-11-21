@@ -4,6 +4,7 @@ import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
 import { pavilion } from '../citadel.js';
 import { fence, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
+import { REAR_GATE_CUTS } from './hungmieu.js';
 
 // Thế Miếu (Thế Tổ Miếu), the dynastic temple of the Nguyễn emperors in the south-west of the Imperial City, built
 // 1821-22 under Minh Mạng. Sources and estimates: docs/places/themieu.md.
@@ -180,7 +181,8 @@ function walls(S, data) {
   // Hiển Hựu and Đốc Hựu at the ends of the wall behind the hall
   const side = [P(62.1, 11.3), P(-62.1, 11.5)];
   const front = [-1243.2, 259.3];
-  fence(S, OUTER, FENCE.imperial, { closed: true, roads, solid, openings: [[side[0][0], side[0][1], 2.6], [side[1][0], side[1][1], 2.6], [front[0], front[1], 4.8]] });
+  // Hưng Miếu's two rear gates stand in this wall (hungmieu.js draws them): it stops clear of their roofs
+  fence(S, OUTER, FENCE.imperial, { closed: true, roads, solid: [...solid, ...REAR_GATE_CUTS], openings: [[side[0][0], side[0][1], 2.6], [side[1][0], side[1][1], 2.6], [front[0], front[1], 4.8]] });
   fence(S, DIVIDE, FENCE.imperial, { closed: false, roads, solid });
   const along = Math.atan2(UZ, UX) + Math.PI / 2; // the side walls run along v
   for (const q of side) gate(S, q, along, 5.4, 2.4, gy(q));

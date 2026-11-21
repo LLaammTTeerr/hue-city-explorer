@@ -2,6 +2,7 @@ import { KIND, hex, shade, obb } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { fence, FENCE } from '../enclosure.js';
+import { rectRing } from '../../geo/gates.js';
 
 // ---- Hưng Miếu (Hưng Tổ Miếu), the temple of Gia Long's parents, behind Thế Miếu in the Imperial City ----
 //
@@ -25,21 +26,32 @@ import { fence, FENCE } from '../enclosure.js';
 // OSM outlines, metres in the model frame (from the raw extract, data/raw)
 const HALL = [[-1340.4, 146.8], [-1325.0, 135.7], [-1313.3, 151.8], [-1328.7, 162.9]];
 const MIEU_MON = [[-1305.2, 164.8], [-1303.3, 167.3], [-1313.6, 175.0], [-1315.4, 172.5]];
-const GATES = [
-  [[-1301.9, 135.9], [-1303.6, 137.1], [-1299.7, 142.2], [-1298.1, 141.0]], // Chương Khánh Môn (east side)
-  [[-1343.1, 166.1], [-1344.9, 167.4], [-1341.1, 172.6], [-1339.3, 171.3]], // Dục Khánh Môn (west side)
+// the rear two stand in Thế Miếu's outer wall (themieu.js), which stops clear of their roofs (REAR_GATE_CUTS)
+const REAR_GATES = [
   [[-1314.5, 116.5], [-1313.0, 118.4], [-1308.0, 114.8], [-1309.5, 112.8]], // Ứng Tường Môn (rear, east)
   [[-1365.4, 154.6], [-1363.9, 156.5], [-1359.0, 152.7], [-1360.5, 150.8]], // Trí Tường Môn (rear, west)
 ];
+const GATES = [
+  [[-1301.9, 135.9], [-1303.6, 137.1], [-1299.7, 142.2], [-1298.1, 141.0]], // Chương Khánh Môn (east side)
+  [[-1343.1, 166.1], [-1344.9, 167.4], [-1341.1, 172.6], [-1339.3, 171.3]], // Dục Khánh Môn (west side)
+  ...REAR_GATES,
+];
+const GATE_OVER = 0.5; // the gates' roofs run this far past the mapped outline
+// a wall that runs into a gate along its length stops this far past the outline's end: clear of the roof's eave by
+// 0.1 m with the wall's end post and its cap; the gate model bridges the gap with a stub of wall under its eave
+const GATE_STUB = GATE_OVER + (FENCE.imperial.postW + 0.12) / 2 + 0.1;
+// the rear gates' outlines grown along the wall by that much: themieu.js passes them to its outer wall as solid
+export const REAR_GATE_CUTS = REAR_GATES.map((ring) => { const o = obb(ring); return rectRing(o.c[0], o.c[1], o.w + 2 * GATE_STUB, o.d, o.a); });
 const SERVICE = [
   [[-1267.6, 129.0], [-1277.9, 136.6], [-1288.1, 122.9], [-1277.8, 115.3]], // Thần Khố
   [[-1356.1, 186.5], [-1366.4, 194.2], [-1376.7, 180.5], [-1366.4, 172.9]], // Thần Trù
 ];
+// each from where it meets Thế Miếu's outer or cross wall (themieu.js) to a side gate
 const WALLS = [
   [[-1316.0, 119.1], [-1302.9, 136.6]],
-  [[-1298.9, 141.6], [-1283.5, 161.5]],
+  [[-1283.5, 161.5], [-1298.9, 141.6]],
   [[-1356.9, 149.4], [-1344.0, 166.8]],
-  [[-1340.2, 172.0], [-1325.1, 192.3]],
+  [[-1325.1, 192.3], [-1340.2, 172.0]],
 ];
 
 const TILE = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
@@ -168,7 +180,18 @@ export function build({ S }) {
     S.box(o.c[0], o.c[1], yg - 0.3, yg + 3.2, o.w, o.d + 0.3, o.a, OCHRE, { top: shade(TILE, 0.8) });
     S.kind = KIND.PLAIN;
     S.box(o.c[0], o.c[1], yg, yg + 2.4, 1.5, o.d + 0.38, o.a, DARK);
-    S.hip(o.c[0], o.c[1], o.w, o.d + 0.3, o.a, yg + 3.2, 0.95, TILE, { flare: 0.3, over: 0.5, fascia: 0.2, fasciaCol: shade(LAC, 0.7), ridgeCol: RIDGE, hips: true, glazed: true, segs: 3 });
+    S.hip(o.c[0], o.c[1], o.w, o.d + 0.3, o.a, yg + 3.2, 0.95, TILE, { flare: 0.3, over: GATE_OVER, fascia: 0.2, fasciaCol: shade(LAC, 0.7), ridgeCol: RIDGE, hips: true, glazed: true, segs: 3 });
+  }
+
+  // the stubs of Thế Miếu's outer wall each side of the rear gates, under their eaves, out to where that wall stops
+  for (const ring of REAR_GATES) {
+    const o = obb(ring), yg = gY(o.c[0], o.c[1]), ux = Math.cos(o.a), uz = Math.sin(o.a), st = FENCE.imperial, l = GATE_STUB - (st.postW + 0.12) / 2;
+    S.base = yg - LAND_Y;
+    S.kind = KIND.MASONRY;
+    for (const s of [-1, 1]) {
+      const m = o.w / 2 + l / 2;
+      S.box(o.c[0] + ux * s * m, o.c[1] + uz * s * m, yg - 0.4, yg + st.h - 0.18, l, st.t, o.a, st.wall, { top: st.cap });
+    }
   }
 
   // ---- Thần Khố and Thần Trù, the store and the kitchen beside the court: plain tiled halls ----
@@ -184,11 +207,12 @@ export function build({ S }) {
 
   // ---- the compound's side walls (the rear and front walls are civic.js's) ----
   S.base = 0;
-  // each runs from Thế Miếu's outer or cross wall (themieu.js): butt it against that wall's face, not its centreline
-  const butt = FENCE.imperial.t / 2 + 0.25;
+  // each runs from Thế Miếu's outer or cross wall (themieu.js): it starts clear of that wall's corner post (both end
+  // posts' capped halves), and stops at the side gate's face as before
+  const st = FENCE.imperial, butt0 = st.postW + 0.12 + 0.04, butt1 = st.t / 2 + 0.25;
   for (const [a, b] of WALLS) {
     const l = Math.hypot(b[0] - a[0], b[1] - a[1]), ex = (b[0] - a[0]) / l, ez = (b[1] - a[1]) / l;
-    fence(S, [[a[0] + ex * butt, a[1] + ez * butt], [b[0] - ex * butt, b[1] - ez * butt]], FENCE.imperial, { closed: false });
+    fence(S, [[a[0] + ex * butt0, a[1] + ez * butt0], [b[0] - ex * butt1, b[1] - ez * butt1]], st, { closed: false });
   }
   S.kind = KIND.PLAIN;
   S.base = 0;
