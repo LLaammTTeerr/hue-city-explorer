@@ -12,6 +12,8 @@ export const HOLE_MAX = 150; // m²: an enclosed patch smaller than this is part
 export const MARK_PAD = 1.5; // m: markings stop this far short of another carriageway (room for a stop line)
 export const CELL = 0.5; // m: the raster the holes are found on
 const LINK = 30, REACH = 10; // m: junction nodes this close form one junction, looked at this far around
+export const PAR_DEG = 30; // a way within this of parallel to a marking runs alongside it, it doesn't cross it
+const PAR_SIN = Math.sin((PAR_DEG * Math.PI) / 180);
 const CONT_COS = Math.cos((40 * Math.PI) / 180); // a way meeting another end to end within 40° continues it
 const ck = (i, j) => i * 1048576 + j; // a cell's key (|j| < 2^19 cells: ±260 km)
 const pkey = (p) => Math.round(p[0] * 2) + ',' + Math.round(p[1] * 2);
@@ -193,9 +195,11 @@ export function continues(a, b) {
 }
 
 // roads: [{ id, c, w, pts }] the carriageways that stop markings (centre lines, as drawn); holeCells:
-// junctionHoles().cells. Returns guard(id, x, z): may road id's markings cover (x, z)? Not on another road's
-// carriageway, not within MARK_PAD of one, and not within MARK_PAD of a junction hole: the junction box is left
-// plain. A way's own continuations don't count.
+// junctionHoles().cells. Returns guard(id, x, z, ang): may road id's markings, running at heading ang (radians, in
+// the x-z plane), cover (x, z)? Not on another road's carriageway, not within MARK_PAD of one, and not within MARK_PAD
+// of a junction hole: the junction box is left plain. A way's own continuations don't count, and neither does a way
+// running alongside (within PAR_DEG of parallel: a twin carriageway, a slip road, the two arms of a fork), whose
+// ribbon can overlap this one for tens of metres without any junction there.
 export function markingGuard(roads, holeCells = null) {
   const G = 24, grid = new Map();
   const ends = new Map(); // end point → roads ending there, to find each road's continuations
@@ -203,7 +207,8 @@ export function markingGuard(roads, holeCells = null) {
     for (const p of [r.pts[0], r.pts.at(-1)]) { const k = pkey(p); if (!ends.has(k)) ends.set(k, []); ends.get(k).push(r); }
     const hw = r.w / 2 + MARK_PAD;
     for (let i = 0; i + 1 < r.pts.length; i++) {
-      const a = r.pts[i], b = r.pts[i + 1], it = { r, a, b, hw };
+      const a = r.pts[i], b = r.pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const it = { r, a, b, hw, ux: (b[0] - a[0]) / l, uz: (b[1] - a[1]) / l };
       for (let x = Math.floor((Math.min(a[0], b[0]) - hw) / G); x <= Math.floor((Math.max(a[0], b[0]) + hw) / G); x++)
         for (let z = Math.floor((Math.min(a[1], b[1]) - hw) / G); z <= Math.floor((Math.max(a[1], b[1]) + hw) / G); z++) {
           const k = x + ',' + z;
@@ -223,11 +228,13 @@ export function markingGuard(roads, holeCells = null) {
   };
   const byId = new Map(roads.map((r) => [r.id, r]));
   const none = new Set();
-  return (id, x, z) => {
+  return (id, x, z, ang = null) => {
+    const ux = ang === null ? 0 : Math.cos(ang), uz = ang === null ? 0 : Math.sin(ang);
     if (holeCells && nearHole(holeCells, x, z, MARK_PAD)) return false;
     const self = byId.get(id), own = self ? contOf(self) : none;
     for (const it of grid.get(Math.floor(x / G) + ',' + Math.floor(z / G)) || []) {
       if (it.r.id === id || own.has(it.r.id)) continue;
+      if (ang !== null && Math.abs(ux * it.uz - uz * it.ux) < PAR_SIN) continue;
       const { a, b, hw } = it;
       const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
       const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;

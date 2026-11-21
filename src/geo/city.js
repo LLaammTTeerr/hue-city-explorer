@@ -364,13 +364,24 @@ function buildRoads(data, group, structures) {
   roads.forEach((r, id) => {
     if (r.bridge || r.c > 1) return;
     const len = pathLength(r.pts);
-    for (let s0 = 4; s0 + 5 < len; s0 += 13) {
-      let ok = true;
-      for (let k = 0; k <= 5 && ok; k++) { const p = along(r.pts, s0 + k).p; ok = guard(id, p[0], p[1]); }
-      if (!ok) continue;
+    // where along the road (every metre) a dash may lie
+    const free = [];
+    for (let s = 0; s <= len; s++) { const { p, a } = along(r.pts, s); free.push(guard(id, p[0], p[1], a)); }
+    const clear = (s0) => { for (let k = 0; k <= 5; k++) if (!free[s0 + k]) return false; return true; };
+    const starts = [];
+    for (let s0 = 4; s0 + 5 < len; s0 += 13) if (clear(s0)) starts.push(s0); // the steady 13 m rhythm
+    // a stretch the rhythm misses (between two carriageways inside a junction, a short way) gets one dash in its middle
+    for (let a = 0; a < free.length; ) {
+      if (!free[a]) { a++; continue; }
+      let b = a;
+      while (b + 1 < free.length && free[b + 1]) b++;
+      if (b - a >= 7 && !starts.some((s0) => s0 + 5 >= a && s0 <= b)) starts.push(Math.floor((a + b) / 2) - 2);
+      a = b + 1;
+    }
+    for (const s0 of starts) {
       const p0 = along(r.pts, s0).p, p1 = along(r.pts, s0 + 5).p;
       ribbon(B, [p0, p1], 0.32, y + 0.02, paint);
-      dashes.push({ id, p0, p1 });
+      dashes.push({ id, s0, p0, p1 });
     }
   });
   for (const [main, bridge, flat] of data.rails || []) {
