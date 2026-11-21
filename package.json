@@ -12,7 +12,7 @@
     "check:heights": "node scripts/check-heights.mjs",
     "check:burial": "node scripts/check-burial.mjs",
     "check:data": "node scripts/check-data.mjs",
-    "check": "npm run check:data && npm run check:heights && npm run check:burial",
+    "check": "npm run check:data && npm run check:heights && npm run check:burial && npm run check:overlap",
     "shot": "node scripts/shot.mjs",
     "check:overlap": "node scripts/check-overlap.mjs"
   },

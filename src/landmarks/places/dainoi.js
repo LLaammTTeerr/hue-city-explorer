@@ -18,6 +18,7 @@ import { KIND, hex, shade, unflat, obb } from '../../geo/buf.js';
 import { gateAxis, rectRing, inRing } from '../../geo/gates.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { pavilion } from '../citadel.js';
+import { OUTER, INNER, BAC_KHUYET_DAI, wallRun } from '../hoangthanh.js';
 
 export const id = 'dainoi';
 
@@ -29,17 +30,21 @@ const INNER_ADD = [
   [[-174.2, -159], [-171, -47]], // west side, south of it
 ];
 
-// covered galleries: centre line (u, v) and width
+// covered galleries: centre line (u, v), width between the post lines, and optionally { over, butt }: how far the
+// roof's eave runs past the posts (0.8 by default), and butt when the line starts at another building's face, where
+// the roof stops at that face instead of running its eave into it
 const GALLERIES = [
   [[[-41, 100.5], [-13.5, 100.5]], 5], // Đại Cung Môn's flanking corridors
   [[[13.5, 99.5], [40, 99.5]], 5],
   [[[-51, 63.5], [-23, 63.5]], 4.5], // in front of the Vu halls
-  [[[22.6, 62], [40, 62]], 4.5], // from the face of Cần Chánh's platform plinth (u 22.45; places/canchanh.js)
+  [[[22.6, 62], [40, 62]], 4.5, { butt: true }], // from the face of Cần Chánh's platform plinth (u 22.45; places/canchanh.js)
   [[[-33.5, -90], [-33.5, 40]], 6], // the long corridors either side of the inner courts
   [[[28.5, -14], [30.5, 29]], 6],
-  [[[22.6, 33], [34, 33]], 8], // the wide end in front of Điện Cần Chánh's east side, from its plinth face
+  [[[22.6, 33], [34, 33]], 8, { butt: true }], // the wide end in front of Điện Cần Chánh's east side, from its plinth face
   [[[28, -91], [28, -14]], 6],
-  [[[31, -51], [91, -51], [91, 22]], 5], // Tả Trường Lang
+  // Tả Trường Lang, as OSM maps it (way 531031529): a narrow corridor, 3.5 m to the eaves, whose east leg runs
+  // along the back of Duyệt Thị Đường (places/duyetthi.js), its eave stopping at the theatre's roof line
+  [[[31.3, -51], [90.5, -51], [91.85, 22.2]], 2.4, { over: 0.45 }],
   [[[80, -53], [80, -61]], 4], // its spur to Thái Bình Lâu
   [[[-171, -46], [-38, -46]], 6], // Hữu Trường Lang
   [[[-169, -32], [-169, -6]], 5],
@@ -78,13 +83,20 @@ export function build({ data, S }) {
   const clear = [];
   for (const g of data.gates || []) if (g.k !== 'citadel') { const t = gateAxis(g, C); clear.push(rectRing(t.cx, t.cz, t.w + 0.3, Math.max(t.d, 4) + 0.3, t.a)); }
   if (data.special && data.special.ngomon) { const o = obb(unflat(data.special.ngomon.ring)); clear.push(rectRing(o.c[0], o.c[1], o.w + 0.4, o.d + 0.4, o.a)); }
-  const outer = { h: 3.75, t: 1.05, capH: 0.42, capW: 1.45, body: hex('#837a6c'), cap: hex('#6b5d4f') };
-  const inner = { h: 3.36, t: 0.72, capH: 0.36, capW: 1.05, body: hex('#a39482'), cap: hex('#6a5546') };
+  const outer = OUTER, inner = INNER;
+  // Bắc Khuyết Đài's three outer sides are places/tuphuong.js's: it draws that wall with the bastion's paving and
+  // balustrade on top (hoangthanh.js)
+  // (a stretch of mapped wall lies on one of those sides: both its ends within a metre of it)
+  const onSide = (p, [qa, qb]) => {
+    const lx = qb[0] - qa[0], lz = qb[1] - qa[1], len = Math.hypot(lx, lz);
+    const s = ((p[0] - qa[0]) * lx + (p[1] - qa[1]) * lz) / len, t = ((p[0] - qa[0]) * lz - (p[1] - qa[1]) * lx) / len;
+    return s > -1 && s < len + 1 && Math.abs(t) < 1;
+  };
+  const bastion = (a, b) => BAC_KHUYET_DAI.some((q, i) => i > 0 && onSide(a, [BAC_KHUYET_DAI[i - 1], q]) && onSide(b, [BAC_KHUYET_DAI[i - 1], q]));
   const wallLine = (pts, k) => {
     for (let i = 0; i + 1 < pts.length; i++) {
       const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (len < 0.3) continue;
-      const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      if (len < 0.3 || bastion(a, b)) continue;
       const n = Math.max(1, Math.ceil(len / 0.4)), runs = [];
       let from = null;
       for (let j = 0; j <= n; j++) {
@@ -93,15 +105,10 @@ export function build({ data, S }) {
         if ((!out || j === n) && from !== null) { runs.push([from, out ? t : (j - 1) / n]); from = null; }
       }
       for (const [t0, t1] of runs) {
-        const whole = t0 === 0 && t1 === 1, l = len * (t1 - t0);
-        if (!whole && l < 0.6) continue;
-        const tm = (t0 + t1) / 2, cx = a[0] + (b[0] - a[0]) * tm, cz = a[1] + (b[1] - a[1]) * tm;
-        // weathered lime-washed brick, darker in long patches of moss and rain streaks
-        const tone = 0.9 + 0.12 * Math.abs(Math.sin(cx * 0.37 + cz * 0.21));
-        S.kind = KIND.MASONRY;
-        S.box(cx, cz, Y - 0.2, Y + k.h, l + (whole ? k.t : 0), k.t, ang, shade(k.body, tone), { top: k.cap });
-        S.kind = KIND.TILE;
-        S.box(cx, cz, Y + k.h, Y + k.h + k.capH, l + (whole ? k.capW : 0), k.capW, ang, k.cap, { taper: 0.45 });
+        const whole = t0 === 0 && t1 === 1;
+        if (!whole && len * (t1 - t0) < 0.6) continue;
+        const at = (t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        wallRun(S, at(t0), at(t1), k, whole ? [1, 1] : [0, 0]);
       }
     }
   };
@@ -159,7 +166,7 @@ export function build({ data, S }) {
 
   // ---- covered galleries: red posts, low parapet, green glazed roof -------------------------------------------
   const post = PAL.lacquer, floor = shade(PAL.stone, 0.95);
-  for (const [line, w] of GALLERIES) {
+  for (const [line, w, { over = 0.8, butt = false } = {}] of GALLERIES) {
     for (let i = 0; i + 1 < line.length; i++) {
       const [ua, va] = line[i], [ub, vb] = line[i + 1];
       const lu = ub - ua, lv = vb - va, len = Math.hypot(lu, lv), du = lu / len, dv = lv / len;
@@ -183,7 +190,9 @@ export function build({ data, S }) {
         S.beam([p0[0], Y + 3.0, p0[1]], [p1[0], Y + 3.0, p1[1]], 0.22, 0.3, shade(post, 0.85));
       }
       S.kind = KIND.GLAZED;
-      S.hip(m[0], m[1], len + ext, w, ang, Y + 3.1, Math.min(1.9, w * 0.32), PAL.jadeRoof, { over: 0.8, glazed: true });
+      // a butted start: the roof is shortened there by its overhang, so its eave ends at the line's first point
+      const cut = butt && i === 0 ? over : 0, r = W((ua + ub) / 2 + du * cut / 2, (va + vb) / 2 + dv * cut / 2);
+      S.hip(r[0], r[1], len + ext - cut, w, ang, Y + 3.1, Math.min(1.9, w * 0.32), PAL.jadeRoof, { over, glazed: true });
     }
   }
 

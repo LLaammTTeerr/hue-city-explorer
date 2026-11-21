@@ -22,7 +22,10 @@ const GATE = { c: [-637.8, 921.9], a: 2.424 };
 const CIRCLE = { c: [-569.9, 1001.2], r: 11.5 }; // OSM 835629406: the statue stands in its middle
 
 // The buildings, as oriented rectangles: [osmId, colonial (1915 blocks), height to the ridge (survey, hue.json b[5]),
-// centre x, centre z, angle (rad), parts [[u0, u1, v0, v1], ...] in the building's own frame].
+// centre x, centre z, angle (rad), parts [[u0, u1, v0, v1], ...] in the building's own frame, and optionally link:
+// true for a short link block, butted at both ends of its length against other buildings, whose roof and cornice
+// stop at those end walls instead of overhanging them].
+// The two link blocks each join a 1915 wing to the old hall (OSM relation 9669095, drawn by city.js).
 // Outlines of more than one rectangle (the front pavilions, the L- and T-shaped blocks) are split into parts.
 const PAV = [[-5.2, 5.2, -6.3, 4.0], [-7.5, 7.5, -4.0, 1.85], [-2.3, 2.5, 4.0, 6.3]];
 const BLD = [
@@ -34,8 +37,8 @@ const BLD = [
   [695775625, 0, 4.6, -573.4, 1110.3, 0.831, null],
   [695775626, 0, 13.0, -559.8, 1102.8, 0.828, null],
   [695775628, 1, 13.0, -452.4, 1043.3, -2.301, [[-19.6, 15, -13.7, 13.7], [15, 19.6, -11.2, 10.3]]],
-  [695775629, 0, 5.0, -529.1, 1044.3, 0.835, null],
-  [695775630, 0, 5.0, -507.3, 1069.4, 3.980, null],
+  [695775629, 0, 5.0, -529.1, 1044.3, 0.835, null, true],
+  [695775630, 0, 5.0, -507.3, 1069.4, 3.980, null, true],
   [695775634, 1, 9.0, -494.8, 1082.0, 2.400, [[-17.9, 17.9, -11.6, 3.0], [-6.8, 6.4, 3.0, 11.6]]],
   [695775635, 0, 4.6, -674.9, 999.2, -2.319, null],
   [695775636, 1, 10.5, -665.6, 988.3, 0.833, PAV],
@@ -63,7 +66,7 @@ export function build({ data, S, group }) {
   const lampAt = (x, y, z, col = [1, 0.85, 0.58]) => { lampPos.push(x, y, z); lampCol.push(col[0], col[1], col[2]); };
 
   // ---- the blocks ----
-  for (const [osm, colonial, top, cx, cz, ang, parts0] of BLD) {
+  for (const [osm, colonial, top, cx, cz, ang, parts0, link = false] of BLD) {
     const dims = DIMS[osm];
     const parts = parts0 || [[-dims[0] / 2, dims[0] / 2, -dims[1] / 2, dims[1] / 2]];
     const c = [cx, cz];
@@ -101,11 +104,11 @@ export function build({ data, S, group }) {
       }
       S.kind = KIND.PLAIN;
       // cornice and (two storeys) string course
-      S.box(pc[0], pc[1], eave - 0.45, eave, w + 0.3, d + 0.3, ang, CREAM);
+      S.box(pc[0], pc[1], eave - 0.45, eave, link ? w : w + 0.3, d + 0.3, ang, CREAM);
       if (twoStorey && !gal) S.box(pc[0], pc[1], y0 + 0.5 + storey - 0.1, y0 + 0.5 + storey + 0.15, w + 0.12, d + 0.12, ang, CREAM);
       if (gal) gallery(S, pc, ang, w, d, long, side, G, y0 + 0.5, storey, twoStorey ? 2 : 1, eave - 0.45, wall);
       // roof
-      S.hip(pc[0], pc[1], w, d, ang, eave, rh, ROOF, { over: 0.9, fascia: 0.22, fasciaCol: CREAM, ridgeCol: RIDGE });
+      S.hip(pc[0], pc[1], link ? w - 1.8 : w, d, ang, eave, rh, ROOF, { over: 0.9, fascia: 0.22, fasciaCol: CREAM, ridgeCol: RIDGE });
     }
   }
   S.base = 0;
