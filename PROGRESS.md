@@ -1,6 +1,23 @@
 # Progress
 
 ## Done
+- Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
+  moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
+  the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them
+  at street level like the other short bridges; vaults are sized under the landed deck. `citadelBridge` ignored the
+  mitred `ends` from `bridgeJoints`, leaving a wedge of water between its square end and the street; it now mitres its
+  deck end. New views `junction-bridge-west` and `junction-west-lanes`.
+  Medians (same branch): a strip whose twins fan out was cut into constant-width pieces, a kerb tick at each step
+  (x≈-195, z≈-215); each strip now keeps a width per point (`medians` entries carry a third array, decimetres) and the
+  client draws it tapering. Strips stopped up to ~4.5 m short of a crossing road, showing the twins' pale pavement as a
+  square nose; they now run 3 m (MEDIAN_OVER) on under the crossing carriageway. Moorings now reseed (the shared random
+  stream shifted with the tree planting and put a sampan on land at Cửa Ngăn). Pavement narrower than 2.5 m between two
+  carriageways side by side (`slivers` in src/geo/junctions.js: a street mapped beside a main road, twins closer than
+  a median, fork arms) is paved kerb to kerb, 228 strips, 8.8 km; e.g. roads 1442/1273 at x≈-197, z≈-190.
+  Width steps: a carriageway that carries straight on into a narrower one (Trần Hưng Đạo's 12 m market twins 2555/2560
+  meeting their 6 m continuations at x≈-220, z≈-196; class changes mid-street) now narrows over its last 30 m to the
+  other's width (build-data "Width steps": per-point widths, 5th element of a road record; city.js draws casing, kerb,
+  carriageway and lamps from them; medians use them). 228 joints tapered.
 - Shadow maps cached (2026-11-21): csm.js redraws a map only when its snapped box, the sun direction, a casting
   LOD chunk reaching into it (lodFlips in lod.js) or `shadows.invalidate()` changes; moving casters (traffic, boats,
   tree sway) refresh on a cadence (near 33-100 ms, wide 100-330 ms). ~0.44 map renders per frame instead of 1.0

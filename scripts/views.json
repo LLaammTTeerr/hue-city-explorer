@@ -15,5 +15,19 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [260, 2, -90], "target": [0, 8, 0] }
+  },
+  "junction-west-lanes": {
+    "note": "A junction west of the citadel's south-east corner, from above at an angle: lane markings, medians and pavement where four roads meet.",
+    "viewport": [1720, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-167.3, 85.8, -306.4], "target": [-234.3, 2.6, -207.5] }
+  },
+  "junction-bridge-west": {
+    "note": "Straight down on the brick bridge over the citadel moat at x -464, z -49, where its deck meets the street.",
+    "viewport": [1720, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-464.1, 85.6, -49.0], "target": [-464.1, 2.6, -49.1] }
   }
 }

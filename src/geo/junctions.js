@@ -243,3 +243,67 @@ export function markingGuard(roads, holeCells = null) {
     return true;
   };
 }
+
+// Slivers: two carriageways running side by side with less than SLIVER between their kerbs (a street mapped beside a
+// main road, the arms of a fork near its nose) left a strip of pale pavement too narrow to walk on, ending square out
+// in the junction where the roads part. It is paved: the asphalt runs across from kerb to kerb, the two roads read as
+// one wider road there, and the pavement starts where the gap opens past SLIVER.
+// roads: [{ c, w, pts }] (carriageways only). Returns [{ pts, ws, c }]: strips along the gaps with a width per point
+// (each kerb line 0.3 m inside), c the more important road's class.
+export const SLIVER = 2.5; // m
+export function slivers(roads) {
+  const G = 24, grid = new Map(), segs = [];
+  roads.forEach((r, id) => {
+    for (let i = 0; i + 1 < r.pts.length; i++) {
+      const a = r.pts[i], b = r.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (L < 1e-6) continue;
+      const s = { id, a, b, L, tx: (b[0] - a[0]) / L, tz: (b[1] - a[1]) / L };
+      segs.push(s);
+      const r0 = r.w / 2 + 8;
+      for (let x = Math.floor((Math.min(a[0], b[0]) - r0) / G); x <= Math.floor((Math.max(a[0], b[0]) + r0) / G); x++)
+        for (let z = Math.floor((Math.min(a[1], b[1]) - r0) / G); z <= Math.floor((Math.max(a[1], b[1]) + r0) / G); z++) {
+          const k = x + ',' + z;
+          if (!grid.has(k)) grid.set(k, []);
+          grid.get(k).push(s);
+        }
+    }
+  });
+  const out = [];
+  roads.forEach((A, ai) => {
+    const runs = [[], []]; // per side: the samples of the current strip
+    const flush = (k) => {
+      const run = runs[k];
+      if (run.length >= 2) out.push({ pts: run.map((s) => s.p), ws: run.map((s) => s.w), c: Math.min(A.c, roads[run[0].b].c) });
+      runs[k] = [];
+    };
+    for (let i = 0; i + 1 < A.pts.length; i++) {
+      const a = A.pts[i], b = A.pts[i + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (L < 1e-6) continue;
+      const tx = (b[0] - a[0]) / L, tz = (b[1] - a[1]) / L;
+      for (let s = i ? 1 : 0; s <= Math.floor(L); s++) {
+        const px = a[0] + tx * s, pz = a[1] + tz * s;
+        const best = [null, null];
+        for (const g of grid.get(Math.floor(px / G) + ',' + Math.floor(pz / G)) || []) {
+          if (g.id === ai || Math.abs(tx * g.tz - tz * g.tx) > PAR_SIN) continue;
+          const t = Math.max(0, Math.min(g.L, (px - g.a[0]) * g.tx + (pz - g.a[1]) * g.tz));
+          const qx = g.a[0] + g.tx * t, qz = g.a[1] + g.tz * t, d = Math.hypot(qx - px, qz - pz);
+          const gap = d - A.w / 2 - roads[g.id].w / 2;
+          if (d < 1e-6 || gap < -0.3 || gap >= SLIVER) continue;
+          // the nearest point has to lie square off this road, not off the end of B's segment at an angle
+          if (Math.abs(((qx - px) * tx + (qz - pz) * tz) / d) > 0.35) continue;
+          const k = tx * (qz - pz) - tz * (qx - px) > 0 ? 1 : 0;
+          if (!best[k] || gap < best[k].gap) best[k] = { b: g.id, gap, nx: (qx - px) / d, nz: (qz - pz) / d };
+        }
+        for (const k of [0, 1]) {
+          const h = best[k];
+          // each strip once, from the road with the lower index
+          if (!h || h.b < ai || (runs[k].length && runs[k][0].b !== h.b)) { flush(k); if (!h || h.b < ai) continue; }
+          const o = A.w / 2 + h.gap / 2;
+          runs[k].push({ b: h.b, p: [px + h.nx * o, pz + h.nz * o], w: Math.max(0.3, h.gap + 0.6) });
+        }
+      }
+    }
+    flush(0); flush(1);
+  });
+  return out;
+}

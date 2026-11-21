@@ -240,9 +240,11 @@ function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = 
   // A road deck lands on the street it joins: from DECK over the bank it comes down to the street's own surface
   // (STREET, and the 0.12 m a carriageway on raised ground is laid above it, geo/city.js ribbon) over the last
   // LAND_RAMP m at each end. Left at DECK, every generic deck ended in a 0.36 m lip across the carriageway.
-  // (A span profile already lands at street level at its abutments; vaulted citadel bridges keep their masonry.)
+  // A span profile already lands at street level at its abutments. The citadel's brick bridges (zone) land too: left
+  // at DECK their ends stood 0.37 m over the street they join, a brick step across the carriageway; their vaults are
+  // sized under the landed deck below. Named arched bridges keep their masonry.
   let bump = bump0;
-  if (c <= 3 && !span && !arches && !zone) {
+  if (c <= 3 && !span && (!arches || zone)) {
     const R = Math.min(LAND_RAMP, len * 0.2);
     const street = (p) => LAND_Y + STREET + rise(p[0], p[1]) + (rise(p[0], p[1]) > 0 ? 0.12 : 0);
     const d0 = street(p0) - base(0) - bump0(0), d1 = street(pn) - base(len) - bump0(len);
