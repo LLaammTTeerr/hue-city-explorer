@@ -13,6 +13,12 @@ export const shared = {
   uLook: { value: 0 }, // 0 realistic (reflections, relief, rooms behind glass), 1 illustrated (flat washes; the ink is drawn in post.js)
 };
 
+// In the drawn look the ground (the slab, the hills and the streets, greens and yards laid on them, none of which
+// write depth) writes this alpha, so the ink in post.js can tell it from built form: its 25 m triangles fold by
+// 10-25 degrees on the hills, and seen through a street those folds drew as triangles. Leaves write 0, the rest 1.
+// GLSL float literal; post.js reads it back as the band 0.9-0.965 (all four MSAA samples on ground).
+export const GROUND_A = '0.96';
+
 // Wind on instanced foliage, in object space after begin_vertex; shared by the leaves and by their shadow pass.
 const WIND = /* glsl */ `
         #if defined( HUE_FOLIAGE ) && defined( USE_INSTANCING )
@@ -501,7 +507,8 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = hueMetal;')
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n#ifndef HUE_FOLIAGE\nnormal = normalize( normal + mat3( viewMatrix ) * ( hueNp - hueN ) );\n#endif')
       // drawn look: leaves mark themselves in the alpha channel, so post.js can outline a crown as one shape
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 ) gl_FragColor.a = 0.0;\n#endif')
+      // and ribbons laid on the ground (streets, greens, yards) mark themselves as ground, as the land does (GROUND_A)
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 ) gl_FragColor.a = 0.0;\n#endif\n#ifdef HUE_OVERLAY\nif ( uLook > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
@@ -632,6 +639,8 @@ export function landMaterial(color, turf = false, bank = false) {
         float lpud = smoothstep( 0.35, 0.72, lNoise( vWPos.xz * 0.18 ) * 0.65 + lNoise( vWPos.xz * 0.85 ) * 0.35 );`,
       )
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = uLook > 0.5 ? 1.0 : mix( roughnessFactor, 0.1, lpud * uWet * 0.85 );')
+      // drawn look: the ground's top (the slab and the hills) marks itself in the alpha channel (GROUND_A)
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_TURF\nif ( uLook > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
