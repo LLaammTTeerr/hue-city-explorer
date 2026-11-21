@@ -1,7 +1,7 @@
 import { KIND, hex, shade, inRing, unflat, pathLength } from '../../geo/buf.js';
-import { LAND_Y, PAL } from '../../config.js';
+import { PAL } from '../../config.js';
 import { rise, waterY } from '../../geo/terrain.js';
-import { bridgeProfiles } from '../../geo/bridges.js';
+import { bridgeProfiles, onLand, ABUT } from '../../geo/bridges.js';
 
 // ---- Cầu Gia Hội: the road bridge over sông Đông Ba between Trần Hưng Đạo (the Đông Ba market side) and Chi Lăng
 // (the old Gia Hội street) ----
@@ -17,15 +17,31 @@ import { bridgeProfiles } from '../../geo/bridges.js';
 //    is a modern rebuild, not the 1904 stone one.
 //  - nguoidothi.net.vn/dau-xua-gia-hoi-25412.html: it joins Trần Hưng Đạo (Phú Hòa) to Chi Lăng (Phú Cát); the
 //    market and sông Hương are in view from it.
-// The water under it (data.land) is about 45 m wide on the axis; the deck runs on over the bank on the market
-// (west) side as a filled approach to the street corner.
+// The water under it (data.land) is about 45 m wide on the axis. The two OSM bridge ways do not end at the banks:
+// on the market (west) side they run on ~20 m past the water, over the Huỳnh Thúc Kháng junction (which they cross
+// without a shared node), to Trần Hưng Đạo; on the Chi Lăng side their ends are staggered by 4 m, one at the water's
+// edge. Huỳnh Thúc Kháng runs at grade along the bank, so the structure is only the stretch over the water and its
+// abutments (geo/bridges.js `water`: both ends square across the bridge, as the mapped outline's are, and inside both
+// ways; on the west bank Huỳnh Thúc Kháng's carriageway reaches to within about a metre of the water, so the
+// abutment stops at its kerb and the deck's raised footways, median and parapet ends no longer stand on it), and the ways run on as street from there (geo/city.js lays them with the other roads). The deck ends at
+// street level exactly where city.js starts that street, square across the same way: deck and road meet edge to
+// edge and flush. (The old model ran the deck to the ways' own ends: skewed 23 degrees by the stagger, so neither
+// approach road's square end lined up with it, and raised as a filled ramp across Huỳnh Thúc Kháng.)
+//
+// The vertical profile: a 2.0 m crown over the street at the abutments, a smooth hump (level where it meets the
+// street) over the ~46-49 m between them. No survey or elevation was found (searches of Vietnamese press and
+// travel pages, Nov 2026, turned up no clearance figure or usable side photo); the rise is an estimate:
+//  - it is visibly humped, more than the 1.1 m camber modelled before (local observation passed on by the user);
+//  - the streets on both banks lie ~1.3 m above the canal (POND_Y); a ~1 m girder deck leaves ~2.5-3 m of headroom
+//    under a 2 m crown, enough for the sampans and tour boats that use sông Đông Ba, and almost none at the banks;
+//  - 2 m over ~24 m to the crown is an 8 % average grade, steep but usual for the old city's short canal bridges.
 //
 // NOT confirmed (no description or usable photo of today's bridge was found):
 //  - the structure: drawn as a low reinforced-concrete girder bridge of three ~15 m spans on two wall piers with
 //    rounded cutwaters, solid abutments at the banks;
 //  - the cross-section: 2 x 7 m carriageways, a 2 m raised median, 1.8 m footways, concrete balustrade (posts
 //    about 2.2 m apart, two rails, newel posts at the ends and over the abutments) painted off-white;
-//  - the deck camber (kept to geo/bridges.js's 1.1 m crown, so traffic and lamp posts in life.js still ride it);
+//  - the deck rise (above); it lives in geo/bridges.js so traffic and lamp posts in life.js ride the same curve;
 //  - lamps: the generic street lamp posts life.js puts on these class-2 roads stand on the deck; no special
 //    bridge lighting is known, so none is added.
 
@@ -83,6 +99,9 @@ export function build({ data, S }) {
     r.v = (a[1] + b[1]) / 2;
     r.ua = Math.min(a[0], b[0]); r.ub = Math.max(a[0], b[0]);
     r.rev = a[0] > b[0];
+    // the structure's ends on this way (its profile's span; the whole way if it has none)
+    const sp = r.P.span || [0, r.len], uOfS = (s) => (r.rev ? r.ub - s : r.ua + s);
+    r.ea = Math.min(uOfS(sp[0]), uOfS(sp[1])); r.eb = Math.max(uOfS(sp[0]), uOfS(sp[1]));
   }
   roads.sort((a, b) => a.v - b.v);
   const lo = roads[0], hi = roads[roads.length - 1];
@@ -92,13 +111,9 @@ export function build({ data, S }) {
     const w = clamp((v - lo.v) / (hi.v - lo.v), 0, 1);
     return yRoad(lo, u) * (1 - w) + yRoad(hi, u) * w;
   };
-  // the deck's skewed ends follow the street corners: interpolated across from each carriageway's own ends
-  const endAt = (v, k) => {
-    const a = k ? lo.ub : lo.ua, b = k ? hi.ub : hi.ua;
-    if (lo === hi) return a;
-    return a + ((b - a) * (v - lo.v)) / (hi.v - lo.v);
-  };
   const vMid = (lo.v + hi.v) / 2;
+  // each half of the deck ends square across its own carriageway, at that way's abutment (k 0 east, 1 west)
+  const endAt = (v, k) => { const r = v < vMid ? lo : hi; return k ? r.eb : r.ea; };
   const HALF = 10.5; // OSM outline ~21 m wide
   const V0 = vMid - HALF, V1 = vMid + HALF;
 
@@ -106,7 +121,7 @@ export function build({ data, S }) {
   const isLand = (u, v) => { const [x, z] = XZ(u, v); return rise(x, z) > 0.05 || onLand(data, x, z); };
   let bankE = 0.5, bankW = 46;
   {
-    const u0 = endAt(vMid, 0), u1 = endAt(vMid, 1);
+    const u0 = Math.max(lo.ea, hi.ea), u1 = Math.min(lo.eb, hi.eb);
     let first = null, last = null;
     for (let u = u0; u <= u1; u += 0.5) if (!isLand(u, vMid)) { if (first === null) first = u; last = u; }
     if (first !== null && last - first > 10) { bankE = Math.max(first, u0 + 1.2); bankW = last; }
@@ -128,7 +143,15 @@ export function build({ data, S }) {
   const uOf = (f, v) => endAt(v, 0) + (endAt(v, 1) - endAt(v, 0)) * f;
   // a band of the deck between two offsets, raised by dy, with its kerb faces
   const band = (va, vb, dy, col, kerbs = false) => {
+    if (va < vMid - 1e-6 && vb > vMid + 1e-6) { band(va, vMid, dy, col); band(vMid, vb, dy, col); if (!kerbs || dy <= 0) return; kerbs = 'only'; }
     for (let i = 0; i < NU; i++) {
+      if (kerbs === 'only') { // a band split at the axis: its kerb faces, each on its own half
+        if (dy <= 0) break;
+        const nv = [n[0], 0, n[1]], f0 = i / NU, f1 = (i + 1) / NU;
+        S.quad(P3(f0, va, 0), P3(f1, va, 0), P3(f1, va, dy), P3(f0, va, dy), kerb, [-nv[0], 0, -nv[2]]);
+        S.quad(P3(f0, vb, 0), P3(f1, vb, 0), P3(f1, vb, dy), P3(f0, vb, dy), kerb, nv);
+        continue;
+      }
       const f0 = i / NU, f1 = (i + 1) / NU;
       S.quad(P3(f0, va, dy), P3(f0, vb, dy), P3(f1, vb, dy), P3(f1, va, dy), col, [0, 1, 0]);
       if (kerbs && dy > 0) {
@@ -149,10 +172,8 @@ export function build({ data, S }) {
   const paint = hex('#f1ece0');
   for (const v of [V0 + 2.35, C - 1.25, C + 1.25, V1 - 2.35]) for (let i = 1; i < NU - 1; i += 2) S.quad(P3(i / NU, v - 0.07, 0.02), P3(i / NU, v + 0.07, 0.02), P3((i + 1) / NU, v + 0.07, 0.02), P3((i + 1) / NU, v - 0.07, 0.02), paint, [0, 1, 0]);
 
-  // the deck's edge beams and underside: a 1.0 m girder depth over the water; on the market-side approach the side
-  // walls go down to the ground (a filled ramp)
-  const ground = (u, v) => { const [x, z] = XZ(u, v); return LAND_Y + rise(x, z) - 0.3; };
-  const bottomAt = (u, v) => (u > bankE - 0.3 && u < bankW + 0.3 ? yAt(u, v) - 1.0 : Math.min(yAt(u, v) - 1.0, ground(u, v)));
+  // the deck's edge beams and underside: a 1.0 m girder depth; at the abutments it sinks into the bank
+  const bottomAt = (u, v) => yAt(u, v) - 1.0;
   for (const [v, sgn] of [[V0, -1], [V1, 1]]) {
     const nv = [n[0] * sgn, 0, n[1] * sgn];
     for (let i = 0; i < NU; i++) {
@@ -172,9 +193,9 @@ export function build({ data, S }) {
     S.quad(P3(f0, v, 0.18), P3(f1, v, 0.18), P3(f1, v, 0.3), P3(f0, v, 0.3), railD, [n[0] * sgn, 0, n[1] * sgn]);
   }
   // the underside: soffit between the edge beams, with four longitudinal girders below it, over each span
-  for (let i = 0; i < NU; i++) {
+  for (const [va, vb] of [[V0, vMid], [vMid, V1]]) for (let i = 0; i < NU; i++) {
     const f0 = i / NU, f1 = (i + 1) / NU;
-    const a = P3(f0, V0, -0.72), b = P3(f0, V1, -0.72), c = P3(f1, V1, -0.72), d = P3(f1, V0, -0.72);
+    const a = P3(f0, va, -0.72), b = P3(f0, vb, -0.72), c = P3(f1, vb, -0.72), d = P3(f1, va, -0.72);
     S.quad(a, b, c, d, soffit, [0, -1, 0]);
   }
   const step = 1.5;
@@ -202,15 +223,13 @@ export function build({ data, S }) {
     // the tide mark on the piers
     S.box(x, z, water - 0.1, water + 0.35, HALF * 2 - 3.5, 1.16, ang, shade(pierCol, 0.72));
   }
-  // abutments: stone-faced walls at each bank, carrying the deck ends (the city's quay walls meet them)
-  for (const [u, out] of [[bankE, -1], [bankW, 1]]) {
-    const [x, z] = XZ(u + out * 0.9, C), top = Math.min(yAt(u, V0), yAt(u, V1)) - 0.72;
-    S.box(x, z, water - 2.5, top, HALF * 2 + 0.6, 1.8, ang, stone, { top: concrete });
-  }
-  // the market-side ramp: closed off at its end under the deck so it does not read hollow
-  {
-    const u = endAt(C, 1) - 0.4, [x, z] = XZ(u, C);
-    S.box(x, z, ground(u, C), yAt(u, C) - 0.05, HALF * 2, 0.6, ang, concrete);
+  // abutments: stone-faced walls under each deck end (one under each half, should the halves end apart), reaching
+  // ABUT under the deck and as far back under the street, which on a staggered way may begin over the water's edge;
+  // the city's quay walls meet them
+  for (const [va, vb] of [[V0 - 0.3, vMid], [vMid, V1 + 0.3]]) for (const [k, inward] of [[0, 1], [1, -1]]) {
+    const vc = (va + vb) / 2, u0 = endAt(vc, k), [x, z] = XZ(u0, vc);
+    const top = Math.min(yAt(u0 + inward * ABUT, va), yAt(u0 + inward * ABUT, vb)) - 0.72;
+    S.box(x, z, water - 2.5, top, vb - va, ABUT * 2, ang, stone, { top: concrete });
   }
 
   // balustrade: square posts ~2.2 m apart, a moulded top rail and a lower rail, newel posts at the ends and over
@@ -219,7 +238,7 @@ export function build({ data, S }) {
     const u0 = endAt(v, 0) + 0.35, u1 = endAt(v, 1) - 0.35;
     const nPost = Math.max(2, Math.round((u1 - u0) / 2.2));
     const post = (u) => { const [x, z] = XZ(u, v); return [x, yAt(u, v) + 0.3, z]; };
-    const newels = [u0, u1, bankE, bankW, ...piers];
+    const newels = [u0, u1, ...piers];
     for (let i = 0; i <= nPost; i++) {
       const u = u0 + ((u1 - u0) * i) / nPost, [x, y, z] = post(u);
       if (newels.some((q) => Math.abs(q - u) < 1.0)) continue;
@@ -238,19 +257,4 @@ export function build({ data, S }) {
     }
   }
   S.kind = KIND.PLAIN;
-}
-
-// data.land is the dry ground (rings with holes, even-odd); the canal is what lies outside it
-function onLand(data, x, z) {
-  let c = false;
-  for (const poly of data.land || []) for (const r of poly) if (inRingFlat(x * 10, z * 10, r)) c = !c;
-  return c;
-}
-function inRingFlat(x, z, ring) {
-  let c = false;
-  for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
-    const xi = ring[i], zi = ring[i + 1], xj = ring[j], zj = ring[j + 1];
-    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c;
-  }
-  return c;
 }

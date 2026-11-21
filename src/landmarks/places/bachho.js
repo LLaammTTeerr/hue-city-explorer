@@ -30,7 +30,7 @@ const ROAD_A = [-1958, 895], ROAD_B = [-1834, 1142.5]; // centreline over the no
 const ROAD_W = 24.5;
 const RAIL_N = [[-1983, 906], [-1964, 942], [-1931, 1009], [-1875, 1122], [-1848, 1176]]; // Bạch Hổ
 const RAIL_S = [[-1767, 1275], [-1692, 1350]]; // Dã Viên rail bridge
-const RAIL_S2 = [[-1692, 1350], [-1674, 1365]]; // the short girder span onto the south bank
+const RAIL_S2 = [[-1692, 1350], [-1674, 1365]]; // the short girder span onto the south bank (way 316199964)
 
 const WHITE = hex('#e4e6e2'), WHITE_D = hex('#c3c8c6');
 const CONC = hex('#c9c3b6'), CONC_D = hex('#a69f92');
@@ -109,7 +109,11 @@ export function build({ data, S, group }) {
   S.kind = KIND.PLAIN;
   truss(S, RAIL_N, 5, rail);
   truss(S, RAIL_S, 2, rail);
-  girder(S, RAIL_S2, rail);
+  // the short span onto the south bank only while the data has it as a bridge: it crosses no water, and
+  // build-data now lays such a rail way at grade, a level crossing rather than a girder on the street it meets
+  const near = (f, k, p) => Math.hypot(f[k] / 10 - p[0], f[k + 1] / 10 - p[1]) < 3;
+  const s2 = (data.rails || []).some(([, br, f]) => br && f.length === 4 && ((near(f, 0, RAIL_S2[0]) && near(f, 2, RAIL_S2[1])) || (near(f, 0, RAIL_S2[1]) && near(f, 2, RAIL_S2[0]))));
+  if (s2) girder(S, RAIL_S2, rail);
 
   if (L.n) {
     const mesh = new THREE.Mesh(L.geometry(), lightMaterial(0xfff4e0, 1.5));

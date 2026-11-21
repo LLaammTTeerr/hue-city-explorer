@@ -39,14 +39,34 @@ export function build({ data, S, group }) {
   const at = (s, t, y) => { const p = xz(s, t); return [p[0], y, p[1]]; };
   const ground = (s) => { const p = xz(s, 0); return LAND_Y + rise(p[0], p[1]) + 0.08; };
   const half = L / 2;
-  // deck surface along the axis: a gentle vertical curve over the river, then the approach ramps to the street
+  // where the deck comes down to the street: the first mapped carriageway beyond each end of the outline, on the
+  // deck's axis (the OSM bridge ways under the outline are not laid; the slip roads and avenues carry on from where
+  // they stop). The ramp is at grade there, so it never stands over the junction or the islands between its slips.
+  const ends = [-1, 1].map((e) => {
+    let best = half + RAMP;
+    for (const [cls, br, f] of data.roads || []) {
+      if (br || cls > 3) continue;
+      for (const k of [0, f.length - 2]) {
+        const dx = f[k] / 10 - c[0], dz = f[k + 1] / 10 - c[1], s = (dx * u[0] + dz * u[1]) * e, t = dx * v[0] + dz * v[1];
+        if (Math.abs(t) < HW && s > half && s < best) best = s;
+      }
+    }
+    return best;
+  });
+  const endOf = (s) => (s < 0 ? ends[0] : ends[1]);
+  const curve = (s) => { const a = Math.min(Math.abs(s), half); return Y_END + (Y_MID - Y_END) * (1 - (a / half) ** 2); };
+  // deck surface along the axis: a gentle vertical curve over the river, then the approach ramp over the last RAMP m
+  // before the street, down to the ground where the carriageways begin
   const top = (s) => {
-    const a = Math.abs(s);
-    if (a <= half) return Y_END + (Y_MID - Y_END) * (1 - (s / half) ** 2);
-    const t = Math.min(1, (a - half) / RAMP), g = ground(Math.sign(s) * (half + RAMP));
-    return Y_END + (g - Y_END) * (1 - Math.cos(Math.PI * t)) / 2;
+    const E = endOf(s), a0 = E - RAMP, a = Math.abs(s);
+    if (a <= a0) return curve(s);
+    const y0 = curve(Math.sign(s) * a0), t = Math.min(1, (a - a0) / RAMP), g = ground(Math.sign(s) * E);
+    return y0 + (g - y0) * (1 - Math.cos(Math.PI * t)) / 2;
   };
-
+  // the girders and cantilevers run while there is room under the deck; nearer the street the ramp is a filled
+  // embankment between retaining walls
+  const open = (s) => top(s) - 2.6 > ground(s);
+  const abut = [-1, 1].map((e) => { let a = 0; while (a < half && open(e * (a + 0.5))) a += 0.5; return e * a; }); // where the embankment starts
   const asphalt = hex('#6f6c69'), moto = hex('#7b706a'), granite = hex('#a8746a'), strip = hex('#cfcbc2');
   const fascia = hex('#dcd9d2'), under = hex('#9d9a94'), steel = hex('#b9b6ae'), concrete = hex('#bdb7ab');
   const wet = hex('#77756f'), gold = hex('#f2c21b'), goldD = hex('#d29f12'), rail = hex('#f1efe9'), line = hex('#ecebe4');
@@ -55,9 +75,9 @@ export function build({ data, S, group }) {
   // ---- deck: from the end of one ramp to the other
   const n0 = S.n;
   const ss = [];
-  for (let s = -half - RAMP; s < half + RAMP; s += 5) ss.push(s);
-  ss.push(half + RAMP);
-  for (const s of [-half, half]) if (!ss.includes(s)) ss.push(s);
+  for (let s = -ends[0]; s < ends[1]; s += 5) ss.push(s);
+  ss.push(ends[1]);
+  for (const s of [-half, half, ...abut]) if (!ss.includes(s)) ss.push(s);
   ss.sort((a, b) => a - b);
   const bands = [ // [inner, outer, raise, colour, kind]
     [V_MED, V_CAR, 0, asphalt, KIND.ROAD],
@@ -67,7 +87,7 @@ export function build({ data, S, group }) {
   ];
   for (let i = 0; i + 1 < ss.length; i++) {
     const a = ss[i], b = ss[i + 1], ya = top(a), yb = top(b);
-    const span = Math.abs(a) < half + 1e-6 && Math.abs(b) < half + 1e-6;
+    const span = a >= abut[0] - 1e-6 && b <= abut[1] + 1e-6;
     S.kind = KIND.PLAIN;
     S.quad(at(a, -V_MED, ya + 0.3), at(a, V_MED, ya + 0.3), at(b, V_MED, yb + 0.3), at(b, -V_MED, yb + 0.3), strip, [0, 1, 0]);
     for (const side of [-1, 1]) {
@@ -98,7 +118,7 @@ export function build({ data, S, group }) {
   S.kind = KIND.PLAIN;
   // lane lines: white dashes between the car lanes
   for (const side of [-1, 1]) for (const vv of [4.5, 8]) {
-    for (let s = -half - 20; s < half + 20; s += 10) {
+    for (let s = -ends[0] + 2; s < ends[1] - 6; s += 10) {
       const y = top(s + 2) + 0.015, t = side * vv;
       S.quad(at(s, t - 0.08, y), at(s, t + 0.08, y), at(s + 4, t + 0.08, top(s + 4) + 0.015), at(s + 4, t - 0.08, y), line, [0, 1, 0]);
     }
@@ -106,6 +126,7 @@ export function build({ data, S, group }) {
   // the 128 cantilevered cross girders (64 a side), tapering out from the main girder
   for (let k = 0; k < 64; k++) {
     const s = -half + 2.7 + k * ((L - 5.4) / 63), y = top(s);
+    if (!open(s)) continue;
     for (const side of [-1, 1]) S.beam(at(s, side * 10, y - 1.7), at(s, side * (HW - 0.3), y - 1.35), 0.4, 0.5, steel);
   }
 
@@ -142,8 +163,9 @@ export function build({ data, S, group }) {
     S.prism(pierRing(sP, 9, 1.2, 5), -3, 0.6, wet, wet, { top: false });
     S.prism(pierRing(sP, 9, 1.2, 5), 0.6, yP - 1.2, concrete, concrete, { top: false });
     S.box(...xz(sP, 0), yP - 1.2, yP, 2.2, 22, ang, concrete, { bottom: true });
-    // abutment: a wall at the deck's end, down into the bank
-    S.box(...xz(e * (half + 1.2), 0), LAND_Y - 3, top(e * half) - 1.1, 2.4, 2 * HW + 0.6, ang, concrete);
+    // abutment: a wall where the open spans end and the embankment begins, down into the bank
+    const sA = abut[(e + 1) / 2] + e * 1.2;
+    S.box(...xz(sA, 0), LAND_Y - 3, top(sA) - 1.1, 2.4, 2 * HW + 0.6, ang, concrete);
   }
 
   // ---- the two arches: box ribs from the V footing up through the deck to a crown ~22 m over it, leaning inward
@@ -170,13 +192,13 @@ export function build({ data, S, group }) {
   // ---- railings: white steel, posts every 2.5 m, top and bottom rails and a mid rail (the lotus panels)
   for (const side of [-1, 1]) {
     const t = side * V_RAIL;
-    for (let s = -half - RAMP + 1; s <= half + RAMP - 1; s += 2.5) {
+    for (let s = -ends[0] + 1; s <= ends[1] - 1; s += 2.5) {
       const y = top(s) + 0.2;
       const p = xz(s, t);
       S.box(p[0], p[1], y, y + 1.15, 0.14, 0.14, ang, rail);
     }
-    for (let s = -half - RAMP + 1; s < half + RAMP - 1; s += 5) {
-      const e = Math.min(half + RAMP - 1, s + 5);
+    for (let s = -ends[0] + 1; s < ends[1] - 1; s += 5) {
+      const e = Math.min(ends[1] - 1, s + 5);
       for (const [h, w] of [[1.12, 0.14], [0.62, 0.07], [0.12, 0.1]]) S.beam(at(s, t, top(s) + 0.2 + h), at(e, t, top(e) + 0.2 + h), w, w, rail);
     }
   }

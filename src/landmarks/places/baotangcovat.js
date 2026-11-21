@@ -1,7 +1,7 @@
 import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
-import { fence } from '../enclosure.js';
+import { fence, offStreets } from '../enclosure.js';
 
 // ---- Bảo tàng Cổ vật Cung đình Huế (Huế Museum of Royal Antiquities): điện Long An, 3 Lê Trực ----
 //
@@ -33,7 +33,7 @@ const STONE = PAL.stone, BRICK = hex('#a5715a'), OCHRE = hex('#d6ae5e'), CREAM =
 const BRONZE = hex('#4f5446'), GLASS = hex('#2c3a40');
 const gY = (x, z) => LAND_Y + rise(x, z);
 
-export function build({ S }) {
+export function build({ data, S }) {
   const c = HALL.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
   // u along the front (east-north-east), v toward the front (south-south-east, to Lê Trực)
   const ex = HALL[1][0] - HALL[2][0], ez = HALL[1][1] - HALL[2][1], el = Math.hypot(ex, ez);
@@ -149,7 +149,8 @@ export function build({ S }) {
     S.base = 0;
     const st = { h: 2.0, plinth: 0.7, rail: true, t: 0.34, every: 3.4, postW: 0.48, postUp: 0.2, wall: OCHRE, cap: CREAM, iron: IRON, pierW: 1.0, pierUp: 1.2 };
     const g = P(0, gateV);
-    fence(S, GROUNDS, st, { openings: [[g[0], g[1], 4.1]] });
+    // on the mapped grounds less the side streets OSM draws a metre or two into them (the front, on Lê Trực, stays)
+    fence(S, offStreets(data, GROUNDS), st, { openings: [[g[0], g[1], 4.1]] });
   }
 
   // ---- outdoor exhibits in the front court: two bronze cauldrons on stone plinths flanking the path, and a row of

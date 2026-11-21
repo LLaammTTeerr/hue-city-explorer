@@ -4,6 +4,7 @@ import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
 import { fence, roadsNear, leaves } from '../enclosure.js';
+import { flag } from '../anim.js';
 
 // ---- Bảo tàng Hồ Chí Minh (Hồ Chí Minh Museum), 7 Lê Lợi, Huế: the building rebuilt 1998–2000, as it stands in 2026 ----
 //
@@ -107,8 +108,7 @@ export function build({ data, S, group }) {
     S.kind = KIND.PLAIN;
     S.box(p[0], p[1], y0, y0 + 0.4, 0.8, 0.8, ANG, stone);
     S.cyl(p[0], p[1], y0 + 0.4, y0 + 10.5, 0.07, 0.05, 6, white, { cap: false });
-    const q = P(HA + 6.2, b + 0.06);
-    S.box(q[0] + u[0] * 0.95, q[1] + u[1] * 0.95, y0 + 8.9, y0 + 10.2, 0.04, 1.9, ANG, red);
+    flag(group, { at: [p[0], y0 + 10.2, p[1]], w: 1.9, h: 1.3, look: red, landmark: id }); // waves down-wind (anim.js)
   }
 
   // the railing on Lê Lợi: a low white wall with dark bars, stone gate piers where the drive comes in

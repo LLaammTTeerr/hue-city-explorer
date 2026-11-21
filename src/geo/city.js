@@ -9,7 +9,7 @@ import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain
 import { buildTrees } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
-import { bridgeProfiles, resample } from './bridges.js';
+import { bridgeProfiles, resample, subPath } from './bridges.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
@@ -195,6 +195,13 @@ function buildRoads(data, group, structures) {
   B.kind = KIND.ROAD;
   const roads = (data.roads || []).map(([c, bridge, flat]) => ({ c: Math.max(0, Math.min(ROAD_MAX, c | 0)), bridge, flat, pts: unflat(flat) })); // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
+  // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
+  // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
+  for (const r of [...roads]) {
+    const P = r.bridge && profiles.get(r.flat);
+    if (!P || !P.span) continue;
+    for (const [s0, s1] of [[0, P.span[0]], [P.span[1], P.len]]) if (s1 - s0 > 0.05) roads.push({ c: r.c, bridge: 0, flat: null, pts: subPath(r.pts, s0, s1) });
+  }
   const casing = hex(PAL.casing);
   const cols = PAL.road.map(hex);
   const y = LAND_Y + 0.05;
@@ -250,7 +257,10 @@ function buildRoads(data, group, structures) {
     if (P.name === 'Đông Thành Thủy Quan' && replaced('thuyquan')) continue; // modelled in landmarks/places/thuyquan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
-    if (P.rise > 0) {
+    if (P.span) { // the structure only: the street beyond its abutments was laid with the roads above
+      const s0 = P.span[0], R = resample(subPath(r.pts, s0, P.span[1]), Math.min(2, P.len / 16));
+      slab(structures, R.pts, w, (s) => P.y(s0 + s), P.thick, cols[Math.min(r.c, 3)], deckSide, parapet);
+    } else if (P.rise > 0) {
       const R = resample(r.pts, P.arches ? 0.5 : Math.min(2, P.len / 16), P.breaks);
       const k0 = structures.kind;
       if (P.arches) structures.kind = KIND.MASONRY; // old brick-and-stone vaults read as masonry
@@ -294,7 +304,7 @@ function buildRoads(data, group, structures) {
   // street lamps along the main streets (drawn only when the mood calls for light)
   const lp = [], lc = [];
   for (const r of roads) {
-    if (r.c > 2) continue;
+    if (r.c > 2 || !r.flat) continue; // (a bridge way's street ends are lit as part of the way: life.js posts)
     const len = pathLength(r.pts);
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {
@@ -376,6 +386,15 @@ function buildBuildings(data, group, off = null) {
     } else if (kind === 0 || kind === 1 || kind === 5) {
       if (!quocHoc) { wall = rand(i, 61) < 0.75 ? pick(P.pastel, i, 1) : wall; if (big) { pitched = false; } else if (rand(i, 62) < 0.25) roof = pick(P.metalRoof, i, 63); }
     }
+    // the roof family seen from orbit (flags bits 4-6) outranks the district's guess; a whitewashed ward paints walls white
+    const rc = (flags >> 4) & 7;
+    if (!quocHoc && !trad && kind !== 2 && kind !== 3 && kind !== 7) {
+      if (rc) {
+        roof = pick(P.roofFamily[rc], i, 64);
+        if (rc >= 3 && (kind === 0 || kind === 1 || kind === 5)) pitched = false; // a concrete tray, not tile
+      }
+      if (flags & 128) wall = pick(P.whitewash, i, 65);
+    }
     // a building whose height is known (b[5], to the top: measured, or a monument's): the eave is what is left under its roof
     const known = b[5];
     if (known) { h = Math.max(2.6, b[5] / 10 - (pitched ? rh + 0.3 : 0.8)); y1 = LAND_Y + floor + h; }
@@ -398,10 +417,10 @@ function buildBuildings(data, group, off = null) {
       B.hip(o.c[0], o.c[1], o.w, o.d, o.a, y1 + 0.02, rh, roof, { flare, over, fascia: flare ? 0.34 : 0.24, fasciaCol: colonial || quocHoc ? hex('#f1e7d2') : flare ? shade(wall, 0.7) : shade(wall, 0.86), ridgeCol: ridge, hips, glazed: kind === 2 });
     } else {
       // tiled lid for small irregular houses; a concrete tray with a parapet for everything else
-      const tiled = quocHoc || colonial || trad || (kind === 0 && !big && rand(i, 16) < 0.45) || kind === 8 || kind === 6 || kind === 2 || kind === 3 || kind === 4;
+      const tiled = quocHoc || trad || (rc === 1 || !rc) && colonial || rc === 1 && kind === 0 && !big || (kind === 0 && !big && rand(i, 16) < 0.45) || kind === 8 || kind === 6 || kind === 2 || kind === 3 || kind === 4;
       if (tiled) B.prism(ring, y0, y1, wall, roof, { topKind: KIND.TILE });
       else {
-        const lid = kind === 7 ? roof : pick(P.concrete, i, 17);
+        const lid = kind === 7 || rc >= 2 ? roof : pick(P.concrete, i, 17);
         B.prism(ring, y0, y1, wall, shade(lid, 0.92), { topKind: KIND.FLAT, parapet: kind === 7 ? 1.6 : 0.8 });
         if (area > 70 && kind !== 7 && !b[6]) { // no stair heads or water tanks on a named monument
           const ux = Math.cos(o.a), uz = Math.sin(o.a);
@@ -500,7 +519,7 @@ function buildInfill(data, group, off = null) {
       const x = a[i * S] / 10, z = a[i * S + 1] / 10;
       const w = a[i * S + 2] / 10, d = a[i * S + 3] / 10, ang = a[i * S + 4] / 1000, h = a[i * S + 5] / 10, main = a[i * S + 6] === 1;
       if (off && off(x, z, w, d, ang)) continue; // a landmark model stands here
-      const side = a[i * S + 7] & 3, era = a[i * S + 7] >> 2; // era: 0 modern, 1 Indochine, 2 Nguyễn-period timber
+      const bits = a[i * S + 7], side = bits & 3, era = (bits >> 2) & 3, rc = (bits >> 4) & 7; // era: 0 modern, 1 Indochine, 2 Nguyễn-period timber; rc: roof family seen from orbit
       const front = side === 2 ? 0 : side === 1 ? -1 : 1; // which way the street lies along the plot's depth axis (0: a house behind the street row)
       let wallCol, roofCol;
       if (era === 1) { wallCol = shade(pick(PAL.indochine, i, 31), 0.93 + rand(i, 32) * 0.12); roofCol = shade(pick(PAL.indochineRoof, i, 34), 0.9 + rand(i, 35) * 0.18); }
@@ -509,17 +528,19 @@ function buildInfill(data, group, off = null) {
         wallCol = shade(rand(i, 30) < 0.6 ? pick(PAL.pastel, i, 31) : mix(pick(PAL.walls, i, 31), [0.86, 0.8, 0.68], 0.08), 0.9 + rand(i, 32) * 0.18);
         roofCol = shade(rand(i, 33) < 0.2 ? pick(PAL.metalRoof, i, 34) : pick(PAL.roofs, i, 34), 0.84 + rand(i, 35) * 0.28);
       }
+      if (rc && era !== 2) roofCol = shade(pick(PAL.roofFamily[rc], i, 36), 0.92 + rand(i, 35) * 0.14);
+      if (bits & 128 && era !== 2) wallCol = shade(pick(PAL.whitewash, i, 31), 0.96 + rand(i, 32) * 0.06);
       const p0 = parts.length;
-      if (era === 2) parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front: 0, era });
+      if (era === 2) parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front: 0, era, rc });
       else if (front !== 0 && d > 9.5 && rand(i, 50) < 0.55) {
         const vx = -Math.sin(ang), vz = Math.cos(ang);
         const fd = d * (0.5 + rand(i, 51) * 0.14), rd = d - fd, sgn = front; // the taller part faces the street
         const o1 = sgn * (d / 2 - fd / 2), o2 = -sgn * (d / 2 - rd / 2);
-        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0, main, front, era });
+        parts.push({ i, x: x + vx * o1, z: z + vz * o1, w, d: fd, ang, h, wallCol, roofCol, salt: 0, main, front, era, rc });
         const h2 = Math.max(3.3, h - 3.4 * (rand(i, 53) < 0.7 ? 1 : 2));
         const w2 = w * (0.72 + rand(i, 54) * 0.28);
-        parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7, main, era });
-      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front, era });
+        parts.push({ i, x: x + vx * o2, z: z + vz * o2, w: w2, d: rd, ang, h: h2, wallCol: shade(wallCol, 0.95), roofCol: shade(roofCol, 0.92), salt: 7, main, era, rc });
+      } else parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front, era, rc });
     }
     return parts;
   };
@@ -552,7 +573,9 @@ function buildInfill(data, group, off = null) {
       const { i, x, z, salt } = pt;
       let { w, d, ang, h } = pt;
       const era = pt.era;
-      const flatRoof = era === 0 && rand(i, 21 + salt) < 0.34;
+      // a pale or grey roof seen from orbit is a concrete tray; red or blue, a pitched roof; unseen, the dice
+      const rc = era === 2 ? 0 : pt.rc;
+      const flatRoof = rc >= 3 ? rand(i, 21 + salt) < (rc === 3 ? 0.9 : 0.7) : rc ? false : era === 0 && rand(i, 21 + salt) < 0.34;
       const gable = era === 0 && !flatRoof && salt === 0 && rand(i, 60) < (pt.main ? 0.88 : 0.5);
       // facade family: timber hall, Indochine, or (for the larger modern blocks) ribbon glazing; else the plain shophouse
       const style = era === 2 ? KIND.TIMBER - 1 : era === 1 ? KIND.COLONIAL - 1 : h > 9.5 && w > 6.5 ? KIND.MODERN - 1 : 0;
@@ -585,7 +608,10 @@ function buildInfill(data, group, off = null) {
         const ov = era === 2 ? 2.4 : era === 1 ? 1.8 : 0.9; // deep eaves on the timber houses and the colonial villas
         p.set(x, gy + h + 0.02, z); s.set(rw + ov, rh, rd + ov);
         hips.push([mk(), pt.roofCol]);
-      } else if (rand(i, 38 + salt) < 0.6) {
+      } else {
+        if (rc >= 3) { p.set(x, gy + h + 0.01, z); s.set(w * 0.97, 0.1, d * 0.97); extras.push([mk(), pt.roofCol]); } // the tray's own colour
+      }
+      if (flatRoof && rand(i, 38 + salt) < 0.6) {
         const sc = 0.85 + rand(i, 41) * 0.3;
         p.set(x + (rand(i, 39) - 0.5) * w * 0.3, gy + h, z + (rand(i, 40) - 0.5) * d * 0.3); s.set(sc, sc, sc);
         tanks.push([mk(), W]);
@@ -738,13 +764,16 @@ export function populate(world, data) {
   const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
   // a tree: its trunk and the reach of its lower branches
   const treeOff = (x, z, r) => { if (cover.hitTall(x, z)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
-  // a house: its plan sampled 3 x 3
+  // a house: its plan sampled every metre (the middle of each metre strip, and both edges), so a model's step or
+  // terrace edge that reaches a corner of it is caught, not just one that reaches a third of the way in
+  const along = (w) => { const out = [-w / 2]; for (let t = -w / 2 + 0.5; t < w / 2; t += 1) out.push(t); out.push(w / 2); return out; };
   const houseOff = (x, z, w, d, ang) => {
-    const ux = Math.cos(ang), uz = Math.sin(ang);
-    for (const u of [-0.5, 0, 0.5]) for (const v of [-0.5, 0, 0.5]) if (cover.hit(x + ux * u * w - uz * v * d, z + uz * u * w + ux * v * d)) return true;
+    const ux = Math.cos(ang), uz = Math.sin(ang), vs = along(d);
+    for (const u of along(w)) for (const v of vs) if (cover.hit(x + ux * u - uz * v, z + uz * u + ux * v)) return true;
     return false;
   };
   world.cover = cover;
+  world.houseOff = houseOff; // the check (scripts/check-overlap.mjs) asks this, so it mirrors populate exactly
   // a mapped building: gone when a model covers its middle and most of its outline (the pavilion in front of cung An
   // Định is mapped as a building and modelled with the palace)
   const buildingOff = (ring, c) => {

@@ -1,4 +1,4 @@
-import { LAND_Y, ROAD_MAX } from '../config.js';
+import { LAND_Y, ROAD_MAX, ROAD_W } from '../config.js';
 import { rise, waterY } from './terrain.js';
 import { inRing, pathLength, unflat } from './buf.js';
 
@@ -23,7 +23,9 @@ const NAMED = {
   'Cầu Ngoại Kim Thủy': { rise: 1.4, arches: 1 },
   // one 8.4 m vault in a 71.7 m masonry dam, 8.05 m high; the deck crowns over the vault (landmarks/places/thuyquan.js)
   'Đông Thành Thủy Quan': { rise: 4.3, ramp: 0.45 },
-  'Cầu Gia Hội': { rise: 1.1 },
+  // a humped girder bridge over sông Đông Ba that lands at grade on both banks (landmarks/places/giahoi.js has the
+  // sources and why 2 m): the crown stands over the water, the mapped ways run on at street level past the abutments
+  'Cầu Gia Hội': { rise: 2.0, water: true },
   'Cầu Nhà Đồ': { rise: 1.0 },
   'Cầu Cửa Ngăn': { rise: 1.0 },
   'Cầu Cửa Thượng Tứ': { rise: 1.0 },
@@ -34,6 +36,11 @@ const NAMED = {
   'Cầu Nguyễn Hoàng': { rise: 0 },
 };
 const RUN_FLAT = 150; // a bridge run longer than this keeps its level deck
+// the street surface over the flat floor (geo/city.js lays carriageways at LAND_Y + 0.05 + 0.01) and the deck's
+// default top at the banks (BRIDGE_TOP in landmarks/life.js): a deck that lands at grade comes down by the difference
+export const STREET = 0.06;
+const DECK = 0.42;
+export const ABUT = 1.8; // a `water` bridge's abutment: the deck lands this far past the water's edge
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 // 0 at both banks, 1 at mid-span; level where it meets the road, round at the crown
@@ -68,6 +75,7 @@ export function bridgeProfiles(data) {
     runLen.push(total); runN.push(pieces);
   });
   const bridges = data.bridges || [];
+  const todo = [], water = new Map(); // a `water` bridge's ways, by name: their structure ends are made to agree
   list.forEach((b, i) => {
     const a = b.pts[0], e = b.pts[b.pts.length - 1], m = [(a[0] + e[0]) / 2, (a[1] + e[1]) / 2];
     let named = null;
@@ -79,13 +87,115 @@ export function bridgeProfiles(data) {
     // footbridges and lanes over canals hump noticeably; road bridges over the moat and the canals get a camber
     else if (b.c >= 4) r = clamp(b.len / 14, 0.5, 1.5);
     else r = clamp(b.len * 0.02, 0.4, 1.1);
-    map.set(b.flat, Object.assign(makeProfile(b.pts, b.len, b.c, r, arches, ramp), { name: named }));
+    const t = { b, named, r, arches, ramp, span: null };
+    todo.push(t);
+    if (named && NAMED[named].water) { if (!water.has(named)) water.set(named, []); water.get(named).push(t); }
   });
+  for (const ways of water.values()) waterSpans(data, ways);
+  for (const { b, named, r, arches, ramp, span } of todo) map.set(b.flat, Object.assign(makeProfile(b.pts, b.len, b.c, r, arches, ramp, span), { name: named }));
   cache = { data, map };
   return map;
 }
 
-function makeProfile(pts, len, c, riseM, arches, climb = 0) {
+// data.land is the dry ground (rings with holes, even-odd, in decimetres); the canals and rivers lie outside it
+export function onLand(data, x, z) {
+  let c = false;
+  for (const poly of data.land || []) for (const r of poly) if (inRingFlat(x * 10, z * 10, r)) c = !c;
+  return c;
+}
+function inRingFlat(x, z, ring) {
+  let c = false;
+  for (let i = 0, j = ring.length - 2; i < ring.length; j = i, i += 2) {
+    const xi = ring[i], zi = ring[i + 1], xj = ring[j], zj = ring[j + 1];
+    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c;
+  }
+  return c;
+}
+// Where a `water` bridge is structure: over the water and its abutments. OSM bridge ways often run on past the banks
+// (Gia Hội's west ends overshoot the Huỳnh Thúc Kháng junction by ~20 m) and end staggered (its two carriageways' east
+// ends are 4 m apart): the structure is only the stretch over the water, ABUT past each edge, with both ends square
+// across the bridge (as the mapped outline is) and inside every way, so that each way runs on as street from the
+// same line. Sets each way's span: [s0, s1] along it.
+function waterSpans(data, ways) {
+  // the bridge's axis: the first way's direction; u along it
+  const p0 = ways[0].b.pts[0], p1 = ways[0].b.pts[ways[0].b.pts.length - 1], L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) || 1;
+  const t = [(p1[0] - p0[0]) / L, (p1[1] - p0[1]) / L], U = (x, z) => (x - p0[0]) * t[0] + (z - p0[1]) * t[1];
+  let E = -Infinity, W = Infinity;
+  for (const w of ways) {
+    const { pts, len } = w.b;
+    let first = null, last = null;
+    w.u = [];
+    for (let s = 0; s <= len + 1e-6; s += 0.25) {
+      const { x, z } = at(pts, s), u = U(x, z);
+      w.u.push([s, u]);
+      if (rise(x, z) > 0.05 || onLand(data, x, z)) continue;
+      if (first === null || u < first) first = u;
+      if (last === null || u > last) last = u;
+    }
+    const ua = Math.min(...w.u.map((q) => q[1])), ub = Math.max(...w.u.map((q) => q[1]));
+    if (first === null || last - first < 4) return; // not over water after all: a plain profile
+    E = Math.max(E, ua, first - ABUT);
+    W = Math.min(W, ub, last + ABUT);
+  }
+  if (!(W - E > 4)) return;
+  // a street crossing at grade by the bank (Gia Hội's west end lands on Huỳnh Thúc Kháng, which runs along the quay
+  // about a metre back from the water) is street, not abutment: the deck and its raised footways stop at its kerb
+  // instead of standing on its carriageway. Streets that start where a bridge way ends are its approaches and meet
+  // the deck edge to edge, so they are left out.
+  const cross = crossingStreets(data, ways), mid = (E + W) / 2;
+  for (const w of ways) {
+    const { pts } = w.b, half = ROAD_W[w.b.c] / 2 + FOOTWAY;
+    for (const [s, u] of w.u) {
+      const { x, z } = at(pts, s), a = at(pts, Math.max(0, s - 0.5)), b = at(pts, s + 0.5);
+      const l = Math.hypot(b.x - a.x, b.z - a.z) || 1, nx = -(b.z - a.z) / l, nz = (b.x - a.x) / l;
+      if (![0, -half, half].some((o) => cross(x + nx * o, z + nz * o))) continue;
+      if (u > mid) W = Math.min(W, u - 0.25);
+      else E = Math.max(E, u + 0.25);
+    }
+  }
+  if (!(W - E > 4)) return;
+  for (const w of ways) {
+    const sAt = (u0) => { let best = w.u[0]; for (const q of w.u) if (Math.abs(q[1] - u0) < Math.abs(best[1] - u0)) best = q; return best[0]; };
+    const a = sAt(E), b = sAt(W), len = w.b.len, snap = (v) => (v < 0.3 ? 0 : v > len - 0.3 ? len : v);
+    w.span = [snap(Math.min(a, b)), snap(Math.max(a, b))];
+    delete w.u;
+  }
+}
+const FOOTWAY = 2.1; // a road bridge's footway and parapet beyond its carriageway, each side
+const CROSS_PAD = 0.3;
+// (x, z) on a street (class 0-3, not a bridge) near the bridge that is not one of its approaches
+function crossingStreets(data, ways) {
+  const ends = ways.flatMap((w) => [w.b.pts[0], w.b.pts[w.b.pts.length - 1]]);
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const w of ways) for (const p of w.b.pts) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+  const M = 30, segs = [];
+  for (const r of data.roads || []) {
+    if (!Array.isArray(r) || r[1] || !Array.isArray(r[2]) || r[2].length < 4 || (r[0] | 0) > 3) continue;
+    const f = r[2], n = f.length;
+    const touches = [[f[0] / 10, f[1] / 10], [f[n - 2] / 10, f[n - 1] / 10]].some((p) => ends.some((e) => Math.hypot(p[0] - e[0], p[1] - e[1]) < 1.5));
+    if (touches) continue;
+    for (let i = 0; i + 3 < n; i += 2) {
+      const ax = f[i] / 10, az = f[i + 1] / 10, bx = f[i + 2] / 10, bz = f[i + 3] / 10;
+      if (Math.max(ax, bx) < x0 - M || Math.min(ax, bx) > x1 + M || Math.max(az, bz) < z0 - M || Math.min(az, bz) > z1 + M) continue;
+      segs.push([ax, az, bx, bz, ROAD_W[r[0] | 0] / 2 + CROSS_PAD]);
+    }
+  }
+  return (x, z) => segs.some(([ax, az, bx, bz, hw]) => {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    const t = l2 ? clamp(((x - ax) * dx + (z - az) * dz) / l2, 0, 1) : 0;
+    return Math.hypot(ax + dx * t - x, az + dz * t - z) < hw;
+  });
+}
+function at(pts, s) {
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (s <= l || i + 2 === pts.length) { const t = l ? clamp(s / l, 0, 1) : 0; return { x: a[0] + (b[0] - a[0]) * t, z: a[1] + (b[1] - a[1]) * t }; }
+    s -= l;
+  }
+  return { x: pts[0][0], z: pts[0][1] };
+}
+
+function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null) {
   // the bank-to-bank deck as it was: level at the bank, or climbing between banks of different height, or at the
   // level of a lake in the hills
   const p0 = pts[0], pn = pts[pts.length - 1], mp = pts[pts.length >> 1];
@@ -97,9 +207,13 @@ function makeProfile(pts, len, c, riseM, arches, climb = 0) {
   const base = ramp ? (s) => LAND_Y + e0 + 0.42 + ((e1 - e0) * s) / (len || 1) : () => lvl;
   // climb: reach most of the rise within that fraction of the length at each end, then a low crown (a long bridge)
   const ss = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
-  const bump = climb ? (s) => { const t = s / (len || 1); return riseM * ss(t / climb) * ss((1 - t) / climb) * (0.82 + 0.18 * hump(t)); } : (s) => riseM * hump(s / (len || 1));
+  // span: the deck is structure only over [a, b] (the water and its abutments), where it humps by riseM over the
+  // street from street level at each abutment; outside it the way is street, flush with the roads it joins
+  const G = STREET - DECK;
+  const bump = span ? (s) => (s <= span[0] || s >= span[1] ? G : G + riseM * hump((s - span[0]) / (span[1] - span[0])))
+    : climb ? (s) => { const t = s / (len || 1); return riseM * ss(t / climb) * ss((1 - t) / climb) * (0.82 + 0.18 * hump(t)); } : (s) => riseM * hump(s / (len || 1));
   const thick = c <= 2 ? 1.3 : 0.7;
-  const prof = { len, c, rise: riseM, arches, top, lift, thick, base, bump, y: (s) => base(s) + bump(s), breaks: [] };
+  const prof = { len, c, rise: riseM, arches, top, lift, thick, base, bump, y: (s) => base(s) + bump(s), breaks: span ? [...span] : [], span };
   if (arches) {
     // vaults springing just above the water, between solid abutments; each as high as the deck above lets it be
     const spring = waterY(mp[0], mp[1]) + 0.15;
@@ -138,4 +252,21 @@ export function resample(pts, step, breaks = []) {
     out.push(b); ss.push(acc);
   }
   return { pts: out, s: ss };
+}
+
+// The piece of a path between arc lengths s0 and s1.
+export function subPath(pts, s0, s1) {
+  const out = [];
+  let acc = 0;
+  const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (acc + l >= s0 && acc <= s1 && l > 1e-9) {
+      if (!out.length) out.push(lerp(a, b, clamp((s0 - acc) / l, 0, 1)));
+      if (acc + l <= s1) out.push(b);
+      else { out.push(lerp(a, b, clamp((s1 - acc) / l, 0, 1))); break; }
+    }
+    acc += l;
+  }
+  return out;
 }

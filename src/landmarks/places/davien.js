@@ -1,6 +1,7 @@
 import { KIND, hex, shade, mix, rand, inRing, unflat } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
+import { buildingsNear } from '../enclosure.js';
 
 // ---- Cồn Dã Viên, the islet in the Hương River south-west of the Citadel (docs/places/davien.md) ----
 //
@@ -89,8 +90,11 @@ export function build({ data, S }) {
   (S.paved = S.paved || []).push([n0, S.n]);
 
   // ---------- planting of the 2021 renovation ----------
+  // the island's mapped buildings (kiosks, the café): no bush grows into one
+  const blds = buildingsNear(data, TIP, 120);
+  const onBld = (x, z, r) => blds.some((b) => inRing(x, z, b) || [0, 1, 2, 3].some((k) => inRing(x + Math.cos(k * 1.571) * r, z + Math.sin(k * 1.571) * r, b)));
   const shrub = (x, z, r, h, col, i) => {
-    if (!onLand(x, z)) return;
+    if (!onLand(x, z) || onBld(x, z, r + 0.5)) return;
     const y = gY(x, z);
     S.cyl(x, z, y, y + h * 0.45, r * 0.7, r, 6, shade(LEAF, 0.85 + 0.3 * rand(i, 3)), { cap: false, rot: rand(i, 4) });
     S.cyl(x, z, y + h * 0.45, y + h, r, r * 0.35, 6, col, { rot: rand(i, 5) });
