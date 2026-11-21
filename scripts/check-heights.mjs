@@ -27,6 +27,11 @@ const { initTerrain, groundY, rise } = await import(src('geo/terrain.js'));
 const { initDistricts } = await import(src('geo/districts.js'));
 const { buildWalls } = await import(src('geo/city.js'));
 const { Buf } = await import(src('geo/buf.js'));
+// the per-place replicas (src/landmarks/places/*.js): import them before any builder, so places/index.js sees them
+globalThis.__hueReplicas = {};
+for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.js') && f !== 'index.js'))
+  globalThis.__hueReplicas[f] = await import(src('landmarks/places/' + f));
+const { buildPlaces } = await import(src('landmarks/places/index.js'));
 const L = (m) => import(src('landmarks/' + m + '.js'));
 const [truongtien, citadel, more, civic, memorial, boardwalk, floating, south, tombs] = await Promise.all(
   ['truongtien', 'citadel', 'more', 'civic', 'memorial', 'boardwalk', 'floating', 'south', 'tombs'].map(L));
@@ -52,6 +57,7 @@ step('boardwalk', () => boardwalk.buildBoardwalk(data, S, dyn));
 step('floating', () => floating.buildFloatingRestaurants(data, S, dyn));
 step('south', () => south.buildSouth(data, S));
 step('tombs', () => tombs.buildTombs(data, S));
+step('replicas', () => buildPlaces(data, S, dyn));
 console.warn = warn0;
 
 // every vertex of the landmark models (the merged mesh, minus the Citadel rampart, plus the separate meshes)

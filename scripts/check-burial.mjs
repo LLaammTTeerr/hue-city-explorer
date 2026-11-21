@@ -29,6 +29,12 @@ const { initTerrain, groundY } = await import(src('geo/terrain.js'));
 const { initDistricts } = await import(src('geo/districts.js'));
 initTerrain(data);
 initDistricts(data);
+// the per-place replicas (src/landmarks/places/*.js): plain node has no import.meta.glob, so hand them to
+// places/index.js before any builder asks for them, as check-heights does
+globalThis.__hueReplicas = {};
+for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.js') && f !== 'index.js'))
+  globalThis.__hueReplicas[f] = await import(src('landmarks/places/' + f));
+const { buildPlaces } = await import(src('landmarks/places/index.js'));
 const city = await import(src('geo/city.js'));
 const L = (m) => import(src('landmarks/' + m + '.js'));
 const [truongtien, citadel, more, civic, memorial, boardwalk, floating, south, tombs, boats, life] = await Promise.all(
@@ -56,6 +62,7 @@ step('boardwalk', () => boardwalk.buildBoardwalk(data, S, dyn));
 step('floating', () => floating.buildFloatingRestaurants(data, S, dyn));
 step('south', () => south.buildSouth(data, S));
 step('tombs', () => tombs.buildTombs(data, S));
+step('replicas', () => buildPlaces(data, S, dyn));
 step('populate', () => city.populate(world, data));
 step('street', () => life.buildStreetLife(data, dyn));
 
@@ -105,7 +112,7 @@ for (const s of sources) {
 }
 
 // ---- report ----
-const placeName = (x, z) => { let best = '', bd = Infinity; for (const p of data.places || []) { const d = Math.hypot(p.x - x, p.z - z); if (d < bd) { bd = d; best = p.n; } } return best ? ` near ${best} (${bd.toFixed(0)} m)` : ''; };
+const placeName = (x, z) => { let best = '', bd = Infinity; for (const p of data.places || []) { const d = Math.hypot(p.x / 10 - x, p.z / 10 - z); if (d < bd) { bd = d; best = p.n; } } return best ? ` near ${best} (${bd.toFixed(0)} m)` : ''; };
 console.warn = warn0;
 let bad = 0;
 for (const [name, m] of hits) {

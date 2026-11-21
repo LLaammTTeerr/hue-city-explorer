@@ -12,7 +12,8 @@
     "check:heights": "node scripts/check-heights.mjs",
     "check:burial": "node scripts/check-burial.mjs",
     "check:data": "node scripts/check-data.mjs",
-    "check": "npm run check:data && npm run check:heights && npm run check:burial"
+    "check": "npm run check:data && npm run check:heights && npm run check:burial",
+    "shot": "node scripts/shot.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",

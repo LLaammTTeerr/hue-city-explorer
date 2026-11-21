@@ -5,6 +5,7 @@ import { LAND_Y, WALL_H, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints, shared } from '../geo/materials.js';
 import { landTest } from './boats.js';
+import { replaced } from './places/index.js';
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const dark = hex('#2b2422');
@@ -382,6 +383,7 @@ function gate(S, g, centre, eaves = null, coverAt = null) {
     }
     pavilion(S, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, top + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270'), eaves, colonnade: true });
   } else {
+    if (replaced('chuongduc') && String(g.n || '').normalize('NFC') === 'Chương Đức'.normalize('NFC')) return { cx, cz, px, pz, plen }; // drawn by places/chuongduc.js
     // Imperial City gates: lower, brightly tiled, three bays. The same form serves the gates of chùa Thiên Mụ, which
     // stand up on Hà Khê hill, so they take the height of their own ground.
     const G = LAND_Y + rise(cx, cz);
@@ -490,7 +492,10 @@ function citadel(data, S, group) {
   });
 
   for (const g of data.gates || []) {
-    const lit = LIT_GATES.includes(String(g.n || '').normalize('NFC'));
+    if (String(g.n || '').normalize('NFC') === 'Cửa Hiển Nhơn'.normalize('NFC') && replaced('hiennhon')) continue; // drawn by places/hiennhon.js
+    if (replaced('mangca') && String(g.n || '').normalize('NFC') === 'Trấn Bình Môn'.normalize('NFC')) continue; // drawn by places/mangca.js
+    if (replaced('gate:' + String(g.n || ''))) continue; // any 'gate:<name>' replica (places/gate-cua-*.js) draws that gate itself
+    const lit =LIT_GATES.includes(String(g.n || '').normalize('NFC'));
     const eaves = lit ? [] : null;
     const gi = gate(S, g, g.k === 'citadel' ? cityCentre : impCentre, eaves, coverAt);
     if (!lit) continue;
@@ -501,7 +506,7 @@ function citadel(data, S, group) {
 
   // ---- Kỳ Đài: three brick terraces on the Nam Chánh bastion, and the flag ----
   let flag = null;
-  if (data.special?.kydai) {
+  if (data.special?.kydai && !replaced('kydai')) { // drawn by places/kydai.js
     const ring = unflat(data.special?.kydai.ring);
     const c = ringCentre(ring);
     const scale = (k) => ring.map((p) => [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * k]);
@@ -532,7 +537,7 @@ function citadel(data, S, group) {
   }
 
   // ---- Ngọ Môn: U-shaped masonry base from OSM, Lầu Ngũ Phụng on top ----
-  if (data.special?.ngomon) {
+  if (data.special?.ngomon && !replaced('ngomon')) {
     const ring = unflat(data.special?.ngomon.ring);
     const o = obb(ring);
     const baseTop = LAND_Y + 5.4;
@@ -580,7 +585,7 @@ function citadel(data, S, group) {
   // behind it taller under a double-eaved roof (a skirt of tiles all round, the upper hip roof above), both in yellow
   // glazed tiles; red lacquered columns round the verandah. Before it, toward Ngọ Môn, the Esplanade of Great
   // Salutations (sân Đại Triều Nghi) falls in two stone terraces with a raised imperial way up the middle.
-  if (data.special?.thaihoa) {
+  if (data.special?.thaihoa && !replaced('thaihoa')) {
     const o = obb(unflat(data.special?.thaihoa.ring));
     const ux = Math.cos(o.a), uz = Math.sin(o.a), vx = -uz, vz = ux;
     const tgt = data.special.ngomon ? obb(unflat(data.special.ngomon.ring)).c : data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : null;
@@ -626,6 +631,7 @@ function citadel(data, S, group) {
   // ---- riverside pavilions in front of the Citadel ----
   for (const key of ['phuvanlau', 'nghenhluong']) {
     if (!data.special?.[key]) continue;
+    if (replaced(key)) continue;
     const o = obb(unflat(data.special?.[key].ring));
     if (key === 'phuvanlau') {
       const eaves = [];
@@ -698,6 +704,7 @@ function citadel(data, S, group) {
 // octagon. In front, toward the river: the four entrance pillars and the steps down the slope. Around it: the
 // small stele and bell pavilions and the triple gate, each on its own OSM footprint.
 export function buildThienMu(data, S, group = null) {
+  if (replaced('thienmu')) return { glows: [] }; // drawn by places/thienmu.js
   const glows = [];
   if (!data.special || !data.special.phuocduyen) return { glows };
   const LT = group ? new Buf(800) : null; // rings of light under the seven eaves (today only)
@@ -919,6 +926,7 @@ function facePlane(group, mat, w, h, at, n, order = 0) {
 }
 
 export function buildMarket(data, S, group = null) {
+  if (replaced('dongba')) return;
   if (!data.special?.markethall) return;
   const o = obb(unflat(data.special.markethall.ring));
   // which way is the street front: toward the nearest edge of the river (Trần Hưng Đạo runs along the bank)

@@ -2,6 +2,7 @@ import { KIND, hex, shade } from '../geo/buf.js';
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lamp, flushLamps } from './enclosure.js';
+import { replaced } from './places/index.js';
 
 // ---- Bia Quốc Học: Đài tưởng niệm Chiến sĩ trận vong (1920), on the south bank opposite Trường Quốc Học ----
 //
@@ -38,6 +39,7 @@ import { lamp, flushLamps } from './enclosure.js';
 const ROW = [-675.1, 879.2]; // OSM memorial node, metres (x east, z south), used if data.special.biaquochoc is missing
 
 export function buildBiaQuocHoc(data, S) {
+  if (replaced('biaquochoc')) return; // drawn by places/biaquochoc.js
   const n0 = S.n; // on a throw, roll the shared buffer back so no half-built screen is left behind
   try {
     build(data, S);

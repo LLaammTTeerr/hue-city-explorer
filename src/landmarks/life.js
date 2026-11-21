@@ -5,6 +5,7 @@ import { rise, pondY } from '../geo/terrain.js';
 import { LAND_Y, quality, ROAD_W, ROAD_MAX } from '../config.js';
 import { bridgeProfiles, resample } from '../geo/bridges.js';
 import { landTest } from './boats.js';
+import { TT_LENGTH } from './truongtien.js';
 
 // Small living things that make the model feel inhabited. All illustrative.
 
@@ -259,7 +260,7 @@ function truongTienFrame(data) {
   const dl = Math.hypot(b[0] - a[0], b[1] - a[1]);
   if (!(dl > 1)) return null;
   const d = [(b[0] - a[0]) / dl, (b[1] - a[1]) / dl], n = [-d[1], d[0]];
-  const c = [tt.box.c[0] / 10, tt.box.c[1] / 10], L = tt.box.w / 10, W = tt.box.d / 10;
+  const c = [tt.box.c[0] / 10, tt.box.c[1] / 10], L = TT_LENGTH, W = tt.box.d / 10;
   const deckTop = 6.4, trussX = W / 2 - 2.35;
   const at = (s, off) => [c[0] + d[0] * s + n[0] * off, c[1] + d[1] * s + n[1] * off];
   // a path along the bridge at lateral offset `off`, `dy` above the deck, down the ramps to `reach` metres beyond the deck

@@ -5,12 +5,14 @@ import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { night, lamp, strips, flushLamps, fence, roadsNear, leaves, FENCE } from './enclosure.js';
+import { replaced } from './places/index.js';
 
 // Cầu Nguyễn Hoàng (opened 2025). Axis, length and position come from the OSM bridge outline; the form
 // follows published descriptions: five concrete beam spans, a deck about 43 m wide, a yellow steel arch
 // frame over 20 m tall at mid-bridge, and parasol-shaped lamps ("lọng") stepping up toward it from both ends.
 export function buildNguyenHoang(data, S, group) {
   group.add(night); // the night lighting of the landmarks in civic.js, more.js and memorial.js (enclosure.js)
+  if (replaced('nguyenhoang')) return []; // modelled in places/nguyenhoang.js
   const nh = data.nguyenhoang;
   if (!nh) return [];
   const c = [nh.c[0] / 10, nh.c[1] / 10], L = nh.w / 10, W = Math.min(nh.d / 10, 43), ang = nh.a / 1000;
@@ -119,6 +121,7 @@ const QH_RING = [-5010, 11971, -4958, 11994, -4869, 11952, -3836, 11001, -3830, 
 const QH_GATE_HALF = 9.6; // half the gate's width along the street, where the fence stops
 
 export function buildQuocHocGate(data, S) {
+  if (replaced('quochoc')) return; // modelled in places/quochoc.js
   const g = data.quocHocGate;
   try {
     const flat = data.special?.quochoc?.ring?.length >= 6 ? data.special.quochoc.ring : QH_RING;

@@ -11,8 +11,8 @@
     { "name": "Lầu Tứ Phương Vô Sự (above street)", "at": { "special": "tuphuong" }, "h": 15, "confidence": "estimated" },
     { "name": "Cửa Quảng Đức (with vọng lâu)", "at": { "gate": "Cửa Quảng Đức" }, "h": [ 16, 17 ], "confidence": "sourced", "source": "https://nghiencuulichsu.com/2015/09/26/cong-cuoc-xay-dung-kinh-thanh-hue/ (\"cao tổng cộng 16 m\"); huetourism.gov.vn, Cổng cửa trong kiến trúc cung đình Huế, after Phan Thuận An (\"vượt lên mặt thành hơn 9m\", \"đến hơn 17m\")" },
     { "name": "Cửa Thượng Tứ (with vọng lâu)", "at": { "gate": "Cửa Thượng Tứ" }, "h": [ 16, 17 ], "confidence": "sourced", "source": "https://nghiencuulichsu.com/2015/09/26/cong-cuoc-xay-dung-kinh-thanh-hue/ (\"cao tổng cộng 16 m\"); huetourism.gov.vn, Cổng cửa trong kiến trúc cung đình Huế, after Phan Thuận An (\"vượt lên mặt thành hơn 9m\", \"đến hơn 17m\")" },
-    { "name": "Chợ Đông Ba, clock tower", "at": { "special": "markethall" }, "h": [ 14, 16 ], "confidence": "estimated", "source": "docs/reference/heights.md (estimated; the three tiers are sourced, vi.wikipedia Chợ Đông Ba)" },
-    { "name": "Nhà Thờ Phủ Cam", "at": { "special": "phucam" }, "h": 50, "confidence": "sourced" },
+    { "name": "Chợ Đông Ba, main hall", "at": { "special": "markethall" }, "h": [ 11, 14 ], "confidence": "estimated", "source": "GISHue drone survey (data/raw/heights/gishue, 90th percentile 11 m over the hall) and Google Open Buildings 2.5D 2023 (11-15 m); three storeys, https://vnexpress.net/kham-pha-cho-dong-ba-4127933.html (\"Chợ gồm ba lầu\"); no clock tower today (demolished 1967; 2024 entrance photo, https://commons.wikimedia.org/wiki/File:Dong_Ba_Market_(Hue)_-_Ch%E1%BB%A3_%C4%90%C3%B4ng_Ba_Hu%E1%BA%BF_(July_2024)_-_img_02.jpg). See docs/places/dongba.md" },
+    { "name": "Nhà Thờ Phủ Cam", "at": { "special": "phucam" }, "h": 43.5, "confidence": "sourced", "source": "https://vietnamnet.vn/en/the-remarkable-architecture-of-hue-s-nearly-40-year-cathedral-project-2555264.html (two bell towers, each 43.5 m); Huế provincial tourism page (hai tháp chuông cao 43,5m). The earlier 50 m is VinWonders' estimate." },
     { "name": "Nhà Thờ Dòng Chúa Cứu Thế", "at": { "special": "dcct" }, "h": 53, "confidence": "sourced" },
     { "name": "Đan viện Thiên An, tower", "at": { "site": "thienan", "name": "Thien An Monastery" }, "h": [ 20, 25 ], "confidence": "estimated" },
     { "name": "Chùa Diệu Đế, Đại Giác hall", "at": { "special": "dieude" }, "h": [ 9, 10 ], "confidence": "estimated" },
@@ -27,7 +27,7 @@
     { "name": "Tự Đức, Xung Khiêm tạ", "at": { "site": "tuduc", "name": "Xung Khiêm Tạ" }, "h": [ 5, 6 ], "confidence": "estimated" },
     { "name": "Khải Định, cung Thiên Định", "at": { "site": "khaidinh", "name": "Cung Thiên Định" }, "h": [ 11, 12 ], "confidence": "estimated", "base": "model" },
     { "name": "Thiệu Trị, điện Biểu Đức", "at": { "site": "thieutri", "rel": [ -57, 42 ], "tol": 10 }, "h": 9, "confidence": "estimated" },
-    { "name": "Thiệu Trị, Minh Lâu", "at": { "site": "thieutri", "rel": [ 28, -85 ], "tol": 10 }, "h": 12, "confidence": "estimated" },
+    { "name": "Thiệu Trị, Đức Hinh lâu (ruin, foundation only)", "at": { "site": "thieutri", "rel": [ 28, -85 ], "tol": 10 }, "h": 3.2, "confidence": "estimated", "source": "https://vi.wikipedia.org/wiki/L%C4%83ng_Thi%E1%BB%87u_Tr%E1%BB%8B (Đức Hinh lâu: only the 18.5 x 18.5 m foundation and the two trụ biểu remain); the old 12 m was a standing Minh Lâu that no longer exists. Height = low hill terrace + foundation + stone column bases, estimated. See docs/places/thieutri.md" },
     { "name": "Đồng Khánh, điện Ngưng Hy", "at": { "site": "dongkhanh", "rel": [ -11, -93 ], "tol": 12 }, "h": [ 8, 9 ], "confidence": "estimated" }
   ]
 }

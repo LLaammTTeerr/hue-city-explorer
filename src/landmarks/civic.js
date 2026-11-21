@@ -2,6 +2,7 @@ import { KIND, Buf, hex, shade, unflat, obb, ringCentre, signedArea, inRing } fr
 import { LAND_Y, PAL } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
+import { replaced } from './places/index.js';
 import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
 
 // Named places of the modern and colonial city, each built on its own OSM footprint: position, size and
@@ -66,6 +67,7 @@ function yardFence(S, data, F, box, core, st, { gateHalf = 3.5, lampCol = [1, 0.
 
 // ---- Ga Huế (1908): the long pink colonial station, a tall middle pavilion between two wings ----
 function station(S, data) {
+  if (replaced('gahue')) return; // drawn by places/gahue.js
   const sp = data.special.gahue;
   if (!sp) return;
   const o = obb(unflat(sp.ring));
@@ -145,7 +147,7 @@ function station(S, data) {
 // ---- Nhà thờ Phủ Cam (Ngô Viết Thụ, begun 1963): a concrete cross plan, ribs rising up the nave, twin towers ----
 function phuCam(S, data) {
   const sp = data.special.phucam;
-  if (!sp) return;
+  if (!sp || replaced('phucam')) return; // drawn by places/phucam.js
   const ring = unflat(sp.ring), o = obb(ring), pc = polyCentroid(ring);
   let f = [Math.cos(o.a), Math.sin(o.a)];
   if ((pc[0] - o.c[0]) * f[0] + (pc[1] - o.c[1]) * f[1] > 0) f = [-f[0], -f[1]]; // transept and apse weigh toward the back
@@ -219,6 +221,7 @@ function phuCam(S, data) {
 
 // ---- Nhà thờ Dòng Chúa Cứu Thế (Nguyễn Mỹ Lộc, 1959–62): grey-blue stone, tiled eastern roofs, one tall spire ----
 function redemptorist(S, data) {
+  if (replaced('dcct')) return; // drawn by places/dcct.js
   const sp = data.special.dcct;
   if (!sp) return;
   const ring = unflat(sp.ring), o = obb(ring), pc = polyCentroid(ring);
@@ -310,6 +313,7 @@ function redemptorist(S, data) {
 
 // ---- Cung An Định: Khải Tường Lâu (1917–18), its octagonal Trung Lập pavilion and the riverside gate ----
 function anDinh(S, data) {
+  if (replaced('andinh')) return; // drawn by places/andinh.js
   const sp = data.special.andinh;
   if (!sp) return;
   const o = obb(unflat(sp.ring)), area = data.special.andinhArea ? unflat(data.special.andinhArea.ring) : null;
@@ -403,6 +407,7 @@ function anDinh(S, data) {
 
 // ---- Chùa Diệu Đế: the main hall, and on the canal side the triple gate under its tower, between bell and drum towers ----
 function dieuDe(S, data) {
+  if (replaced('dieude')) return; // drawn by places/dieude.js
   const yellow = hex('#e3c377'), tile = hex('#a9523a'), ridge = hex('#e8dcc0'), lacq = hex('#a33a2a');
   const sp = data.special.dieude;
   let hall = null;
@@ -470,18 +475,19 @@ const TM_WALLS = [
   [false, [-13352, 1999, -13251, 1923, -12835, 1615, -12728, 1536]],
   [true, [-13395, 1218, -12938, 881, -13064, 712, -13372, 298, -13613, 474, -14373, 1032, -13934, 1622, -13499, 1295]],
 ];
-function templeWalls(S, data, c) {
+// (its own entry in buildCivic, so it does not hang on Hiển Lâm Các; the Thế Miếu wall and the dividing line are
+// drawn by places/themieu.js once that is built)
+function templeWalls(S, data, c = [-1300, 180]) {
   const list = Array.isArray(data.special.themieuWalls) ? data.special.themieuWalls.map((w) => [w.closed !== false, w.ring]) : TM_WALLS;
   const roads = roadsNear(data, c, 220), solid = buildingsNear(data, c, 200);
-  for (const [closed, flat] of list) fence(S, unflat(flat), FENCE.imperial, { closed, roads, solid });
+  list.forEach(([closed, flat], i) => { if (!(i < 2 && replaced('themieu'))) fence(S, unflat(flat), FENCE.imperial, { closed, roads, solid }); });
 }
 
 // ---- Hiển Lâm Các, three storeys of timber, and before it the nine dynastic urns facing Thế Miếu ----
 function hienLam(S, data) {
   const sp = data.special.hienlam;
-  if (!sp) return;
+  if (!sp || replaced('hienlam')) return;
   const o = obb(unflat(sp.ring)), y0 = LAND_Y;
-  templeWalls(S, data, o.c);
   const eave = { fascia: 0.3, fasciaCol: shade(PAL.lacquer, 0.75), hips: true, glazed: true, ridgeCol: hex('#f1d77a') };
   S.base = 0;
   S.kind = KIND.MASONRY;
@@ -516,7 +522,7 @@ function hienLam(S, data) {
 // ---- Vincom Plaza: a glass slab on a shopping podium, the one tower on the south bank ----
 function vincom(S, data) {
   const sp = data.special.vincom;
-  if (!sp) return;
+  if (!sp || replaced('vincom')) return;
   const ring = unflat(sp.ring), o = obb(ring), c = polyCentroid(ring), y0 = ground(c);
   const pod = hex('#dedbd3'), glass = hex('#7d9fb8'), band = hex('#eef1f2');
   S.base = y0 - LAND_Y;
@@ -543,7 +549,7 @@ function vincom(S, data) {
 // ---- Lầu Tứ Phương Vô Sự on the north bastion of the Imperial City ----
 function tuPhuong(S, data) {
   const sp = data.special.tuphuong;
-  if (!sp) return;
+  if (!sp || replaced('tuphuong')) return;
   const o = obb(unflat(sp.ring));
   S.base = 0;
   pavilion(S, o.c[0], o.c[1], o.w * 0.72, o.d * 0.72, o.a, LAND_Y, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof, wall: hex('#ead9b4'), over: 1.2, rh: 2.4, platform: 4.6 });
@@ -551,7 +557,7 @@ function tuPhuong(S, data) {
 
 export function buildCivic(data, S) {
   if (!data.special) return;
-  for (const fn of [station, phuCam, redemptorist, anDinh, dieuDe, hienLam, vincom, tuPhuong]) {
+  for (const fn of [station, phuCam, redemptorist, anDinh, dieuDe, templeWalls, hienLam, vincom, tuPhuong]) {
     const n0 = S.n; // a place that throws is dropped whole (the buffer rolled back) and the rest still load
     try { fn(S, data); } catch (e) { S.n = n0; console.warn('civic:', fn.name, e); }
     S.kind = KIND.PLAIN; S.base = 0;

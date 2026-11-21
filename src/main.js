@@ -32,6 +32,7 @@ import { createUI } from './ui/ui.js';
 import { VIEWS } from './ui/content.js';
 import { rise } from './geo/terrain.js';
 import { buildFloatingRestaurants } from './landmarks/floating.js';
+import { buildPlaces } from './landmarks/places/index.js';
 
 const canvas = document.getElementById('scene');
 // yield to the event loop between build steps (a message task is not throttled in background tabs, unlike rAF and timers)
@@ -89,6 +90,7 @@ async function main() {
   const floating = buildFloatingRestaurants(data, world.structures, dynamic); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
   buildSouth(data, world.structures);
   buildTombs(data, world.structures);
+  const replicas = buildPlaces(data, S, dynamic); // per-place replica models in src/landmarks/places/
   populate(world, data); // buildings, houses and trees, kept off the ground the landmark models cover
   finishStructures(world.structures, world.group);
   const boats = buildBoats(data, dynamic);
@@ -307,6 +309,7 @@ async function main() {
     mood.update(dt, time);
     bridge.update(time, mood.cur.glow, mood.state.rain);
     floating.update(time);
+    replicas.update(time, mood.cur.glow, mood.state.rain);
     citadel.update(time, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
     boats.update(dt, time);
     lanterns.update(dt, time);
