@@ -377,5 +377,10 @@ the parser or a shared builder), then rebuild.
     - Frame rate is unchanged (Thiệu Trị 33 fps before, 35 fps after).
   - The `forest round the tombs` check needs at least 1,000 trees within 300 m of each of the five tombs. ESA WorldCover is credited in the README and the in-app credits.
   - Not fixed: the white tree crowns seen in the preview pane predate this change.
-- Remaining: #5 (south bank remodel), #8 (landmark accuracy, large).
+- #8 landmark accuracy: PR #34 (`claude/issue-8-landmarks`), open and not merged; issue 8 stays open until the user says.
+  - PR #23 had already laid out the Tự Đức replica to match the satellite view. The issue's image is rotated, with west at the top.
+  - Root cause of what remained: the 25 m terrain covered the raised hill lakes (Lưu Khiêm 64% buried, all raised lakes 44.5%).
+  - Fix: `terrain.js` carves each lake on a 5 m sub-grid, and `rise`, `waterY` and the mesh read the carve. Burial is now 0.6%.
+  - The carve left two replicas on ground that had dropped: Thủy Tiên's pavilion and footbridge (now on the water level), and the Minh Mạng stair from the Tân Nguyệt bridge (now a second flight). `npm run check` passes.
+- Remaining: #15, #16, #17, #18, #19, #21, #22 (#5 too, if it is still open).
 - Next: the user picks the next issue.
