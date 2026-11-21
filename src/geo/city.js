@@ -365,7 +365,7 @@ function buildRoads(data, group, structures) {
     if (P.name === 'Đông Thành Thủy Quan' && replaced('thuyquan')) continue; // modelled in landmarks/places/thuyquan.js
     const top = P.top, lift = P.lift, mp = r.pts[r.pts.length >> 1];
     const parapet = r.c <= 4 ? 0.9 : 0.5;
-    if (P.citadel) { citadelBridge(structures, r.pts, w, P, cols[Math.min(r.c, 3)]); continue; } // geo/citadel-bridge.js: masonry vaults, no piers
+    if (P.citadel) { citadelBridge(structures, r.pts, w, P, cols[Math.min(r.c, 3)], r.ends); continue; } // geo/citadel-bridge.js: masonry vaults, no piers
     if (P.span) { // the structure only: the street beyond its abutments was laid with the roads above
       const s0 = P.span[0], R = resample(subPath(r.pts, s0, P.span[1]), Math.min(2, P.len / 16));
       const ends = [s0 < 0.05 ? r.ends?.[0] : null, P.span[1] > P.len - 0.05 ? r.ends?.[1] : null];

@@ -13,7 +13,9 @@ const BRICK = hex('#6c5e53'), BRICK_D = hex('#584c43'), SOFFIT = hex('#433b35');
 const PLASTER = hex('#d6cebb'), PLASTER_D = hex('#bdb4a0');
 const PARAPET_H = 0.75, PARAPET_T = 0.3, COPING = 0.1, RING = 0.42, MEDAL_R = 0.2, MEDAL_STEP = 2.4;
 
-export function citadelBridge(B, pts, width, P, road) {
+// ends: as geo/city.js ribbonPoints (r.ends from geo/joints.js): the street's point just past each end, so the deck's
+// end is cut on the same mitred line as the street that meets it, with no wedge of water between them.
+export function citadelBridge(B, pts, width, P, road, ends = null) {
   const R = resample(pts, 0.5, P.breaks);
   const n = R.pts.length, h = width / 2;
   // left normal at each sample, mitred so the faces stay parallel round a bend
@@ -22,7 +24,23 @@ export function citadelBridge(B, pts, width, P, road) {
     const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1;
     return [-dz / l, dx / l];
   });
-  const at = (i, t, y) => [R.pts[i][0] + N[i][0] * t, y, R.pts[i][1] + N[i][1] * t];
+  // the offset across the deck at each sample: the normal, except at a jointed end, where it runs along the joint
+  // line (the mitre between the deck and the street), lengthened to keep the deck's width
+  const M = N.map((v) => v);
+  for (const [k, i] of [[0, 0], [1, n - 1]]) {
+    const e = ends?.[k];
+    if (!e || e.dir || n < 2) continue;
+    const p = R.pts[i], q = R.pts[k ? i - 1 : 1];
+    const u = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return [dx / l, dz / l]; };
+    const d1 = k ? u(q, p) : u(e, p), d2 = k ? u(p, e) : u(p, q);
+    let tx = d1[0] + d2[0], tz = d1[1] + d2[1];
+    const tl = Math.hypot(tx, tz);
+    if (tl < 1e-6) continue;
+    tx /= tl; tz /= tl;
+    const c = Math.max(0.55, -tz * N[i][0] + tx * N[i][1]);
+    M[i] = [-tz / c, tx / c];
+  }
+  const at = (i, t, y) => [R.pts[i][0] + M[i][0] * t, y, R.pts[i][1] + M[i][1] * t];
   const top = R.s.map((s) => P.y(s));
   const deep = (P.spring ?? LAND_Y - 1.3) - 2.2; // abutments go down into the water (or the ground)
   const bot = R.s.map((s) => (P.bottom ? P.bottom(s) : deep));
