@@ -137,11 +137,21 @@ export function buildTerrainMesh() {
   const pos = [], col = [], idx = [];
   const land = new THREE.Color(PAL.land);
   const greens = [null, PAL.green.park, PAL.green.wood, PAL.green.grass, PAL.green.farm, PAL.green.cemetery, PAL.green.pitch, PAL.green.sacred, PAL.green.paved].map((c) => (c ? new THREE.Color(c) : land));
+  // The mesh stands 3 cm proud of the slab where the ground rises, so it wins the depth test there. A node that does
+  // not rise (the rim of every hill, where a drawn cell meets the plain slab) sinks 3 cm under it instead: the mesh
+  // then dives into the slab along a shallow crease rather than ending in a 3 cm step on the lattice lines, which the
+  // ink's depth edges drew straight through the roads and greens laid over it (they write no depth).
+  const LIFT = 0.03, lift = (k) => (h[k] > 0 ? LIFT : -LIFT);
+  // the same offset across a coarse cell, on its own triangles, so a fine cell's edge nodes stay on its plain neighbour's edge
+  const liftIn = (i, j, fx, fz) => {
+    const k = j * nx + i, l00 = lift(k), l10 = lift(k + 1), l01 = lift(k + nx), l11 = lift(k + nx + 1);
+    return fx > fz ? l00 + (l10 - l00) * fx + (l11 - l10) * fz : l00 + (l11 - l01) * fx + (l01 - l00) * fz;
+  };
   const vert = (i, j) => {
     const k = j * nx + i;
     if (index[k] >= 0) return index[k];
     index[k] = pos.length / 3;
-    pos.push(T.x0 + i * step, LAND_Y + h[k] + 0.03, T.z0 + j * step);
+    pos.push(T.x0 + i * step, LAND_Y + h[k] + lift(k), T.z0 + j * step);
     const c = greens[+cover[k] || 0];
     col.push(c.r, c.g, c.b);
     return index[k];
@@ -149,14 +159,15 @@ export function buildTerrainMesh() {
   // a fine node: a corner of the coarse lattice is the coarse vertex itself (its height is the same), so fine and
   // plain cells share their edges
   const fine = new Map(), FW = (nx - 1) * SUB + 1, fs = step / SUB;
-  const fvert = (fi, fj, y) => {
+  const fvert = (i, j, r, s, y) => {
+    const fi = i * SUB + r, fj = j * SUB + s;
     if (fi % SUB === 0 && fj % SUB === 0 && !carve.has(fj * FW + fi)) return vert(fi / SUB, fj / SUB);
     const key = fj * FW + fi;
     let v = fine.get(key);
     if (v !== undefined) return v;
     v = pos.length / 3;
     fine.set(key, v);
-    pos.push(T.x0 + fi * fs, LAND_Y + y + 0.03, T.z0 + fj * fs);
+    pos.push(T.x0 + fi * fs, LAND_Y + y + liftIn(i, j, r / SUB, s / SUB), T.z0 + fj * fs);
     const c = greens[+cover[Math.round(fj / SUB) * nx + Math.round(fi / SUB)] || 0];
     col.push(c.r, c.g, c.b);
     return v;
@@ -166,7 +177,7 @@ export function buildTerrainMesh() {
     if (h[k] === 0 && h[k + 1] === 0 && h[k + nx] === 0 && h[k + nx + 1] === 0) continue;
     const sub = cells.get(k);
     if (sub) {
-      const v = (r, s) => fvert(i * SUB + r, j * SUB + s, sub[s * (SUB + 1) + r]);
+      const v = (r, s) => fvert(i, j, r, s, sub[s * (SUB + 1) + r]);
       for (let s = 0; s < SUB; s++) for (let r = 0; r < SUB; r++) {
         const a = v(r, s), b = v(r + 1, s), c = v(r + 1, s + 1), d = v(r, s + 1);
         idx.push(a, c, b, a, d, c);
@@ -187,7 +198,7 @@ export function buildTerrainMesh() {
       // normals to zero and the cut face would light as NaN
       const base = pos.length / 3;
       for (let s = 0; s < 2; s++) for (const [i, j, k] of [[i0, j0, k0], [i1, j1, k1]]) {
-        pos.push(T.x0 + i * step, LAND_Y + h[k] + 0.03, T.z0 + j * step); col.push(earth.r, earth.g, earth.b);
+        pos.push(T.x0 + i * step, LAND_Y + h[k] + lift(k), T.z0 + j * step); col.push(earth.r, earth.g, earth.b);
         pos.push(T.x0 + i * step, LAND_Y - 0.5, T.z0 + j * step); col.push(earth.r * 0.8, earth.g * 0.8, earth.b * 0.8);
       }
       const b2 = base + 4;

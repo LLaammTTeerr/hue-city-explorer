@@ -108,6 +108,9 @@ class OcclusionPass extends Pass {
         vec3 inkN( vec3 a, vec3 b ) { vec3 n = cross( a, b ); float l = length( n ); return l > 1e-12 ? n / l : vec3( 0.0, 0.0, 1.0 ); }
         void main() {
           vec3 col = texture2D( tDiffuse, vUv ).rgb;
+          // one NaN or infinite pixel from the scene would be smeared over the whole frame by the focus blur and the
+          // bloom mips, and its NaN alpha leaves the canvas transparent; a comparison fails for NaN, so it is caught too
+          if ( !all( lessThan( abs( col ), vec3( 6.0e4 ) ) ) ) col = vec3( 0.0 );
           float ao = texture2D( tAO, vUv ).r;
           col *= mix( uTint, vec3( 1.0 ), ao );
           // river mist: thin haze that pools low over the water and the banks, drifting in soft patches
@@ -170,8 +173,17 @@ class OcclusionPass extends Pass {
             vec3 ed = inkPos( vUv - vec2( 0.0, uPx.y ), dd ) - p0, eu = inkPos( vUv + vec2( 0.0, uPx.y ), du ) - p0;
             vec3 n1 = inkN( er, eu ), n2 = inkN( eu, el ), n3 = inkN( el, ed ), n4 = inkN( ed, er );
             float turn = 1.0 - min( min( min( dot( n1, n2 ), dot( n2, n3 ) ), min( dot( n3, n4 ), dot( n4, n1 ) ) ), min( dot( n1, n3 ), dot( n2, n4 ) ) );
-            // 1 - cos: 0.015 is about 10 degrees, 0.06 about 20
-            float line = smoothstep( uInkEdge.x, uInkEdge.y, edge ) * smoothstep( 0.015, 0.06, turn );
+            // The ground (slab, hills and the streets laid on them; GROUND_A in materials.js) is a heightfield on a
+            // 25 m lattice whose folds on the hills reach 25 degrees, and seen through a street (no depth) they drew as
+            // triangles. Where all five samples are ground only a sharp turn (a cut face, a ridge against what lies
+            // behind) is inked.
+            float ga0 = texture2D( tDiffuse, vUv ).a;
+            float gal = texture2D( tDiffuse, vUv - vec2( uPx.x, 0.0 ) ).a, gar = texture2D( tDiffuse, vUv + vec2( uPx.x, 0.0 ) ).a;
+            float gad = texture2D( tDiffuse, vUv - vec2( 0.0, uPx.y ) ).a, gau = texture2D( tDiffuse, vUv + vec2( 0.0, uPx.y ) ).a;
+            float gMin = min( ga0, min( min( gal, gar ), min( gad, gau ) ) ), gMax = max( ga0, max( max( gal, gar ), max( gad, gau ) ) );
+            float ground = step( 0.9, gMin ) * ( 1.0 - step( 0.965, gMax ) );
+            // 1 - cos: 0.015 is about 10 degrees, 0.06 about 20; on ground 0.3 is about 45, 0.55 about 63
+            float line = smoothstep( uInkEdge.x, uInkEdge.y, edge ) * smoothstep( mix( 0.015, 0.3, ground ), mix( 0.06, 0.55, ground ), turn );
             // Trees: leaves mark themselves with zero alpha (materials.js). Blurred, that mask is the crown as one
             // shape: the pen goes round it, and inside only the big steps from clump to clump are drawn.
             float leaf = 1.0 - texture2D( tDiffuse, vUv ).a;
@@ -292,7 +304,11 @@ export function createPost(renderer, scene, camera) {
   composer.addPass(occlusion);
   const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.55, 1.0);
   composer.addPass(bloom);
-  composer.addPass(new OutputPass());
+  // The canvas has an alpha channel (three always asks for one) over the page's paper colour, so the last pass
+  // writes an opaque alpha: whatever went wrong upstream, the page can never show through the model.
+  const output = new OutputPass();
+  output.material.fragmentShader = output.material.fragmentShader.replace(/\}\s*$/, '\tgl_FragColor.a = 1.0;\n}');
+  composer.addPass(output);
   // The composer multiplies by its own pixel ratio; we hand it device pixels already, so pin that to 1.
   composer.setPixelRatio(1);
   composer.setSize(size.x, size.y);
