@@ -1,6 +1,8 @@
 # Progress
 
 ## Done
+- Trường Tiền lights (2026-11-21): the stepped colour scenes are replaced by one continuous colour band that slides
+  along the bridge (`bandColor` / `bandMaterial` in src/landmarks/truongtien.js).
 - Waving flags (2026-11-21): shared `src/landmarks/anim.js` flag, wave in metres on the shared clock/wind (the old Kỳ Đài
   wave was scaled to ~0.1 m and invisible). Used at Kỳ Đài, Bảo tàng HCM (2) and Đông Ba (7), and the old citadel builder.
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).
