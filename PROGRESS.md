@@ -8,6 +8,11 @@
   buildings facing the river (bit 256: ≥4.5 m, within 130 m, unobstructed) as floodlit. city.js marks their faces
   KIND_FLOOD; materials.js paints warm uplight scallops after dark. `src/landmarks/riverlights.js` builds the posts and
   two glow clouds. 896 posts, 1648 walkway lights, 161 facades; frame time unchanged within noise.
+- Paved yards and squares (issue #22, 2026-11-21): new 'paved' ground drawn over the parks as paving, kept free of
+  trees and buildings. From OSM: highway areas (area=yes), area:highway, place=square and surface car parks, the last
+  three from the new light extract `data/raw/hue-osm-paved.json` (`fetch-osm-strip.sh … paved`, in data:fetch). From
+  the Sentinel-2 scene: bright, non-green 10 m cells inside parks and lawns, squared to the nearest street. 80 yards
+  (49 OSM, 31 satellite); checked at Nghênh Lương Đình, Thương Bạc and the south bank by Trường Tiền.
 - Waving flags (2026-11-21): shared `src/landmarks/anim.js` flag, wave in metres on the shared clock/wind (the old Kỳ Đài
   wave was scaled to ~0.1 m and invisible). Used at Kỳ Đài, Bảo tàng HCM (2) and Đông Ba (7), and the old citadel builder.
 - OSM extract fetched and processed into `public/data/hue.json` (scripts/).

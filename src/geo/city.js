@@ -76,6 +76,7 @@ function buildGreen(data, group) {
   const y = LAND_Y + 0.03;
   for (const [k, poly] of data.green || []) {
     const col = hex(PAL.green[k] || PAL.green.grass);
+    B.kind = k === 'paved' ? KIND.ROAD : KIND.GROUND; // a paved yard is laid as paving, not planted ground
     const rings = poly.map(unflat);
     const contour = rings[0].map((p) => new THREE.Vector2(p[0], p[1]));
     const holes = rings.slice(1).map((r) => r.map((p) => new THREE.Vector2(p[0], p[1])));

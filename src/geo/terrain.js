@@ -136,7 +136,7 @@ export function buildTerrainMesh() {
   const index = new Int32Array(nx * nz).fill(-1);
   const pos = [], col = [], idx = [];
   const land = new THREE.Color(PAL.land);
-  const greens = [null, PAL.green.park, PAL.green.wood, PAL.green.grass, PAL.green.farm, PAL.green.cemetery, PAL.green.pitch, PAL.green.sacred].map((c) => (c ? new THREE.Color(c) : land));
+  const greens = [null, PAL.green.park, PAL.green.wood, PAL.green.grass, PAL.green.farm, PAL.green.cemetery, PAL.green.pitch, PAL.green.sacred, PAL.green.paved].map((c) => (c ? new THREE.Color(c) : land));
   const vert = (i, j) => {
     const k = j * nx + i;
     if (index[k] >= 0) return index[k];
