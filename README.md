@@ -31,6 +31,12 @@ Mouse: drag to pan, wheel to zoom at the cursor, right-drag (or Shift-drag) to t
 double-click to approach. Touch: one finger pans, two fingers pinch, twist and tilt.
 Keys: arrows pan, `+`/`-` zoom, `R` rain, `N` time of day, `L` labels.
 
+## Contributors
+
+- [sleepyluno](https://github.com/sleepyluno): bug reports and suggestions
+  ([issues](https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno)) that shaped the Nam Giao
+  esplanade, the language switch, the craft villages and the forest round the tombs.
+
 ## Data
 
 `npm run data:fetch` (`scripts/fetch-osm-all.sh`) refreshes every OSM extract the build merges: the main Overpass
