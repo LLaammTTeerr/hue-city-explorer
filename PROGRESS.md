@@ -3,10 +3,16 @@
 ## Done
 - Agent workflow (2026-11-21): root `AGENTS.md` (CLAUDE.md imports it); named views in `scripts/views.json`
   (`ngo-mon-arrival`, `truong-tien-river-level`) shot with `node scripts/shot.mjs --view <name>` under `?still`, which
-  stops the frame loop so repeat runs are pixel-identical; `scripts/compare.mjs <view> --base <ref>` shoots base and
+  stops the frame loop so repeat runs differ by at most ~10 scattered pixels; `scripts/compare.mjs <view> --base <ref>` shoots base and
   head side by side; `.github/ISSUE_TEMPLATE/experience.md`. Next: try a real issue (the Ngọ Môn arrival) and see where
-  the agent gets stuck; captures are not in CI yet (needs Chrome with WebGL on the runner); `check-heights.mjs` still
-  builds its own scene instead of `scripts/lib/scene.mjs`.
+  the agent gets stuck; captures are not in CI yet (needs Chrome with WebGL on the runner).
+- One landmark sequence (2026-11-21): `buildLandmarks` in src/landmarks/build.js is the only place the landmarks,
+  populate and the moving things are built, in order; src/main.js and scripts/lib/scene.mjs both call it (the checks
+  through a per-step observer), and check-heights now builds through scene.mjs too. Previously browser-only steps now
+  checked: riverlights, boats, lanterns, lotus, traffic. They revealed two real faults, fixed at the source: 66
+  embankment lamp posts stood on carriageways (build-data.mjs now keeps lamps off class 0-3 streets; posts 901 → 835,
+  walkway lights 1609 → 1621) and lotus leaves reached over pond banks under the ground (life.js keeps each whole leaf
+  on the water). Browser scene graph identical before/after the refactor.
 - Joined roofs (2026-11-21): parallel hip roofs set closer than their overhangs no longer run through each other.
   `Buf.joined(fn)` (src/geo/buf.js) queues the hip roofs built inside it, clips each pair at the line between them and
   lays a valley gutter (máng xối); upper tiers are left alone. Every place build (places/index.js, opt out with

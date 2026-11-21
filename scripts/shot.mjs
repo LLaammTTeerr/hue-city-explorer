@@ -5,7 +5,7 @@
 //
 // --view takes a view from scripts/views.json: a fixed camera, or an arrival (start pose, the visitor's pick of a
 // place, frames at set seconds into the flight). The page runs with ?still, so time moves only by fixed steps and the
-// same view gives the same frames on every run and every revision; scripts/compare.mjs uses that for before/after.
+// same view gives the same frames on every run and revision, to within a few scattered pixels of GPU noise; scripts/compare.mjs uses that for before/after.
 // --build serves another built site instead of dist/ (compare.mjs passes the base revision's).
 //
 // Serves dist/ with `vite preview` on --port (pick a free one when several run at once), opens it in headless Chrome

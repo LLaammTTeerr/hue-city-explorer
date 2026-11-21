@@ -30,8 +30,9 @@ reading `data.places` directly must divide by 10.
 - One place, one file: `src/landmarks/places/<slug>.js` exporting `id` (the place's id in `hue.json`) and
   `build({ data, S, group, place, THREE })`. The contract is at the top of `src/landmarks/places/index.js`. Vite picks
   the file up in the browser and `scripts/lib/scene.mjs` picks it up for the geometry checks; nothing to register.
-- A new top-level builder (outside `places/`) must be called in `src/main.js`, `scripts/lib/scene.mjs` (burial,
-  overlap, joints) **and** `scripts/check-heights.mjs`, in the same order, or the checks will not see it.
+- A builder outside `places/` goes into `buildLandmarks` in `src/landmarks/build.js`, the one sequence both the
+  browser (`src/main.js`) and the geometry checks (`scripts/lib/scene.mjs`) run. Don't call builders from
+  `main.js` directly, or the checks will not see them.
 - Documented heights go in `docs/heights-reference.json` with their source and confidence; `check:heights` holds the
   model to them.
 - Research notes per place go in `docs/places/`.
@@ -48,7 +49,8 @@ node scripts/compare.mjs ngo-mon-arrival        # before/after vs origin/main â†
 ```
 
 - Named views live in `scripts/views.json`: a fixed camera, or an arrival (start pose, the visitor's pick of a place,
-  frames at set seconds). They run with `?still`, so the same view gives the same pixels on every run. Add a view when
+  frames at set seconds). They run with `?still`, so repeat runs of a view match to within a few
+  scattered pixels (GPU noise; a real change shows as a region). Add a view when
   a task needs one; don't move an existing one, or older captures stop being comparable.
 - Shots need Google Chrome (`CHROME=` to point elsewhere); they use the GPU by default, `SHOT_GL=swiftshader` for
   software rendering (slow).
