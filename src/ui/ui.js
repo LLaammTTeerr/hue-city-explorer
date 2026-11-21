@@ -51,7 +51,7 @@ export function createUI(data, handlers) {
     T: () => T, Tof: (l) => STR[l], lang: () => lang,
     stories: () => stories, loadStories: () => loadStories(),
     seen, currentId: () => current && current.id,
-    pick: (id) => handlers.pick(id, true),
+    pick: (id, from) => handlers.pick(id, true, from),
     overview: () => handlers.overview(),
     clear: () => { hideCard(); handlers.cardClosed(); },
   });
@@ -157,10 +157,10 @@ export function createUI(data, handlers) {
   }
   // focus moves into the card when it opens and goes back to whatever opened it when it closes
   let opener = null;
-  function showCard(id) {
+  function showCard(id, from = document.activeElement) {
     const p = placeById.get(id);
     if (!p) return;
-    const card = $('card'), from = document.activeElement;
+    const card = $('card');
     if (from && from !== document.body && !card.contains(from)) opener = from;
     current = p;
     shot = 0;
