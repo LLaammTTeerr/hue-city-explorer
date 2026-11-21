@@ -487,3 +487,29 @@ one PR per issue. sleepyluno is credited in the README and the About panel.
   keeps every tree trunk 0.6 m off any carriageway, in `plant()` and the avenue loop. Data rebuilt.
 - Trees on a carriageway: 3,997 of 60,922 → 0 of 56,637. New check in `check-data.mjs` ("no trees on the roads").
 - `shot.mjs --at x,z` looks at a point instead of the place's centre (used for the bridge heads).
+
+## Structures overlapping roads and each other (2026-11-21, branch `worktree-agent-ad9e82e9d2b5d8d5a`)
+- Thiên Mụ's river stair (owner's screenshot): the terrace flight ended at a fixed v = 26.5 and the river landing
+  started at a fixed v = 36. Both stood on Nguyễn Phúc Nguyên's carriageway, with the posts on the asphalt. The
+  flight and the landing are now cut where `streetTest` (src/landmarks/enclosure.js) says the street begins and
+  ends. The landing starts past the far pavement. Shots: scratch/shots/thienmu-before, scratch/shots/thienmu-after.
+- Thiên Mụ's Hà Khê precinct ring now goes through `offStreets` (enclosure.js), which trims a mapped outline off
+  the c<=3 carriageways. The east lane no longer runs under its terrace.
+- Thái Miếu and Triệu Miếu both drew Thần Khố and Thần Trù. They now belong to trieumieu.js only, whose precinct
+  they stand in.
+- New `scripts/check-overlap.mjs` (`npm run check:overlap`) checks three things:
+  - replica footprints on c<=3 carriageways (non-bridge);
+  - raised faces of different sources in the same 1 m cell;
+  - kept buildings and infill houses under models.
+  Rampart faces (`S.noCover`) are excluded. The scene build it shares with check-burial now lives in
+  scripts/lib/scene.mjs, with replicas one source per place.
+  The check is not in `npm run check`: 41 findings remain and it takes about 5.7 s.
+- Left (run `npm run check:overlap` for the list):
+  - bridge ramps over their approach roads (nguyenhoang, truongtien, phuxuan, bachho) need a principled
+    exemption;
+  - road intrusions at tayloc, giahoi, tudam, phucam, dongba, quoctugiam, baotangcovat, dcct, gahue and the gate
+    passages;
+  - dainoi's wall tops coplanar with tuphuong, canchanh and duyetthi (stacked on the wall: possibly a real
+    z-fight);
+  - hungmieu with themieu;
+  - about 15 small (7-16 m²) kept buildings or infill houses under models.

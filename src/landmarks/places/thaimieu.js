@@ -34,7 +34,7 @@ const CLEAR = [[0, 1.5, 76, 32], [0, 39.5, 52, 24], [2.5, 83, 6, 32], [2.9, 100.
   [51, 43.8, 16, 17], [51.3, 1.4, 16, 17], [-51, 43.8, 15, 17], [-53.5, 0.4, 11, 14], [31, 37, 10, 15], [-31, 37, 10, 15],
   [54.4, -34.2, 15, 20], [-55.1, -36, 13, 21]];
 
-const ROOF = PAL.imperialRoof, ROOF2 = PAL.imperialRoof2, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer;
+const ROOF = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer;
 const WALL = hex('#d8c48e'), STONE = PAL.stone, BRICK = hex('#9c7a64'), NEWSTONE = hex('#c9bfa9');
 const ENAMEL = [hex('#2f7d8c'), hex('#3f8f4f'), hex('#e0b23a')];
 
@@ -165,13 +165,7 @@ function halls(S, lamps) {
   ruinBase(S, -53.5, 0.4, 9.0, 12.0, 0.5, 3, 3);
   for (const s of [-1, 1]) ruinBase(S, s * 31, 37, 8.6, 13.0, 0.4, 2, 3);
 
-  // the back yard: Thần Khố (storehouse, OSM 12.7 x 17.2 m) and Thần Trù (kitchen, 10.3 x 18.7 m), plain halls
-  const kh = P(54.4, -34.2), yk = gy(kh);
-  S.base = yk - LAND_Y;
-  pavilion(S, kh[0], kh[1], 15.6, 10.6, ACROSS, yk, { wallH: 2.8, roof: ROOF2, wall: shade(LAC, 0.9), over: 1.0, rh: 2.4, platform: 0.4, segs: 2 });
-  const tr = P(-55.1, -36), yr = gy(tr);
-  S.base = yr - LAND_Y;
-  pavilion(S, tr[0], tr[1], 17.2, 8.6, ACROSS, yr, { wallH: 2.6, roof: ROOF2, wall: shade(LAC, 0.9), over: 1.0, rh: 2.2, platform: 0.4, segs: 2 });
+  // the back yard's Thần Khố and Thần Trù are drawn by trieumieu.js, whose precinct they stand in (as its walls)
 }
 
 function walls(S, data) {
