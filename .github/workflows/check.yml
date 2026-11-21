@@ -1,4 +1,4 @@
-# Height, terrain and burial checks (npm run check) on every pull request. Branch protection on main requires this
+# Checks (npm run check) and the production build (npm run build) on every pull request. Branch protection on main requires this
 # job ("check") to pass before a pull request can merge.
 # (deploy.yml runs the same checks again before it builds the site.)
 name: Check
@@ -18,3 +18,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run build

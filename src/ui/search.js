@@ -169,7 +169,8 @@ export function createSearch(ctx) {
     if (!row) return;
     setOpen(false);
     input.blur();
-    if (row.id) ctx.pick(row.id); else { if (shown === null) input.value = ''; clearBtn.hidden = !input.value; ctx.overview(); }
+    // the input is blurred by now, so it is passed as the card's opener: closing the card returns focus here
+    if (row.id) ctx.pick(row.id, input); else { if (shown === null) input.value = ''; clearBtn.hidden = !input.value; ctx.overview(); }
   }
 
   // ---- filter chips ----

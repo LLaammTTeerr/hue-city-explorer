@@ -13,9 +13,13 @@ const webUrl = (u) => { try { const x = new URL(u, location.href); return x.prot
 
 export function createUI(data, handlers) {
   let lang = (store.get('hue-lang') || (navigator.language || 'vi').slice(0, 2)) === 'vi' ? 'vi' : 'en';
-  // until the scene is ready the interface behind the loader is out of reach, for the keyboard too
-  const behind = [...document.body.children].filter((el) => el.id !== 'loader' && el.tagName !== 'SCRIPT');
-  behind.forEach((el) => { el.inert = true; });
+  // until the scene is ready the interface behind the loader is out of reach, for the keyboard too. The search box and
+  // the card are the exception: they stand above the loader (body.loading in style.css) and work from the place
+  // index alone, so a visitor can look a place up while the city is still downloading.
+  const live = new Set(['search', 'card']);
+  const behind = [...document.body.children].filter((el) => el.id !== 'loader' && el.tagName !== 'SCRIPT' && !live.has(el.id));
+  function lock() { $('loader').classList.remove('done'); document.body.classList.add('loading'); behind.forEach((el) => { el.inert = true; }); }
+  lock();
   let T = STR[lang];
   let current = null; // place shown in the card
   const placeById = new Map(data.places.map((p) => [p.id, p]));
@@ -51,7 +55,7 @@ export function createUI(data, handlers) {
     T: () => T, Tof: (l) => STR[l], lang: () => lang,
     stories: () => stories, loadStories: () => loadStories(),
     seen, currentId: () => current && current.id,
-    pick: (id) => handlers.pick(id, true),
+    pick: (id, from) => handlers.pick(id, true, from),
     overview: () => handlers.overview(),
     clear: () => { hideCard(); handlers.cardClosed(); },
   });
@@ -157,10 +161,10 @@ export function createUI(data, handlers) {
   }
   // focus moves into the card when it opens and goes back to whatever opened it when it closes
   let opener = null;
-  function showCard(id) {
+  function showCard(id, from = document.activeElement) {
     const p = placeById.get(id);
     if (!p) return;
-    const card = $('card'), from = document.activeElement;
+    const card = $('card');
     if (from && from !== document.body && !card.contains(from)) opener = from;
     current = p;
     shot = 0;
@@ -261,6 +265,8 @@ export function createUI(data, handlers) {
       if (deg !== heading) { heading = deg; $('needle').style.transform = `rotate(${deg}deg)`; }
     },
     loaderProgress(p) { $('loader-bar').style.width = Math.round(p * 100) + '%'; },
-    loaderDone() { $('loader').classList.add('done'); behind.forEach((el) => { el.inert = false; }); },
+    loaderDone() { $('loader').classList.add('done'); document.body.classList.remove('loading'); behind.forEach((el) => { el.inert = false; }); },
+    lock, // the loader back over the interface (a retried start after the 2D fallback)
+    applyText,
   };
 }
