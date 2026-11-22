@@ -22,11 +22,12 @@ import { lightMaterial } from '../../geo/materials.js';
 export const id = 'vincom';
 
 const RING = [[543.8, 622.8], [601.7, 627.4], [611.4, 655.8], [574.1, 690.3], [541.0, 655.7]];
+const MELIA_W = 24.6; // the hotel entrance bay: the west end of the Hà Nội front, its first three bays
 
 const C = {
-  granite: hex('#54453c'), stone: hex('#e4d9c5'), pilaster: hex('#ece3d2'), band: hex('#3a3b3d'),
-  eave: hex('#2f3235'), roof: hex('#9a978f'), panel: hex('#24292f'), grille: hex('#a98a52'),
-  glass: hex('#3f5a74'), lobby: hex('#5d7a90'), mullion: hex('#a9b8c4'), endClad: hex('#555b63'),
+  granite: hex('#9a8573'), stone: hex('#e4d9c5'), pilaster: hex('#ece3d2'), band: hex('#3a3b3d'),
+  eave: hex('#2f3235'), roof: hex('#9a978f'), panel: hex('#24292f'), grille: hex('#b3ada2'),
+  glass: hex('#4f6c88'), lobby: hex('#5d7a90'), mullion: hex('#a9b8c4'), endClad: hex('#a89a80'),
   red: hex('#c4122f'), pave: hex('#c3bcae'), green: hex('#4d6b35'), rail: hex('#cfdde4'),
 };
 const POSTERS = ['#3b5f86', '#9b3a3c', '#4d7a5a', '#b48a3c', '#5d4a78', '#8a8478'].map(hex); // banners, toned to read at distance
@@ -67,7 +68,9 @@ export function build({ S, group }) {
   S.base = y0 - LAND_Y;
 
   // ---------------- podium ----------------
-  const H1 = 5.6, H2 = 21.0, H3 = 22.4, H4 = 23.6; // granite storey, cream top, dark band, eave slab
+  // heights from the matched Street View frames on Hà Nội: granite two storeys to ~10 m, cream bays to ~23 m, the
+  // dark eave topping out near 26 m
+  const H1 = 10.2, H2 = 23.2, H3 = 24.6, H4 = 26.2; // granite storeys, cream top, dark band, eave slab
   S.kind = KIND.PLAIN;
   S.prism(RING, y0 - 0.3, y0 + H1, C.granite, C.granite, { top: false });
   S.prism(RING, y0 + H1, y0 + H2, C.stone, C.stone, { top: false });
@@ -82,6 +85,7 @@ export function build({ S, group }) {
     const t = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], n = [t[1] * sgn, -t[0] * sgn], ang = Math.atan2(t[1], t[0]);
     const at = (u, out) => [a[0] + t[0] * u + n[0] * out, a[1] + t[1] * u + n[1] * out];
     const entrance = i === 1;
+    if (i === 4) continue; // the west flank is the hotel's grey stone block (below), not shop bays
     const nb = Math.max(2, Math.round(L / 7.6)), bw = L / nb;
     for (let k = 0; k <= nb; k++) {
       const p = at(k * bw, 0.18);
@@ -92,17 +96,23 @@ export function build({ S, group }) {
     for (let k = 0; k < nb; k++) {
       const u = (k + 0.5) * bw;
       if (entrance && Math.abs(u - L / 2) < 9.5) continue; // the pavilion takes the middle of this front
+      const melia = i === 0 && u < MELIA_W; // the hotel's granite entrance bay at the west end of the Hà Nội front
       const p = at(u, 0.07), w = bw - 2.0;
-      // ground-floor shopfront glass
-      S.box(p[0], p[1], y0 + 0.3, y0 + H1 - 0.9, w + 0.4, 0.12, ang, shade(C.lobby, 0.7));
-      // the tall recessed bay: dark glass, or a poster banner on every other bay
-      const poster = (k * 2 + i) % 5 === 0;
-      S.box(p[0], p[1], y0 + H1 + 1.0, y0 + 17.6, w, 0.12, ang, poster ? POSTERS[(k * 3 + i) % POSTERS.length] : C.panel);
-      if (poster) S.box(p[0], p[1], y0 + H1 + 0.8, y0 + H1 + 1.0, w + 0.1, 0.16, ang, C.panel);
+      if (!melia) {
+        // ground-floor shopfront glass, and a gold chevron grille over the upper granite storey
+        S.box(p[0], p[1], y0 + 0.3, y0 + 5.0, w + 0.4, 0.12, ang, shade(C.lobby, 0.7));
+        S.box(p[0], p[1], y0 + 5.8, y0 + 9.3, w, 0.12, ang, C.panel);
+        S.box(p[0], p[1], y0 + 7.6, y0 + 9.3, w, 0.14, ang, shade(C.grille, 0.9));
+      }
+      // the tall recessed bay: dark glass, or a poster banner on every other bay (windows over the hotel entrance)
+      const poster = !melia && (k * 2 + i) % 5 === 0;
+      S.box(p[0], p[1], y0 + H1 + 0.8, y0 + 20.4, w, 0.12, ang, poster ? POSTERS[(k * 3 + i) % POSTERS.length] : C.panel);
+      if (poster) S.box(p[0], p[1], y0 + H1 + 0.6, y0 + H1 + 0.8, w + 0.1, 0.16, ang, C.panel);
+      if (melia) for (const h of [13.6, 17.0]) S.box(p[0], p[1], y0 + h, y0 + h + 0.25, w, 0.18, ang, shade(C.mullion, 0.75));
       // gold chevron grille above, lit at dusk
-      S.box(p[0], p[1], y0 + 17.9, y0 + 20.2, w, 0.14, ang, C.grille);
+      S.box(p[0], p[1], y0 + 20.7, y0 + 22.7, w, 0.14, ang, C.grille);
       const g = at(u, 0.2);
-      GB.box(g[0], g[1], y0 + 17.95, y0 + 20.15, w - 0.2, 0.05, ang, [1, 1, 1], { top: [1, 1, 1] });
+      GB.box(g[0], g[1], y0 + 20.75, y0 + 22.65, w - 0.2, 0.05, ang, [1, 1, 1], { top: [1, 1, 1] });
     }
     // glass balustrade and a strip of planting round the roof terrace
     const r0 = eaveRing[i], r1 = eaveRing[(i + 1) % RING.length];
@@ -146,7 +156,7 @@ export function build({ S, group }) {
       RB.box(q[0], q[1], y0 + H3 + 0.25, y0 + H3 + 2.15, lw * 0.78, 0.16, a, [1, 1, 1]);
     }
     // two long poster banners flanking the portal
-    for (const s of [-1, 1]) { const q = P(s * 7.0, D + 0.25); S.box(q[0], q[1], y0 + H1 + 1.0, y0 + 19.5, 2.4, 0.12, a, s < 0 ? POSTERS[1] : POSTERS[0]); }
+    for (const s of [-1, 1]) { const q = P(s * 7.0, D + 0.25); S.box(q[0], q[1], y0 + 6.0, y0 + 21.5, 2.4, 0.12, a, s < 0 ? POSTERS[1] : POSTERS[0]); }
   }
 
   // ---------------- forecourt: paving between the front and the roundabout, low planters along the kerb ----------------
@@ -168,48 +178,80 @@ export function build({ S, group }) {
     }
   }
 
-  // ---------------- glazed setback storey and the hotel tower ----------------
-  const tc = [c[0] + eN[0] * 1.5, c[1] + eN[1] * 1.5];
-  const TW = 44, TD = 22, PROW = 3.2, BACK = 0.86, T0 = H4 + 5.8, T1 = 151.0, TOP = 160.0;
-  const L2W = (f, p) => [tc[0] + eN[0] * f + eT[0] * p, tc[1] + eN[1] * f + eT[1] * p];
-  // shallow V in plan: two glass faces meeting in a blunt prow towards the roundabout; the back a little narrower
-  const plan = [L2W(TD / 2 + PROW, -1.2), L2W(TD / 2, -TW / 2), L2W(-TD / 2, -TW / 2 * BACK), L2W(-TD / 2, TW / 2 * BACK), L2W(TD / 2, TW / 2), L2W(TD / 2 + PROW, 1.2)];
-  // the storey between podium and tower: lobby / pool deck glazing under a dark slab
-  S.kind = KIND.MODERN;
-  S.prism(offset(plan, 6), y0 + H4, y0 + T0 - 0.8, C.lobby, C.roof, { top: false });
+  // ---------------- the hotel: Meliá entrance bay, grey stone base block and the tower ----------------
+  // Placed from the satellite (roof outline, the tower's west edge on x ≈ 546 and east edge on x ≈ 572) and two car
+  // panoramas on Hà Nội (docs/places/vincom.md): the tower stands over the north-west of the lot, not its middle. Local
+  // frame (u, v): u along the lot's north front (east, 4.5° south of due east), v along its west flank (south);
+  // origin at the tower's north-west corner, 2 m in from the podium's north-west corner.
+  const nA = RING[0], nB = RING[1], nL = Math.hypot(nB[0] - nA[0], nB[1] - nA[1]);
+  const U = [(nB[0] - nA[0]) / nL, (nB[1] - nA[1]) / nL], V = [-U[1], U[0]];
+  const P0 = [nA[0] + U[0] * 1.9 + V[0] * 1.4, nA[1] + U[1] * 1.9 + V[1] * 1.4];
+  const W2 = (u, v) => [P0[0] + U[0] * u + V[0] * v, P0[1] + U[1] * u + V[1] * v];
+  const uAng = Math.atan2(U[1], U[0]);
+  const P3 = (u, v, y) => { const p = W2(u, v); return [p[0], y0 + y, p[1]]; };
+  const lb = (u, v, y1, y2, su, sv, col, opt) => { const p = W2(u, v); S.box(p[0], p[1], y0 + y1, y0 + y2, su, sv, uAng, col, opt); };
+
+  // Meliá Vinpearl entrance: a granite bay two storeys taller than the shop base, three tall glazed bays, a dark canopy
+  // with the hotel's name standing on it; the cream face above rises to a parapet over the eave line
+  {
+    const v = -1.4, mid = MELIA_W / 2 - 1.9; // the podium front lies 1.4 m north of the frame origin
+    lb(mid, v - 0.3, -0.3, 15.0, MELIA_W, 0.7, C.granite, { top: shade(C.granite, 1.1) });
+    for (let k = -1; k <= 1; k++) {
+      lb(mid + k * 7.4, v - 0.7, 6.4, 13.4, 5.6, 0.12, C.lobby);
+      for (let m = -2; m <= 2; m++) lb(mid + k * 7.4 + m * 1.1, v - 0.74, 6.4, 13.4, 0.1, 0.1, shade(C.mullion, 0.8));
+      lb(mid + k * 7.4, v - 0.7, 0.2, 5.2, 5.0, 0.12, shade(C.lobby, 0.75));
+    }
+    lb(mid, v - 2.6, 5.4, 5.85, 19.0, 4.0, C.eave, { bottom: true });
+    GB.box(...W2(mid, v - 2.6), y0 + 5.38, y0 + 5.4, 18.4, 3.6, uAng, [1, 1, 1], { bottom: true });
+    for (let k = -8; k <= 8; k++) if (k !== 0 && Math.abs(k) !== 4) lb(mid + k * 0.95, v - 4.4, 5.9, 7.0, 0.72, 0.12, hex('#7f948c')); // MELIÃ VINPEARL HUE
+    for (const s of [-1, 1]) S.beam(P3(mid + s * 7.0, v - 4.0, 5.85), P3(mid + s * 5.0, v - 0.7, 11.5), 0.1, 0.1, C.mullion); // canopy ties
+    lb(mid, v - 0.85, H2, H4 + 1.0, MELIA_W, 1.9, C.pilaster, { top: C.roof });
+  }
+
+  // the base block: plain grey stone from the street to 30 m on the west flank, two strips of windows high up, a
+  // louvred plant storey on its west half, and the shaft rising out of it (Street View, Hà Nội looking east)
+  const GREY = hex('#8e8d88'), LOUVRE = hex('#3c3e41');
+  const base = [W2(-3.75, -0.9), W2(-3.75, 26), W2(26.6, 39.0), W2(26.6, 16.8), W2(12.4, -0.9)];
   S.kind = KIND.PLAIN;
-  S.prism(offset(plan, 6.6), y0 + T0 - 0.8, y0 + T0, C.eave, C.roof, { topKind: KIND.FLAT });
-  S.kind = KIND.PLAIN; // a smooth curtain wall: the mullions below give it its ribbing, not a punched-window facade
+  S.prism(base, y0 - 0.3, y0 + 30.0, GREY, C.roof, { topKind: KIND.FLAT });
+  for (const [v0, v1] of [[1.5, 11.5], [13.0, 23.5]]) lb(-3.82, (v0 + v1) / 2, 22.4, 24.1, 0.12, v1 - v0, C.panel);
+  for (let y = 4; y < 29; y += 4.2) lb(-3.8, 12.6, y, y + 0.08, 0.06, 26.6, shade(GREY, 0.85)); // stone courses
+  lb(1.5, 12.8, 30.0, 38.5, 9.5, 22.0, GREY, { top: C.roof, topKind: KIND.FLAT });
+  for (let k = 0; k < 9; k++) lb(-3.28, 3.0 + k * 2.4, 34.4, 38.0, 0.12, 1.9, LOUVRE);
+  for (let k = 0; k < 3; k++) lb(-1.5 + k * 3.0, 1.73, 34.4, 38.0, 2.4, 0.12, LOUVRE);
+  // glass rail along the terrace on the block's north edge
+  S.beam(P3(5, -0.75, 30.6), P3(12.2, -0.75, 30.6), 0.06, 1.1, C.rail);
+
+  // the tower: a pentagon in plan; a narrow north end clad in pale bronze stone, the west face, the east face and the
+  // blunt chamfer towards the roundabout in blue glass ribbed with light mullions, the long south-west face glass too
+  const T0 = 30.0, T1 = 151.0, TOP = 160.0;
+  const plan = [W2(0, 0), W2(0, 20), W2(26, 38), W2(26, 17), W2(12, 0)];
+  const tc = W2(12.5, 18.5);
   S.prism(plan, y0 + T0, y0 + T1, C.glass, C.roof, { topKind: KIND.FLAT });
   for (let y = T0 + 4.2; y < T1 - 1; y += 4.2) S.prism(offset(plan, 0.04), y0 + y, y0 + y + 0.12, shade(C.glass, 0.8), C.glass, { top: false }); // floor lines
-  S.kind = KIND.PLAIN;
-  // dark cladding on the two narrow ends
-  for (const s of [-1, 1]) {
-    const a = plan[s < 0 ? 1 : 4], b = plan[s < 0 ? 2 : 3];
-    const m = [(a[0] + b[0]) / 2 + eT[0] * s * 0.12, (a[1] + b[1]) / 2 + eT[1] * s * 0.12];
-    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
-    S.box(m[0], m[1], y0 + T0, y0 + T1 + 0.6, Math.hypot(b[0] - a[0], b[1] - a[1]) + 0.3, 0.3, ang, C.endClad);
-  }
-  // light vertical mullions on the glass faces (front pair and back)
-  const faces = [[0, 1], [4, 5], [2, 3]];
-  for (const [i, j] of faces) {
-    const a = plan[i], b = plan[j], L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], n = [t[1] * sgnOf(plan), -t[0] * sgnOf(plan)];
-    const nm = Math.max(1, Math.round(L / 2.4));
+  // the clad north end
+  { const a = plan[4], b = plan[0], m = [(a[0] + b[0]) / 2 - V[0] * 0.15, (a[1] + b[1]) / 2 - V[1] * 0.15];
+    S.box(m[0], m[1], y0 + T0, y0 + T1 + 0.6, Math.hypot(b[0] - a[0], b[1] - a[1]) + 0.3, 0.3, uAng, C.endClad); }
+  // light vertical mullions on the glass faces
+  const sg = sgnOf(plan);
+  for (const [i, j] of [[0, 1], [1, 2], [2, 3], [3, 4]]) {
+    const a = plan[i], b = plan[j], L = Math.hypot(b[0] - a[0], b[1] - a[1]), t = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], n = [t[1] * sg, -t[0] * sg];
+    const nm = Math.max(1, Math.round(L / 1.6));
     for (let k = 1; k < nm; k++) {
       const p = [a[0] + t[0] * (L * k) / nm + n[0] * 0.12, a[1] + t[1] * (L * k) / nm + n[1] * 0.12];
-      S.beam([p[0], y0 + T0, p[1]], [p[0], y0 + T1, p[1]], 0.22, 0.22, C.mullion);
+      S.beam([p[0], y0 + T0, p[1]], [p[0], y0 + T1, p[1]], 0.18, 0.18, C.mullion);
     }
     // after dark: a scatter of lit hotel rooms behind the glass (deterministic, about one pane in eight)
     const ang = Math.atan2(t[1], t[0]);
-    for (let fl = 0, y = T0 + 0.6; y < T1 - 4; fl++, y += 4.2) for (let k = 0; k < nm; k++) {
+    for (let fl = 0, y = T0 + 0.6; y < T1 - 4; fl++, y += 4.2) for (let k = 0; k < nm; k += 2) {
       const h = Math.sin(fl * 12.9898 + k * 78.233 + i * 37.719) * 43758.5453;
       if (h - Math.floor(h) > 0.13) continue;
-      const p = [a[0] + t[0] * (L * (k + 0.5)) / nm + n[0] * 0.3, a[1] + t[1] * (L * (k + 0.5)) / nm + n[1] * 0.3];
-      WB.box(p[0], p[1], y0 + y, y0 + y + 2.6, (L / nm) - 0.5, 0.08, ang, [1, 1, 1]);
+      const p = [a[0] + t[0] * (L * (k + 1)) / nm + n[0] * 0.3, a[1] + t[1] * (L * (k + 1)) / nm + n[1] * 0.3];
+      WB.box(p[0], p[1], y0 + y, y0 + y + 2.6, (2 * L / nm) - 0.5, 0.08, ang, [1, 1, 1]);
     }
   }
-  // the prow edge and the crown
-  S.box(L2W(TD / 2 + PROW, 0)[0], L2W(TD / 2 + PROW, 0)[1], y0 + T0, y0 + T1 + 0.6, 2.4, 0.4, Math.atan2(eT[1], eT[0]), C.mullion);
+  // the chamfer's two edges, and the crown
+  for (const p of [plan[3], plan[4]]) S.beam([p[0], y0 + T0, p[1]], [p[0], y0 + T1 + 0.6, p[1]], 0.5, 0.5, C.mullion);
   S.prism(offset(plan, 0.35), y0 + T1, y0 + T1 + 1.4, C.endClad, C.roof, { topKind: KIND.FLAT });
   // open frame round the roof: posts and rails on an outer ring
   const fr = offset(plan, 0.25), FY0 = y0 + T1 + 1.4, FY1 = y0 + TOP - 2.6;
@@ -221,11 +263,11 @@ export function build({ S, group }) {
     LB.beam([a[0], y0 + T1 + 0.7, a[1]], [b[0], y0 + T1 + 0.7, b[1]], 0.2, 0.2, [1, 1, 1]);
   }
   // rooftop plant room (and the sky bar) inside the frame, a short mast at 160 m
-  S.box(tc[0], tc[1], y0 + T1 + 1.4, y0 + TOP - 3.4, TW * 0.45, TD * 0.5, Math.atan2(eT[1], eT[0]), hex('#c9cdd0'), { top: C.roof, topKind: KIND.FLAT });
+  S.box(tc[0], tc[1], y0 + T1 + 1.4, y0 + TOP - 3.4, 11, 14, uAng, hex('#c9cdd0'), { top: C.roof, topKind: KIND.FLAT });
   S.cyl(tc[0], tc[1], y0 + TOP - 3.4, y0 + TOP - 0.3, 0.25, 0.06, 5, hex('#d8dadb'));
   AB.box(tc[0], tc[1], y0 + TOP - 0.4, y0 + TOP, 0.35, 0.35, 0, [1, 1, 1]);
-  // the two vertical prow lines lit
-  for (const s of [-1, 1]) { const p = plan[s < 0 ? 0 : 5]; LB.beam([p[0], y0 + T0, p[1]], [p[0], y0 + T1, p[1]], 0.14, 0.14, [1, 1, 1]); }
+  // the chamfer's edges lit
+  for (const p of [plan[3], plan[4]]) LB.beam([p[0], y0 + T0, p[1]], [p[0], y0 + T1, p[1]], 0.14, 0.14, [1, 1, 1]);
 
   for (const [B, col, boost] of [[LB, 0xd6ecff, 1.3], [GB, 0xffc56a, 1.5], [RB, 0xff2a3a, 1.8], [AB, 0xff2a1a, 2.4], [WB, 0xffd9a0, 0.9]]) {
     if (!B.n) continue;

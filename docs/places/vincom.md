@@ -22,15 +22,20 @@ Model: `src/landmarks/places/vincom.js`. The old builder (`vincom()` in `src/lan
   - Tower: set back on a glazed storey. A dark-blue glass curtain wall with light vertical mullions, dark-clad narrow ends, a prow edge, and an open frame round the roof.
 
 ## Estimates
-- Storey heights: granite storey 5.6 m, cornice at 21 m, eave at 23.6 m, setback storey to 29.4 m, tower glass to 151 m, crown frame to 157.4 m, mast to 160 m.
-- Tower plan: 44 × 22 m, a shallow V with a 3.2 m prow towards the roundabout, back 14 % narrower. No plan drawing was found; the shape is read from "hình chữ V" and the 2024 photo.
-- The entrance is placed on the short NE front facing the roundabout. The canopy depth, the bay count (~7.6 m bays), which bays carry banners and their colours, the forecourt outline (cut short of the Đống Đa kerb) and the planters are all estimates.
-- Lit hotel rooms at night are a fixed scatter, about 1 pane in 8.
+- Podium heights: granite storey 10.2 m, cream bays to 23.2 m, dark eave to 26.2 m (read from the Hà Nội car panoramas against the 2.5 m eye height).
+- Tower plan: a pentagon over the north-west of the lot, about 635 m². West face about 20 m, north end about 12 m (pale bronze cladding), chamfer towards the roundabout, east face about 21 m, long glass south-west face. Its axis follows the lot's north front (4.5° off due east). Placed from the satellite (vertical edges at x ≈ 546 and ≈ 572) and two car panoramas on Hà Nội; matched to within about 1–2 m and 2°.
+- Grey stone base block under the tower, from the street to 30 m on the west flank, with two high window strips and a louvred plant storey to about 38.5 m.
+- Meliá Vinpearl entrance: the west 24.6 m of the Hà Nội front. A granite bay to 15 m, three tall glazed bays, a dark canopy at about 5.5 m with the hotel's name on it.
+- The Vincom entrance pavilion on the NE front, the bay rhythm, the banners and colours, the forecourt and the lit-room scatter are all estimates.
 
 ## Changed (vs the old civic.js model)
 - The old model had a 46 × 25 m box tower on a plain 23 m prism. It is replaced by the V-plan glass tower (mullions, dark ends, prow, crown frame) and the bayed cream podium (granite base, pilasters, banners, gold grilles, dark eave, roof terrace).
 - New: the entrance pavilion with the red sign, the portal and canopy, the forecourt with steps and planters, and night lights (crown, prow lines, grilles, sign, aviation light, rooms) in `group`, tagged `userData.landmark='vincom'`.
 - About 3.9k triangles in the shared buffer, plus about 2.1k light triangles.
+
+## Changed (rebuild from satellite and Street View, 2026-11)
+- The tower moved 15–20 m west and turned about 23°: from a V plan at the lot centre to the pentagon over the NW corner. The podium is taller (eave 23.6 m to 26.2 m). Added the grey base block, the louvre storey and the Meliá entrance. The west flank has no shop bays. Granite is lighter, grilles are grey.
+- Disagreements (kept for the owner): the 2024 photos read as a V plan with its prow NE; the capture notes call the west flank "cream with ribs" where the car panorama shows grey stone; the satellite's oblique west edge looks about 33 m long against about 20 m from Street View.
 
 ## Left
 - No tower plan drawing or exact podium height has been found.
