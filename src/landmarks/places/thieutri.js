@@ -29,17 +29,25 @@ const RING = {
   hongTrach: [[-81.8, 14.7], [-89, 22.8], [-95.2, 17.3], [-88.1, 9.2]], // 264285107
   phoiA: [[-60.6, 19.6], [-74.5, 7.5], [-66.7, -1.4], [-52.8, 10.8]], // 264285108
   phoiB: [[-94.7, 29.5], [-80.7, 41.7], [-88.1, 50], [-102.1, 37.8]], // 264285106
-  tongA: [[-35, 27.2], [-24.1, 36.7], [-31.7, 45.3], [-42.6, 35.7]], // 264285104
+  // 264285104, re-framed +2.4 m east, +1.2 m south: on the satellite this hall stands that far out from the OSM trace,
+  // symmetric with tongB about the Biểu Đức axis
+  tongA: [[-35, 27.2], [-24.1, 36.7], [-31.7, 45.3], [-42.6, 35.7]].map(([x, z]) => [x + 2.4, z + 1.2]),
   tongB: [[-51, 69.6], [-57.4, 76.8], [-69.6, 66.1], [-63.2, 59]], // 264285109
   biDinh: [[-11.4, -106.3], [-4.2, -116.3], [6.6, -108.9], [-0.5, -99.5]], // 1075011937
   ducHinh: [[15.2, -83.3], [24.4, -97.2], [40.4, -87.3], [30.7, -73.9]], // 1075011938
 };
 const box2 = (r) => obb(r.map(L));
+// the three bridges over hồ Ngưng Thúy, Chánh Trung (middle, widest), Tây Định and Đông Hòa, on
+// the OSM footway bridges (bridge=yes, in hue.json roads), shore behind Đức Hinh lâu → shore before the Bửu Thành;
+// widths from the satellite
+const BRIDGES = [[[54.5, -67.6], [92.3, -42.6], 3.8], [[70.5, -85.9], [106.6, -59.7], 3.2], [[47.6, -48.2], [83.8, -25.9], 3.2]];
+const BUU_C = [139, -12.5]; // Bửu Thành centre, metres from C0, measured on the satellite
 
 const COL = {
   roof: PAL.imperialRoof, roofOld: hex('#b8913f'), lac: hex('#8e3628'), lacOld: hex('#74402f'),
   stone: PAL.stone, stoneGrey: hex('#9d998f'), stoneDark: hex('#7b776e'), thanh: hex('#6c7377'), marble: hex('#ddd8cc'),
-  brick: hex('#6b6152'), brickMoss: hex('#5c6049'), cap: hex('#77746a'), bat: hex('#a5775c'), // Bát Tràng brick paving
+  brick: hex('#6b6152'), brickMoss: hex('#5c6049'), cap: hex('#77746a'), bat: hex('#94705a'), // Bát Tràng brick paving, weathered
+  roofSide: hex('#93714a'), gateWall: hex('#c4a35a'), roofGrey: hex('#6f6a60'), // weathered side-hall tiles, ochre gate plaster (Street View)
   bronze: hex('#4d3f2c'), bronzeHi: hex('#8a7040'), door: hex('#2b2422'), statue: hex('#a29d92'),
   enamel: [hex('#2f7d8c'), hex('#3f8f4f'), hex('#e0b23a')], moss: PAL.moss, pine: hex('#3d5734'), earth: hex('#6f6a4b'),
 };
@@ -117,10 +125,10 @@ function wallLine(S, F, s0, t0, s1, t1, h, th, gaps = [], col) {
   }
 }
 // a small brick gate with one arched doorway (side and back gates of the temple wall); a = angle of the wall line
-function archGate(S, p, a, w, d, h, roof = COL.roofOld) {
+function archGate(S, p, a, w, d, h, roof = COL.roofGrey) {
   const g = gY(p[0], p[1]);
   S.kind = KIND.MASONRY; S.base = g - 0.6 - LAND_Y;
-  S.box(p[0], p[1], g - 0.6, g + h, w, d, a, COL.brickMoss, { top: COL.cap });
+  S.box(p[0], p[1], g - 0.6, g + h, w, d, a, COL.gateWall, { top: COL.cap });
   S.kind = KIND.PLAIN;
   const ow = Math.min(1.8, w * 0.42), oh = h * 0.62;
   S.box(p[0], p[1], g, g + oh, ow, d + 0.1, a, COL.door);
@@ -215,8 +223,11 @@ export function build({ S }) {
 // ---------- Tẩm: the Biểu Đức temple axis ----------
 function temple(S) {
   const htm = box2(RING.hongTrach), bd = box2(RING.bieuDuc);
-  const Q = frame(htm.c, Math.atan2(bd.c[1] - htm.c[1], bd.c[0] - htm.c[0]));
-  // the front: brick screen beyond the lake, the marble gate, the three-tier sân tế
+  // the axis through Hồng Trạch môn at 42°: measured on the satellite (gate → Biểu Đức 42°, the hall's outline 41°,
+  // the court's side walls 44-45°); the OSM centroids alone give 40°
+  const Q = frame(htm.c, (42 * Math.PI) / 180);
+  // the front: brick screen beyond the lake, the marble gate, the three-tier sân tế (36 m wide, its front at the lake's
+  // retaining wall 57 m before the gate, as the satellite shows it)
   {
     const p = Q.at(-101), g = gY(p[0], p[1]);
     S.kind = KIND.MASONRY; S.base = g - 0.6 - LAND_Y;
@@ -225,19 +236,22 @@ function temple(S) {
     for (const sd of [-1, 1]) { const q = Q.at(-101 + sd * 0.42); S.box(q[0], q[1], g + 0.5, g + 2.2, 0.06, 6.0, Q.a, shade(COL.brickMoss, 0.75)); }
   }
   const n0 = S.n;
-  const tiers = [[-50, -37], [-37, -22], [-22, -5.5]];
+  const tiers = [[-57, -43], [-43, -24], [-24, -5.5]], TW = 36;
   let yPrev = null;
   for (let k = 0; k < tiers.length; k++) {
-    const [a, b] = tiers[k], m = (a + b) / 2, { hi } = span(Q, m, 0, b - a, 30), top = Math.max(hi + 0.15, (yPrev ?? -Infinity) + 0.45);
-    terrace(S, Q, m, 0, b - a, 30, top, COL.stone, COL.bat);
+    const [a, b] = tiers[k], m = (a + b) / 2, { hi } = span(Q, m, 0, b - a, TW), top = Math.max(hi + 0.15, (yPrev ?? -Infinity) + 0.45);
+    terrace(S, Q, m, 0, b - a, TW, top, COL.stone, COL.bat);
+    // a low stone parapet along each side of the tier (Street View, on the court)
+    S.kind = KIND.MASONRY;
+    for (const sd of [-1, 1]) { const q = Q.at(m, sd * (TW / 2 - 0.2)); S.box(q[0], q[1], top, top + 0.75, b - a, 0.35, Q.a, COL.stoneGrey, { top: COL.cap }); }
     // the Thanh stone walk up the middle
     const p = Q.at(m); S.kind = KIND.ROAD; S.box(p[0], p[1], top - 0.1, top + 0.04, b - a, 3.2, Q.a, COL.thanh, { topKind: KIND.ROAD });
     if (yPrev != null) flight(S, Q.at(a - 1.6), yPrev, Q.at(a + 0.2), top, 4.2);
     yPrev = top;
   }
   const yTe = yPrev;
-  { const g = Q.at(-50); flight(S, Q.at(-52.6), gY(g[0], g[1]), Q.at(-50), span(Q, -43.5, 0, 13, 30).hi + 0.15, 5); }
-  marbleGate(S, Q, -51.5);
+  { const g = Q.at(-57); flight(S, Q.at(-59.6), gY(g[0], g[1]), Q.at(-57), span(Q, -50, 0, 14, TW).hi + 0.15, 5); }
+  marbleGate(S, Q, -58.5);
   S.paved.push([n0, S.n]);
 
   // Hồng Trạch môn: a timber gate-tower of three bays and two roofs, in the front wall
@@ -273,8 +287,9 @@ function temple(S) {
   }
   S.paved.push([n1, S.n], [n2, S.n]);
   // the side halls: Đông / Tây Phối điện in front, Tả / Hữu Tòng viện behind
-  for (const r of [RING.phoiA, RING.phoiB]) hall(S, r, { plinth: 0.6, wallH: 3.2, rh: 2.2 });
-  for (const r of [RING.tongA, RING.tongB]) hall(S, r, { plinth: 0.5, wallH: 3.0, rh: 2.0 });
+  // their roofs read weathered brown on Street View and dark on the satellite, not the gold of Biểu Đức and the gate
+  for (const r of [RING.phoiA, RING.phoiB]) hall(S, r, { plinth: 0.6, wallH: 3.2, rh: 2.2, roof: COL.roofSide });
+  for (const r of [RING.tongA, RING.tongB]) hall(S, r, { plinth: 0.5, wallH: 3.0, rh: 2.0, roof: COL.roofSide });
   bieuDuc(S, bd);
 }
 
@@ -323,8 +338,12 @@ function marbleGate(S, Q, s) {
 // ---------- Lăng: the tomb axis ----------
 function tomb(S) {
   const bi = box2(RING.biDinh), dh = box2(RING.ducHinh);
-  const T = frame(bi.c, Math.atan2(dh.c[1] - bi.c[1], dh.c[0] - bi.c[0]));
-  const sDH = T.s(dh.c);
+  // the axis runs through Đức Hinh lâu's base (the OSM outline sits on the satellite's within ~1.5 m) at 33.5°: the
+  // bearing of the three bridges (OSM traced, and on the satellite) and of the line from the base
+  // to the centre of the Bửu Thành. s = 0 is Bi Đình, at its OSM distance from Đức Hinh lâu (it sits ~2 m off its
+  // OSM centroid; on the satellite it is under a dark restoration shelter)
+  const AX = (33.5 * Math.PI) / 180, sDH = Math.hypot(dh.c[0] - bi.c[0], dh.c[1] - bi.c[1]);
+  const T = frame([dh.c[0] - Math.cos(AX) * sDH, dh.c[1] - Math.sin(AX) * sDH], AX), biC = T.at(0);
   // bronze nghi môn between hồ Nhuận Trạch and the court
   bronzeGate(S, T, -71.5);
   // sân chầu (Bái Đình): two levels of Bát Tràng brick, statues in two rows a side
@@ -353,11 +372,11 @@ function tomb(S) {
     const P = 17.5, { hi } = span(T, 0, 0, P, P), top = hi + 2.65;
     terrace(S, T, 0, 0, P, P, top, COL.stone);
     S.kind = KIND.MASONRY; // a moulded band round the top
-    S.box(bi.c[0], bi.c[1], top - 0.35, top, P + 0.3, P + 0.3, T.a, shade(COL.stone, 0.92), { topKind: KIND.ROAD });
+    S.box(biC[0], biC[1], top - 0.35, top, P + 0.3, P + 0.3, T.a, shade(COL.stone, 0.92), { topKind: KIND.ROAD });
     flight(S, T.at(-P / 2 - 4.6), yPrev, T.at(-P / 2), top, 5.2);
     flight(S, T.at(P / 2 + 4.4), gY(...T.at(P / 2 + 4.4)), T.at(P / 2), top, 4);
     const W = Math.min(bi.w, bi.d);
-    pavilion(S, bi.c[0], bi.c[1], W - 0.6, W - 0.6, T.av, top, { tiers: 2, wallH: 3.4, rh: 2.4, roof: COL.roof, wall: COL.lac, over: 1.3, colonnade: true, segs: 3 });
+    pavilion(S, biC[0], biC[1], W - 0.6, W - 0.6, T.av, top, { tiers: 2, wallH: 3.4, rh: 2.4, roof: COL.roof, wall: COL.lac, over: 1.3, colonnade: true, segs: 3 });
     walk(S, T, P / 2 + 4.4, sDH - 13.5, 0, 4.5);
   }
   // Đức Hinh lâu on its low hill, with the two brick trụ biểu either side: the tomb's Minh Lâu, drawn whole, as it
@@ -373,16 +392,18 @@ function tomb(S) {
     }
     lau(S, T, sDH, y2);
     for (const sd of [-1, 1]) truBieu(S, T.at(sDH, sd * 15.5));
-    walk(S, T, sDH + (B + 7) / 2 + 1.8, 71, 0, 4.5);
+    walk(S, T, sDH + (B + 7) / 2 + 1.8, T.s(L(BRIDGES[0][0])) + 0.5, 0, 4.5);
   }
   S.paved.push([n1, S.n]);
   // hồ Ngưng Thúy: three bridges, Tây Định, Chánh Trung (the middle, widest) and Đông Hòa, from the shore behind Đức
   // Hinh lâu to the apron before the Bửu Thành
-  for (const [t, w] of [[-9, 3.0], [0, 4.2], [9, 3.0]]) bridge(S, T.at(70.5, t), T.at(113, t), w, t ? COL.stone : shade(COL.stone, 1.05));
-  // Bửu Thành: a ring wall 260 m round (r 41.4 m), its bronze gate on the axis, grave mound and pines inside
-  const n2 = S.n, R = 260 / (2 * Math.PI), sB = 115.6 + R, cB = T.at(sB);
+  // on their OSM lines (which the satellite confirms: ~21 m apart, about 40 m long, the middle one widest)
+  BRIDGES.forEach(([p, q, w], i) => bridge(S, L(p), L(q), w, i ? COL.stone : shade(COL.stone, 1.05)));
+  // Bửu Thành: a ring wall 260 m round (r 41.4 m), its bronze gate on the axis, grave mound and pines inside. The
+  // centre is where the satellite shows the ring (fitted to the visible wall: r ~40 m), 134 m beyond Đức Hinh lâu
+  const n2 = S.n, R = 260 / (2 * Math.PI), sB = T.s(L(BUU_C)), cB = T.at(sB), sG = sB - R;
   {
-    walk(S, T, 111.5, 115.4, 0, 26, COL.stoneGrey);
+    walk(S, T, sG - 4.1, sG - 0.2, 0, 26, COL.stoneGrey);
     const N = 40, h = 3.0, th = 1.1;
     const gateHalf = 3.4 / R; // the gate opening, as an angle each side of the axis
     const front = Math.PI; // the axis front, in the frame's angle (s negative)
@@ -396,14 +417,14 @@ function tomb(S) {
       } else wallRun(S, pt(a0), pt(a1), h, th, COL.brick);
     }
     // the gate: two brick pylons, a lintel with a small roof, the bronze double door
-    const gp = T.at(115.6), g = gY(gp[0], gp[1]);
+    const gp = T.at(sG), g = gY(gp[0], gp[1]);
     S.kind = KIND.MASONRY; S.base = g - LAND_Y;
-    for (const sd of [-1, 1]) { const p = T.at(115.6, sd * 3.1); S.box(p[0], p[1], g - 0.6, g + 4.6, 1.6, 1.4, T.a, COL.brick, { top: COL.cap }); S.box(p[0], p[1], g + 4.6, g + 5.1, 1.0, 1.0, T.a, COL.cap, { taper: 0.5 }); }
+    for (const sd of [-1, 1]) { const p = T.at(sG, sd * 3.1); S.box(p[0], p[1], g - 0.6, g + 4.6, 1.6, 1.4, T.a, COL.brick, { top: COL.cap }); S.box(p[0], p[1], g + 4.6, g + 5.1, 1.0, 1.0, T.a, COL.cap, { taper: 0.5 }); }
     S.box(gp[0], gp[1], g + 3.4, g + 4.3, 1.5, 4.8, T.a, COL.brick, { top: COL.cap });
     S.hip(gp[0], gp[1], 6.6, 1.9, T.av, g + 4.3, 0.8, COL.roofOld, { flare: 0.25, over: 0.4, fascia: 0.15, ridgeCol: RIDGE, hips: true, glazed: true });
     S.kind = KIND.PLAIN;
-    for (const sd of [-1, 1]) { const p = T.at(115.6, sd * 0.85); S.box(p[0], p[1], g, g + 3.3, 0.14, 1.6, T.a, COL.bronze); S.box(p[0], p[1], g + 1.4, g + 1.7, 0.18, 1.5, T.a, COL.bronzeHi); }
-    flight(S, T.at(111.2), g - 0.4, T.at(114.6), g + 0.1, 5, COL.stoneGrey, false);
+    for (const sd of [-1, 1]) { const p = T.at(sG, sd * 0.85); S.box(p[0], p[1], g, g + 3.3, 0.14, 1.6, T.a, COL.bronze); S.box(p[0], p[1], g + 1.4, g + 1.7, 0.18, 1.5, T.a, COL.bronzeHi); }
+    flight(S, T.at(sG - 4.4), g - 0.4, T.at(sG - 1), g + 0.1, 5, COL.stoneGrey, false);
     // inside: the grave mound (a round earth tumulus in a stone kerb), pines round it
     // the kerb is set on the highest ground under it (the hill climbs ~2 m across it), bedded at the lowest
     const sp = span(T, sB, 0, 23, 23), gm = sp.hi;

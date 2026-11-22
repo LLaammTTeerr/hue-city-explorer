@@ -63,7 +63,18 @@ Replica: `src/landmarks/places/thieutri.js` (id `thieutri`). The old model, `thi
 - Đức Hinh lâu was first drawn as the bare base (column stones, wall stubs); it is now drawn complete, a two-storey lầu like Minh Lâu.
 - `docs/heights-reference.json`: the entry "Thiệu Trị, Đức Hinh lâu (ruin, foundation only)" (3.2 m) is out of date; its replacement ("Thiệu Trị, Đức Hinh lâu", 13-14.5 m) is waiting to be merged. Biểu Đức measures 10.2 m against 9.
 
+## Satellite and Street View alignment (2026-11)
+Measured against Google satellite and Street View (visual reference only, nothing traced into `data/`):
+- Temple axis 42° (the OSM centroids alone gave 40.2°); sân tế 36 m wide in three tiers from 57 m before Biểu Đức, reaching the lake wall; a low stone parapet along each tier side.
+- Tomb axis 33.5° (bridges and Đức Hinh lâu → Bửu Thành), 36° before.
+- Bridges sit on the three OSM footway bridges (bridge=yes) over Ngưng Thúy, about 21 m apart; Chánh Trung 3.8 m wide, the others 3.2 m.
+- Bửu Thành centre measured on the satellite about 15 m east of the old position; the satellite ring (r ≈ 39.5 m) agrees with the documented 260 m.
+- Tòng viện way 264285104 re-framed 2.4 m east, 1.2 m south to sit on its hall, symmetric with 264285109.
+- Side halls are dark brown-roofed and the gates ochre-plastered with grey roofs (Street View); Bát Tràng paving weathered.
+
 ## What is left
+- Bi Đình is kept on the tomb axis; the dark restoration shelter over it on the satellite is centred about 8 m SW.
+- A modern grey shed SW of Bi Đình is not modelled.
 - Hiển Quang các (the rest pavilion to the right) and the outer stele pavilions are not modelled.
 - The pháp lam panels are plain colour blocks.
 - The bridges are plain arched decks; they are not checked against photos.
