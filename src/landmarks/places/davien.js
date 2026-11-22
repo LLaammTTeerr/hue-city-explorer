@@ -43,7 +43,7 @@ const TANK_R = 8.8, TOP = 41.8; // drum 17.6 m across (photos and the satellite 
 const LAWN = [-1705.2, 1146.4]; // centre of the round lawn inside footway 1167517134 (radius ≈ 32 m)
 const TIP = [-1528, 1058]; // the eastern tip
 
-const CONC = hex('#b2afa5'), CONC_D = hex('#8f8c83'), STAIN = hex('#6c6a63'), DARK = hex('#262523'), ROOF = hex('#9d978b');
+const CONC = hex('#a09d94'), CONC_D = hex('#82807a'), STAIN = hex('#5c5b55'), DARK = hex('#262523'), ROOF = hex('#9d978b');
 const WATER = hex('#3d4a40'), TILE = hex('#7d6f62');
 const LEAF = hex('#4f6a34'), OCHNA = hex('#e8c01c'), OCHNA2 = hex('#d9a514');
 const BLOOMS = ['#c8324a', '#e2709a', '#f0c23a', '#e8e2d2', '#b04ac0'].map(hex);
@@ -78,7 +78,7 @@ export function build({ data, S }) {
     // a shallow pilaster strip at each corner of the sixteen faces
     S.box(cx + c0 * (R0 + 0.05), cz + s0 * (R0 + 0.05), sh0, sh1, 0.3, 0.5, a0, shade(CONC, 0.92), { taper: 1 });
   }
-  for (const y of [8.3, 19.2]) S.cyl(cx, cz, g + y, g + y + 0.4, rAt(g + y) + 0.3, rAt(g + y) + 0.3, SEG, CONC_D, { rot: 0 }); // ring bands
+  for (const y of [8.3, 19.2]) S.cyl(cx, cz, g + y, g + y + 0.6, rAt(g + y) + 0.3, rAt(g + y) + 0.3, SEG, CONC_D, { rot: 0 }); // ring bands
   // the ladder on the face toward the bridge (bearing about 70°), and the windows: two rows of eight, a few low ones
   const la = -0.349;
   const lad = (y) => [cx + Math.cos(la) * (rAt(y) + 0.45), y, cz + Math.sin(la) * (rAt(y) + 0.45)];
@@ -93,9 +93,18 @@ export function build({ data, S }) {
   for (const y of [10.2, 16.4]) for (let k = 0; k < 8; k++) {
     const a = ((k + 0.5) / 8) * Math.PI * 2;
     if (Math.abs(Math.atan2(Math.sin(a - la), Math.cos(a - la))) < 0.3) continue; // the ladder runs here
-    win(a, g + y, g + y + 1.6, 1.0);
+    win(a, g + y, g + y + 1.9, 0.85);
   }
   for (const a of [la + 0.45, la - 0.6]) win(a, g + 4.2, g + 5.6, 0.9);
+  // third row of slits just under the corbel, as on the photos
+  for (let k = 0; k < 8; k++) { const a = ((k + 0.1) / 8) * Math.PI * 2; if (Math.abs(Math.atan2(Math.sin(a - la), Math.cos(a - la))) < 0.3) continue; win(a, g + 23.4, g + 25.0, 0.8); }
+  // the small ochre gate pavilion at the tower's foot (north-west, right of the tower from the bridge)
+  { const px = cx - 9, pz = cz - 8, y = gY(px, pz), pa = -0.6, c = Math.cos(pa), sn = Math.sin(pa);
+    S.box(px, pz, y - 0.2, y + 2.8, 5.0, 3.4, pa, hex('#c9a65a'));
+    const P = (a, b, h) => [px + a * c - b * sn, y + h, pz + a * sn + b * c];
+    S.quad(P(-2.8, -2.1, 2.8), P(-2.8, 2.1, 2.8), P(0, 1.9, 4.0), P(0, -1.9, 4.0), TILE, [-c, 1.5, -sn]);
+    S.quad(P(2.8, 2.1, 2.8), P(2.8, -2.1, 2.8), P(0, -1.9, 4.0), P(0, 1.9, 4.0), TILE, [c, 1.5, sn]);
+    S.box(px + 2.51 * c, pz + 2.51 * sn, y, y + 2.0, 0.1, 1.2, pa, DARK); }
   // door at the foot (south-west side, not visible in the photos; kept from the earlier estimate)
   const fa = Math.PI / 2 + 0.3, fx = Math.cos(fa), fz = Math.sin(fa);
   S.box(cx + fx * (R0 + 0.05), cz + fz * (R0 + 0.05), sh0, sh0 + 2.4, 0.4, 1.4, fa, DARK);
