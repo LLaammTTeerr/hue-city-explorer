@@ -25,8 +25,11 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
   4.5 m thick together, with a walk between. The circumference is 140–145 m and the
   inner "basin" is ~44 m across in the sources.
 - The outer wall face leans 10–15° (battered).
-- The king's stand is on the north-west arc, facing south-east (vi.wikipedia: the stand
-  "faces the south-east"; the OSM entry footway 1075016120 arrives at about -41 deg). The stair on the left (24 steps) was for the king
+- The king's stand is on the north arc (vi.wikipedia: the stand "faces the south-east"). Google satellite (2026)
+  shows its pale floor as a block about 8-10 m wide standing ~2.5 m out from the outer foot at a bearing of about
+  -8 deg, with the two stairs as short radial flights against its flanks at about -22 and +7 deg. The car Street
+  View from the north lane shows the east flight head-on (lime cheeks, capped posts) and the stand's face to its
+  right as plain wall, its top about level with the outer wall. The stair on the left (24 steps) was for the king
   and the one on the right for officials.
 - Five cages are opposite the stand (one caption says 3 tiger and 2 elephant). One
   cage door is larger.
@@ -39,11 +42,15 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
 ## Estimates
 - Outer radius 22.0 m and inner radius 17.5 m. These are a compromise between OSM
   (21.2 / 16.5) and the published 44 m diameter.
-- The front bearing FRONT = -0.5 rad (NW): between the wiki's SE-facing stand, the OSM entry path
-  and the lane west of the ring (way 1267047360). The stairs are at FRONT ±0.44 rad.
+- The front bearing FRONT = -0.14 rad (from the satellite; earlier -0.5 rad, a guess from the OSM paths). The
+  stairs are at FRONT ±0.27 rad, 24 steps of 0.24 m run. The stand block is 7.8 m wide and reaches R 24.6 m.
+- The ring centre stays at the OSM fit: the satellite puts the outer foot's centre within ~1 m of it (north-east).
+- The elephant gate (GATE = -1.15 rad, WNW): the stand's north face shows no arch in Street View, so the gate is put
+  on the short block the satellite shows standing out of the west-north-west arc. No source gives its bearing.
 - The cage spacing (±0.3 rad around south), door sizes, and the larger cage on the east.
 - The gate's form: a brick block, pillars, and an arch with a grille.
-- The stand: a raised platform 0.5 m above the walk over ±0.36 rad, with a parapet and railing.
+- The stand: a block standing out from the wall, its floor level with the inner wall walk, with a parapet to the
+  arena and an iron railing.
 - The lattice pattern (240 cells, 2 rows) and the 12 spouts.
 - Terrain: the ground falls ~2.5 m across the site (SW high, NE low). The lawn is
   levelled to the highest ground inside. The wall feet run down to the lowest ground
@@ -60,6 +67,10 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
   south cages, the north elephant gate, two stairs, the king's stand, the lawn, and a
   paved apron with an earth ring.
 - The OSM building at the site (a flat 5.8 m block) is no longer drawn.
+
+- Google re-alignment (2026): the stand, stairs and gate turned from the north-west to the satellite's layout (see
+  above). The data build keeps way 870617584 out of a sector round the stand and stairs (`CLEAR_SECTORS` in
+  scripts/build-data.mjs), since the east stair's foot now stands where the way was pushed to.
 
 ## Left / not confirmed
 - The brief asked for a "royal box with its roof". No source or photo shows a
