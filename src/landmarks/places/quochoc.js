@@ -68,7 +68,7 @@ const DIMS = { 695770486: [62.6, 13.7], 695770487: [82.1, 15.5], 695775623: [44.
   695775638: [18.3, 15.1], 695775640: [81.5, 15.4], 695775641: [62.7, 14.1], 1377968893: [32.1, 6.6] };
 
 // colours: the walls the school's own dark red, cream for cornices, string courses and balustrades
-const RED = hex('#962a24'), RED_D = hex('#7e231e'), CREAM = hex('#eee0c0'), ROOF = hex('#8c4c3b'), RIDGE = hex('#d9c9a4');
+const RED = hex('#a23d33'), RED_D = hex('#85302a'), CREAM = hex('#eee0c0'), ROOF = hex('#8c4c3b'), RIDGE = hex('#d9c9a4');
 const YELLOW = hex('#d8a52c'), IRON = hex('#24302b'), BRONZE = hex('#5b4a35'), BOARD = hex('#1f2f4a'), GOLD = hex('#d9b14a');
 
 const gY = (x, z) => LAND_Y + rise(x, z);

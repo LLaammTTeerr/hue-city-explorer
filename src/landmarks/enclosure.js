@@ -148,7 +148,7 @@ export const FENCE = {
   // Quốc Học: low dark-red wall, dark iron railing, red piers with cream caps
   // (Street View 2024: a red wall to about 1.75 m with a band of white square lattice panels framed in red, a cream
   // coping, a low iron railing over it, and taller capped piers about every 7 m)
-  quochoc: { h: 2.25, plinth: 1.75, rail: true, t: 0.36, every: 7.2, postW: 0.62, postUp: 0.3, wall: hex('#9a2f27'), cap: hex('#efe2c4'), iron: hex('#24302b'), pierW: 1.0, pierUp: 1.2, lattice: [0.95, 1.55], screen: hex('#dcd8cf'), bars: 0.45 },
+  quochoc: { h: 2.25, plinth: 1.75, rail: true, t: 0.36, every: 7.2, postW: 0.62, postUp: 0.3, wall: hex('#8e3a31'), cap: hex('#e6d8b8'), iron: hex('#24302b'), pierW: 1.0, pierUp: 1.2, lattice: [0.95, 1.55], screen: hex('#dcd8cf'), bars: 0.45 },
   // churches: cream rendered wall, iron railing, grey piers
   church: { h: 1.9, plinth: 0.7, rail: true, t: 0.32, every: 3.2, postW: 0.45, postUp: 0.18, wall: hex('#e4ddcd'), cap: hex('#b9b5ab'), iron: hex('#2a2d30'), pierW: 1.0, pierUp: 1.5 },
   // An Định: ochre wall with cream-capped piers and railing panels
@@ -238,7 +238,12 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
             const np = Math.max(1, Math.round((bl - st.postW) / 0.85)), pw = (bl - st.postW) / np;
             for (let j = 0; j < np; j++) {
               const f0 = (st.postW / 2 + (j + 0.5) * pw) / bl, c = [p[0] + (q[0] - p[0]) * f0, p[1] + (q[1] - p[1]) * f0];
-              S.box(c[0], c[1], hi + st.lattice[0], hi + st.lattice[1], pw - 0.16, st.t + 0.04, ang, st.screen);
+              const l0 = hi + st.lattice[0], l1 = hi + st.lattice[1];
+              S.box(c[0], c[1], l0, l1, pw - 0.16, st.t + 0.04, ang, st.screen);
+              // the fret: a darker inset with a pale cross, so the panel reads as pierced from a few metres
+              S.box(c[0], c[1], l0 + 0.1, l1 - 0.1, pw - 0.4, st.t + 0.06, ang, shade(st.screen, 0.62));
+              S.box(c[0], c[1], l0 + 0.14, l1 - 0.14, 0.09, st.t + 0.08, ang, st.screen);
+              S.box(c[0], c[1], (l0 + l1) / 2 - 0.045, (l0 + l1) / 2 + 0.045, pw - 0.46, st.t + 0.08, ang, st.screen);
             }
           }
           // the railing: a see-through screen of bars reads, from the street and the air, as a dark band under a rail
