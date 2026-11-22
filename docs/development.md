@@ -155,6 +155,13 @@ the whole set through `scripts/lib/data.mjs`), plus the small place index `publi
 | Citadel wall polygon (height 6.6 m from its tag), Imperial City walls, gates | roof shapes, facades, rooftop water tanks, rear wings on infill houses |
 | footprints/axes of Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the market hall | the hand-built models standing on those footprints |
 
+Road types. A road record in `hue.json` is `[class, bridge, points, width?, widths?, lanes?]` (widths in decimetres,
+`widths` per point where a carriageway tapers, else 0). A sixth element marks an unmarked road type: a slip road of
+1-3 lanes, drawn `lanes` × 3.5 m + 0.5 m wide with no lane dashes and no lamps, never narrowed as a divided twin nor
+tapered into. Every OSM `*_link` way is one (`lanes` tag, else 1 if one-way, 2 if not); `data/road-types.json`
+sets `unmarked-1/2/3` or `marked` for any other way by id. A pavement patch enclosed by slip roads stays a traffic
+island once it reaches 10 m² (`ISLAND_MIN` in `src/geo/junctions.js`) instead of being painted as a junction hole.
+
 Ground height is calibrated against measurements; `npm run data:build` prints how well it fits. Two open models are
 read on the same 30 m grid by `scripts/fetch-terrain.py` → `data/raw/dem/terrain.json`:
 [FABDEM v1-2](https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn) (bare earth) and the

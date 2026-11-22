@@ -2,12 +2,15 @@ import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { lightMaterial, glowPoints } from '../../geo/materials.js';
 import { pavilion } from '../citadel.js';
+import polygonClipping from 'polygon-clipping';
 
 // Ngọ Môn (Noon Gate, 1833), the south gate of the Imperial City. Notes and sources: docs/places/ngomon.md.
 //
-// Plan from the OSM outline (way 172657562), squared up and made symmetric: a U whose body runs 55.8 m along the
-// front (sources: 57.77-57.96 m) and whose wings reach 25.3 m in all (sources: 27.06-27.5 m) toward Kỳ Đài. The
-// body's back face projects 4.3 m between u = ±21.1; the two ends behind the wings are set back.
+// Plan: the OSM outline (way 172657562), squared up and made symmetric, then brought to the published size (Phan
+// Thanh Hải 2015, cited by vi.wikipedia: base 57.96 m along the front, each wing 27.50 m). OSM draws it 55.8 m wide
+// and 24.75-25.3 m deep, 4 % and 9 % short; the back face stays on OSM's line (the Imperial City wall), the wings
+// reach further toward Kỳ Đài and the ends grow outward. The body's back face projects 4.3 m between u = ±21.1; the
+// two ends behind the wings are set back.
 // Local frame: u along the front (east-north-east), v out of the Imperial City (south-south-east, toward the flag).
 export const id = 'ngomon';
 
@@ -19,7 +22,9 @@ const ring = (pts) => pts.map(([u, v]) => P(u, v));
 const mirror = (pts) => pts.map(([u, v]) => [-u, v]).reverse();
 
 // the outline, local metres
-const BACK = -12.7, BACK_END = -8.4, FRONT = 3.0, WING = 12.05, HALF = 27.9, INNER = 13.5, PROJ = 21.1;
+const BACK = -12.7, BACK_END = -8.4, FRONT = 3.0, INNER = 13.5, PROJ = 21.1;
+const HALF = 57.96 / 2, WING = BACK + 27.5; // published size; OSM has HALF 27.9, WING 12.05
+const dU = HALF - 27.9, dV = WING - 12.05; // how far the ends and the wing tips moved out from the OSM outline
 const OUTLINE = [[-PROJ, BACK], [PROJ, BACK], [PROJ, BACK_END], [HALF, BACK_END], [HALF, WING], [INNER, WING], [INNER, FRONT],
   [-INNER, FRONT], [-INNER, WING], [-HALF, WING], [-HALF, BACK_END], [-PROJ, BACK_END]];
 
@@ -28,9 +33,10 @@ const PARA = 0.9; // the parapet (nữ tường) with its band of glazed openwor
 const NEN = 1.14; // the pavilion's own plinth on the base
 // the three gateways through the body (rectangular mouths under bronze-beam lintels): Ngọ Môn for the emperor,
 // Tả / Hữu Giáp Môn for the mandarins. Sizes keep the ratios of the recorded thước figures (13.3 × 8.2 and
-// 12.45 × 6.3 thước); the Dịch gates through the wings (7.6 × 6.3) are arched.
+// 12.45 × 6.3 thước); the Dịch gates through the wings (7.6 × 6.3) are vaulted ("vòm cuốn") and bent ("lối đi gấp
+// khúc trong lòng hai cánh"): in from the forecourt through the wing's inner face, a right-angle turn, out at the back.
 const GATES = [{ u: 0, w: 3.0, h: 4.1 }, { u: -6.1, w: 2.3, h: 3.85 }, { u: 6.1, w: 2.3, h: 3.85 }];
-const DICH = { w: 2.3, h: 2.8, v: 7.5, uBack: 24.5 };
+const DICH = { w: 2.3, h: 2.8, v: (FRONT + WING) / 2, uBack: (PROJ + HALF) / 2 };
 
 const WALL = hex('#7d746a'); // weathered grey brick and bluestone, darker in the rain streaks
 const WALL_TOP = hex('#8f857a');
@@ -53,7 +59,20 @@ export function build({ S, group, THREE }) {
   const g0 = GATES[1], g1 = GATES[0]; // left Giáp, centre
   const gl = (g) => g.u - g.w / 2, gr = (g) => g.u + g.w / 2;
   const left = [[gl(g0), BACK], [gl(g0), FRONT], [-INNER, FRONT], [-INNER, WING], [-HALF, WING], [-HALF, BACK_END], [-PROJ, BACK_END], [-PROJ, BACK]];
-  for (const half of [left, mirror(left)]) S.prism(ring(half), y0, yT, WALL, TERRACE, { topKind: KIND.ROAD });
+  // the bent Dịch tunnel in plan, for side sd: in from the wing's inner face along u, then along v out the back
+  const dichPlan = (sd) => {
+    const r = DICH.w / 2, uI = INNER - 0.01, uB = DICH.uBack, v = DICH.v, vB = BACK_END - 0.01;
+    return [[uI, v - r], [uB - r, v - r], [uB - r, vB], [uB + r, vB], [uB + r, v + r], [uI, v + r]].map(([a, b]) => [sd * a, b]);
+  };
+  // the wings are solid up to the Dịch tunnels' crown with the bent tunnel cut out of them, solid above it
+  const yD = LAND_Y + DICH.h;
+  for (const [sd, half] of [[-1, left], [1, mirror(left)]]) {
+    const close = (r) => [...r, r[0]];
+    let parts = [[half]];
+    try { parts = polygonClipping.difference([close(half)], [close(dichPlan(sd))]).map((pg) => pg.map((r) => r.slice(0, -1))); } catch { /* keep it whole */ }
+    for (const pg of parts) S.prism(ring(pg[0]), y0, yD, WALL, WALL, { holes: pg.slice(1).map(ring), top: false });
+    S.prism(ring(half), yD, yT, WALL, TERRACE, { topKind: KIND.ROAD });
+  }
   for (const s of [-1, 1]) { // the two piers between the centre gateway and the Giáp gates
     const a = s < 0 ? gr(g0) : gr(g1), b = s < 0 ? gl(g1) : gl(GATES[2]);
     box((a + b) / 2, (BACK + FRONT) / 2, y0, yT, b - a, FRONT - BACK, WALL, { top: TERRACE, topKind: KIND.ROAD });
@@ -79,23 +98,73 @@ export function build({ S, group, THREE }) {
   box(0, FRONT + 0.08, LAND_Y + 4.28, LAND_Y + 4.88, 2.2, 0.1, hex('#2d3b45'));
   for (const s of [-1, 1]) box(s * 0.45, FRONT + 0.14, LAND_Y + 4.38, LAND_Y + 4.78, 0.42, 0.04, GOLD);
 
-  // ---- the Dịch gates: an arched mouth in the inner face of each wing, the bent tunnel coming out at the back ----
-  const arch = (cu, cv, nu, nv, w, h, col, out) => {
-    // a flat arched panel standing just proud of a face; (nu, nv) its outward normal in local terms
-    const tu = -nv, tv = nu, r = w / 2, base = h - r, k = 8;
-    const at = (s, y) => pt(cu + tu * s + nu * out, cv + tv * s + nv * out, LAND_Y + y);
-    const n = P(nu, nv), hint = [n[0] - C[0], 0, n[1] - C[1]];
-    S.quad(at(-r, 0), at(r, 0), at(r, base), at(-r, base), col, hint);
-    for (let i = 0; i < k; i++) {
-      const a0 = (Math.PI * i) / k, a1 = (Math.PI * (i + 1)) / k;
-      S.tri(at(0, base), at(Math.cos(a0) * r, base + Math.sin(a0) * r), at(Math.cos(a1) * r, base + Math.sin(a1) * r), col, hint);
+  // ---- the Dịch gates: a vaulted tunnel in from the forecourt through each wing's inner face, a right-angle turn,
+  // and out through the back face of the set-back end behind it ----
+  const r = DICH.w / 2, ys = LAND_Y + DICH.h - r, K = 8; // springing of the vault; the crown is at yD
+  const dirW = (nu, nv, ny = 0) => [nu * ux - nv * uz, ny, nu * uz + nv * ux];
+  // the face of an opening: (cu, cv) the middle of its foot, (nu, nv) the outward normal, in local terms
+  const face = (cu, cv, nu, nv) => {
+    const tu = -nv, tv = nu, hint = dirW(nu, nv);
+    const at = (t, y, out = 0) => pt(cu + tu * t + nu * out, cv + tv * t + nv * out, y);
+    const arc = (a, rr, out) => at(Math.cos(a) * rr, ys + Math.sin(a) * rr, out);
+    S.kind = KIND.MASONRY; // the spandrels between the vault and the square cut through the masonry
+    for (let i = 0; i < K; i++) {
+      const a0 = (Math.PI * i) / K, a1 = (Math.PI * (i + 1)) / K, c = at(i < K / 2 ? r : -r, yD);
+      S.tri(c, arc(a0, r, 0), arc(a1, r, 0), WALL, hint);
+    }
+    S.kind = KIND.PLAIN; // a proud bluestone surround: jambs and an arched band
+    const R = r + 0.35, o = 0.06;
+    for (const sg of [-1, 1]) S.quad(at(sg * r, LAND_Y, o), at(sg * R, LAND_Y, o), at(sg * R, ys, o), at(sg * r, ys, o), FRAME, hint);
+    for (let i = 0; i < K; i++) {
+      const a0 = (Math.PI * i) / K, a1 = (Math.PI * (i + 1)) / K;
+      S.quad(arc(a0, r, o), arc(a0, R, o), arc(a1, R, o), arc(a1, r, o), FRAME, hint);
+    }
+    // the reveal of the surround (its thickness), so it reads proud from the side
+    for (let i = 0; i < K; i++) {
+      const a0 = (Math.PI * i) / K, a1 = (Math.PI * (i + 1)) / K;
+      S.quad(arc(a0, R, 0), arc(a1, R, 0), arc(a1, R, o), arc(a0, R, o), FRAME, dirW(nu, nv, 1));
+    }
+  };
+  // a run of vault from local (u0, v0) to (u1, v1) along one axis, spanning 2r across it; dark inside
+  const vault = (u0, v0, u1, v1) => {
+    const alongU = Math.abs(u1 - u0) > Math.abs(v1 - v0), mu = (u0 + u1) / 2, mv = (v0 + v1) / 2;
+    const at = (t, a, k) => { const c = Math.cos(a) * r, y = ys + Math.sin(a) * r; return alongU ? pt(k ? u1 : u0, mv + c, y) : pt(mu + c, k ? v1 : v0, y); };
+    for (let i = 0; i < K; i++) {
+      const a0 = (Math.PI * i) / K, a1 = (Math.PI * (i + 1)) / K, am = (a0 + a1) / 2;
+      const hint = alongU ? dirW(0, -Math.cos(am), -Math.sin(am)) : dirW(-Math.cos(am), 0, -Math.sin(am));
+      S.quad(at(0, a0, 0), at(0, a1, 0), at(0, a1, 1), at(0, a0, 1), DARK, hint);
     }
   };
   for (const s of [-1, 1]) {
-    arch(s * INNER, DICH.v, -s, 0, DICH.w + 0.7, DICH.h + 0.35, FRAME, 0.03);
-    arch(s * INNER, DICH.v, -s, 0, DICH.w, DICH.h, DARK, 0.06);
-    arch(s * DICH.uBack, BACK_END, 0, -1, DICH.w + 0.7, DICH.h + 0.35, FRAME, 0.03);
-    arch(s * DICH.uBack, BACK_END, 0, -1, DICH.w, DICH.h, DARK, 0.06);
+    const uI = s * INNER, uB = s * DICH.uBack, v = DICH.v;
+    face(uI, v, -s, 0); // into the forecourt
+    face(uB, BACK_END, 0, -1); // out at the back, into the Imperial City
+    S.kind = KIND.PLAIN;
+    // leg 1 along u from the mouth to the turn, leg 2 along v from the turn to the back; the turn under a flat ceiling
+    vault(uI, v, uB - s * r, v);
+    vault(uB, BACK_END, uB, v - r);
+    box(uB, v, yD - 0.06, yD - 0.02, DICH.w, DICH.w, DARK, { bottom: true });
+    // the ends of the two vaults where they open into the turn, closed up to the ceiling
+    const endFace = (cu, cv, nu, nv) => {
+      const tu = -nv, tv = nu, hint = dirW(nu, nv);
+      const at = (t, y) => pt(cu + tu * t, cv + tv * t, y);
+      for (let i = 0; i < K; i++) {
+        const a0 = (Math.PI * i) / K, a1 = (Math.PI * (i + 1)) / K;
+        S.tri(at(i < K / 2 ? r : -r, yD), at(Math.cos(a0) * r, ys + Math.sin(a0) * r), at(Math.cos(a1) * r, ys + Math.sin(a1) * r), DARK, hint);
+      }
+    };
+    endFace(uB - s * r, v, s, 0);
+    endFace(uB, v - r, 0, 1);
+    // dark lining on the walls past the first 0.5 m in from each mouth (the reveals stay lit), and the stone floor
+    const lin = (u0, v0, u1, v1) => box((u0 + u1) / 2, (v0 + v1) / 2, LAND_Y, ys, Math.max(0.04, Math.abs(u1 - u0)), Math.max(0.04, Math.abs(v1 - v0)), DARK);
+    const e = 0.03, m0 = 0.5;
+    lin(uI + s * m0, v - r + e, uB - s * (r - e), v - r + e); // leg 1, toward the back
+    lin(uI + s * m0, v + r - e, uB + s * (r - e), v + r - e); // leg 1, toward the front, on round the turn
+    lin(uB + s * (r - e), v + r - e, uB + s * (r - e), BACK_END + m0); // the outer wall of the turn and leg 2
+    lin(uB - s * (r - e), v - r + e, uB - s * (r - e), BACK_END + m0); // the inner wall of leg 2
+    const floor = shade(PAL.stone, 0.85);
+    box((uI + uB + s * r) / 2, v, LAND_Y - 0.1, LAND_Y + 0.04, Math.abs(uB + s * r - uI), DICH.w, floor);
+    box(uB, (BACK_END + v - r) / 2, LAND_Y - 0.1, LAND_Y + 0.04, DICH.w, v - r - BACK_END, floor);
     // the round window with a stylised Thọ on each wing's outer face, lighting the bend of the tunnel
     const c = [s * (HALF + 0.05), DICH.v + 1.4], yw = LAND_Y + 3.0, k = 10;
     const ring2 = (r, out) => Array.from({ length: k }, (_, i) => { const t = (i / k) * Math.PI * 2; return pt(c[0] + s * out, c[1] + Math.cos(t) * r, yw + Math.sin(t) * r); });
@@ -165,8 +234,9 @@ export function build({ S, group, THREE }) {
 
   // ---- Lầu Ngũ Phụng: the U-shaped plinth, then nine roofs over a two-storey timber frame ----
   const yN = yT + NEN;
-  const lau = [[-26.3, -6.8], [-19.6, -6.8], [-19.6, -10.9], [19.6, -10.9], [19.6, -6.8], [26.3, -6.8], [26.3, 10.5], [15.1, 10.5],
-    [15.1, 1.4], [-15.1, 1.4], [-15.1, 10.5], [-26.3, 10.5]];
+  const lE = 26.3 + dU, lW = 10.5 + dV; // the plinth keeps its margin to the base's ends as the base grows
+  const lau = [[-lE, -6.8], [-19.6, -6.8], [-19.6, -10.9], [19.6, -10.9], [19.6, -6.8], [lE, -6.8], [lE, lW], [15.1, lW],
+    [15.1, 1.4], [-15.1, 1.4], [-15.1, lW], [-lE, lW]];
   S.kind = KIND.MASONRY;
   S.prism(ring(lau), yT - 0.1, yN, shade(PAL.stone, 0.92), hex('#b5a58a'), { topKind: KIND.ROAD });
   // three steps up the plinth before the centre hall, toward the flag
@@ -186,8 +256,8 @@ export function build({ S, group, THREE }) {
     const U = (a, b) => (s < 0 ? [-b, -a] : [a, b]);
     unit(...U(6.2, 9.6), -9.7, 0.2, PAL.jadeRoof, 1.6); // link
     unit(...U(9.6, 15.9), -10.3, 0.8, PAL.jadeRoof, 2.2); // side hall
-    unit(...U(15.9, 25.8), -6.3, 3.6, PAL.jadeRoof, 1.7); // corner link over the wing's root
-    unit(...U(15.6, 25.8), 3.6, 10.0, PAL.jadeRoof, 2.3); // wing hall on the arm of the U
+    unit(...U(15.9, 25.8 + dU), -6.3, 3.6, PAL.jadeRoof, 1.7); // corner link over the wing's root
+    unit(...U(15.6, 25.8 + dU), 3.6, 10.0 + dV, PAL.jadeRoof, 2.3); // wing hall on the arm of the U
   }
   // upper-storey wall panels with their round windows, dark timber between the red columns (one per main hall face)
   for (const e of eaves) {

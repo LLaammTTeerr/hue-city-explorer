@@ -6341,12 +6341,12 @@
  },
  "canchanh": {
   "title": {
-   "vi": "Nền điện Cần Chánh",
-   "en": "Cần Chánh Hall site"
+   "vi": "Điện Cần Chánh",
+   "en": "Cần Chánh Hall"
   },
   "kind": {
-   "vi": "Nền điện, đang phục dựng",
-   "en": "Palace site, under reconstruction"
+   "vi": "Điện thiết triều, đang phục dựng (mô hình vẽ điện hoàn chỉnh)",
+   "en": "Audience hall under reconstruction (modelled as finished)"
   },
   "when": {
    "vi": "Xây 1804; tu sửa 1827, 1850, 1899; bị phá hủy 1947; khởi công phục dựng 2024",

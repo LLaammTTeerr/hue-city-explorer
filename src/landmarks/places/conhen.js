@@ -2,6 +2,7 @@ import { KIND, hex, shade, inRing, rand, signedArea } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { pavilion } from '../citadel.js';
+import { LANDINGS } from '../conhen-landings.js';
 import { lamp, flushLamps } from '../enclosure.js';
 
 // Cồn Hến, the islet in the Hương River off Vỹ Dạ, as it stands in 2026. Sources and estimates: docs/places/conhen.md.
@@ -88,11 +89,6 @@ export function build({ data, S }) {
 
   // ---- the landings: concrete bến nước steps down the bank, sampans tied up off them, heaps of hến shells ----
   // (positions estimated: the clam boats lie mostly in the narrow eastern arm by Cầu Phú Lưu and round the north end)
-  const LANDINGS = [
-    [583, -1405, 5, true], [578, -1505, 4, true], [562, -1620, 4, true], [581, -1290, 3, false], [570, -1110, 3, false],
-    [548, -880, 2, false], [470, -625, 3, false], [384, -900, 2, false], [370, -1150, 2, false], [362, -1330, 3, true],
-    [356, -1560, 3, false], [372, -1880, 3, true], [425, -2120, 4, true], [470, -2050, 3, true], [520, -1830, 4, true],
-  ];
   let bi = 0;
   for (const [lx, lz, nBoats, shells] of LANDINGS) {
     const s = shoreAt(lx, lz), [px, pz] = s.p, [nx, nz] = s.n, [tx, tz] = s.t;

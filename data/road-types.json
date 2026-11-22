@@ -1,0 +1,4 @@
+{
+  "_": "Road types by OSM way id (issue #67), read by scripts/build-data.mjs. unmarked-1, unmarked-2, unmarked-3: a carriageway of that many lanes (3.5 m each, plus 0.5 m), drawn without lane dashes or lamps, for the slip roads of junctions and roundabouts. Every highway=*_link way is already laid as unmarked-<its lanes tag> (1 one-way, 2 two-way when untagged); list a way here to give a slip road mapped as an ordinary street a type, or `marked` to keep a link at its class width with its dashes.",
+  "ways": {}
+}

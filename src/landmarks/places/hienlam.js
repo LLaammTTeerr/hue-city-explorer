@@ -3,6 +3,7 @@ import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
 import { fence, roadsNear, FENCE } from '../enclosure.js';
+import { dinh } from '../props.js';
 
 // Hiển Lâm Các, the three-storey timber pavilion on the axis of Thế Miếu in the south-west of the Imperial City
 // (1821-22, Minh Mạng; restored 2001), the cross wall it stands in with the gate towers Tuấn Liệt môn and Sùng Công
@@ -118,32 +119,11 @@ function pavilionBody(S, lamps) {
   for (const sg of [-1, 1]) for (const u of [-4.2, 4.2]) { const p = P(u, sg * 3.6); lamps.push([p[0], y2 + H2 - 0.5, p[1]]); }
 }
 
-// a bronze tripod urn of total height h on its stone slab, mouth facing up, handles across u
+// a bronze tripod urn (src/landmarks/props.js dinh) of total height h on its stone slab, facing Thế Miếu (-v),
+// so its two handles lie across u
 function urn(S, u, v, h) {
-  const g = gy(P(u, v)), k = h / 2.33;
   const q = P(u, v);
-  S.kind = KIND.MASONRY;
-  fbox(S, u, v, g - 0.1, g + 0.22, 2.3 * k, 2.3 * k, shade(STONE, 0.92), { topKind: KIND.ROAD });
-  S.kind = KIND.PLAIN;
-  const y = g + 0.22;
-  for (let i = 0; i < 3; i++) {
-    const a = ANG + Math.PI / 2 + (i * 2 * Math.PI) / 3, lx = Math.cos(a) * 0.6 * k, lz = Math.sin(a) * 0.6 * k;
-    S.beam([q[0] + lx * 1.15, y, q[1] + lz * 1.15], [q[0] + lx * 0.85, y + 0.6 * k, q[1] + lz * 0.85], 0.2 * k, 0.24 * k, BRONZE);
-  }
-  // body: rounded belly, waisted neck, upright rim (about 1.37 m across)
-  const ring = [[0.5, 0.45], [0.68, 0.7], [1.0, 0.79], [1.38, 0.74], [1.58, 0.62], [1.8, 0.64], [1.92, 0.69]];
-  for (let i = 0; i + 1 < ring.length; i++) S.cyl(q[0], q[1], y + ring[i][0] * k, y + ring[i + 1][0] * k, ring[i][1] * k, ring[i + 1][1] * k, 12, i === 3 ? shade(BRONZE, 1.08) : BRONZE, { cap: i === 0 || i === ring.length - 2 });
-  S.cyl(q[0], q[1], y + 1.92 * k, y + 1.96 * k, 0.6 * k, 0.6 * k, 12, shade(BRONZE, 0.55)); // the dark mouth
-  // the two loop handles standing on the rim
-  const yh = y + h - 0.22, yt = g + h;
-  for (const s of [-1, 1]) {
-    const a = [q[0] + UX * s * 0.67 * k - UZ * 0.24 * k, q[1] + UZ * s * 0.67 * k + UX * 0.24 * k];
-    const b = [q[0] + UX * s * 0.67 * k + UZ * 0.24 * k, q[1] + UZ * s * 0.67 * k - UX * 0.24 * k];
-    S.beam([a[0], y + 1.9 * k, a[1]], [a[0], yt, a[1]], 0.1, 0.12, BRONZE);
-    S.beam([b[0], y + 1.9 * k, b[1]], [b[0], yt, b[1]], 0.1, 0.12, BRONZE);
-    S.beam([a[0], yt, a[1]], [b[0], yt, b[1]], 0.12, 0.12, BRONZE);
-  }
-  void yh;
+  dinh(S, q[0], gy(q), q[1], ANG - Math.PI / 2, { h, col: BRONZE, stand: 0.22, standCol: shade(STONE, 0.92) });
 }
 
 function court(S) {
@@ -164,10 +144,8 @@ function court(S) {
     const y = gy(P(u, v));
     S.kind = KIND.MASONRY;
     fbox(S, u, v, y - 0.1, y + 0.85, 1.4, 1.4, shade(STONE, 0.9), { taper: 0.92 });
-    S.kind = KIND.PLAIN;
     const q = P(u, v);
-    S.cyl(q[0], q[1], y + 0.85, y + 1.3, 0.42, 0.5, 8, BRONZE);
-    S.cyl(q[0], q[1], y + 1.3, y + 1.55, 0.18, 0.06, 6, BRONZE);
+    dinh(S, q[0], y + 0.85, q[1], ANG - Math.PI / 2, { h: 0.75, col: BRONZE, lid: true, stand: 0 });
   }
   // behind: the walk from the back steps to Miếu Môn, Bát Tràng brick with a stone middle
   const gb = gy(P(0, 16));

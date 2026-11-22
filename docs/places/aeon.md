@@ -61,5 +61,3 @@ Model: `src/landmarks/places/aeon.js`. Issue #71.
   values are used only east of the old grid and in the northern rows that the old grid had not covered, so the northern
   villages get raster heights for the first time.
 - ICESat-2 lidar was not refetched for the wider box.
-- Sampan moorings now need the whole hull in water (bow, stern and bankward side). With the reshuffled water polygons,
-  two moorings in the citadel moat would otherwise have sat half on the bank.

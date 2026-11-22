@@ -2,6 +2,7 @@ import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
+import { planter, cannon, vac } from '../props.js';
 
 // Điện Kiến Trung, the last palace of the Forbidden Purple City (Tử Cấm Thành), at the north end of the Imperial
 // City's axis behind Khôn Thái. Built 1921-23 under Khải Định, destroyed 1947 (only the base and its balustrade were
@@ -285,19 +286,16 @@ function forecourt(S) {
     fcyl(S, cu, 18.0, g + 0.4, g + 1.0, 0.18, 0.12, 6, TRIM);
     // brick stools carrying potted trees, at the foot of the terrace
     for (const du of [-4.5, -1.5, 1.5, 4.5]) {
-      S.kind = KIND.MASONRY;
-      fbox(S, cu + du, 14.75, g, g + 0.55, 0.6, 0.6, hex('#a4553c'));
-      S.kind = KIND.PLAIN;
-      fcyl(S, cu + du, 14.75, g + 0.55, g + 0.95, 0.32, 0.24, 6, MOSAIC[0]);
-      fcyl(S, cu + du, 14.75, g + 0.95, g + 1.6, 0.45, 0.25, 6, HEDGE);
+      const q = P(cu + du, 14.75);
+      planter(S, q[0], g, q[1], ANG, { r: 0.34, stand: 0.55, standCol: hex('#a4553c'), square: true, col: MOSAIC[0], band: shade(MOSAIC[0], 1.25) });
     }
     // a bronze cannon on its carriage either side of the middle flight's foot, the muzzle to the road
-    const cv = 22.6, cx = s * 3.6;
-    S.kind = KIND.PLAIN;
-    fbox(S, cx, cv, g, g + 0.45, 0.8, 1.6, shade(WOOD, 0.7));
-    const a = P(cx, cv - 1.0), b = P(cx, cv + 1.0);
-    S.beam([a[0], g + 0.6, a[1]], [b[0], g + 0.7, b[1]], 0.36, 0.36, BRONZE);
+    const q = P(s * 3.6, 22.6);
+    cannon(S, q[0], g + 0.04, q[1], ANG + Math.PI / 2, { len: 2.4, col: BRONZE, wood: shade(WOOD, 0.7) });
   }
+  // the bronze cauldron cast for the court before Kiến Trung's predecessor (vạc đồng, 1659), on the axis between the
+  // parterres (its place here estimated)
+  { const q = P(0, 18.6); vac(S, q[0], g, q[1], ANG, { d: 1.9, col: BRONZE }); }
 }
 
 export function build({ S, group }) {

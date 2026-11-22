@@ -20,7 +20,9 @@ the gates loop's shared guard `replaced('gate:' + name)`. The rampart, its slot 
 - Footprint: `hue.json` `gates` (from OSM): centre (-2921.5, -633.0) m, 19.6 × 12.8 m, long axis along the wall.
   The rampart faces on the passage axis (from `data.wall`): outer at t = -8.15 m, inner at +9.5 m (+6.4 m at the
   gate's own notch). Overpass could not be reached from this session, so no newer OSM outline was fetched.
-- `scripts/build-data.mjs`: the moat before this gate has been filled; the mapped bridge way crosses dry land.
+- `scripts/build-data.mjs`: OSM has no water polygon for the west-face moat, so the build draws it (issue #62): from
+  the wall's outer face out to the far landing of the mapped cầu Chánh Tây (way 39416352), about 70 m off the wall. The
+  bridge way now crosses water and is drawn as a bridge.
 
 ## Confirmed (photo and articles)
 - One round-arched passage through bare red-brown brick, the arch ringed in brick voussoirs; a grey cornice ledge over
@@ -29,7 +31,7 @@ the gates loop's shared guard `replaced('gate:' + name)`. The rampart, its slot 
 - The vọng lâu is masonry (lime-plastered brick), two storeys: the lower with a large arched opening in the middle of
   the long face and a smaller brick-rimmed arch either side; the upper a small block with a bare-brick panel; each
   storey under a plaster cornice edged with a row of tiles and corner ornaments.
-- No moat bridge today: the street runs on fill up to the arch.
+- The street crosses the moat on cầu Chánh Tây (mapped in OSM) up to the arch.
 
 ## Estimated
 - Heights: the block's flat top 8.0 m over the ground (about 1.4 m above the rampart), parapet 0.95 m; lower storey
@@ -45,6 +47,13 @@ the gates loop's shared guard `replaced('gate:' + name)`. The rampart, its slot 
 - Before: the generic Citadel gate (grey brick block, crenellated parapet, a timber two-tier pavilion with golden
   roofs). Now: red-brown brick front with brick-ringed arch, ledge and name tablet, panelled grey parapet, and the
   masonry two-storey vọng lâu with arched openings and tile-edged cornices. About 5k triangles.
+
+## Moat width
+- The drawn west moat covers about 61,300 m². VNA (24/07/2026, on the moat-embankment project) gives 56,319 m² for
+  this stretch. Matching that would put the outer bank about 50 m off the wall, where the bastion tips cut the moat
+  into separate pieces and the bank falls short of the bridge's mapped landing. The 70 m bank was kept: it matches the
+  landing and the mapped moat width south of the inlet (owner's call, 2026-11-22). The project figure may count only
+  the open water inside revetments.
 
 ## Left
 - A photo of the inner face and of the tower's ends, and the tower's measured size.

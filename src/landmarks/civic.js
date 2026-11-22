@@ -4,6 +4,7 @@ import { rise } from '../geo/terrain.js';
 import { pavilion } from './citadel.js';
 import { replaced } from './places/index.js';
 import { fence, yard, roadsNear, buildingsNear, leaves, lamp, strips, flushLamps, FENCE } from './enclosure.js';
+import { dinh } from './props.js';
 
 // Named places of the modern and colonial city, each built on its own OSM footprint: position, size and
 // orientation are mapped; the forms follow what stands there (see README for what is illustrative).
@@ -503,19 +504,14 @@ function hienLam(S, data) {
   });
   S.kind = KIND.PLAIN;
   S.cyl(o.c[0], o.c[1], y, y + 1.2, 0.3, 0.05, 6, hex('#f1d77a'));
-  // Cửu Đỉnh
+  // Cửu Đỉnh (src/landmarks/props.js dinh), facing Thế Miếu; Cao đỉnh in the middle the largest
   const tm = (data.places || []).find((p) => p.id === 'themieu');
   let n = [-Math.sin(o.a), Math.cos(o.a)];
   if (tm && (tm.x / 10 - o.c[0]) * n[0] + (tm.z / 10 - o.c[1]) * n[1] < 0) n = [-n[0], -n[1]];
   const F = frame(o.c, n), bronze = hex('#56594a');
   for (let i = 0; i < 9; i++) {
     const p = F.at(o.d / 2 + 9 + (i === 4 ? 3 : 0), (i - 4) * ((o.w * 1.25) / 8)), s = i === 4 ? 1.15 : 1;
-    S.kind = KIND.MASONRY; S.box(p[0], p[1], y0, y0 + 0.5, 2.0 * s, 2.0 * s, F.a, stone);
-    S.kind = KIND.PLAIN;
-    for (const [dx, dz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]]) S.cyl(p[0] + dx * 0.5 * s, p[1] + dz * 0.5 * s, y0 + 0.5, y0 + 1.0, 0.14, 0.18, 5, bronze, { cap: false });
-    S.cyl(p[0], p[1], y0 + 0.95, y0 + 2.7 * s, 0.82 * s, 1.02 * s, 10, bronze);
-    S.cyl(p[0], p[1], y0 + 2.7 * s, y0 + 2.86 * s, 1.14 * s, 1.14 * s, 10, shade(bronze, 1.2));
-    for (const k of [-1, 1]) S.box(p[0] + F.p[0] * k * 0.95 * s, p[1] + F.p[1] * k * 0.95 * s, y0 + 2.86 * s, y0 + 3.4 * s, 0.2, 0.22, F.a, bronze);
+    dinh(S, p[0], y0, p[1], Math.atan2(n[1], n[0]), { h: 2.33 * s, col: bronze, stand: 0.22, standCol: stone });
   }
 }
 
