@@ -36,7 +36,7 @@ const RAMP = LAND_Y + WALL_H; // tier 1 (the bastion top, city.js)
 // against the pole. With the rampart's 6.6 m (the bastion is "over 5.5 m") the whole is 18.6 m, against "about 17.5 m".
 const H2 = 5.8, H3 = 6.2;
 const POLE = 37;
-const WALL = hex('#5d5850'), PARA = hex('#a59e90'), COPE = hex('#c3bcad'), FLOOR = hex('#8c7264'), STEP = hex('#8f8a80');
+const WALL = hex('#5d5850'), PARA = hex('#847d70'), COPE = hex('#a29b8b'), FLOOR = hex('#8c7264'), STEP = hex('#8f8a80');
 
 // offset a ring by d (positive: inward), mitred
 function inset(r, d) {
