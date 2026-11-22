@@ -37,8 +37,8 @@ export const id = 'baotanghcm';
 const RING = [[-849.9, 1023.1], [-826.0, 1002.7], [-804.7, 1027.2], [-828.6, 1047.6]];
 
 const pink = hex('#e6bfcf'), pinkD = hex('#d3aebf'), white = hex('#f4f1ec'), sage = hex('#a3ab9c'), sageD = hex('#8d968a');
-const glass = hex('#2b343a'), fret = hex('#26292c'), roofC = hex('#c8665a'), stone = hex('#b9b3aa'), pave = hex('#c9c4ba');
-const lawn = hex('#5f8a45'), hedge = hex('#3f6a34'), palmC = hex('#4c7a38'), trunk = hex('#8a7a66'), pine = hex('#2f5a33');
+const glass = hex('#2b343a'), fret = hex('#5c5e60'), roofC = hex('#c8665a'), stone = hex('#b9b3aa'), pave = hex('#c9c4ba');
+const lawn = hex('#5f8a45'), hedge = hex('#3f6a34'), palmC = hex('#4c7a38'), trunk = hex('#8a7a66'), pine = hex('#3d6a3a');
 const red = hex('#b8262b'), gold = hex('#d8b24a'), pot = hex('#9c5a48'), blueRoof = hex('#3d6fa8'), cream = hex('#ece4d2');
 const rubble = hex('#8a877e'), render = hex('#cdb76a'), iron = hex('#2c3032');
 
@@ -363,9 +363,9 @@ function topiary(S, p, y, h) {
 function norfolk(S, p, y, h) {
   S.kind = KIND.TIMBER;
   S.cyl(p[0], p[1], y, y + h, 0.3, 0.08, 6, trunk, { cap: false });
-  const y1 = y + Math.min(2.5, h * 0.15), n = Math.round((h - (y1 - y)) / 0.9);
+  const y1 = y + Math.min(2.5, h * 0.15), n = Math.round((h - (y1 - y)) / 0.6);
   for (let i = 0; i < n; i++) {
-    const t = i / n, yy = y1 + (h - (y1 - y) - 0.4) * t, r = (h / 6.5) * (1 - t) + 0.45;
-    S.cyl(p[0], p[1], yy, yy + 1.0, r, r * 0.6, 8, shade(pine, 0.95 + 0.1 * (i % 2)));
+    const t = i / n, yy = y1 + (h - (y1 - y) - 0.4) * t, r = (h / 7.5) * Math.pow(1 - t, 0.8) + 0.4;
+    S.cyl(p[0], p[1], yy, yy + 0.8, r, r * 0.55, 8, shade(pine, 0.95 + 0.1 * (i % 2)));
   }
 }
