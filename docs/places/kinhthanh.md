@@ -29,3 +29,6 @@ which belong to other places.
 - Not modelled: powder magazines in the bastions, the ramps up to the walk (mã đạo), and the moat's stone revetment. No source gave their positions or sizes.
 - Not mine: the gates, Kỳ Đài, Trấn Bình Đài / Mang Cá, Đông Thành Thủy Quan.
 - About 22k triangles added.
+
+## Polish
+Brick a little lighter and pinker (`#8a6a58` at 0.75); parapet coping now a lighter, flatter stone-brick tone, as in Street View from the Thượng Tứ bridge.

@@ -51,7 +51,7 @@ export function build({ data, S, place }) {
   // Brick colour matched to Google Street View from the Cửa Thượng Tứ bridge (car pano, 2026): in daylight the faces
   // read a warm, muted red-brown with darker blotches, not the near-black grey of PAL.brick. The streaks stay, but
   // fewer and warmer, so the wall still reads weathered.
-  const brick = mix(PAL.brick, hex('#7d5f4e'), 0.7), dark = hex('#4e443c'), damp = hex('#3e3731'), relaid = hex('#86705f'), lichen = hex('#55553f');
+  const brick = mix(PAL.brick, hex('#8a6a58'), 0.75), dark = hex('#4e443c'), damp = hex('#3e3731'), relaid = hex('#86705f'), lichen = hex('#55553f');
   const walk = PAL.moss;
   const n0 = S.n;
   S.kind = KIND.MASONRY;
@@ -113,7 +113,7 @@ export function build({ data, S, place }) {
       // the parapet along the outer edge, with the embrasures on the bastions (their faces and flanks are the outer
       // edges shorter than about 120 m; the curtains between them run 130-240 m)
       const cx0 = a[0] - nx * (PARAPET_T / 2), cz0 = a[1] - nz * (PARAPET_T / 2);
-      const pcol = shade(brick, 0.92), cap = shade(brick, 1.12);
+      const pcol = shade(brick, 0.96), cap = mix(brick, hex('#b39c88'), 0.55); // lighter, flatter coping as on the real parapet
       const run = (s0, s1, h1) => {
         if (s1 - s0 < 0.05) return;
         const sm = (s0 + s1) / 2;
