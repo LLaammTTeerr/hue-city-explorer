@@ -30,7 +30,7 @@ const P = (u, v) => [A[0] + T[0] * u + N[0] * v, A[1] + T[1] * u + N[1] * v];
 const Y0 = LAND_Y + rise(...P(18, 16)); // one floor level for the whole market (the site is flat)
 
 const C = {
-  wall: hex('#e0cf98'), front: hex('#9a4a3a'), trim: hex('#e6d58c'), plinth: hex('#8c8679'), shutter: hex('#6f7f86'),
+  wall: hex('#e0cf98'), front: hex('#a4604e'), trim: hex('#e6d58c'), plinth: hex('#8c8679'), shutter: hex('#6f7f86'),
   dark: hex('#2e2a26'), glass: hex('#3a4448'), vent: hex('#e8e4d8'), roof: hex('#8f9597'), roofLight: hex('#b8bcbb'),
   rust: hex('#8a6a55'), clear: hex('#9fb8c2'), pave: hex('#a9a294'), signBrown: hex('#6e2c22'), signRed: hex('#c0261f'),
   awning: [hex('#d6cbb0'), hex('#c9bb98'), hex('#e0dccf'), hex('#cdbf9f')], post: hex('#5d5f5f'), table: hex('#7a6248'),
@@ -133,6 +133,9 @@ export function build({ S, group, THREE }) {
   for (const vv of [G[1].v0, G[1].v1]) {
     boxUV(S, U0 - 0.7, U1 + 0.7, vv - 0.15, vv + 0.15, E - 0.15, G[1].e + 0.02, shade(C.roof, 0.7)); // valley gutter
   }
+  // the front cornice band and a plinth course under the gables
+  boxUV(S, U0 - 0.25, U0 - 0.05, V0 - 0.1, V1 + 0.1, E - 0.3, E, C.trim);
+  boxUV(S, U0 - 0.12, U0, V0 - 0.1, V1 + 0.1, 0.45, 0.9, shade(C.front, 0.75));
   // the red front wall below the gables
   boxUV(S, U0 - 0.08, U0, V0 - 0.08, V1 + 0.08, 0.45, E, C.front);
 
@@ -164,6 +167,9 @@ export function build({ S, group, THREE }) {
   boxUV(S, U0 - PD - 0.02, U0 - PD + 0.3, vm - 1.7, vm + 1.7, 0.08, 3.3, C.dark); // the open entrance
   for (const s of [-1, 1]) boxUV(S, U0 - PD - 0.06, U0 - PD + 0.2, vm + s * 2.1 - 0.3, vm + s * 2.1 + 0.3, 0.08, 4.4, C.trim);
   boxUV(S, U0 - PD - 0.08, U0 - PD, vm - 2.4, vm + 2.4, 3.45, 4.3, C.signBrown);
+  boxUV(S, U0 - PD - 0.9, U0 - PD, vm - 2.0, vm + 2.0, 0.08, 0.3, C.plinth); // entrance steps
+  boxUV(S, U0 - PD - 0.5, U0 - PD, vm - 2.0, vm + 2.0, 0.3, 0.5, C.plinth);
+  for (const [d, c] of [[-1.6, C.signRed], [-0.8, C.board[2]], [0.8, C.signRed], [1.6, C.board[2]]]) boxUV(S, U0 - PD - 0.1, U0 - PD, vm + d - 0.3, vm + d + 0.3, 5.05, 5.9, c); // flags over the porch
   boxUV(S, U0 - PD - 0.08, U0 - PD, vm - 2.4, vm + 2.4, 4.4, 4.95, C.signRed);
 
   // stall awnings along the front, either side of the porch, with the stalls' signboards above them
