@@ -401,6 +401,14 @@ for (const poly of wall) fillPoly(poly, NOBUILD);
 for (const poly of wall) for (const r of poly) stampLine(r.concat([r[0]]), 30, NOBUILD);
 fillPoly([imperialRing], NOBUILD);
 { const tm = get('way', 205794912); if (tm) fillPoly([openRing(tm.geometry.map(proj))], NOBUILD); } // no generated houses inside chùa Thiên Mụ
+// Cồn Dã Viên is a park round the 1953 water plant, with no houses (satellite and Street View); its one service road
+// would otherwise be lined with generated ones. The island is the land ring holding the water tower (way 1189213110).
+{
+  const wt = get('way', 1189213110);
+  const c = wt && areaCentroid(openRing(wt.geometry.map(proj)));
+  const dv = c && land.find((p) => Math.abs(ringArea(p[0])) < 5e5 && pip(c, p[0]));
+  if (dv) fillPoly(dv, NOBUILD); else console.warn('Cồn Dã Viên: island ring not found, generated houses may stand on it');
+}
 
 // =====================================================================
 // 3. Green / open land

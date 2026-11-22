@@ -20,20 +20,31 @@ import { buildingsNear } from '../enclosure.js';
 //  - OpenStreetMap: the islet outline (natural=water hole), "Công viên Cồn Dã Viên" (way 174746316), the footways
 //    (1167517129 loop, 1167517134 round lawn ring), the tower's round outline 19.4 m across; the city height
 //    survey reads it at 41.8 m.
-// Drawn here: the water tower, the ochna garden at the eastern tip and the flower beds of the renovated park.
-// The islet ground, park lawn, footways, trees and the mapped plant buildings stay the generic layers of geo/city.js;
-// the bridges and their piers on the islet belong to bachho.js.
-// Estimated: the tower's form (shaft and overhanging tank, the usual 1950s reinforced-concrete type; the 19.4 m
-// mapped outline is taken as the tank), shaft diameter, rib count, tank depth (1,500 m³ in a 19 m drum ≈ 6.5 m),
+//  - Street View from the Dã Viên road bridge and the satellite (visual reference only, nothing traced): the tower is
+//    a squat 16-sided shaft nearly as wide as its drum (about 70 % shaft, 10 % corbel, 20 % drum of the height), two
+//    ring bands, two rows of small windows, an outside ladder on the east-north-east, a flat roof inside a railing;
+//    the drum reads about 17.6 m across. West of it the plant: a filter house of two rows of four gabled bays, a
+//    taller tiled hall west of that, two round clarifiers with radial walls and two low covered reservoirs. No houses
+//    stand on the islet (the generated infill is kept off it in scripts/build-data.mjs).
+// Drawn here: the water tower, the water plant, the ochna garden at the eastern tip and the flower beds of the park.
+// The islet ground, park lawn, footways and trees stay the generic layers of geo/city.js; the bridges and their piers
+// on the islet belong to bachho.js.
+// Estimated: the plant's heights, roof pitches and exact footprints (sized from the satellite), the tower's window
+// and bracket counts, the depth of the drum (1,500 m³ in a 17.6 m drum is about 6.2 m, drawn 8.3 m with its skirt),
 // colours; the beds' size and planting.
 export const id = 'daVien';
 
-const TOWER = [-1854.1, 1227.9]; // centre of the OSM outline
-const TANK_R = 9.7, TOP = 41.8;
+// The OSM outline's centre is [-1854.1, 1227.9]. On the satellite (oblique: the roof disc leans ~15-20 m north of the
+// foot, straight up the image) the roof disc and the shaft share one east-west centre 2.5 m east of the outline's;
+// north-south the foot and the tank's shadow bracket the outline's centre, so only x is re-framed. Drawn 0.8 m east
+// (1.9 m short of the satellite) so the drum still covers the outline and geo/city.js drops the mapped cylinder.
+const TOWER = [-1853.3, 1227.9];
+const TANK_R = 8.8, TOP = 41.8; // drum 17.6 m across (photos and the satellite roof disc; the OSM outline's 19.4 m is generous)
 const LAWN = [-1705.2, 1146.4]; // centre of the round lawn inside footway 1167517134 (radius ≈ 32 m)
 const TIP = [-1528, 1058]; // the eastern tip
 
-const CONC = hex('#cfc9bb'), CONC_D = hex('#9f998c'), STAIN = hex('#8e8a80'), DARK = hex('#2f2e2c');
+const CONC = hex('#b2afa5'), CONC_D = hex('#8f8c83'), STAIN = hex('#6c6a63'), DARK = hex('#262523'), ROOF = hex('#9d978b');
+const WATER = hex('#3d4a40'), TILE = hex('#7d6f62');
 const LEAF = hex('#4f6a34'), OCHNA = hex('#e8c01c'), OCHNA2 = hex('#d9a514');
 const BLOOMS = ['#c8324a', '#e2709a', '#f0c23a', '#e8e2d2', '#b04ac0'].map(hex);
 const gY = (x, z) => LAND_Y + rise(x, z);
@@ -48,45 +59,77 @@ export function build({ data, S }) {
   const onLand = (x, z) => !isle || inRing(x, z, isle);
 
   // ---------- the water tower (1953) ----------
+  // Massing from the two car panoramas on Cầu Dã Viên (NE and E of it) and the satellite roof disc: a tall,
+  // slightly tapering sixteen-sided shaft nearly as wide as the tank, two ring bands, rows of small square windows,
+  // a steel ladder up the side facing the bridge, a short corbel of radial brackets, a plain drum and a flat roof
+  // ringed by a thin railing. Proportions measured on the photos (shaft 70 %, corbel 10 %, drum 20 % of the height;
+  // drum 17.6 m, shaft 13.3 m at the foot and 12.0 m under the corbel), scaled to the surveyed 41.8 m.
   const [cx, cz] = TOWER, g = gY(cx, cz);
   const n0 = S.n;
   S.kind = KIND.PLAIN;
-  S.cyl(cx, cz, g - 0.4, g + 0.7, 7.0, 6.8, 24, CONC_D); // plinth
-  // shaft, weathered in vertical streaks
-  const seg = 24, R0 = 5.4, R1 = 5.0, sh0 = g + 0.7, sh1 = g + 31;
-  for (let i = 0; i < seg; i++) {
-    const a0 = (i / seg) * Math.PI * 2, a1 = ((i + 1) / seg) * Math.PI * 2;
-    const col = mix(CONC, STAIN, 0.15 + 0.35 * rand(i, 7));
+  S.cyl(cx, cz, g - 0.4, g + 0.5, 7.3, 7.2, 16, CONC_D, { rot: Math.PI / 16 }); // plinth
+  const SEG = 16, R0 = 6.65, R1 = 6.0, sh0 = g + 0.5, sh1 = g + 28.5;
+  const rAt = (y) => R0 + ((R1 - R0) * (y - sh0)) / (sh1 - sh0);
+  for (let i = 0; i < SEG; i++) {
+    const a0 = (i / SEG) * Math.PI * 2, a1 = ((i + 1) / SEG) * Math.PI * 2;
+    const col = mix(CONC, STAIN, 0.2 + 0.45 * rand(i, 7));
     const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
     S.quad([cx + c0 * R0, sh0, cz + s0 * R0], [cx + c1 * R0, sh0, cz + s1 * R0], [cx + c1 * R1, sh1, cz + s1 * R1], [cx + c0 * R1, sh1, cz + s0 * R1], col, [c0 + c1, 0.05, s0 + s1]);
+    // a shallow pilaster strip at each corner of the sixteen faces
+    S.box(cx + c0 * (R0 + 0.05), cz + s0 * (R0 + 0.05), sh0, sh1, 0.3, 0.5, a0, shade(CONC, 0.92), { taper: 1 });
   }
-  // eight pilaster ribs up the shaft
-  for (let k = 0; k < 8; k++) {
-    const a = (k / 8) * Math.PI * 2 + Math.PI / 8, r = (R0 + R1) / 2 + 0.25;
-    S.box(cx + Math.cos(a) * r, cz + Math.sin(a) * r, sh0, sh1, 0.7, 0.9, a, shade(CONC, 1.04));
+  for (const y of [8.3, 19.2]) S.cyl(cx, cz, g + y, g + y + 0.4, rAt(g + y) + 0.3, rAt(g + y) + 0.3, SEG, CONC_D, { rot: 0 }); // ring bands
+  // the ladder on the face toward the bridge (bearing about 70°), and the windows: two rows of eight, a few low ones
+  const la = -0.349;
+  const lad = (y) => [cx + Math.cos(la) * (rAt(y) + 0.45), y, cz + Math.sin(la) * (rAt(y) + 0.45)];
+  const lu = [-Math.sin(la), Math.cos(la)];
+  for (const side of [-0.3, 0.3]) {
+    const a = lad(g + 1), b = lad(sh1);
+    S.beam([a[0] + lu[0] * side, a[1], a[2] + lu[1] * side], [b[0] + lu[0] * side, b[1], b[2] + lu[1] * side], 0.12, 0.12, DARK);
   }
-  // stair slits up the south face and the door at its foot
+  for (let y = g + 1.5; y < sh1; y += 0.9) { const p = lad(y); S.beam([p[0] - lu[0] * 0.3, y, p[2] - lu[1] * 0.3], [p[0] + lu[0] * 0.3, y, p[2] + lu[1] * 0.3], 0.06, 0.06, DARK); }
+  for (let y = g + 3; y < sh1 - 1; y += 2.4) { const p = lad(y); S.box(p[0] + Math.cos(la) * 0.35, p[2] + Math.sin(la) * 0.35, y, y + 0.1, 0.12, 0.9, la, DARK); } // cage hoops, side on
+  const win = (a, y0, y1, w) => { const r = rAt(y0) + 0.02; S.box(cx + Math.cos(a) * r, cz + Math.sin(a) * r, y0, y1, 0.25, w, a, DARK); };
+  for (const y of [10.2, 16.4]) for (let k = 0; k < 8; k++) {
+    const a = ((k + 0.5) / 8) * Math.PI * 2;
+    if (Math.abs(Math.atan2(Math.sin(a - la), Math.cos(a - la))) < 0.3) continue; // the ladder runs here
+    win(a, g + y, g + y + 1.6, 1.0);
+  }
+  for (const a of [la + 0.45, la - 0.6]) win(a, g + 4.2, g + 5.6, 0.9);
+  // door at the foot (south-west side, not visible in the photos; kept from the earlier estimate)
   const fa = Math.PI / 2 + 0.3, fx = Math.cos(fa), fz = Math.sin(fa);
-  for (let y = 5; y < 29; y += 3.6) S.box(cx + fx * (R0 - 0.1), cz + fz * (R0 - 0.1), g + y, g + y + 1.6, 0.3, 0.55, fa, DARK);
-  S.box(cx + fx * (R0 + 0.1), cz + fz * (R0 + 0.1), sh0, sh0 + 2.4, 0.4, 1.4, fa, DARK);
-  S.box(cx + fx * (R0 + 0.6), cz + fz * (R0 + 0.6), sh0 + 2.5, sh0 + 2.75, 1.0, 2.2, fa, CONC_D); // canopy over it
-  // corbel out to the tank, the tank drum with its rim band, the shallow conical roof and the vent lantern
-  S.cyl(cx, cz, sh1 - 0.4, g + 33.2, R1, TANK_R - 0.2, 32, CONC_D, { cap: false });
+  S.box(cx + fx * (R0 + 0.05), cz + fz * (R0 + 0.05), sh0, sh0 + 2.4, 0.4, 1.4, fa, DARK);
+  // corbel: radial brackets under a conical soffit, out to the drum
+  const TC = g + 32.4, TT = g + 40.7;
+  S.cyl(cx, cz, sh1 - 0.2, TC, R1, TANK_R - 0.1, 32, shade(CONC_D, 0.9), { cap: false });
+  for (let k = 0; k < 16; k++) {
+    const a = ((k + 0.5) / 16) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a);
+    S.beam([cx + c * (R1 + 0.1), sh1 - 0.3, cz + s * (R1 + 0.1)], [cx + c * (TANK_R - 0.25), TC - 0.4, cz + s * (TANK_R - 0.25)], 0.4, 0.7, shade(CONC, 0.95));
+  }
+  // the drum, streaked by run-off, with a small lip at the top
   for (let i = 0; i < 32; i++) {
     const a0 = (i / 32) * Math.PI * 2, a1 = ((i + 1) / 32) * Math.PI * 2;
-    const col = mix(CONC, STAIN, 0.1 + 0.3 * rand(i, 11));
+    const col = mix(CONC, STAIN, 0.15 + 0.45 * rand(i, 11));
     const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
-    S.quad([cx + c0 * TANK_R, g + 33.2, cz + s0 * TANK_R], [cx + c1 * TANK_R, g + 33.2, cz + s1 * TANK_R], [cx + c1 * TANK_R, g + 39.4, cz + s1 * TANK_R], [cx + c0 * TANK_R, g + 39.4, cz + s0 * TANK_R], col, [c0 + c1, 0.05, s0 + s1]);
+    S.quad([cx + c0 * TANK_R, TC, cz + s0 * TANK_R], [cx + c1 * TANK_R, TC, cz + s1 * TANK_R], [cx + c1 * TANK_R, TT, cz + s1 * TANK_R], [cx + c0 * TANK_R, TT, cz + s0 * TANK_R], col, [c0 + c1, 0.05, s0 + s1]);
   }
-  S.cyl(cx, cz, g + 33.0, g + 33.5, TANK_R + 0.25, TANK_R + 0.25, 32, CONC_D, { cap: false }); // lower band
-  S.cyl(cx, cz, g + 39.4, g + 40.1, TANK_R + 0.3, TANK_R + 0.3, 32, shade(CONC, 1.05)); // cornice
-  S.cyl(cx, cz, g + 40.1, g + 41.3, TANK_R, 1.3, 32, STAIN); // roof
-  S.cyl(cx, cz, g + 41.3, g + TOP, 1.1, 0.9, 10, CONC_D); // vent
-  // a ladder of small square openings round the tank under the cornice
-  for (let k = 0; k < 12; k++) {
-    const a = (k / 12) * Math.PI * 2;
-    S.box(cx + Math.cos(a) * (TANK_R + 0.02), cz + Math.sin(a) * (TANK_R + 0.02), g + 38.0, g + 38.8, 0.2, 0.8, a, DARK);
+  S.cyl(cx, cz, TC - 0.3, TC, TANK_R + 0.1, TANK_R + 0.1, 32, CONC_D, { cap: false }); // drum's lower edge
+  S.cyl(cx, cz, TT - 0.25, TT + 0.1, TANK_R + 0.12, TANK_R + 0.12, 32, shade(CONC, 1.04)); // lip
+  // flat roof (a faint cone with seams on the satellite), the manhole in the middle, and the railing round the edge
+  S.cyl(cx, cz, TT + 0.1, TT + 0.45, TANK_R, 0.9, 32, ROOF);
+  S.cyl(cx, cz, TT + 0.45, TT + 0.5, 0.9, 0.9, 10, DARK);
+  for (let k = 0; k < 36; k++) {
+    const a = (k / 36) * Math.PI * 2;
+    S.box(cx + Math.cos(a) * (TANK_R - 0.15), cz + Math.sin(a) * (TANK_R - 0.15), TT + 0.1, g + TOP, 0.06, 0.06, a, DARK);
   }
+  S.cyl(cx, cz, g + TOP - 0.06, g + TOP, TANK_R - 0.12, TANK_R - 0.12, 36, DARK, { cap: false });
+  S.cyl(cx, cz, g + TOP - 0.06, g + TOP, TANK_R - 0.18, TANK_R - 0.18, 36, DARK, { cap: false }); // the rail's inner face
+
+  // ---------- the water plant (1953) round it ----------
+  // Placed and sized on the satellite (structures under the trees, not seen in the panoramas): a filter house of
+  // two rows of four gabled bays, a taller hall west of it with a link and a small annex, two open clarifiers with
+  // radial walls and a central hub, and two covered reservoirs with faint conical roofs. Heights are estimated.
+  plant(S);
   (S.paved = S.paved || []).push([n0, S.n]);
 
   // ---------- planting of the 2021 renovation ----------
@@ -168,5 +211,54 @@ function addTrees(data, isle) {
     const kind = rand(i, 24) < 0.06 ? 2 : 0; // a few phượng (flamboyants) among the shade trees
     t.push(Math.round(x * 10), Math.round(z * 10), Math.round((0.8 + 0.45 * rand(i, 25)) * 10), kind);
     have.push([x, z]);
+  }
+}
+
+// ---- the water plant: positions and sizes measured on the satellite (scene metres), axis 22° north of east ----
+const PA = -0.384; // the plant's long axis: u = (cos PA, sin PA), v = (-sin PA, cos PA)
+const FILTERS = [-1879.2, 1238.4]; // the filter house, 13.6 m (u) by 20.5 m (v)
+const CLARIFIERS = [[-1888.0, 1220.4], [-1870.8, 1255.2]]; // open, 12.9 m across
+const RESERVOIRS = [[-1913.8, 1228.7], [-1892.3, 1272.4]]; // covered, 20 m across
+function plant(S) {
+  const ux = Math.cos(PA), uz = Math.sin(PA);
+  const at = (u, v) => [FILTERS[0] + u * ux - v * uz, FILTERS[1] + u * uz + v * ux];
+  // a gabled roof over a box: ridge along local v, w across (u), len along (v)
+  const gable = (u, v, w, len, y0, rise, wall, roof) => {
+    const [x, z] = at(u, v);
+    const P = (a, b, y) => [x + a * ux - b * uz, y, z + a * uz + b * ux];
+    const hw = w / 2, hl = len / 2;
+    S.quad(P(-hw, -hl, y0), P(-hw, hl, y0), P(0, hl, y0 + rise), P(0, -hl, y0 + rise), roof, [-ux, 1.5, -uz]);
+    S.quad(P(hw, hl, y0), P(hw, -hl, y0), P(0, -hl, y0 + rise), P(0, hl, y0 + rise), roof, [ux, 1.5, uz]);
+    S.tri(P(-hw, -hl, y0), P(0, -hl, y0 + rise), P(hw, -hl, y0), wall, [uz, 0, -ux]);
+    S.tri(P(hw, hl, y0), P(0, hl, y0 + rise), P(-hw, hl, y0), wall, [-uz, 0, ux]);
+  };
+  const block = (u, v, w, d, h, col, top = col) => { const [x, z] = at(u, v); const g = gY(x, z); S.box(x, z, g - 0.3, g + h, w, d, PA, col, { top }); return g; };
+  S.kind = KIND.PLAIN;
+  const WALL = hex('#c9c2b0'), WALL_D = shade(WALL, 0.82), FLAT = hex('#a49d8f');
+  // filter house: a 3.2 m base, then two rows of four gabled bays
+  let g = block(0, 0, 13.6, 20.5, 3.2, WALL, FLAT);
+  for (const v of [-5.1, 5.1]) for (let k = 0; k < 4; k++) gable(-5.1 + k * 3.4, v, 3.3, 9.8, g + 3.2, 1.3, WALL, mix(TILE, FLAT, 0.4 + 0.2 * rand(k, v > 0 ? 31 : 32)));
+  // the hall west of it, the low link between them, the annex on the north
+  g = block(-18.9, 0.5, 18, 13, 6.2, WALL);
+  gable(-18.9, 0.5, 18, 13, g + 6.2, 1.6, WALL, TILE); // low pitched roof, ridge across the hall
+  block(-8.4, 0, 3.4, 9, 4.0, WALL_D, FLAT);
+  block(-11.7, -9.0, 6.5, 5, 4.2, WALL, FLAT);
+  for (let k = 0; k < 5; k++) { const [x, z] = at(-25.5 + k * 3.3, 0.5 + 6.55), y = gY(x, z); S.box(x, z, y + 2.6, y + 4.6, 1.3, 0.2, PA, DARK); } // hall windows, south side
+  // clarifiers: a ring wall, water inside, eight radial walls and a hub with a small kiosk
+  for (const [x, z] of CLARIFIERS) {
+    const y = gY(x, z), R = 6.45;
+    S.cyl(x, z, y - 0.3, y + 2.4, R, R, 32, WALL_D, { cap: false });
+    S.cyl(x, z, y + 2.4, y + 2.4, R, R - 0.35, 32, WALL, { cap: false });
+    S.cyl(x, z, y + 1.6, y + 1.6, R - 0.35, 0, 32, WATER);
+    for (let k = 0; k < 8; k++) { const a = (k / 8) * Math.PI * 2 + 0.2, r = (R + 1.8) / 2; S.box(x + Math.cos(a) * r, z + Math.sin(a) * r, y + 1.5, y + 2.3, R - 1.9, 0.3, a, WALL); }
+    S.box(x, z, y + 1.5, y + 2.6, 3.6, 3.6, PA, WALL);
+    S.box(x, z, y + 2.6, y + 4.0, 1.8, 1.8, PA, WALL_D, { top: FLAT });
+  }
+  // covered reservoirs: a low wall and a faint cone
+  for (const [x, z] of RESERVOIRS) {
+    const y = gY(x, z);
+    S.cyl(x, z, y - 0.3, y + 1.8, 10, 10, 40, WALL_D, { cap: false });
+    S.cyl(x, z, y + 1.8, y + 3.3, 10.1, 0.5, 40, mix(ROOF, TILE, 0.3));
+    S.box(x, z, y + 3.2, y + 3.7, 0.9, 0.9, 0, DARK);
   }
 }
