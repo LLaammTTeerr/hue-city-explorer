@@ -267,7 +267,7 @@ function medianShrubs(S, medians) {
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]) })); // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
+  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
   // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
   // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
@@ -303,7 +303,7 @@ function buildRoads(data, group, structures) {
     if (r.bridge || r.c > 4) return;
     const pts = drape(snapEnds(r.pts, r.ends));
     const [L, R] = ribbonPoints(pts, r.ws ? pts.map((p) => widthAt(r.pts, r.ws, p)) : r.w, r.ends);
-    cw.push({ id, c: r.c, pts: r.pts, L, R });
+    cw.push({ id, c: r.c, pts: r.pts, L, R, u: r.unmarked });
   });
   const greens = (data.green || []).filter(([k]) => k !== 'paved').map(([, poly]) => unflat(poly[0]));
   const { holes, cells: holeCells } = junctionHoles(cw, (x, z) => greens.some((g) => inPoly(g, x, z)));
@@ -332,7 +332,7 @@ function buildRoads(data, group, structures) {
   const guard = markingGuard(roads.map((r, id) => ({ id, c: r.c, w: r.w, pts: r.pts, bridge: r.bridge })).filter((r) => !r.bridge && r.c <= 2), holeCells);
   const dashes = [];
   roads.forEach((r, id) => {
-    if (r.bridge || r.c > 1) return;
+    if (r.bridge || r.c > 1 || r.unmarked) return;
     const len = pathLength(r.pts);
     // where along the road (every metre) a dash may lie
     const free = [];
@@ -438,7 +438,7 @@ function buildRoads(data, group, structures) {
   // street lamps along the main streets (drawn only when the mood calls for light)
   const lp = [], lc = [];
   for (const r of roads) {
-    if (r.c > 2 || !r.flat) continue; // (a bridge way's street ends are lit as part of the way: life.js posts)
+    if (r.c > 2 || !r.flat || r.unmarked) continue; // a slip road is lit by the roads it joins (a bridge way's street ends are lit as part of the way: life.js posts)
     const len = pathLength(r.pts);
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {

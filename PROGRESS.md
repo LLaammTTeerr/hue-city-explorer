@@ -17,6 +17,14 @@
   dragon pair.
 
 ## Done
+- Junctions and unmarked road types (2026-11-22, branch claude/issue-67-junctions-76663f, issue #67): on main the
+  north end of cầu Trường Tiền and Lý Thường Kiệt × Hà Nội were already right after #68/#72; both ends of cầu Phú Xuân
+  were not: their `*_link` slip roads were drawn as 15 m dashed, lit carriageways that swallowed the islands. New
+  unmarked road types (6th road element `lanes`; `data/road-types.json` for ways beyond `*_link`): slip roads are
+  lanes × 3.5 m + 0.5 m, no dashes or lamps; e.g. Hà Nội → Lê Lợi (way 1169292366) is 1 lane. Islands ≥ 10 m² between
+  slip roads are kept (junctions.js `ISLAND_MIN`). Views `junction-phu-xuan-south(-oblique)`, `junction-phu-xuan-north`,
+  `junction-truong-tien-north`, `junction-ly-thuong-kiet-ha-noi`. Follow-up: 10 trees still stand on painted junction
+  holes elsewhere (12 on main).
 - West moat (2026-11-22, branch claude/issue-62-canal-1b1ad3, issue #62): Hộ Thành Hào along the citadel's west face
   (Tây Thành Đài → cửa Chánh Tây → Tây Thành Thủy Quan) is not mapped as water in OSM, so the scene showed dry land
   there and cầu Chánh Tây as a road. `scripts/build-data.mjs` section 1 now adds it: outer bank parallel to the wall,

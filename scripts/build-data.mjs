@@ -441,6 +441,24 @@ const inNH = (p) => {
 if (nhBox) console.log('nguyen hoang box', nhBox.w.toFixed(0), 'x', nhBox.d.toFixed(0));
 const ROAD_CLASS = { trunk: 0, primary: 0, trunk_link: 0, primary_link: 0, secondary: 1, secondary_link: 1, tertiary: 2, tertiary_link: 2, residential: 3, unclassified: 3, living_street: 3, service: 4, pedestrian: 5, footway: 5, path: 5, cycleway: 5, steps: 5, track: 5 };
 const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
+// Unmarked road types (issue #67): a carriageway of 1, 2 or 3 lanes drawn plain, with no lane dashes and no lamps of
+// its own, for the slip roads of junctions and roundabouts. Laid at its class width, a slip road (the turn from Hà Nội
+// into Lê Lợi at the south end of cầu Phú Xuân, OSM primary_link, one lane) was a 15 m slab with a dashed centre line
+// that merged with the roads either side into one shapeless apron. Every *_link way takes the type of its lane count
+// (the lanes tag, else 1 one-way and 2 two-way); data/road-types.json assigns a type to any other way by its OSM id
+// (a slip road mapped as an ordinary street), or `marked` to keep a link at its class width with its dashes.
+const LANE_W = 3.5, UNMARKED_PAD = 0.5; // m per lane; a little shoulder
+const ROAD_TYPES = JSON.parse(fs.readFileSync('data/road-types.json', 'utf8')).ways;
+const UNMARKED = { 'unmarked-1': 1, 'unmarked-2': 2, 'unmarked-3': 3 };
+for (const [id, k] of Object.entries(ROAD_TYPES)) if (!(k in UNMARKED) && k !== 'marked') throw new Error(`data/road-types.json: way ${id} has unknown type ${k}`);
+// lanes of the unmarked type way e is laid as, or 0 (an ordinary, marked road of its class)
+function unmarkedLanes(e) {
+  const t = e.tags, k = ROAD_TYPES[e.id];
+  if (k) return UNMARKED[k] || 0;
+  if (!/_link$/.test(t.highway)) return 0;
+  const n = parseInt(t.lanes, 10);
+  return n > 0 ? Math.min(3, n) : t.oneway === 'yes' ? 1 : 2;
+}
 const TT_WAY = 174759688; // the truss spans; modelled by hand
 const roads = [];
 let nDryBridges = 0, nSidewalkBridges = 0;
@@ -518,7 +536,8 @@ for (const e of els) {
     // in, and a raised deck with piers there stands on dry land.
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
-    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: ROAD_W[c], pts, id: e.id });
+    const lanes = unmarkedLanes(e);
+    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges, '| streets moved off monument walls:', nCleared);
@@ -535,7 +554,7 @@ const ONEWAY_W = [8, 7, 6]; // m, by class 0-2: two lanes and a little shoulder
 const MEDIAN_MIN = 1.2, MEDIAN_MAX = 18, MEDIAN_STEP = 3; // m
 // Twin bridge decks are narrowed with their streets: left at the class width (15-18 m slabs for a pair of 7 m
 // one-way streets) the two decks merged into one broad slab that overhung the approach road at both ends.
-const divided = roads.filter((r) => r.ow && r.c <= 2 && r.name);
+const divided = roads.filter((r) => r.ow && r.c <= 2 && r.name && !r.lanes); // a slip road keeps its lane width
 const twinAt = (() => {
   const G = 30, grid = new Map();
   divided.forEach((r, ri) => {
@@ -617,6 +636,7 @@ let nTaper = 0;
         if (dot > bd) { bd = dot; best = b; }
       }
       if (!best || bd < Math.sqrt(1 - TAPER_SIN * TAPER_SIN) || a.r.w - best.r.w < 0.4) continue;
+      if (best.r.lanes) continue; // a road does not narrow into a slip road that leaves it
       if (a.r.name && best.r.name && a.r.name !== best.r.name) continue;
       if (!want.has(a.r)) want.set(a.r, [null, null]);
       want.get(a.r)[a.k] = best.r.w;
@@ -2325,7 +2345,15 @@ const out = {
   ponds: ponds.map(flatPoly),
   pondLv: pondLv.map((v) => Math.round(v * 10)),
   green: green.map((g) => [g.k, flatPoly(g.p)]),
-  roads: roads.map((r) => (r.ws ? [r.c, r.bridge, flat(r.pts), q(r.w), r.ws.map(q)] : r.w === ROAD_W[r.c] ? [r.c, r.bridge, flat(r.pts)] : [r.c, r.bridge, flat(r.pts), q(r.w)])), // 4th: carriageway width (dm) where it is not the class width; 5th: one width per point where it tapers
+  // 4th: carriageway width (dm) where it is not the class width; 5th: one width per point where it tapers (0: none);
+  // 6th: the lane count of an unmarked road type (no lane dashes, no lamps)
+  roads: roads.map((r) => {
+    const e = [r.c, r.bridge, flat(r.pts)];
+    if (r.ws || r.lanes || r.w !== ROAD_W[r.c]) e.push(q(r.w));
+    if (r.ws || r.lanes) e.push(r.ws ? r.ws.map(q) : 0);
+    if (r.lanes) e.push(r.lanes);
+    return e;
+  }),
   medians: medians.map((m) => [q(m.w), flat(m.pts), m.ws.map(q)]),
   rails: rails.map((r) => [r.main, r.bridge, flat(r.pts)]),
   bld: buildings,
