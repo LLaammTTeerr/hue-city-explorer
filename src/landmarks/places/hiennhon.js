@@ -86,6 +86,19 @@ export function build({ S }) {
   }
   for (let k = 1; k < 5; k++) for (const sg of [-1, 1]) box(sg * (L / 2 - 0.15), -D / 2 + 0.15 + ((D - 0.3) * k) / 5, yb + 0.3, yb + 0.95, 0.3, 0.3, TRIM);
 
+  // cornice crests: a small scrolled finial over each pier on both faces and a taller one at each corner
+  S.kind = KIND.PLAIN;
+  for (const dt of [-1, 1]) {
+    for (const s of [-6.45, -2.45, 2.45, 6.45]) {
+      box(s, dt * (D / 2 - 0.1), yb + 0.82, yb + 1.1, 0.5, 0.2, TRIM);
+      box(s, dt * (D / 2 - 0.1), yb + 1.1, yb + 1.4, 0.2, 0.14, MOSAIC[4]);
+    }
+    for (const sg of [-1, 1]) {
+      box(sg * (L / 2 - 0.2), dt * (D / 2 - 0.2), yb + 0.82, yb + 1.3, 0.34, 0.34, TRIM);
+      box(sg * (L / 2 - 0.2), dt * (D / 2 - 0.2), yb + 1.3, yb + 1.75, 0.2, 0.2, GLAZE);
+    }
+  }
+
   // ---- mosaic pilasters on both faces, and on the ends where the Imperial City wall comes in -----------------
   const pil = (s, t, y0, y1, w, dt) => { // dt: the face's outward sign along t (0 for an end face: then s is the face)
     const along = dt !== 0;
