@@ -45,3 +45,18 @@ Model: `src/landmarks/places/gate-cua-thuong-tu.js`, id `gate:Cửa Thượng T�
 - Rampart, moat and the bridge are drawn by `kinhthanh.js` and `bridges.js`, and are unchanged.
 - The tablet inscription and the vọng lâu's exact bays and tile colour are still to confirm. A photo survey or the
   Huế Monuments Conservation Centre records would settle them.
+
+## Rebuild from satellite and street photos (2026-11)
+- Position and axis checked against a z20 satellite overlay and three car Street View panoramas: the centre
+  (x −497.9, z −100.7) and the passage bearing (about 144°, rampart about 54°) agree within about 1 m and 1°, so they
+  are unchanged.
+- The vọng lâu now follows the present-day photos, not the old timber pavilion:
+  - a plastered masonry lower storey (about 8.5 × 6 m) set toward the outer face, with three brick-ringed arches on the
+    long faces and one on each end;
+  - a tiled eave skirt with upturned corners, a terrace with a low balustrade;
+  - a small upper storey with one arch per face and a low hip roof with a gourd finial.
+- A low balustrade (solid foot, pierced panel, posts) replaces the crenellations on the block, as in the photos;
+  corner pilasters and a stone band above the arch were added.
+- The top stays inside the sourced 16–17 m.
+- Still unconfirmed: the tower's exact plan and setback (estimated from the photos), the tile colour, and the tablet
+  inscription.
