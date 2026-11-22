@@ -396,8 +396,12 @@ export function build({ data, S, group, THREE }) {
       if (!A || !toBank(A, lakeSide, 0, 3.5, 26)) continue; // only where the bank runs beside the road
       const o = lakeSide * EDGE, x = A.p[0] - A.u[1] * o, z = A.p[1] + A.u[0] * o, g = groundY(x, z);
       const ang = Math.atan2(A.u[1], A.u[0]);
-      S.box(x, z, g - 0.2, g + 0.62, step + 0.02, 0.28, ang, C.concrete, { top: shade(C.concrete, 1.05) });
-      S.box(x, z, g + 0.62, g + 0.72, step + 0.02, 0.36, ang, shade(C.concrete, 0.92)); // coping
+      // weathered grey-brown concrete, stained darker toward the foot, with a wider rounded-looking coping (Street View)
+      const wear = shade(C.concrete, 0.78 + 0.1 * rr());
+      S.box(x, z, g - 0.2, g + 0.3, step + 0.02, 0.3, ang, shade(wear, 0.85));
+      S.box(x, z, g + 0.3, g + 0.62, step + 0.02, 0.28, ang, wear, { top: shade(wear, 1.05) });
+      S.box(x, z, g + 0.62, g + 0.74, step + 0.02, 0.38, ang, shade(C.concrete, 0.86)); // coping
+      if (rr() < 0.25) S.box(x - A.u[1] * lakeSide * 0.12, z + A.u[0] * lakeSide * 0.12, g + 0.2, g + 0.62, 0.5 + rr() * 0.8, 0.05, ang, C.moss); // moss streak
       S.box(x - A.u[1] * lakeSide * 0.15, z + A.u[0] * lakeSide * 0.15, g - 0.2, g + 0.12, step + 0.02, 0.06, ang, C.moss); // damp foot
     }
     for (let s = 5; s < total; s += 8 + rr() * 3) { const A = along(s); const q = A && toBank(A, lakeSide, 2.8 + rr(), 3.5, 26); if (q) addTree(q[0], q[1], 1.4 + rr() * 0.5, rr() < 0.4 ? 1 : 0, 6, true); }
