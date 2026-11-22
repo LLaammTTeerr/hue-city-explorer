@@ -139,7 +139,14 @@ export function build({ data, S, group, THREE }) {
     face(u, ya, yb, w, 0.16, redD);
     for (let y = ya + every * 0.7; y < yb - 0.1; y += every) face(u, y, y + 0.09, w + 0.02, 0.2, white);
   };
-  const win = (face, u, ya, yb, w) => { face(u, ya - 0.15, yb + 0.25, w + 0.5, 0.07, white); face(u, ya, yb, w, 0.12, glass); face(u, ya + (yb - ya) * 0.48, ya + (yb - ya) * 0.52, w, 0.15, white); };
+  const pane = hex('#5a626c');
+  const win = (face, u, ya, yb, w) => { // white frame, glazing, transom and two mullions (pano: a 2 x 3 grid of panes)
+    face(u, ya - 0.15, yb + 0.25, w + 0.5, 0.07, white); face(u, ya, yb, w, 0.12, pane);
+    face(u, ya + (yb - ya) * 0.48, ya + (yb - ya) * 0.52, w, 0.15, white);
+    face(u, ya, yb, 0.07, 0.15, white);
+    for (const k of [0.25, 0.75]) face(u, ya + (yb - ya) * k - 0.02, ya + (yb - ya) * k + 0.02, w, 0.14, white);
+    face(u, ya - 0.2, ya - 0.1, w + 0.7, 0.2, white); // sill
+  };
 
   // ---- the middle block: front (north) and back (south) ----
   // Heights above the floor and bay positions measured on the car pano with the front 19.4 m wide: string course
@@ -191,6 +198,7 @@ export function build({ data, S, group, THREE }) {
     S.box(CX, zf - 0.08, F + 11.75, F + 11.95, 0.9, 0.06, 0, redD);
     S.box(CX, zf - 0.02, F + 9.6, F + 11.05, 1.9, 0.14, 0, white); // the clock frame
     S.cyl(CX, zf - 0.12, F + 9.75, F + 10.9, 0.58, 0.58, 10, hex('#f6f3ea'));
+    for (let k = 0; k < 12; k++) { const a = (k * Math.PI) / 6; S.box(CX + 0.48 * Math.sin(a), zf - 0.2, F + 10.32 + 0.48 * Math.cos(a) - 0.04, F + 10.32 + 0.48 * Math.cos(a) + 0.04, 0.05, 0.03, 0, glass); }
     S.beam([CX, F + 10.32, zf - 0.2], [CX, F + 10.75, zf - 0.2], 0.07, 0.05, glass);
     S.beam([CX, F + 10.32, zf - 0.2], [CX + 0.3, F + 10.32, zf - 0.2], 0.07, 0.05, glass);
     S.cyl(CX, z, F + 12.0, F + 14.2, 0.04, 0.03, 5, steel, { cap: false }); // flagpole
@@ -270,8 +278,9 @@ export function build({ data, S, group, THREE }) {
     const zf = C.z0, zo = zf - 4.1, zc = (zf + zo) / 2, cw = 22.7, zCol = zf - 3.6;
     S.kind = KIND.PLAIN;
     S.box(CX, zc, F + 3.95, F + 4.55, cw, zf - zo, 0, white, { bottom: true, top: slab }); // top over 5 m: the drive passes under its edge
-    S.box(CX, zo + 0.15, F + 3.8, F + 4.6, cw, 0.3, 0, white); // fascia
-    S.box(CX, zo - 0.02, F + 4.0, F + 4.4, cw - 2.4, 0.04, 0, blue); // the lettering
+    S.box(CX, zo + 0.15, F + 3.6, F + 4.75, cw, 0.3, 0, white); // fascia
+    S.box(CX, zo - 0.02, F + 3.95, F + 4.4, cw - 2.4, 0.04, 0, blue);
+    for (let u = -10; u <= 10.01; u += 0.9) S.box(CX + u, zo - 0.04, F + 3.97, F + 4.05, 0.25, 0.02, 0, white); // word breaks // the lettering
     for (const sg of [-1, 1]) S.box(CX + sg * (cw / 2 - 0.15), zc, F + 3.8, F + 4.6, 0.3, zf - zo, 0, white);
     for (const u of [-9.3, -6.2, -2.1, 2.1, 6.2, 9.3]) {
       S.cyl(CX + u, zCol, F, F + 3.95, 0.26, 0.23, 10, column);
