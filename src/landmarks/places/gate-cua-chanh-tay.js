@@ -159,6 +159,13 @@ export function build({ S }) {
       const y0 = Y + 2.5 + rand(seed, 3) * 3.5;
       S.quad(V(s, t + dt * 0.03, y0), V(s + w, t + dt * 0.03, y0), V(s + w, t + dt * 0.03, YB - 0.35), V(s, t + dt * 0.03, YB - 0.35), mix(BRICK_DARK, BRICK, 0.45 + rand(seed, 4) * 0.35), N(0, dt));
     }
+    // a long grey string course across the whole front under the parapet, and a streak of moss on the wall above the damp
+    box(0, t + dt * 0.1, YB - 1.15, YB - 0.95, 2 * FRONT + 0.4, 0.2, GREY, { top: GREY_LIGHT });
+    for (let i = 0; i < 6; i++) {
+      const s0 = -FRONT + 0.6 + rand(i * 11 + (dt > 0 ? 3 : 0), 7) * (2 * FRONT - 2.4), w0 = 0.9 + rand(i * 5, 8) * 1.6;
+      if (Math.abs(s0 + w0 / 2) < r + 1.0) continue;
+      S.quad(V(s0, t + dt * 0.035, YB - 1.7), V(s0 + w0, t + dt * 0.035, YB - 1.7), V(s0 + w0, t + dt * 0.035, YB - 1.3), V(s0, t + dt * 0.035, YB - 1.3), hex('#5c6340'), N(0, dt));
+    }
     // the grey cornice ledge over the arch; outside, the tablet with its three carved characters, inside a blank panel
     const yl = Math.min(crown + 1.0, YB - 1.6);
     box(0, t + dt * 0.12, yl, yl + 0.22, 6.6, 0.24, GREY, { top: GREY_LIGHT });
