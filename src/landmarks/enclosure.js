@@ -229,8 +229,16 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
         if (st.rail) {
           S.box(mx, mz, lo, hi + st.plinth, bl, st.t, ang, st.wall, { top: st.cap });
           S.kind = KIND.PLAIN;
-          // the railing: a see-through screen of bars reads, from the street and the air, as a dark band under a rail
-          S.box(mx, mz, hi + st.plinth, hi + st.h - 0.08, bl - st.postW, 0.05, ang, st.iron);
+          // the railing: a see-through screen of bars reads, from the street and the air, as a dark band under a rail;
+          // a style with `bars` (spacing, m) draws the open railing as separate uprights instead
+          if (st.bars) {
+            const nbar = Math.max(1, Math.round((bl - st.postW) / st.bars)), ca = Math.cos(ang), sa = Math.sin(ang);
+            for (let j = 1; j < nbar; j++) {
+              const o = -bl / 2 + st.postW / 2 + ((bl - st.postW) * j) / nbar;
+              S.box(mx + ca * o, mz + sa * o, hi + st.plinth, hi + st.h - 0.08, 0.035, 0.035, ang, st.iron);
+            }
+            S.box(mx, mz, hi + st.plinth + 0.12, hi + st.plinth + 0.18, bl - st.postW, 0.05, ang, st.iron);
+          } else S.box(mx, mz, hi + st.plinth, hi + st.h - 0.08, bl - st.postW, 0.05, ang, st.iron);
           S.box(mx, mz, hi + st.h - 0.12, hi + st.h, bl, 0.09, ang, shade(st.iron, 1.2));
         } else {
           S.box(mx, mz, lo, hi + st.h - 0.18, bl + 0.02, st.t, ang, st.wall, { top: st.cap });
