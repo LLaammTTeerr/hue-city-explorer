@@ -221,15 +221,15 @@ function at(pts, s) {
 }
 
 function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = null) {
-  // the bank-to-bank deck as it was: level at the bank, or climbing between banks of different height, or at the
-  // level of a lake in the hills
+  // the bank-to-bank deck: its two ends stand on the approach roads' ground (the same `rise` the street is laid on),
+  // and between them it follows its own profile, level or climbing straight from one bank to the other. The ground
+  // under the span (water, a ravine, a lake held at its level) is never read: on a 25 m grid it would bend the deck.
   const p0 = pts[0], pn = pts[pts.length - 1], mp = pts[pts.length >> 1];
-  const lift = Math.min(rise(p0[0], p0[1]), rise(mp[0], mp[1]), rise(pn[0], pn[1]));
-  const top = LAND_Y + lift + 0.42;
   const e0 = rise(p0[0], p0[1]), e1 = rise(pn[0], pn[1]);
+  const lift = Math.min(e0, e1);
+  const top = LAND_Y + lift + 0.42;
   const ramp = Math.abs(e0 - e1) > 0.25;
-  const lvl = Math.min(e0, e1) - lift < 0.25 ? LAND_Y + Math.min(e0, e1) + 0.42 : top;
-  const base = ramp ? (s) => LAND_Y + e0 + 0.42 + ((e1 - e0) * s) / (len || 1) : () => lvl;
+  const base = ramp ? (s) => LAND_Y + e0 + 0.42 + ((e1 - e0) * s) / (len || 1) : () => top;
   // climb: reach most of the rise within that fraction of the length at each end, then a low crown (a long bridge)
   const ss = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
   // span: the deck is structure only over [a, b] (the water and its abutments), where it humps by riseM over the

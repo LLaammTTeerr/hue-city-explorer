@@ -162,27 +162,39 @@ tapered into. Every OSM `*_link` way is one (`lanes` tag, else 1 if one-way, 2 i
 sets `unmarked-1/2/3` or `marked` for any other way by id. A pavement patch enclosed by slip roads stays a traffic
 island once it reaches 10 m² (`ISLAND_MIN` in `src/geo/junctions.js`) instead of being painted as a junction hole.
 
-Ground height is calibrated against measurements; `npm run data:build` prints how well it fits. Two open models are
-read on the same 30 m grid by `scripts/fetch-terrain.py` → `data/raw/dem/terrain.json`:
-[FABDEM v1-2](https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn) (bare earth) and the
-[Copernicus GLO-30](https://registry.opendata.aws/copernicus-dem/) surface it was made from. They are corrected against
-two kinds of measured height:
+Ground height is calibrated against measurements; `npm run data:build` prints how well it fits. The surface comes
+from the owner's elevation raster `data/raw/dem/output_hh.tif` (issue #73): Band 1, metres above the WGS 84
+ellipsoid, the [Copernicus GLO-30](https://registry.opendata.aws/copernicus-dem/) surface on a 1 arc-second (≈30 m)
+lattice. `scripts/lib/geotiff.mjs` reads it at build time (no dependency; the site never loads it). Its
+georeferencing places it on the same lattice as `data/raw/dem/terrain.json` (read by `scripts/fetch-terrain.py`),
+which also holds [FABDEM v1-2](https://doi.org/10.5523/bris.s5hqmjcdj8yo2ibzi9b4ew3sn) (bare earth). Everything else
+stands on EGM2008, so the raster is moved onto that datum by a geoid plane fitted where it overlaps the Copernicus grid
+of `terrain.json` (−14.0 m in the north-west to −13.3 m in the south-east). NoData cells (the file's NoData value,
+the 0.00 written over open water, lagoon cells far under the sea) are skipped and fall back to bare earth. The result
+is corrected against two kinds of measured height:
 
 - **ICESat-2 satellite lidar** (`scripts/fetch-lidar.py` → `data/raw/lidar/icesat2-ground.json`): about 7,400 laser
   ground heights on land inside the box, good to a few decimetres, along tracks that pass within a few hundred metres
-  of most of it (not refetched when the box grew east to 107.620 E: a new pull would shift the calibration across the
-whole city, and the strip leans on the nearby tracks). The difference between them and the model is spread from the
-tracks as a smooth correction. Each
-  overpass predicted from the others, the calibrated ground is within 0.8 m rms of the laser on the plain (FABDEM
-  alone: 1.1 m) and unbiased on the slopes.
-- **Documented summits** (`data/control-points.json`): the tracks mostly miss the hilltops, where FABDEM reads 2-10 m
-  low. Where the land is convex the ground moves from FABDEM to the surface model plus 2 m, which fits the published
-  summits to 1.0 m rms.
+  of most of it (not refetched when the box grew east to 107.620 E: a new pull would shift the calibration
+  across the whole city, and the strip leans on the nearby tracks). The difference between them and the model is spread from the tracks as a smooth correction; the drawn
+  ground is within about 1.1 m rms of the laser on the plain.
+- **Documented summits** (`data/control-points.json`): the tracks mostly miss the hilltops, where bare earth reads
+  2-10 m low. Where the land is convex the ground moves to the surface model plus 2 m, which fits the published
+  summits to about 1.2 m rms.
 
 The city's own ground (3.5 m above sea level) and the river's level (0.9 m) are both the laser's readings, so the city
-stands 2.6 m above the water. Ground under 1.2 m above the city stays flat. Hà Khê hill is too small for a 30 m model;
-the laser crossed chùa Thiên Mụ's compound twice (13.1-13.3 m), and that is its level. Its terrace and stair are
-shaped by hand.
+stands 2.6 m above the water. Heights stand 1:1 above that floor, with no vertical scaling: the plain keeps its
+half-metre swells (broadly smoothed, about 30 m, where they stand low; hills keep their crests). Ground below the floor
+is drawn at the floor. Hà Khê hill is too small for a 30 m model; the laser crossed chùa Thiên Mụ's compound twice
+(13.1-13.3 m), and that is its level. Its terrace and stair are shaped by hand.
+
+A 30 m surface model reads cuttings, embankments and roadside canopy as ground, so after calibration the build smooths
+carriageways (OSM classes 0-3): where a road's grade changes by more than 8 % between neighbouring 25 m stretches, the
+grid nodes under it move (at most 5 m) toward the line between its neighbours. The ground moves, not the road, so
+streets, the houses seated along them and the terrain stay one surface. Designed landmarks on the plain get a level pad
+(nodes within 60 m held at one height) so their models keep their own geometry; the ground at each road bridge's ends
+is held level (the deck reads only those two heights and stays level and continuous), and rail bridges land at the
+city floor. Generic buildings keep footprint, height and shape and are seated on the ground at their base.
 
 Building heights come first from the city of Huế's own 3D building survey, published on
 [GISHue](https://gishue.hue.gov.vn) (`scripts/fetch-gishue-heights.py` → `data/raw/heights/gishue.*`): each footprint

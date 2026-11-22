@@ -6,6 +6,9 @@ Neither is right everywhere. Against documented heights (data/control-points.jso
 2 m on the hills, where FABDEM strips 5-10 m of "forest" that hides no ground; on the built-up plain the surface model
 reads roofs and FABDEM is right. scripts/build-data.mjs blends the two by height above the plain.
 
+Since issue #73 the build takes its surface heights from the owner's raster data/raw/dem/output_hh.tif instead of `s`;
+`s` still fixes that raster's datum (the geoid plane is fitted where the two overlap), and `h` is the bare earth.
+
 Reads only the model's box (HTTP range requests) and writes data/raw/dem/terrain.json: a lat/lon grid of heights in
 decimetres above the EGM2008 geoid, `h` bare earth (FABDEM) and `s` surface (Copernicus).
 
