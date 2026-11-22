@@ -51,3 +51,22 @@ Replica: `src/landmarks/places/tinhtam.js`. Modelled as the lake stands in 2026,
 - Low perimeter walls: it is not confirmed whether they still exist, so they are not drawn.
 - Whether any remains of the gates or the Bồng Doanh foundations are visible is unconfirmed.
 - The bamboo clumps are simple cones.
+
+## Alignment with Google imagery (2026-11)
+Satellite and car Street View were used as visual reference only. Nothing was copied or traced into `data/`.
+- Position and outline: the pavilion, the shore, Bồng Lai, Doanh Châu, both bridges, Lê Văn Hưu and Tịnh Tâm all lie within a few metres of the satellite image. No data fix was needed.
+- Lotus: the satellite shows a near-full mat. There are now about 6,000 emergent leaves and 5,000 floating ones (2,400 and 2,000 on low quality), with blooms on 8 % of the emergent leaves.
+- Pavilion: it stands on a pale octagonal terrace about 16 m across, under the two-step floor, with a brick path running south-west across Bồng Lai.
+- Trees:
+  - big broadleaf canopies on Bồng Lai;
+  - tree rows on the Tịnh Tâm and Đinh Tiên Hoàng banks;
+  - broadleaf trees on the north-west bank.
+
+  They are added to `data.trees`. Trees on the island and on the Tịnh Tâm bank take the indices the city's planter keeps broadleaf; the rest may become willows.
+- Bamboo: Street View shows vase-shaped clumps, so it now grows only on the Kim Oanh dyke and is kept off the carriageway. The north-west bank shows broadleaf trees and houses instead.
+- Tịnh Tâm road: a low concrete parapet (about 0.7 m) on the lake side, as seen in Street View.
+- Estimated: the size of the terrace, tree positions and sizes, the parapet height, and the lotus density.
+- Still unlike the reference:
+  - the roads are drawn at their OSM class width, wider than the real lanes;
+  - the houses on the north-west bank are missing;
+  - the satellite image cannot show whether the pavilion roof has a second tier.
