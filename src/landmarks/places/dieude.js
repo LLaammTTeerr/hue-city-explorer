@@ -34,7 +34,7 @@ const lacq = hex('#9e3426'), door = hex('#5b2a1d'), dark = hex('#2a211d'), stone
 const pave = hex('#c6bba3'), walk = hex('#ad9c80'), lawn = hex('#7f9752'), bronze = hex('#5d4a2c'), leaf = hex('#4f7337'), leafD = hex('#3f5f2d');
 const bark = hex('#5a4634'), mosaic = hex('#5f9a8a');
 // the precinct wall: old brick, weathered, under a low coping (Street View); the piers in grey stone
-const WALL = { ...FENCE.pagoda, h: 2.4, plinth: 2.4, every: 5.0, postW: 0.5, postUp: 0.05, wall: hex('#7f5242'), cap: hex('#6f6458'), pierW: 1.0, pierUp: 1.2 };
+const WALL = { ...FENCE.pagoda, h: 2.4, plinth: 2.4, every: 5.0, postW: 0.5, postUp: 0.05, wall: hex('#6a4a3c'), cap: hex('#5e564c'), pierW: 1.0, pierUp: 1.3, t: 0.42 };
 
 export function build({ data, S, group }) {
   const box = (a, b, y0, y1, la, lb, col, o = {}) => { const q = W(a, b); S.box(q[0], q[1], y0, y1, la, lb, ANG + (o.rot || 0), col, o); };
