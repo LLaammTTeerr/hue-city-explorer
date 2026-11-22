@@ -40,3 +40,20 @@ was needed: the replica's paved yard covers the block and `populate` drops the m
 ## Left to do
 - Check the roofs and the gate against a photo (Street View or a dated news photo).
 - No Wikimedia Commons photos or vi.wikipedia article for the market were found (the vi article is a 404).
+
+## Satellite and Street View audit (2026-11)
+
+Checked against satellite tiles (z17–z20) and car panoramas on Nguyễn Trãi, Lê Đại Hành, Đạm Phương and the lane in
+front of the market (visual reference only; nothing traced). The footprint and axis already agreed to about 1–2 m and
+under 3°, so no position or orientation changed. What changed in the massing:
+
+- Roof colours per hall now follow the satellite: rust reds on the street halls, browns and greys inward, rather than
+  one red for every roof.
+- The gate arch is gone: no panorama shows one. The red name board now sits on the street face of the front stall hall.
+- The two ends of the long west wing are cream gabled pavilions about 5 m high, each with an arched lunette, a
+  concrete canopy and a brown lean-to (the Lê Đại Hành corner is the clearest photo).
+- The back wing has continuous lean-tos instead of awnings: green and blue sheets on the Đạm Phương side, grey on the
+  court side.
+- The two-storey block has a proper gable roof.
+- Five trees stand in pits in the courts and along the inner lane, where the satellite shows crowns. The courts between
+  halls are filled with low, tilted tarps, as the satellite shows.
