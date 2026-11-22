@@ -27,24 +27,30 @@ generic `replaced('gate:' + name)` guard.
   - elsewhere the wall is 20 m thick.
 
 ## Model
-- A brick block the full depth of the rampart: 14.7 m through the wall × 17.7 m along it.
-- One round-arched passage, 4.2 × 5.4 m. It uses `CITADEL_PASSAGE`, so it matches the slot that `kinhthanh.js` cuts.
-- A lime-plaster surround and keystone on each mouth.
-- A framed name panel with three characters on each face.
-- Weathering as on the rampart: a damp foot, streaks and relaid patches.
-- A terrace 0.8 m above the walk, with a cornice and a crenellated parapet.
-- A vọng lâu built with the shared `pavilion()`:
-  - two storeys, with an open colonnade lacquered red;
-  - two tiers of yellow-glazed roof;
-  - a fire pearl with curls at the ends of the ridge.
-- The ridge stands about 16.4 m above the ground.
+- Rebuilt from street-level photographs taken from the causeway (matched views; Google Street View used only as a
+  visual reference, nothing copied). Plan, centre and axis checked against the satellite: within about 2 m and 1°,
+  so the OSM outline is kept.
+- A bare red-brown brick block the full depth of the rampart: 14.7 m through the wall × 17.7 m along it, with shallow
+  corner pilasters under lime capitals.
+- One round-arched passage, 4.0 m wide with its crown at 4.8 m (the photographs show it narrower and lower than the
+  shared `CITADEL_PASSAGE`, 4.2 × 5.4 m; the rampart slot is unchanged). Brick voussoirs, no plaster surround,
+  inside a raised brick frame (6.4 × 6.2 m) under a grey lime lintel.
+- The name panel (three characters) between the frame and the cornice, on each face.
+- Weathering: a damp foot, grey streaks, relaid patches.
+- A grey lime cornice at 8.0 m and a low plastered parapet (0.8 m) with recessed panels and capped posts, not
+  crenellations.
+- The vọng lâu is masonry, lime-plastered:
+  - lower storey 9.6 × 7.0 m, 4.2 m high, three brick-ringed arches front and back (2.3 m central, 1.5 m sides),
+    one on each end;
+  - a tiled skirt round a flat deck with a balustrade;
+  - an upper storey 4.6 × 3.6 m with one arch on each long face;
+  - a small tiled hip roof with lime ridges and upturned horns, and a flagstaff; ridge about 17 m over the ground.
 
 ## Estimates
-- These have no measured drawings and follow the sibling gates and the gate convention in `citadel.js`:
-  - the vọng lâu footprint (11.2 × 7.4 m);
-  - the roof colour;
-  - the terrace and parapet heights;
-  - the size of the name panel.
+- All heights and the tower's size are photogrammetric estimates from the matched causeway photographs (scaled from
+  the 17.7 m OSM width); the tower's depth is not visible from the street and is estimated.
+- The sibling gates' documented "about 16 m in all" (`docs/heights-reference.json`) is a little lower than this
+  gate's estimated 17 m ridge; no height is recorded for this gate.
 - I found no source on how closely the post-1953 rebuild follows the original.
 
 ## Left out
