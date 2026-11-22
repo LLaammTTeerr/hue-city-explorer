@@ -113,6 +113,14 @@ export function build({ S }) {
     box(s * 7.6, 7.03, yp + 0.3, yp + 2.6, 1.5, 0.06, OCHRE);
     cyl(s * 7.6, 7.08, yp + 1.15, yp + 1.85, 0.36, 0.36, 8, GOLD);
   }
+  // the flanks: a lattice window in each of the three rear bays of both side walls, a gilt band under the eave
+  for (const sd of [-1, 1]) {
+    for (let k = 0; k < 3; k++) {
+      box(sd * 8.54, -2.0 - k * 3.0, yp + 1.0, yp + 2.3, 0.08, 1.5, shade(LAC, 0.55));
+      box(sd * 8.55, -2.0 - k * 3.0, yp + 1.25, yp + 2.05, 0.08, 1.1, GOLD);
+    }
+    box(sd * 8.54, 0.4, yp + 2.55, yp + 2.72, 0.08, 14.0, GOLD);
+  }
   // six columns standing on the court, lotus capitals under the eave beam
   for (let i = 0; i < 6; i++) {
     const u = (i - 2.5) * bay;
@@ -170,6 +178,8 @@ export function build({ S }) {
     S.kind = KIND.PLAIN;
     box(0, gateV, yb, yb + 3.0, 2.1, d + 0.3, DARK);
     box(0, gateV, yb + 3.25, yb + 3.8, 1.6, d + 0.32, GOLD); // the name board
+    for (const sd of [-1, 1]) box(0, gateV + sd * (d / 2 + 0.55), yg - 0.3, yg + 0.12, 4.2, 0.5, shade(STONE, 1.04), { topKind: KIND.ROAD }); // a step at each door
+    box(0, gateV, yb + 3.15, yb + 3.9, 1.9, d + 0.28, shade(LAC, 0.8));
     hip(0, gateV, 4.2, d + 0.2, yb + 4.1, 1.3, { over: 0.7, ridgeCol: RIDGE, segs: 3 });
   }
 
@@ -181,6 +191,9 @@ export function build({ S }) {
     S.box(o.c[0], o.c[1], yg - 0.3, yg + 3.2, o.w, o.d + 0.3, o.a, OCHRE, { top: shade(TILE, 0.8) });
     S.kind = KIND.PLAIN;
     S.box(o.c[0], o.c[1], yg, yg + 2.4, 1.5, o.d + 0.38, o.a, DARK);
+    S.box(o.c[0], o.c[1], yg, yg + 2.2, 1.1, o.d + 0.42, o.a, shade(LAC, 0.8));
+    S.box(o.c[0], o.c[1], yg + 2.45, yg + 2.95, 1.3, o.d + 0.4, o.a, GOLD); // the name board over the door
+    S.box(o.c[0], o.c[1], yg - 0.3, yg + 0.1, 2.4, o.d + 1.4, o.a, STONE, { topKind: KIND.ROAD });
     S.hip(o.c[0], o.c[1], o.w, o.d + 0.3, o.a, yg + 3.2, 0.95, TILE, { flare: 0.3, over: GATE_OVER, fascia: 0.2, fasciaCol: shade(LAC, 0.7), ridgeCol: RIDGE, hips: true, glazed: true, segs: 3 });
   }
 
