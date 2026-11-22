@@ -35,7 +35,7 @@ const W2 = 24.25; // half the precinct's width (48.5 m)
 // weathered concrete: dark grey walls streaked black, darker ardoise roofs, paler mouldings, cornices and statues
 const WALL = hex('#5e5c59'), DARKW = hex('#4c4a47'), ROOF = hex('#3f3e3c'), TRIM = hex('#a19d94'), PAVE = hex('#77746d');
 const STAT = hex('#8a867e'), IRON = hex('#1f1e1d'), VOID = hex('#1b1918'), PALW = hex('#8d8a84');
-const STONE = hex('#5d5b55'), GRASS = hex('#6f8a45'), WOOD = hex('#5a3a26'), TILEB = hex('#6b4a3a');
+const STONE = hex('#4f4f4a'), GRASS = hex('#6f8a45'), WOOD = hex('#5a3a26'), TILEB = hex('#4a3b33');
 // the concrete is drawn as KIND.FLAT (mottled render), not KIND.MASONRY, whose shader lays brick courses on it
 
 // the levels: [front s, back s]; each flight stands on the level below, against the front wall of the next one
@@ -368,6 +368,9 @@ function kiosk(S) {
   S.box(p[0], p[1], lo - 0.4, fl, w + 0.8, d + 0.8, A, DARKW, { top: PAVE, topKind: KIND.ROAD });
   S.kind = KIND.TIMBER;
   S.box(p[0], p[1], fl, fl + 2.6, w - 1.2, d - 1.2, A, WOOD);
+  // a dark cornice band at the counter height, under the deep eave
+  S.kind = KIND.FLAT;
+  S.box(p[0], p[1], fl + 0.85, fl + 1.0, w - 0.8, d - 0.8, A, DARKW);
   S.kind = KIND.TILE;
   S.hip(p[0], p[1], d + 0.4, w + 0.4, AV, fl + 2.6, 1.6, TILEB, { flare: 0.4, over: 0.6, hips: true });
   S.kind = KIND.FLAT;
