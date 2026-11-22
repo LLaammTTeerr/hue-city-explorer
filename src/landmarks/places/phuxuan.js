@@ -208,7 +208,12 @@ export function build({ data, S }) {
       for (const u of [f0, f1]) S.beam(at(u, v, yy(u) + 0.22), at(u, v, yy(u) + 0.88), 0.03, 0.04, panelCol);
       const c = xz(m, v);
       S.box(c[0], c[1], yy(m) + 0.38, yy(m) + 0.72, 0.5, 0.03, ang, panelCol);
-      for (const u of [s + 0.25, s + 0.5, e - 0.5, e - 0.25]) S.beam(at(u, v, yy(u) + 0.1), at(u, v, yy(u) + RH), 0.025, 0.025, railCol);
+      for (let u = s + 0.2; u < e - 0.1; u += 0.15) {
+        if (u > f0 - 0.05 && u < f1 + 0.05) continue;
+        S.beam(at(u, v, yy(u) + 0.1), at(u, v, yy(u) + RH), 0.02, 0.02, railCol);
+      }
+      // fretwork: a short bar above and below the medallion inside the frame
+      for (const h of [0.3, 0.8]) S.beam(at(m - 0.35, v, yy(m) + h), at(m + 0.35, v, yy(m) + h), 0.02, 0.025, panelCol);
     }
   }
 
