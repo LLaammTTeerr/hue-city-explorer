@@ -32,7 +32,7 @@ const ROOF = hex('#9a7658'); // glazed tiles weathered to a brown ochre (satelli
 const RIDGE = hex('#eee8dc'); // white stucco ridges and crests
 const WHITE = hex('#efece4'); // columns, railings, gate pillars
 const SHADOW = hex('#3b3631'); // the dark behind pierced work
-const PLASTER = hex('#e2cf9c'); // the yellow lime wash of the base's faces
+const PLASTER = hex('#ebe5d6'); // the base's faces: white-washed, creamy under the night lamps
 const KERB = hex('#7f8280'); // bluestone kerbs and steps
 const FLOOR = hex('#c9bca0');
 const PAVE = hex('#b9b2a6'); // pale grey stone slabs
@@ -260,7 +260,7 @@ export function build({ data, S, group, place, THREE }) {
     const aG = -38.0, bG = 0.45;
     const pillar = (b, w, h) => {
       const q = at(aG, b), gq = LAND_Y + rise(q[0], q[1]);
-      S.kind = KIND.MASONRY;
+      S.kind = KIND.PLAIN; // smooth white stucco, as in the photos (no block texture)
       S.box(q[0], q[1], gq - 0.2, gq + 0.4, w + 0.3, w + 0.3, fa, WHITE);
       S.box(q[0], q[1], gq + 0.4, gq + h, w, w, fa, WHITE);
       S.box(q[0], q[1], gq + h, gq + h + 0.2, w + 0.18, w + 0.18, fa, WHITE);
@@ -282,10 +282,17 @@ export function build({ data, S, group, place, THREE }) {
       // the pierced panel between the pair, high up
       const m = at(aG, (bi + bo) / 2), len = Math.abs(bo - bi) - 0.7;
       S.kind = KIND.PLAIN;
-      S.box(m[0], m[1], gi + 5.3, gi + 6.5, 0.05, len, fa, SHADOW);
+      S.box(m[0], m[1], gi + 5.3, gi + 6.5, 0.05, len, fa, shade(WHITE, 0.82));
       S.box(m[0], m[1], gi + 6.45, gi + 6.62, 0.2, len, fa, WHITE);
       S.box(m[0], m[1], gi + 5.2, gi + 5.34, 0.2, len, fa, WHITE);
-      for (let i = 0; i < 6; i++) { const r = at(aG, Math.min(bi, bo) + 0.45 + (i + 0.5) * (len / 6)); S.box(r[0], r[1], gi + 5.34, gi + 6.45, 0.1, 0.08, fa, WHITE); }
+      // scrolled openwork: a run of white rings and a rail through them, the dark showing through the gaps
+      S.box(m[0], m[1], gi + 5.85, gi + 5.95, 0.12, len, fa, WHITE);
+      for (let i = 0; i < 5; i++) {
+        const r = at(aG, Math.min(bi, bo) + 0.35 + (i + 0.5) * ((len - 0.0) / 5));
+        S.box(r[0], r[1], gi + 5.5, gi + 6.3, 0.1, 0.1, fa, WHITE);
+        S.box(r[0], r[1], gi + 5.78, gi + 6.02, 0.1, len / 5 - 0.1, fa, WHITE);
+      }
+      S.box(m[0], m[1], gi + 5.34, gi + 5.42, 0.06, len, fa, SHADOW);
       lantern(at(aG, bi), gi + 9.7);
     }
   }
