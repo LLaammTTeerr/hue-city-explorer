@@ -62,3 +62,17 @@ The replica is in `src/landmarks/places/kientrung.js`. It covers the palace at t
 - The rear garden (hậu viên) and the guard house.
 - Exact storey heights and the true roof form, which needs a measured elevation or more photographs.
 - The fountain's real position.
+
+## Checked against Google satellite and Street View (2026-11)
+Captures are kept outside the repo; they are visual reference only.
+- **Position and axis.** The ground features line up with the OSM-derived model within about 1 m: the middle flight, the end flights and the terrace front. The axis agrees within about 1° (the satellite gives 53.3°, the model 53.4°). The roofs in that image lean about 6 m north of their bases; the seen-edge-on front facade fills the gap. So the hall's centre is unchanged.
+- **Length.** The four small hip roofs of the corner towers stand 38.5 m apart along the front and 14.9 m front to back, centre to centre. The same spacing shows at the front pair and the back pair. In Street View the end flights land under the end bays' porches. So the end bays are towers about 5.6 m square, and the hall is about 44 m long, not OSM's 39.5 m. The model keeps OSM's depth (20.6 m) and terrace, and draws the hall's ends at ±22 m.
+- **Massing from Street View.** All the panoramas are user photospheres, so the poses were estimated from the images.
+  - There is no upper tier over the middle. Over the wings and the middle the roof is a long, low hip, hidden from the ground behind a crested parapet. Over the middle of the front stands a raised crest panel.
+  - The corner towers rise a tier above the wings, with a recessed attic and a crest.
+  - Each end bay has a porch of columns carrying a balcony. The east one is the visitors' entrance.
+- **Finish.**
+  - Red-lacquered leaves in every door and window, with arched upper windows.
+  - The mosaic is mostly grey-blue and white.
+  - The terrace face is rendered white, not coursed stone. The stair dragons are grey stone.
+- **Forecourt.** Between the stairs there is a plain lawn strip about 5 m deep behind a kerb, with a few clipped shrubs and a cannon beside the middle flight, then brick paving. The parterres, basins and brick stools drawn there before were removed. The geometric garden with a fountain that the sources call Art Deco is across the paved road to the south (seen on the satellite). It is not modelled here.
