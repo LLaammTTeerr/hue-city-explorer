@@ -36,3 +36,10 @@ Model: `src/landmarks/places/andinh.js`. The old `anDinh()` in `src/landmarks/ci
 - The gate's exact mosaic pattern and its side openings, if any.
 - The Bạch Trà garden behind the palace and the trees of the grounds. Trees still come from populate.
 - Interior lighting of the palace windows at night.
+
+## Rebuild from satellite and Street View (2026-11)
+- Checked against the Google satellite view (zoom 19 to 20) and three Street View panoramas: a car pano across the river, and two user panos in the grounds. Their poses were estimated from the images; the user panos were not used to place anything. Google imagery was used as reference only. Nothing from it is in the repo.
+- Position and axis already matched: the palace base line and the pavilion fall within about 1.5 m of the satellite, and the facade bearing is about 64°. The gate lines up in the car pano once its heading is corrected by about 28°. No anchor or data change was needed.
+- Palace massing redone: a recessed two-storey centre with a balustrade and no attic, front wings at both ends with hipped roofs, and a square tower with a crown attic over each wing's inner front corner. The model top is about 20.6 m. The east wing runs the full depth. The west wing is 11 m deep, with a flat-roofed two-storey annex behind it, as the satellite shows.
+- Trung Lập: a two-tier octagonal base (a balustraded stone terrace 1.6 m high, then a 0.9 m upper base). The stairs now sit on the west and east faces, not on the axis, as the panos show on the west. The rail between the columns is open on those faces.
+- Open questions: three arched gate doors (the car pano and the "tam quan" wording) or one door; a cream gate (2025 pano) or grey stucco; the main roof length (the satellite suggests about 22 m); whether the east stair exists.

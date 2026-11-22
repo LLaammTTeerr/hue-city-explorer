@@ -77,125 +77,159 @@ const finial = (S, p, y0, h, col = WHITE) => { S.cyl(p[0], p[1], y0, y0 + h * 0.
 
 // ---------------------------------------------------------------- Khải Tường Lâu
 function palace(S, lamps) {
-  const g = gy(C), fl = g + 1.2; // terrace floor on a 1.2 m stone plinth
-  const s1 = fl + 4.8, s2 = s1 + 4.4, cor = s2 + 0.4, att = cor + 2.8; // storey 1, storey 2, cornice, attic
+  const g = gy(C), fl = g + 1.2; // ground floor on a 1.2 m stone plinth
+  const s1 = fl + 4.8, s2 = s1 + 4.4, cor = s2 + 0.4; // storey 1, storey 2, top of the main cornice
+  // Plan (Street View and the satellite, 2025): two front wings at the ends of the mapped rectangle, WW wide and WD
+  // deep, standing FR in front of the recessed centre; a tower over each wing's inner front corner; behind the wings
+  // the satellite shows the east wing roofed to the back of the house, the west wing shorter with a two-storey block
+  // behind it under a flat roof terrace; the centre carries the porch and the main hipped roof.
+  const WW = 6.8, WD = 11.0, FR = 3.0, CU = W2 - WW, CV = D2 - FR; // CU: half width of the centre, CV: its front
   S.base = g - LAND_Y;
-  // plinth of rough stone
+  // plinth of rough stone under the whole footprint, and the terrace before the porch with steps down the axis
   S.kind = KIND.MASONRY;
   fbox(S, 0, 0, g - 0.4, fl, W + 1.2, D + 1.2, STONE, { top: STONE2 });
-  // front terrace before the porch, with steps down at both sides
-  fbox(S, 0, D2 + 1.9, g - 0.4, fl, 12.0, 3.8, STONE, { top: STONE2 });
+  fbox(S, 0, CV + 1.6, g - 0.4, fl, 2 * CU - 1.0, 3.2, STONE, { top: STONE2 });
   S.kind = KIND.PLAIN;
-  for (let k = 0; k < 5; k++) {
-    const y = fl - (k + 1) * (fl - g) / 5, w = 0.38;
-    for (const sg of [-1, 1]) fbox(S, sg * (6.0 + w * (k + 0.5)), D2 + 2.2, g - 0.2, y + 0.02, w, 2.6, STONE2);
-  }
-  // rear steps
-  for (let k = 0; k < 4; k++) fbox(S, 0, -D2 - 1.0 - 0.36 * (k + 0.5), g - 0.2, fl - (k + 1) * (fl - g) / 4 + 0.02, 3.6, 0.36, STONE2);
+  for (let k = 0; k < 5; k++) fbox(S, 0, CV + 3.2 + 0.36 * (k + 0.5), g - 0.2, fl - (k + 1) * (fl - g) / 5 + 0.02, 5.6, 0.36, STONE2);
+  for (let k = 0; k < 4; k++) fbox(S, 0, -D2 - 0.6 - 0.36 * (k + 0.5), g - 0.2, fl - (k + 1) * (fl - g) / 4 + 0.02, 3.6, 0.36, STONE2);
 
-  // main body
-  fbox(S, 0, 0, fl, cor, W, D, STUCCO);
-  // centre blocks front and back (8 m, 0.6 m proud)
-  fbox(S, 0, D2 + 0.3, fl, cor, 8.0, 0.6, STUCCO2);
-  fbox(S, 0, -D2 - 0.3, fl, cor, 8.0, 0.6, STUCCO2);
-  // corner towers, 4.8 m square, 0.4 m proud on both faces, a storey above the cornice
-  // (twTop: high enough that each tower's eave clears the main roof's slope where it stands over it, 1.1 m up there)
-  const TU = W2 - 2.0, TV = D2 - 2.0, twTop = att + 1.0;
-  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-    fbox(S, su * TU, sv * TV, fl, twTop, 4.8, 4.8, STUCCO2);
-    fbox(S, su * TU, sv * TV, s1 - 0.1, s1 + 0.2, 5.0, 5.0, WHITE);
-    fbox(S, su * TU, sv * TV, twTop, twTop + 0.35, 5.3, 5.3, WHITE);
-    S.hip(...P(su * TU, sv * TV), 5.0, 5.0, ANG, twTop + 0.35, 1.5, ROOF, { over: 0.15 });
-    finial(S, P(su * TU, sv * TV), twTop + 1.75, 1.1);
-    // rusticated quoins on the three outer corners
-    for (const [cu, cv] of [[su * (TU + 2.4), sv * (TV + 2.4)], [su * (TU - 2.4), sv * (TV + 2.4)], [su * (TU + 2.4), sv * (TV - 2.4)]]) {
-      for (let y = fl, k = 0; y < twTop - 0.2; y += 0.55, k++) {
-        const big = k % 2 === 0 ? 0.62 : 0.4;
-        fbox(S, cu, cv, y, y + 0.45, big, big, WHITE);
-      }
-    }
-  }
-  // string course and main cornice with a balustrade on top
-  fbox(S, 0, 0, s1 - 0.1, s1 + 0.2, W + 0.3, D + 0.3, WHITE);
-  fbox(S, 0, 0, s2, cor, W + 0.8, D + 0.8, WHITE);
-  const e = 0.25, rail = [P(-TU + 2.4, D2 + e), P(TU - 2.4, D2 + e), P(TU - 2.4, -D2 - e), P(-TU + 2.4, -D2 - e)];
-  balustrade(S, rail[0], rail[1], cor, 0.85);
-  balustrade(S, rail[2], rail[3], cor, 0.85);
-  balustrade(S, P(W2 + e, -TV + 2.4), P(W2 + e, TV - 2.4), cor, 0.85);
-  balustrade(S, P(-W2 - e, -TV + 2.4), P(-W2 - e, TV - 2.4), cor, 0.85);
-  // the attic storey, set back behind the balustrade, and the low hipped roof
-  fbox(S, 0, 0, cor, att, W - 2.2, D - 2.2, STUCCO);
-  fbox(S, 0, 0, att - 0.3, att, W - 1.7, D - 1.7, WHITE);
-  S.hip(...C, W - 1.2, D - 1.2, ANG, att, 2.1, ROOF, { over: 0.2 });
+  // the centre: two storeys, cornice, balustrade, hipped roof
+  const cvc = (CV - D2) / 2, cd = CV + D2; // centre of the centre block along v, its depth
+  fbox(S, 0, cvc, fl, cor, 2 * CU, cd, STUCCO);
+  fbox(S, 0, CV + 0.3, fl, cor, 7.2, 0.6, STUCCO2); // the frontispiece behind the porch
+  fbox(S, 0, -D2 - 0.3, fl, cor, 7.2, 0.6, STUCCO2);
+  fbox(S, 0, cvc, s1 - 0.1, s1 + 0.2, 2 * CU + 0.3, cd + 0.3, WHITE);
+  fbox(S, 0, cvc, s2, cor, 2 * CU + 0.8, cd + 0.8, WHITE);
+  balustrade(S, P(-CU, CV + 0.65), P(CU, CV + 0.65), cor, 0.85);
+  balustrade(S, P(CU, -D2 - 0.35), P(-CU, -D2 - 0.35), cor, 0.85);
+  S.hip(...P(0, cvc), 2 * CU - 0.6, cd - 0.6, ANG, cor, 2.6, ROOF, { over: 0.2 });
 
-  // windows: arched on storeys 1 and 2, square in the attic
-  const front = face(0, D2, [1, 0], [0, 1]), back = face(0, -D2, [-1, 0], [0, -1]);
-  const east = face(W2, 0, [0, -1], [1, 0]), west = face(-W2, 0, [0, 1], [-1, 0]);
-  for (const F of [front, back]) {
-    for (const [s, out] of [[-TU, 0.4], [TU, 0.4], [-8.2, 0], [-5.8, 0], [5.8, 0], [8.2, 0], [-2.5, 0.6], [0, 0.6], [2.5, 0.6]]) {
-      if (F === front && Math.abs(s) < 3) win(S, F, s, out, fl + 0.3, 3.0, 1.3, true); // porch doors
-      else win(S, F, s, out, fl + 1.0, 2.3, 1.2, true);
-      win(S, F, s, out, s1 + 1.0, 2.2, 1.15, true);
-    }
-    for (const s of [-7.8, -4.6, -1.5, 1.5, 4.6, 7.8]) win(S, F, s, -1.1, cor + 0.85, 1.2, 0.9, false);
+  // the wings, the towers and the rear blocks
+  const TS = 3.6, twTop = cor + 3.8;
+  const wdOf = (su) => (su > 0 ? D : WD);
+  for (const su of [-1, 1]) {
+    const wd = wdOf(su), wu = su * (CU + WW / 2), wv = D2 - wd / 2;
+    fbox(S, wu, wv, fl, cor, WW, wd, STUCCO);
+    fbox(S, wu, wv, s1 - 0.1, s1 + 0.2, WW + 0.3, wd + 0.3, WHITE);
+    fbox(S, wu, wv, s2, cor, WW + 0.8, wd + 0.8, WHITE);
+    if (su > 0) continue;
+    // rear block: two storeys, flat roof terrace with a balustrade
+    fbox(S, wu, -WD / 2, fl, s2 + 0.3, WW, D - WD, STUCCO2);
+    fbox(S, wu, -WD / 2, s2, s2 + 0.3, WW + 0.5, D - WD + 0.5, WHITE);
+    balustrade(S, P(su * W2 + su * 0.1, -D2 - 0.1), P(su * CU, -D2 - 0.1), s2 + 0.3, 0.8);
+    balustrade(S, P(su * W2 + su * 0.1, -D2 - 0.1), P(su * W2 + su * 0.1, D2 - WD), s2 + 0.3, 0.8);
   }
-  for (const F of [east, west]) {
-    for (const [s, out] of [[-TV, 0.4], [TV, 0.4], [-1.6, 0], [1.6, 0]]) {
-      win(S, F, s, out, fl + 1.0, 2.3, 1.2, true);
-      win(S, F, s, out, s1 + 1.0, 2.2, 1.15, true);
+  for (const su of [-1, 1]) {
+    const wd = wdOf(su), wu = su * (CU + WW / 2), wv = D2 - wd / 2;
+    S.hip(...P(wu, wv), WW + 0.2, wd + 0.2, ANG, cor, 2.4, ROOF, { over: 0.2 });
+    // tower over the wing's inner front corner, 0.3 m proud of the wing front and of its inner side
+    const tu = su * (CU + TS / 2 - 0.3), tv = D2 - TS / 2 + 0.3;
+    fbox(S, tu, tv, fl, twTop, TS, TS, STUCCO2);
+    fbox(S, tu, tv, s1 - 0.1, s1 + 0.2, TS + 0.2, TS + 0.2, WHITE);
+    fbox(S, tu, tv, s2, cor, TS + 0.5, TS + 0.5, WHITE);
+    fbox(S, tu, tv, twTop, twTop + 0.35, TS + 0.5, TS + 0.5, WHITE);
+    fbox(S, tu, tv, twTop + 0.35, twTop + 0.95, TS - 0.6, TS - 0.6, STUCCO2); // the crown's attic
+    S.hip(...P(tu, tv), TS - 0.2, TS - 0.2, ANG, twTop + 0.95, 1.4, ROOF, { over: 0.15 });
+    finial(S, P(tu, tv), twTop + 2.3, 1.1);
+    for (const [a, b] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) finial(S, P(tu + a * (TS / 2), tv + b * (TS / 2)), twTop + 0.35, 0.7);
+    // rusticated quoins on the wing's outer front corner and on the tower's front corners
+    for (const [cu, cv, top] of [[su * W2, D2, cor - 0.4], [tu + su * TS / 2, tv + TS / 2, twTop - 0.2], [tu - su * TS / 2, tv + TS / 2, twTop - 0.2]]) {
+      for (let y = fl, k = 0; y < top; y += 0.55, k++) { const big = k % 2 === 0 ? 0.62 : 0.4; fbox(S, cu, cv, y, y + 0.45, big, big, WHITE); }
     }
-    for (const s of [-1.6, 1.6]) win(S, F, s, -1.1, cor + 0.85, 1.2, 0.9, false);
+    // the wing front's balcony on storey 2, outside the tower
+    const bu0 = su * W2, bu1 = su * (CU + TS - 0.3);
+    fbox(S, (bu0 + bu1) / 2, D2 + 0.45, s1 - 0.15, s1 + 0.2, Math.abs(bu1 - bu0), 0.9, WHITE);
+    balustrade(S, P(bu0, D2 + 0.8), P(bu1, D2 + 0.8), s1 + 0.2, 0.85);
+    // the balustrade along the wing's outer end at the cornice
+    balustrade(S, P(su * (W2 + 0.15), D2 - wd), P(su * (W2 + 0.15), D2), cor, 0.85);
   }
-  // tower attic-level windows
-  for (const su of [-1, 1]) for (const sv of [-1, 1]) win(S, sv > 0 ? front : back, su * TU * sv, 0.4, cor + 0.8, 1.3, 0.9, true);
+
+  // windows: arched on both storeys
+  const front = face(0, CV, [1, 0], [0, 1]), back = face(0, -D2, [-1, 0], [0, -1]);
+  for (const [s, out] of [[-2.4, 0.6], [0, 0.6], [2.4, 0.6], [-4.7, 0], [4.7, 0], [-6.6, 0], [6.6, 0]]) {
+    if (Math.abs(s) < 3) win(S, front, s, out, fl + 0.3, 3.0, 1.2, true); // porch doors
+    else win(S, front, s, out, fl + 0.6, 2.8, 1.0, true);
+    win(S, front, s, out, s1 + 1.0, 2.2, 1.0, true);
+  }
+  for (const s of [-12.6, -10.4, -8.2, -5.8, -2.4, 0, 2.4, 5.8, 8.2, 10.4, 12.6]) {
+    const out = Math.abs(s) < 3.6 ? 0.6 : 0;
+    win(S, back, s, out, fl + 1.0, 2.3, 1.1, true);
+    win(S, back, s, out, s1 + 1.0, 2.2, 1.1, true);
+  }
+  for (const su of [-1, 1]) {
+    const wf = face(su * (CU + WW / 2), D2, [1, 0], [0, 1]);
+    const outer = su * (WW / 2 - 1.6), tow = su * (-WW / 2 + TS / 2 - 0.3);
+    win(S, wf, outer, 0, fl + 0.6, 2.8, 1.2, true);
+    win(S, wf, outer, 0, s1 + 0.9, 2.4, 1.2, true);
+    win(S, wf, tow, 0.3, fl + 0.6, 2.8, 1.1, true);
+    win(S, wf, tow, 0.3, s1 + 1.0, 2.2, 1.0, true);
+    win(S, wf, tow, 0.3, cor + 0.6, 1.8, 0.9, false);
+    // the outer end: wing and rear block
+    const side = face(su * W2, 0, [0, -su], [su, 0]);
+    for (const s of [-6.0, -3.6, -1.2, 1.2, 4.6, 6.8]) { const ss = su > 0 ? -s : s; win(S, side, ss, 0, fl + 1.0, 2.3, 1.1, true); win(S, side, ss, 0, s1 + 1.0, 2.2, 1.05, true); }
+  }
 
   // the porch: paired columns carrying the balcony of storey 2
-  const pv = D2 + 0.6, pd = 2.2;
-  for (const u of [-3.3, -2.4, 2.4, 3.3]) {
+  const pv = CV + 0.6, pd = 2.0;
+  for (const u of [-3.2, -2.5, 2.5, 3.2]) {
     const p = P(u, pv + pd - 0.35);
-    S.box(p[0], p[1], fl, fl + 0.35, 0.65, 0.65, ANG, WHITE);
-    S.cyl(p[0], p[1], fl + 0.35, s1 - 0.5, 0.26, 0.23, 8, WHITE);
-    S.box(p[0], p[1], s1 - 0.5, s1 - 0.2, 0.62, 0.62, ANG, WHITE);
+    S.box(p[0], p[1], fl, fl + 0.35, 0.6, 0.6, ANG, WHITE);
+    S.cyl(p[0], p[1], fl + 0.35, s1 - 0.5, 0.25, 0.22, 8, WHITE);
+    S.box(p[0], p[1], s1 - 0.5, s1 - 0.2, 0.58, 0.58, ANG, WHITE);
   }
-  fbox(S, 0, pv + pd / 2, s1 - 0.2, s1 + 0.25, 8.2, pd + 0.2, WHITE);
-  balustrade(S, P(-4.0, pv + pd), P(4.0, pv + pd), s1 + 0.25, 0.9);
-  for (const sg of [-1, 1]) balustrade(S, P(sg * 4.0, pv), P(sg * 4.0, pv + pd), s1 + 0.25, 0.9);
-  balustrade(S, P(-6.0, D2 + 3.75), P(-4.3, D2 + 3.75), fl, 0.8);
-  balustrade(S, P(4.3, D2 + 3.75), P(6.0, D2 + 3.75), fl, 0.8);
+  fbox(S, 0, pv + pd / 2, s1 - 0.2, s1 + 0.25, 7.6, pd + 0.2, WHITE);
+  balustrade(S, P(-3.7, pv + pd), P(3.7, pv + pd), s1 + 0.25, 0.9);
+  for (const sg of [-1, 1]) balustrade(S, P(sg * 3.7, pv), P(sg * 3.7, pv + pd), s1 + 0.25, 0.9);
   // name board 啓祥樓 over the balcony door
   onFace(S, front, 0, 0.75, s2 - 0.75, s2 - 0.15, 2.4, 0.12, shade(SHUT, 0.8));
   onFace(S, front, 0, 0.8, s2 - 0.65, s2 - 0.25, 2.0, 0.1, GOLD);
   // the crest over the centre bay: a stepped stucco frontispiece with a medallion and finials
-  onFace(S, front, 0, 0.45, cor, att + 0.4, 7.0, 0.5, STUCCO2);
-  onFace(S, front, 0, 0.45, att + 0.4, att + 1.2, 3.6, 0.5, STUCCO2);
-  onFace(S, front, 0, 0.45, att + 1.2, att + 1.45, 4.0, 0.6, WHITE);
-  onFace(S, front, 0, 0.45, att + 0.3, att + 0.45, 7.4, 0.6, WHITE);
-  fan(S, front, 0, 0.72, cor + 1.9, 0.75, WHITE, 10, true);
-  fan(S, front, 0, 0.74, cor + 1.9, 0.5, GOLD, 10, true);
-  for (const s of [-3.4, 3.4]) { const q = front.at(s, 0.45); finial(S, q, att + 0.45, 1.0); }
-  finial(S, front.at(0, 0.45), att + 1.45, 1.1);
-  for (const u of [-5.5, 5.5]) { const q = P(u, D2 + 3.6); lamps.push([q[0], fl + 0.5, q[1]]); }
+  onFace(S, front, 0, 0.45, cor, cor + 1.6, 6.4, 0.5, STUCCO2);
+  onFace(S, front, 0, 0.45, cor + 1.6, cor + 2.4, 3.2, 0.5, STUCCO2);
+  onFace(S, front, 0, 0.45, cor + 2.4, cor + 2.65, 3.6, 0.6, WHITE);
+  onFace(S, front, 0, 0.45, cor + 1.5, cor + 1.65, 6.8, 0.6, WHITE);
+  fan(S, front, 0, 0.72, cor + 1.0, 0.6, WHITE, 10, true);
+  fan(S, front, 0, 0.74, cor + 1.0, 0.4, GOLD, 10, true);
+  for (const s of [-3.1, 3.1]) { const q = front.at(s, 0.45); finial(S, q, cor + 1.65, 0.9); }
+  finial(S, front.at(0, 0.45), cor + 2.65, 1.0);
+  for (const u of [-2.6, 2.6]) { const q = P(u, CV + 3.0); lamps.push([q[0], fl + 0.5, q[1]]); }
   const pc = P(0, pv + 1.0); lamps.push([pc[0], s1 - 0.6, pc[1]]);
 }
 
 // ---------------------------------------------------------------- Đình Trung Lập
 function pavilionTL(S, lamps) {
-  const c = P(PAV[0], PAV[1]), g = gy(c), b1 = g + 1.5;
+  // Street View (2025): a broad octagonal stone terrace with a balustrade, and on it the pavilion's own higher base;
+  // stairs with heavy cheeks run down the west and east faces, across the axis (the front and west panos both show
+  // the flight coming down toward the west walk).
+  const c = P(PAV[0], PAV[1]), g = gy(c), t1 = g + 1.6, b1 = g + 2.5;
   const fAng = Math.atan2(UX, -UZ); // world angle of +v
   const rot = fAng + Math.PI / 8; // a flat face toward the palace and toward the gate
+  const RL = 4.3, RU = 3.0, cp = Math.cos(Math.PI / 8);
   S.base = g - LAND_Y;
   S.kind = KIND.MASONRY;
-  S.cyl(c[0], c[1], g - 0.3, b1, 3.75, 3.6, 8, STONE2);
+  S.cyl(c[0], c[1], g - 0.3, t1, RL, RL, 8, STONE, { rot });
   S.kind = KIND.PLAIN;
-  S.cyl(c[0], c[1], b1 - 0.15, b1 + 0.05, 3.8, 3.8, 8, WHITE);
-  // stairs on the axis faces
-  const apo = 3.6 * Math.cos(Math.PI / 8);
-  for (const sg of [-1, 1]) for (let k = 0; k < 6; k++) {
-    const v = PAV[1] + sg * (apo + 0.3 * (k + 0.5));
-    fbox(S, PAV[0], v, g - 0.2, b1 - (k + 1) * 0.25 + 0.02, 2.0, 0.3, STONE2);
+  S.cyl(c[0], c[1], t1 - 0.12, t1 + 0.04, RL + 0.08, RL + 0.08, 8, STONE2, { rot });
+  S.cyl(c[0], c[1], t1, b1, RU, RU, 8, STONE2, { rot });
+  S.cyl(c[0], c[1], b1 - 0.15, b1 + 0.05, RU + 0.1, RU + 0.1, 8, WHITE, { rot });
+  // the terrace balustrade, open on the two stair faces
+  for (let i = 0; i < 8; i++) {
+    const a0 = rot + (i * Math.PI) / 4, a1 = a0 + Math.PI / 4, am = (a0 + a1) / 2, r = RL - 0.2;
+    if (Math.abs(Math.sin(am - fAng)) > 0.95) continue;
+    balustrade(S, [c[0] + Math.cos(a0) * r, c[1] + Math.sin(a0) * r], [c[0] + Math.cos(a1) * r, c[1] + Math.sin(a1) * r], t1, 0.8, STONE2, 0.4);
+  }
+  // stairs on the west and east faces: the long flight down from the terrace with its cheeks, a short one up to the base
+  const nL = 7, runL = 0.3, apoL = RL * cp, apoU = RU * cp;
+  for (const sg of [-1, 1]) {
+    for (let k = 0; k < nL; k++) fbox(S, PAV[0] + sg * (apoL + runL * (k + 0.5)), PAV[1], g - 0.2, t1 - (k + 1) * (t1 - g) / nL + 0.02, runL, 2.0, STONE2);
+    for (const sv of [-1, 1]) {
+      const a = P(PAV[0] + sg * (apoL - 0.1), PAV[1] + sv * 1.2), b = P(PAV[0] + sg * (apoL + runL * nL + 0.2), PAV[1] + sv * 1.2);
+      S.beam([a[0], t1, a[1]], [b[0], g, b[1]], 0.4, 1.6, STONE); // cheek, 0.8 m above the nosings
+    }
+    for (let k = 0; k < 3; k++) fbox(S, PAV[0] + sg * (apoU + 0.3 * (k + 0.5)), PAV[1], t1 - 0.1, b1 - (k + 1) * (b1 - t1) / 3 + 0.02, 0.3, 1.8, STONE2);
   }
   // eight columns and a low rail between them, open on the stair faces
-  const colTop = b1 + 3.3, rc = 2.6;
+  const colTop = b1 + 3.3, rc = 2.4;
   const corner = (i, r) => { const a = rot + (i * Math.PI) / 4; return [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]; };
   for (let i = 0; i < 8; i++) {
     const q = corner(i, rc);
@@ -203,8 +237,8 @@ function pavilionTL(S, lamps) {
     const r = corner(i + 1, rc), mid = [(q[0] + r[0]) / 2, (q[1] + r[1]) / 2];
     const ang = Math.atan2(r[1] - q[1], r[0] - q[0]), len = Math.hypot(r[0] - q[0], r[1] - q[1]);
     const nrm = [Math.cos(rot + (i + 0.5) * Math.PI / 4), Math.sin(rot + (i + 0.5) * Math.PI / 4)];
-    const onAxis = Math.abs(nrm[0] * Math.cos(fAng) + nrm[1] * Math.sin(fAng)) > 0.95;
-    if (!onAxis) S.box(mid[0], mid[1], b1, b1 + 0.65, len - 0.34, 0.12, ang, shade(PAVW, 0.8));
+    const onStair = Math.abs(nrm[0] * Math.sin(fAng) - nrm[1] * Math.cos(fAng)) > 0.95;
+    if (!onStair) S.box(mid[0], mid[1], b1, b1 + 0.65, len - 0.34, 0.12, ang, shade(PAVW, 0.8));
     S.box(mid[0], mid[1], colTop - 0.55, colTop - 0.05, len, 0.1, ang, LATTICE); // carved frieze
   }
   S.cyl(c[0], c[1], colTop - 0.05, colTop + 0.2, 2.9, 2.9, 8, shade(PAVW, 0.7), { rot });
@@ -213,6 +247,7 @@ function pavilionTL(S, lamps) {
   S.kind = KIND.TILE;
   S.cyl(c[0], c[1], y1, y2, 4.2, 1.7, 8, PAVROOF, { cap: false, rot });
   S.kind = KIND.PLAIN;
+  S.cyl(c[0], c[1], y1 - 0.06, y1, 4.2, 4.2, 8, shade(LATTICE, 0.8), { rot }); // the dark soffit seen from the court
   // drum with lattice, then the square upper hip
   S.box(c[0], c[1], y2 - 0.1, y2 + 0.85, 2.3, 2.3, fAng - Math.PI / 2, PAVW);
   S.box(c[0], c[1], y2 + 0.15, y2 + 0.65, 2.36, 2.36, fAng - Math.PI / 2, LATTICE);
