@@ -15,23 +15,32 @@ import { glowPoints } from '../../geo/materials.js';
 //  - hanhtrinhdulich.vn, luhanhvietnam.com.vn: a French villa built in 1940, one of the 27 listed French buildings
 //    of Huế; over 400 m² indoors on two floors; an outdoor court of about 1,500 m² with 15 works and groups in stone,
 //    concrete, bronze and composite, and stone benches cut to the sculptor's modules.
-//  - OpenStreetMap way 118540998 (the building, tourism=museum): a 19.8 x 10.3 m body running from the river to
-//    Lê Lợi, 12.3 m wide at the street end where a 2 m bay projects on the north-east side. The footways round it
-//    (the park path on the north-east, the riverside walk, the diagonal path with its round plot on the south-west)
-//    bound the garden.
+//  - OpenStreetMap way 118540998 (the building, tourism=museum) and the footways round it (the park path on the
+//    north-east, the riverside walk, the diagonal path with its round plot on the south-west), which bound the garden.
+//    The way is offset and too wide; the footprint below is re-fitted (see the frame).
+//  - Google satellite view and the car Street View pano on Lê Lợi (2025), as visual reference only (Nov 2026): an
+//    18 x 7.7 m two-storey body running from the river to Lê Lợi, a street wing 7 m deep standing 1.2 m out on the
+//    north-east, a one-storey flat-roofed annex across the river end; white walls with white trim and ochre-yellow
+//    shutters; the street door off-centre under a small tiled awning; hipped red-tile roofs; no columned porch.
 //  - The city height survey: 12.0 m to the ridge (public/data/hue.json).
-// Estimated: wall colour (Huế lime-wash ochre with white trim, as the town's other French buildings), the roof
-// layout (a hipped main roof and a cross-hipped street pavilion), the porch and balcony, the window bays, the
-// path layout, and the form and placing of the sculptures (abstractions of her seven modules: half-discs, arcs,
-// quarter-discs and bars).
+// Estimated: the exact window count and sizes on the long sides, the annex front, the chimneys, the path layout,
+// and the form and placing of the sculptures (abstractions of her seven modules: half-discs, arcs, quarter-discs
+// and bars).
 
 export const id = 'diemphungthi';
 
-// the outline in its own frame: F (63.8, 208.8) is the west corner; u runs along the long side toward Lê Lợi
-// (south-east), v along the river end toward the park (north-east)
-const F0 = [63.8, 208.8];
-const U = [0.6657, 0.7463], V = [0.7497, -0.662];
-const LEN = 19.85, WID = 10.3, BAY0 = 13.0, BAYW = 2.0; // the north-east bay: u 13.0 .. 19.85, v 10.3 .. 12.3
+// the outline in its own frame. OSM way 118540998 sits about 4 m south-east of the building and is drawn 2 m too wide
+// and 7 deg off its axis; this frame is re-fitted to the roof on Google's satellite view (Nov 2026; checked against
+// Lê Lợi and the riverside walk, which line up with the satellite to within a metre here) and to the car Street View
+// pano on Lê Lợi. F (67.33, 205.3) is the west wall corner of the main body; u runs along the long side toward Lê
+// Lợi (bearing 131 deg), v along the river end toward the park (north-east).
+const F0 = [67.33, 205.3];
+const U = [0.7547, 0.6561], V = [0.6561, -0.7547];
+// the main body u 0 .. LEN, v 0 .. WID; the street wing u BAY0 .. LEN, v SW0 .. WID + BAYW (it stands 1.2 m out on the
+// north-east, a little proud on the south-west); the one-storey annex across the river end u -ANX .. 0
+const LEN = 18.15, WID = 7.7, BAY0 = 11.0, BAYW = 1.2, SW0 = -0.25, ANX = 4.2;
+// the mapped outline as OSM draws it (model metres), for dropping the mapped building
+const OSM_RING = [[71.5, 202.0], [80.1, 211.6], [81.6, 210.4], [86.1, 215.5], [77.0, 223.6], [63.8, 208.8]];
 // the garden, inside the footways that bound it (model metres)
 const GARDEN = [
   [25.0, 204.4], [54.4, 178.9], [66.4, 192.6], [76.2, 184.4], [95.6, 206.8], [105.6, 218.0], [99.0, 224.4],
@@ -39,7 +48,7 @@ const GARDEN = [
   [59.6, 230.2], [56.2, 229.6], [53.0, 230.6],
 ];
 
-const WALL = hex('#e2bf6c'), TRIM = hex('#f1ead8'), PLINTH = hex('#9d968a'), ROOF = PAL.indochineRoof[0];
+const WALL = hex('#ece8dd'), TRIM = hex('#f6f3ea'), SHUT = hex('#d4b25a'), PLINTH = hex('#9d968a'), ROOF = PAL.indochineRoof[0];
 const DOOR = hex('#4a3626'), GLASS = hex('#26313a'), IRON = hex('#2c2a27');
 const LAWN = hex('#93ab66'), PATH = hex('#cfc4ae');
 const WHITE = hex('#e8e4da'), GREY = hex('#a7a49c'), BRONZE = hex('#4e4a3c'), LATERITE = hex('#9a5a3e'), BLACK = hex('#2f2e2c');
@@ -51,7 +60,6 @@ export function build({ data, S, group }) {
   const cM = P(LEN / 2, WID / 2);
   const y0 = gY(cM[0], cM[1]);
   const box = (u, v, ya, yb, w, d, col, o) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ang, col, o); };
-  const cyl = (u, v, ya, yb, r0, r1, n, col, o) => { const q = P(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, o); };
   const lamps = [];
 
   // ---- no generated houses in the garden: it is lawn, paths and sculptures (one filler house stood there) ----
@@ -68,6 +76,18 @@ export function build({ data, S, group }) {
       a.length = 0;
       for (const v of keep) a.push(v);
       if (data.meta?.counts && data.meta.counts.infillNear != null) data.meta.counts.infillNear = nearKept;
+    }
+  }
+
+  // ---- the mapped outline (OSM way 118540998) lies about 4 m south-east of the real villa, so the model does not
+  //      cover it and populate would draw it as a second house: drop it here (its centre inside the old outline) ----
+  if (Array.isArray(data.bld)) {
+    for (let i = data.bld.length - 1; i >= 0; i--) {
+      const r = data.bld[i][0];
+      let cx = 0, cz = 0;
+      for (let k = 0; k < r.length; k += 2) { cx += r[k] / 10; cz += r[k + 1] / 10; }
+      cx /= r.length / 2; cz /= r.length / 2;
+      if (inRing(cx, cz, OSM_RING)) data.bld.splice(i, 1);
     }
   }
 
@@ -90,84 +110,105 @@ export function build({ data, S, group }) {
   };
   // the forecourt on Lê Lợi and the walk round the building
   walk(P(LEN + 1.2, -2.2), P(LEN + 1.2, WID + BAYW + 2.2), 3.0); // apron along the street front
-  walk(P(-1.4, -2.2), P(-1.4, WID + 2.2), 2.4); // the river end
-  walk(P(-1.4, -1.6), P(LEN + 1.2, -1.6), 1.8); // south-west side
-  walk(P(-1.4, WID + 1.6), P(BAY0, WID + 1.6), 1.8); // north-east side
+  walk(P(-ANX - 1.4, -2.2), P(-ANX - 1.4, WID + 2.2), 2.4); // the river end
+  walk(P(-ANX - 1.4, -1.6), P(LEN + 1.2, -1.6), 1.8); // south-west side
+  walk(P(-ANX - 1.4, WID + 1.6), P(BAY0, WID + 1.6), 1.8); // north-east side
   walk(P(BAY0 - 0.9, WID + 1.6), P(BAY0 - 0.9, WID + BAYW + 1.6), 1.8);
   walk(P(BAY0 - 0.9, WID + BAYW + 1.6), P(LEN + 1.2, WID + BAYW + 1.6), 1.8);
   // from the street (Lê Lợi pavement) to the door, and from the river end out to the riverside walk
-  walk(P(LEN + 1.2, WID / 2 + 1.0), [85.6, 243.0], 3.2);
-  walk(P(-1.4, WID / 2), [45.0, 190.0], 2.2);
+  walk(P(LEN + 1.2, 2.4), [85.6, 243.0], 3.2);
+  walk(P(-ANX - 1.4, WID / 2), [45.0, 190.0], 2.2);
   // a gravel walk through the sculpture garden on the south-west, from the river walk to the street apron
   walk([33.0, 205.5], [50.0, 220.5], 1.6);
   walk([50.0, 220.5], P(LEN * 0.55, -1.6), 1.6);
   walk([52.0, 233.0], P(LEN + 1.2, -2.2), 1.6);
   (S.paved = S.paved || []).push([paved0, S.n]);
 
-  // ---- the villa: a stone plinth, two lime-washed storeys, a white cornice, Marseille-tile hipped roofs ----
-  const pl = 0.7, yp = y0 + pl;
+  // ---- the villa: a low plinth, two white-rendered storeys with yellow shutters, a cornice, Marseille-tile roofs ----
+  // (Street View, 2025: white walls, yellow-ochre louvred shutters on tall rectangular windows, a string course
+  //  between the floors; the street door under a small tiled awning on brackets, one window bay to its left and two
+  //  to its right; a one-storey flat-roofed annex with a balustrade on the river end)
+  const pl = 0.6, yp = y0 + pl;
+  const wallH = 7.9, yc = yp + wallH, ys = yp + 3.8; // cornice 8.5 m, string course 4.4 m above the ground
+  const WW = WID + BAYW, WD = LEN - BAY0; // the street wing's width (v) and depth (u)
+  const wingV = (SW0 + WW) / 2, wingW = WW - SW0;
   S.kind = KIND.MASONRY;
-  box(LEN / 2, WID / 2, y0 - 0.3, yp, LEN + 0.5, WID + 0.5, PLINTH);
-  box((BAY0 + LEN) / 2, WID + BAYW / 2, y0 - 0.3, yp, LEN - BAY0 + 0.5, BAYW + 0.5, PLINTH);
-  // walls: the shader draws the arched windows, white surrounds and louvred shutters of KIND.COLONIAL
-  const wallH = 7.0, yc = yp + wallH;
+  box(LEN / 2, WID / 2, y0 - 0.3, yp, LEN + 0.3, WID + 0.3, PLINTH);
+  box((BAY0 + LEN) / 2, wingV, y0 - 0.3, yp, WD + 0.3, wingW + 0.3, PLINTH);
+  box(-ANX / 2, WID / 2, y0 - 0.3, yp, ANX + 0.3, WID + 0.6, PLINTH);
   S.base = yp - LAND_Y;
-  S.kind = KIND.COLONIAL;
-  box(LEN / 2, WID / 2, yp, yc, LEN, WID, WALL);
-  box((BAY0 + LEN) / 2, WID + BAYW / 2, yp, yc, LEN - BAY0, BAYW, WALL);
-  // the street pavilion stands a little proud of the body on the south-west too
-  box((BAY0 + LEN) / 2, -0.25, yp, yc, LEN - BAY0, 0.5, WALL);
   S.kind = KIND.PLAIN;
-  // white string course between the storeys, corner quoins, the cornice
+  box(LEN / 2, WID / 2, yp, yc, LEN, WID, WALL);
+  box((BAY0 + LEN) / 2, wingV, yp, yc, WD, wingW, WALL);
+  // the annex: one storey, a flat roof behind a balustrade
+  const ya = yp + 3.9;
+  box(-ANX / 2, WID / 2, yp, ya, ANX, WID + 0.3, WALL, { top: shade(TRIM, 0.85) });
+  box(-ANX / 2, WID / 2, ya, ya + 0.2, ANX + 0.25, WID + 0.55, TRIM);
+  for (const [u0, v0, u1, v1] of [[-ANX, -0.1, -ANX, WID + 0.4], [-ANX, -0.1, 0, -0.1], [-ANX, WID + 0.4, 0, WID + 0.4]]) {
+    const l = Math.hypot(u1 - u0, v1 - v0), n = Math.max(2, Math.round(l / 0.32));
+    const along = u0 === u1;
+    box((u0 + u1) / 2, (v0 + v1) / 2, ya + 0.85, ya + 0.97, along ? 0.2 : l, along ? l : 0.2, TRIM);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      box(u0 + (u1 - u0) * t, v0 + (v1 - v0) * t, ya + 0.2, ya + 0.85, 0.11, 0.11, TRIM);
+    }
+  }
+  // string course, cornice, corner pilasters
   const ring1 = (y, h, grow, col) => {
     box(LEN / 2, WID / 2, y, y + h, LEN + grow, WID + grow, col);
-    box((BAY0 + LEN) / 2, WID + BAYW / 2, y, y + h, LEN - BAY0 + grow, BAYW + grow, col);
-    box((BAY0 + LEN) / 2, -0.25, y, y + h, LEN - BAY0 + grow, 0.5 + grow, col);
+    box((BAY0 + LEN) / 2, wingV, y, y + h, WD + grow, wingW + grow, col);
   };
-  ring1(yp + 3.4, 0.22, 0.14, TRIM);
-  ring1(yc - 0.1, 0.45, 0.4, TRIM);
-  for (const [u, v] of [[0, 0], [0, WID], [BAY0, WID], [LEN, WID + BAYW], [LEN, -0.5], [BAY0, -0.5]]) box(u, v, yp, yc - 0.1, 0.55, 0.55, TRIM);
+  ring1(ys, 0.22, 0.14, TRIM);
+  ring1(yc - 0.15, 0.4, 0.36, TRIM);
+  for (const [u, v] of [[0, 0], [0, WID], [BAY0, WID], [BAY0, WW], [LEN, WW], [LEN, SW0], [BAY0, SW0]]) box(u, v, yp, yc - 0.15, 0.45, 0.45, TRIM);
 
-  // ---- the entrance on the street front: steps, a porch on two columns, a balcony with a railing over it ----
+  // windows: dark glass in a white surround, two yellow louvred leaves folded back beside it
+  // face: 'se' (street, u = LEN), 'sw' (v = v0), 'ne' (v = v0), 'nw' (u = u0); s = position along the face
+  const win = (face, s, f0, ya_, h, w = 1.2, door = false) => {
+    const o = 0.06, sh = w / 2;
+    const at = (d, a) => face === 'se' ? [LEN + d, a] : face === 'nw' ? [f0 - d, a] : face === 'sw' ? [a, f0 - d] : [a, f0 + d];
+    const put = (d, a, ww, y1, y2, col) => {
+      const [u, v] = at(d, a), alongU = face === 'sw' || face === 'ne';
+      box(u, v, y1, y2, alongU ? ww : 0.1, alongU ? 0.1 : ww, col);
+    };
+    put(o * 0.5, s, w + 0.3, ya_ - 0.12, ya_ + h + 0.15, TRIM);
+    put(o, s, w, ya_, ya_ + h, door ? DOOR : GLASS);
+    for (const k of [-1, 1]) put(o * 1.5, s + k * (w / 2 + 0.15 + sh / 2), sh, ya_, ya_ + h, SHUT);
+  };
+  // the street front of the wing: door (v 2.4) with a window to its left, two to its right; the same bays upstairs
+  const DV = 2.4;
+  win('se', DV, 0, yp + 0.05, 3.0, 1.6, true);
+  for (const v of [0.5, 5.0, 7.3]) win('se', v, 0, yp + 0.8, 2.3);
+  for (const v of [DV, 5.0, 7.3, 0.5]) win('se', v, 0, ys + 0.6, 2.2);
+  // the awning over the door: a short tiled slope on two iron brackets
   {
-    const vu = WID / 2 + 1.0, pw = 4.2, pd = 2.4;
-    S.kind = KIND.MASONRY;
-    box(LEN + pd / 2, vu, y0 - 0.2, yp, pd, pw, PLINTH, { top: TRIM });
-    for (let k = 1; k <= 3; k++) box(LEN + pd + 0.3 * (k - 0.5), vu, y0 - 0.2, yp - (pl / 4) * k, 0.3, pw - 0.6, shade(TRIM, 0.95));
-    S.kind = KIND.PLAIN;
-    for (const s of [-1, 1]) cyl(LEN + pd - 0.3, vu + s * (pw / 2 - 0.35), yp, yp + 3.3, 0.2, 0.18, 8, TRIM);
-    box(LEN + pd / 2, vu, yp + 3.3, yp + 3.6, pd + 0.2, pw + 0.2, TRIM); // the balcony slab
-    // the balcony's balustrade
-    box(LEN + pd + 0.02, vu, yp + 3.6, yp + 3.7, 0.12, pw, TRIM);
-    box(LEN + pd + 0.02, vu, yp + 4.5, yp + 4.62, 0.16, pw + 0.1, TRIM);
-    for (let i = -6; i <= 6; i++) box(LEN + pd + 0.02, vu + i * (pw / 13), yp + 3.7, yp + 4.5, 0.1, 0.1, TRIM);
-    for (const s of [-1, 1]) {
-      box(LEN + pd / 2, vu + s * pw / 2, yp + 4.5, yp + 4.62, pd, 0.16, TRIM);
-      for (let i = 0; i < 6; i++) box(LEN + 0.2 + i * (pd / 6), vu + s * pw / 2, yp + 3.7, yp + 4.5, 0.1, 0.1, TRIM);
-    }
-    // the door (double leaves under a fanlight) and the French window onto the balcony
-    box(LEN + 0.03, vu, yp, yp + 2.7, 0.08, 1.8, DOOR);
-    box(LEN + 0.04, vu, yp + 2.7, yp + 3.2, 0.08, 1.8, GLASS);
-    box(LEN + 0.03, vu, yp + 3.6, yp + 6.0, 0.08, 1.6, shade(DOOR, 1.2));
-    box(LEN + 0.04, vu, yp + 6.0, yp + 6.35, 0.08, 1.9, TRIM);
-    // the name board over the porch
-    box(LEN + pd + 0.12, vu, yp + 3.32, yp + 3.58, 0.06, pw - 0.6, hex('#8a2e24'));
-    for (const s of [-1, 1]) { const q = P(LEN + pd + 0.2, vu + s * (pw / 2 - 0.35)); lamps.push([q[0], yp + 3.1, q[1]]); }
+    const q = P(LEN + 0.7, DV);
+    S.hip(q[0], q[1], 2.4, 1.3, ang + Math.PI / 2, yp + 3.25, 0.25, shade(ROOF, 0.85), { over: 0.05 });
+    for (const k of [-1, 1]) box(LEN + 0.4, DV + k * 1.05, yp + 2.75, yp + 3.25, 0.7, 0.07, IRON);
   }
+  // the long south-west side: four bays on the body, two on the wing
+  for (const u of [1.6, 4.4, 7.2, 9.6]) { win('sw', u, 0, yp + 0.8, 2.3); win('sw', u, 0, ys + 0.6, 2.2); }
+  for (const u of [12.9, 16.2]) { win('sw', u, SW0, yp + 0.8, 2.3); win('sw', u, SW0, ys + 0.6, 2.2); }
+  // the park side (north-east)
+  for (const u of [1.6, 4.4, 7.2, 9.6]) { win('ne', u, WID, yp + 0.8, 2.3); win('ne', u, WID, ys + 0.6, 2.2); }
+  for (const u of [12.9, 16.2]) { win('ne', u, WW, yp + 0.8, 2.3); win('ne', u, WW, ys + 0.6, 2.2); }
+  // the river end: the annex's doors below, three windows upstairs
+  for (const v of [1.6, WID / 2, WID - 1.6]) { win('nw', v, -ANX, yp + 0.05, 3.0, 1.4, v === WID / 2); win('nw', v, 0, ys + 0.6, 2.2); }
+  for (const v of [-0.1, WID + 0.4]) { const ua = -ANX / 2; win(v < 0 ? 'sw' : 'ne', ua, v, yp + 0.8, 2.3); }
+  for (const s of [-1, 1]) { const q = P(LEN + 0.3, DV + s * 1.3); lamps.push([q[0], yp + 3.0, q[1]]); }
 
-  // ---- the roofs: a hipped roof over the body (ridge along the long side), a cross-hipped roof over the street
-  //      pavilion meeting it, ridge 12.0 m above the ground (city survey) ----
-  const ye = yc + 0.35, ridge = y0 + 12.0;
+  // ---- the roofs: a hipped roof over the body (ridge along the long side), a cross-hipped roof over the street wing
+  //      meeting it, ridge 12.0 m above the ground (city survey) ----
+  const ye = yc + 0.25, ridge = y0 + 12.0;
   {
-    const q = P(BAY0 / 2 + 0.2, WID / 2);
-    S.hip(q[0], q[1], BAY0 + 3.0, WID, ang, ye, ridge - ye, ROOF, { over: 0.75 });
-    const r = P((BAY0 + LEN) / 2, (WID + BAYW - 0.5) / 2);
-    const pw = WID + BAYW + 0.5, pd = LEN - BAY0;
-    S.hip(r[0], r[1], pw, pd, ang + Math.PI / 2, ye, ridge - ye - 0.15, shade(ROOF, 0.97), { over: 0.75 });
+    const q = P(BAY0 / 2 + 0.6, WID / 2);
+    S.hip(q[0], q[1], BAY0 + 1.2, WID, ang, ye, ridge - ye, ROOF, { over: 0.5 });
+    const r = P((BAY0 + LEN) / 2, wingV);
+    S.hip(r[0], r[1], wingW, WD, ang + Math.PI / 2, ye, ridge - ye - 0.1, shade(ROOF, 0.97), { over: 0.5 });
   }
-  // two chimneys on the main roof
+  // chimneys: one on the main roof (seen on the satellite), one on the wing
   S.kind = KIND.MASONRY;
-  for (const u of [3.4, 9.6]) box(u, WID / 2 + 1.6, ridge - 2.2, ridge + 0.9, 0.7, 1.0, TRIM, { top: shade(PLINTH, 0.7) });
+  for (const [u, v] of [[6.8, WID / 2 - 0.8], [14.6, WW - 2.4]]) box(u, v, ridge - 2.2, ridge + 0.7, 0.7, 0.9, TRIM, { top: shade(PLINTH, 0.7) });
   S.kind = KIND.PLAIN;
 
   // ---- the sculpture garden: works built from her seven modules (half-discs, arcs, quarter-discs, bars), in white
@@ -194,7 +235,7 @@ export function build({ data, S, group }) {
     vslab(S, x, z, yy, h, half(0.55, 7), 1.8, shade(GREY, 1.08)); // a half-cylinder bench, lying
   }
   // garden lamps along the street apron and the river walk
-  for (const [u, v] of [[LEN + 1.2, -2.0], [LEN + 1.2, WID + BAYW + 2.0], [-1.4, -2.0], [-1.4, WID + 2.0]]) {
+  for (const [u, v] of [[LEN + 1.2, -2.0], [LEN + 1.2, WID + BAYW + 2.0], [-ANX - 1.4, -2.0], [-ANX - 1.4, WID + 2.0]]) {
     const q = P(u, v), yy = gY(q[0], q[1]);
     S.cyl(q[0], q[1], yy, yy + 3.2, 0.07, 0.06, 6, IRON, { cap: false });
     S.cyl(q[0], q[1], yy + 3.2, yy + 3.55, 0.18, 0.14, 6, TRIM);
