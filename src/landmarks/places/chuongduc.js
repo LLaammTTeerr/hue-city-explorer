@@ -23,7 +23,8 @@ const WALL = hex('#d8cfb6'); // weathered pale lime render, as Street View shows
 const RING_COL = hex('#d6b866'); // ochre-yellow arch rings and jambs
 const TRIM = hex('#efe4c4'); // pale mouldings, arch rings, cornices
 const PIER = hex('#cfc19c');
-const ROOF = PAL.imperialRoof;
+const ROOF = shade(PAL.imperialRoof, 0.82); // old glaze, weathered brown-ochre as Street View shows it
+const STAIN = hex('#b9ad90'); // damp skirting
 const RIDGE = hex('#f1d77a');
 const MOSAIC = [hex('#5a7f90'), hex('#6a8f6a'), hex('#a65a44'), hex('#e6dfcc')]; // blue, green, red, white sherds, weathered (they read pale from the road)
 const DOOR = hex('#7c2a1f');
@@ -101,6 +102,11 @@ export function build({ data, S }) {
       if (i !== 1) box(uc, v + sv * 0.02, ys + R + 0.05, ys + R + 0.4, 0.45, 0.1, MOSAIC[2]);
     }
   });
+
+  // a damp-stained skirting along the foot of the block, both faces
+  for (const sv of [-1, 1]) box(0, sv * (dep / 2 + 0.01), g0, g0 + 0.55, len + 0.04, 0.06, STAIN);
+  // a recessed relief band under the cornice (the frieze panels), one panel per bay
+  for (const sv of [-1, 1]) for (const a of ARCH) box(a.uc, sv * (dep / 2 + 0.03), yS - 0.7, yS - 0.35, a.aw * 1.6, 0.05, shade(WALL, 0.9));
 
   // the frieze and cornice: one pale moulded band along the whole top of the block
   S.kind = KIND.PLAIN;
