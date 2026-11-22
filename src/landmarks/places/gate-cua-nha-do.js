@@ -44,13 +44,13 @@ const DECK = { w: 7.2, d: 5.0 }; // flat deck over the lower storey, inside the 
 
 const BRICK = hex('#6b4a3f'); // red-brown brick, as photographed
 const BRICK2 = hex('#74503f'); // the pilasters, arch voussoirs and frame, a shade redder
-const DAMP = hex('#4a3d36'), STREAK = hex('#5e5047'), RELAID = hex('#77503f');
+const DAMP = hex('#57443b'), STREAK = hex('#64493e'), RELAID = hex('#73503f');
 const LIME = hex('#9d9a90'); // grey weathered lime: cornices, parapet
 const LIME_D = hex('#7c7c74'); // the parapet's recessed panels, the stains
 const PANEL = hex('#d8d1c0'), INK = hex('#3b3430');
 const DARK = hex('#1f1a18');
 const TOWER = hex('#aea795'); // the tower's lime plaster
-const TILE = hex('#93644a'); // weathered terracotta tiles
+const TILE = hex('#8a6652'); // weathered terracotta tiles
 const RIDGE = hex('#d4cdbd'); // lime-mortared ridges and horns
 
 export function build({ data, S }) {
@@ -135,6 +135,19 @@ export function build({ data, S }) {
 
   // ---- the vọng lâu ------------------------------------------------------------------------------------------------
   tower(S, yTop);
+
+  // two small lamp standards on the parapet either side of the tower, and the red-and-white bollards at the passage mouth
+  S.kind = KIND.PLAIN;
+  for (const sg of [-1, 1]) {
+    const p = P(sg * 6.6, TC + 3.0);
+    S.cyl(p[0], p[1], yTop + PH2, yTop + PH2 + 1.7, 0.05, 0.04, 6, hex('#3b3a38'), { cap: false });
+    S.cyl(p[0], p[1], yTop + PH2 + 1.7, yTop + PH2 + 1.95, 0.12, 0.08, 6, hex('#3b3a38'));
+  }
+  for (const sg of [-1, 1]) {
+    const p = P(sg * (PW / 2 + 0.5), T1 + 1.6);
+    S.cyl(p[0], p[1], Y, Y + 0.7, 0.07, 0.07, 6, hex('#b8352e'), { cap: false });
+    S.cyl(p[0], p[1], Y + 0.25, Y + 0.45, 0.075, 0.075, 6, hex('#e8e4da'), { cap: false });
+  }
 
   // the terrace and the passage are built ground: trees and houses keep off it
   (S.paved = S.paved || []).push([n0, S.n]);
