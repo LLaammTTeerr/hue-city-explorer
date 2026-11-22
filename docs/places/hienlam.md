@@ -64,12 +64,28 @@ Thế Miếu, its court paving, the Tùng Tự shrines and Miếu Môn belong to
   - The row stands 3.4 m in front of the wall line. Cao stands 4.4 m further forward, toward the middle of its
     mapped bay; that is more than the 3 m the sources give.
   - The urn body profile and the stone slabs are estimates.
-- Gate towers: each has a brick gate body of the mapped size (13.9 × 4.0 m), 4 m high, with one passage. Over it is
-  a timber loft with a yellow hip roof, 8.5 m high in all.
+- Gate towers: each has a plastered gate body of the mapped size (13.9 × 4.0 m), 4 m high, with three doors (the
+  middle one larger) between pilasters under one tiled roof. Over the middle door is a plastered loft with a railed
+  balcony and a round opening on each face, under its own hip roof: about 9 m high in all. Door widths and the loft
+  size are read from one Street View photosphere, not measured.
 - The two small mapped pieces at the ends of the urn row: their purpose is unknown. They are drawn as stone stands
   with small bronze burners.
 - The walk to Miếu Môn: Bát Tràng brick, 4.4 m wide, with a stone middle.
 - The cross-wall height comes from `FENCE.imperial`.
+
+## Google imagery check (Nov 2026)
+Visual reference only; captures stay outside the repo.
+- Satellite (Google, zoom 18-20): the OSM group (outline, steps, urn apron, gates) lay about 1-1.5 m east and 0.5 m
+  south of where the imagery shows the back steps, the urns and the roof. The frame is re-centred 1.0 m west and
+  0.4 m north; the axis (facade bearing about 53°) already matched.
+- Street View: no Google car pano sees the pavilion. A user photosphere in Thế Miếu's court, looking south-west
+  along the urns toward Sùng Công Môn, shows:
+  - yellow-plastered end walls closing the ground-storey verandah at each end;
+  - a red timber fretwork railing along the verandah edge, open over the steps;
+  - lacquer dark and worn (oxblood, columns almost brown), now drawn darker than the shared `PAL.lacquer`;
+  - the urns on stone slabs in a kerbed planted bed with low flowering shrubs, not on bare stone;
+  - Sùng Công Môn as a plastered gate (three doors, one roof, plastered loft), drawn so for both gates.
+- Not checkable from the imagery: storey heights, the third storey and the 17 m total.
 
 ## Left
 - Interiors (the carved wooden stair, the altars) are not modelled. The urns' relief panels are too small to model.
