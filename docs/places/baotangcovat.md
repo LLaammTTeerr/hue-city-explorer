@@ -48,3 +48,14 @@ Checked against Google satellite (z19, z20) and street-level imagery from Lê Tr
 - The documented length (35.7 m) against the measured eaves (about 39.5 m) is unresolved; the walls keep the documented size.
 - Whether the gate stands exactly on the hall's axis, and the south-west fence side, are not seen in a car pano.
 - Since 2023 there is a plan to move the museum out and return Long An to the heritage site. It does not change the 2026 state.
+
+## Review fixes (Nov 2026)
+
+- Back fence: the concrete wall with barbed wire runs only behind the red annex and the south-west pavilion; from
+  the north-east pavilions to the Đinh Tiên Hoàng corner the back is the street balustrade (car pano at that junction).
+  The wall is about 2.6 m: its top sits at a street-level eye in the Đinh Công Tráng car pano.
+- Rear annex: lower roof broadened into a lean-to skirt, the clerestory reduced to a narrow vented band, the upper
+  roof lowered; ridge about 6.7 m above the court (was about 7.5 m).
+- Green shed (695810708): 10.3 m between the walls, about 11.3 m at the eaves (satellite), length unchanged.
+- Hall front house: the roof is drawn in two tile tiers with a pale cổ diêm band between them, as seen from Lê Trực.
+

@@ -24,7 +24,8 @@ import { fence, offStreets } from '../enclosure.js';
 //    north-east of the hall (695810708) a long shed under a green metal gable roof. The street fronts (Lê Trực, Đinh
 //    Tiên Hoàng) are a weathered grey balustrade under an iron railing between ochre piers; the gate piers carry a
 //    lotus finial and a small tiled ticket house with a two-tier roof stands beside the gate; on Đinh Công Tráng the
-//    grounds are closed by a 2 m grey concrete wall with a wire fence on Y-posts above it.
+//    grounds are closed by a grey concrete wall (about 2.6 m) with a wire fence on Y-posts above it behind the annex,
+//    and by the street balustrade from the north-east pavilions to the Đinh Tiên Hoàng corner.
 // Estimated: the depth split between the two houses, eave and tier heights, the gate's form, the fence, the
 // outdoor exhibits (two bronze cauldrons and stone pieces in the front court) and the path.
 
@@ -112,10 +113,16 @@ export function build({ data, S }) {
   box(0, vF + dF / 2 - 1.2, eaveF - 0.3, eaveF - 0.22, W, 1.9, shade(WOOD, 0.55), { bottom: true }); // verandah ceiling
 
   // ---- the roofs: three tiers of yellow glazed tiles (front house; rear house skirt; rear house upper roof) ----
-  // front house: one sweep from the eave to its own ridge, its back running under the rear house's skirt
+  // front house: from the eave to its own ridge, its back running under the rear house's skirt
   // the hip ends reach out past the platform: the eaves measure about 39.5 m on the satellite (and the OSM outline)
   const ends = 3.7;
-  hip(0, vF + 0.35, W + 0.2 + ends, dF + 0.7, eaveF, 1.7, TILE, { over: 1.25 });
+  // in two tiers (as seen from Lê Trực): the lower skirt, a pale plastered band (cổ diêm), then the upper slope
+  const wF = W + 0.2 + ends, dF2 = dF + 0.7, inF = 2.2;
+  hip(0, vF + 0.35, wF, dF2, eaveF, 1.7, TILE, { over: 1.25, ridgeCol: null });
+  S.kind = KIND.MASONRY;
+  box(0, vF + 0.35, eaveF + 0.75, eaveF + 1.35, wF - 2 * inF, dF2 - 2 * inF, CREAM, { top: TILE2 });
+  S.kind = KIND.PLAIN;
+  hip(0, vF + 0.35, wF - 2 * inF, dF2 - 2 * inF, eaveF + 1.3, 1.0, TILE, { over: 0.6, flare: 0.35 });
   // rear house: the lower skirt round all four sides, a short upright wall, then the high hipped roof
   hip(0, vR, W + 0.2 + ends, dR, eaveR, 1.2, TILE2, { over: 1.3, flare: 0.3, ridgeCol: null });
   S.kind = KIND.TIMBER;
@@ -133,7 +140,7 @@ export function build({ data, S }) {
     S.beam([a[0], ridgeY + 0.7, a[1]], [b[0], ridgeY + 0.3, b[1]], 0.22, 0.32, RIDGE);
   }
   // the front house's ridge ornament: a small gourd at the middle
-  const yRF = eaveF + 1.7;
+  const yRF = eaveF + 2.3;
   cyl(0, vF + 0.35, yRF + 0.1, yRF + 0.6, 0.24, 0.1, 8, RIDGE);
 
   // ---- the gate on Lê Trực: two tall ochre piers with cream caps and a lotus finial, iron leaves folded back ----
@@ -186,12 +193,15 @@ export function build({ data, S }) {
 
   // ---- the fence round the grounds ----
   // the street fronts (Lê Trực, Đinh Tiên Hoàng, and the unseen south-west side alike): a weathered grey balustrade
-  // under an iron railing, between ochre piers; the back on Đinh Công Tráng: a 2 m grey concrete wall with a wire
-  // fence on posts above it. The mapped grounds less the side streets OSM draws a metre or two into them.
+  // under an iron railing, between ochre piers; the back on Đinh Công Tráng: a grey concrete wall about 2.6 m high
+  // (its top at a street-level eye, car pano) with a wire fence on posts above it, but only behind the red annex and
+  // the south-west pavilion; from the north-east pavilions to the Đinh Tiên Hoàng corner the back is the front's
+  // balustrade again (car pano at that junction). The mapped grounds less the side streets OSM draws into them.
   {
     S.base = 0;
     const front = { h: 2.0, plinth: 1.15, rail: true, t: 0.34, every: 3.0, postW: 0.5, postUp: 0.25, wall: MOSS, cap: shade(MOSS, 1.12), postCol: OCHRE, iron: IRON, pierW: 1.1, pierUp: 1.4 };
-    const back = { h: 2.0, rail: false, t: 0.3, every: 3.2, postW: 0.34, postUp: 0.04, wall: CONCRETE, cap: shade(CONCRETE, 1.12) };
+    const WH = 2.6, BACK_U = 23.5; // wall height; the wall ends here along u (between the annex and the NE pavilions)
+    const back = { h: WH, rail: false, t: 0.3, every: 3.2, postW: 0.34, postUp: 0.04, wall: CONCRETE, cap: shade(CONCRETE, 1.12) };
     // OSM draws the back of the grounds to the kerb of Đinh Công Tráng; the wall stands behind a pavement about 2.5 m
     // wide (the street pano), 6 m from the street's middle, so the back edge is brought in 2.1 m toward the hall
     const inV = (p) => [p[0] - uz * 2.1, p[1] + ux * 2.1];
@@ -199,13 +209,23 @@ export function build({ data, S }) {
     const g = P(0, gateV), ring = offStreets(data, yard), n = ring.length;
     const B0 = yard[3], B1 = yard[0], bl = Math.hypot(B1[0] - B0[0], B1[1] - B0[1]), bx = (B1[0] - B0[0]) / bl, bz = (B1[1] - B0[1]) / bl;
     const isBack = (a, b) => Math.abs(((a[0] + b[0]) / 2 - B0[0]) * bz - ((a[1] + b[1]) / 2 - B0[1]) * bx) < 5;
-    const tag = ring.map((p, i) => isBack(p, ring[(i + 1) % n]));
-    const s0 = tag.findIndex((t, i) => t !== tag[(i + n - 1) % n]), runs = [];
-    if (s0 < 0) runs.push({ back: tag[0], pts: ring, closed: true });
-    else for (let k = 0, cur = null; k < n; k++) {
-      const i = (s0 + k) % n;
-      if (!cur || cur.back !== tag[i]) { cur = { back: tag[i], pts: [ring[i]], closed: false }; runs.push(cur); }
-      cur.pts.push(ring[(i + 1) % n]);
+    // split the back edges where they cross u = BACK_U, so the wall stops there and the balustrade takes over
+    const uOf = (p) => (p[0] - c[0]) * ux + (p[1] - c[1]) * uz;
+    const pts = [];
+    for (let i = 0; i < n; i++) {
+      const a = ring[i], b = ring[(i + 1) % n];
+      pts.push(a);
+      const ua = uOf(a) - BACK_U, ub = uOf(b) - BACK_U;
+      if (isBack(a, b) && ua * ub < 0) { const t = ua / (ua - ub); pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+    }
+    const m = pts.length;
+    const tag = pts.map((p, i) => { const q = pts[(i + 1) % m]; return isBack(p, q) && (uOf(p) + uOf(q)) / 2 < BACK_U; });
+    const s0 = tag.findIndex((t, i) => t !== tag[(i + m - 1) % m]), runs = [];
+    if (s0 < 0) runs.push({ back: tag[0], pts, closed: true });
+    else for (let k = 0, cur = null; k < m; k++) {
+      const i = (s0 + k) % m;
+      if (!cur || cur.back !== tag[i]) { cur = { back: tag[i], pts: [pts[i]], closed: false }; runs.push(cur); }
+      cur.pts.push(pts[(i + 1) % m]);
     }
     for (const r of runs) {
       if (!r.back) { fence(S, r.pts, front, { closed: r.closed, openings: [[g[0], g[1], 4.1]], solid: [thRing] }); continue; }
@@ -218,13 +238,13 @@ export function build({ data, S }) {
         const out = (c[0] - a[0]) * nx + (c[1] - a[1]) * nz > 0 ? -1 : 1; // away from the hall, toward the street
         const nb = Math.max(1, Math.round(len / 2.8));
         for (let k = 0; k <= nb; k++) {
-          const px = a[0] + ((b[0] - a[0]) * k) / nb, pz = a[1] + ((b[1] - a[1]) * k) / nb, y = gY(px, pz) + 2.0;
-          S.base = y - 2.0 - LAND_Y;
+          const px = a[0] + ((b[0] - a[0]) * k) / nb, pz = a[1] + ((b[1] - a[1]) * k) / nb, y = gY(px, pz) + WH;
+          S.base = y - WH - LAND_Y;
           S.kind = KIND.PLAIN;
           S.box(px, pz, y, y + 1.45, 0.07, 0.07, ang2, WIRE);
           S.beam([px, y + 1.4, pz], [px + nx * out * 0.35, y + 1.85, pz + nz * out * 0.35], 0.05, 0.05, WIRE);
         }
-        const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, y = gY(mx, mz) + 2.0;
+        const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, y = gY(mx, mz) + WH;
         for (const h of [0.45, 0.9, 1.35]) S.box(mx, mz, y + h, y + h + 0.03, len, 0.03, ang2, WIRE);
         S.box(mx + nx * out * 0.3, mz + nz * out * 0.3, y + 1.78, y + 1.81, len, 0.03, ang2, WIRE);
       }
@@ -238,25 +258,27 @@ export function build({ data, S }) {
   S.kind = KIND.MASONRY;
   box(0, -17.3, y0 - 0.2, y0 + 0.24, 37.5, 4.2, shade(STONE, 0.9), { topKind: KIND.ROAD });
   S.paved.push([paved1, S.n]);
-  // the rear annex: a long ochre hall, eaves about 36.7 x 12.5 m, under a two-tier red corrugated-metal roof
+  // the rear annex: a long ochre hall, eaves about 36.7 x 12.5 m, under a two-tier red corrugated-metal roof: a broad
+  // lean-to lower roof, a narrow vented clerestory band, a low upper roof (proportions from the Đinh Công Tráng pano)
   {
-    const v = -25.45, w = 34.9, d = 10.7, ye = y0 + 3.7;
+    const v = -25.45, w = 34.9, d = 10.7, ye = y0 + 3.6, wi = w - 6, di = d - 5.4;
     S.kind = KIND.MASONRY;
     box(0, v, y0 - 0.2, y0 + 0.35, w + 0.4, d + 0.4, shade(STONE, 0.85));
     box(0, v, y0 + 0.35, ye, w, d, RENDER, { top: TILE2 });
     S.kind = KIND.PLAIN;
     for (let i = -6; i <= 6; i++) box(i * 2.6, v + d / 2 + 0.04, y0 + 0.9, y0 + 3.1, 1.3, 0.06, WOOD_D); // doors on the court side
-    for (let i = -6; i <= 6; i++) box(i * 2.6, v - d / 2 - 0.04, ye - 1.0, ye - 0.6, 0.5, 0.06, shade(RENDER, 0.6)); // vents on the street side
     S.kind = KIND.TILE;
-    hip(0, v, w, d, ye, 1.1, REDTIN, { over: 0.9, flare: 0.05, glazed: false, ridgeCol: null, fasciaCol: CREAM, fascia: 0.2 });
+    hip(0, v, w, d, ye, 2.15, REDTIN, { over: 1.0, flare: 0.05, glazed: false, ridgeCol: null, fasciaCol: CREAM, fascia: 0.2 });
     S.kind = KIND.MASONRY;
-    box(0, v, ye + 0.95, ye + 1.9, w - 6, d - 4.4, RENDER, { top: TILE2 });
+    box(0, v, ye + 1.0, ye + 1.95, wi, di, RENDER, { top: TILE2 });
+    S.kind = KIND.PLAIN;
+    for (let i = -11; i <= 11; i++) for (const sg of [-1, 1]) box(i * 1.2, v + sg * (di / 2 + 0.03), ye + 1.45, ye + 1.65, 0.5, 0.06, shade(RENDER, 0.45)); // the vents in the band
     S.kind = KIND.TILE;
-    const yu = ye + 1.85, hu = 1.9;
-    hip(0, v, w - 6, d - 4.4, yu, hu, REDTIN, { over: 0.7, flare: 0.05, glazed: false, ridgeCol: shade(REDTIN, 0.8), fasciaCol: CREAM, fascia: 0.2 });
+    const yu = ye + 1.9, hu = 1.2;
+    hip(0, v, wi, di, yu, hu, REDTIN, { over: 0.7, flare: 0.05, glazed: false, ridgeCol: shade(REDTIN, 0.8), fasciaCol: CREAM, fascia: 0.2 });
     // the ridge: a sun disc at the middle, a dragon finial at each end
     S.kind = KIND.PLAIN;
-    const ry = yu + hu, re = (w - 6 + 1.4 - (d - 4.4 + 1.4)) / 2;
+    const ry = yu + hu, re = (wi - di) / 2;
     cyl(0, v, ry, ry + 0.75, 0.35, 0.3, 8, FINIAL);
     for (const s2 of [-1, 1]) {
       const a = P(s2 * re, v), b = P(s2 * (re - 0.6), v), t = P(s2 * (re - 1.1), v);
@@ -277,9 +299,9 @@ export function build({ data, S }) {
     S.kind = KIND.TILE;
     hip(u, v, w - 3.6, w - 3.6, ye + 1.35, 1.5, BTILE, { over: 0.6, flare: 0.4, glazed: false, ridgeCol: shade(BTILE, 0.8), segs: 3 });
   }
-  // the long shed north-east of the hall, square to it: ochre walls under a green metal gable roof, about 34 x 9.5 m
+  // the long shed north-east of the hall, square to it: ochre walls under a green metal gable roof, about 34 x 11.3 m at the eaves
   {
-    const u = 37.6, v = 2.1, w = 8.5, L = 33.0, ye = y0 + 3.4, rh = 2.0, o = 0.5;
+    const u = 37.6, v = 2.1, w = 10.3, L = 33.0, ye = y0 + 3.4, rh = 2.4, o = 0.5;
     S.kind = KIND.MASONRY;
     box(u, v, y0 - 0.2, y0 + 0.3, w + 0.3, L + 0.3, shade(STONE, 0.85));
     box(u, v, y0 + 0.3, ye, w, L, RENDER, { top: TILE2 });
