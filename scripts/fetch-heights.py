@@ -26,7 +26,7 @@ x0, z0, x1, z1 = BOUNDS
 STEP = 2.0
 nx, nz = int(math.ceil((x1 - x0) / STEP)), int(math.ceil((z1 - z0) / STEP))
 dst_tr = Affine(STEP / KX, 0, ORIGIN[1] + x0 / KX, 0, -STEP / KZ, ORIGIN[0] - z0 / KZ)
-UTM = (770700, 1812600, 779400, 1825950)  # the box in EPSG:32648, with a margin
+UTM = (770700, 1812600, 780200, 1825950)  # the box in EPSG:32648, with a margin (east edge 107.620 E)
 height = np.zeros((nz, nx), 'float32')
 
 with rasterio.Env(GDAL_DISABLE_READDIR_ON_OPEN='EMPTY_DIR', CPL_VSIL_CURL_ALLOWED_EXTENSIONS='.tif', GDAL_HTTP_MAX_RETRY='3'):

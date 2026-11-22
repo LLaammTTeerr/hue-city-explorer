@@ -7142,5 +7142,107 @@
     "url": "https://vivutoday.com/cac-ben-xe-hue-dia-chi-lich-trinh-gia-ve/"
    }
   ]
+ },
+ "aeon": {
+  "title": {
+   "vi": "AEON MALL Huế",
+   "en": "AEON MALL Huế"
+  },
+  "kind": {
+   "vi": "Trung tâm thương mại",
+   "en": "Shopping mall"
+  },
+  "when": {
+   "vi": "Khởi công 11/2/2023, mở cửa 16/9/2024",
+   "en": "Begun 11 February 2023, opened 16 September 2024"
+  },
+  "summary": {
+   "vi": "Trung tâm thương mại lớn đầu tiên của Huế, ở khu đô thị mới An Vân Dương phía đông thành phố: bốn tầng và một tầng hầm của tập đoàn AEON Nhật Bản.",
+   "en": "Huế's first big shopping mall, in the new An Vân Dương district east of the city: four floors and a basement, built by the Japanese retail group AEON."
+  },
+  "story": {
+   "vi": "Ngày 16/9/2024, AEON MALL Huế mở cửa ở số 8 Võ Nguyên Giáp, giữa khu đô thị mới An Vân Dương phía đông thành phố. Tập đoàn bán lẻ AEON của Nhật Bản xây nó trong 19 tháng, với số vốn khoảng 170 triệu USD. Đây là trung tâm thứ bảy của AEON ở Việt Nam và là trung tâm đầu tiên ở miền Trung.\n\nBốn tầng nổi và một tầng hầm chứa khoảng 140 cửa hàng, siêu thị AEON, rạp chiếu phim sáu phòng và khu ẩm thực NGON Center trên tầng bốn. Bãi xe ngoài trời và dưới hầm chứa chừng 1.200 ô tô và 8.000 xe máy.\n\nÝ tưởng mặt ngoài có tên \"Dòng chảy văn hóa\", lấy cảm hứng từ sông Hương và các con kênh của Kinh thành: một dải trắng uốn cong chạy trên lối vào, giữa những tấm lam màu đồng dựng đứng. Ở mặt nam, khuất tầm nhìn từ đường, \"Vườn Trăng\" trũng xuống dưới mặt đất, bên dưới những bậc vườn cây trên tầng ba và tầng bốn.",
+   "en": "On 16 September 2024 AEON MALL Huế opened at 8 Võ Nguyên Giáp, in the new An Vân Dương district east of the old city. AEON, the Japanese retail group, built it in 19 months for about US$170 million. It is AEON's seventh mall in Vietnam and its first in the centre of the country.\n\nFour floors and a basement hold about 140 shops, an AEON supermarket, a six-screen cinema and a food court called NGON Center on the top floor. The car parks, outdoors and underground, take about 1,200 cars and 8,000 motorbikes.\n\nThe design is called \"Culture Stream\", after the Perfume River and the canals of the Citadel: a white curve sweeps over the entrance between screens of tall bronze fins. Out of sight on the south side, a sunken \"Moon Garden\" lies beneath terraces of trees on the third and fourth floors."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Địa chỉ",
+     "en": "Address"
+    },
+    "value": {
+     "vi": "8 Võ Nguyên Giáp, phường An Đông, TP Huế",
+     "en": "8 Võ Nguyên Giáp, An Đông ward, Huế"
+    }
+   },
+   {
+    "label": {
+     "vi": "Chủ đầu tư",
+     "en": "Developer"
+    },
+    "value": {
+     "vi": "Công ty TNHH AEON MALL Việt Nam",
+     "en": "AEON MALL Vietnam Co., Ltd."
+    }
+   },
+   {
+    "label": {
+     "vi": "Quy mô",
+     "en": "Size"
+    },
+    "value": {
+     "vi": "4 tầng nổi, 1 tầng hầm; sàn khoảng 138.000 m² trên khu đất 8,6 ha",
+     "en": "4 floors and a basement; about 138,000 m² of floor on an 8.6 ha site"
+    }
+   },
+   {
+    "label": {
+     "vi": "Vốn đầu tư",
+     "en": "Investment"
+    },
+    "value": {
+     "vi": "Khoảng 170 triệu USD",
+     "en": "About US$170 million"
+    }
+   },
+   {
+    "label": {
+     "vi": "Mở cửa",
+     "en": "Opened"
+    },
+    "value": {
+     "vi": "16/9/2024 (lễ khai trương 21/9/2024)",
+     "en": "16 September 2024 (opening ceremony 21 September)"
+    }
+   }
+  ],
+  "eras": {
+   "0": {
+    "vi": "Trung tâm thương mại này chưa có.",
+    "en": "This mall did not exist yet."
+   },
+   "1": {
+    "vi": "Trung tâm thương mại này chưa có.",
+    "en": "This mall did not exist yet."
+   }
+  },
+  "sources": [
+   {
+    "title": "AEON MALL Hue Grand Opening Ceremony – AEONMALL Vietnam (thông cáo báo chí, 21/9/2024)",
+    "url": "https://aeonmall-vietnam.com/wp-content/uploads/2024/09/24.09.21_PR_AMVN_AEON-MALL-Hue-Grand-Opening-Ceremony_ENG.pdf"
+   },
+   {
+    "title": "Construction commencement ceremony of AEON MALL Hue – AEONMALL Vietnam",
+    "url": "https://aeonmall-vietnam.com/en/the-1st-aeon-mall-in-central-vietnam-construction-commencement-ceremony-of-aeon-mall-hue/"
+   },
+   {
+    "title": "AEON MALL khai trương dự án 170 triệu USD ở Huế – Nhà Đầu Tư",
+    "url": "https://nhadautu.vn/aeon-mall-khai-truong-du-an-170-trieu-usd-o-hue-d89167.html"
+   },
+   {
+    "title": "AEON opens its first shopping mall in central Vietnam – VnExpress International",
+    "url": "https://e.vnexpress.net/news/business/companies/aeon-opens-its-first-shopping-mall-in-central-vietnam-4796072.html"
+   }
+  ]
  }
 }

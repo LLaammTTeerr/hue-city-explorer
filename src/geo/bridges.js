@@ -40,7 +40,7 @@ const RUN_FLAT = 150; // a bridge run longer than this keeps its level deck
 // default top at the banks (BRIDGE_TOP in landmarks/life.js): a deck that lands at grade comes down by the difference
 export const STREET = 0.06;
 const DECK = 0.42;
-const LAND_RAMP = 6; // m: a deck's last stretch, where it comes down from DECK to the street
+export const LAND_RAMP = 6; // m: a deck's last stretch, where it comes down from DECK to the street
 export const ABUT = 1.8; // a `water` bridge's abutment: the deck lands this far past the water's edge
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));

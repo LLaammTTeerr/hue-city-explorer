@@ -74,17 +74,22 @@ function scan(P, from, to) {
     const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay), nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     if (Math.abs(ny) < 0.35 * Math.hypot(nx, ny, nz) || Math.abs(ny) < 1e-6) continue; // walls
     const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.floor(Math.max(ax, bx, cx)), z0 = Math.floor(Math.min(az, bz, cz)), z1 = Math.floor(Math.max(az, bz, cz));
-    if ((x1 - x0 + 1) * (z1 - z0 + 1) > 20000) continue;
     const det = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
     if (Math.abs(det) < 1e-9) continue;
+    const test = (s) => {
+      const l1 = ((bz - cz) * (s.x - cx) + (cx - bx) * (s.z - cz)) / det, l2 = ((cz - az) * (s.x - cx) + (ax - cx) * (s.z - cz)) / det, l3 = 1 - l1 - l2;
+      if (l1 < -1e-4 || l2 < -1e-4 || l3 < -1e-4) return;
+      s.ys.push(l1 * ay + l2 * by + l3 * cy);
+    };
+    // a long straight street is one quad of two triangles (Võ Nguyên Giáp's carriageways run 226 m without a vertex):
+    // walking its cells would take longer than testing every sample, so test the samples
+    if ((x1 - x0 + 1) * (z1 - z0 + 1) > samples.length) {
+      for (const s of samples) if (s.x >= x0 && s.x < x1 + 1 && s.z >= z0 && s.z < z1 + 1) test(s);
+      continue;
+    }
     for (let gx = x0; gx <= x1; gx++) for (let gz = z0; gz <= z1; gz++) {
       const list = cells.get(gx * 100003 + gz);
-      if (!list) continue;
-      for (const s of list) {
-        const l1 = ((bz - cz) * (s.x - cx) + (cx - bx) * (s.z - cz)) / det, l2 = ((cz - az) * (s.x - cx) + (ax - cx) * (s.z - cz)) / det, l3 = 1 - l1 - l2;
-        if (l1 < -1e-4 || l2 < -1e-4 || l3 < -1e-4) continue;
-        s.ys.push(l1 * ay + l2 * by + l3 * cy);
-      }
+      if (list) for (const s of list) test(s);
     }
   }
 }

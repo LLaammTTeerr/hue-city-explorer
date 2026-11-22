@@ -748,7 +748,9 @@ const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kyda
   175063593: 'gahue', 118792054: 'phucam', 1172894102: 'dcct', 1172897446: 'andinh', 771244228: 'dieude', 771244225: 'dieudeGate',
   172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong',
   // the terminal halls of the two intercity bus stations (src/landmarks/places/benxebac.js, benxenam.js; issue #71)
-  1435288831: 'benxebac', 260244336: 'benxenam' };
+  1435288831: 'benxebac', 260244336: 'benxenam',
+  // AEON MALL Huế (src/landmarks/places/aeon.js; issue #71), past the old east edge at 107.613 E
+  1575540652: 'aeon' };
 const special = {};
 // The southern sites (royal tombs, đàn Nam Giao, hồ Thủy Tiên, Thiên An): everything mapped inside each circle is
 // handed to the site's own model (src/landmarks/tombs.js, south.js) instead of being extruded as an ordinary building.
@@ -1523,6 +1525,8 @@ addPlace('quochoc', 'Trường Quốc Học', wayCentre(695775622), 3, 'place', 
   const bxN = els.find((e) => e.tags && e.tags.amenity === 'bus_station' && /phía Nam/i.test(e.tags.name || '') && e.geometry);
   if (bxN) addPlace('benxenam', 'Bến xe phía Nam', centroid(openRing(bxN.geometry.map(proj))), 3, 'place', 12);
   const bxB = els.find((e) => e.tags && e.tags.amenity === 'bus_station' && /ph[íi]a B[ắăa]c/i.test(e.tags.name || ''));
+  const aeon = get('way', 1575540652);
+  if (aeon) addPlace('aeon', 'AEON MALL Huế', centroid(openRing(aeon.geometry.map(proj))), 3, 'place', 24);
   if (bxB) addPlace('benxebac', 'Bến xe phía Bắc', bxB.type === 'node' ? proj(bxB) : centroid(openRing(bxB.geometry.map(proj))), 3, 'place', 12);
   const cath = els.find((e) => e.tags && e.tags.building === 'cathedral');
   if (cath && cath.geometry) addPlace('phucam', 'Nhà thờ Phủ Cam', centroid(openRing(cath.geometry.map(proj))), 3, 'place', 46);
@@ -1664,7 +1668,10 @@ for (const poly of water) {
         if (px < -2500 || px > 900 || pz < -1000 || pz > 1700 || rnd() < 0.35) continue;
         for (const sgn of [1, -1]) {
           const x = px - tz * sgn * 7, z = pz + tx * sgn * 7;
-          if (at(x, z) & WATER && at(px - tz * sgn * 16, pz + tx * sgn * 16) & WATER) { moorings.push(q(x), q(z), Math.round(Math.atan2(tz, tx) * 1000)); break; }
+          // the whole hull in water: its middle, the bow and stern (up to 5.3 m either way at the largest scale), its
+          // bankward side, and open water beyond it; a bend in a narrow moat can otherwise leave an end on the bank
+          const wet = (d, s) => at(x + tx * d - tz * sgn * s, z + tz * d + tx * sgn * s) & WATER;
+          if (wet(0, 0) && wet(5.5, 0) && wet(-5.5, 0) && wet(0, -2) && wet(0, 9)) { moorings.push(q(x), q(z), Math.round(Math.atan2(tz, tx) * 1000)); break; }
         }
       }
       acc -= len;
