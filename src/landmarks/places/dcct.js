@@ -44,7 +44,7 @@ const GATE_MAIN = [819.8, 1192.6, 3.4], GATE_SIDE = [757, 1223.9, 2.6], GATE_NH 
 // (Street View, 2026-11 rebuild); the render is drawn plain, only the stone base takes the masonry joints
 const st = hex('#d3dbe1'), stL = hex('#e4e9ec'), stD = hex('#8f8a7f'), trim = hex('#f1f0ea'), tile = hex('#b0573c'), tileD = hex('#86412f');
 const slate = hex('#5d6870'), glass = hex('#2e4f86'), door = hex('#2c2722'), doorF = hex('#3d5f99'), white = hex('#efeae0'), pave = hex('#a9a69e');
-const cream = hex('#f3e8d2'), band = hex('#d9b9a6');
+const cream = hex('#f3e8d2'), band = hex('#d9b9a6'), glassS = hex('#7f93ad'), plaque = hex('#cfdbe8'), plaqueG = hex('#6fa05a');
 
 export function build({ data, S, group }) {
   let gmax = -1e9;
@@ -127,6 +127,10 @@ export function build({ data, S, group }) {
     S.kind = KIND.MASONRY;
     box(5, s * 13.4, y, y + 1.2, 10.2, 0.7, stD); // the grey stone base
   }
+  for (const s of [-1, 1]) { // the pale plaques on the wings, with a string course above the stone base
+    box(-0.04, s * 10.2, y + 2.4, y + 4.6, 0.1, 1.9, plaque); box(-0.07, s * 10.2, y + 2.7, y + 3.6, 0.1, 0.5, plaqueG);
+    box(-0.04, s * 10.2, y + 1.2, y + 1.45, 0.14, 10.5, trim);
+  }
   S.kind = KIND.MASONRY;
   box(5, 0, y, y + 1.2, 10.2, 27.6, stD);
   // the gable: a straight shaft to its cornice, three steps with ledges and corner pinnacles, the summit block
@@ -183,11 +187,14 @@ export function build({ data, S, group }) {
     const a = 12.2 + i * 4.3, n = [P[0] * s, 0, P[1] * s];
     archWin((u, h, d = 0) => V(a + u, s * (13.7 + d), h), n, 2.0, 2.0, y + 1.6, y + 3.8, { frame: 0.25, grid: [0.5, 1.1], bar: 0.06 });
   }
+  for (const s of [-1, 1]) box(20.5, s * 9.75, y + NE - 1.35, y + NE - 1.0, 21, 0.5, trim); // the cornice under the eave
   for (const s of [-1, 1]) for (let i = 0; i < 8; i++) { // the clerestory: tall windows under gabled dormer heads breaking the eave
     const a = 11.3 + i * 2.7, hw = 1.15, e = y + NE, ye = y + NE - 1.1, ap = e + 2.0, bo = s * 9.6, bi = s * 7.6;
     S.kind = KIND.PLAIN;
     box(a, s * 9.53, y + 9.3, y + NE - 1.0, 1.7, 0.08, trim);
-    winB(a, s * 9.5, s, 1.4, y + 9.4, y + NE - 1.6);
+    winB(a, s * 9.5, s, 1.4, y + 9.4, y + NE - 1.6, glassS);
+    box(a + 1.35, s * 9.6, y + 8.0, y + NE - 0.9, 0.35, 0.3, trim); // pilaster between the windows
+    if (i === 0) box(a - 1.35, s * 9.6, y + 8.0, y + NE - 0.9, 0.35, 0.3, trim);
     S.kind = KIND.PLAIN;
     S.beam(V(a, s * 9.72, y + 9.4), V(a, s * 9.72, y + NE - 0.7), 0.1, 0.06, slate); // the mullion
     S.beam(V(a - 0.7, s * 9.72, y + 11.7), V(a + 0.7, s * 9.72, y + 11.7), 0.08, 0.06, slate);
