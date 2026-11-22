@@ -40,3 +40,7 @@ Before the imagery check, the vọng lâu was the shared timber `pavilion()`: 12
 - The wall, the moat, and the wall ramps and steps either side of the gate belong to kinhthanh.
 - The five "thần công" cannons just inside the gate (OSM way 771244236) are outside this gate's scope.
 - No night lighting: there was no source for how the gate is lit.
+
+## Polish (2026)
+
+Against the north panorama: thinner tile skirt under the lower storey, a lower and flatter upper hip roof with smaller horns, larger medallions (also replacing the small side arches on the outer face), a slightly paler grey-green tower render.

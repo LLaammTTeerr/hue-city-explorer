@@ -30,7 +30,7 @@ const TOP = 1.8; // the block's flat roof above the wall walk (8.4 m above the s
 const PARA = 1.0; // the solid parapet round that roof
 const BODY = hex('#77716a'), INNER = hex('#5f5953'), DAMP = hex('#4c4943'), FRAME = hex('#8e877c'), CORNICE = hex('#8a847a'), DARK = hex('#1f1a18');
 const DOOR = hex('#4a2c1e'), PLAQUE = hex('#d8ccb0'), PLAQUE_IN = hex('#3b3430');
-const TOWER = hex('#7f786e'), MEDAL = hex('#a39c8f'), TILE = hex('#93573b'), TILE_EDGE = hex('#6e4130');
+const TOWER = hex('#84806f'), MEDAL = hex('#a39c8f'), TILE = hex('#93573b'), TILE_EDGE = hex('#6e4130');
 
 export function build({ data, S, group, place, THREE }) {
   const norm = (s) => String(s || '').normalize('NFC');
@@ -174,22 +174,22 @@ export function build({ data, S, group, place, THREE }) {
   for (const sg of [-1, 1]) {
     const f = vm + sg * (D2 / 2 + 0.02), yb = yT + PARA + 0.3;
     if (sg > 0) { // outside: a large arched opening between two small ones
-      archPanel(0, f, sg, yb - 0.2, 1.9, 1.6, DARK);
-      for (const s of [-1, 1]) archPanel(s * 2.6, f, sg, yb + 0.3, 1.1, 1.0, DARK);
+      archPanel(0, f, sg, yb - 0.2, 1.7, 1.5, DARK);
+      for (const s of [-1, 1]) disc(s * 2.6, f, sg, yb + 1.3, 0.95, MEDAL);
     } else { // inside: an arched niche between two round medallions
       archPanel(0, f, sg, yb + 0.2, 1.4, 1.2, DARK);
-      for (const s of [-1, 1]) { disc(s * 2.6, f, sg, yb + 1.4, 0.85, MEDAL); disc(s * 2.6, f - 0.01, sg, yb + 1.4, 0.55, shade(MEDAL, 0.85)); }
+      for (const s of [-1, 1]) { disc(s * 2.6, f, sg, yb + 1.3, 0.95, MEDAL); disc(s * 2.6, f - 0.01, sg, yb + 1.3, 0.6, shade(MEDAL, 0.85)); }
     }
   }
   for (const s of [-1, 1]) disc(vm, s * (W2 / 2 + 0.02), s, yT + PARA + 1.6, 0.75, MEDAL, true); // a medallion on each end
   // the skirt of brown tiles round its top
   S.kind = KIND.TILE;
-  const sw = W2 + 1.6, sd = D2 + 1.6, sh = 1.3;
-  box(0, vm, y2, y2 + sh, sw, sd, TILE, { taper: 0.62, top: shade(TILE, 0.9) });
+  const sw = W2 + 1.2, sd = D2 + 1.2, sh = 0.8;
+  box(0, vm, y2, y2 + sh, sw, sd, TILE, { taper: 0.8, top: shade(TILE, 0.9) });
   box(0, vm, y2 - 0.12, y2, sw + 0.1, sd + 0.1, TILE_EDGE);
   // the upper storey, pierced front to back by an arch
   S.kind = KIND.MASONRY;
-  const W3 = 4.6, D3 = 4.0, y3 = y2 + sh, h3 = 2.2, y4 = y3 + h3, o = 1.4, ys3 = y3 + 1.1, oc = ys3 + o / 2;
+  const W3 = 4.6, D3 = 4.0, y3 = y2 + sh, h3 = 2.4, y4 = y3 + h3, o = 1.4, ys3 = y3 + 1.1, oc = ys3 + o / 2;
   for (const s of [-1, 1]) box(s * (W3 + o) / 4, vm, y3, y4, (W3 - o) / 2, D3, TOWER, { top: shade(TOWER, 0.9) });
   box(0, vm, oc, y4, o, D3, TOWER, { top: shade(TOWER, 0.9), bottom: true });
   for (const sg of [-1, 1]) { // spandrels over the opening and its dark soffit
@@ -203,9 +203,9 @@ export function build({ data, S, group, place, THREE }) {
   }
   box(0, vm, y4 - 0.25, y4, W3 + 0.3, D3 + 0.3, CORNICE);
   // its small hip roof of the same brown tiles, ridge ornaments and a short pole
-  S.hip(...P(0, vm), W3, D3, ANG, y4, 1.3, TILE, { flare: 0.3, over: 0.4, hips: true, fascia: 0.18, fasciaCol: TILE_EDGE, ridgeCol: TILE_EDGE, segs: 3 });
+  S.hip(...P(0, vm), W3, D3, ANG, y4, 0.9, TILE, { flare: 0.12, over: 0.3, hips: true, fascia: 0.18, fasciaCol: TILE_EDGE, ridgeCol: TILE_EDGE, segs: 3 });
   S.kind = KIND.MASONRY;
-  const ridgeY = y4 + 1.3, rl = Math.max(0.2, (W3 - D3) / 2 + 0.3);
+  const ridgeY = y4 + 0.9, rl = Math.max(0.2, (W3 - D3) / 2 + 0.3);
   for (const s of [-1, 1]) box(s * rl, vm, ridgeY - 0.1, ridgeY + 0.45, 0.25, 0.3, TILE_EDGE);
   box(0, vm, ridgeY - 0.1, ridgeY + 0.35, 0.5, 0.35, TILE_EDGE);
   { const q = P(0, vm); S.cyl(q[0], q[1], ridgeY + 0.35, ridgeY + 0.8, 0.04, 0.03, 4, hex('#cfcfcf'), { cap: false }); }
