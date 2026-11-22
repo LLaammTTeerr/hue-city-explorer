@@ -258,8 +258,8 @@ function temple(S) {
   const level = (sa, sb) => { const s = Math.max(sa[0], sb[0]); return s > B2 ? lvF : s > B1 ? lvC : lvH; };
   const ring = [[S1, -T], [S1, T], [S0, T], [S0, -T], [S1, -T]], SG = 22.8;
   wall(S, F, ring, (on, g) => Math.max(1.4, g + 2.6 - on), 0.55, { col: C.render, kind: KIND.PLAIN, base: level, gaps: [[[T, 13.4]], [[S1 - SG, 3.6]], [[T, 3.6]], [[SG - S0, 3.6]]] });
-  for (const sd of [-1, 1]) { const p = F.P(SG, sd * T); archGate(S, p[0], p[1], F.a, 3.6, 1.4, lvH, 3.4, { col: C.render }); }
-  { const p = F.P(S0, 0); archGate(S, p[0], p[1], at, 4.2, 1.4, lvH, 3.6, { col: C.render }); }
+  for (const sd of [-1, 1]) { const p = F.P(SG, sd * T); { archGate(S, p[0], p[1], F.a, 3.6, 1.4, lvH, 3.4, { col: C.render, roof: C.roofTerra }); S.kind = KIND.MASONRY; S.box(p[0], p[1], lvH - 0.6, lvH + 0.9, 4.0, 1.7, F.a, C.foot); } }
+  { const p = F.P(S0, 0); archGate(S, p[0], p[1], at, 4.2, 1.4, lvH, 3.6, { col: C.render, roof: C.roofTerra }); }
 
   // Cung Môn: three bays, two storeys of wood on its own terrace, three steps down to the forecourt behind it and
   // fifteen blue-stone steps with dragon cheeks down to the lane and the pond in front; its roofs are terracotta
@@ -357,8 +357,9 @@ function tomb(S) {
 // the stele inside. About 7.2 m square, its finial some 9 m over the terrace (estimated from the image).
 function biDinh(S, F, s, y) {
   const p = F.P(s), a = F.a, w = 7.2, wallH = 5.6;
+  const stucco = hex('#6a6862'); // weathered grey stone, darker than the fresh render (Street View)
   S.kind = KIND.PLAIN; S.base = y - LAND_Y;
-  S.box(p[0], p[1], y, y + wallH, w, w, a, C.stucco);
+  S.box(p[0], p[1], y, y + wallH, w, w, a, stucco);
   for (let i = 0; i < 4; i++) {
     const r = a + (i * Math.PI) / 2, ux = Math.cos(r), uz = Math.sin(r);
     const q = [p[0] + ux * (w / 2 + 0.02), p[1] + uz * (w / 2 + 0.02)];
@@ -366,16 +367,24 @@ function biDinh(S, F, s, y) {
     S.box(q[0], q[1], y, y + 2.9, 0.06, 2.2, r, C.door);
     S.box(q[0], q[1], y + 2.9, y + 3.6, 0.06, 2.2, r, C.door, { taper: 0.5 });
     // pilasters at the corners and either side of the door, light panels between them
-    for (const v of [-3.35, -1.7, 1.7, 3.35]) S.box(q[0] - uz * v, q[1] + ux * v, y, y + wallH, 0.3, 0.55, r, shade(C.stucco, 1.08));
+    for (const v of [-3.35, -1.7, 1.7, 3.35]) S.box(q[0] - uz * v, q[1] + ux * v, y, y + wallH, 0.3, 0.55, r, shade(stucco, 1.08));
     for (const v of [-2.52, 2.52]) S.box(q[0] - uz * v, q[1] + ux * v, y + 0.9, y + 4.3, 0.08, 1.0, r, C.panel);
   }
   const yc = y + wallH;
-  S.box(p[0], p[1], yc, yc + 0.45, w + 0.6, w + 0.6, a, shade(C.stucco, 1.1), { top: C.stuccoDark });
+  S.box(p[0], p[1], yc, yc + 0.45, w + 0.6, w + 0.6, a, shade(stucco, 1.1), { top: C.stuccoDark });
   S.hip(p[0], p[1], w + 0.6, w + 0.6, a, yc + 0.45, 0.4, C.slate, { flare: 0.15, over: 0.25, ridgeCol: C.stuccoDark, hips: true });
-  S.box(p[0], p[1], yc + 0.6, yc + 2.0, 5.6, 5.6, a, C.stucco, { top: C.stuccoDark });
+  S.box(p[0], p[1], yc + 0.6, yc + 2.0, 5.6, 5.6, a, stucco, { top: C.stuccoDark });
   for (let i = 0; i < 4; i++) { const r = a + (i * Math.PI) / 2, q = [p[0] + Math.cos(r) * 2.82, p[1] + Math.sin(r) * 2.82]; S.box(q[0], q[1], yc + 0.9, yc + 1.7, 0.06, 3.6, r, C.panel); }
   S.hip(p[0], p[1], 5.8, 5.8, a, yc + 2.0, 0.9, C.slate, { flare: 0.1, over: 0.3 });
   S.cyl(p[0], p[1], yc + 2.85, yc + 3.6, 0.35, 0.06, 8, C.stuccoDark);
+  // arch moulding round each door and curled ornaments at the cornice corners
+  for (let i = 0; i < 4; i++) {
+    const r = a + (i * Math.PI) / 2, ux = Math.cos(r), uz = Math.sin(r), q = [p[0] + ux * (w / 2 + 0.06), p[1] + uz * (w / 2 + 0.06)];
+    for (const v of [-1.3, 1.3]) S.box(q[0] - uz * v, q[1] + ux * v, y, y + 2.9, 0.1, 0.3, r, shade(stucco, 1.25));
+    S.box(q[0], q[1], y + 3.5, y + 3.9, 0.1, 2.9, r, shade(stucco, 1.25), { taper: 0.6 });
+    const cx = p[0] + (ux - uz) * (w / 2 + 0.3), cz = p[1] + (uz + ux) * (w / 2 + 0.3);
+    S.box(cx, cz, yc + 0.1, yc + 0.9, 0.45, 0.45, r, shade(stucco, 1.15), { taper: 0.4 });
+  }
   // the stele (1917) on its plinth, seen through the doors
   S.box(p[0], p[1], y, y + 0.6, 1.4, 2.6, a, C.blueStone);
   S.box(p[0], p[1], y + 0.6, y + 3.2, 0.3, 1.8, a, shade(C.blueStone, 1.15));
@@ -383,12 +392,13 @@ function biDinh(S, F, s, y) {
 // a trụ biểu: a square shaft of rendered brick on a stepped base, a lantern-like crown with small curled roofs and a
 // finial; about 10 m, its top a little over the stele house's finial (Street View)
 function truBieu(S, F, s, t, y) {
-  const p = F.P(s, t), a = F.a, h = 10;
+  const p = F.P(s, t), a = F.a, h = 10, tb = hex('#78736a');
   S.kind = KIND.PLAIN; S.base = y - LAND_Y;
+  S.box(p[0], p[1], y - 0.3, y + 0.15, 3.0, 3.0, a, C.stuccoDark);
   S.box(p[0], p[1], y - 0.3, y + 0.35, 2.3, 2.3, a, C.stuccoDark);
-  S.box(p[0], p[1], y + 0.35, y + 1.2, 1.8, 1.8, a, C.stucco, { top: C.panel });
-  S.box(p[0], p[1], y + 1.2, y + h - 2.2, 1.7, 1.7, a, C.stucco, { taper: 0.9 });
-  S.box(p[0], p[1], y + h - 2.2, y + h - 1.9, 1.8, 1.8, a, shade(C.stucco, 1.1));
+  S.box(p[0], p[1], y + 0.35, y + 1.2, 1.8, 1.8, a, tb, { top: C.panel });
+  S.box(p[0], p[1], y + 1.2, y + h - 2.2, 1.7, 1.7, a, tb, { taper: 0.9 });
+  S.box(p[0], p[1], y + h - 2.2, y + h - 1.9, 1.8, 1.8, a, shade(tb, 1.1));
   S.box(p[0], p[1], y + h - 1.9, y + h - 1.0, 1.3, 1.3, a, C.panel);
   S.hip(p[0], p[1], 1.5, 1.5, a, y + h - 1.0, 0.45, C.stuccoDark, { flare: 0.15, over: 0.15, hips: true });
   S.cyl(p[0], p[1], y + h - 0.6, y + h, 0.22, 0.04, 6, C.stuccoDark);
