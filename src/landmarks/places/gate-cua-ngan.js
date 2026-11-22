@@ -25,9 +25,9 @@ const NAME = 'Cửa Ngăn';
 
 const OPEN_W = 3.8, OPEN_H = 4.6; // inside the 5.6 m slot city.js and kinhthanh.js cut through the rampart
 const TOP = 1.2; // cornice top over the wall walk (photo: ~7.8 m over the road, the walk at 6.6 m)
-const BRICK = hex('#8a5444'), BRICK_D = hex('#5e3d33'), RENDER = hex('#8f8e86'), RENDER_D = hex('#6c6b64');
-const FRAME = hex('#9a6250'), DARK = hex('#1f1a18'), PANEL = hex('#b8b2a2'), PANEL_IN = hex('#4a4540');
-const TOWER = hex('#9c5a44'), UPPER = hex('#a7a296'), TILE = hex('#c97a35'), RIDGE = hex('#cfc7b5');
+const BRICK = hex('#7a4c40'), BRICK_D = hex('#553a31'), RENDER = hex('#8f8e86'), RENDER_D = hex('#6c6b64');
+const FRAME = hex('#875646'), DARK = hex('#1f1a18'), PANEL = hex('#b8b2a2'), PANEL_IN = hex('#4a4540');
+const TOWER = hex('#8a5442'), UPPER = hex('#a7a296'), TILE = hex('#c97a35'), RIDGE = hex('#cfc7b5');
 const WHITE = hex('#e9e7df'), CAUSE = hex('#858577'), CAUSE_D = hex('#4f5446');
 
 export function build({ data, S, group, place, THREE }) {
@@ -129,7 +129,7 @@ export function build({ data, S, group, place, THREE }) {
   }
 
   // ---- the vọng lâu: two masonry storeys under orange-yellow glazed tile ----
-  const TW = 8.2, TD = 7.0, H1 = 3.2; // lower storey (front width from photos; depth estimated)
+  const TW = 8.5, TD = 7.0, H1 = 3.8; // lower storey (front width and height measured on the bridge-axis Street View, 2026; depth estimated)
   const tv = vm, y1 = yT + H1;
   S.kind = KIND.MASONRY;
   box(0, tv, yT, y1, TW, TD, TOWER);
