@@ -34,9 +34,10 @@ const N = (ds, dt, dy = 0) => [ds * ux - dt * uz, dy, ds * uz + dt * ux];
 const L = 19.4, D = 18.9; // the block (OSM)
 const ARCH = { w: 3.82, h: 5.19 }; // the passage (tapchidongnama.vn)
 const TOP = WALL_H + 1.0; // the block's flat top, a little above the wall walk (estimate)
-// vọng lâu: ridge ~8.5 m over the block top (> 9 m over the wall). The column line follows the sibling gates (Nhà Đồ,
-// Thượng Tứ: about 11.3 × 7.4 m); the satellite shows the roofs over the block no wider than that, eaves included.
-const TOWER = { w: 11.2, d: 7.4, wallH: 3.2, rh: 2.6, over: 1.1 };
+// vọng lâu: ridge ~8.5 m over the block top (> 9 m over the wall). On the z20 satellite the lower roof reads about
+// 10.4 m along the wall × 8.6 m through it, eaves included, a little smaller than the sibling gates (Nhà Đồ, Thượng Tứ:
+// column line about 11.3 × 7.4 m). Column line 9.0 × 7.0 m with 0.8 m eaves gives a 10.6 × 8.6 m roof.
+const TOWER = { w: 9.0, d: 7.0, wallH: 3.2, rh: 2.6, over: 0.8 };
 
 const BRICK = hex('#5d5850'); // weathered brick, darkened by damp and lichen like the rampart
 const BRICK_LT = hex('#6c665d');
@@ -47,8 +48,8 @@ const DARK = hex('#1f1a18');
 const TABLET = hex('#4a5459'); // đá thanh, bluish-grey stone
 const GLYPH = hex('#d9cfb5');
 const DOOR = hex('#4a2e20');
-const ROOF = hex('#a38a5c'); // yellow glazed tube tiles, weathered to a greyish tan as the satellite shows them
-const RIDGE = hex('#cbb98c');
+const ROOF = hex('#8e8370'); // tube tiles, read greyish tan on the satellite (glaze weathered off, or unglazed)
+const RIDGE = hex('#b4ab98');
 const LACQUER = hex('#7e3524');
 
 export function build({ data, S }) {
@@ -126,7 +127,7 @@ export function build({ data, S }) {
     }
   }
 
-  // ---- the vọng lâu: two storeys under yellow tube tiles, open colonnade below ---------------------------------
+  // ---- the vọng lâu: two storeys under weathered tube tiles, open colonnade below ------------------------------
   // (a low stone stylobate first, as at the restored towers of Thượng Tứ and Chánh Tây)
   box(0, tm, yT, yT + 0.35, TOWER.w + 1.4, TOWER.d + 1.4, shade(PAL.stone, 0.85), { topKind: KIND.ROAD });
   pavilion(S, ...P(0, tm), TOWER.w, TOWER.d, A, yT + 0.35, { tiers: 2, wallH: TOWER.wallH, roof: ROOF, wall: LACQUER, over: TOWER.over, rh: TOWER.rh, ridge: RIDGE, colonnade: true, steps: false });

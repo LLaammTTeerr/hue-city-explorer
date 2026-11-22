@@ -36,8 +36,10 @@ Model: `src/landmarks/places/gate-cua-ke-trai.js` (id `gate:Cửa Kẻ Trài`). 
 
 ## Estimates
 - Block top: 1.0 m above the wall walk, with a crenellated brick parapet.
-- Tower plan: 11.2 × 7.4 m (column line, as at the sibling gates Nhà Đồ and Thượng Tứ), eaves 1.1 m, on a 0.35 m
-  stone stylobate. Before Nov 2026 it was 12.4 × 8.2 m with 1.3 m eaves; the satellite shows the roofs narrower than that. Its ridge stands about 17.4 m above ground and about
+- Tower plan: 9.0 × 7.0 m (column line), eaves 0.8 m, so the lower roof spans 10.6 × 8.6 m, on a 0.35 m stone
+  stylobate. On the z20 satellite the lower roof reads about 10.4 × 8.6 m with eaves, a little smaller than the sibling
+  gates Nhà Đồ and Thượng Tứ (about 11.3 × 7.4 m column line). Earlier versions were 12.4 × 8.2 m (1.3 m eaves) and then
+  11.2 × 7.4 m (1.1 m eaves), both reading long along the wall against the satellite. Its ridge stands about 17.4 m above ground and about
   9.8 m above the wall top.
 - Colours were not confirmed for Kẻ Trài. I found no usable photo description. They are assumed:
   - brick weathered dark, like the rampart;
@@ -61,8 +63,10 @@ Model: `src/landmarks/places/gate-cua-ke-trai.js` (id `gate:Cửa Kẻ Trài`). 
   within about 2° of the model. The tower top reads 3-5 m north-west in the imagery; that is the camera's lean on a
   17 m tower, so the anchor was kept.
 - From above, the tower roofs read a greyish tan, not bright yellow, and the block top a warm brownish grey. The roof
-  colour was weathered to match; the tiles are still taken to be yellow glazed.
-- Street View returned no usable frames here, so the faces, the bays and the upper storey are still unchecked.
+  is drawn greyish tan (#8e8370) to match; whether the tiles are weathered yellow glaze or unglazed is open.
+- Street View has no pano at or near the gate: points on Cửa Trài either side of it return blank frames, and the
+  nearest car pano (Đào Duy Anh, ~200 m north-east) does not show it. The faces, the bays and the upper storey are
+  still unchecked.
 
 ## Left
 - The tower's real colours, the bay count of the lower storey, and the form of the upper storey all need checking
