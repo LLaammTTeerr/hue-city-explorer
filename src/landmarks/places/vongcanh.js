@@ -72,7 +72,7 @@ const WALKS = [
   [1.5, true, [[-2786.2, 4514.4], [-2797.4, 4527.6]]],
 ];
 
-const PAVE = hex('#8e887a'); // weathered granite flags
+const PAVE = hex('#84858a'); // blue-grey slate flags (Street View, court)
 const RISER = hex('#8d8676');
 const PURPLE = hex('#5e3a6c'); // tím Huế, the tower's new paint
 const TIMBER = hex('#8a6a48');
@@ -231,6 +231,15 @@ export function build({ data, S, group }) {
     const s = 0.7 + hash(i, 3) * 0.5;
     S.base = g - LAND_Y;
     S.cyl(x, z, g - 0.1, g + 0.55 * s, 0.75 * s, 0.45 * s, 6, blooms[i % blooms.length], { rot: hash(i, 4) });
+  }
+  // low box hedges on a red-brick kerb ring the lawn beds (Street View from the court): two rings round the garden
+  for (const [R, n] of [[5.2, 22], [8.6, 34]]) {
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2, x = GARDEN[0] + Math.cos(a) * R, z = GARDEN[1] + Math.sin(a) * R, g = gy(x, z), len = (2 * Math.PI * R) / n + 0.15;
+      S.base = g - LAND_Y;
+      S.box(x, z, g - 0.05, g + 0.14, 0.34, len, a, hex('#a4553f'));
+      S.box(x, z, g + 0.1, g + 0.5, 0.55, len, a, hex('#566b3f'));
+    }
   }
   // sim bushes along the main stair near the summit
   for (let i = 0; i < 14; i++) {
