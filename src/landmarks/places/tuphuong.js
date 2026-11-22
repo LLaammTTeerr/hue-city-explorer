@@ -26,8 +26,9 @@ const [J0, A, B, J1] = BAC_KHUYET_DAI;
 const WALL = hex('#e8cf92'); // pale yellow wash
 const PIER = hex('#f1e7cf'); // cream piers, arches and cornices
 const JOIN = hex('#5c2f22'); // dark red-brown doors, shutters and rails
-const ROOF = hex('#d99a22'); // yellow glazed tile, gone orange in the sun
-const RIDGE = hex('#f0d27a');
+const ROOF = hex('#6b4a2c'); // weathered brown tile: the imagery reads dark brown, not yellow
+const RIDGE = hex('#b8935a');
+const UPPER = hex('#4a3426'); // the upper storey's dark timber walls
 const PAVE = hex('#b8b0a0');
 const MASON = OUTER.body; // the Imperial City wall's weathered brick
 const BAL = hex('#aaa496'), PANEL = hex('#c39554'); // balustrade posts and their ochre panels
@@ -284,7 +285,7 @@ export function build({ S }) {
   }
   const wu = 3.9, wv = 3.4;
   S.kind = KIND.PLAIN;
-  qb(0, 0, yDk, yE2 + 0.62, 2 * wu, 2 * wv, shade(WALL, 0.72), { top: shade(ROOF, 0.6) });
+  qb(0, 0, yDk, yE2 + 0.62, 2 * wu, 2 * wv, UPPER, { top: shade(ROOF, 0.6) });
   openings(wu, wv, yDk, 2.2, 1.2);
 
   // upper roof: steep, hipped, yellow glazed tile, flared, with big curled ornaments at the corners
@@ -314,6 +315,14 @@ export function build({ S }) {
       S.beam(Q3(s * 1.4, yR + 0.55, 0), Q3(s * 0.9, yR + 0.3, 0), 0.2, 0.2, RIDGE);
       S.beam(Q3(s * 0.9, yR + 0.3, 0), Q3(s * 0.75, yR + 0.95, 0), 0.22, 0.22, RIDGE);
     }
+  }
+  // café parasols on the platform round the pavilion, as in the imagery
+  S.kind = KIND.PLAIN;
+  for (const [u, v] of [[-9.5, 5.2], [-7.2, 15.5], [-3.2, 16.8], [2.6, 16.8], [6.8, 15.8], [9.6, 5.6]]) {
+    const q = P(u + PAV[0], v);
+    S.cyl(q[0], q[1], yPl, yPl + 2.0, 0.04, 0.04, 5, hex('#6a6a66'), { cap: false });
+    S.cyl(q[0], q[1], yPl + 2.0, yPl + 2.35, 1.5, 0.1, 10, hex('#d9d6cc'), { rot: u });
+    S.cyl(q[0], q[1], yPl + 0.7, yPl + 0.74, 0.5, 0.5, 8, hex('#7a5a3a'));
   }
   S.kind = keep;
   return null;

@@ -50,3 +50,8 @@ Model: `src/landmarks/places/tuphuong.js`. The older one-line model in `src/land
 - The café parasols and furniture on the platform are not drawn.
 - Exact stair positions; the true hip-and-gable shape of the upper roof; the dragons' real silhouettes.
 - No night lighting.
+
+## Polish
+Roofs now weathered brown and the upper storey dark timber, because Street View (mid and NW car panos) reads them
+that way, not yellow; café parasols added on the platform. Documented sources still say yellow glazed tile: owner
+to decide (kept as an open question).
