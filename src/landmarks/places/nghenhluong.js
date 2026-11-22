@@ -25,8 +25,8 @@ export const id = 'nghenhluong';
 const C0 = [-794.62, 452.46];
 const AX = (() => { const dx = 8.3 + 8.4, dz = 12.1 + 12.1, l = Math.hypot(dx, dz); return [dx / l, dz / l]; })();
 
-const ROOF = PAL.imperialRoof; // bright yellow glazed tiles (lưu ly vàng)
-const RIDGE = hex('#f1d77a');
+const ROOF = shade(PAL.imperialRoof, 0.82); // glazed yellow tiles weathered toward ochre (Street View reads orange-brown)
+const RIDGE = hex('#c9a24e');
 const LAC = PAL.lacquer; // red lacquered columns and beams
 const GOLD = hex('#c9a13b');
 const KERB = hex('#7d817f'); // đá thanh, the grey-blue bluestone of the kerbs and steps
@@ -175,8 +175,8 @@ export function build({ S, group, place, THREE }) {
     S.cyl(cx, cz, yr + 0.22, yr + 0.62, 0.26, 0.05, 8, hex('#e2b13a'), { cap: true, rot: fa });
     for (const sg of [-1, 1]) {
       const a = at(0, sg * 1.05), b = at(0, sg * 0.62), t = at(0, sg * 0.4);
-      S.beam([a[0], yr, a[1]], [b[0], yr + 0.32, b[1]], 0.14, 0.16, hex('#7fa36a')); // glazed green-gold dragons
-      S.beam([b[0], yr + 0.32, b[1]], [t[0], yr + 0.42, t[1]], 0.12, 0.14, hex('#7fa36a'));
+      S.beam([a[0], yr, a[1]], [b[0], yr + 0.32, b[1]], 0.2, 0.22, hex('#5f7f55')); // glazed green-gold dragons
+      S.beam([b[0], yr + 0.32, b[1]], [t[0], yr + 0.42, t[1]], 0.17, 0.19, hex('#5f7f55'));
     }
     S.kind = KIND.PLAIN;
   }
