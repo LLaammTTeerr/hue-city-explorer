@@ -141,6 +141,16 @@ export function build({ data, S }) {
       const R = ARCH / 2, h = (k * R) / 8, hw = R - Math.sqrt(R * R - h * h);
       for (const s of [-1, 1]) g(0, s * (R - hw / 2), Y + SPRING + h, Y + SPRING + h + R / 8, gd, hw, PL, { bottom: true });
     }
+    // a raised moulding band round the arch head on both faces, and a pilaster strip at each outer corner
+    for (const f of [-1, 1]) {
+      const fu = f * (gd / 2 + 0.05);
+      for (let k = 1; k < 8; k++) {
+        const R = ARCH / 2 + 0.28, h = (k * R) / 8, hw = R - Math.sqrt(R * R - h * h);
+        for (const s of [-1, 1]) g(fu, s * (R - hw / 2 - 0.14), Y + SPRING + h, Y + SPRING + h + R / 8, 0.1, hw + 0.28, PL_DK, { bottom: true });
+      }
+      for (const s of [-1, 1]) g(fu, s * (gw / 2 - 0.2), Y + 0.5, Y + H, 0.1, 0.4, PL_DK);
+      g(fu, 0, Y + H - 0.55, Y + H - 0.3, 0.1, gw - 0.5, PL_DK); // a frieze band under the cornice
+    }
     // plinth, recessed panels and the plaque on both faces
     for (const f of [-1, 1]) {
       const fu = f * (gd / 2 + 0.03);
