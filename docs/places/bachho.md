@@ -75,3 +75,21 @@ Checked against Google satellite (z18-z20) and two Google-car Street View panos 
 
 ## Polish
 Pavilion balconies now carry a white concrete balustrade (capped rail, solid base, posts every ~1.2 m) and a projecting white fascia, matching the deck parapet in Street View; the pavilion base has a second plinth step. Roof stays yellow (owner question open).
+
+## Review fixes (Nov 2026)
+
+- **One deck, drawn by the place.** The north-channel carriageways (the two OSM ways named Cầu Dã Viên) are no longer
+  drawn as generic slabs with a median and 0.9 m parapets: `ownRoads(data)` in `places/bachho.js` names them, and
+  `geo/city.js` (slabs, lamp glow) and `landmarks/life.js` (median lamp posts) skip them while the place is built, as
+  they do for Gia Hội. Traffic still rides the same profile. The deck is one 24.5 m slab on the real axis
+  (`PAV_AXIS`): a 15.5 m four-lane carriageway (double yellow centre line, dashed lanes, edge lines), raised
+  pavements, a white edge beam and a balustrade of square posts and balusters on both edges, open at the balconies.
+  The haunched girders are inset 0.6 m under it, so the old saw-tooth edge is gone.
+- **Level.** Street View shows the truss's top chord just above the road parapet: the road runs ~2 m above the
+  1908 rail deck (LAND_Y + 0.5, which the trains are fixed to). `geo/bridges.js` gives Cầu Dã Viên a 2.0 m rise
+  climbing over the first and last 12 % of each way, so the road lifts, not the rail.
+- **Lamps.** Double-armed lamp posts every ~30 m along both kerbs, staggered off the pavilions (Street View).
+- **Trusses.** Heavier cream-grey members: built-up laced diagonals and end posts, a vertical at every panel point,
+  deeper chords.
+- **Still open:** the pavilion roof colour (yellow in 2013–2018 photos, dark red-brown in 2025 imagery) waits for
+  the owner.
