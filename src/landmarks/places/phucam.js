@@ -38,8 +38,8 @@ const GATES = [[-145.0, 1713.4, 2.6], [-159.8, 1717.6, 1.4], [-198.6, 1773.2, 3.
 
 const stoneC = hex('#858480'), stoneL = hex('#a3a19b'), stoneD = hex('#64625e'), tile = hex('#985440'), tileD = hex('#7a4333');
 const lattice = hex('#c9c8bd'), cream = hex('#e9dcb4'), conc = hex('#bdbcb5'), concL = hex('#cfcdc5'), slabC = hex('#c6c5bf');
-const glass = hex('#4b5a68'), glassW = hex('#c9a24a'), door = hex('#3a2c24'), white = hex('#efeae0'), pave = hex('#c4bba9');
-const lawn = hex('#86a05e'), panel = hex('#d6d3ca');
+const glass = hex('#4b5a68'), door = hex('#3a2c24'), white = hex('#efeae0'), pave = hex('#c4bba9');
+const lawn = hex('#86a05e'), panel = hex('#d6d3ca'), asphalt = hex('#7b7873');
 // the asphalt yard in front of the church, measured on the satellite (frame a, b): its north edge 23.5 m before the
 // tower tips, 75 m across where it runs along the towers to the service drive on the west and the lane on the east
 const YARD = [[-23.5, 16], [-23.5, -14], [-20, -26], [-6, -32], [6, -30], [10, -14], [10, 14], [8, 38], [-8, 34], [-18, 16]];
@@ -63,7 +63,10 @@ export function build({ data, S, group }) {
   // at the kerb there instead of running its metre-wide ledge out over the asphalt
   S.prism(offStreets(data, out.map(([a, b]) => W(a, b)), 0), y - 4, y, stoneD, pave, { topKind: KIND.ROAD });
   { let gl = yc; for (const [a, b] of YARD) gl = Math.min(gl, gY(...W(a, b))); // walls show only where the ground falls away
-    S.prism(YARD.map(([a, b]) => W(a, b)), gl - 0.5, yc, stoneD, pave, { topKind: KIND.ROAD }); }
+    // asphalt (Street View from the yard), marked as a paved court so the city plants no trees or houses on it
+    const p0 = S.n;
+    S.prism(YARD.map(([a, b]) => W(a, b)), gl - 0.5, yc, stoneD, asphalt, { topKind: KIND.ROAD });
+    (S.paved = S.paved || []).push([p0, S.n]); }
   // three steps from the forecourt up to the doors
   S.kind = KIND.ROAD;
   for (let i = 0; i < 3; i++) box(-1.2 + i * 0.5, 0, yc - 0.2, yc + 0.3 * (i + 1), 1.2, 11.2 - i * 0.6, pave);
@@ -98,12 +101,12 @@ export function build({ data, S, group }) {
   //      overhangs it; on that slab, set in from the outline, the church proper in pale rendered concrete: a nave and
   //      choir much narrower than the outline (the slab shows as a broad terrace beside them from above), a transept
   //      the full 40.4 m across, a five-sided apse. Wide round-topped windows, recessed, with a cross of mullions, between flat pilasters.
-  const PH = 5.2, SL = 0.45, E = 15, RN = 21.2, RC = 20.4; // top of the lower storey, slab; eaves; ridge of nave and transept; ridge of the choir
+  const PH = 4.2, SL = 0.45, E = 14, RN = 21.2, RC = 20.4; // top of the lower storey, slab; eaves; ridge of nave and transept; ridge of the choir
   const NW = 6.8, T0 = 41.9, T1 = 57.9, TB = 20.2, CW = 6.2, C1 = 67.5; // nave half-width; transept a range, half-length; choir half-width, end
   const ys = y + PH + SL; // the slab's top, foot of the upper walls
   const low = out.slice(3, -3); // the outline behind the narthex (the front between the towers is drawn below)
   low.unshift([10.6, 11.6]); low.push([10.6, -11.6]);
-  // the slab: the lower outline pushed out 0.9 m (mitred), kept off the street behind the apse
+  // the slab: the lower outline pushed out 0.9 m (mitred; grow takes d > 0 inward), kept off the street behind the apse
   const area = low.reduce((s, p, i) => { const q = low[(i + 1) % low.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0), sg = area > 0 ? -1 : 1;
   const grow = (ring, d) => ring.map((p, i) => {
     const p0 = ring[(i + ring.length - 1) % ring.length], p1 = ring[(i + 1) % ring.length];
@@ -111,18 +114,21 @@ export function build({ data, S, group }) {
     const n0 = n(p0, p), n1 = n(p, p1), m = [n0[0] + n1[0], n0[1] + n1[1]], k = d / Math.max(0.35, (m[0] * n0[0] + m[1] * n0[1]));
     return [p[0] + m[0] * k, p[1] + m[1] * k];
   });
+  // the lower storey stands 1 m in from the outline, so the slab (0.9 m beyond it) reads as a deep canopy over a
+  // recessed storey of doors and grilles, as the alley panos show it at the apse and the transept
+  const lowIn = grow(low, 1.0); // grow: positive d moves the ring in, negative out
   S.kind = KIND.MASONRY;
-  S.prism(low.map(([a, b]) => W(a, b)), y, y + PH, stoneC, slabC);
-  S.prism(offStreets(data, grow(low, 0.9).map(([a, b]) => W(a, b)), 0), y + PH, ys, slabC, slabC);
-  // the lower storey's small dark windows, every 4 m along its walls
+  S.prism(lowIn.map(([a, b]) => W(a, b)), y, y + PH, stoneD, slabC);
+  S.prism(offStreets(data, grow(low, -0.9).map(([a, b]) => W(a, b)), 0), y + PH, ys, slabC, slabC);
+  // doors and barred openings in turn along its walls, about every 4 m
   S.kind = KIND.PLAIN;
-  for (let i = 0; i < low.length; i++) {
-    const p = low[i], q = low[(i + 1) % low.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  for (let i = 0; i < lowIn.length; i++) {
+    const p = lowIn[i], q = lowIn[(i + 1) % lowIn.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
     if (L < 3 || (p[0] < 11 && q[0] < 11)) continue;
     const t = [(q[0] - p[0]) / L, (q[1] - p[1]) / L], n = [sg * t[1], -sg * t[0]];
     for (let k = 1, m = Math.floor(L / 4); k < m; k++) {
-      const u = (k * L) / m, a = p[0] + t[0] * u + n[0] * 0.06, b = p[1] + t[1] * u + n[1] * 0.06, w = W(a, b);
-      S.box(w[0], w[1], y + 1.5, y + 3.3, 1.3, 0.14, ANG + Math.atan2(t[1], t[0]), door);
+      const u = (k * L) / m, a = p[0] + t[0] * u + n[0] * 0.06, b = p[1] + t[1] * u + n[1] * 0.06, w = W(a, b), dr = (k + i) % 2 === 0;
+      S.box(w[0], w[1], dr ? y + 0.1 : y + 1.0, dr ? y + 2.6 : y + 3.0, dr ? 1.2 : 1.6, 0.14, ANG + Math.atan2(t[1], t[0]), dr ? door : stoneD);
     }
   }
   // the upper walls, smooth render
@@ -194,12 +200,12 @@ export function build({ data, S, group }) {
     for (let i = 0; i <= 6; i++) pil(9.9 + i * bay, s * NW, 0, nb);
     for (let i = 0; i < 6; i++) win(9.9 + (i + 0.5) * bay, s * NW, 0, nb, 2.6, W0, W1);
     for (let i = 0; i <= 2; i++) pil(T1 + (i * (C1 - T1)) / 2, s * CW, 0, nb);
-    for (let i = 0; i < 2; i++) win(T1 + ((i + 0.5) * (C1 - T1)) / 2, s * CW, 0, nb, 2.6, W0, W1);
+    for (let i = 0; i < 2; i++) win(T1 + ((i + 0.5) * (C1 - T1)) / 2, s * CW, 0, nb, 2.1, W0, W1);
     // the transept: its end gable with three windows and a round one above; two windows on each face of each arm
     for (const a of [T0 + 0.4, T1 - 0.4]) pil(a, s * TB, 0, nb);
-    for (const a of [45.2, 49.9, 54.6]) win(a, s * TB, 0, nb, 2.8, W0, W1);
+    for (const a of [45.2, 49.9, 54.6]) win(a, s * TB, 0, nb, 2.2, W0, W1);
     for (const [fa, na] of [[T0, -1], [T1, 1]]) {
-      for (const f of [1 / 3, 2 / 3]) win(fa, s * (NW + (TB - NW) * f), na, 0, 2.8, W0, W1);
+      for (const f of [1 / 3, 2 / 3]) win(fa, s * (NW + (TB - NW) * f), na, 0, 2.0, W0, W1);
       pil(fa, s * (NW + (TB - NW) / 2), na, 0);
     }
     const q = W((T0 + T1) / 2, s * (TB + 0.1)); S.kind = KIND.PLAIN;
@@ -209,11 +215,18 @@ export function build({ data, S, group }) {
   for (let i = 0; i + 1 < apse.length; i++) { // one tall window on each facet of the apse
     const [a0, b0] = apse[i], [a1, b1] = apse[i + 1], da = a1 - a0, db = b1 - b0, l = Math.hypot(da, db);
     let na = db / l, nb = -da / l; if (na * ((a0 + a1) / 2 - C1) + nb * ((b0 + b1) / 2) < 0) { na = -na; nb = -nb; }
-    win((a0 + a1) / 2, (b0 + b1) / 2, na, nb, 2.7, W0, W1);
+    win((a0 + a1) / 2, (b0 + b1) / 2, na, nb, 1.8, W0, W1); // about half the facet: broad plain wall either side
+  }
+  for (let i = 1; i + 1 < apse.length; i++) { // a stepped pier at each angle of the apse
+    const [a, b] = apse[i], d = Math.hypot(a - C1, b) || 1, q = W(a + ((a - C1) / d) * 0.2, b + (b / d) * 0.2);
+    S.kind = KIND.PLAIN;
+    S.box(q[0], q[1], ys, y + E - 0.3, 0.9, 0.5, ANG + Math.atan2(b / d, (a - C1) / d) + Math.PI / 2, concL);
+    const q2 = W(a + ((a - C1) / d) * 0.42, b + (b / d) * 0.42);
+    S.box(q2[0], q2[1], ys, y + E - 1.2, 0.5, 0.3, ANG + Math.atan2(b / d, (a - C1) / d) + Math.PI / 2, shade(concL, 1.04));
   }
 
   // ---- the front between the towers (photographs, docs/places/phucam.md; heights estimated): the narthex, low in the
-  //      middle with the tall glass strip; a stone shoulder beside each tower, highest (22 m) against it and falling
+  //      middle with a small gridded window; a stone shoulder beside each tower, highest (22 m) against it and falling
   //      along a concave curve to 15 m before dropping to the centre; a lattice strip where shoulder meets tower; over
   //      the glass strip the centre ends in a curved stone hood, bowed forward, with the cross on its crown
   S.kind = KIND.MASONRY;
@@ -237,12 +250,17 @@ export function build({ data, S, group }) {
     for (let h = y + 3.4; h < y + 25.2; h += 0.9) for (const du of [-0.4, 0, 0.4]) box(SA0 - 0.16, s * (SH1 - 0.75) + du, h, h + 0.4, 0.04, 0.3, stoneD); // the square openings // the lattice strip against the tower
   }
   const HB = 4.6, HT = y + 21, HA = 10.0; // the hood: half-width, crown, back edge (inside the nave roof)
-  { const n = 14, top = (b) => y + 14.6 + (HT - y - 14.6) * Math.sqrt(Math.max(0, 1 - (b / HB) ** 2)), fa = (b) => 4.9 - 0.9 * (1 - (b / HB) ** 2);
+  // its face is a pale (cream) concave shell, dished back at the middle, set in a U of stone (Street View from the yard)
+  { const n = 14, top = (b) => y + 14.6 + (HT - y - 14.6) * Math.sqrt(Math.max(0, 1 - (b / HB) ** 2)), fa = (b) => 4.0 + 0.9 * (b / HB) ** 2;
+    const bot = (b) => Math.min(top(b), y + 15.4 + 3.2 * (b / HB) ** 2); // the shell's lower edge, rising to the sides
     for (let i = 0; i < n; i++) {
       const b0 = -HB + (2 * HB * i) / n, b1 = -HB + (2 * HB * (i + 1)) / n, t0 = top(b0), t1 = top(b1), f0 = fa(b0), f1 = fa(b1);
-      const nn = [-F[0] - P[0] * ((b0 + b1) / 2) * 0.12, 0, -F[1] - P[1] * ((b0 + b1) / 2) * 0.12];
+      const nn = [-F[0] + P[0] * ((b0 + b1) / 2) * 0.12, 0, -F[1] + P[1] * ((b0 + b1) / 2) * 0.12];
       S.kind = KIND.MASONRY;
-      S.quad(V(f0, b0, y + 14.6), V(f1, b1, y + 14.6), V(f1, b1, t1), V(f0, b0, t0), stoneL, nn);
+      S.quad(V(f0, b0, y + 14.6), V(f1, b1, y + 14.6), V(f1, b1, bot(b1)), V(f0, b0, bot(b0)), stoneC, nn);
+      S.kind = KIND.PLAIN;
+      S.quad(V(f0 - 0.02, b0, bot(b0)), V(f1 - 0.02, b1, bot(b1)), V(f1, b1, t1), V(f0, b0, t0), cream, nn);
+      S.kind = KIND.MASONRY;
       S.quad(V(HA, b1, y + 14.6), V(HA, b0, y + 14.6), V(HA, b0, t0), V(HA, b1, t1), stoneC, [F[0], 0, F[1]]);
       S.kind = KIND.PLAIN;
       S.quad(V(f0, b0, t0), V(f1, b1, t1), V(HA, b1, t1), V(HA, b0, t0), stoneC, [0, 1, 0]);
@@ -254,8 +272,12 @@ export function build({ data, S, group }) {
   S.kind = KIND.PLAIN;
   S.beam([gx[0], HT - 0.2, gx[1]], [gx[0], HT + 2.6, gx[1]], 0.28, 0.28, white);
   S.beam([gx[0] - P[0] * 0.8, HT + 1.8, gx[1] - P[1] * 0.8], [gx[0] + P[0] * 0.8, HT + 1.8, gx[1] + P[1] * 0.8], 0.26, 0.26, white);
-  box(4.95, 0, y + 6.8, y + 14.6, 0.2, 1.9, glass); // the tall strip of coloured glass on the axis
-  box(4.9, 0, y + 8, y + 13.6, 0.22, 0.6, glassW);
+  // on the axis under the shell, a small window of square panes in a pale grid (Street View from the yard)
+  box(4.95, 0, y + 11.0, y + 13.6, 0.2, 2.0, glass);
+  S.kind = KIND.PLAIN;
+  for (const b of [-1.0, -0.5, 0, 0.5, 1.0]) box(4.88, b, y + 11.0, y + 13.6, 0.12, 0.09, lattice);
+  for (let h = y + 11.0; h < y + 13.65; h += 0.52) box(4.88, 0, h - 0.045, h + 0.045, 0.12, 2.1, lattice);
+  S.kind = KIND.MASONRY;
   box(4.92, 0, y, y + 4.2, 0.2, 5.6, door); // the doors, under the porch roof: three pairs of panels
   S.kind = KIND.PLAIN;
   for (const b of [-1.9, -0.0, 1.9]) box(4.82, b, y + 0.2, y + 4.0, 0.08, 0.14, stoneD);
@@ -263,31 +285,31 @@ export function build({ data, S, group }) {
   box(4.82, 0, y + 4.0, y + 4.25, 0.1, 5.8, stoneD);
   S.kind = KIND.MASONRY;
   // the porch: a flat concrete roof on two columns over the doors, reached from both sides by an open stair that
-  // climbs from beside each tower in toward the centre (Street View from the forecourt)
+  // climbs from out past each tower in along the front (Street View from the forecourt)
   S.kind = KIND.MASONRY;
   { // the slab's front edge bows outward (Street View: a curved canopy under the banner)
     const ring = [[5.0, 4.2], [5.0, -4.2]];
     for (let i = 0; i <= 8; i++) { const b = -4.2 + (8.4 * i) / 8; ring.push([-2.0 - 1.5 * (1 - (b / 4.2) ** 2), b]); }
     S.prism(ring.map(([a, b]) => W(a, b)), y + 4.5, y + 5.0, slabC, slabC);
   }
-  // a low stone retaining wall along the terrace front, with planted beds behind it either side of the stair
+  // a low stone retaining wall along the terrace front, with planted beds behind it under the side stairs
   for (const s of [-1, 1]) {
-    box(-0.9, s * 10.4, yc, yc + 0.9, 0.6, 9.4, stoneD, { top: stoneL });
-    box(0.4, s * 10.4, yc, yc + 0.8, 2.0, 9.0, stoneD, { top: lawn });
+    box(-2.0, s * 10.2, yc, yc + 0.7, 0.5, 8.8, stoneD, { top: stoneL });
+    box(-0.4, s * 9.7, yc, yc + 0.6, 2.8, 7.8, stoneD, { top: lawn });
     S.kind = KIND.PLAIN;
-    for (const [a, b] of [[0.4, 7.4], [0.2, 9.6], [0.6, 12.6], [0.3, 14.2]]) { const q = W(a, s * b); S.cyl(q[0], q[1], yc + 0.8, yc + 2.2, 1.1, 0.5, 6, hex('#4f7a3a')); }
+    for (const [a, b] of [[-0.6, 6.6], [-0.9, 8.4], [0.9, 7.6], [0.6, 10.0]]) { const q = W(a, s * b); S.cyl(q[0], q[1], yc + 0.6, yc + 2.0, 1.0, 0.45, 6, hex('#4f7a3a')); }
     S.kind = KIND.MASONRY;
   }
   for (const s of [-1, 1]) box(-0.8, s * 3.6, yc, y + 4.5, 0.5, 0.5, slabC);
-  for (const s of [-1, 1]) {
-    const n = 16, A0 = [1.0, s * 10.0], A1 = [2.4, s * 4.4]; // foot beside the tower, head at the porch roof
+  for (const s of [-1, 1]) { // long shallow flights: the foot out past the tower's outer corner, the head at the porch roof
+    const n = 28, A0 = [-0.6, s * 17.4], A1 = [-0.6, s * 4.4];
     for (let i = 0; i < n; i++) {
       const t0 = i / n, t1 = (i + 1) / n, p0 = [A0[0] + (A1[0] - A0[0]) * t0, A0[1] + (A1[1] - A0[1]) * t0], p1 = [A0[0] + (A1[0] - A0[0]) * t1, A0[1] + (A1[1] - A0[1]) * t1];
       const q0 = W(...p0), q1 = W(...p1), len = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]);
       S.box((q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2, yc + (y + 5.0 - yc) * t0 - 0.4, yc + (y + 5.0 - yc) * t1, len + 0.02, 1.6, Math.atan2(q1[1] - q0[1], q1[0] - q0[0]), stoneL);
     }
     S.kind = KIND.PLAIN; // its railing
-    const r0 = W(A0[0] - 0.8, A0[1]), r1 = W(A1[0] - 0.8, A1[1]);
+    const r0 = W(A0[0] - 0.75, A0[1]), r1 = W(A1[0] - 0.75, A1[1]);
     S.beam([r0[0], yc + 1.0, r0[1]], [r1[0], y + 6.0, r1[1]], 0.08, 0.08, white);
     S.kind = KIND.MASONRY;
   }
@@ -362,11 +384,11 @@ export function build({ data, S, group }) {
   { const q = gx; L.beam([q[0], HT - 0.3, q[1]], [q[0], HT + 2.7, q[1]], 0.36, 0.36, [1, 1, 1]); L.beam([q[0] - P[0] * 0.9, HT + 1.8, q[1] - P[1] * 0.9], [q[0] + P[0] * 0.9, HT + 1.8, q[1] + P[1] * 0.9], 0.34, 0.34, [1, 1, 1]); }
   const cross = lightMesh(L, lightMaterial(0xf4f1ff, 1.5));
   const L2 = new Buf(64);
-  { const q = W(4.8, 0); L2.box(q[0], q[1], y + 6.9, y + 14.5, 0.16, 1.7, ANG, [1, 1, 1]); L2.box(q[0] - F[0] * 0.05, q[1] - F[1] * 0.05, y + 0.1, y + 5.4, 0.16, 3.0, ANG, [1, 1, 1]); }
+  { const q = W(4.8, 0); L2.box(q[0], q[1], y + 11.05, y + 13.55, 0.16, 1.9, ANG, [1, 1, 1]); L2.box(q[0] - F[0] * 0.05, q[1] - F[1] * 0.05, y + 0.1, y + 5.4, 0.16, 3.0, ANG, [1, 1, 1]); }
   const strip = lightMesh(L2, lightMaterial(0xffc982, 1.1));
   const pos = [], col = [];
   const put = (q, h, cc = [1, 0.82, 0.52]) => { pos.push(q[0], h, q[1]); col.push(...cc); };
-  for (const s of [-1, 1]) { put(W(-22.5, s * 13), yc + 3.6); put(W(-1.5, s * 17), yc + 3.6); put(W(-23.5, s * 3.8), yc + 1.4); }
+  for (const s of [-1, 1]) { put(W(-22.5, s * 13), yc + 3.6); put(W(-3.0, s * 19), yc + 3.6); put(W(-23.5, s * 3.8), yc + 1.4); }
   for (const [x, z] of GATES) put([x, z], gY(x, z) + 3.2);
   put(W(4.4, 0), y + 6.5, [1, 0.85, 0.6]);
   const pts = glowPoints(pos, col, 4);
