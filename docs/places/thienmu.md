@@ -71,3 +71,22 @@ The model is in `src/landmarks/places/thienmu.js`. The old `buildThienMu` in `sr
   - The Austin car shrine
   - The other abbots' stupas in the pine garden (only the one mapped stupa is drawn)
 - **Toilets and shelter:** OSM ways 1205452748 and 1205452750 are not modelled.
+
+## Google reference pass (2026)
+Compared against Google satellite (z17-z20) and four Google car Street View panoramas from the lanes around the
+precinct (captures kept in scratch/, not in the repo).
+- **Position and axis:** the tower (C) and the compound axis (ANG, about 346°/166°) match the satellite to within
+  about 2 m and 3°. The Đại Hùng roof and the court's lawns sit where the satellite shows them. Nothing was moved.
+- **Outer wall:** Street View along the east lane shows rough grey-brown rubble stone under a flat stone coping,
+  about 2.8-3 m above the lane where the lane runs at its foot and about 2.5 m above a grass bank further south. The
+  model had an ochre rendered wall with a tiled coping on an ashlar terrace face, 4-5 m above the lane. Now the wall
+  and the terrace face are rubble with a flat coping, and each stretch of wall is sized from the ground outside it
+  (top 2.9 m above it, between 0.9 and 2.3 m above the court).
+- **East gate:** Street View shows a small masonry gate in the east wall, about 3.5 m wide, with an arched opening, red
+  doors, a red plaque and a short tiled canopy. It is not in OSM. It is placed where the panorama's sight line meets
+  the mapped wall (about 16.45283 N, 107.54536 E). Steps lead down the bank to the lane.
+- **Roof colour:** from above, and in a courtyard photo, the halls' tiles read weathered grey-brown, not new
+  terracotta. The place now uses its own weathered tile colour.
+- **Not matched:** on the river and west sides, the real hill is a steep wooded bank with a low stone wall at the road.
+  The model keeps its one-level court on a vertical rubble face, 5-9 m high there. This comes from the elevation data
+  (the court 9.7 m above the riverside road at the stair), not from this file.
