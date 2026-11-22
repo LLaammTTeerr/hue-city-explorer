@@ -63,6 +63,25 @@ Captures (satellite z17-z20, five car Street View panos) are kept outside the re
 - Tower position: the satellite shows the tower roof 5-7 m north-west of the passage, and the Yết Kiêu pano agrees in
   bearing; the pano from the Tôn Thất Thiệp junction shows it straight behind the passage. The tower stays centred.
 
+## Review fixes (2026-11)
+Measured again from the same car panos and satellite (estimates; captures stay outside the repo):
+- Height: the inner face's top is about 1.4 × the arch crown, so the block is now 6.9 m to the cornice (was 8.3 m).
+  With the tower the ridge is about 14 m above the ground. The text source's "cao chừng 16m" disagrees; the panos
+  measure 12-14 m. Which to follow is a question for the owner; the model follows the panos for now.
+- Tower: in both car panos and on the satellite roof it is about 0.6-0.66 × what scaling the Commons photo gave, so
+  the lower storey is now 7.0 × 5.6 × 3.0 m and the upper 3.6 × 2.8 × 2.0 m. It stands over the passage axis
+  (within about 0.7 m to the south-east) and a little to the city side of the outline's centre (t -0.2). In the
+  Yết Kiêu pano the whole scene is off by about 13° in heading, but the tower keeps its place against the gate's
+  corner; the satellite's 5 m north-west roof offset is read as parallax from the oblique view.
+- Outer face: two-stepped, a 4.8 × 5.1 m arch in a 0.4 m recess before the 3.8 × 4.8 m passage. The recess is only as
+  deep as the block stands proud of the rampart band in `data.wall`.
+- Inner face: the lime-rendered band runs the face's whole length; the pier on the south-east side projects 1.1 m
+  under a stepped stone cap.
+- Arch rings: smooth 24-segment annuli flush with the jambs.
+- Colour: brick desaturated towards the photos, the flat top darker, damp-foot, streaks and relaid patches on the
+  outer face.
+- Block length stays 19.8 m. The bridge pano suggests about 15 m, but the review accepted 19.8 m (OSM 19.7).
+
 ## What changed
 - Replaces the generic Kinh thành gate on this site: a grey block with crenellations, under a red-and-gold wooden
   two-tier pavilion. The new model is a red-brick block with a balustrade, under the grey masonry two-storey tower
