@@ -7,6 +7,7 @@
   "landmarks": [
     { "name": "Điện Thái Hòa", "at": { "special": "thaihoa" }, "h": 11.8, "confidence": "sourced" },
     { "name": "Phu Văn Lâu", "at": { "special": "phuvanlau" }, "h": 11.8, "confidence": "sourced" },
+    { "name": "Kỳ Đài, ground to the tip of the flagpole", "at": { "special": "kydai" }, "h": 54.5, "confidence": "sourced", "source": "https://daidoanket.vn/cot-co-xu-hue-10040496.html and vi.wikipedia (Kỳ đài (Huế)): three tiers of about 17.5 m and a 37 m pole, 54.5 m from the ground to the tip" },
     { "name": "Nghênh Lương Đình", "at": { "special": "nghenhluong" }, "h": [ 7, 8 ], "confidence": "estimated" },
     { "name": "Lầu Tứ Phương Vô Sự (above street)", "at": { "special": "tuphuong" }, "h": 15, "confidence": "estimated" },
     { "name": "Cửa Quảng Đức (with vọng lâu)", "at": { "gate": "Cửa Quảng Đức" }, "h": [ 16, 17 ], "confidence": "sourced", "source": "https://nghiencuulichsu.com/2015/09/26/cong-cuoc-xay-dung-kinh-thanh-hue/ (\"cao tổng cộng 16 m\"); huetourism.gov.vn, Cổng cửa trong kiến trúc cung đình Huế, after Phan Thuận An (\"vượt lên mặt thành hơn 9m\", \"đến hơn 17m\")" },

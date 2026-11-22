@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { KIND, Buf, hex, shade, signedArea, inRing } from '../../geo/buf.js';
-import { LAND_Y, WALL_H } from '../../config.js';
+import { LAND_Y, WALL_H, PAL } from '../../config.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
 import { flag } from '../anim.js';
 
@@ -19,14 +19,22 @@ import { flag } from '../anim.js';
 export const id = 'kydai';
 
 // OSM outlines, in model metres
-const MID = [[-962.3, 289.9], [-897.4, 243.4], [-876.4, 272.6], [-898.6, 305.9], [-939.9, 318.0]];
-const TOP = [[-933.9, 288.7], [-905.7, 267.7], [-894.9, 281.9], [-923.2, 302.9]];
+const MID_OSM = [[-962.3, 289.9], [-897.4, 243.4], [-876.4, 272.6], [-898.6, 305.9], [-939.9, 318.0]];
+const TOP_OSM = [[-933.9, 288.7], [-905.7, 267.7], [-894.9, 281.9], [-923.2, 302.9]];
+// Re-framed against the satellite (docs/places/kydai.md, "Position"): the two OSM outlines have the right size and
+// axis but sit east of the tiers seen from above (corrected for the image's lean, measured on the pole), by about
+// 3 m (tier 2) and 4 m (tier 3), and 1 m south. The bastion and moat around them line up, so only these move.
+const OFF2 = [-3, -1], OFF3 = [-4, -1];
+const move = (r, o) => r.map(([x, z]) => [x + o[0], z + o[1]]);
+const MID = move(MID_OSM, OFF2), TOP = move(TOP_OSM, OFF3);
 const CANNONS = [[-861.2, 274.5], [-958.6, 341.0], [-932.1, 332.0], [-868.8, 285.8], [-952.2, 338.8], [-865.6, 281.0],
   [-853.7, 263.3], [-857.3, 268.7], [-938.0, 334.0], [-945.0, 336.3], [-898.0, 298.1], [-893.8, 292.4], [-918.6, 310.5],
   [-911.4, 308.3], [-889.4, 286.2], [-925.6, 312.6]];
 
 const RAMP = LAND_Y + WALL_H; // tier 1 (the bastion top, city.js)
-const H2 = 5.4, H3 = 5.7; // tier heights: 6.6 + 5.4 + 5.7 = 17.7 m, against "about 17.5 m"
+// tier heights: "about 6 m" and "over 6 m" (vi.wikipedia); the Lê Duẩn street view shows the top two tiers that tall
+// against the pole. With the rampart's 6.6 m (the bastion is "over 5.5 m") the whole is 18.6 m, against "about 17.5 m".
+const H2 = 5.8, H3 = 6.2;
 const POLE = 37;
 const WALL = hex('#5d5850'), PARA = hex('#a59e90'), COPE = hex('#c3bcad'), FLOOR = hex('#8c7264'), STEP = hex('#8f8a80');
 
@@ -120,7 +128,14 @@ export function build({ S, group }) {
     S.kind = KIND.PLAIN;
   };
 
-  // ---- tier 2: the bastion-shaped pentagon; base 0.15 m proud of the rampart's hole so its parapet is hidden ----
+  // ---- the rampart's hole is cut to the OSM pentagon (build-data.mjs); where tier 2 now stands off it, the bastion
+  //      top closes over it at the walk's level and colour ----
+  S.kind = KIND.GROUND;
+  {
+    const c2 = MID_OSM.map((p) => new THREE.Vector2(p[0], p[1]));
+    for (const f of THREE.ShapeUtils.triangulateShape(c2, [])) S.tri([c2[f[0]].x, RAMP, c2[f[0]].y], [c2[f[1]].x, RAMP, c2[f[1]].y], [c2[f[2]].x, RAMP, c2[f[2]].y], PAL.moss, [0, 1, 0]);
+  }
+  // ---- tier 2: the bastion-shaped pentagon, its walls reaching down into the rampart ----
   const y1 = RAMP + H2, y2 = y1 + H3;
   const midBase = inset(MID, -0.15);
   // the lower flight: OSM steps at 67.8 m along the north edge (A→B), climbing south; slot 4 m wide, 8.6 m deep
@@ -135,7 +150,8 @@ export function build({ S, group }) {
   flight(n3.P, 25.0, 27.4, -1.2, 6.8, y1, y2, y1);
   gate(n3.P, 25.0, 27.4, 6.8 + 0.4 + 0.5, y2, 3.0);
 
-  // ---- top: the pole on the middle of tier 3, the two guard huts at its ends ----
+  // ---- top: the pole on the middle of tier 3; the two guard huts near its ends, on the north-west (stair) side, as the
+  //      satellite shows them: centres about 2.7 m in from the ends and 4.5 m in from the north-west edge ----
   const c = [(TOP[0][0] + TOP[2][0]) / 2, (TOP[0][1] + TOP[2][1]) / 2];
   const L3 = Math.hypot(TOP[1][0] - TOP[0][0], TOP[1][1] - TOP[0][1]);
   const ua = Math.atan2(TOP[1][1] - TOP[0][1], TOP[1][0] - TOP[0][0]), ux = Math.cos(ua), uz = Math.sin(ua);
@@ -148,18 +164,21 @@ export function build({ S, group }) {
   S.cyl(c[0], c[1], yt + 1.5, yt + POLE - 0.6, 0.62, 0.26, 10, poleCol);
   S.cyl(c[0], c[1], yt + POLE - 0.6, yt + POLE - 0.3, 0.42, 0.42, 10, poleCol);
   S.cyl(c[0], c[1], yt + POLE - 0.3, yt + POLE, 0.3, 0.06, 10, hex('#c9b26a'));
+  const W3 = Math.hypot(TOP[3][0] - TOP[0][0], TOP[3][1] - TOP[0][1]);
+  const vx = (TOP[3][0] - TOP[0][0]) / W3, vz = (TOP[3][1] - TOP[0][1]) / W3; // across, from the north-west edge
   for (const sg of [-1, 1]) {
-    const hc = [c[0] + ux * sg * (L3 / 2 - 2.9), c[1] + uz * sg * (L3 / 2 - 2.9)];
+    const hc = [c[0] + ux * sg * (L3 / 2 - 2.7) + vx * (4.5 - W3 / 2), c[1] + uz * sg * (L3 / 2 - 2.7) + vz * (4.5 - W3 / 2)];
     S.kind = KIND.MASONRY;
     S.box(hc[0], hc[1], yt, yt + 0.25, 4.0, 4.2, ua, STEP);
     S.kind = KIND.FACADE;
-    S.box(hc[0], hc[1], yt + 0.25, yt + 2.75, 3.4, 3.6, ua, hex('#d6cbad'));
+    S.box(hc[0], hc[1], yt + 0.25, yt + 2.75, 3.4, 3.6, ua, hex('#c9bfa6'));
     S.kind = KIND.PLAIN;
     // a dark door toward the pole and a window on each long side
     const d = [hc[0] - ux * sg * 1.72, hc[1] - uz * sg * 1.72];
     S.box(d[0], d[1], yt + 0.25, yt + 2.15, 0.06, 1.0, ua, hex('#3a2c24'));
     for (const sv of [-1, 1]) { const w = [hc[0] - uz * sv * 1.82, hc[1] + ux * sv * 1.82]; S.box(w[0], w[1], yt + 1.1, yt + 2.0, 0.8, 0.06, ua, hex('#3a2c24')); }
-    S.hip(hc[0], hc[1], 3.4, 3.6, ua, yt + 2.75, 1.5, hex('#8a4f37'), { over: 0.5, hips: true, flare: 0.15, ridgeCol: hex('#b9ac95') });
+    // roof in weathered grey tile, as the satellite shows it
+    S.hip(hc[0], hc[1], 3.4, 3.6, ua, yt + 2.75, 1.5, hex('#625952'), { over: 0.5, hips: true, flare: 0.15, ridgeCol: hex('#b9ac95') });
     flood.push(hc[0] - ux * sg * 2.0, yt + 2.5, hc[1] - uz * sg * 2.0); floodCol.push(1.0, 0.78, 0.48);
   }
   // floodlights round the foot of the pole
@@ -171,7 +190,9 @@ export function build({ S, group }) {
 
   // ---- cannons on the OSM nodes, muzzles outward ----
   const gun = hex('#3b3832'), wood = hex('#5a4434');
-  for (const [x, z] of CANNONS) {
+  for (const [x0, z0] of CANNONS) {
+    // a cannon on a tier moves with that tier's outline; those on the bastion stay on their OSM nodes
+    const o = inRing(x0, z0, TOP_OSM) ? OFF3 : inRing(x0, z0, MID_OSM) ? OFF2 : [0, 0], x = x0 + o[0], z = z0 + o[1];
     const y = inRing(x, z, TOP) ? y2 : inRing(x, z, MID) ? y1 : RAMP;
     const dx = x - c[0], dz = z - c[1], l = Math.hypot(dx, dz), ex = dx / l, ez = dz / l;
     S.kind = KIND.PLAIN;

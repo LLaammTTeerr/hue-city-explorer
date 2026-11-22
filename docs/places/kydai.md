@@ -30,16 +30,22 @@ Model: `src/landmarks/places/kydai.js`. The old block in `citadel()` (`src/landm
   - the cobbled ramps OSM maps at the bastion's inner corners;
   - the steps on the pentagon's north edge;
   - the cannons on the bastion top and on tier 2.
-- **Heights in the model:** 6.6 + 5.4 + 5.7 = 17.7 m.
+- **Heights in the model:** 6.6 + 5.8 + 6.2 = 18.6 m. Tiers 2 and 3 follow the published "about 6 m" and "over 6 m"; the street view from Lê Duẩn showed the old 5.4 and 5.7 m about 9% and 20% short. The bottom tier is the shared rampart (6.6 m against "over 5.5 m"), so the total runs about 1 m over the published 17.5 m. The tip of the pole is 55.6 m against 54.5 m (`docs/heights-reference.json`).
 - **Batter:** each tier's walls lean in about 0.4 m.
 - **Stairs:**
   - The lower flight sits in a slot 4 m wide and 8.6 m deep, at the OSM steps.
   - The upper flight is 2.4 m wide and 6.8 m deep, in the east half of tier 3's north face. Its position is a guess.
   - Each flight ends at an arched gate. The gate's form is a guess.
-- **Guard huts:** 3.4 × 3.6 m, at the two ends of tier 3, with lime-plaster walls and a hipped brown tile roof. The size and roof are guesses.
+- **Guard huts:** 3.4 × 3.6 m, at the two ends of tier 3, 2.7 m in from the ends and 4.5 m in from the north-west edge (where the satellite shows them, not centred), with pale lime walls and a hipped roof of weathered grey tile (the satellite's colour). The size and form are guesses.
 - **Colours:** dark weathered grey brick, a lighter grey parapet, and reddish-grey floor tiles, all judged by eye.
 - **Pole:** tapered, on a two-step plinth.
 - **Night lighting:** the LEDs are an outline strip on each tier's parapet, cycling through colours with a warm-white pause. Floodlights stand at the foot of the pole.
+
+## Position
+- The satellite view (Google, visual reference only; captures stay in `scratch/`) puts both upper tiers a little west of their OSM outlines. Tall parts lean north in the image, so the fit corrects each corner for its height (about 0.35 m north per metre, measured on the 37 m pole).
+- After that correction, tier 2 sits about 3 m west and 1 m north of OSM way 218427614, and tier 3 about 4 m west and 1 m north of way 531031593. `kydai.js` moves the OSM rings by those offsets, with a comment; the bearing (about 53°) already matched. The pole stays at the centre of tier 3, which the satellite confirms.
+- The rampart's hole is cut to the OSM pentagon, so the place file paves over that hole at rampart height before drawing tier 2 on its moved outline. Cannons move with the tier they stand on.
+- The car street view on Lê Duẩn (true horizontal field about 107°) matches the pole and tier 3's edges to a few pixels.
 
 ## What changed
 - The old model had three pentagon terraces scaled from the one OSM ring, with no stairs, parapet detail, huts or cannons. It is replaced by:
