@@ -36,7 +36,7 @@ const RED_DK = hex('#6e1f17');
 const GOLD = hex('#d2a43c');
 const BRONZE = hex('#5d4a31');
 const ENAMEL = [hex('#2f6aa3'), hex('#3d8a5c'), hex('#d8b23a'), hex('#e6dcc4')];
-const ROOF = PAL.imperialRoof;
+const ROOF = shade(PAL.imperialRoof, 0.9); // the glaze reads a little duller than the city's palette yellow in Street View
 const RIDGE = hex('#f1d77a');
 const WALL = hex('#c9a36a'); // ochre-painted brick of the gable and back walls
 
@@ -150,7 +150,7 @@ export function build({ S, group, THREE }) {
     const p = W(cu[i], cv[j]), top = colTop(i, j);
     S.cyl(p[0], p[1], FL, FL + 0.3, 0.46, 0.42, 8, shade(STONE, 1.05), { cap: false }); // the stone base
     S.cyl(p[0], p[1], FL + 0.3, top, 0.3, 0.28, 8, RED, { cap: false });
-    S.cyl(p[0], p[1], FL + 2.2, FL + 2.5, 0.305, 0.3, 8, GOLD, { cap: false }); // a gilded dragon band
+    if (j > 0 && j < 7) S.cyl(p[0], p[1], FL + 2.2, FL + 2.5, 0.305, 0.3, 8, GOLD, { cap: false }); // a gilded band on the inner columns only: the verandah row reads plain red in Street View
   }
   // the crane and tortoise statues inside the hall (Frommers: "the statues of the heron and turtle inside the palace's
   // ornate lacquered interior"): drawn as a bronze pair of cranes on tortoises either side of the throne in the main
