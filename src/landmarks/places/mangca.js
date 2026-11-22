@@ -179,25 +179,29 @@ export function build({ S, data }) {
     archway(S, ax - GN[0] * (GATE_HALF_D + 0.03), az - GN[1] * (GATE_HALF_D + 0.03), [-GN[0], -GN[1]], GT);
     archway(S, ax + GN[0] * (WALL_OUTER + 0.03), az + GN[1] * (WALL_OUTER + 0.03), GN, GT);
 
-    // the old building on top (size estimated), abandoned: stained lime wash, cement-tiled hip roof
-    const bw = 15, bd = 7.2, bh = 3.1, ang = Math.atan2(GT[1], GT[0]);
+    // the old building on top, abandoned: stained lime wash, cement-tiled hip roof. The satellite shows one long grey
+    // roof over the whole gate block, about 36 x 9.5 m to the eaves along the wall, a ridge down its length; so the
+    // walls run the block's length (35.5 m), centred on it, not on the passage.
+    const bw = 33.6, bd = 8.4, bh = 3.1, ang = Math.atan2(GT[1], GT[0]);
+    const bx = GATE_C[0], bz = GATE_C[1];
     const wash = hex('#a89a78'), roof = hex('#6f6c66');
     S.kind = KIND.COLONIAL;
-    S.box(ax, az, gTop, gTop + bh, bw, bd, ang, wash, { top: shade(wash, 0.8) });
+    S.box(bx, bz, gTop, gTop + bh, bw, bd, ang, wash, { top: shade(wash, 0.8) });
     S.kind = KIND.PLAIN;
-    for (const sd of [-1, 1]) for (let j = 0; j < 5; j++) { // empty window and door openings
-      const s = -bw / 2 + 1.5 + j * ((bw - 3) / 4), door = j === 2;
-      const px = ax + GT[0] * s + GN[0] * sd * (bd / 2 + 0.03), pz = az + GT[1] * s + GN[1] * sd * (bd / 2 + 0.03);
+    const NW = 11; // empty window and door openings, about 3 m apart; a door in the middle of each long side
+    for (const sd of [-1, 1]) for (let j = 0; j < NW; j++) {
+      const s = -bw / 2 + 1.5 + j * ((bw - 3) / (NW - 1)), door = j === (NW - 1) / 2;
+      const px = bx + GT[0] * s + GN[0] * sd * (bd / 2 + 0.03), pz = bz + GT[1] * s + GN[1] * sd * (bd / 2 + 0.03);
       S.box(px, pz, gTop + (door ? 0.05 : 0.9), gTop + (door ? 2.4 : 2.3), door ? 1.2 : 1.0, 0.06, ang, hex('#26231f'));
     }
-    S.box(ax, az, gTop, gTop + 0.9, bw + 0.05, bd + 0.05, ang, shade(wash, 0.62)); // damp up the foot of the walls
-    S.hip(ax, az, bw, bd, ang, gTop + bh, 2.3, roof, { over: 0.6, fascia: 0.2, fasciaCol: shade(roof, 0.8), ridgeCol: shade(roof, 1.2), hips: true });
+    S.box(bx, bz, gTop, gTop + 0.9, bw + 0.05, bd + 0.05, ang, shade(wash, 0.62)); // damp up the foot of the walls
+    S.hip(bx, bz, bw, bd, ang, gTop + bh, 2.4, roof, { over: 0.6, fascia: 0.2, fasciaCol: shade(roof, 0.8), ridgeCol: shade(roof, 1.2), hips: true });
 
     // overgrowth: shrubs along the gate's top and creepers down its city face
     S.kind = KIND.PLAIN;
     for (let k = 0; k < 14; k++) {
       const s = (rand(k, 21) - 0.5) * 32, v = (rand(k, 22) - 0.5) * 11;
-      if (Math.abs(v) < bd / 2 + 1 && Math.abs(s - AXIS) < bw / 2 + 1) continue;
+      if (Math.abs(v) < bd / 2 + 1 && Math.abs(s) < bw / 2 + 1) continue;
       const px = GATE_C[0] + GT[0] * s + GN[0] * v, pz = GATE_C[1] + GT[1] * s + GN[1] * v, r = 0.9 + rand(k, 23) * 1.4;
       S.cyl(px, pz, gTop - 0.1, gTop + r * 1.3, r, r * 0.45, 6, mix(ivy, ivy2, rand(k, 24)), { rot: rand(k, 25) * 3 });
     }

@@ -33,18 +33,24 @@ Model: `src/landmarks/places/mangca.js` (id `mangca`). Two one-line guards hand 
 - Trấn Bình Môn:
   - A brick block on the OSM footprint at the Citadel wall's height (6.6 m), grassed on top.
   - A 2 m × 3 m arched mouth with sagging, rotting wooden doors, on its city face and on the wall's outer face where the bridge lands.
-  - The abandoned building on top: stained lime wash, empty openings, a grey cement-tile hip roof.
+  - The abandoned building on top: stained lime wash, empty openings, a grey cement-tile hip roof. Google's satellite
+    (checked 2026-11) shows one long grey roof with a ridge down its length over the whole gate block, about
+    36 × 9.5 m to the eaves, so the building runs the block's length (33.6 × 8.4 m walls), centred on the block.
   - Shrubs on top and creepers down the city face.
 
 ## Estimates
 - Parapet 1.0 m high and 1.2 m thick. Embrasures 0.9 m wide.
 - Positions of the six flights: the middle of the six longest inner faces.
-- Building on Trấn Bình Môn: 15 × 7.2 m, 3.1 m walls, 2.3 m roof. Its colours are judged, not measured.
+- Building on Trấn Bình Môn: plan from the satellite; 3.1 m walls and 2.4 m roof estimated. Its colours are judged, not measured.
+- The satellite roof sits about 4-5 m north-west of the OSM gate footprint along the wall, while the bridge and moat
+  match to about a metre; this may be the image's lean on a raised roof, so the OSM footprint is kept.
 - Whether the 2 m / 3 m passage figures belong to Trường Định môn or also to Trấn Bình Môn. The article gives them for Trường Định; the search summaries attach them to Trấn Bình. Both mouths use them.
 
 ## Not changed / left
 - The gorge facing the Citadel has no mapped wall. The mapped band alone (about 1,000 m on its outer line) already matches the sourced 1,048 m perimeter, so no wall is drawn there. This is not confirmed from photos.
 - The passage is not cut through the Citadel wall: that wall is `kinhthanh.js`, which cuts slots only for `citadel` gates. The mouths are drawn on the faces.
 - The moat, the 7.5 m path and the bridge are left as the mapped water, ground and road.
-- The barracks inside are mapped and infill buildings; no source gave the 1836 interior buildings or the gun platforms.
+- The barracks inside are the mapped buildings only: `scripts/build-data.mjs` keeps generated infill houses out of the
+  fort (the hull of its wall pieces), which the satellite shows as open grass and fish ponds. No source gave the 1836
+  interior buildings or the gun platforms.
 - About 5k triangles.

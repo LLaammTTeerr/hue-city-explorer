@@ -401,6 +401,13 @@ for (const poly of wall) fillPoly(poly, NOBUILD);
 for (const poly of wall) for (const r of poly) stampLine(r.concat([r[0]]), 30, NOBUILD);
 fillPoly([imperialRing], NOBUILD);
 { const tm = get('way', 205794912); if (tm) fillPoly([openRing(tm.geometry.map(proj))], NOBUILD); } // no generated houses inside chùa Thiên Mụ
+// no generated houses inside Trấn Bình Đài (Mang Cá): a closed military ground, open grass and fish ponds on the
+// satellite. Its wall pieces are the relation's rings that lie wholly outside the main rampart's ring.
+{
+  const main = wallRings.reduce((a, r) => (Math.abs(ringArea(r)) > Math.abs(ringArea(a)) ? r : a));
+  const fort = wallRings.filter((r) => r !== main && r.every((p) => !pip(p, main)));
+  if (fort.length) fillPoly([hull(fort.flat())], NOBUILD);
+}
 
 // =====================================================================
 // 3. Green / open land
