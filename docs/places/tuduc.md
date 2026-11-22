@@ -39,8 +39,14 @@ Builder: `src/landmarks/places/tuduc.js` (id `tuduc`, about 33k triangles). The 
 - **Bi Đình and stele:** the Bi Đình is drawn roofless, with four arched walls, as it stands today. The stele is about 4 m on a pedestal; the trụ biểu are 8.2 m, the mapped one mirrored to make the pair.
 - **Bửu Thành:** the walls (outer and inner rings, gate, screen) are estimated from photos and the OSM platform.
 - **Side tombs:** the Khiêm Thọ tiers are 0.45 m each; the walls and yard of Bồi Lăng are estimated.
-- **La Thành:** its run is estimated around the site. It breaks at water, at mapped paths and buildings, and at Vụ Khiêm Môn.
-- **Roofs:** yellow glazed tiles on the restored halls (Hòa Khiêm, Lương Khiêm, Minh Khiêm); old tiles on Ôn Khiêm and the rest.
+- **La Thành:** the north, east, south-east and south runs follow the tracks and Đoàn Như Hải, set by satellite and street views. The wall stands about 4–6 m inside the track edge and about 3.9 m inside the mapped centre of road 7007. The west run is still estimated. The wall is grey rubble stone with a pale lime coping. It breaks at water, at Vụ Khiêm Môn, and only where a mapped path crosses it at more than 25°. Paths running alongside it no longer cut it away.
+- **Roofs:** yellow glazed tiles on the restored halls (Hòa Khiêm, Lương Khiêm, Minh Khiêm) and on the Xung Khiêm and Dũ Khiêm tạ, which the satellite shows ochre. Pháp Khiêm and Lễ Khiêm have dark unglazed tiles, as the satellite shows. Ôn Khiêm and the rest have old tiles.
+
+## Satellite alignment (2026-11)
+- The hall positions and the axes matched the satellite to within about 1–3 m before this pass, so no hall was moved except as listed here.
+- The Bái Đình moved about 3 m west along the tomb axis. The stele platform shrank to 20.5 × 21 m (from 27 × 26) to fit its mapped edge.
+- Pháp Khiêm and Lễ Khiêm now face into the court between them.
+- **Forecourt:** a paved forecourt lies east of Khiêm Cung Môn, down to the lake, with a low wall on its north-east side. The gate's three flights now land on it; the middle flight pair was removed.
 
 ## What changed
 - **Temple complex:** built in full on its OSM footprints.
@@ -64,5 +70,5 @@ Builder: `src/landmarks/places/tuduc.js` (id `tuduc`, about 33k triangles). The 
 - The terrain lies 0.1–0.5 m above the water level over much of Lưu Khiêm and the crescent pond, so the water shows only in blocky patches. This is a terrain or water-data issue, not the replica's. The lake and pond are drawn by the shared water builder.
 - The small island pavilions and the details of the lake bridges are not modelled.
 - Ôn Khiêm is drawn whole, although it is currently taken down for restoration.
-- The Thượng Khiêm and Tự Khiêm gates are not placed separately because their positions are unconfirmed. The La Thành line is approximate.
+- The Thượng Khiêm and Tự Khiêm gates are not placed separately because their positions are unconfirmed. The west run of the La Thành is approximate.
 - Heights and the statue order should be checked against measured drawings if any turn up.
