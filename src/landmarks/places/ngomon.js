@@ -37,7 +37,7 @@ const NEN = 1.14; // the pavilion's own plinth on the base
 const GATES = [{ u: 0, w: 3.0, h: 4.1 }, { u: -6.1, w: 2.3, h: 3.85 }, { u: 6.1, w: 2.3, h: 3.85 }];
 const DICH = { w: 2.3, h: 2.8, v: (FRONT + WING) / 2, uBack: (PROJ + HALF) / 2 };
 
-const WALL = hex('#7d746a'); // weathered grey brick and bluestone, darker in the rain streaks
+const WALL = hex('#6f695f'); // weathered grey brick and bluestone, darker in the rain streaks
 const WALL_TOP = hex('#8f857a');
 const TERRACE = hex('#a3927b');
 const FRAME = hex('#c9bfab');
@@ -93,6 +93,9 @@ export function build({ S, group, THREE }) {
     S.kind = KIND.MASONRY;
   }
   S.kind = KIND.PLAIN;
+  // the leaves of the emperor's door, gilded timber set back in the mouth (yellow in Street View), with a dark stile
+  box(0, FRONT - 0.9, LAND_Y, LAND_Y + 3.1, 2.9, 0.12, hex('#b8923c'));
+  box(0, FRONT - 0.84, LAND_Y, LAND_Y + 3.1, 0.06, 0.06, DARK);
   // the plaque over the emperor's gateway, on the face toward the flag: two bronze characters, once gilded
   box(0, FRONT + 0.08, LAND_Y + 4.28, LAND_Y + 4.88, 2.2, 0.1, hex('#2d3b45'));
   for (const s of [-1, 1]) box(s * 0.45, FRONT + 0.14, LAND_Y + 4.38, LAND_Y + 4.78, 0.42, 0.04, GOLD);
@@ -256,7 +259,7 @@ export function build({ S, group, THREE }) {
   // core: the closed core's share of the colonnade (0 for an open hall)
   const hall = (w, d, ang, cx, cz, { roof, rh, tiers = 2, k = 0.68, kd = 0.62, core = 0.8 }) => {
     const ex = Math.cos(ang), ez = Math.sin(ang), Q = (u, v) => [cx + u * ex - v * ez, cz + u * ez + v * ex];
-    const wall = PAL.lacquer, over = 1.05, y = yN, lidY = y + WALLH - 0.2;
+    const wall = shade(PAL.lacquer, 0.82), over = 1.05, y = yN, lidY = y + WALLH - 0.2;
     const eave = { fascia: 0.3, fasciaCol: shade(wall, 0.75), ridgeCol: hex('#f1d77a'), hips: true, glazed: true, segs: 3 };
     S.kind = KIND.TIMBER;
     if (core > 0) {
@@ -287,8 +290,14 @@ export function build({ S, group, THREE }) {
       return;
     }
     S.hip(cx, cz, w, d, ang, y1, rh * 0.62, roof, { flare: 0.5, over, ...eave, ridgeCol: null });
+    const Q2 = (t, a) => [cx + t * Math.cos(a), cz + t * Math.sin(a)];
     const w2 = w * k, d2 = d * kd, y2 = y1 + rh * 0.36, y3 = y2 + WALLH * 0.72;
     S.box(cx, cz, y2, y3, w2, d2, ang, wall);
+    S.kind = KIND.PLAIN; // a gilded cornice band under the upper eave and the ridge finials
+    S.box(cx, cz, y3 - 0.45, y3 - 0.2, w2 + 0.1, d2 + 0.1, ang, hex('#c79a45'));
+    const half = Math.max(0, (Math.max(w2, d2) - Math.min(w2, d2)) / 2) * 0.8, ra = w2 >= d2 ? 0 : Math.PI / 2;
+    for (const sg of [-1, 1]) { const q = Q2(sg * half * 1, ang + ra); S.cyl(q[0], q[1], y3 + rh * 0.9, y3 + rh + 0.55, 0.22, 0.04, 6, hex('#e0c068'), { cap: true }); }
+    S.kind = KIND.TIMBER;
     S.hip(cx, cz, w2, d2, ang, y3, rh, roof, { flare: 0.5, over: over * 0.9, ...eave });
     eaves.push({ cx, cz, w, d, ang, y: y1, over, fascia: eave.fascia }, { cx, cz, w: w2, d: d2, ang, y: y3, over: over * 0.9, fascia: eave.fascia });
   };
