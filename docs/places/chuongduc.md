@@ -26,9 +26,8 @@ gate's OSM footprint, which it reads from `data.gates`.
 ## Estimated
 - From Google Street View (a car pano on Trần Nguyễn Hãn about 84 m south-west, and a user photosphere on the Lê Huân
   lawn, its pose estimated from the image), scaled against the 12.7 m footprint:
-  - one lower block of even height, about 4.6 m, with a continuous frieze and cornice; no bay stands taller than another;
-  - three arches of nearly one size, crowns level: middle 1.9 m wide, crown about 3.3 m; sides 1.7 m wide, crown about
-    3.15 m, centred 3.8 m either side of the middle;
+  - one lower block of even height, about 4.4–4.65 m, with a continuous frieze and cornice; no bay stands taller;
+  - three arches of nearly one size, crowns level, 3.1 m apart (see the review fixes below);
   - a roof tier over the whole block, and a narrow upper storey (about 3.4 m wide, eaves near 7.9 m) under the top roof;
     ridge about 9.35 m, finial about 10.2 m;
   - the side passages shut with red doors, the middle one open;
@@ -50,6 +49,20 @@ gate's OSM footprint, which it reads from `data.gates`.
 - Rebuilt from Street View (2026): the stepped bays (middle block 6.0 m, side bays 4.6 m under their own roofs, a much
   larger middle arch) became one even block with three like arches, a roof tier over all of it and the upper storey.
 
+- Review fixes (2026), measured on the car pano (good to a metre or two) against the arch spacing:
+  - the block is about 10.8 m across and 4.4 m above its floor, arches 3.1 m apart (side 1.5 m, middle 1.6 m wide);
+    the rest of the 12.7 m outline is a lower flanking pier at each end, rising just above the wall's coping;
+  - lower roof: a level skirt about 1.7 m deep, the lift kept to the corner tips, overhang 0.4 m;
+  - top roof: a small plain hip roof, modest upturn, gourd finial on the ridge; no horns, no hip ridges;
+  - no red fascia: a thin ochre tile-end line;
+  - a pale grey lime wall, muted mosaic panels, thin ochre arch surrounds;
+  - a decorated frieze across the full width between the arch crowns and the cornice;
+  - the gate stands on a stone terrace 0.85 m high with a balustrade on the moat side and steps at either end, as the
+    user photosphere shows. Both panos put the wall top at 0.6–0.7 of the block; the wall (`hoangthanh.js` OUTER, 4.17 m
+    with coping) was not changed, and the terrace brings it to about 0.73 of the block. If the wall really is lower
+    here, that is the wall's height, not the gate's.
+
 ## Left
-- Proportions come from distant Street View; an elevation drawing would settle the arch and storey heights.
+- The model's moat runs 12–19 m off the gate (skewed); the real one is about 9–10 m off, so the terrace is cut short
+  of it. Proportions come from distant Street View; an elevation drawing would settle the arch and storey heights.
 - The mosaic is only suggested by coloured panels. The 彰德門 board has gold blocks in place of characters.
