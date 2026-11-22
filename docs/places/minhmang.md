@@ -42,3 +42,17 @@ Builder: `src/landmarks/places/minhmang.js` (id `minhmang`). The older `minhMang
 - The lake pavilions (Điếu Ngư, Quan Lan, Nghênh Lương, Hư Hoài) are not built because their positions are unconfirmed.
 - Only the front stretch of the La Thành is drawn; the rest of the 1,750 m wall still needs a reliable outline.
 - The Truy Tư điện ruins and the outer guard posts are outside this pass.
+
+## Satellite alignment (rebuild pass)
+- Checked against satellite imagery at z19/z20 (visual reference only; nothing traced into `data/`). The OSM outlines
+  of the axis buildings sit about 2.9 m south of the imagery, a uniform offset, so the place file shifts the axis ends,
+  the trụ biểu and the mapped item rings 2.9 m north (`OFF`). The axis direction already matched (within ~0.5°).
+- Placed on the imagery along the shifted axis: Sùng Ân at s 174.7, the back wall of its court (Hoằng Trạch Môn) at
+  s 205.5, the side halls at s 146.8 / 190.6 and t ±22 (roofs about 19.5 x 13 m), the side bridges at t +15.8 / −17.6,
+  Minh Lâu, the Tân Nguyệt bridge and the Bửu Thành gate on t −0.8. Roof plans sized to the imagery: Sùng Ân about
+  25 x 26 m, Minh Lâu about 14 m, Hiển Đức Môn about 9 x 13 m, Bi Đình about 11 m.
+- Bi Đình: a Street View photosphere shows yellow stucco walls (not an open colonnade), a two-tier roof and terraces
+  some 3.5 m high with dragon-balustrade stairs; the terraces are raised to match and a flight added down the back.
+- The trụ biểu mounds are draped over the slope (the north one now sits on Thành Sơn's flank).
+- Left as OSM gives them: the lakes (the north shore of the southern lake reads 5–9 m south of the imagery) and the
+  Bái Đình width (about 40 m on the imagery vs the documented 45 m).
