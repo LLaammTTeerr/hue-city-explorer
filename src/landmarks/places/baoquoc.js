@@ -228,8 +228,24 @@ export function build({ data, S, group }) {
     box(u, v, lo - 0.4, y, v1 - v0 + 0.4, u1 - u0 + 0.4, shade(GREY, 0.9));
     S.kind = KIND.MASONRY;
     box(u, v, y, y + wallH, v1 - v0 - 1.0, u1 - u0 - 1.0, WALL, { top: shade(TILE, 0.8) });
+    // openings: dark timber doors and shuttered windows at a steady bay rhythm on both long faces
+    const len = (alongU ? u1 - u0 : v1 - v0) - 1.0, nb = Math.max(2, Math.round(len / 3.2)), pitch = len / nb;
+    for (let k = 0; k < nb; k++) {
+      const t = -len / 2 + pitch * (k + 0.5), door = k % 2 === 0;
+      for (const s of [-1, 1]) {
+        const dU = alongU ? u + t : u + s * ((u1 - u0 - 1.0) / 2 + 0.03), dV = alongU ? v + s * ((v1 - v0 - 1.0) / 2 + 0.03) : v + t;
+        const yb = y + (door ? 0 : 1.0), yt = y + (door ? 2.5 : 2.4);
+        box(dU, dV, yb, yt, alongU ? 0.14 : 1.5, alongU ? 1.5 : 0.14, door ? WOOD : shade(WOOD, 0.8));
+        if (!door) box(dU, dV, yb - 0.12, yb, alongU ? 0.18 : 1.7, alongU ? 1.7 : 0.18, shade(GREY, 1.05));
+      }
+    }
     if (alongU) roofU(u, v, u1 - u0 - 1.0, v1 - v0 - 1.0, y + wallH, roofH, ro);
     else roof(u, v, v1 - v0 - 1.0, u1 - u0 - 1.0, y + wallH, roofH, ro);
+    // ridge finials at the two ends
+    for (const s of [-1, 1]) {
+      const eu = alongU ? u + s * (len / 2 - 0.4) : u, ev = alongU ? v : v + s * (len / 2 - 0.4), q = W(eu, ev);
+      S.box(q[0], q[1], y + wallH + roofH - 0.05, y + wallH + roofH + 0.55, 0.3, 0.3, ang, shade(ro?.ridgeCol ?? RIDGE, 1.15));
+    }
     return y;
   };
   hall(0, 22.4, 0, 11, true);
