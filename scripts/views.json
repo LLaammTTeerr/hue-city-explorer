@@ -30,6 +30,41 @@
     "time": 1,
     "camera": { "pos": [-464.1, 85.6, -49.0], "target": [-464.1, 2.6, -49.1] }
   },
+  "junction-phu-xuan-south": {
+    "note": "Straight down on the south end of cầu Phú Xuân, where the bridge, Hà Nội and Lê Lợi meet, with the slip roads between them (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-240, 110, 545], "target": [-240, 2.6, 544.9] }
+  },
+  "junction-phu-xuan-north": {
+    "note": "Straight down on the north end of cầu Phú Xuân, where the bridge meets Trần Hưng Đạo and Lê Duẩn (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-545, 100, 190], "target": [-545, 2.6, 189.9] }
+  },
+  "junction-truong-tien-north": {
+    "note": "Straight down on the north end of cầu Trường Tiền, where its approach meets Trần Hưng Đạo and Chương Dương (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-195, 100, -180], "target": [-195, 2.6, -180.1] }
+  },
+  "junction-ly-thuong-kiet-ha-noi": {
+    "note": "Straight down on the six-way junction of Lý Thường Kiệt and Hà Nội (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [212, 100, 578], "target": [212, 2.6, 577.9] }
+  },
+  "junction-phu-xuan-south-oblique": {
+    "note": "The south end of cầu Phú Xuân from above the Hà Nội side, looking north-west across the junction to the bridge (issue #67).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-150, 70, 610], "target": [-245, 2.6, 535] }
+  },
   "thuong-tu-boat": {
     "note": "A visitor's report of a boat running through a bridge: above cầu Cửa Thượng Tứ by the Citadel's east corner, where a moored sampan sat under the deck (shared link c=-436.7,48.1,-63.9 t=-458.9,-52.2 a=1.91 f=44.7 m=10r).",
     "viewport": [1400, 733],
@@ -79,6 +114,20 @@
     "time": 1,
     "camera": { "pos": [-1106.0, 9.6, 34.2], "target": [-1121.0, 6.8, 14.2] }
   },
+  "north-bank-pavilion-yard": {
+    "note": "Straight down on the riverside park just west of cầu Trường Tiền's north end: the six-sided pavilion in its ring of path and the paved yards around it (issue #69).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-250, 110, -60], "target": [-250, 2.6, -59.9] }
+  },
+  "north-bank-pavilion-yard-oblique": {
+    "note": "The same park from the south-east at an angle, as the issue's screenshot sees it.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-215, 70, 40], "target": [-250, 2.6, -60] }
+  },
   "ngo-mon-dich-mon": {
     "note": "Standing in Ngọ Môn's forecourt between the wings, at eye height, looking at the west wing's inner face: Tả Dịch Môn and the west Giáp Môn from the side.",
     "viewport": [1400, 900],
@@ -92,6 +141,41 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [690, 150, 1750], "target": [690, 80, 3020] }
+  },
+  "dcct-front": {
+    "note": "Nhà thờ Dòng Chúa Cứu Thế from the forecourt, about 70 m east of the front, matched to VietNamNet's front photograph (the stepped gable, the great window, the canopy).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [804, 5, 1201.5], "target": [722, 17, 1206.6] }
+  },
+  "dcct-aerial": {
+    "note": "Nhà thờ Dòng Chúa Cứu Thế from a drone over the crossroads east of the grounds, matched to VietNamNet's aerial (the front block and the crossing tower behind).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [863.7, 75, 1197.8], "target": [705, 10, 1207.6] }
+  },
+  "phucam-front": {
+    "note": "Phủ Cam from 20 m above the forecourt stair, about 50 m in front on the axis, matched to the Commons 2024 front photographs (the towers, the shoulders, the nave gable behind).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-145.4, 30, 1723.4], "target": [-90, 2.6, 1885.2] }
+  },
+  "phucam-aerial": {
+    "note": "Phủ Cam from above Đoàn Hữu Trưng, 170 m in front on the axis, looking down on the front and the cross plan.",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-187, 70, 1602.7], "target": [-123.5, 12, 1787] }
+  },
+  "citadel-west-moat": {
+    "note": "The citadel's west face around cửa Chánh Tây, from outside above Lê Duẩn: the moat (Hộ Thành Hào) between Tây Thành Đài and Tây Thành Thủy Quan, crossed by cầu Chánh Tây.",
+    "viewport": [1720, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-3450, 650, -150], "target": [-2875, 2.6, -560] }
   },
   "elevation-ga-hue-street": {
     "note": "Ga Huế's forecourt and the streets east of it from just above the rooftops (issue #73): houses, roads and the station seated on the raised plain south of the river.",

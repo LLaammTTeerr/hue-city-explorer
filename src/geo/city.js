@@ -9,7 +9,7 @@ import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain
 import { treePlanter } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
-import { bridgeProfiles, resample, subPath } from './bridges.js';
+import { bridgeProfiles, resample, subPath, LAND_RAMP } from './bridges.js';
 import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
@@ -167,22 +167,41 @@ function slab(B, pts, width, yTop, thick, col, sideCol, parapet = 0, bottom = nu
     else if (Array.isArray(yTop)) ys[i] = yTop[0] + ((yTop[1] - yTop[0]) * s) / len;
     bs[i] = bottom ? bottom(s, ys[i]) : ys[i] - thick;
   }
+  // opt.tilt(s, p, c): extra height at deck point p across from centreline point c (a landing on a hillside)
+  const sAt = [];
+  for (let i = 0, a = 0; i < pts.length; i++) { if (i) a += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); sAt.push(a); }
+  const ty = (i, q) => ys[i] + (opt.tilt ? opt.tilt(sAt[i], q, pts[i]) : 0);
   for (let i = 0; i + 1 < pts.length; i++) {
-    const j = i + 1, ti = ys[i], tj = ys[j], bi = bs[i], bj = bs[j];
-    B.quad([L[i][0], ti, L[i][1]], [R[i][0], ti, R[i][1]], [R[j][0], tj, R[j][1]], [L[j][0], tj, L[j][1]], col, [0, 1, 0]);
+    const j = i + 1, bi = bs[i], bj = bs[j];
+    const Li = ty(i, L[i]), Ri = ty(i, R[i]), Lj = ty(j, L[j]), Rj = ty(j, R[j]);
+    B.quad([L[i][0], Li, L[i][1]], [R[i][0], Ri, R[i][1]], [R[j][0], Rj, R[j][1]], [L[j][0], Lj, L[j][1]], col, [0, 1, 0]);
     if (lane) {
       const [l, r] = lane, e = 0.012;
-      B.quad([l[i][0], ti + e, l[i][1]], [r[i][0], ti + e, r[i][1]], [r[j][0], tj + e, r[j][1]], [l[j][0], tj + e, l[j][1]], opt.lane.col, [0, 1, 0]);
+      B.quad([l[i][0], ty(i, l[i]) + e, l[i][1]], [r[i][0], ty(i, r[i]) + e, r[i][1]], [r[j][0], ty(j, r[j]) + e, r[j][1]], [l[j][0], ty(j, l[j]) + e, l[j][1]], opt.lane.col, [0, 1, 0]);
     }
     B.quad([L[i][0], bi, L[i][1]], [R[i][0], bi, R[i][1]], [R[j][0], bj, R[j][1]], [L[j][0], bj, L[j][1]], sideCol, [0, -1, 0]);
     const nx = L[i][0] - R[i][0], nz = L[i][1] - R[i][1];
-    B.quad([L[i][0], bi, L[i][1]], [L[j][0], bj, L[j][1]], [L[j][0], tj + parapet, L[j][1]], [L[i][0], ti + parapet, L[i][1]], sideCol, [nx, 0, nz]);
-    B.quad([R[i][0], bi, R[i][1]], [R[j][0], bj, R[j][1]], [R[j][0], tj + parapet, R[j][1]], [R[i][0], ti + parapet, R[i][1]], sideCol, [-nx, 0, -nz]);
+    B.quad([L[i][0], bi, L[i][1]], [L[j][0], bj, L[j][1]], [L[j][0], Lj + parapet, L[j][1]], [L[i][0], Li + parapet, L[i][1]], sideCol, [nx, 0, nz]);
+    B.quad([R[i][0], bi, R[i][1]], [R[j][0], bj, R[j][1]], [R[j][0], Rj + parapet, R[j][1]], [R[i][0], Ri + parapet, R[i][1]], sideCol, [-nx, 0, -nz]);
     if (parapet) {
-      B.quad([L[i][0], ti + parapet, L[i][1]], [L[j][0], tj + parapet, L[j][1]], [L[j][0], tj, L[j][1]], [L[i][0], ti, L[i][1]], sideCol, [-nx, 0, -nz]);
-      B.quad([R[i][0], ti + parapet, R[i][1]], [R[j][0], tj + parapet, R[j][1]], [R[j][0], tj, R[j][1]], [R[i][0], ti, R[i][1]], sideCol, [nx, 0, nz]);
+      B.quad([L[i][0], Li + parapet, L[i][1]], [L[j][0], Lj + parapet, L[j][1]], [L[j][0], Lj, L[j][1]], [L[i][0], Li, L[i][1]], sideCol, [-nx, 0, -nz]);
+      B.quad([R[i][0], Ri + parapet, R[i][1]], [R[j][0], Rj + parapet, R[j][1]], [R[j][0], Rj, R[j][1]], [R[i][0], Ri, R[i][1]], sideCol, [nx, 0, nz]);
     }
   }
+}
+const ss01 = (u) => { u = Math.max(0, Math.min(1, u)); return u * u * (3 - 2 * u); };
+// The lean a level deck needs at its ends to meet a street laid on a cross-slope, or null where neither end needs it.
+function landingTilt(pts, len, w) {
+  const R = Math.min(LAND_RAMP, len * 0.2), ends = [pts[0], pts[pts.length - 1]];
+  const lean = ends.map((p, k) => {
+    const q = pts[k ? pts.length - 2 : 1], l = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1, nx = -(q[1] - p[1]) / l, nz = (q[0] - p[0]) / l;
+    return Math.abs(rise(p[0] + nx * w / 2, p[1] + nz * w / 2) - rise(p[0] - nx * w / 2, p[1] - nz * w / 2)) > 0.1;
+  });
+  if (!lean[0] && !lean[1]) return null;
+  return (s, p, c) => {
+    const f = Math.max(lean[0] ? 1 - ss01(s / R) : 0, lean[1] ? 1 - ss01((len - s) / R) : 0);
+    return f ? f * (rise(p[0], p[1]) - rise(c[0], c[1])) : 0;
+  };
 }
 // Cầu Bạch Hổ, the 1908 railway bridge: steel through-trusses with a bowed top chord, one per span.
 function railTruss(B, pts, len, deck, pier) {
@@ -267,7 +286,7 @@ function medianShrubs(S, medians) {
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]) })); // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
+  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
   // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
   // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
@@ -303,7 +322,7 @@ function buildRoads(data, group, structures) {
     if (r.bridge || r.c > 4) return;
     const pts = drape(snapEnds(r.pts, r.ends));
     const [L, R] = ribbonPoints(pts, r.ws ? pts.map((p) => widthAt(r.pts, r.ws, p)) : r.w, r.ends);
-    cw.push({ id, c: r.c, pts: r.pts, L, R });
+    cw.push({ id, c: r.c, pts: r.pts, L, R, u: r.unmarked });
   });
   const greens = (data.green || []).filter(([k]) => k !== 'paved').map(([, poly]) => unflat(poly[0]));
   const { holes, cells: holeCells } = junctionHoles(cw, (x, z) => greens.some((g) => inPoly(g, x, z)));
@@ -332,7 +351,7 @@ function buildRoads(data, group, structures) {
   const guard = markingGuard(roads.map((r, id) => ({ id, c: r.c, w: r.w, pts: r.pts, bridge: r.bridge })).filter((r) => !r.bridge && r.c <= 2), holeCells);
   const dashes = [];
   roads.forEach((r, id) => {
-    if (r.bridge || r.c > 1) return;
+    if (r.bridge || r.c > 1 || r.unmarked) return;
     const len = pathLength(r.pts);
     // where along the road (every metre) a dash may lie
     const free = [];
@@ -400,7 +419,14 @@ function buildRoads(data, group, structures) {
       if (P.arches) structures.kind = KIND.MASONRY; // old brick-and-stone vaults read as masonry
       slab(structures, R.pts, w, P.y, P.thick, P.arches ? cols[Math.min(r.c, 3)] : deckTop, P.arches ? hex('#b3a58c') : deckSide, parapet, P.bottom || null, P.arches ? { ends: r.ends } : opt);
       structures.kind = k0;
-    } else slab(structures, r.pts, w, P.y, P.thick, deckTop, deckSide, parapet, null, opt);
+    } else {
+      // A road deck landing on a hillside: the street it joins takes the terrain's height at each edge (ribbon), so
+      // over its last LAND_RAMP m the deck leans to the same cross-slope; left level, its low side stood a step
+      // below the street (road 8314 in the southern hills, 1.1 m). Decks landing on the flat floor are unchanged.
+      const tilt = r.c <= 3 ? landingTilt(r.pts, P.len, w) : null;
+      if (tilt) slab(structures, resample(r.pts, 1.5).pts, w, P.y, P.thick, deckTop, deckSide, parapet, null, { ...opt, tilt });
+      else slab(structures, r.pts, w, P.y, P.thick, deckTop, deckSide, parapet, null, opt);
+    }
     const len = pathLength(r.pts);
     // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
     const dv = vongDone || replaced('bachho') ? null : (data.places || []).find((q) => q.id === 'bachho');
@@ -438,7 +464,7 @@ function buildRoads(data, group, structures) {
   // street lamps along the main streets (drawn only when the mood calls for light)
   const lp = [], lc = [];
   for (const r of roads) {
-    if (r.c > 2 || !r.flat) continue; // (a bridge way's street ends are lit as part of the way: life.js posts)
+    if (r.c > 2 || !r.flat || r.unmarked) continue; // a slip road is lit by the roads it joins (a bridge way's street ends are lit as part of the way: life.js posts)
     const len = pathLength(r.pts);
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {

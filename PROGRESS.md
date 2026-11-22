@@ -26,6 +26,22 @@
   heights. Fit: laser 1.31 m rms overall, plain 1.07 m, summits 1.18 m. New views `elevation-ga-hue-street`,
   `elevation-south-plain`, `elevation-tombs-far`. Open: ground under the Citadel floor is clamped up to it; 4 sharp
   grade breaks remain where roads meet locked banks.
+- Junctions and unmarked road types (2026-11-22, branch claude/issue-67-junctions-76663f, issue #67): on main the
+  north end of cầu Trường Tiền and Lý Thường Kiệt × Hà Nội were already right after #68/#72; both ends of cầu Phú Xuân
+  were not: their `*_link` slip roads were drawn as 15 m dashed, lit carriageways that swallowed the islands. New
+  unmarked road types (6th road element `lanes`; `data/road-types.json` for ways beyond `*_link`): slip roads are
+  lanes × 3.5 m + 0.5 m, no dashes or lamps; e.g. Hà Nội → Lê Lợi (way 1169292366) is 1 lane. Islands ≥ 10 m² between
+  slip roads are kept (junctions.js `ISLAND_MIN`). Views `junction-phu-xuan-south(-oblique)`, `junction-phu-xuan-north`,
+  `junction-truong-tien-north`, `junction-ly-thuong-kiet-ha-noi`. Follow-up: 10 trees still stand on painted junction
+  holes elsewhere (12 on main).
+- West moat (2026-11-22, branch claude/issue-62-canal-1b1ad3, issue #62): Hộ Thành Hào along the citadel's west face
+  (Tây Thành Đài → cửa Chánh Tây → Tây Thành Thủy Quan) is not mapped as water in OSM, so the scene showed dry land
+  there and cầu Chánh Tây as a road. `scripts/build-data.mjs` section 1 now adds it: outer bank parallel to the wall,
+  out to cầu Chánh Tây's mapped landing (70 m off the wall, the width of the mapped moat south of the inlet), cut to
+  the wall band; hull patches join it to the mapped moat at the corner and the Ngự Hà at the inlet. Water ≈ 61,300 m²
+  against 56,319 m² in the 2026 embankment project (VNA, 24/07/2026). The ring joins the river polygon, so the
+  moorings' random stream shifted (most sampans moved; two landed with their ends on a bank): a mooring now needs water
+  under the whole hull. View `citadel-west-moat`. Width decided (owner, 2026-11-22): keep the 70 m bank at the bridge landing, not the 56,319 m² project figure (about 50 m, which splits the moat at the bastion tips); see `docs/places/gate-cua-chanh-tay.md`.
 - Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
   Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
   bridges; 11 of them sat under a deck (Thượng Tứ, Cồn Dã Viên, …). They now keep 3 m from every bridge road, rail and
@@ -35,6 +51,20 @@
   built structures, using the exact hull-box test in `src/geo/clearance.js`. `npm run check:boats` (in `npm run check`)
   tests every moored sampan and a full round trip of every dragon boat against all static faces. Cost: ~100 ms more at
   load for the routing (an inline y prefilter could cut it).
+- Bus stations (2026-11-22, issue #71, branch claude/issue-71-places-c31c0c): Bến xe phía Nam (`benxenam`, OSM way
+  260244336) and Bến xe phía Bắc (`benxebac`, OSM way 1435288831 + node 4797504422) are searchable places with
+  replica files, stories and `docs/places/` notes. The paved extract now includes `amenity=bus_station` lots. Bắc has no
+  mapped yard, so build-data clears infill and trees from the hull of its hall and service roads. No published heights,
+  so no `heights-reference.json` entries. Infill reshuffles citywide on any build-data change (sequential RNG), as before.
+  Aeon Mall Huế (`aeon`, OSM way 1575540652) added on the owner's go-ahead: the frame's east edge moved 107.613 → 107.620
+  E (three new OSM extracts via `scripts/fetch-osm-east.sh`, paved extract refetched, 15 tiles). Height rasters were
+  refetched and spliced so the old area keeps its values; the northern villages get raster heights for the first time;
+  ICESat-2 lidar was not refetched. check-joints no longer skips big
+  triangles (it had missed Võ Nguyên Giáp's 226 m carriageway faces); that exposed a 1.1 m step at road 8314's hill
+  landing (southern hills, pre-existing), fixed by leaning a deck's last 6 m to the street's cross-slope
+  (`landingTilt` in src/geo/city.js; decks on the flat floor are unchanged). After merging main (#78-#80), moorings also keep clear of OSM piers and of Cồn Hến's own landings
+  (`src/landmarks/conhen-landings.js`, shared by the model and build-data); two sampans had run into them. Bến xe Nguyễn Hoàng skipped: the owner
+  asked sleepyluno on the issue for its location.
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
   the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them
@@ -52,6 +82,15 @@
   meeting their 6 m continuations at x≈-220, z≈-196; class changes mid-street) now narrows over its last 30 m to the
   other's width (build-data "Width steps": per-point widths, 5th element of a road record; city.js draws casing, kerb,
   carriageway and lamps from them; medians use them). 228 joints tapered.
+- Churches from the photo audit (2026-11-21): Dòng Chúa Cứu Thế has one tower, over the crossing (the old front
+  tower and the 32 m crossing crown were the same tower counted twice), with the photo-read tiers, gallery and
+  terracotta spire to the sourced 53 m cross. The front is its own block: stepped gable, pointed window, clock,
+  canopy on four pillars over three doors, curved wings. The sanctuary lantern is gone. Phủ Cam's centre screen is
+  replaced by two stone shoulders sloping inward to the low centre, lattice strips, and the nave gable with its
+  cross. The towers are continuous prisms (no stage caps) with the setbacks on the inner side, to the sourced 43.5 m.
+  Photo-derived figures are marked *est.* in docs/places/dcct.md and phucam.md. Views `dcct-front`, `dcct-aerial`,
+  `phucam-front`, `phucam-aerial`. Note: shot.mjs poses pass through clampView, which puts the target at y 2.6 and
+  drops the camera by the same amount, so a view's target should sit on the ground (phucam-front aims past the church).
 - Shadow maps cached (2026-11-21): csm.js redraws a map only when its snapped box, the sun direction, a casting
   LOD chunk reaching into it (lodFlips in lod.js) or `shadows.invalidate()` changes; moving casters (traffic, boats,
   tree sway) refresh on a cadence (near 33-100 ms, wide 100-330 ms). ~0.44 map renders per frame instead of 1.0

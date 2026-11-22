@@ -103,7 +103,7 @@ const OVERCLIP_MAX = 0.001; // share of clear slots allowed to go without a dash
 let open = 0;
 const missing = [];
 roads.forEach((r, id) => {
-  if (r.bridge || r.c > 1) return;
+  if (r.bridge || r.c > 1 || r.unmarked) return; // unmarked road types carry no dashes
   let len = 0;
   for (let i = 0; i + 1 < r.pts.length; i++) len += Math.hypot(r.pts[i + 1][0] - r.pts[i][0], r.pts[i + 1][1] - r.pts[i][1]);
   for (let s0 = 4; s0 + 5 < len; s0 += 13) {

@@ -130,7 +130,10 @@ Every push to `main` is checked, built and published to GitHub Pages by `.github
 `npm run data:fetch` (`scripts/fetch-osm-all.sh`) refreshes every OSM extract the build merges: the main Overpass
 extract (`scripts/fetch-osm.sh`, bbox 16.4455–16.4965 N, 107.552–107.613 E → `data/raw/hue-osm.json`), the western
 strip out to chùa Thiên Mụ at 107.5385 E (`data/raw/hue-osm-west.json`), the southern hills down to lăng Minh Mạng at
-16.382 N in six pieces (`scripts/fetch-osm-south.sh` → `hue-osm-south1..6.json`) and the fine detail of the water
+16.382 N in six pieces (`scripts/fetch-osm-south.sh` → `hue-osm-south1..6.json`), the northern villages to làng
+Sình at 16.530 N in four (`scripts/fetch-osm-north.sh` → `hue-osm-north1..4.json`), the eastern strip out to Aeon
+Mall at 107.620 E in three (`scripts/fetch-osm-east.sh` → `hue-osm-east1..3.json`; the box's east edge moved there
+from 107.613 E for issue #71), the paved squares and car parks over the whole box (`hue-osm-paved.json`) and the fine detail of the water
 park at hồ Thủy Tiên from the OSM API (`scripts/fetch-osm-detail.mjs` → `hue-osm-thuytien.json`). All the Overpass
 extracts use one query (`scripts/fetch-osm-strip.sh`). A response replaces its file only once it parses, holds
 elements and carries no Overpass `remark` (a timed-out, partial result); a piece that fails keeps its old copy and the
@@ -152,6 +155,13 @@ the whole set through `scripts/lib/data.mjs`), plus the small place index `publi
 | Citadel wall polygon (height 6.6 m from its tag), Imperial City walls, gates | roof shapes, facades, rooftop water tanks, rear wings on infill houses |
 | footprints/axes of Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the market hall | the hand-built models standing on those footprints |
 
+Road types. A road record in `hue.json` is `[class, bridge, points, width?, widths?, lanes?]` (widths in decimetres,
+`widths` per point where a carriageway tapers, else 0). A sixth element marks an unmarked road type: a slip road of
+1-3 lanes, drawn `lanes` × 3.5 m + 0.5 m wide with no lane dashes and no lamps, never narrowed as a divided twin nor
+tapered into. Every OSM `*_link` way is one (`lanes` tag, else 1 if one-way, 2 if not); `data/road-types.json`
+sets `unmarked-1/2/3` or `marked` for any other way by id. A pavement patch enclosed by slip roads stays a traffic
+island once it reaches 10 m² (`ISLAND_MIN` in `src/geo/junctions.js`) instead of being painted as a junction hole.
+
 Ground height is calibrated against measurements; `npm run data:build` prints how well it fits. The surface comes
 from the owner's elevation raster `data/raw/dem/output_hh.tif` (issue #73): Band 1, metres above the WGS 84
 ellipsoid, the [Copernicus GLO-30](https://registry.opendata.aws/copernicus-dem/) surface on a 1 arc-second (≈30 m)
@@ -165,7 +175,8 @@ is corrected against two kinds of measured height:
 
 - **ICESat-2 satellite lidar** (`scripts/fetch-lidar.py` → `data/raw/lidar/icesat2-ground.json`): about 7,400 laser
   ground heights on land inside the box, good to a few decimetres, along tracks that pass within a few hundred metres
-  of most of it. The difference between them and the model is spread from the tracks as a smooth correction; the drawn
+  of most of it (not refetched when the box grew east to 107.620 E: a new pull would shift the calibration
+  across the whole city, and the strip leans on the nearby tracks). The difference between them and the model is spread from the tracks as a smooth correction; the drawn
   ground is within about 1.1 m rms of the laser on the plain.
 - **Documented summits** (`data/control-points.json`): the tracks mostly miss the hilltops, where bare earth reads
   2-10 m low. Where the land is convex the ground moves to the surface model plus 2 m, which fits the published
