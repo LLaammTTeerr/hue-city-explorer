@@ -45,12 +45,20 @@ Before this, the place was only the generic mapped buildings from `data.bld`. Th
 - Bodhi tree, planted 1939, in the front yard on the right. Red-brick forecourt.
 
 ## Estimated
-- Every height except the stupa's: front-hall ridge about 14.5 m above the yard, rear hall about 15.5 m, towers about 10 m, gate about 8.2 m.
+- Every height except the stupa's: front-hall ridge about 14.5 m above the yard, rear hall about 15.5 m, towers about 11 m, gate about 8.2 m.
 - Column spacing, the tower size and shape, the gate's widths, and the yard level (one level just above the highest ground).
 - The extent of the brick paving and the lawns.
 - The trees other than the Bodhi tree and the stupa ring.
 - The blocks behind the hall, drawn as plain two-storey blocks.
 - The "two halls one behind the other" reading of the main hall's roofs.
+
+## Street View check (2026)
+Compared from car panoramas on Điện Biên Phủ and a visitor panorama in the yard. These are visual references only; nothing was traced from them.
+- The site sits on a rubble-stone base about 1.3 m high along Điện Biên Phủ. The yard is drawn 1.4 m above the highest ground at the wall.
+- The street wall is cream, with a band of dark key-fret openings, square posts with ball finials, and a brown coping.
+- The front hall has tall red columns, a low lower roof, a clerestory of grey-green panels and a pale ceramic ridge crest with dragons at the ends. Its tiles are a dull red-brown.
+- The towers have a tall lower storey with large lattice windows. From the street the drum tower's top reaches about the hall's hip crest; from the yard the wing looks lower. The model follows the street view.
+- Not modelled: the hexagonal red-brick paving and grey concrete strip along the east hall, which has two storeys plus a pent roof and balcony; the Ashoka trees in planters in the yard.
 
 ## Model
 - About 18.8k triangles.

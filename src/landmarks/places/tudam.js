@@ -46,11 +46,11 @@ const P = (u, v) => [O[0] + u * UX - v * UZ, O[1] + u * UZ + v * UX];
 
 const C = {
   granite: hex('#9d9a92'), graniteDark: hex('#7c7a74'), step: hex('#b3afa6'),
-  wall: hex('#e8d08e'), wallLight: hex('#efe1b8'), column: hex('#7d2f22'), door: hex('#5a2c1e'),
-  tile: hex('#b25f3a'), tileDark: hex('#8f4a2e'), ceramic: hex('#ebe7dc'), panel: hex('#8fa3a6'), panelFrame: hex('#6b3a26'),
+  wall: hex('#e6cd84'), wallLight: hex('#efe1b8'), column: hex('#6e2a20'), door: hex('#5a2c1e'),
+  tile: hex('#a04f38'), tileDark: hex('#7d3b29'), ceramic: hex('#ebe7dc'), crest: hex('#c9c3b2'), panel: hex('#5e6c68'), panelFrame: hex('#6b3a26'),
   brick: hex('#a45138'), brickDark: hex('#7e3b2a'), rail: hex('#eadbb6'),
   pier: hex('#bdbfba'), ochre: hex('#b9864f'), board: hex('#2f5c4c'), letters: hex('#efe4c2'), iron: hex('#24262a'),
-  fenceWall: hex('#ead9a6'), fret: hex('#8d908c'), base: hex('#5e5a51'),
+  fenceWall: hex('#ead9a6'), fret: hex('#f2ecdc'), fretCut: hex('#4a4943'), coping: hex('#8a4a36'), base: hex('#58574f'),
   pave: hex('#aba69b'), redBrick: hex('#a4533f'), lawn: hex('#5f7f3c'),
   leaf: hex('#4b7631'), leaf2: hex('#5f8a3a'), leafDark: hex('#3c6229'), trunk: hex('#6a5442'), gold: hex('#d9a93a'),
 };
@@ -80,12 +80,13 @@ export function build({ data, S, group, THREE }) {
   // the precinct less the streets OSM draws into it (Điện Biên Phủ runs a few metres inside the mapped west side):
   // the wall stands at the kerb
   const site = offStreets(data, inset(SITE, 1.0));
-  // one level for the whole precinct, a little above its highest ground (the yard stands over the street on a stone
-  // base, as the photos from Điện Biên Phủ and Sư Liễu Quán show)
+  // one level for the whole precinct, above its highest ground: the yard stands over Điện Biên Phủ on a rubble-stone
+  // base about 1.3 m high along that street (Google Street View from the street, 2025), more toward Sư Liễu
+  // Quán where the ground falls away
   let top = -Infinity;
   for (let x = -803; x <= -710; x += 3) for (let z = 1850; z <= 1966; z += 3) if (inRing(x, z, site)) top = Math.max(top, rise(x, z));
   for (const p of site) top = Math.max(top, rise(p[0], p[1]));
-  const Y = LAND_Y + top + 0.3;
+  const Y = LAND_Y + top + 1.4;
   const low = LAND_Y + Math.min(...site.map((p) => rise(p[0], p[1]))) - 0.4;
   S.base = Y - LAND_Y;
   const lamps = [], lampCol = [];
@@ -141,8 +142,8 @@ export function build({ data, S, group, THREE }) {
   }
   const yF = Y + PH;
   // tiền đường (front) and chánh điện (behind): w along u is the column line, d along v
-  hall(S, P(cu, 7.75), 22.6, 14.2, yF, { wallH: 5.2, rLow: 2.3, clere: 1.9, rTop: 2.9, front: true, lamp, L });
-  hall(S, P(cu, -9.6), 22.6, 17.0, yF, { wallH: 5.5, rLow: 2.5, clere: 2.1, rTop: 3.3, front: false, lamp, L });
+  hall(S, P(cu, 7.75), 22.6, 14.2, yF, { wallH: 4.5, rLow: 2.9, clere: 2.5, rTop: 2.9, front: true, lamp, L });
+  hall(S, P(cu, -9.6), 22.6, 17.0, yF, { wallH: 4.8, rLow: 3.1, clere: 2.7, rTop: 3.2, front: false, lamp, L });
 
   // lầu chuông (east, the Buddha's left) and lầu trống (west): the two wings at the front corners in OSM
   for (const s of [-1, 1]) {
@@ -150,12 +151,17 @@ export function build({ data, S, group, THREE }) {
     const c = P(u, v);
     S.kind = KIND.MASONRY;
     S.box(c[0], c[1], Y - 0.1, yF, 5.4, 5.4, ANG, C.granite, { top: C.step, topKind: KIND.ROAD });
-    const t = pavilion(S, c[0], c[1], 4.0, 4.0, ANG, yF, { tiers: 2, wallH: 3.3, roof: C.tile, wall: C.wall, over: 0.9, rh: 2.0, ridge: C.ceramic, segs: 3 });
+    // a tall lower storey (Street View from Điện Biên Phủ: the drum tower's top level with the hall's hip crest)
+    const t = pavilion(S, c[0], c[1], 4.4, 4.4, ANG, yF, { tiers: 2, wallH: 4.3, roof: C.tile, wall: C.wall, over: 0.9, rh: 2.0, ridge: C.ceramic, segs: 3 });
     S.kind = KIND.PLAIN;
     S.cyl(c[0], c[1], t, t + 0.5, 0.28, 0.12, 6, C.ceramic); // a gourd on the pyramid
-    // the round window of the upper storey, toward the yard
-    const w = P(u, v + 1.43);
-    S.box(w[0], w[1], yF + 5.3, yF + 6.3, 0.9, 0.06, ANG, C.door);
+    // a tall lattice window in each face of the lower storey: a dark frame round a grey wooden grille
+    for (const [du, dv, a] of [[0, 2.23, ANG], [0, -2.23, ANG], [2.23, 0, ANG + Math.PI / 2], [-2.23, 0, ANG + Math.PI / 2]]) {
+      const w = P(u + du, v + dv);
+      S.box(w[0], w[1], yF + 0.9, yF + 3.2, 1.6, 0.06, a, C.panelFrame);
+      const g = P(u + du * 1.01, v + dv * 1.01);
+      S.box(g[0], g[1], yF + 1.05, yF + 3.05, 1.3, 0.06, a, C.panel);
+    }
   }
 
   // ---------------- tháp Ấn Tôn: octagonal, seven storeys, about 27 m ----------------
@@ -193,9 +199,9 @@ export function build({ data, S, group, THREE }) {
   {
     const g = rise(...P(cu, gv + 3.5)) + LAND_Y, drop = Y - g;
     if (drop > 0.12) {
-      const n = Math.max(1, Math.round(drop / 0.16)), sh = drop / n;
+      const n = Math.max(1, Math.ceil(drop / 0.18)), sh = drop / n, tr = Math.min(0.34, 4.0 / n); // kept off the street
       S.kind = KIND.MASONRY;
-      for (let k = 0; k < n; k++) { const q = P(cu, gv + 0.35 + 0.34 * (k + 0.5)); S.box(q[0], q[1], g - 0.2, Y - sh * (k + 1) + sh, 12.4, 0.34, ANG, C.step, { topKind: KIND.ROAD }); }
+      for (let k = 0; k < n; k++) { const q = P(cu, gv + 0.35 + tr * (k + 0.5)); S.box(q[0], q[1], g - 0.2, Y - sh * (k + 1) + sh, 12.4, tr, ANG, C.step, { topKind: KIND.ROAD }); }
     }
   }
 
@@ -288,10 +294,17 @@ function hall(S, c, w, d, y0, { wallH, rLow, clere, rTop, front, lamp, L }) {
   // the ridge: a dragon curling up at each end, and on the front hall the dharma wheel between two dragons
   S.kind = KIND.PLAIN;
   const ry = y3 + rTop + 0.25, hr = Math.max(0, (w2 + 2.4) / 2 - ((d2 + 2.4) / 2) * 0.92);
+  // the crest along the ridge: a tall band of moulded panels in grey-white mortar and ceramic (Street View shows it as
+  // heavy as a parapet, a dragon at each end)
+  S.box(cx, cz, ry - 0.3, ry + 0.45, 2 * hr, 0.4, ANG, C.crest, { top: C.ceramic });
+  for (let i = -2; i <= 2; i++) {
+    const q = Q((i * hr) / 3, 0);
+    S.box(q[0], q[1], ry - 0.15, ry + 0.3, Math.min(2.2, hr / 2), 0.46, ANG, C.panel);
+  }
   for (const sg of [-1, 1]) {
-    const e = Q(sg * hr, 0), m = Q(sg * (hr - 1.4), 0);
-    S.beam([e[0], ry + 0.1, e[1]], [m[0], ry + 0.9, m[1]], 0.35, 0.5, C.ceramic);
-    S.beam([e[0], ry, e[1]], [e[0], ry + 1.25, e[1]], 0.4, 0.4, C.ceramic);
+    const e = Q(sg * hr, 0), m = Q(sg * (hr - 1.6), 0);
+    S.beam([e[0], ry + 0.2, e[1]], [m[0], ry + 1.2, m[1]], 0.4, 0.6, C.ceramic);
+    S.beam([e[0], ry, e[1]], [e[0], ry + 1.6, e[1]], 0.45, 0.45, C.ceramic);
   }
   if (front) {
     const m = Q(0, 0);
@@ -482,9 +495,11 @@ function gate(S, cu, v, y0, lamp, L) {
   L.beam([a[0], y0 + 5.05, a[1]], [b[0], y0 + 5.05, b[1]], 0.1, 0.08, [1, 1, 1]);
 }
 
-// the precinct wall on its stone base: cream bays between pilasters, each with a grey key-fret panel, a cream cap
+// the precinct wall: a balustrade on the yard's rubble-stone base (the base is the yard's own side). Google Street View
+// along Điện Biên Phủ shows cream bays of pierced key-fret blocks between pilasters with ball finials, a red-brown tile
+// coping, about 0.95 m above the yard
 function wall(S, ring, y0, [g0, g1], lamp) {
-  const h = 1.75, every = 3.4;
+  const h = 0.95, every = 3.4;
   const gate = (x, z) => { // inside the gate opening (between the two outer gate piers)
     const ax = g1[0] - g0[0], az = g1[1] - g0[1], L2 = ax * ax + az * az;
     const t = ((x - g0[0]) * ax + (z - g0[1]) * az) / L2, px = g0[0] + ax * t, pz = g0[1] + az * t;
@@ -495,22 +510,35 @@ function wall(S, ring, y0, [g0, g1], lamp) {
     const a = ring[i], b = ring[(i + 1) % ring.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     if (len < 0.5) continue;
     const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), nb = Math.max(1, Math.round(len / every));
+    const ca = Math.cos(ang), sa = Math.sin(ang);
     for (let j = 0; j < nb; j++) {
       const p = [a[0] + ((b[0] - a[0]) * j) / nb, a[1] + ((b[1] - a[1]) * j) / nb];
       const q = [a[0] + ((b[0] - a[0]) * (j + 1)) / nb, a[1] + ((b[1] - a[1]) * (j + 1)) / nb];
       const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, bl = len / nb;
       if (gate(mx, mz)) continue;
       S.kind = KIND.MASONRY;
-      S.box(mx, mz, y0, y0 + 0.55, bl, 0.3, ang, C.fenceWall);
-      S.box(mx, mz, y0 + 1.45, y0 + h - 0.1, bl, 0.3, ang, C.fenceWall, { top: C.wallLight });
+      S.box(mx, mz, y0 - 0.05, y0 + 0.15, bl, 0.32, ang, C.fenceWall); // plinth
       S.kind = KIND.PLAIN;
-      S.box(mx, mz, y0 + 0.55, y0 + 1.45, bl - 0.4, 0.14, ang, C.fret);
-      S.box(mx, mz, y0 + h - 0.1, y0 + h, bl + 0.05, 0.42, ang, C.wallLight);
+      S.box(mx, mz, y0 + 0.15, y0 + 0.74, bl - 0.4, 0.12, ang, C.fret); // the fret blocks
+      // the key-fret cut through each block: a cross with a hook on two arms, dark where it shows the yard
+      const nm = Math.max(1, Math.round((bl - 0.4) / 0.9)), mw = (bl - 0.4) / nm;
+      for (let m = 0; m < nm; m++) {
+        const t = -(bl - 0.4) / 2 + mw * (m + 0.5), cx = mx + t * ca, cz = mz + t * sa, s2 = Math.min(0.56, mw * 0.66) / 2;
+        S.box(cx, cz, y0 + 0.22, y0 + 0.68, 0.09, 0.16, ang, C.fretCut);
+        S.box(cx, cz, y0 + 0.41, y0 + 0.49, 2 * s2, 0.16, ang, C.fretCut);
+        for (const sg of [-1, 1]) {
+          const hx = cx + sg * s2 * 0.5 * ca, hz = cz + sg * s2 * 0.5 * sa;
+          S.box(hx, hz, sg > 0 ? y0 + 0.6 : y0 + 0.22, sg > 0 ? y0 + 0.68 : y0 + 0.3, s2, 0.16, ang, C.fretCut);
+        }
+      }
+      S.box(mx, mz, y0 + 0.74, y0 + h - 0.1, bl, 0.26, ang, C.fenceWall);
+      S.box(mx, mz, y0 + h - 0.1, y0 + h, bl + 0.05, 0.4, ang, C.coping, { top: C.coping });
       if (!gate(p[0], p[1])) {
         S.kind = KIND.MASONRY;
-        S.box(p[0], p[1], y0, y0 + h + 0.3, 0.46, 0.46, ang, C.fenceWall, { top: C.wallLight });
+        S.box(p[0], p[1], y0 - 0.05, y0 + h + 0.25, 0.44, 0.44, ang, C.fenceWall, { top: C.wallLight });
         S.kind = KIND.PLAIN;
-        S.box(p[0], p[1], y0 + h - 0.2, y0 + h - 0.05, 0.5, 0.5, ang, C.ochre);
+        S.box(p[0], p[1], y0 + h + 0.15, y0 + h + 0.3, 0.52, 0.52, ang, C.wallLight);
+        S.cyl(p[0], p[1], y0 + h + 0.3, y0 + h + 0.62, 0.16, 0.06, 6, C.wallLight); // the ball finial
         if (k++ % 4 === 0) lamp(p[0], y0 + h + 0.5, p[1], [1, 0.84, 0.58]);
       }
     }
