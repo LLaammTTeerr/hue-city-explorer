@@ -40,7 +40,7 @@ const WALLS = [
 // walls are yellow stucco with white pilasters, a grey frieze under the eave and a red-brown plinth.
 const TILE = hex('#6c6358'), RIDGE = hex('#d6cfbd'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
 const STONE = PAL.stone, PAVE = hex('#c9c3b6'), PLINTH = hex('#8c5040'), DARK = hex('#3a2420'), OCHRE = hex('#cfa65a');
-const WALL = hex('#dcc57f'), PIL = hex('#ece5d2'), FRIEZE = hex('#a9aaa2'), BLUE = hex('#3f5f9c'), GABLE = hex('#5d4b44');
+const WALL = hex('#dcc57f'), PIL = hex('#ece5d2'), FRIEZE = hex('#a9aaa2'), BLUE = hex('#3f5f9c'), GABLE = hex('#c8b283'), MOSAIC = hex('#b8453a');
 const gY = (x, z) => LAND_Y + rise(x, z);
 
 export const id = 'duyetthi';
@@ -65,6 +65,10 @@ export function build({ S }) {
   box(0, 0, y0 - 0.25, y0 + 0.07, L + 1.6, W + 1.6, shade(STONE, 0.95));
   box(L / 2 + 13.8, 0, y0 - 0.25, y0 + 0.06, 26, 24, PAVE, { topKind: KIND.ROAD });
   S.kind = KIND.PLAIN;
+  for (let k = -5; k <= 5; k++) { // paving joints, 2.4 m slabs
+    box(L / 2 + 13.8, k * 2.4, y0 + 0.062, y0 + 0.07, 26, 0.05, shade(PAVE, 0.82));
+    box(L / 2 + 13.8 + k * 2.4, 0, y0 + 0.062, y0 + 0.07, 0.05, 24, shade(PAVE, 0.82));
+  }
   box(L / 2 + 4.2, 0, y0 + 0.06, y0 + 0.75, 1.0, 7.5, hex('#4d6b3a'));
   cyl(L / 2 + 5.6, 0, y0 + 0.06, y0 + 0.5, 0.9, 0.9, 8, shade(STONE, 0.9));
   cyl(L / 2 + 5.6, 0, y0 + 0.5, y0 + 1.5, 0.55, 0.75, 10, hex('#3f3a33'));
@@ -86,15 +90,19 @@ export function build({ S }) {
   box(wl / 2 - pd / 2, 0, yE - 0.95, yE, pd, pw, FRIEZE); // the lintel over the portico
   box(0, 0, yE - 0.95, yE - 0.15, wl + 0.08, ww + 0.08, FRIEZE); // the frieze band under the eave
   // the portico: doors in its back wall, two columns between the openings, white pilasters either side
-  for (let i = -1; i <= 1; i++) box(wl / 2 - pd + 0.03, i * 2.8, yp + 0.05, yE - 1.25, 0.08, 2.1, shade(DARK, i ? 1.3 : 1));
+  box(wl / 2 - pd + 0.02, 0, yp + 0.02, yE - 0.95, 0.06, pw, shade(WALL, 0.88)); // the recess: lighter inner wall
+  for (let i = -1; i <= 1; i++) box(wl / 2 - pd + 0.06, i * 2.8, yp + 0.05, yE - 1.4, 0.08, 1.9, shade(LAC, 0.55));
   for (const s of [-1, 1]) cyl(wl / 2 - 0.35, s * 1.9, yp, yE - 0.95, 0.2, 0.18, 8, shade(WALL, 1.05), { cap: false });
   // the bay lines: four bays and two end bays (chái) down each side
   const chai = 5.6, gian = (wl - 2 * chai) / 4;
   const xs = [-wl / 2, -wl / 2 + chai]; for (let i = 1; i <= 4; i++) xs.push(-wl / 2 + chai + i * gian);
   const medal = (u, v, n) => { // a square window framed in blue with a porcelain panel; n is the outward normal axis
     const q = n === 'v' ? [1.7, 0.12] : [0.12, 1.7], r = n === 'v' ? [1.3, 0.14] : [0.14, 1.3];
+    const f = n === 'v' ? [1.95, 0.1] : [0.1, 1.95];
+    box(u, v, yp + 1.05, yp + 2.95, f[0], f[1], PIL);
     box(u, v, yp + 1.15, yp + 2.85, q[0], q[1], BLUE);
     box(u, v, yp + 1.35, yp + 2.65, r[0], r[1], shade(BLUE, 0.6));
+    box(u, v, yp + 1.65, yp + 2.35, r[0] * 0.5 + 0.02, r[1] + 0.02, MOSAIC);
   };
   for (let i = 0; i + 1 < xs.length; i++) for (const s of [-1, 1]) medal((xs[i] + xs[i + 1]) / 2, s * (ww / 2 + 0.02), 'v');
   for (const x of xs) for (const s of [-1, 1]) box(x, s * (ww / 2 + 0.06), yp, yE - 0.95, 0.6, 0.14, PIL);
@@ -110,7 +118,7 @@ export function build({ S }) {
 
   // ---- lower roof: the skirt round the whole hall, rising to meet the upper roof's eave (the photo shows no
   // clerestory band between them at the front: the gable stands straight on the skirt) ----
-  hip(0, 0, wl, ww, yE, 4.8, { over: 1.2, flare: 0.35, ridgeCol: RIDGE, horns: true, segs: 3 });
+  hip(0, 0, wl, ww, yE, 4.8, { fasciaCol: shade(BLUE, 0.75), over: 1.2, flare: 0.35, ridgeCol: RIDGE, horns: true, segs: 3 });
 
   // ---- upper storey: the inner hall's walls (hidden by the skirt), then the main roof, gabled at both ends ----
   // From above the upper roof runs ~27 m between its gable ends and ~10 m across its eaves, set ~5.6 m inside
@@ -132,7 +140,10 @@ export function build({ S }) {
       const va = -bw2 / 2 + (bw2 * k) / n, vb = -bw2 / 2 + (bw2 * (k + 1)) / n;
       S.quad(P3(u, va, yU), P3(u, vb, yU), P3(u, vb, yU + gableY(vb) - 0.08), P3(u, va, yU + gableY(va) - 0.08), GABLE, nrm);
     }
-    box(u + s * 0.03, 0, yU + 1.1, yU + 2.1, 0.06, 1.3, GOLD);
+    box(u + s * 0.02, 0, yU + 0.05, yU + 0.45, 0.05, bw2 * 0.9, BLUE); // the blue band along the gable's foot
+    box(u + s * 0.03, 0, yU + 0.8, yU + 2.3, 0.06, 3.0, MOSAIC);
+    box(u + s * 0.05, 0, yU + 1.0, yU + 2.1, 0.06, 2.6, shade(GOLD, 0.9));
+    box(u + s * 0.07, 0, yU + 1.25, yU + 1.85, 0.06, 1.4, MOSAIC);
     box(u, 0, yE + 1.6, yU, 0.06, bw2, GABLE); // the gable's foot, down to where the skirt meets it
     // the barge ridge follows the roof's edge at the cut, lifting toward the eave
     // (the clip takes the corners away, so the roof has no eave lift at the cut: the ridge just follows the curve)
