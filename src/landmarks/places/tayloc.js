@@ -71,6 +71,8 @@ function gable(S, u0, u1, v0, v1, a, b, col, over = 0.6, along = null) {
   S.quad(e0[0], e0[1], r[1], r[0], col, hint(B[0]));
   S.quad(e1[1], e1[0], r[0], r[1], shade(col, 0.86), hint(B[1]));
   S.beam([r[0][0], r[0][1] + 0.04, r[0][2]], [r[1][0], r[1][1] + 0.04, r[1][2]], 0.45, 0.12, shade(col, 0.7));
+  // fascia boards along both eaves, a darker band under the sheet's edge
+  for (const eg of e0.concat([]).length ? [e0, e1] : []) S.beam([eg[0][0], eg[0][1] - 0.1, eg[0][2]], [eg[1][0], eg[1][1] - 0.1, eg[1][2]], 0.12, 0.2, shade(col, 0.55));
   // the undersides, so the eaves read dark from below, and the gable ends in the wall colour
   S.kind = KIND.PLAIN;
   S.quad(r[0], r[1], e0[1], e0[0], shade(col, 0.45), [0, -1, 0]);
