@@ -242,7 +242,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
         for (const o of posts) {
           const y = gY(o[0], o[1]);
           S.kind = KIND.MASONRY;
-          S.box(o[0], o[1], y - 0.4, y + st.h + st.postUp, st.postW, st.postW, ang, st.wall, { top: st.cap });
+          S.box(o[0], o[1], y - 0.4, y + st.h + st.postUp, st.postW, st.postW, ang, st.postCol || st.wall, { top: st.cap }); // st.postCol: posts and piers in their own colour (optional)
           if (k % 2 === 0) { S.kind = KIND.PLAIN; S.box(o[0], o[1], y + st.h + st.postUp, y + st.h + st.postUp + 0.12, st.postW + 0.12, st.postW + 0.12, ang, st.cap); } // a cap on every other post (keeps the count down)
           sinceLamp += 1;
           if (lampEvery && sinceLamp % lampEvery === 0) lamp(o[0], y + st.h + st.postUp + 0.35, o[1], lampCol, 3);
@@ -256,7 +256,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
       if (solid.some((r) => inRing(p[0], p[1], r))) continue; // a gatehouse frames the opening itself
       S.base = y - LAND_Y;
       S.kind = KIND.MASONRY;
-      S.box(p[0], p[1], y - 0.4, top, st.pierW, st.pierW, ang, st.wall, { top: st.cap });
+      S.box(p[0], p[1], y - 0.4, top, st.pierW, st.pierW, ang, st.postCol || st.wall, { top: st.cap });
       S.kind = KIND.PLAIN;
       S.box(p[0], p[1], top, top + 0.18, st.pierW + 0.2, st.pierW + 0.2, ang, st.cap);
       S.box(p[0], p[1], top + 0.18, top + 0.5, st.pierW * 0.55, st.pierW * 0.55, ang, st.cap, { taper: 0.5 });
