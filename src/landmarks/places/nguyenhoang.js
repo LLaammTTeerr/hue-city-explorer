@@ -236,7 +236,7 @@ export function build({ data, S, group }) {
   for (const side of [-1, 1]) {
     for (let k = 0; k < NA; k++) {
       const s0 = ribS(k), s1 = ribS(k + 1), m = Math.abs((s0 + s1) / 2) / FOOT;
-      S.beam(ribPt(s0, side), ribPt(s1, side), 2.0, 2.4 + 1.0 * m * m, gold);
+      S.beam(ribPt(s0, side), ribPt(s1, side), 2.0, 2.4 + 1.0 * m * m, mix(gold, goldD, 0.5 * m * m));
     }
     // hangers every 5.5 m, from the rib down to the rib strip on the deck
     for (let s = -71.5; s <= 71.6; s += 5.5) {
