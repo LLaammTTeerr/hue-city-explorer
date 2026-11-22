@@ -70,3 +70,6 @@ footprints, so `populate` drops the generic versions, and no guard in an older b
 - The model shows the buildings whole, in the form the restoration rebuilds. In 2026 the site is partly dismantled behind site fencing, and that state is not modelled.
 - The 32 tiến sĩ steles are at Văn Miếu, not here, so they are not part of this place.
 - Photos would settle the tam quan, the side halls' roofs and the wall.
+
+## Polish
+Balustrade recoloured to weathered grey cement and drawn with seven bottle balusters per bay (swelling mid-height) so the piercings read oval, as on Le Truc and Doan Thi Diem.

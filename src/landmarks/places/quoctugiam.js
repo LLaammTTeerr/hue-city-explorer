@@ -47,7 +47,7 @@ const STONE = PAL.stone, BRICK = hex('#a46e58'), DARK = hex('#3a2420');
 const TERRA = hex('#9a5a3e'), LIME = hex('#f1ead8'), YLIME = hex('#ecd38c'), WOOD = hex('#5e3b26');
 // the boundary (Street View, 2024-25): a low cement balustrade, a row of oval piercings between a plinth and a coping,
 // piers with caps every few metres; on Lê Trực an iron railing with round medallions stands on it
-const BAL = { h: 1.1, every: 3.4, pierW: 0.42, pierUp: 0.22, col: hex('#a39a82'), cap: hex('#8d846e'), hole: hex('#55523f') };
+const BAL = { h: 1.1, every: 3.4, pierW: 0.42, pierUp: 0.22, col: hex('#8f8a78'), cap: hex('#777160'), hole: hex('#4a4a3c') };
 const IRON = { h: 1.05, col: hex('#262a24'), medal: hex('#8a7a48') };
 const gY = (x, z) => LAND_Y + rise(x, z);
 
@@ -289,7 +289,11 @@ function balustrade(S, ring, g, gw) {
         S.kind = KIND.PLAIN;
         S.box(mx, mz, y + 0.32, y + BAL.h - 0.14, w, 0.12, ang, BAL.hole); // the pierced band, read as its shadow
         // the solid bits between piercings: three posts in each bay
-        for (const f of [-0.4, -0.2, 0, 0.2, 0.4]) S.box(mx + Math.cos(ang) * f * w, mz + Math.sin(ang) * f * w, y + 0.32, y + BAL.h - 0.14, 0.16, 0.2, ang, BAL.col);
+        for (const f of [-0.42, -0.28, -0.14, 0, 0.14, 0.28, 0.42]) {
+          const bx = mx + Math.cos(ang) * f * w, bz = mz + Math.sin(ang) * f * w;
+          S.box(bx, bz, y + 0.32, y + BAL.h - 0.14, 0.08, 0.2, ang, BAL.col);
+          S.box(bx, bz, y + 0.5, y + BAL.h - 0.32, 0.15, 0.2, ang, BAL.col); // the swell of a bottle baluster: oval piercings between
+        }
         S.kind = KIND.MASONRY;
         S.box(mx, mz, y + BAL.h - 0.14, y + BAL.h, w + 0.02, 0.32, ang, BAL.cap); // coping
         if (rail) {
