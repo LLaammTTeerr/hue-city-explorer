@@ -39,7 +39,7 @@ const NECK = { s0: 216.5, s1: 239.5, t0: -40, t1: 38 };
 
 const LAC = PAL.lacquer || C.lacquer, TILE = PAL.imperialRoof || C.roofY, RIDGE = hex('#ead27c');
 const WALL = hex('#7d7465'), WALL_DK = hex('#625b4f'), STUCCO = hex('#cfc6b0'), WATER = hex('#3e6a69');
-const BI_BRICK = hex('#5a5249'), BI_ROOF = hex('#b8863a');
+const BI_BRICK = hex('#7a7166'), BI_ROOF = hex('#b8863a');
 const STELE_WALL = hex('#dcc272'), BRICK_COURT = hex('#a37a62'), PINE = hex('#355230'), MOSS = hex('#4f6a3e');
 
 function frame(o, to) {
