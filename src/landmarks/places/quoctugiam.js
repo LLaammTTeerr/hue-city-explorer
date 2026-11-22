@@ -1,7 +1,7 @@
 import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
-import { fence, offStreets } from '../enclosure.js';
+import { offStreets } from '../enclosure.js';
 
 // ---- Quốc Tử Giám, the Nguyễn imperial academy, inside the Citadel (moved here in 1908) ----
 //
@@ -45,7 +45,10 @@ const GATE_V = 46.0;
 const TILE = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
 const STONE = PAL.stone, BRICK = hex('#a46e58'), DARK = hex('#3a2420');
 const TERRA = hex('#9a5a3e'), LIME = hex('#f1ead8'), YLIME = hex('#ecd38c'), WOOD = hex('#5e3b26');
-const WALL = { h: 2.4, plinth: 2.4, rail: false, t: 0.45, every: 5.0, postW: 0.7, postUp: 0.25, wall: hex('#d9bb72'), cap: hex('#b3712f'), iron: null, pierW: 1.1, pierUp: 1.2 };
+// the boundary (Street View, 2024-25): a low cement balustrade, a row of oval piercings between a plinth and a coping,
+// piers with caps every few metres; on Lê Trực an iron railing with round medallions stands on it
+const BAL = { h: 1.1, every: 3.4, pierW: 0.42, pierUp: 0.22, col: hex('#a39a82'), cap: hex('#8d846e'), hole: hex('#55523f') };
+const IRON = { h: 1.05, col: hex('#262a24'), medal: hex('#8a7a48') };
 const gY = (x, z) => LAND_Y + rise(x, z);
 
 export const id = 'quoctugiam';
@@ -122,11 +125,10 @@ export function build({ data, S }) {
     hip(0, GATE_V, 5.0, 2.6, yb + 4.6, 0.6, TILE, { over: 0.6, flare: 0.3, segs: 3 });
   }
 
-  // ---- the precinct wall, open at the tam quan ----
+  // ---- the precinct boundary, open at the tam quan ----
   S.base = 0;
   const ring = offStreets(data, inset(PARK, 2.5)); // and off the street OSM draws along its east side
-  const g = P(0, GATE_V);
-  fence(S, ring, WALL, { closed: true, openings: [[g[0], g[1], 7.0]] });
+  balustrade(S, ring, P(0, GATE_V), 13.4); // the gap butts on the tam quan's end pillars
   S.kind = KIND.PLAIN;
   S.base = 0;
 
@@ -160,7 +162,7 @@ export function build({ data, S }) {
       for (let k = 0; k <= n; k++) cyl(vu, v - bd / 2 + (k * bd) / n, yp, yp + wh, 0.16, 0.16, 6, LIME, { cap: false });
     }
     S.kind = KIND.TILE;
-    hip(u, v, w - 0.2, d - 0.2, yp + wh, rh, roof, { flare: 0.15, over: 0.3, fascia: 0.22, fasciaCol: shade(wall, 0.8), ridgeCol: shade(roof, 1.15), glazed: false, segs: 3 });
+    hip(u, v, w - 0.2, d - 0.2, yp + wh, rh, roof, { flare: 0.15, over: 0.3, fascia: 0.22, fasciaCol: shade(wall, 0.8), ridgeCol: shade(roof, 1.15), glazed: false, segs: 3, horns: false }); // plain hip ends, as on the halls seen from Lê Trực and Đoàn Thị Điểm
     S.kind = kind;
   }
 }
@@ -252,6 +254,73 @@ function diLuanDuong(S, box, hip, cyl, y0) {
   hip(0, -2.8, 10.4, 10.4, yU2, top - yU2, TILE, { over: 1.5, ridgeCol: RIDGE });
   // ridge ornament: a gourd on the peak
   cyl(0, -2.8, top - 0.1, top + 0.5, 0.3, 0.12, 8, RIDGE);
+}
+
+// The precinct balustrade round a closed ring, with a gap of width gw at gate point g. The Lê Trực (north-west)
+// side carries the iron railing seen from the street; the Đoàn Thị Điểm side is bare balustrade; the south-east and
+// north-east sides are hidden behind trees in every view and drawn bare like the south-west.
+function balustrade(S, ring, g, gw) {
+  const keepKind = S.kind, keepBase = S.base;
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n];
+    const ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez);
+    if (len < 0.6) continue;
+    const ang = Math.atan2(ez, ex), at = (f) => [a[0] + ex * f, a[1] + ez * f];
+    // which side: the mid point in the hall frame (v < 0 behind the hall; a run along u is the north-west side)
+    const m = at(0.5), du = (m[0] - C[0]) * U[0] + (m[1] - C[1]) * U[1], dv = -(m[0] - C[0]) * U[1] + (m[1] - C[1]) * U[0];
+    const along = Math.abs(ex * U[0] + ez * U[1]) > Math.abs(-ex * U[1] + ez * U[0]);
+    const rail = along && dv < 0 && Math.abs(du) < 120;
+    // the gate gap
+    const t = ((g[0] - a[0]) * ex + (g[1] - a[1]) * ez) / (len * len);
+    const off = Math.abs((g[0] - a[0]) * ez - (g[1] - a[1]) * ex) / len;
+    const runs = off < 3 && t > -0.1 && t < 1.1 ? [[0, t - gw / 2 / len], [t + gw / 2 / len, 1]] : [[0, 1]];
+    for (const [r0, r1] of runs) {
+      const rl = (r1 - r0) * len;
+      if (rl < 0.6) continue;
+      const nb = Math.max(1, Math.round(rl / BAL.every)), bl = rl / nb;
+      for (let k = 0; k < nb; k++) {
+        const p = at(r0 + ((r1 - r0) * k) / nb), q = at(r0 + ((r1 - r0) * (k + 1)) / nb);
+        const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, y = Math.min(gY(...p), gY(...q));
+        const w = bl - BAL.pierW;
+        S.base = y - LAND_Y;
+        S.kind = KIND.MASONRY;
+        S.box(mx, mz, y - 0.3, y + 0.32, w + 0.02, 0.3, ang, BAL.col, { top: BAL.cap }); // plinth
+        S.kind = KIND.PLAIN;
+        S.box(mx, mz, y + 0.32, y + BAL.h - 0.14, w, 0.12, ang, BAL.hole); // the pierced band, read as its shadow
+        // the solid bits between piercings: three posts in each bay
+        for (const f of [-0.4, -0.2, 0, 0.2, 0.4]) S.box(mx + Math.cos(ang) * f * w, mz + Math.sin(ang) * f * w, y + 0.32, y + BAL.h - 0.14, 0.16, 0.2, ang, BAL.col);
+        S.kind = KIND.MASONRY;
+        S.box(mx, mz, y + BAL.h - 0.14, y + BAL.h, w + 0.02, 0.32, ang, BAL.cap); // coping
+        if (rail) {
+          // see-through: a bottom and a top rail, upright bars every ~0.3 m, one round medallion mid-bay
+          S.kind = KIND.PLAIN;
+          const ca = Math.cos(ang), sa = Math.sin(ang), yb = y + BAL.h, yt = yb + IRON.h;
+          S.box(mx, mz, yb + 0.08, yb + 0.14, w, 0.05, ang, IRON.col);
+          S.box(mx, mz, yt - 0.07, yt, w, 0.07, ang, shade(IRON.col, 1.3));
+          const nbar = Math.max(2, Math.round(w / 0.3));
+          for (let j = 1; j < nbar; j++) {
+            const f = -w / 2 + (j * w) / nbar;
+            if (Math.abs(f) < 0.3) continue; // the medallion's place
+            S.box(mx + ca * f, mz + sa * f, yb, yt - 0.04, 0.035, 0.035, ang, IRON.col);
+          }
+          S.box(mx, mz, yb + 0.28, yb + 0.7, 0.42, 0.05, ang, IRON.medal);
+        }
+        // a pier at the start of each bay and at the end of the run
+        for (const o of k === nb - 1 ? [p, q] : [p]) {
+          const yo = gY(...o), top = yo + (rail ? BAL.h + IRON.h + 0.1 : BAL.h + BAL.pierUp);
+          S.base = yo - LAND_Y;
+          S.kind = KIND.MASONRY;
+          S.box(o[0], o[1], yo - 0.3, top, BAL.pierW, BAL.pierW, ang, BAL.col, { top: BAL.cap });
+          S.kind = KIND.PLAIN;
+          S.box(o[0], o[1], top, top + 0.12, BAL.pierW + 0.1, BAL.pierW + 0.1, ang, BAL.cap);
+          S.box(o[0], o[1], top + 0.12, top + 0.32, BAL.pierW * 0.6, BAL.pierW * 0.6, ang, BAL.cap, { taper: 0.4 });
+        }
+      }
+    }
+  }
+  S.kind = keepKind;
+  S.base = keepBase;
 }
 
 // shrink a convex ring by d metres (edges moved in, corners re-intersected)
