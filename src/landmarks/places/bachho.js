@@ -18,9 +18,14 @@ import { landTest } from '../boats.js';
 //    vietbao.vn): Bạch Hổ, 302.1 m, north bank to Cồn Dã Viên, and Dã Viên, 102.7 m, islet to the south bank.
 //    Commons photos show white-painted, parallel-chord Warren through trusses with raked end posts on concrete piers.
 //    The earlier model's bowed top chords were wrong.
-// Estimated: the number of road spans (8 over the north channel; the press "five spans" cannot fit the photos'
-// pier count), truss height and panel count, rail span count (5 + 2), pavilion size and placement (three a side,
-// over every second pier), the motorbike lane on the rail bridge's west side.
+// Placed from the satellite (Google, Nov 2026; docs/places/bachho.md): the six pavilions stand in three facing pairs,
+// two pairs over the north channel near each end (55 m and 237 m from the north abutment) and the third where the
+// deck leaves Cồn Dã Viên for the south channel; none in mid-channel. Each sits on a ~6.4 m square balcony against
+// the deck edge, its centre ~15.8 m off the bridge axis. The bridge and rail lines themselves already matched the
+// satellite to ~1 m.
+// Estimated: the road piers between the pavilion piers (five equal spans of ~36 m between them, the press "five
+// spans", plus one pier near the north bank), truss height and panel count, rail span count (5 + 2), pavilion
+// size, the motorbike lane on the rail bridge's west side.
 // The decks themselves (carriageways, pavements) stay the generic slabs of geo/city.js, which traffic rides.
 export const id = 'bachho';
 
@@ -29,13 +34,24 @@ export const id = 'bachho';
 const ROAD_A = [-1958, 895], ROAD_B = [-1834, 1142.5]; // centreline over the north channel, bank to islet
 const ROAD_W = 24.5;
 const RAIL_N = [[-1983, 906], [-1964, 942], [-1931, 1009], [-1875, 1122], [-1848, 1176]]; // Bạch Hổ
-const RAIL_S = [[-1767, 1275], [-1692, 1350]]; // Dã Viên rail bridge
+const RAIL_S = [[-1767, 1275], [-1692, 1350]]; // Dã Viên rail bridge (the OSM bridge way)
+// the satellite puts the Dã Viên trusses ~10 m further up this line than the OSM way: their north portal stands on
+// the islet and their south end at the bank, where a short plate girder carries the track the rest of the way
+const RAIL_S_TRUSS = [-11, 94]; // metres along RAIL_S
 const RAIL_S2 = [[-1692, 1350], [-1674, 1365]]; // the short girder span onto the south bank (way 316199964)
 
 const WHITE = hex('#e4e6e2'), WHITE_D = hex('#c3c8c6');
 const CONC = hex('#c9c3b6'), CONC_D = hex('#a69f92');
 const YELLOW = hex('#dba52a'), RIDGE = hex('#f1d77a'), POST = hex('#9c2f22');
 const RAILING = hex('#7d8a92');
+// pavilion piers along ROAD_A→ROAD_B (satellite), the river piers between them, and the third pavilion pair where
+// the deck leaves the islet (centre and axis from the satellite: the deck's heading there, not this span's)
+const PAV_S = [55.5, 237.3];
+const PIERS = [19.1, ...Array.from({ length: 6 }, (_, i) => PAV_S[0] + (i * (PAV_S[1] - PAV_S[0])) / 5)];
+const PAV_OFF = 15.8; // pavilion centre off the bridge axis
+const PAV_AXIS = 1.8; // m east (across the deck) of ROAD_A→ROAD_B: the pavilions' centre line and the deck's real edges
+const DECK_EDGE = [11.65, 10.05]; // the generic deck's east and west edges off ROAD_A→ROAD_B (two 7.8 m-apart OSM carriageways)
+const PAV3 = { x: -1760.5, z: 1239.2, ang: Math.atan2(0.699, 0.715) };
 
 export function build({ data, S, group }) {
   const rail = LAND_Y + 0.5; // the rail deck top geo/city.js and the trains have always used
@@ -56,48 +72,72 @@ export function build({ data, S, group }) {
   const ux = Math.cos(ang), uz = Math.sin(ang);
   const len = Math.hypot(ROAD_B[0] - ROAD_A[0], ROAD_B[1] - ROAD_A[1]);
   const at = (s, v) => [ROAD_A[0] + ux * s - uz * v, ROAD_A[1] + uz * s + ux * v];
-  const spans = 8, sl = len / spans;
+  const sup = [0, ...PIERS, len]; // supports: abutments and piers
   const deckBot = top - 1.3; // under the generic slab
   const haunch = Math.max(0.4, Math.min(1.2, deckBot - 0.6));
   const pierW = ROAD_W - 3.5;
   S.kind = KIND.MASONRY;
-  for (let k = 1; k < spans; k++) {
-    const [x, z] = at(k * sl, 0);
+  const isLand = landTest(data);
+  for (const sp of PIERS) {
+    const [x, z] = at(sp, 0);
+    if (isLand(x, z)) continue; // the mapped bank reaches further out than the real one here: no pier on land
     S.box(x, z, -3, deckBot - haunch + 0.05, 1.8, pierW, ang, CONC, { taper: 0.96 });
     S.box(x, z, deckBot - haunch - 0.4, deckBot - haunch + 0.05, 2.4, pierW + 0.8, ang, CONC_D); // pier cap
     // floodlights wash both faces of every pier
     for (const sg of [-1, 1]) {
-      const p = at(k * sl + sg * 1.0, 0);
+      const p = at(sp + sg * 1.0, 0);
       L.box(p[0], p[1], 0.05, 0.25, 0.25, pierW * 0.9, ang, [1, 1, 1]);
     }
   }
   // the girders deepen towards each pier: a soffit that reads as a row of shallow arches from the water. The end
   // spans meet the banks, where the girder sits on its abutment: no haunch is drawn over the mapped land
   S.kind = KIND.PLAIN;
-  const N = 10, isLand = landTest(data), hw = (ROAD_W - 1.2) / 2;
-  for (let k = 0; k < spans; k++) {
+  const N = 10, hw = (ROAD_W - 1.2) / 2;
+  for (let k = 0; k + 1 < sup.length; k++) {
+    const sl = sup[k + 1] - sup[k];
     for (let i = 0; i < N; i++) {
       const u = (i + 0.5) / N, t = 2 * u - 1;
       const d = haunch * (1 - Math.sqrt(Math.max(0, 1 - t * t)));
       if (d < 0.05) continue;
-      const s = k * sl + u * sl;
+      const s = sup[k] + u * sl;
       if ([-hw, 0, hw].some((v) => isLand(...at(s, v)))) continue;
       const [x, z] = at(s, 0);
       S.box(x, z, deckBot - d, deckBot + 0.02, sl / N + 0.02, ROAD_W - 1.2, ang, CONC, { bottom: true });
     }
   }
-  // six lookout pavilions, three a side over every second pier, each on a balcony and a pier column of its own
-  for (const k of [2, 4, 6]) for (const side of [-1, 1]) {
-    const s = k * sl, off = side * (ROAD_W / 2 + 2.7);
-    const [x, z] = at(s, off);
+  // six lookout pavilions in facing pairs, each on a balcony and a pier column of its own: two pairs over the north
+  // channel, the third where the deck leaves the islet (its deck height from that span's own profile)
+  let top3 = top;
+  for (const r of data.roads || []) {
+    const P = r[1] && prof.get(r[2]);
+    if (!P) continue;
+    const f = r[2], i = f.length - 2;
+    for (const [k, s] of [[0, 0], [i, P.len]]) {
+      const d = Math.hypot(f[k] / 10 - PAV3.x, f[k + 1] / 10 - PAV3.z);
+      if (d < 12) { top3 = Math.max(LAND_Y + 0.42, P.y(Math.abs(s - Math.min(P.len, d)))); }
+    }
+  }
+  // pairs 1-2 stand off the bridge's real axis, which the satellite puts PAV_AXIS east of ROAD_A→ROAD_B; the
+  // generic deck drawn from the two OSM carriageways is narrower than the real 24.5 m (its edges at DECK_EDGE), so
+  // each balcony reaches in to that edge, standing for the wider real pavement
+  const pavs = [];
+  for (const s of PAV_S) for (const side of [-1, 1]) pavs.push({ c: at(s, -PAV_AXIS), a: ang, side, top, inner: side < 0 ? DECK_EDGE[0] - PAV_AXIS : DECK_EDGE[1] + PAV_AXIS });
+  for (const side of [-1, 1]) pavs.push({ c: [PAV3.x, PAV3.z], a: PAV3.ang, side, top: top3, inner: PAV_OFF - 3.2 });
+  for (const { c, a, side, top, inner } of pavs) {
+    const vx = -Math.sin(a), vz = Math.cos(a), ax = Math.cos(a), az = Math.sin(a);
+    const at = (s, v) => [c[0] + ax * s + vx * v, c[1] + az * s + vz * v];
+    const off = side * PAV_OFF, ang = a;
+    const [x, z] = at(0, off);
+    const outer = PAV_OFF + 3.2, depth = outer - inner, [bx, bz] = at(0, side * (inner + outer) / 2);
     S.kind = KIND.MASONRY;
     S.box(x, z, -3, top - 0.9, 3.2, 3.4, ang, CONC, { taper: 0.94 }); // the column under the balcony
     S.kind = KIND.PLAIN;
-    S.box(x, z, top - 1.0, top, 6.2, 6.0, ang, CONC_D, { top: hex('#b9b2a4'), bottom: true }); // balcony slab
+    S.box(bx, bz, top - 1.0, top, 6.4, depth, ang, CONC_D, { top: hex('#b9b2a4'), bottom: true }); // balcony slab
     // balustrade round the three open sides
-    const bp = (a, b) => { const p = at(s + a, off + side * b); return p; };
-    for (const [a0, b0, a1, b1] of [[-3, 2.9, 3, 2.9], [-3, -0.4, -3, 2.9], [3, -0.4, 3, 2.9]]) {
-      const p0 = bp(a0, b0), p1 = bp(a1, b1);
+    const bp = (a, b) => at(a, off + side * b);
+    const b0 = inner - PAV_OFF + 0.2, b1 = 2.95;
+    for (const [a0, c0, a1, c1] of [[-3.05, b1, 3.05, b1], [-3.05, b0, -3.05, b1], [3.05, b0, 3.05, b1]]) {
+      const p0 = bp(a0, c0), p1 = bp(a1, c1);
       S.beam([p0[0], top + 0.95, p0[1]], [p1[0], top + 0.95, p1[1]], 0.14, 0.12, RAILING);
       S.beam([p0[0], top + 0.2, p0[1]], [p1[0], top + 0.2, p1[1]], 0.1, 0.4, CONC);
     }
@@ -108,7 +148,9 @@ export function build({ data, S, group }) {
   // ---------- the railway bridges: Warren through trusses ----------
   S.kind = KIND.PLAIN;
   truss(S, RAIL_N, 5, rail);
-  truss(S, RAIL_S, 2, rail);
+  const railS = [null, along(RAIL_S, RAIL_S_TRUSS[0], true).p, along(RAIL_S, RAIL_S_TRUSS[1], true).p];
+  truss(S, [railS[1], railS[2]], 2, rail);
+  girder(S, [railS[2], RAIL_S[1]], rail); // the track from the trusses' south end over the bank to the end of the way
   // the short span onto the south bank only while the data has it as a bridge: it crosses no water, and
   // build-data now lays such a rail way at grade, a level crossing rather than a girder on the street it meets
   const near = (f, k, p) => Math.hypot(f[k] / 10 - p[0], f[k + 1] / 10 - p[1]) < 3;
@@ -167,7 +209,13 @@ function lookout(S, x, z, ang, y0, L) {
 }
 
 function polyLen(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
-function along(pts, d) {
+function along(pts, d, extend = false) {
+  if (extend && (d < 0 || d > polyLen(pts))) { // past either end: straight on along the end segment
+    const [a, b] = d < 0 ? [pts[0], pts[1]] : [pts[pts.length - 2], pts[pts.length - 1]];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]), an = Math.atan2(b[1] - a[1], b[0] - a[0]);
+    const o = d < 0 ? a : b, t = d < 0 ? d : d - polyLen(pts);
+    return { p: [o[0] + Math.cos(an) * t, o[1] + Math.sin(an) * t], a: an, l };
+  }
   let s = 0;
   for (let i = 0; i + 1 < pts.length; i++) {
     const a = pts[i], b = pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
