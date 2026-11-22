@@ -141,6 +141,8 @@ export function build({ data, S, group, place, THREE }) {
     // the stone tablet: a raised frame, the characters on a dark ground
     box(0, t + sg * 0.06, PB - 0.12, PB + PLAQUE_H + 0.12, PLAQUE_W + 0.5, 0.16, PLAQUE);
     box(0, t + sg * 0.12, PB, PB + PLAQUE_H, PLAQUE_W, 0.06, PLAQUE_IN);
+    box(0, t + sg * 0.07, yT - 1.55, yT - 1.4, W - 3.4, 0.26, shade(CORNICE, 0.95)); // frieze string course between the pilasters
+    box(0, t + sg * 0.04, LAND_Y + 0.8, LAND_Y + 1.0, W - 3.4, 0.2, shade(CORNICE, 0.9)); // stone plinth course
     box(0, t + sg * 0.08, yT - 0.55, yT - 0.15, W + 0.5, 0.36, CORNICE);
     box(0, t + sg * 0.14, yT - 0.15, yT, W + 0.7, 0.48, shade(CORNICE, 1.08), { top: shade(PAL.stone, 0.85) });
   }
