@@ -209,7 +209,8 @@ export function build({ data, S, group }) {
     S.kind = KIND.MASONRY; // the inner end, dropping to the centre
     S.quad(V(SA1, s * SH0, y), V(SA0, s * SH0, yc), V(SA0, s * SH0, y + 15), V(SA1, s * SH0, y + 15), stoneC, [-P[0] * s, 0, -P[1] * s]);
     S.kind = KIND.PLAIN;
-    box(SA0 - 0.06, s * (SH1 - 0.75), y + 3, y + 25.5, 0.14, 0.9, lattice); // the lattice strip against the tower
+    box(SA0 - 0.06, s * (SH1 - 0.75), y + 3, y + 25.5, 0.14, 1.3, lattice);
+    for (let h = y + 3.4; h < y + 25.2; h += 0.9) for (const du of [-0.4, 0, 0.4]) box(SA0 - 0.16, s * (SH1 - 0.75) + du, h, h + 0.4, 0.04, 0.3, stoneD); // the square openings // the lattice strip against the tower
   }
   // the nave gable behind: stone, as the towers, and the cross on the apex
   { const a0 = 9.4, e = y + E + 0.8, r = y + RN - 1.2; S.tri(V(a0, -(NW - 0.4), e), V(a0, NW - 0.4, e), V(a0, 0, r), stoneC, [-F[0], 0, -F[1]]); }
@@ -219,11 +220,28 @@ export function build({ data, S, group }) {
   S.beam([gx[0] - P[0] * 0.8, y + RN + 1.8, gx[1] - P[1] * 0.8], [gx[0] + P[0] * 0.8, y + RN + 1.8, gx[1] + P[1] * 0.8], 0.26, 0.26, white);
   box(4.95, 0, y + 6.8, y + 14.6, 0.2, 1.9, glass); // the tall strip of coloured glass on the axis
   box(4.9, 0, y + 8, y + 13.6, 0.22, 0.6, glassW);
-  box(4.92, 0, y, y + 4.2, 0.2, 5.6, door); // the doors, under the porch roof
+  box(4.92, 0, y, y + 4.2, 0.2, 5.6, door); // the doors, under the porch roof: three pairs of panels
+  S.kind = KIND.PLAIN;
+  for (const b of [-1.9, -0.0, 1.9]) box(4.82, b, y + 0.2, y + 4.0, 0.08, 0.14, stoneD);
+  for (const b of [-0.95, 0.95]) box(4.82, b, y + 0.2, y + 4.0, 0.08, 0.05, hex('#5a4636'));
+  box(4.82, 0, y + 4.0, y + 4.25, 0.1, 5.8, stoneD);
+  S.kind = KIND.MASONRY;
   // the porch: a flat concrete roof on two columns over the doors, reached from both sides by an open stair that
   // climbs from beside each tower in toward the centre (Street View from the forecourt)
   S.kind = KIND.MASONRY;
-  box(0.9, 0, y + 4.5, y + 5.0, 8.2, 8.4, slabC);
+  { // the slab's front edge bows outward (Street View: a curved canopy under the banner)
+    const ring = [[5.0, 4.2], [5.0, -4.2]];
+    for (let i = 0; i <= 8; i++) { const b = -4.2 + (8.4 * i) / 8; ring.push([-2.0 - 1.5 * (1 - (b / 4.2) ** 2), b]); }
+    S.prism(ring.map(([a, b]) => W(a, b)), y + 4.5, y + 5.0, slabC, slabC);
+  }
+  // a low stone retaining wall along the terrace front, with planted beds behind it either side of the stair
+  for (const s of [-1, 1]) {
+    box(-0.9, s * 10.4, yc, yc + 0.9, 0.6, 9.4, stoneD, { top: stoneL });
+    box(0.4, s * 10.4, yc, yc + 0.8, 2.0, 9.0, stoneD, { top: lawn });
+    S.kind = KIND.PLAIN;
+    for (const [a, b] of [[0.4, 7.4], [0.2, 9.6], [0.6, 12.6], [0.3, 14.2]]) { const q = W(a, s * b); S.cyl(q[0], q[1], yc + 0.8, yc + 2.2, 1.1, 0.5, 6, hex('#4f7a3a')); }
+    S.kind = KIND.MASONRY;
+  }
   for (const s of [-1, 1]) box(-0.8, s * 3.6, yc, y + 4.5, 0.5, 0.5, slabC);
   for (const s of [-1, 1]) {
     const n = 16, A0 = [1.0, s * 10.0], A1 = [2.4, s * 4.4]; // foot beside the tower, head at the porch roof
