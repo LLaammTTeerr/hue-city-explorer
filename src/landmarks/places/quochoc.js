@@ -14,18 +14,27 @@ import { fence, roadsNear, leaves, FENCE } from '../enclosure.js';
 
 export const id = 'quochoc';
 
-// campus wall, OSM way 695775622 (5.6 ha)
+// campus wall, OSM way 695775622 (5.6 ha). Re-framed here: OSM draws the Lê Lợi frontage about 3.4 m out toward the
+// street, on the kerb side of the pavement and the planted verge; the satellite (the gate's roof) and the Street View
+// panoramas on Lê Lợi, Nguyễn Trường Tộ and Phan Bội Châu put the wall that far back. The four frontage points move
+// (+2.23, +2.56), square to Lê Lợi; the two corner points slide along the side walls, which keep their line.
+const LELOI = [2.23, 2.56];
 const RING = [[-501, 1197], [-495.8, 1199.4], [-486.9, 1195.2], [-383.6, 1100.1], [-383, 1087.1], [-571.6, 872.4],
-  [-579.2, 870.7], [-639.6, 923.5], [-697.6, 974.1], [-696.9, 983.1], [-540, 1155.6]];
-// the gate on the Lê Lợi frontage (hue.json quocHocGate) and the line of the campus axis through it
-const GATE = { c: [-637.8, 921.9], a: 2.424 };
+  [-579.2, 870.7], [-639.6, 923.5], [-697.6, 974.1], [-696.9, 983.1], [-540, 1155.6]]
+  .map(([x, z], i) => (i >= 5 && i <= 8 ? [x + LELOI[0], z + LELOI[1]] : [x, z]));
+// the gate on the Lê Lợi frontage (hue.json quocHocGate, moved back with the wall) and the line of the campus axis
+const GATE = { c: [-637.8 + LELOI[0], 921.9 + LELOI[1]], a: 2.424 };
 const CIRCLE = { c: [-569.9, 1001.2], r: 11.5 }; // OSM 835629406: the statue stands in its middle
 
-// The buildings, as oriented rectangles: [osmId, colonial (1915 blocks), height to the ridge (survey, hue.json b[5]),
+// The buildings, as oriented rectangles: [osmId, colonial (1: 1915 block with an arcaded gallery facing the yard;
+// 2: the same walls without the gallery), height to the ridge (survey, hue.json b[5]),
 // centre x, centre z, angle (rad), parts [[u0, u1, v0, v1], ...] in the building's own frame, and optionally link:
 // true for a short link block, butted at both ends of its length against other buildings, whose roof and cornice
 // stop at those end walls instead of overhanging them].
-// The two link blocks each join a 1915 wing to the old hall (OSM relation 9669095, drawn by city.js).
+// The two link blocks each join a 1915 wing to the old hall (OSM relation 9669095). OSM draws that hall as one ring
+// round two courtyards, and city.js would roof the courtyards over; the satellite shows three hipped blocks across
+// the width (NE, middle, SW) joined along both long sides by low covered corridors, with the two paved courts between,
+// so it is drawn here (frame from the relation's outer ring; the courts are its inner rings).
 // Outlines of more than one rectangle (the front pavilions, the L- and T-shaped blocks) are split into parts.
 const PAV = [[-5.2, 5.2, -6.3, 4.0], [-7.5, 7.5, -4.0, 1.85], [-2.3, 2.5, 4.0, 6.3]];
 const BLD = [
@@ -35,7 +44,7 @@ const BLD = [
   [695775623, 1, 4.6, -480.7, 1099.0, 2.415, null],
   [695775624, 0, 10.0, -524.0, 1131.8, 2.408, [[10.7, 24.4, -12, 12], [-24.4, 10.7, -8.6, 3.45]]],
   [695775625, 0, 4.6, -573.4, 1110.3, 0.831, null],
-  [695775626, 0, 13.0, -559.8, 1102.8, 0.828, null],
+  [695775626, 2, 13.0, -559.8, 1102.8, 0.828, null], // Street View (Phan Bội Châu): 1915 walls, arched upper windows
   [695775628, 1, 13.0, -452.4, 1043.3, -2.301, [[-19.6, 15, -13.7, 13.7], [15, 19.6, -11.2, 10.3]]],
   [695775629, 0, 5.0, -529.1, 1044.3, 0.835, null, true],
   [695775630, 0, 5.0, -507.3, 1069.4, 3.980, null, true],
@@ -44,7 +53,12 @@ const BLD = [
   [695775636, 1, 10.5, -665.6, 988.3, 0.833, PAV],
   [695775637, 1, 8.0, -637.4, 952.2, 2.419, null],
   [695775638, 1, 8.5, -608.1, 926.2, -0.719, null],
-  [695775639, 1, 13.0, -537.3, 1033.7, -0.711, [[-8.3, 9.0, -9.6, 9.2], [-17.7, -8.3, -11, 11], [9.0, 17.7, -10.8, 10.3]]],
+  // the hội trường: one main roof on the satellite, about 5 m north-west of the OSM outline's middle (the outline
+  // sits that far toward the yard), with a low veranda along its south-east side and a terrace at its north-east end
+  [695775639, 1, 13.0, -537.3, 1033.7, -0.711, [[-15.6, 17.0, -13.7, 3.7]]],
+  [695775639, 2, 5.0, -537.3, 1033.7, -0.711, [[-15.6, 13.6, 3.7, 6.6]]],
+  [9669095, 2, 6.0, -518.3, 1055.9, -0.703, [[17.2, 30.9, -11.5, 11.5], [-8.0, 6.5, -11.5, 11.5], [-30.9, -18.6, -11.5, 11.5]]],
+  [9669095, 2, 4.2, -518.3, 1055.9, -0.703, [[6.5, 17.2, 7.4, 11.5], [6.5, 17.2, -11.5, -7.4], [-18.6, -8.0, 7.4, 11.5], [-18.6, -8.0, -11.5, -7.4]], true],
   [695775640, 1, 13.0, -602.9, 1029.2, -2.293, null],
   [695775641, 0, 12.5, -627.0, 1040.4, 0.833, null],
   [1377968893, 1, 5.5, -489.7, 1017.2, 0.836, null],
@@ -84,7 +98,7 @@ export function build({ data, S, group }) {
       const storey = twoStorey ? (eave - y0 - 0.5) / 2 : eave - y0 - 0.5;
       // a gallery along the long side that faces the yard: the long wings of 1915 have arcades on both floors
       const long = w >= d;
-      const gal = colonial && Math.max(w, d) >= 20 && Math.min(w, d) >= 9;
+      const gal = colonial === 1 && Math.max(w, d) >= 20 && Math.min(w, d) >= 9;
       const G = 2.6;
       let side = 0;
       if (gal) {
@@ -112,6 +126,48 @@ export function build({ data, S, group }) {
     }
   }
   S.base = 0;
+
+  // ---- the hội trường's terrace: a cream balustraded platform at the north-east end of the veranda ----
+  {
+    const c = [-537.3, 1033.7], a = -0.711, q = at(c, a, 15.8, 6.3), y = gY(q[0], q[1]);
+    S.kind = KIND.MASONRY;
+    S.box(q[0], q[1], y - 0.4, y + 1.1, 4.6, 5.4, a, shade(CREAM, 0.9), { topKind: KIND.ROAD });
+    S.kind = KIND.PLAIN;
+    for (const [u, v, len, ang] of [[15.8, 8.95, 4.6, a], [18.05, 6.3, 5.4, a + Math.PI / 2]]) {
+      const p = at(c, a, u, v);
+      S.box(p[0], p[1], y + 1.1, y + 1.95, len, 0.22, ang, CREAM);
+    }
+  }
+
+  // ---- the old hall's two courts, paved ----
+  for (const [u0, u1] of [[6.5, 17.2], [-18.6, -8.0]]) {
+    const q = at([-518.3, 1055.9], -0.703, (u0 + u1) / 2, 0), y = gY(q[0], q[1]);
+    S.kind = KIND.PLAIN;
+    S.box(q[0], q[1], y - 0.3, y + 0.08, u1 - u0, 14.8, -0.703, hex('#bdb3a0'), { topKind: KIND.ROAD });
+  }
+
+  // ---- the sports ground (satellite): the swimming pool north-east of the hội trường, the football pitch and the
+  // red running track beside it toward Ngô Quyền ----
+  {
+    const pc = [-480.8, 1007.6], pa = 0.84, y = gY(pc[0], pc[1]);
+    S.kind = KIND.PLAIN;
+    S.box(pc[0], pc[1], y - 0.3, y + 0.25, 27.5, 18.2, pa, hex('#d9d2c2'), { topKind: KIND.ROAD }); // the deck
+    S.box(pc[0], pc[1], y - 0.3, y + 0.27, 23.0, 13.7, pa, hex('#5fa9c4')); // the water
+    const fc = [-459.4, 1127.4], fa = -0.71;
+    for (let i = 0; i < 8; i++) for (let j = 0; j < 4; j++) { // in tiles, each on the ground under it
+      const p = at(fc, fa, -38 + (i + 0.5) * 9.5, -19.5 + (j + 0.5) * 9.75), ty = gY(p[0], p[1]);
+      S.box(p[0], p[1], ty - 0.4, ty + 0.06, 9.52, 9.77, fa, hex('#4f8a3c'), { topKind: KIND.GROUND });
+    }
+    for (const [u, v, w, d] of [[0, -19.2, 76, 0.18], [0, 19.2, 76, 0.18], [-37.7, 0, 0.18, 39], [37.7, 0, 0.18, 39], [0, 0, 0.18, 39]]) {
+      const p = at(fc, fa, u, v), e0 = at(fc, fa, u - w / 2, v - d / 2), e1 = at(fc, fa, u + w / 2, v + d / 2);
+      const ly = Math.max(gY(p[0], p[1]), gY(e0[0], e0[1]), gY(e1[0], e1[1]));
+      S.box(p[0], p[1], ly - 0.2, ly + 0.08, w, d, fa, hex('#e8eee0')); // the lines
+    }
+    for (let i = 0; i < 10; i++) {
+      const tc = at(fc, fa, 3 - 50 + (i + 0.5) * 10, -25.5), ty = gY(tc[0], tc[1]);
+      S.box(tc[0], tc[1], ty - 0.4, ty + 0.07, 10.02, 8.6, fa, hex('#a3483a'), { topKind: KIND.ROAD });
+    }
+  }
 
   // ---- the campus wall and railing; the gate opening ----
   const roads = roadsNear(data, [-540, 1035], 260);
