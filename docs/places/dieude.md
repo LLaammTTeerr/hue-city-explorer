@@ -26,7 +26,14 @@ National pagoda (Quốc tự) on Bạch Đằng street, on the Đông Ba canal, 
   - Pavilions about 6 m.
 - Paving versus lawn in the court, the trees and the bonsai pots.
 - The side range (OSM way 771244225) is shown as a one-storey building with a verandah. Its use is unknown.
-- The thiền đường wings and the rear range next to the hall are generic.
+- Hall heights (base about 0.8 m, eaves about 5.1 m, upper ridge about 9.3 m above the ground) and colours: no street-level view reaches the hall.
+
+## Satellite and Street View check (2026-11)
+- Position and axis already matched the satellite to about 1 m and 1°, so the outline was not moved.
+- From above, the hall reads as a double hall under one closed block: a lower front hall (ridge about a 67.4) and the main hall behind it, with a raised clerestory and an upper hip roof (ridge about a 76.9) inside a lower ring of roof on three sides. The wings and the rear range drawn before are not there, and they were removed.
+- The yard is a dense grove, not a lawn with a few trees. It is now a jittered grid of crowns that keeps clear of the axis, the court, the pavilions and the mapped roofs.
+- Street View from Bạch Đằng and Ngự Viên shows an old brick wall about 2.4 m high, and a second entrance between grey stone piers about 25 m north-west of the axis. Both are now modelled.
+- Street View from Tô Hiến Thành shows a single-storey range with tiled and corrugated-iron roofs and ridge ornaments, behind a red-painted wall on an old brick base. It is mapped (OSM) and is still drawn by city.js as a generic two-storey house.
 
 ## What changed
 - The old builder drew a single glazed pavilion and treated way 771244225 as the gate. That was wrong: it is a long side range.
@@ -34,7 +41,7 @@ National pagoda (Quốc tự) on Bạch Đằng street, on the Đông Ba canal, 
   - the fenced precinct on the real block, with side gates;
   - a two-storey gate on Bạch Đằng with octagonal towers on both sides;
   - the bell and stele pavilions;
-  - the two-tier Đại Giác hall on a stone base, with wings;
+  - the Đại Giác double hall on a stone base (front hall, main hall with clerestory and upper roof);
   - the side range, a paved court with an axis walk, lawn and trees;
   - eave lights and lamps for night.
 
