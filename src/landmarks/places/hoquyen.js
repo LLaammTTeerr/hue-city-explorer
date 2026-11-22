@@ -29,9 +29,10 @@ import { rise } from '../../geo/terrain.js';
 
 const C = [-3661.4, 2250.1]; // ring centre (OSM fit)
 const R_OUT = 22.0, R_IN = 17.5; // outer foot, inner face of the inner wall
-const BRICK = hex('#5d5049'), BRICK_D = hex('#4a3f39'), TOPB = hex('#8a5c49'), LIME = hex('#a9a69d'), LIME_D = hex('#7d7a73');
+const BRICK = hex('#524a45'), BRICK_D = hex('#443d39'), TOPB = hex('#74564a'), LIME = hex('#a9a69d'), LIME_D = hex('#7d7a73');
 const STAND = hex('#b4876a'); // the stand's tiled floor, pale on the satellite
 const DARK = hex('#211d1a'), IRON = hex('#2c2a28'), LAWN = hex('#7e9c55'), PAVE = hex('#9a6250'), EARTH = hex('#a88d6c');
+const IRON_P = hex('#d6d8d6'); // the stair rails read pale grey-white in sv-nw
 const SEG = 72;
 // The king's stand "faces the south-east of the arena" (vi.wikipedia) in the loose sense of "looks in from the north":
 // the satellite (Google, 2026) shows its pale floor as a block 8-10 m wide standing out about 2.5 m from the outer
@@ -182,6 +183,7 @@ export function build({ S }) {
         const c = P(a, (ra + rb) / 2);
         S.box(c[0] + tq[0] * off, c[1] + tq[1] * off, y0 - 0.3, Math.min(ya, yb) + 0.05, rb - ra, 0.44, ang, BRICK_D);
         S.beam(at(ra, ya), at(rb, yb), 0.5, 0.18, LIME);
+        S.beam(at(ra, ya + 1.0), at(rb, yb + 1.0), 0.05, 0.05, IRON_P); // the pale iron handrail up the flight
       }
       const pp = P(a, foot + 0.1); // the capped post at the foot
       S.box(pp[0] + tq[0] * off, pp[1] + tq[1] * off, y0, y0 + 1.25, 0.65, 0.65, ang, LIME);

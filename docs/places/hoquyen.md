@@ -78,3 +78,6 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
 - The exact radii, the gate and stair bearings, and the cage sizes are estimates.
   So is whether some cages were for elephants.
 - The tiger-face spout carving and the "Hổ Quyền" inscription are not modelled in detail.
+
+## Polish
+Walls toned to the darker grey-brown seen in sv-sw; pale grey-white iron handrails added up both stairs (seen at the stair head in sv-nw).
