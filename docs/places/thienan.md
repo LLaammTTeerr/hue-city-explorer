@@ -35,3 +35,14 @@ Replica: `src/landmarks/places/thienan.js` (id `thienan`). The old block in `src
 - A measured height for the tower and church, and photos to confirm the tower's plan and storey heights.
 - The grotto's real position and form.
 - Interior of the church and the detail of the façade (stone texture, portal carving).
+
+## Rebuild from satellite and Street View (2026-11)
+Read from satellite imagery and Street View (visual reference only; nothing traced into `data/`):
+- The chapel's axis runs at v ≈ 41 in the place frame, about 4 m north of the middle of the OSM outline. The façade plane is at u ≈ −48.5. A three-gabled front faces ENE: a central gable with a rose window and cross, two square end pavilions with yellow-glazed hip roofs and crosses, and a recessed four-pillar portico over a wide stair.
+- The walls are grey stone, not cream. The roofs and skirts are yellow-glazed tile. This matches the bell tower in the same photos.
+- On the south side there are two aisles: an inner one with a flat grey roof (v 30.8–35.6) and an outer one under a red lean-to (v 25.5–30.8). On the north side there is a narrow passage.
+- East of the apse is a flat octagonal paved terrace (u −5…11.5, v 24–50), the roof of the crypt church below it.
+- A long two-storey range runs north–south (u −17.6…−5, v 15.5–63.5) and closes the cloister on the chapel side.
+- The garden court is under tree canopy.
+- One OSM outbuilding is drawn 6 m south of the roof seen in the imagery. It is shifted in the builder.
+- A square house on the satellite, west of the forecourt, has no OSM outline. It is added in the builder.
