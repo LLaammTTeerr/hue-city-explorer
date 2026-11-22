@@ -16,7 +16,9 @@ import { fence, leaves, roadsNear, buildingsNear, offStreets, FENCE } from '../e
 // concrete and blue-grey stone (đá xanh), fired-clay tiles, tiered roofs drawn from Huế's đình and pagodas, a wide open
 // porch, a great arched door with a round window, a clock and the cross on the axis, a statue of Christ in front and
 // the grotto of Our Lady at the rear left. The audit of 2026-11 (photographs, see the doc) moved the tower from the door
-// to the crossing, where it stands, and gave the front its stepped gable.
+// to the crossing, where it stands, and gave the front its stepped gable. The rebuild of 2026-11-22 (Google satellite
+// and Street View, see the doc) re-proportioned the front to the photo (summit 24.4 m, round-headed window), paved the
+// forecourt without the axis statue, and gave the transept ends their own entrance fronts.
 
 export const id = 'dcct';
 
@@ -38,10 +40,11 @@ const PRECINCT = [[590.7, 1149], [659.9, 1161.4], [742.6, 1176.3], [785.7, 1184.
 // gates: the main gate at the apex facing the crossroads, a side gate on Nguyễn Khuyến (estimated)
 const GATE_MAIN = [819.8, 1192.6, 3.4], GATE_SIDE = [757, 1223.9, 2.6], GATE_NH = [700, 1168.6, 2.6];
 
-// pale blue-grey render over a tan stone base (photographs)
-const st = hex('#bcc6cb'), stL = hex('#d3dadc'), stD = hex('#a8977a'), trim = hex('#eceae3'), tile = hex('#9c4d3a'), tileD = hex('#7c3d2f');
-const slate = hex('#56626b'), glass = hex('#34506f'), glassW = hex('#c7a24c'), door = hex('#3a2c24'), white = hex('#efeae0'), pave = hex('#c8c0ae');
-const lawn = hex('#879a62'), cream = hex('#f3e8d2');
+// smooth white render with a blue cast over a grey-brown stone base (đá xanh), white trim, red-orange tiles
+// (Street View, 2026-11 rebuild); the render is drawn plain, only the stone base takes the masonry joints
+const st = hex('#d3dbe1'), stL = hex('#e4e9ec'), stD = hex('#8f8a7f'), trim = hex('#f1f0ea'), tile = hex('#b0573c'), tileD = hex('#86412f');
+const slate = hex('#5d6870'), glass = hex('#2e4f86'), door = hex('#2c2722'), doorF = hex('#3d5f99'), white = hex('#efeae0'), pave = hex('#a9a69e');
+const cream = hex('#f3e8d2'), band = hex('#d9b9a6');
 
 export function build({ data, S, group }) {
   let gmax = -1e9;
@@ -64,97 +67,106 @@ export function build({ data, S, group }) {
   S.kind = KIND.ROAD;
   for (let i = 0; i < 3; i++) box(-0.6 - i * 0.6, 0, yf - 0.6, yf + ((y - yf) * (3 - i)) / 4, 0.62, 27.4 + 1.2 * (2 - i), pave);
 
-  // ---- the forecourt: paved from the porch to the statue of Christ, lawns either side, the drive to the main gate
+  // ---- the forecourt: one open paved yard from the steps to the apex, as the satellite and Street View show it (no
+  //      lawns, nothing standing on the axis); kept off the carriageways
   const paved0 = S.n;
   S.kind = KIND.MASONRY;
-  const fc = [[-2.4, -16], [-2.4, 16], [-30, 16], [-30, -16]];
-  S.prism(fc.map(([a, b]) => W(a, b)), yf - 1.0, yf, stD, pave, { topKind: KIND.ROAD });
-  { // the drive on to the gate at the apex
-    const g = [GATE_MAIN[0], GATE_MAIN[1]], s = W(-30, 0), len = Math.hypot(g[0] - s[0], g[1] - s[1]), ang = Math.atan2(g[1] - s[1], g[0] - s[0]);
-    const m = [(g[0] + s[0]) / 2, (g[1] + s[1]) / 2], gy = Math.min(gY(...g), gY(...s));
-    S.box(m[0], m[1], gy - 0.6, gy + 0.32, len, 7, ang, stD, { top: pave, topKind: KIND.ROAD });
-  }
+  const fc = offStreets(data, [W(-2.4, 26), [742.6, 1176.3], [785.7, 1184.1], [822, 1189.6], [817.7, 1195.6], W(-2.4, -26)]);
+  S.prism(fc, yf - 1.0, yf, stD, pave, { topKind: KIND.ROAD });
   (S.paved = S.paved || []).push([paved0, S.n]);
-  for (const s of [-1, 1]) { // the lawns, kept off the street that cuts across the south one's outer corner
-    const r = offStreets(data, [[-29, s * 17], [-3, s * 17], [-3, s * 27], [-29, s * 27]].map(([a, b]) => W(a, b)));
-    S.kind = KIND.MASONRY;
-    S.prism(r, yf - 1.0, yf - 0.05, stL, lawn);
-  }
-  // the statue of Christ on a stepped round pedestal, on the axis
-  { const q = W(-20, 0); S.kind = KIND.MASONRY;
-    S.cyl(q[0], q[1], yf - 0.2, yf + 0.5, 3.4, 3.4, 12, stL); S.cyl(q[0], q[1], yf + 0.5, y + 2.2, 1.2, 1.0, 8, trim);
-    S.kind = KIND.PLAIN; S.cyl(q[0], q[1], y + 2.2, y + 4.2, 0.55, 0.42, 8, white); S.cyl(q[0], q[1], y + 4.2, y + 4.65, 0.22, 0.2, 6, white);
-    S.beam(V(-20, -0.9, y + 3.7), V(-20, 0.9, y + 3.7), 0.24, 0.22, white); }
 
-  // ---- the front block (a 0-10): low wings either side with curved tiled copings, the tall stepped gable in the middle
-  //      with the great pointed window and its cross, the clock above, round portholes, and a low canopy on four
-  //      pillars over three doors. Dimensions estimated from photographs (docs/places/dcct.md).
-  const GW = 7; // half-width of the central gable
-  // a wall across the front between b0 and b1 (a 0 to depth) whose top follows h(b): front, back and top faces
-  const profileWall = (b0, b1, depth, hOf, col, topCol, n = 8) => {
-    for (let i = 0; i < n; i++) {
-      const p0 = b0 + ((b1 - b0) * i) / n, p1 = b0 + ((b1 - b0) * (i + 1)) / n, h0 = hOf(p0), h1 = hOf(p1);
-      S.kind = KIND.MASONRY;
-      S.quad(V(0, p0, y), V(0, p1, y), V(0, p1, h1), V(0, p0, h0), col, [-F[0], 0, -F[1]]);
-      S.quad(V(depth, p1, y), V(depth, p0, y), V(depth, p0, h0), V(depth, p1, h1), col, [F[0], 0, F[1]]);
+  // ---- the front block (a 0-10), read off the head-on Street View from the forecourt and scaled by the mapped front
+  //      width (27.4 m): low wings either side with curved tiled copings (5.8 m at the corners, 8.4 m at the gable), the
+  //      gable shaft 13.8 m wide with straight sides to its cornice at 18 m, three small steps with corner pinnacles to
+  //      the summit block at 24.4 m, the great round-headed window with its grid and cross, the clock on the first step,
+  //      dotted bands down the shaft, and a tiled canopy on four pillars over three blue-framed doors.
+  const GW = 6.9; // half-width of the central gable
+  // a wall whose top follows h(u), between u0 and u1 along a facade: M(u, h, d) maps a point on it, d metres back from
+  // the face (0) to its depth; n is the face's outward normal. Front, back and a tiled coping.
+  const profileWall = (M, n, u0, u1, depth, hOf, col, topCol, k = 8) => {
+    const back = [-n[0], 0, -n[2]];
+    for (let i = 0; i < k; i++) {
+      const p0 = u0 + ((u1 - u0) * i) / k, p1 = u0 + ((u1 - u0) * (i + 1)) / k, h0 = hOf(p0), h1 = hOf(p1);
+      S.kind = KIND.PLAIN;
+      S.quad(M(p0, y, 0), M(p1, y, 0), M(p1, h1, 0), M(p0, h0, 0), col, n);
+      S.quad(M(p1, y, depth), M(p0, y, depth), M(p0, h0, depth), M(p1, h1, depth), col, back);
       S.kind = KIND.TILE;
-      S.quad(V(-0.35, p0, h0 + 0.05), V(-0.35, p1, h1 + 0.05), V(depth + 0.2, p1, h1 + 0.05), V(depth + 0.2, p0, h0 + 0.05), topCol, [0, 1, 0]);
+      S.quad(M(p0, h0 + 0.05, -0.35), M(p1, h1 + 0.05, -0.35), M(p1, h1 + 0.05, depth + 0.2), M(p0, h0 + 0.05, depth + 0.2), topCol, [0, 1, 0]);
     }
   };
-  for (const s of [-1, 1]) {
-    // the wing rises from 5.6 m at the corner to 9.2 m against the gable along a concave curve
-    profileWall(s * 13.7, s * GW, 10, (b) => { const t = (13.7 - Math.abs(b)) / (13.7 - GW); return y + 5.6 + 3.6 * t * t; }, st, tile);
-    S.kind = KIND.MASONRY;
-    S.quad(V(0, s * 13.7, y), V(10, s * 13.7, y), V(10, s * 13.7, y + 5.6), V(0, s * 13.7, y + 5.6), st, [P[0] * s, 0, P[1] * s]);
-    box(5, s * 13.4, y, y + 1.2, 10.2, 0.7, stD); // the tan stone base
-  }
-  box(5, 0, y, y + 1.2, 10.2, 27.6, stD);
-  // the gable: a shaft tapering slightly toward the top, then four steps with ledges, the summit block and the star
-  S.kind = KIND.MASONRY;
-  const GD = 8.4; // depth of the gable block
-  const shaft = [[0, 12, 2 * GW], [12, 15.5, 13.4], [15.5, 18, 12.6], [18, 20, 11.6]];
-  for (const [h0, h1, w] of shaft) box(GD / 2, 0, y + h0, y + h1, GD, w, st, { top: stL });
-  const steps = [[20, 22.2, 9.4], [22.2, 24.2, 7.4], [24.2, 26.2, 5.4], [26.2, 29, 3.0]];
-  for (const [h0, h1, w] of steps) {
-    box(GD / 2 - 0.4, 0, y + h0, y + h1, GD - 0.8, w, st, { top: stL });
-    S.kind = KIND.PLAIN; box(GD / 2 - 0.4, 0, y + h0 - 0.25, y + h0, GD - 0.4, w + 2.4, trim); S.kind = KIND.MASONRY;
-  }
-  S.kind = KIND.PLAIN;
-  box(GD / 2 - 0.4, 0, y + 29, y + 29.3, GD - 0.4, 3.6, trim);
-  S.beam(V(0.6, 0, y + 29.3), V(0.6, 0, y + 31.4), 0.22, 0.22, cream); // the star on its stem at the summit
-  for (let k = 0; k < 4; k++) { const t = (k * Math.PI) / 4; S.beam(V(0.6, -Math.cos(t) * 0.7, y + 31.4 - Math.sin(t) * 0.7), V(0.6, Math.cos(t) * 0.7, y + 31.4 + Math.sin(t) * 0.7), 0.12, 0.12, cream); }
-  // the great pointed window, its frame and the cross in it
-  const WW = 7.4, W0 = 7.2, W1 = 15.2, WA = 4.6; // width, sill, springing, height of the pointed head
-  const arch = (a, hw, h0, rise_, col) => { // a pointed head over a rectangle, facing the front
-    const n = 6;
-    for (const s of [-1, 1]) for (let i = 0; i < n; i++) {
-      const t0 = i / n, t1 = (i + 1) / n, f = (t) => [s * hw * (1 - t) ** 0.8, h0 + rise_ * Math.sin((t * Math.PI) / 2)];
-      const [b0, z0] = f(t0), [b1, z1] = f(t1);
-      S.quad(V(a, 0, h0), V(a, b0, z0), V(a, b1, z1), V(a, 0, h0), col, [-F[0], 0, -F[1]]);
-    }
+  // a convex outline [[u, h], ...] filled on a wall: M(u, h) gives the point, n the outward normal
+  const fan = (M, pts, col, n) => {
+    const c = pts.reduce((s, p) => [s[0] + p[0] / pts.length, s[1] + p[1] / pts.length], [0, 0]);
+    for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; S.tri(M(...c), M(...p), M(...q), col, n); }
   };
-  S.kind = KIND.PLAIN;
-  box(-0.06, 0, y + W0 - 0.4, y + W1, 0.12, WW + 0.9, trim);
-  arch(-0.07, WW / 2 + 0.45, y + W1, WA + 0.45, trim);
-  box(-0.12, 0, y + W0, y + W1, 0.12, WW, glass);
-  arch(-0.13, WW / 2, y + W1, WA, glass);
-  S.beam(V(-0.2, 0, y + W0 + 0.3), V(-0.2, 0, y + W1 + 3.4), 0.5, 0.18, trim);
-  S.beam(V(-0.2, -2.1, y + W1 - 0.4), V(-0.2, 2.1, y + W1 - 0.4), 0.5, 0.18, trim);
-  for (let k = 1; k < 4; k++) S.beam(V(-0.18, -WW / 2, y + W0 + k * 2), V(-0.18, WW / 2, y + W0 + k * 2), 0.08, 0.08, trim); // glazing bars
-  disc(-0.06, 0, y + 22.2, 1.0, white, 12); // the clock
-  S.beam(V(-0.1, 0, y + 22.2), V(-0.1, 0, y + 22.9), 0.08, 0.05, door);
-  for (const s of [-1, 1]) for (const h of [9, 12, 15, 18]) disc(-0.06, s * (GW - 1.1 - (h - 9) * 0.08), y + h, 0.32, door, 8); // portholes
-  // the canopy over the three doors, on four pillars at the head of the steps
-  for (const b of [-4.4, 0, 4.4]) box(-0.08, b, y, y + 4.4, 0.16, 3.0, door);
-  box(-1.3, 0, y + 5.0, y + 5.5, 2.8, 14.0, trim);
-  hipAB(-1.3, 0, 2.8, 14.0, y + 5.5, 0.7, tile, { over: 0.5, flare: 0.2, segs: 2 });
-  S.kind = KIND.MASONRY;
-  for (const b of [-6.6, -2.2, 2.2, 6.6]) box(-2.3, b, yf - 0.2, y + 5.0, 0.6, 0.6, stD);
+  // a round-headed opening whose sides lean in: width w0 at the sill h0, w1 at the springing hs, a half-circle head
+  const archPts = (w0, w1, h0, hs) => { const p = [[-w0 / 2, h0], [w0 / 2, h0]]; for (let i = 0; i <= 10; i++) { const t = (i / 10) * Math.PI; p.push([(Math.cos(t) * w1) / 2, hs + (Math.sin(t) * w1) / 2]); } return p; };
+  const archHW = (w0, w1, h0, hs, h) => (h <= hs ? w0 / 2 + ((w1 - w0) / 2) * ((h - h0) / (hs - h0)) : Math.sqrt(Math.max(0, (w1 / 2) ** 2 - (h - hs) ** 2)));
+  // a window of that shape: white frame, glass, a grid of glazing bars and an optional cross [bottom, top, arm y, arm half]
+  const archWin = (M, n, w0, w1, h0, hs, { frame = 0.6, grid = [0.8, 0.9], bar = 0.08, cross = null } = {}) => {
+    S.kind = KIND.PLAIN;
+    fan((u, h) => M(u, h, 0.05), archPts(w0 + 2 * frame, w1 + 2 * frame, h0 - frame * 0.6, hs), trim, n);
+    fan((u, h) => M(u, h, 0.1), archPts(w0, w1, h0, hs), glass, n);
+    const top = hs + w1 / 2;
+    for (let u = 0; u < w0 / 2 - 0.1; u += grid[0]) for (const s of u ? [-1, 1] : [1]) {
+      const hi = u <= w1 / 2 ? hs + Math.sqrt((w1 / 2) ** 2 - u * u) : h0 + ((hs - h0) * (w0 / 2 - u)) / ((w0 - w1) / 2);
+      S.beam(M(s * u, h0, 0.16), M(s * u, hi, 0.16), bar, bar, trim);
+    }
+    for (let h = h0 + grid[1]; h < top - 0.25; h += grid[1]) { const hw = archHW(w0, w1, h0, hs, h); S.beam(M(-hw, h, 0.16), M(hw, h, 0.16), bar, bar, trim); }
+    if (cross) { const [c0, c1, cy, cw] = cross; S.beam(M(0, c0, 0.2), M(0, c1, 0.2), 0.4, 0.16, trim); S.beam(M(-cw, cy, 0.2), M(cw, cy, 0.2), 0.4, 0.16, trim); }
+  };
+  const nF = [-F[0], 0, -F[1]];
+  const MF = (u, h, d) => V(d === undefined ? 0 : -d, u, h); // the front face: u across (+b), d out in front
+  const MFw = (u, h, d) => V(d, u, h); // the same face for walls, d back into the block
 
-  // ---- nave with its side corridors (26 x 4.2 m), the clerestory above, tiered roofs
+  for (const s of [-1, 1]) {
+    // the wing rises from 5.8 m at the corner to 8.4 m against the gable along a concave curve
+    profileWall(MFw, nF, s * 13.7, s * GW, 10, (b) => { const t = (13.7 - Math.abs(b)) / (13.7 - GW); return y + 5.8 + 2.6 * t * t; }, st, tile);
+    S.kind = KIND.PLAIN;
+    S.quad(V(0, s * 13.7, y), V(10, s * 13.7, y), V(10, s * 13.7, y + 5.8), V(0, s * 13.7, y + 5.8), st, [P[0] * s, 0, P[1] * s]);
+    S.kind = KIND.MASONRY;
+    box(5, s * 13.4, y, y + 1.2, 10.2, 0.7, stD); // the grey stone base
+  }
+  S.kind = KIND.MASONRY;
+  box(5, 0, y, y + 1.2, 10.2, 27.6, stD);
+  // the gable: a straight shaft to its cornice, three steps with ledges and corner pinnacles, the summit block
+  const GD = 8.4; // depth of the gable block
+  S.kind = KIND.PLAIN;
+  box(GD / 2, 0, y + 1.2, y + 18, GD, 2 * GW, st, { top: stL });
+  box(GD / 2, 0, y + 18, y + 18.4, GD + 0.3, 2 * GW + 0.8, trim);
+  const steps = [[18.4, 20.4, 8.0, 6.4], [20.7, 22.0, 5.0, 3.7], [22.3, 24.4, 2.8, 2.1]]; // bottom, top, width, pinnacle b
+  for (const [h0, h1, w, pb] of steps) {
+    box(GD / 2 - 0.4, 0, y + h0, y + h1, GD - 0.8, w, st, { top: stL });
+    box(GD / 2 - 0.4, 0, y + h1, y + h1 + 0.3, GD - 0.5, w + 0.6, trim);
+    for (const sb of [-1, 1]) { box(0.45, sb * pb, y + h0, y + h0 + 0.9, 0.6, 0.6, trim); box(0.45, sb * pb, y + h0 + 0.9, y + h0 + 1.1, 0.8, 0.8, trim); }
+  }
+  S.beam(V(0.6, 0, y + 24.7), V(0.6, 0, y + 25.9), 0.2, 0.2, cream); // the small cross at the summit
+  S.beam(V(0.6, -0.4, y + 25.5), V(0.6, 0.4, y + 25.5), 0.16, 0.16, cream);
+  box(-0.04, 0, y + 22.7, y + 23.9, 0.1, 0.9, door); // the niche in the summit block and its white figure
+  box(-0.08, 0, y + 22.8, y + 23.7, 0.1, 0.34, white);
+  // the great window: sides leaning in from 6.2 m at the sill to 5.4 m, a round head to 17.3 m, the grid and the cross
+  const WW = 5.6, W0 = 8.0, W1 = 14.6; // (for the night glow) width, sill, springing
+  box(-0.04, 0, y + 6.9, y + 7.5, 0.1, 7.8, band); // the band under the sill
+  archWin(MF, nF, 6.2, 5.4, y + W0, y + W1, { frame: 0.7, grid: [0.75, 0.9], cross: [y + 9.2, y + 16.6, y + 13.8, 1.7] });
+  disc(-0.06, 0, y + 19.4, 0.75, white, 16); // the clock
+  S.beam(V(-0.1, 0, y + 19.4), V(-0.1, 0, y + 19.95), 0.08, 0.05, door);
+  S.beam(V(-0.1, 0, y + 19.4), V(-0.1, 0.4, y + 19.4), 0.08, 0.05, door);
+  for (const s of [-1, 1]) for (let i = 0; i <= 10; i++) { const t = i / 10; disc(-0.06, s * (4.5 + 1.9 * t * t), y + 17.6 - 9.4 * t, 0.13, door, 6); } // dotted bands
+  // three blue-framed doors under a tiled canopy on four stone pillars
+  for (const b of [-3.35, 0, 3.35]) { box(-0.05, b, y, y + 4.0, 0.1, 2.3, doorF); box(-0.09, b, y, y + 3.75, 0.1, 1.8, door); }
+  box(-1.3, 0, y + 5.0, y + 5.4, 2.8, 13.8, trim);
+  hipAB(-1.3, 0, 2.8, 13.8, y + 5.4, 0.9, tile, { over: 0.5, flare: 0.2, segs: 2 });
+  S.kind = KIND.MASONRY;
+  for (const b of [-5, -1.7, 1.7, 5]) box(-2.3, b, yf - 0.2, y + 5.0, 0.5, 0.5, stD);
+
+  // ---- nave with its side corridors (26 x 4.2 m), the clerestory above, tiered roofs. Street View from Nguyễn Huệ:
+  //      the corridors are grey-brown stone with round-arched windows under a white band; the clerestory is white,
+  //      with tall pointed windows with grey tracery, each under a gabled dormer head breaking the eave.
   const NE = 15, NR = 25; // nave wall-head, nave ridge
   S.kind = KIND.MASONRY;
-  box(20.5, 0, y, y + 7.4, 21, 27.4, st, { top: tileD }); // side corridors
+  box(20.5, 0, y, y + 6.0, 21, 27.4, stD); // side corridors, the stone
+  S.kind = KIND.PLAIN;
+  box(20.5, 0, y + 6.0, y + 7.4, 21, 27.4, st, { top: tileD }); // and the white band
   box(20.5, 0, y, y + NE, 21.4, 19, st, { top: tileD }); // nave
   S.kind = KIND.TILE;
   for (const s of [-1, 1]) { // corridor lean-to roofs, the lower tier
@@ -167,32 +179,75 @@ export function build({ data, S, group }) {
     S.kind = KIND.TILE;
     S.beam(V(8.4, 0, y + NR + 0.1), V(31.2, 0, y + NR + 0.1), 0.45, 0.35, tileD);
   }
-  for (const s of [-1, 1]) for (let i = 0; i < 5; i++) { // arched windows in the aisle
-    const a = 12.2 + i * 4.3;
-    winB(a, s * 13.7, s, 1.8, y + 1.6, y + 5.2);
+  for (const s of [-1, 1]) for (let i = 0; i < 5; i++) { // round-arched windows in the corridor's stone wall
+    const a = 12.2 + i * 4.3, n = [P[0] * s, 0, P[1] * s];
+    archWin((u, h, d = 0) => V(a + u, s * (13.7 + d), h), n, 2.0, 2.0, y + 1.6, y + 3.8, { frame: 0.25, grid: [0.5, 1.1], bar: 0.06 });
   }
-  for (const s of [-1, 1]) for (let i = 0; i < 8; i++) { // the clerestory: tall slits under gabled dormer heads breaking the eave
-    const a = 11.3 + i * 2.7, hw = 1.05, e = y + NE, ye = y + NE - 1.1, ap = e + 2.0, bo = s * 9.6, bi = s * 7.6;
-    winB(a, s * 9.5, s, 0.7, y + 9.6, y + NE - 0.4);
-    S.kind = KIND.MASONRY;
+  for (const s of [-1, 1]) for (let i = 0; i < 8; i++) { // the clerestory: tall windows under gabled dormer heads breaking the eave
+    const a = 11.3 + i * 2.7, hw = 1.15, e = y + NE, ye = y + NE - 1.1, ap = e + 2.0, bo = s * 9.6, bi = s * 7.6;
+    S.kind = KIND.PLAIN;
+    box(a, s * 9.53, y + 9.3, y + NE - 1.0, 1.7, 0.08, trim);
+    winB(a, s * 9.5, s, 1.4, y + 9.4, y + NE - 1.6);
+    S.kind = KIND.PLAIN;
+    S.beam(V(a, s * 9.72, y + 9.4), V(a, s * 9.72, y + NE - 0.7), 0.1, 0.06, slate); // the mullion
+    S.beam(V(a - 0.7, s * 9.72, y + 11.7), V(a + 0.7, s * 9.72, y + 11.7), 0.08, 0.06, slate);
     S.tri(V(a - hw, bo, e - 0.6), V(a + hw, bo, e - 0.6), V(a, bo, ap), stL, [P[0] * s, 0, P[1] * s]);
     S.kind = KIND.TILE;
     S.quad(V(a - hw - 0.15, s * 9.8, e - 0.7), V(a, s * 9.8, ap + 0.15), V(a, bi, ap - 0.4), V(a - hw - 0.15, bi, ye + 1.5), tile, [-F[0], 1, -F[1]]);
     S.quad(V(a, s * 9.8, ap + 0.15), V(a + hw + 0.15, s * 9.8, e - 0.7), V(a + hw + 0.15, bi, ye + 1.5), V(a, bi, ap - 0.4), tile, [F[0], 1, F[1]]);
   }
 
-  // ---- the crossing: the widest part of the plan, with the bell tower rising from its roof (below)
-  S.kind = KIND.MASONRY;
-  box(44.95, 0, y, y + 8.2, 26.2, 38.6, st, { top: tileD }); // b ±19.3
-  box(45.4, 0, y, y + 7.0, 17.6, 50, st, { top: tileD }); // the arms to b ±25
-  box(44.95, 0, y, y + 18, 26.6, 27.4, st, { top: tileD }); // the core
+  // ---- the crossing: the widest part of the plan, with the bell tower rising from its roof (below). Each arm ends in
+  //      an entrance front like the main one in small (Street View from Nguyễn Huệ; the satellite shows the steps at
+  //      both ends): a white gable with a tall round-headed window, curved-coped wings with pierced claustra panels,
+  //      and a tiled canopy on pillars over three doors.
   S.kind = KIND.PLAIN;
+  box(44.95, 0, y, y + 8.2, 26.2, 38.6, st, { top: tileD }); // b ±19.3
+  box(45.4, 0, y, y + 5.5, 17.6, 44, st, { top: tileD }); // the arms, up to the end fronts at b ±22
+  box(44.95, 0, y, y + 18, 26.6, 27.4, st, { top: tileD }); // the core
   box(44.95, 0, y + 17.5, y + 18, 27.1, 27.9, trim);
-  hipAB(45.4, 0, 17.6, 50, y + 7.0, 2.0, tile, { over: 1.0, flare: 0.3, segs: 2 });
   hipAB(44.95, 0, 26.2, 38.6, y + 8.2, 3.4, tile, { over: 1.2, flare: 0.35, segs: 2 });
   hipAB(44.95, 0, 26.6, 27.4, y + 18, 4.2, tile, { over: 1.4, flare: 0.4, fascia: 0.3, fasciaCol: trim, hips: true, segs: 3 });
+  const TC = 45.4; // the arms' centre line (a)
   for (const s of [-1, 1]) {
-    for (const a of [40, 45.4, 50.8]) winB(a, s * 25, s, 2.2, y + 1.3, y + 5.6);
+    const n = [P[0] * s, 0, P[1] * s], Mw = (u, h, d) => V(TC + u, s * (25 - d), h), Mo = (u, h, d = 0) => V(TC + u, s * (25 + d), h);
+    // the arm's gabled roof from the crossing out to the wings, closed by a gable wall
+    S.kind = KIND.TILE;
+    for (const e of [-1, 1]) S.quad(V(TC + e * 9.2, s * 19.6, y + 5.3), V(TC + e * 9.2, s * 21.9, y + 5.3), V(TC, s * 21.9, y + 11.4), V(TC, s * 19.6, y + 11.4), tile, [F[0] * e, 1.2, F[1] * e]);
+    S.kind = KIND.PLAIN;
+    S.tri(V(TC - 8.8, s * 21.85, y + 5.5), V(TC + 8.8, s * 21.85, y + 5.5), V(TC, s * 21.85, y + 11.2), st, n);
+    // the wings, 5.5 m at the corners rising to 8 m against the gable
+    for (const e of [-1, 1]) profileWall(Mw, n, e * 8.8, e * 4, 3.1, (u) => { const t = (8.8 - Math.abs(u)) / 4.8; return y + 5.5 + 2.5 * t * t; }, st, tile, 6);
+    for (const e of [-1, 1]) { S.kind = KIND.PLAIN; S.quad(V(TC + e * 8.8, s * 25, y), V(TC + e * 8.8, s * 21.9, y), V(TC + e * 8.8, s * 21.9, y + 5.5), V(TC + e * 8.8, s * 25, y + 5.5), st, [F[0] * e, 0, F[1] * e]); }
+    S.kind = KIND.MASONRY;
+    box(TC, s * 24.6, y, y + 1.0, 17.8, 0.9, stD);
+    // the gable: shaft to 14.5 m, one step, the summit block and its cross
+    S.kind = KIND.PLAIN;
+    box(TC, s * 23.5, y + 1.0, y + 14.5, 8, 3, st, { top: stL });
+    box(TC, s * 23.5, y + 14.5, y + 14.8, 8.6, 3.3, trim);
+    box(TC, s * 23.4, y + 14.8, y + 16.4, 4.6, 2.6, st, { top: stL });
+    box(TC, s * 23.4, y + 16.4, y + 16.65, 5.0, 2.8, trim);
+    box(TC, s * 23.4, y + 16.65, y + 17.9, 2.2, 2.4, st, { top: stL });
+    S.beam(V(TC, s * 24.2, y + 17.9), V(TC, s * 24.2, y + 19.1), 0.16, 0.16, cream);
+    S.beam(V(TC - 0.35, s * 24.2, y + 18.7), V(TC + 0.35, s * 24.2, y + 18.7), 0.14, 0.14, cream);
+    archWin(Mo, n, 3.4, 3.0, y + 6.2, y + 11.6, { frame: 0.4, grid: [0.6, 0.8], bar: 0.07 });
+    // the claustra panels on the wings: a white grid over dark openings
+    for (const e of [-1, 1]) {
+      const c = e * 6.4;
+      box(TC + c, s * 25.04, y + 1.6, y + 4.8, 3.2, 0.1, slate);
+      for (let u = -1.6; u <= 1.61; u += 0.4) S.beam(Mo(c + u, y + 1.6, 0.1), Mo(c + u, y + 4.8, 0.1), 0.08, 0.06, trim);
+      for (let h = 1.6; h <= 4.81; h += 0.4) S.beam(Mo(c - 1.6, y + h, 0.1), Mo(c + 1.6, y + h, 0.1), 0.06, 0.08, trim);
+    }
+    // the doors, the canopy on four pillars, the steps
+    for (const u of [-2.3, 0, 2.3]) { box(TC + u, s * 25.05, y, y + 3.5, 1.6, 0.1, doorF); box(TC + u, s * 25.09, y, y + 3.3, 1.2, 0.1, door); }
+    box(TC, s * 26.3, y + 4.0, y + 4.4, 7.4, 2.6, trim);
+    hipAB(TC, s * 26.3, 7.4, 2.6, y + 4.4, 0.8, tile, { over: 0.4, flare: 0.2, segs: 2 });
+    S.kind = KIND.MASONRY;
+    for (const u of [-3.4, -1.15, 1.15, 3.4]) box(TC + u, s * 27.3, y - 1.6, y + 4.0, 0.4, 0.4, stD);
+    S.kind = KIND.ROAD;
+    box(TC, s * 26.5, y - 1.6, y - 0.05, 8.4, 3.0, pave);
+  }
+  for (const s of [-1, 1]) {
     for (const a of [34.2, 55.8]) winB(a, s * 19.4, s, 1.8, y + 1.3, y + 5.8);
     for (const a of [37.4, 44.95, 52.5]) winB(a, s * 13.7, s, 2.6, y + 11.2, y + 15.8); // the great side windows
   }
@@ -230,6 +285,10 @@ export function build({ data, S, group }) {
   for (let k = 0; k < 4; k++) { // lattice panels on the four faces of the shaft
     const t = ANG + (k * Math.PI) / 2, r = 4.36;
     S.box(tc[0] + Math.cos(t) * r, tc[1] + Math.sin(t) * r, y + 22.4, yg + 24.4, 0.12, 5.6, t + Math.PI / 2, slate);
+    // the claustra: a white grid of pierced blocks over the dark panel
+    const c = [tc[0] + Math.cos(t) * 4.45, tc[1] + Math.sin(t) * 4.45], u = [-Math.sin(t), Math.cos(t)], at = (v, h) => [c[0] + u[0] * v, h, c[1] + u[1] * v];
+    for (let v = -2.8; v <= 2.81; v += 0.56) S.beam(at(v, y + 22.4), at(v, yg + 24.4), 0.1, 0.08, trim);
+    for (let h = y + 22.4; h <= yg + 24.41; h += 0.6) S.beam(at(-2.8, h), at(2.8, h), 0.08, 0.1, trim);
   }
   box(TA, 0, yg + 24.9, yg + 25.4, 9.4, 9.4, trim);
   const ring = (y0, y1, r, col) => { const n = 8; for (let i = 0; i < n; i++) { const t = ANG + Math.PI / 8 + (i * Math.PI) / 4 + Math.PI / 8, rr = r * Math.cos(Math.PI / 8) + 0.06; S.kind = KIND.PLAIN; S.box(tc[0] + Math.cos(t) * rr, tc[1] + Math.sin(t) * rr, y0, y1, 0.14, r * 0.62, t + Math.PI / 2, col); } };
@@ -289,7 +348,7 @@ export function build({ data, S, group }) {
   S.kind = KIND.PLAIN;
   S.base = 0;
 
-  // ---- no generated houses in the church grounds east of the monastery: the forecourt, lawns and the church
+  // ---- no generated houses in the church grounds east of the monastery: the forecourt and the church
   if (Array.isArray(data.infill)) {
     const a = data.infill, R = 8, keep = [];
     let near = data.meta?.counts?.infillNear ?? a.length / R, nearKept = 0;
@@ -316,13 +375,12 @@ export function build({ data, S, group }) {
   }
   const cross = lightMesh(L, lightMaterial(0xf4f1ff, 1.4));
   const L2 = new Buf(128);
-  { for (const b of [-4.4, 0, 4.4]) { const k = W(-0.18, b); L2.box(k[0], k[1], y + 0.1, y + 4.2, 0.12, 2.6, ANG, [1, 1, 1]); }
+  { for (const b of [-3.35, 0, 3.35]) { const k = W(-0.18, b); L2.box(k[0], k[1], y + 0.1, y + 3.6, 0.12, 1.7, ANG, [1, 1, 1]); }
     const k = W(-0.2, 0); L2.box(k[0], k[1], y + W0 + 0.1, y + W1, 0.12, WW - 0.3, ANG, [1, 1, 1]); }
   const warm = lightMesh(L2, lightMaterial(0xffc982, 1.1));
   const pos = [], col = [];
   const put = (q, h, cc2 = [1, 0.85, 0.6]) => { pos.push(q[0], h, q[1]); col.push(...cc2); };
-  for (const s of [-1, 1]) { put(W(-2.8, s * 13), y + 0.4, [1, 0.92, 0.75]); put(W(-28, s * 15), yf + 3.2); put(W(-12, s * 15), yf + 3.2); }
-  put(W(-21.5, 0), yf + 0.6, [1, 0.95, 0.85]); // the light on the statue
+  for (const s of [-1, 1]) { put(W(-2.8, s * 13), y + 0.4, [1, 0.92, 0.75]); put(W(-12, s * 15), yf + 3.2); }
   for (const [gx, gz, hw] of [GATE_MAIN, GATE_SIDE, GATE_NH]) put([gx, gz], gY(gx, gz) + 3.6);
   const pts = glowPoints(pos, col, 4);
   pts.userData.glow = true;
