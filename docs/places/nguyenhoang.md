@@ -23,8 +23,8 @@ Model: `src/landmarks/places/nguyenhoang.js` (id `nguyenhoang`). It replaces `bu
 
 ## Estimates
 - **Arch crown:** the two height figures are read together: 22 m over the deck ("over 20 m") and 30.6 m over the river ("over 30 m").
-  - The arch springs from the V footings (±92 m, so 184 m apart at the water) and passes through the deck at about ±83 m.
-  - The ribs lean inward 3.5 m each.
+  - The arch springs from the V footings (±87 m, so 174 m apart at the water) and passes through the deck at about ±81 m, as the satellite shows the ribs emerging (−76 … +82 m).
+  - The ribs stand upright, 26.4 m apart (satellite: a constant 26.0–26.2 m from end to end).
   - Rib section: 2.0 m wide, 2.4 to 3.4 m deep.
 - **Hangers:** every 5.5 m.
 - **Spans:**
@@ -42,13 +42,22 @@ Model: `src/landmarks/places/nguyenhoang.js` (id `nguyenhoang`). It replaces `bu
 - **Colours:** royal yellow arch and V legs, light grey fascia and steel, grey concrete side piers.
 - **Night show:** an 8 s step through gold, amber, rose, violet and teal (mostly gold), warm white in rain. The lọng heads glow warm.
 
+## Read from the satellite (Google, z17–z20, visual reference only; Street View returned blank frames)
+- **Axis:** the deck edges run at 154.3°, parallel to the OSM outline.
+- **Position:** the deck sits ~1.5 m east-north-east of the OSM outline (deck edges and both ribs, corrected for the image's lean on tall things). The OSM streets at both ends share the offset, so the model stays on the outline: moving the bridge alone opens a seam at both street joints.
+- **Ribs:** parallel, not leaning inward; they cross the deck at about −76 and +82 m.
+- **Wings:** at each corner a 3.6 m walkway ramp leaves the outer edge (118 m from the middle at the north end, 128 m at the south), runs beside the deck and splays out ~20° over 42–44 m to a round terrace on the bank (~18 m across). The model matches them to within ~1–2 m. The south-west terrace is drawn 15 m across so it stays off the mapped riverside street.
+
 ## What changed
 - **Arch:** the old model put one arch over a single ~70 m span. It now spans the 180 m channel and continues below the deck to yellow V piers in the river.
 - **Deck:** it was a flat box. It now has the real lane layout, with a gentle crown, cantilevered cross girders, a fascia, lane markings and lotus railings.
 - **Lọng:** 60 parasol lamps (was 64), with fringe and finial, on the rib strips.
 - **Lights:** the arch lighting changes colour, and the lights carry `userData.landmark = 'nguyenhoang'`.
+- **Satellite rebuild:** the arch footings moved in from ±92 m to ±87 m and the inward lean was removed, to match the ribs seen from above. Added the four wing ramps with columns, railings and round terraces.
 
 ## Left
 - The real span lengths, deck levels and lamp positions need the design drawings.
 - The approach viaducts beyond the 350 m main bridge are drawn as short ramps onto the OSM streets.
-- The walkway under the bridge and the north-bank roundabout are not modelled.
+- The walkway under the bridge is not modelled. The wing levels, the terrace heights and the column spacing are estimates.
+- The satellite shows dark slots and grid strips beside the carriageway. They were read as rib shadows and are not modelled.
+- The OSM roundabout at the south end sits ~8.6 m south of Google's. That is road data, not this place.
