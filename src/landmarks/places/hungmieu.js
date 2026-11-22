@@ -26,6 +26,10 @@ import { planter, dinh } from '../props.js';
 
 // OSM outlines, metres in the model frame (from the raw extract, data/raw)
 const HALL = [[-1340.4, 146.8], [-1325.0, 135.7], [-1313.3, 151.8], [-1328.7, 162.9]];
+// OSM's hall outline has the right size and axis (bearing 54°, checked on the satellite) but sits 2 m toward the
+// court: on the 2026 satellite the roof's rear and front eaves both lie 2 m further back (NNW). The hall, its
+// platform and court are framed from the outline moved back by HALL_BACK; the gates and walls stay where OSM has them.
+const HALL_BACK = 2.0;
 const MIEU_MON = [[-1305.2, 164.8], [-1303.3, 167.3], [-1313.6, 175.0], [-1315.4, 172.5]];
 // the rear two stand in Thế Miếu's outer wall (themieu.js), which stops clear of their roofs (REAR_GATE_CUTS)
 const REAR_GATES = [
@@ -66,6 +70,7 @@ export function build({ S }) {
   const c = HALL.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
   const ex = HALL[1][0] - HALL[0][0], ez = HALL[1][1] - HALL[0][1], el = Math.hypot(ex, ez);
   const ux = ex / el, uz = ez / el, ang = Math.atan2(uz, ux);
+  c[0] += HALL_BACK * uz; c[1] -= HALL_BACK * ux;
   const P = (u, v) => [c[0] + u * ux - v * uz, c[1] + u * uz + v * ux];
   const y0 = gY(c[0], c[1]);
   const box = (u, v, ya, yb, w, d, col, o) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ang, col, o); };
@@ -74,7 +79,8 @@ export function build({ S }) {
   S.base = y0 - LAND_Y;
 
   // ---- court: bát tràng brick 20 x 18.45 m before the hall, the stone thần đạo down its middle ----
-  const courtV = 7.9, gateV = 26.9;
+  // the Miếu Môn stands on the hall's axis (OSM has it 2.1 m off), at its mapped distance down the court
+  const mm = obb(MIEU_MON).c, courtV = 7.9, gateV = (mm[0] - c[0]) * -uz + (mm[1] - c[1]) * ux;
   S.kind = KIND.MASONRY;
   box(0, (courtV + gateV - 1.6) / 2, y0 - 0.2, y0 + 0.14, 20, gateV - 1.6 - courtV, BRICK);
   box(0, (courtV + gateV) / 2, y0 - 0.2, y0 + 0.2, 2.15, gateV - courtV, shade(STONE, 1.08));

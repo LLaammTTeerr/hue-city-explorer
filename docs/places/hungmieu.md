@@ -34,6 +34,11 @@ Replica in `src/landmarks/places/hungmieu.js`. It covers the temple north-west o
 - Also new: the four small gates, the two side walls (`FENCE.imperial`), and Thần Khố and Thần Trù.
 - The outer and dividing walls are left to civic.js and the Thế Miếu replica, so they are not drawn twice. No `replaced()` guard was needed.
 
+## Satellite and Street View check (2026)
+- On the satellite (Google, zoom 19 and 20, kept in scratch only) the hall's roof has OSM's size and axis (bearing about 54°) but both eaves lie about 2 m further back (north-north-west) than the OSM outline. The hall, platform and court are now framed from the outline moved back 2 m (`HALL_BACK`); the Miếu Môn keeps its mapped distance, so the court is 2 m longer. Gates, walls and service halls stay on OSM.
+- Street View near the hall is all user photospheres: the hall's interior (red lacquer, gilding, encaustic-tile floor), walls, and ornate arched gates whose identity is uncertain. The hall's exterior is not visible, so its heights and roofs are unchanged.
+- Open question: the arched gates with tall decorated crowns in those photospheres may be this compound's side and rear gates; the model keeps the small hip-roofed gates (the same type Thế Miếu's replica uses) until that is confirmed.
+
 ## Left to do
 - Two data trees still stand in the court. Low paving does not keep trees off.
 - There are no night lights.
