@@ -24,13 +24,20 @@ gate's OSM footprint, which it reads from `data.gates`.
 - Restored in 2003–2004.
 
 ## Estimated
-- Passage sizes: middle 2.6 m wide with its crown at about 4.1 m; sides 1.9 m wide with their crowns at about 3.25 m.
-  The middle bay is 4.7 m wide.
-- Heights: side bays 4.6 m, middle bay 6.0 m, upper storey to 8.6 m, ridge 10.05 m, finial about 10.9 m.
-- Colours: the ochre-yellow lime render and the mosaic colours.
-- Details: the round windows of the upper storey, the lotus caps on the pilasters, the half-open red doors, the paved
-  apron and the form of the ridge ornament.
+- From Google Street View (a car pano on Trần Nguyễn Hãn about 84 m south-west, and a user photosphere on the Lê Huân
+  lawn, its pose estimated from the image), scaled against the 12.7 m footprint:
+  - one lower block of even height, about 4.6 m, with a continuous frieze and cornice; no bay stands taller than another;
+  - three arches of nearly one size, crowns level: middle 1.9 m wide, crown about 3.3 m; sides 1.7 m wide, crown about
+    3.15 m, centred 3.8 m either side of the middle;
+  - a roof tier over the whole block, and a narrow upper storey (about 3.4 m wide, eaves near 7.9 m) under the top roof;
+    ridge about 9.35 m, finial about 10.2 m;
+  - the side passages shut with red doors, the middle one open;
+  - a pale, weathered lime render with ochre-yellow arch rings; the mosaic reads pale from the road.
+- Colours of the mosaic, the round windows of the upper storey, the lotus caps, the paved apron and the ridge
+  ornament are still estimates.
 - The gate is not in `docs/heights-reference.json`; I found no sourced height for it.
+- Position: the satellite puts the gate about 1.5 m north-west along the wall from the OSM outline, within the 2 m
+  tolerance; the outline is kept because the wall (`places/dainoi.js`) is cut at it. Axis 143° (OSM) against about 144°.
 
 ## Changed
 - The old model was the generic Imperial City gate: a plain block with a two-tier, red-walled pavilion on top.
@@ -40,7 +47,9 @@ gate's OSM footprint, which it reads from `data.gates`.
   - pilasters panelled in mosaic;
   - wall stubs where the Imperial City wall butts against the gate's flanks.
 
+- Rebuilt from Street View (2026): the stepped bays (middle block 6.0 m, side bays 4.6 m under their own roofs, a much
+  larger middle arch) became one even block with three like arches, a roof tier over all of it and the upper storey.
+
 ## Left
-- No dimensions were measured from photos. Heights and bay widths should be checked against an elevation drawing or a
-  photo.
+- Proportions come from distant Street View; an elevation drawing would settle the arch and storey heights.
 - The mosaic is only suggested by coloured panels. The 彰德門 board has gold blocks in place of characters.

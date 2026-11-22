@@ -8,9 +8,9 @@ import { rise } from '../../geo/terrain.js';
 // roofed in yellow glazed tiles (hoàng lưu ly) whose round tile ends carry 壽 and the lower ends bats; badly damaged
 // by war after 1945 and restored to its 1921 form in 2003–2004. Sources and estimates: docs/places/chuongduc.md.
 //   - footprint: OSM way 531016858, 12.7 × 5.4 m, long side on the line of the Imperial City wall (hard-coded below)
-//   - three arched passages, the middle one wider and taller (proportions estimated from photographs)
-//   - the side bays carry one roof each; the middle bay rises to a skirt roof and a small upper storey under the top
-//     roof, so three storeys in all and about 11 m to the ridge finial (estimate)
+//   - one lower block of even height with three arched passages of nearly one size, crowns level (Street View)
+//   - a roof tier over the whole block, and a small upper storey under the top roof rising through its middle,
+//     so three storeys in all and about 10 m to the ridge finial (estimated from Street View against the footprint)
 //   - four pilasters on each face, between and outside the bays, panelled in mosaic, with lotus caps
 // The Imperial City's wall (places/dainoi.js) stops at this footprint; this file adds the short brick stubs that
 // butt the wall against the gate's flanks, and the paved way through the passages.
@@ -19,12 +19,13 @@ export const id = 'chuongduc';
 // OSM way 531016858, metres in the model frame (scripts/frame.json)
 const RING = [[-1406.29, 170.68], [-1404.67, 169.47], [-1401.99, 167.45], [-1394.33, 177.62], [-1396.38, 179.22], [-1398.52, 180.79]];
 
-const WALL = hex('#d9c38c'); // lime render washed ochre-yellow, as restored
+const WALL = hex('#d8cfb6'); // weathered pale lime render, as Street View shows it
+const RING_COL = hex('#d6b866'); // ochre-yellow arch rings and jambs
 const TRIM = hex('#efe4c4'); // pale mouldings, arch rings, cornices
-const PIER = hex('#c9ae72');
+const PIER = hex('#cfc19c');
 const ROOF = PAL.imperialRoof;
 const RIDGE = hex('#f1d77a');
-const MOSAIC = [hex('#3f7290'), hex('#4f8a5c'), hex('#b0482f'), hex('#e9e2cf')]; // blue, green, red, white sherds
+const MOSAIC = [hex('#5a7f90'), hex('#6a8f6a'), hex('#a65a44'), hex('#e6dfcc')]; // blue, green, red, white sherds, weathered (they read pale from the road)
 const DOOR = hex('#7c2a1f');
 const PLAQUE = hex('#3a2a22'), GOLD = hex('#d6ad48');
 const PAVE = hex('#bdb5a4');
@@ -44,9 +45,14 @@ export function build({ data, S }) {
   const G = LAND_Y + rise(cx, cz);
   const keep = S.kind;
 
-  const L2 = len / 2, D2 = dep / 2; // 6.35, 2.7
-  const BU = 2.35; // the middle bay runs |u| < BU
-  const yS = G + 4.6, yC = G + 6.0; // tops of the side bays and of the middle bay
+  const L2 = len / 2; // 6.35
+  // Street View (Lê Huân lawn, Trần Nguyễn Hãn) shows one block of even height across all three bays, its arches
+  // nearly alike with their crowns level, a roof tier over the whole block and a narrow upper storey above the
+  // middle; measured against the 12.7 m footprint: block about 4.6 m, arch crowns about 3.1–3.3 m, side arches
+  // centred 3.8 m off the middle, the upper storey about 3.4 m wide with its eaves near 8 m.
+  const yS = G + 4.6; // top of the lower block
+  const AU = 3.8; // side arches' centres
+  const ARCH = [{ uc: -AU, aw: 1.7, ys: G + 2.3 }, { uc: 0, aw: 1.9, ys: G + 2.35 }, { uc: AU, aw: 1.7, ys: G + 2.3 }];
 
   // ---- ground: a stone plinth and the paved way through the three passages -----------------------------------
   S.kind = KIND.ROAD;
@@ -55,63 +61,68 @@ export function build({ data, S }) {
   box(0, 0, G - 0.3, G + 0.22, len + 0.5, dep + 0.5, shade(PAL.stone, 0.92), { topKind: KIND.ROAD });
   const g0 = G + 0.22;
 
-  // ---- the three bays, each a masonry block with its arched passage ------------------------------------------
-  // a block from u0 to u1, depth d, up to y1, with an arch of width aw springing at ys
-  const bay = (u0, u1, d, y1, aw, ys) => {
-    const uc = (u0 + u1) / 2, r = aw / 2;
-    S.kind = KIND.PLAIN; // smooth lime render, not bare brick
-    box((u0 + uc - r) / 2, 0, g0, y1, uc - r - u0, d, WALL, { top: TRIM });
-    box((u1 + uc + r) / 2, 0, g0, y1, u1 - uc - r, d, WALL, { top: TRIM });
-    const n = 8;
+  // ---- the lower block: piers between the passages, and the masonry over each arch ----------------------------
+  S.kind = KIND.PLAIN; // smooth lime render, not bare brick
+  const edges = [-L2];
+  for (const a of ARCH) edges.push(a.uc - a.aw / 2, a.uc + a.aw / 2);
+  edges.push(L2);
+  for (let k = 0; k < edges.length; k += 2) box((edges[k] + edges[k + 1]) / 2, 0, g0, yS, edges[k + 1] - edges[k], dep, WALL, { top: TRIM });
+  ARCH.forEach(({ uc, aw, ys }, i) => {
+    const r = aw / 2, n = 8;
+    S.kind = KIND.PLAIN;
     for (let k = 0; k < n; k++) {
       const x = -r + (aw * (k + 0.5)) / n;
-      box(uc + x, 0, ys + Math.sqrt(Math.max(0, r * r - x * x)), y1, aw / n + 0.01, d, WALL, { top: TRIM });
+      box(uc + x, 0, ys + Math.sqrt(Math.max(0, r * r - x * x)), yS, aw / n + 0.01, dep, WALL, { top: TRIM });
     }
-    // the passage's floor and its half-open red doors folded back against the jambs, at mid-depth
-    S.kind = KIND.PLAIN;
-    box(uc, 0, g0 - 0.2, g0 + 0.02, aw, d + 0.4, shade(PAVE, 0.9));
-    for (const s of [-1, 1]) box(uc + s * (r - 0.06), -0.6, g0, ys + r * 0.55, 0.1, aw * 0.5, DOOR);
-    // on each face: a pale moulded arch ring and jambs, and a keystone panel
+    box(uc, 0, g0 - 0.2, g0 + 0.02, aw, dep + 0.4, shade(PAVE, 0.9));
+    if (i === 1) {
+      // the middle passage stands open, its leaves folded back against the jambs
+      for (const s of [-1, 1]) box(uc + s * (r - 0.06), -0.6, g0, ys + r * 0.55, 0.1, aw * 0.5, DOOR);
+    } else {
+      // the side passages are shut: red leaves a little inside each face, filling the arch
+      for (const sv of [-1, 1]) {
+        const v = sv * (dep / 2 - 0.35);
+        box(uc, v, g0, ys, aw, 0.1, DOOR);
+        for (let k = 0; k < 6; k++) {
+          const x = -r + (aw * (k + 0.5)) / 6;
+          box(uc + x, v, ys, ys + Math.sqrt(Math.max(0, r * r - x * x)) - 0.02, aw / 6 + 0.01, 0.1, DOOR);
+        }
+      }
+    }
+    // on each face: a moulded arch ring in ochre and its jambs, and a keystone panel
     for (const sv of [-1, 1]) {
-      const v = sv * (d / 2 + 0.05);
+      const v = sv * (dep / 2 + 0.05);
       const m = 10, R = r + 0.14;
       for (let k = 0; k < m; k++) {
         const t0 = (Math.PI * k) / m, t1 = (Math.PI * (k + 1)) / m;
-        S.beam(P3(uc + Math.cos(t0) * R, ys + Math.sin(t0) * R, v), P3(uc + Math.cos(t1) * R, ys + Math.sin(t1) * R, v), 0.12, 0.26, TRIM);
+        S.beam(P3(uc + Math.cos(t0) * R, ys + Math.sin(t0) * R, v), P3(uc + Math.cos(t1) * R, ys + Math.sin(t1) * R, v), 0.12, 0.26, RING_COL);
       }
-      for (const s of [-1, 1]) box(uc + s * R, v, g0, ys, 0.26, 0.12, TRIM);
-      box(uc, v + sv * 0.02, ys + R, ys + R + 0.42, 0.5, 0.12, MOSAIC[2]);
+      for (const s of [-1, 1]) box(uc + s * R, v, g0, ys, 0.26, 0.12, RING_COL);
+      if (i !== 1) box(uc, v + sv * 0.02, ys + R + 0.05, ys + R + 0.4, 0.45, 0.1, MOSAIC[2]);
     }
-  };
-  bay(-L2, -BU, dep, yS, 1.9, G + 2.3);
-  bay(BU, L2, dep, yS, 1.9, G + 2.3);
-  bay(-BU, BU, dep + 0.2, yC, 2.6, G + 2.75);
+  });
 
-  // cornices: a pale moulded band at the top of each block
-  S.kind = KIND.PLAIN; // smooth lime render, not bare brick
-  for (const s of [-1, 1]) box(s * (BU + L2) / 2, 0, yS - 0.3, yS, L2 - BU + 0.2, dep + 0.3, TRIM);
-  box(0, 0, yC - 0.3, yC, 2 * BU + 0.3, dep + 0.5, TRIM);
+  // the frieze and cornice: one pale moulded band along the whole top of the block
+  S.kind = KIND.PLAIN;
+  box(0, 0, yS - 0.75, yS - 0.6, len + 0.12, dep + 0.12, TRIM);
+  box(0, 0, yS - 0.3, yS, len + 0.3, dep + 0.3, TRIM);
 
   // the name board over the middle arch, on both faces: 彰德門 in gilt on a dark ground, in a pale frame
-  S.kind = KIND.PLAIN;
   for (const sv of [-1, 1]) {
-    const v = sv * ((dep + 0.2) / 2 + 0.06);
-    box(0, v, G + 4.45, G + 5.55, 2.5, 0.12, TRIM);
-    box(0, v + sv * 0.05, G + 4.6, G + 5.4, 2.1, 0.08, PLAQUE);
-    for (let k = -1; k <= 1; k++) box(k * 0.62, v + sv * 0.09, G + 4.75, G + 5.25, 0.36, 0.03, GOLD);
+    const v = sv * (dep / 2 + 0.06);
+    box(0, v, G + 3.62, G + 4.3, 2.1, 0.12, TRIM);
+    box(0, v + sv * 0.05, G + 3.7, G + 4.22, 1.8, 0.08, PLAQUE);
+    for (let k = -1; k <= 1; k++) box(k * 0.52, v + sv * 0.09, G + 3.78, G + 4.14, 0.3, 0.03, GOLD);
   }
 
-  // ---- pilasters: four on each face, panelled in porcelain mosaic, with lotus caps ---------------------------
-  for (const sv of [-1, 1]) for (const u of [-L2 + 0.3, -BU, BU, L2 - 0.3]) {
-    const mid = Math.abs(u) < BU + 0.01, d = mid ? (dep + 0.2) / 2 : dep / 2, top = mid ? yC + 0.35 : yS + 0.35;
-    const v = sv * (d + 0.12);
+  // ---- pilasters: four on each face, outside and between the passages, panelled in mosaic, with lotus caps --
+  const PU = (ARCH[1].aw / 2 + AU - ARCH[0].aw / 2) / 2; // midway along the pier between middle and side arches
+  for (const sv of [-1, 1]) for (const u of [-L2 + 0.3, -PU, PU, L2 - 0.3]) {
+    const top = yS + 0.35, v = sv * (dep / 2 + 0.12);
     S.kind = KIND.PLAIN; // smooth lime render, not bare brick
     box(u, v, g0, top, 0.62, 0.3, PIER, { top: TRIM });
-    S.kind = KIND.PLAIN;
-    // stacked mosaic panels down the shaft
-    const n = mid ? 4 : 3, h0 = g0 + 0.5, h1 = top - 0.6, step = (h1 - h0) / n;
-    for (let k = 0; k < n; k++) box(u, v + sv * 0.16, h0 + step * k + 0.08, h0 + step * (k + 1) - 0.08, 0.42, 0.04, MOSAIC[(k + (mid ? 1 : 0)) % 3]);
-    // the lotus cap
+    const n = 3, h0 = g0 + 0.5, h1 = top - 0.6, step = (h1 - h0) / n;
+    for (let k = 0; k < n; k++) box(u, v + sv * 0.16, h0 + step * k + 0.08, h0 + step * (k + 1) - 0.08, 0.42, 0.04, MOSAIC[(k + (Math.abs(u) < 2 ? 1 : 0)) % 3]);
     const q = P(u, v);
     S.cyl(q[0], q[1], top, top + 0.22, 0.3, 0.38, 8, TRIM);
     S.cyl(q[0], q[1], top + 0.22, top + 0.62, 0.26, 0.08, 8, MOSAIC[1]);
@@ -119,29 +130,25 @@ export function build({ data, S }) {
 
   // ---- roofs --------------------------------------------------------------------------------------------------
   const eave = { flare: 0.5, ridgeCol: RIDGE, hips: true, glazed: true, fascia: 0.25, fasciaCol: shade(DOOR, 1.1), segs: 2 };
-  // side bays: one roof each, long along the wall, its inner end running into the middle bay
-  for (const s of [-1, 1]) {
-    const q = P(s * (BU + L2 + 0.4) / 2, 0);
-    S.hip(q[0], q[1], L2 - BU + 0.4, dep - 0.3, ang, yS, 1.25, ROOF, { ...eave, over: 0.55 });
-  }
-  // the middle bay: a skirt roof, the small upper storey, and the top roof
+  // the roof tier over the whole lower block, the upper storey rising through its middle
   const q0 = P(0, 0);
-  S.hip(q0[0], q0[1], 2 * BU, dep + 0.2, ang, yC, 1.0, ROOF, { ...eave, ridgeCol: null, over: 0.7 });
-  const y2 = yC + 0.55, y3 = y2 + 2.1, uw = 3.3, vd = 3.5;
+  S.hip(q0[0], q0[1], len, dep, ang, yS, 1.3, ROOF, { ...eave, ridgeCol: null, over: 0.6 });
+  const y2 = yS + 0.2, y3 = G + 7.9, uw = 3.4, vd = 3.5;
   S.kind = KIND.PLAIN; // smooth lime render, not bare brick
   box(0, 0, y2, y3, uw, vd, WALL, { top: TRIM });
   box(0, 0, y3 - 0.25, y3, uw + 0.2, vd + 0.2, TRIM);
   S.kind = KIND.PLAIN;
-  // round windows on the front and back, mosaic panels on the flanks, corner piers
+  // round windows on the front and back, mosaic panels on the flanks, corner piers (the part above the roof tier)
+  const yw = yS + 1.3;
   for (const sv of [-1, 1]) {
-    const v = sv * (vd / 2 + 0.03), yc = (y2 + y3) / 2 + 0.05;
-    const m = 10, R = 0.55;
+    const v = sv * (vd / 2 + 0.03), yc = (yw + y3) / 2 + 0.05;
+    const m = 10, R = 0.5;
     for (let k = 0; k < m; k++) {
       const t0 = (2 * Math.PI * k) / m, t1 = (2 * Math.PI * (k + 1)) / m;
       S.beam(P3(Math.cos(t0) * R, yc + Math.sin(t0) * R, v), P3(Math.cos(t1) * R, yc + Math.sin(t1) * R, v), 0.08, 0.18, TRIM);
     }
-    box(0, v, yc - 0.42, yc + 0.42, 0.7, 0.05, shade(DOOR, 0.6));
-    for (const s of [-1, 1]) box(s * (uw / 2 + 0.03), v * 0.0 + sv * 0.6, y2 + 0.4, y3 - 0.5, 0.05, 0.8, shade(MOSAIC[sv > 0 ? 0 : 1], 0.8));
+    box(0, v, yc - 0.38, yc + 0.38, 0.64, 0.05, shade(DOOR, 0.6));
+    for (const s of [-1, 1]) box(s * (uw / 2 + 0.03), sv * 0.6, yw - 0.2, y3 - 0.4, 0.05, 0.8, shade(MOSAIC[sv > 0 ? 0 : 1], 0.8));
   }
   for (const su of [-1, 1]) for (const sv of [-1, 1]) {
     S.kind = KIND.PLAIN; // smooth lime render, not bare brick
