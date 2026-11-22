@@ -33,6 +33,7 @@ const P = (u, v) => [C[0] + u * UX - v * UZ, C[1] + u * UZ + v * UX];
 const OUTER = [[-1246.8, 263.2], [-1292.4, 297.1], [-1312.7, 270.1], [-1354.6, 214.3], [-1386.8, 171.6], [-1356.9, 149.4], [-1316.0, 119.1], [-1287.5, 97.9], [-1255.3, 140.7], [-1213.7, 196.0], [-1193.4, 223.0], [-1238.4, 256.4]];
 const DIVIDE = [[-1335.2, 199.9], [-1325.1, 192.3], [-1283.5, 161.5], [-1272.8, 153.6]];
 
+const TUNG = hex('#5f5d58'); // the two Tùng tự: dark grey tile on the satellite
 const ROOF = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, GOLD = hex('#d9a93a');
 const WALL = hex('#d8c48e'); // lime-washed brick of the end and back walls
 const STONE = PAL.stone, BRICK = hex('#9c7a64'), BRONZE = hex('#4f5446');
@@ -70,13 +71,14 @@ function hall(S, group, lamps) {
   }
   for (const s of [-1, 1]) for (let k = 1; k <= 4; k++) fbox(S, s * (27.95 + 0.32 * k - 0.16), 0, g - 0.3, fl - 0.2 * k, 0.32, 3.4, shade(STONE, 1.05), { topKind: KIND.ROAD });
 
-  // walls: brick at the back and the two ends, the front a row of lacquered door panels behind the verandah
+  // walls: brick at the back and the two ends, the front a row of lacquered door panels behind the verandah; all
+  // stop under the lower eave, which runs round the whole hall at one height (satellite: an unbroken skirt band)
   S.kind = KIND.MASONRY;
-  fbox(S, 0, VB + 0.3, fl, fl + 4.6, W, 0.6, WALL);
-  for (const s of [-1, 1]) fbox(S, s * (W / 2 - 0.3), (VB + 10.8) / 2, fl, fl + 4.4, 0.6, 10.8 - VB, WALL);
+  fbox(S, 0, VB + 0.3, fl, fl + 3.6, W, 0.6, WALL);
+  for (const s of [-1, 1]) fbox(S, s * (W / 2 - 0.3), (VB + 10.8) / 2, fl, fl + 3.6, 0.6, 10.8 - VB, WALL);
   // the dark interior seen through nothing: a closed core so the roofs have something under them
   S.kind = KIND.TIMBER;
-  fbox(S, 0, (VB + 10.8) / 2, fl, fl + 4.3, W - 1.2, 10.8 - VB - 0.8, shade(LAC, 0.7), { top: shade(ROOF, 0.7) });
+  fbox(S, 0, (VB + 10.8) / 2, fl, fl + 3.5, W - 1.2, 10.8 - VB - 0.8, shade(LAC, 0.7), { top: shade(ROOF, 0.7) });
   // the front: 11 bays of doors (bức bàn) in the front hall, a gilt frieze over them, the wing bays walled
   const spans = [2.65, ...Array(11).fill(4.3), 2.65];
   const cols = [-W / 2];
@@ -98,21 +100,29 @@ function hall(S, group, lamps) {
   fbox(S, 0, VF, yb - 0.4, yb, W + 0.4, 0.34, shade(LAC, 0.75));
   fbox(S, 0, (VF + 10.8) / 2, yb - 0.05, yb, W, VF - 10.8, shade(LAC, 0.45), { bottom: true });
 
-  // roofs: the front hall's lower roof and the main hall's higher one behind it, both hipped with curved eaves
+  // roofs: the front hall's single hip, and the main hall behind it under double eaves (as Điện Thái Hòa): a skirt
+  // of tiles round its back and both ends at the front hall's eave height, a short lacquered clerestory, and the
+  // upper hip set in 3 m from the skirt's column line. The satellite shows the skirt band on all sides with the
+  // upper roofs inside it (refs in scratch, docs/places/themieu.md); heights stay the documented estimates.
   S.kind = KIND.TIMBER;
   const eave = { fascia: 0.32, fasciaCol: shade(LAC, 0.7), hips: true, glazed: true, ridgeCol: RIDGE, segs: 4 };
-  const mf = P(0, (VJ + VF) / 2), mb = P(0, (VB + VJ) / 2);
-  S.hip(mb[0], mb[1], W, VJ - VB, ANG, fl + 4.6, 5.9, ROOF, { flare: 0.5, over: 1.7, ...eave }); // ridge 10.5 m over the floor
+  const IN = 3.0, W2 = W - 2 * IN, UB = VB + IN, UF = VJ + 1.0, YU = fl + 6.0; // the upper roof's plan and eave
+  const mf = P(0, (VJ + VF) / 2), mb = P(0, (UB + UF) / 2), ms = P(0, (VB + VJ) / 2);
+  S.hip(ms[0], ms[1], W, VJ - VB, ANG, yb, 4.3, ROOF, { flare: 0.5, over: 1.7, ...eave, ridgeCol: null }); // the skirt
+  S.kind = KIND.PLAIN;
+  fbox(S, 0, (UB + UF) / 2, fl + 4.9, YU, W2, UF - UB, shade(LAC, 0.8));
+  S.kind = KIND.TIMBER;
+  S.hip(mb[0], mb[1], W2, UF - UB, ANG, YU, 4.5, ROOF, { flare: 0.5, over: 1.4, ...eave }); // ridge 10.5 m over the floor
   S.hip(mf[0], mf[1], W, VF - VJ, ANG, yb, 3.3, ROOF, { flare: 0.45, over: 1.6, ...eave });
   // ridge ornament: on each ridge a pháp lam disc (mặt nhật) on a flame-shaped base, and enamel panels along it
   S.kind = KIND.PLAIN;
-  for (const [m, top, dz] of [[mb, fl + 10.5, VJ - VB], [mf, yb + 3.3, VF - VJ]]) {
+  for (const [m, top, dz, wr] of [[mb, fl + 10.5, UF - UB, W2], [mf, yb + 3.3, VF - VJ, W]]) {
     const t = Math.max(0.3, Math.min(0.6, (dz + 3.3) * 0.035)), y = top + t * 1.6;
     const big = m === mb ? 1 : 0.75;
     S.box(m[0], m[1], y - 0.2, y + 0.5 * big, 1.4 * big, 0.35, ANG, ENAMEL[0]);
     S.cyl(m[0], m[1], y + 0.5 * big, y + 1.0 * big, 0.55 * big, 0.25 * big, 8, ENAMEL[2]);
     S.cyl(m[0], m[1], y + 1.0 * big, y + 1.5 * big, 0.25 * big, 0.04, 6, ENAMEL[1]);
-    const rl = W / 2 + 1.6 - (dz + 3.4) / 2 * 0.92;
+    const rl = wr / 2 + 1.6 - (dz + 3.4) / 2 * 0.92;
     for (let k = -3; k <= 3; k++) {
       if (!k) continue;
       const q = [m[0] + UX * (k * rl) / 3.6, m[1] + UZ * (k * rl) / 3.6];
@@ -128,7 +138,8 @@ function court(S) {
   S.base = g - LAND_Y;
   // Bát Tràng brick from the hall to the cross wall of Hiển Lâm Các, and a stone walk on the axis
   S.kind = KIND.ROAD;
-  fbox(S, 0, 32.5, g - 0.2, g + 0.06, 68, 36, BRICK);
+  // the paving ends in line with the hall's ends (satellite: lawn and trees either side), 56 m wide
+  fbox(S, 0, 32.5, g - 0.2, g + 0.06, 56, 36, BRICK);
   fbox(S, 0, 32.5, g + 0.06, g + 0.1, 4.3, 36, shade(STONE, 1.08));
   // the 14 stone stools (đôn) in a row before the hall, each carrying a pot with a clipped tree
   for (let i = 0; i < 14; i++) {
@@ -161,11 +172,20 @@ function sides(S) {
   S.box(cy[0], cy[1], y - 0.3, y + 0.5, 12.4, 11.4, ANG, shade(STONE, 0.85), { taper: 0.98, topKind: KIND.ROAD });
   S.kind = KIND.PLAIN;
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { if (i % 3 && j % 3) continue; const q = P(50.7 - 4.5 + i * 3, -1.7 - 4.5 + j * 3); S.cyl(q[0], q[1], y + 0.5, y + 0.72, 0.38, 0.32, 6, shade(STONE, 0.75)); }
-  // Tả and Hữu Tùng tự, outside the cross wall, facing each other across the yard before Hiển Lâm Các
+  // Tả and Hữu Tùng tự, outside the cross wall, facing each other across the yard before Hiển Lâm Các. The
+  // satellite shows each under two parallel roofs with their ridges along v (a front and a rear house, the front
+  // toward the axis), about 13 x 15 m over the eaves, in dark grey tile, not yellow
   for (const [u, v] of [[43.7, 67.0], [-45.0, 69.2]]) {
-    const q = P(u, v), yq = gy(q);
+    const q = P(u, v), yq = gy(q), f = -Math.sign(u); // f: toward the axis
     S.base = yq - LAND_Y;
-    pavilion(S, q[0], q[1], 9.0, 13.0, ANG, yq, { wallH: 3.0, roof: ROOF, wall: LAC, over: 1.2, rh: 2.2, platform: 0.5, colonnade: true, segs: 3 });
+    S.kind = KIND.MASONRY;
+    fbox(S, u, v, yq - 0.3, yq + 0.5, 12.6, 14.4, shade(STONE, 0.95), { taper: 0.98, topKind: KIND.ROAD });
+    fbox(S, u, v, yq + 0.5, yq + 3.4, 10.4, 12.4, LAC);
+    S.kind = KIND.TIMBER;
+    for (const [du, w, rh] of [[f * 2.9, 5.6, 2.2], [-f * 2.9, 5.6, 2.4]]) {
+      const r = P(u + du, v);
+      S.hip(r[0], r[1], 13.0, w, ANG + Math.PI / 2, yq + 3.4, rh, TUNG, { flare: 0.45, over: 1.0, fascia: 0.25, fasciaCol: shade(LAC, 0.7), hips: true, ridgeCol: shade(TUNG, 1.25), segs: 3 });
+    }
   }
 }
 
