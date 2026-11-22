@@ -30,11 +30,12 @@ const P = (u, v) => [A[0] + T[0] * u + N[0] * v, A[1] + T[1] * u + N[1] * v];
 const Y0 = LAND_Y + rise(...P(18, 16)); // one floor level for the whole market (the site is flat)
 
 const C = {
-  wall: hex('#e0cf98'), front: hex('#a4604e'), trim: hex('#e6d58c'), plinth: hex('#8c8679'), shutter: hex('#6f7f86'),
+  wall: hex('#e0cf98'), front: hex('#8a6a60'), trim: hex('#e6d58c'), rake: hex('#ddd3b2'), plinth: hex('#8c8679'), shutter: hex('#6f7f86'),
   dark: hex('#2e2a26'), glass: hex('#3a4448'), vent: hex('#e8e4d8'), roof: hex('#8f9597'), roofLight: hex('#b8bcbb'),
   rust: hex('#8a6a55'), clear: hex('#9fb8c2'), pave: hex('#a9a294'), signBrown: hex('#6e2c22'), signRed: hex('#c0261f'),
   awning: [hex('#d6cbb0'), hex('#c9bb98'), hex('#e0dccf'), hex('#cdbf9f')], post: hex('#5d5f5f'), table: hex('#7a6248'),
   board: [hex('#2f7a4a'), hex('#e6e2d6'), hex('#d9a82c'), hex('#3a5f9e')],
+  ink: [hex('#f0d64a'), hex('#c0261f'), hex('#b5221c'), hex('#f2f0e8')], // lettering on each board colour
 };
 
 function boxUV(S, u0, u1, v0, v1, a, b, col, opt) {
@@ -88,30 +89,54 @@ export function build({ S, group, THREE }) {
   // ---- the main hall: walls 7 m to the eaves; three steel gables, the middle one wider and higher ----
   const U0 = 0.6, U1 = 35.0, V0 = 1.0, V1 = 30.6, E = 7.0;
   const G = [{ v0: 0.4, v1: 9.7, e: 7.0, h: 1.8 }, { v0: 9.7, v1: 20.8, e: 7.4, h: 2.4 }, { v0: 20.8, v1: 31.2, e: 7.0, h: 1.8 }];
-  S.kind = KIND.CIVIC;
-  boxUV(S, U0, U1, V0, V1, 0, E, C.wall, { top: shade(C.wall, 0.6) });
+  // plain plaster: the openings are drawn below, so the facade shader's window grid must not add its own
   S.kind = KIND.PLAIN;
+  boxUV(S, U0, U1, V0, V1, 0, E, C.wall, { top: shade(C.wall, 0.6) });
   boxUV(S, U0 - 0.15, U1 + 0.15, V0 - 0.15, V1 + 0.15, 0, 0.45, C.plinth); // the step of the stall floor
-  // the side walls (north and south, cream): stall bays behind roller shutters, a band of white louvres above
+  // the side walls (north, south and the east back, cream): stall bays behind roller shutters; above them a band of
+  // white slatted louvre grilles, one per bay, with a stall's signboard in place of every third grille; under the
+  // eaves a continuous strip of dark clerestory windows (street view on Phan Đình Phùng)
+  // a shop sign's lettering, suggested: a row of large word blocks and a row of small ones in the board's ink colour.
+  // put(a, b, d0, d1, y0, y1, col) draws on the board's face; ci picks the board colour
+  const signText = (put, a, b, y0, y1, ci) => {
+    const ink = C.ink[ci % C.ink.length], h = y1 - y0;
+    let r = 0.37 + ci * 0.17;
+    const rnd = () => (r = (r * 9301 + 0.4927) % 1);
+    for (const [f0, f1, gap, wmin, wmax] of [[0.5, 0.8, 0.12, 0.3, 0.7], [0.18, 0.34, 0.06, 0.1, 0.3]]) {
+      for (let x = a + 0.15; x < b - 0.25;) {
+        const w = Math.min(wmin + rnd() * (wmax - wmin), b - 0.15 - x);
+        put(x, x + w, 0, 0.02, y0 + h * f0, y0 + h * f1, ink);
+        x += w + gap;
+      }
+    }
+  };
   const bays = (len, step) => { const n = Math.max(1, Math.round(len / step)); return { n, s: len / n }; };
-  {
-    const { n, s } = bays(U1 - U0, 3.6);
+  // a box on one wall: a..b along it, d0..d1 out from its face, y0..y1 up
+  const onWall = (side, a, b, d0, d1, y0, y1, col) => {
+    if (side === 'n') boxUV(S, a, b, V0 - d1, V0 - d0, y0, y1, col);
+    else if (side === 's') boxUV(S, a, b, V1 + d0, V1 + d1, y0, y1, col);
+    else boxUV(S, U1 + d0, U1 + d1, a, b, y0, y1, col);
+  };
+  const GY0 = 3.95, GY1 = 5.35, WY0 = 5.75, WY1 = 6.55;
+  for (const [side, w0, w1] of [['n', U0, U1], ['s', U0, U1], ['e', V0, V1]]) {
+    const { n, s } = bays(w1 - w0, 3.6);
     for (let i = 0; i < n; i++) {
-      const a = U0 + i * s + 0.3, b = U0 + (i + 1) * s - 0.3;
-      boxUV(S, a, b, V0 - 0.06, V0, 0.45, 3.2, C.shutter);
-      boxUV(S, a, b, V1, V1 + 0.06, 0.45, 3.2, C.shutter);
-      boxUV(S, a + 0.2, b - 0.2, V0 - 0.05, V0, 4.5, 6.2, C.vent);
-      boxUV(S, a + 0.2, b - 0.2, V1, V1 + 0.05, 4.5, 6.2, C.vent);
+      const a = w0 + i * s + 0.3, b = w0 + (i + 1) * s - 0.3;
+      onWall(side, a, b, 0, 0.06, 0.45, 3.2, C.shutter);
+      // the grille's dark opening, its frame, a middle stile and the slats across it
+      onWall(side, a + 0.15, b - 0.15, 0, 0.02, GY0, GY1, C.dark);
+      for (const [p, q] of [[a + 0.15, a + 0.25], [b - 0.25, b - 0.15], [(a + b) / 2 - 0.04, (a + b) / 2 + 0.04]]) onWall(side, p, q, 0, 0.09, GY0, GY1, C.vent);
+      for (const y of [GY0, GY1 - 0.08]) onWall(side, a + 0.15, b - 0.15, 0, 0.09, y, y + 0.08, C.vent);
+      for (let y = GY0 + 0.2; y < GY1 - 0.15; y += 0.19) onWall(side, a + 0.25, b - 0.25, 0.01, 0.07, y, y + 0.09, C.vent);
+      if (i % 3 === 1) {
+        onWall(side, a + 0.05, b - 0.05, 0.1, 0.16, GY0 - 0.05, GY1 + 0.05, C.board[(i + side.charCodeAt(0)) % C.board.length]);
+        signText((p, q, d0, d1, y0, y1, c) => onWall(side, p, q, d0 + 0.16, d1 + 0.16, y0, y1, c), a + 0.05, b - 0.05, GY0 - 0.05, GY1 + 0.05, (i + side.charCodeAt(0)) % C.board.length);
+      }
     }
-  }
-  {
-    // the back (east, onto the passage by the shed): stalls below, louvres above
-    const { n, s } = bays(V1 - V0, 3.6);
-    for (let i = 0; i < n; i++) {
-      const a = V0 + i * s + 0.3, b = V0 + (i + 1) * s - 0.3;
-      boxUV(S, U1, U1 + 0.06, a, b, 0.45, 3.2, C.shutter);
-      boxUV(S, U1, U1 + 0.05, a + 0.2, b - 0.2, 4.5, 6.2, C.vent);
-    }
+    // the clerestory strip under the eaves, glazing bars every 1.2 m
+    onWall(side, w0 + 0.25, w1 - 0.25, 0, 0.03, WY0, WY1, C.glass);
+    for (let x = w0 + 0.25; x <= w1 - 0.2; x += (w1 - w0 - 0.5) / Math.round((w1 - w0 - 0.5) / 1.2)) onWall(side, x - 0.05, x + 0.05, 0, 0.06, WY0, WY1, C.wall);
+    for (const y of [WY0 - 0.06, WY1]) onWall(side, w0 + 0.25, w1 - 0.25, 0, 0.06, y, y + 0.06, C.wall);
   }
   for (const y of [3.6, 6.75]) {
     boxUV(S, U0 + 0.2, U1 + 0.12, V0 - 0.12, V0, y, y + 0.25, C.trim);
@@ -122,24 +147,25 @@ export function build({ S, group, THREE }) {
   // the roofs, their gable walls (red-brown on the front, cream at the back) and the step where the middle gable's
   // higher eaves meet the side gables
   for (const g of G) {
-    gable(S, U0 - 0.7, U1 + 0.7, g.v0, g.v1, g.e, g.h, C.roof);
+    gable(S, U0 - 0.2, U1 + 0.7, g.v0, g.v1, g.e, g.h, C.roof); // the sheets stop just past the front gables
     const v0 = Math.max(g.v0, V0 - 0.08), v1 = Math.min(g.v1, V1 + 0.08);
     gableFace(S, U0 - 0.08, g, v0, v1, E - 0.01, C.front, -1);
     gableFace(S, U1 + 0.01, g, Math.max(g.v0, V0), Math.min(g.v1, V1), E - 0.01, C.wall, 1);
-    // the pale yellow trim along the front rakes
+    // a thin pale trim along the front rakes, ending flush with the wall's corners (the beam is inset by its
+    // half-width so its end cap does not stand out past the side walls)
     const vm = (g.v0 + g.v1) / 2, half = (g.v1 - g.v0) / 2, y = (v) => g.e + g.h * (1 - Math.abs(v - vm) / half);
-    for (const vv of [v0, v1]) S.beam(W3(U0 - 0.2, vv, y(vv) + 0.1), W3(U0 - 0.2, vm, g.e + g.h + 0.1), 0.3, 0.3, C.trim);
+    for (const vv of [Math.max(g.v0, V0) + 0.08, Math.min(g.v1, V1) - 0.08]) S.beam(W3(U0 - 0.15, vv, y(vv) - 0.1), W3(U0 - 0.15, vm, g.e + g.h - 0.1), 0.14, 0.14, C.rake);
   }
   for (const vv of [G[1].v0, G[1].v1]) {
-    boxUV(S, U0 - 0.7, U1 + 0.7, vv - 0.15, vv + 0.15, E - 0.15, G[1].e + 0.02, shade(C.roof, 0.7)); // valley gutter
+    boxUV(S, U0 - 0.2, U1 + 0.7, vv - 0.15, vv + 0.15, E - 0.15, G[1].e + 0.02, shade(C.roof, 0.7)); // valley gutter
   }
   // the front cornice band and a plinth course under the gables
-  boxUV(S, U0 - 0.25, U0 - 0.05, V0 - 0.1, V1 + 0.1, E - 0.3, E, C.trim);
+  boxUV(S, U0 - 0.16, U0 - 0.05, V0 - 0.08, V1 + 0.08, E - 0.15, E, C.rake);
   boxUV(S, U0 - 0.12, U0, V0 - 0.1, V1 + 0.1, 0.45, 0.9, shade(C.front, 0.75));
   // the red front wall below the gables
   boxUV(S, U0 - 0.08, U0, V0 - 0.08, V1 + 0.08, 0.45, E, C.front);
 
-  // the clerestories: a pentagon of glazing in each front gable, framed in pale yellow, with a grid of glazing bars
+  // the clerestories: a pentagon of glazing in each front gable, framed in pale cream, with a grid of glazing bars
   const pent = (u, va, vb, yb, ys, yp, col, s) => {
     const n = [T[0] * s, 0, T[1] * s], vm = (va + vb) / 2;
     S.quad(W3(u, va, yb), W3(u, vb, yb), W3(u, vb, ys), W3(u, va, ys), col, n);
@@ -148,14 +174,14 @@ export function build({ S, group, THREE }) {
   for (const [i, g] of G.entries()) {
     const mid = i === 1, vm = (g.v0 + g.v1) / 2, hw = mid ? 3.7 : 2.6;
     const yb = mid ? 4.2 : 4.6, ys = yb + (mid ? 1.4 : 1.0), yp = g.e + g.h * (mid ? 0.1 : 0.0);
-    pent(U0 - 0.12, vm - hw - 0.25, vm + hw + 0.25, yb - 0.25, ys + 0.05, yp + 0.3, C.trim, -1);
+    pent(U0 - 0.12, vm - hw - 0.15, vm + hw + 0.15, yb - 0.15, ys + 0.03, yp + 0.18, C.rake, -1);
     pent(U0 - 0.15, vm - hw, vm + hw, yb, ys, yp, C.glass, -1);
     const nb = mid ? 8 : 5;
     for (let k = 1; k < nb; k++) {
       const v = vm - hw + (2 * hw * k) / nb, top = ys + (yp - ys) * (1 - Math.abs(v - vm) / hw);
-      boxUV(S, U0 - 0.2, U0 - 0.15, v - 0.04, v + 0.04, yb, top, C.trim);
+      boxUV(S, U0 - 0.2, U0 - 0.15, v - 0.035, v + 0.035, yb, top, C.rake);
     }
-    boxUV(S, U0 - 0.2, U0 - 0.15, vm - hw, vm + hw, ys - 0.04, ys + 0.04, C.trim);
+    boxUV(S, U0 - 0.2, U0 - 0.15, vm - hw, vm + hw, ys - 0.035, ys + 0.035, C.rake);
   }
 
   // the entrance porch under the middle gable: a projecting red-brown block with pale pilasters, the market's name in
@@ -180,6 +206,7 @@ export function build({ S, group, THREE }) {
       S.quad(W3(U0 - 0.1, a, 3.2), W3(U0 - 0.1, b, 3.2), W3(U0 - 3.6, b, 2.5), W3(U0 - 3.6, a, 2.5), col, [-0.2, 1, 0]);
       S.quad(W3(U0 - 0.1, b, 3.18), W3(U0 - 0.1, a, 3.18), W3(U0 - 3.6, a, 2.48), W3(U0 - 3.6, b, 2.48), shade(col, 0.6), [0, -1, 0]);
       boxUV(S, U0 - 0.25, U0 - 0.08, a + 0.2, b - 0.2, 3.35, 4.1, C.board[k % C.board.length]);
+      signText((p, q, d0, d1, y0, y1, c) => boxUV(S, U0 - 0.25 - d1, U0 - 0.25 - d0, p, q, y0, y1, c), a + 0.2, b - 0.2, 3.35, 4.1, k % C.board.length);
       boxUV(S, U0 - 0.3, U0 - 0.08, a + 0.2, b - 0.2, 0.45, 3.1, C.dark);
       for (const vv of [a + 0.1, b - 0.1]) boxUV(S, U0 - 3.55, U0 - 3.45, vv - 0.05, vv + 0.05, 0.08, 2.5, C.post);
     }
@@ -202,12 +229,16 @@ export function build({ S, group, THREE }) {
 
   // ---- the south row: stalls under beige awnings sloping from the south wall toward the canal road ----
   const paved0 = S.n;
+  // each awning hangs from just under the louvre band (3.8 m) and falls steeply to a valance on posts 8.3 m out
+  const AW0 = V1 + 0.14, AW1 = 38.9, AY0 = 3.8, AY1 = 2.35;
   for (let u = 1.0; u < 46.5; u += 4.4, k++) {
     const col = C.awning[k % C.awning.length], a = u, b = Math.min(u + 4.2, 46.9);
-    for (const uu of [a + 0.1, b - 0.1]) boxUV(S, uu - 0.05, uu + 0.05, 35.75, 35.85, 0.08, 2.4, C.post);
-    S.quad(W3(a, V1 + 0.1, 3.2), W3(b, V1 + 0.1, 3.2), W3(b, 35.9, 2.4), W3(a, 35.9, 2.4), col, [0, 1, 0.15]);
-    S.quad(W3(b, V1 + 0.1, 3.18), W3(a, V1 + 0.1, 3.18), W3(a, 35.9, 2.38), W3(b, 35.9, 2.38), shade(col, 0.6), [0, -1, 0]);
-    boxUV(S, a + 0.4, b - 0.4, 32.0, 34.0, 0.08, 0.85, C.table, { top: shade(C.table, 1.2) });
+    for (const uu of [a + 0.1, b - 0.1]) boxUV(S, uu - 0.05, uu + 0.05, AW1 - 0.2, AW1 - 0.1, 0.08, AY1, C.post);
+    S.quad(W3(a, AW0, AY0), W3(b, AW0, AY0), W3(b, AW1, AY1), W3(a, AW1, AY1), col, [0, 1, 0.35]);
+    S.quad(W3(b, AW0, AY0 - 0.02), W3(a, AW0, AY0 - 0.02), W3(a, AW1, AY1 - 0.02), W3(b, AW1, AY1 - 0.02), shade(col, 0.6), [0, -1, 0]);
+    S.quad(W3(a, AW1, AY1), W3(b, AW1, AY1), W3(b, AW1, AY1 - 0.3), W3(a, AW1, AY1 - 0.3), shade(col, 0.9), [N[0], 0, N[1]]); // valance
+    S.quad(W3(b, AW1 - 0.01, AY1), W3(a, AW1 - 0.01, AY1), W3(a, AW1 - 0.01, AY1 - 0.3), W3(b, AW1 - 0.01, AY1 - 0.3), shade(col, 0.6), [-N[0], 0, -N[1]]);
+    boxUV(S, a + 0.4, b - 0.4, 34.3, 36.5, 0.08, 0.85, C.table, { top: shade(C.table, 1.2) });
   }
   (S.paved = S.paved || []).push([paved0, S.n]); // the stall row: no trees, no houses (src/geo/city.js coverOf)
   S.kind = KIND.PLAIN;

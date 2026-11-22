@@ -13,8 +13,8 @@ Model: `src/landmarks/places/benngu.js`. Scope: the market hall, its sheds, the 
 ## Confirmed
 - The hall roof is 35.8 x 30.8 m on the satellite (OSM's way reads 38.9 x 34 m), its axis at bearing 111 (21 degrees off east); the frame is fitted to the roof edges to within about 1 m.
 - Three parallel grey sheet-steel gables, ridges east-south-east; the middle one is wider (about 11 m against 9.5-10 m) and its gable stands higher on the street front.
-- The Phan Bội Châu front: three red-brown gable walls with pale yellow trim on the rakes, a pentagonal glazed clerestory with a grid of bars in each gable (the middle one largest), a projecting entrance porch with "CHỢ BẾN NGỰ" on a brown band under a red banner, and stall awnings with signboards either side.
-- The north and south sides are cream, two storeys of stall bays with a band of white louvres above; beige awnings slope from the south wall to posts along Phan Đình Phùng.
+- The Phan Bội Châu front: three weathered terracotta gable walls with a thin pale cream trim on the rakes, a pentagonal glazed clerestory with a grid of bars in each gable (the middle one largest), a projecting entrance porch with "CHỢ BẾN NGỰ" on a brown band under a red banner, and stall awnings with signboards either side.
+- The north and south sides are cream, two storeys of stall bays; above them a band of white slatted louvre grilles with shop signboards between them, and a continuous strip of dark clerestory windows under the flat eaves. Beige awnings hang from just under the louvre band and fall steeply to posts at the kerb of Phan Đình Phùng, about 8 m out from the wall (satellite).
 - A translucent strip (about 3 m) separates the hall from the east stall shed, whose ridge runs along its length and which is hipped at the canal end; at its north end the shed turns west, and lower roofs (a light north-south gable, a flat block) fill the corner north-east of the hall.
 
 ## Estimated
