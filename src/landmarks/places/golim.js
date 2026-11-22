@@ -17,7 +17,7 @@ import { LAND_Y } from '../../config.js';
 //    footways leave the deck at four nodes (ways 1493443036, 1493443034, 1493443035, 1473289702), the last a
 //    short footbridge to the south end of cầu Phú Xuân.
 // Estimated: pile bents every 4.5 m (two square piles and a headstock), ramps at both ends, gangways at the four
-//   links, railing post spacing and lamp-post style, the deck's stand-off where the model's mapped bank is wider
+//   links, the deck's stand-off where the model's mapped bank is wider
 //   than the real embankment (the OSM line runs within a metre of it there).
 export const id = 'golim';
 
@@ -29,19 +29,20 @@ const LINE = [[-72.9, 281.6], [-80.7, 288.6], [-82.3, 297.3], [-115.5, 328.9], [
 const LINKS = [[-139.9, 351.4], [-205.6, 413.0], [-264.0, 467.4], [-298.0, 500.2]];
 
 const WIDTH = 4, HW = WIDTH / 2, DECK_Y = 1.2, PILE_Y = -2.2, STEP = 1.5, RAMP = 16, CLEAR = 0.4;
-const RAIL_H = 1.05, BAR = 0.21; // bar pitch: ~4,100 bars along both sides of ~430 m
-// bar face: 7 t of bronze over 4,100 bars about 0.95 m long is ~2 cm² a bar, a flat about 50 x 4 mm; the Street View
-// photosphere taken on the deck shows flat slats, broad face along the railing
-const BAR_W = 0.05;
+const RAIL_H = 1.05, BAR = 0.21; // slat tops; slat pitch: ~4,100 bars along both sides of ~430 m
+// slat face: the Street View photosphere taken on the deck shows broad flat slats, close set, their tops standing
+// free above a single thin rail; no cap rail and no posts stand out
+const BAR_W = 0.07, RAIL_AT = 0.92;
+// deck boards: the photosphere shows narrow lim boards laid across the walk, in panels with staggered end joints
+const BOARD_W = 0.15, PANEL = 2; // board width; samples (STEP each) per panel
 
 // Colours as the walk looks now (Street View photosphere on the deck, Google satellite): the lim has weathered to a
 // grey-brown and the bronze, gold-toned when new in 2018, has dulled to a dark brown-grey
 const C = {
-  lim: hex('#857a70'), fascia: hex('#4f4741'), bronze: hex('#7a6e5d'), bronzeDk: hex('#5f5446'), seam: hex('#4a443e'),
-  pile: hex('#a39d92'), head: hex('#8f897e'), lamp: hex('#3b3328'),
+  lim: hex('#7f7c79'), fascia: hex('#4f4a46'), bronze: hex('#968b7c'), bronzeDk: hex('#7d7366'), seam: hex('#55524f'),
+  pile: hex('#a39d92'), head: hex('#8f897e'),
 };
 const BOARD = [1, 0.95, 0.98, 0.93, 0.96, 0.99];
-const SEAMS = 15; // lengthwise board seams across the 4 m deck (boards ~25 cm)
 
 // ------------------------------------------------------------------ plan
 function resample(pts, step) {
@@ -170,13 +171,25 @@ export function build({ data, S, group }) {
   });
   const opening = (i) => linkAt.some((k) => Math.abs(i - k) <= 1);
 
-  // deck: a quad per sample (alternating board tones), dark edge beams on both sides, end caps
+  // deck: a quad per sample, toned per panel; transverse board seams; panel joints, the boards' end joints running
+  // along the walk and staggered from panel to panel; dark edge beams on both sides, end caps
+  const L3 = (a, b, f) => [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+  const nb = Math.max(1, Math.round(STEP / BOARD_W));
   for (let i = 0; i + 1 < m; i++) {
-    const col = shade(C.lim, BOARD[i % BOARD.length]);
+    const pan = Math.floor(i / PANEL);
+    const col = shade(C.lim, BOARD[pan % BOARD.length]);
     S.quad(P(i, -HW), P(i + 1, -HW), P(i + 1, HW), P(i, HW), col, [0, 1, 0]);
-    for (let k = 1; k < SEAMS; k++) {
-      const o = -HW + (WIDTH * k) / SEAMS, w = 0.01;
-      S.quad(P(i, o - w, 0.004), P(i + 1, o - w, 0.004), P(i + 1, o + w, 0.004), P(i, o + w, 0.004), C.seam, [0, 1, 0]);
+    const l0 = P(i, -HW, 0.004), l1 = P(i + 1, -HW, 0.004), r0 = P(i, HW, 0.004), r1 = P(i + 1, HW, 0.004);
+    for (let k = 0; k < nb; k++) {
+      const panelJoint = k === 0 && i % PANEL === 0;
+      const w = (panelJoint ? 0.025 : 0.009) / STEP, f = k / nb;
+      const fa = Math.max(0, f - w), fb = Math.min(1, f + w);
+      S.quad(L3(l0, l1, fa), L3(l0, l1, fb), L3(r0, r1, fb), L3(r0, r1, fa), panelJoint ? C.seam : shade(C.seam, 1.12), [0, 1, 0]);
+    }
+    // end joints: boards about 1.3-2 m long, joints shifted every other panel
+    for (const o of pan % 2 ? [-0.7, 0.9] : [-1.0, 0.4, 1.4]) {
+      const w = 0.006;
+      S.quad(P(i, o - w, 0.005), P(i + 1, o - w, 0.005), P(i + 1, o + w, 0.005), P(i, o + w, 0.005), shade(C.seam, 1.15), [0, 1, 0]);
     }
     for (const e of [-1, 1]) S.quad(P(i, e * HW), P(i + 1, e * HW), P(i + 1, e * HW, -0.45), P(i, e * HW, -0.45), C.fascia, hn(i, e));
     S.quad(P(i, -HW, -0.45), P(i + 1, -HW, -0.45), P(i + 1, HW, -0.45), P(i, HW, -0.45), C.fascia, [0, -1, 0]);
@@ -200,7 +213,7 @@ export function build({ data, S, group }) {
     }
   }
 
-  // railings: slim bronze posts every ~6 m (none stand out in the photosphere), a flat top rail and a bottom rail, and the close-set bronze bars
+  // railings: broad flat bronze slats standing on the deck edge, their tops free above one thin rail; no cap, no posts
   S.kind = KIND.PLAIN;
   const RO = HW - 0.06;
   const railOff = (i) => (i < 2 || i > m - 3); // the two ends meet the promenade: open
@@ -209,25 +222,22 @@ export function build({ data, S, group }) {
     for (let i = 0; i + 1 < m; i++) {
       if (skip(i) || skip(i + 1)) continue;
       const a = P(i, e * RO), b = P(i + 1, e * RO);
-      S.beam([a[0], a[1] + RAIL_H, a[2]], [b[0], b[1] + RAIL_H, b[2]], 0.09, 0.06, C.bronze);
-      S.beam([a[0], a[1] + 0.12, a[2]], [b[0], b[1] + 0.12, b[2]], 0.04, 0.04, C.bronzeDk);
-      // bars: thin back-to-back blades, BAR apart
+      // the rail runs on the deck side of the slats
+      const ri = -e * 0.025;
+      S.beam([a[0] + path[i].n[0] * ri, a[1] + RAIL_AT, a[2] + path[i].n[1] * ri],
+        [b[0] + path[i + 1].n[0] * ri, b[1] + RAIL_AT, b[2] + path[i + 1].n[1] * ri], 0.035, 0.03, C.bronzeDk);
+      // slats: flat back-to-back blades, BAR apart
       const L = Math.hypot(b[0] - a[0], b[2] - a[2]);
       const k0 = Math.ceil((i * STEP) / BAR), k1 = Math.floor(((i + 1) * STEP - 1e-6) / BAR);
       for (let k = k0; k <= k1; k++) {
         const f = (k * BAR - i * STEP) / L;
         const x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f, z = a[2] + (b[2] - a[2]) * f;
         const t = path[i].t, w = BAR_W / 2;
-        const p0 = [x - t[0] * w, y + 0.12, z - t[1] * w], p1 = [x + t[0] * w, y + 0.12, z + t[1] * w];
+        const p0 = [x - t[0] * w, y, z - t[1] * w], p1 = [x + t[0] * w, y, z + t[1] * w];
         const q1 = [p1[0], y + RAIL_H, p1[2]], q0 = [p0[0], y + RAIL_H, p0[2]];
         S.quad(p0, p1, q1, q0, C.bronze, hn(i, 1));
         S.quad(p1, p0, q0, q1, C.bronze, hn(i, -1));
       }
-    }
-    for (let i = 2; i < m - 2; i += 4) {
-      if (skip(i)) continue;
-      const q = P(i, e * RO), t = path[i].t;
-      S.box(q[0], q[2], q[1], q[1] + RAIL_H + 0.03, 0.07, 0.06, Math.atan2(t[1], t[0]), C.bronze);
     }
   }
 
@@ -259,20 +269,14 @@ export function build({ data, S, group }) {
     }
   }
 
-  // lamp posts on the river side every ~30 m (style estimated), low lights in the railing posts between them
-  for (let i = 6, k = 0; i < m - 4; i += 4, k++) {
+  // lighting: low lights in the railing every 6 m on both sides. The photosphere on the deck shows over 100 m of
+  // river-side railing with no lamp post, so the reported lamp posts are left to the promenade.
+  for (let i = 6; i < m - 4; i += 4) {
     if (railOff(i)) continue;
-    if (k % 5 === 0) {
-      const q = P(i, RO + 0.05);
-      S.cyl(q[0], q[2], q[1], q[1] + 3.6, 0.07, 0.05, 6, C.lamp);
-      S.box(q[0], q[2], q[1] + 3.6, q[1] + 3.95, 0.26, 0.26, Math.atan2(path[i].t[1], path[i].t[0]), C.bronzeDk, { bottom: true });
-      glowPos.push(q[0], q[1] + 3.75, q[2]); glowCol.push(1.0, 0.82, 0.55);
-    } else {
-      for (const e of [-1, 1]) {
-        if (e < 0 && opening(i)) continue;
-        const q = P(i, e * (RO - 0.08), 0.35);
-        glowPos.push(q[0], q[1], q[2]); glowCol.push(1.0, 0.72, 0.38);
-      }
+    for (const e of [-1, 1]) {
+      if (e < 0 && opening(i)) continue;
+      const q = P(i, e * (RO - 0.08), 0.35);
+      glowPos.push(q[0], q[1], q[2]); glowCol.push(1.0, 0.72, 0.38);
     }
   }
   (S.paved = S.paved || []).push([n0, S.n]);
