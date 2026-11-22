@@ -869,9 +869,50 @@ const paved = [];
       if (pavedPx(x, z)) cells.set(i + ',' + j, g);
     }
   }
+  // A path mapped as a closed loop in a park (round a pavilion, a fountain or a bed) is the edge of the paving the
+  // satellite sees there. Its 10 m pixels straddle the ring, so the cells read as a block squared to the street that
+  // sits askew of the round path (issue #69: the six-sided pavilion in the park on Trần Hưng Đạo, west of cầu Trường
+  // Tiền). Where cells read paving inside such a loop, the yard is laid as the loop, and the cells it accounts for
+  // (inside it or within a pixel of its ring) are spent.
+  const ringDist = (p, ring) => {
+    let d = Infinity;
+    for (let i = 0; i + 1 < ring.length; i++) {
+      const a = ring[i], b = ring[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+      const s = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2)) : 0;
+      d = Math.min(d, Math.hypot(p[0] - a[0] - s * dx, p[1] - a[1] - s * dz));
+    }
+    return d;
+  };
+  let nLoop = 0;
+  for (const r of roads) {
+    if (r.c < 5 || r.pts.length < 5) continue;
+    const ring = r.pts, a0 = ring[0], a1 = ring[ring.length - 1];
+    if (Math.hypot(a0[0] - a1[0], a0[1] - a1[1]) > 0.5) continue;
+    const area = Math.abs(ringArea(ring));
+    if (area < 80 || area > 6000) continue;
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    const near = [], inside = [];
+    for (let i = Math.floor((x0 - G) / G); i * G < x1 + G; i++) for (let j = Math.floor((z0 - G) / G); j * G < z1 + G; j++) {
+      const k = i + ',' + j;
+      if (!cells.has(k)) continue;
+      const c = [(i + 0.5) * G, (j + 0.5) * G];
+      if (pip(c, ring)) inside.push(k); else if (ringDist(c, ring) < G * 0.75) near.push(k);
+    }
+    if (!inside.length || inside.length < 0.25 * area / (G * G)) continue;
+    let shape;
+    try { shape = pc.intersection([[ring]], cells.get(inside[0]).p); } catch { continue; }
+    for (const poly of shape) paved.push(poly);
+    for (const k of [...inside, ...near]) cells.delete(k);
+    nLoop++;
+  }
+  // a cell whose centre lies on a mapped path or pavement reads bright for the path alone: it may belong to a yard, but
+  // a yard must show at least three cells of paving off the paths (the top of the loop of paths east of that pavilion
+  // read as a yard from the path and the pavement of Trần Hưng Đạo crossing its pixels)
+  const onPath = carriagewayTest(5);
   // gather the cells into yards (4-neighbours); a yard of fewer than three cells is a path crossing or a bench
   const seen = new Set();
-  let nSat = 0, nRect = 0;
+  let nSat = 0, nRect = 0, nPathOnly = 0;
   for (const k0 of cells.keys()) {
     if (seen.has(k0)) continue;
     const comp = [], stack = [k0]; seen.add(k0);
@@ -881,6 +922,7 @@ const paved = [];
       for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = i + di + ',' + (j + dj); if (cells.has(n) && !seen.has(n)) { seen.add(n); stack.push(n); } }
     }
     if (comp.length < 3) continue;
+    if (comp.filter(([i, j]) => !onPath((i + 0.5) * G, (j + 0.5) * G, 3)).length < 3) { nPathOnly++; continue; }
     const g = cells.get(k0);
     const c = [comp.reduce((s, [i]) => s + (i + 0.5) * G, 0) / comp.length, comp.reduce((s, [, j]) => s + (j + 0.5) * G, 0) / comp.length];
     const a = streetAngle(c);
@@ -905,7 +947,7 @@ const paved = [];
     for (const poly of shape) { paved.push(poly); nSat++; }
   }
   for (const poly of paved) { green.push({ k: 'paved', p: poly }); fillPoly(poly, BLD | NOBUILD); }
-  console.log('paved yards:', nOsm, 'mapped in OSM |', nSat, 'read from the satellite scene in parks (', nRect, 'squared to the street ) from', cells.size, 'cells');
+  console.log('paved yards:', nOsm, 'mapped in OSM |', nLoop, 'laid as the ring path round them |', nSat, 'read from the satellite scene in parks (', nRect, 'squared to the street ) from', cells.size, 'cells |', nPathOnly, 'dropped as paths alone');
 }
 // Building heights, on 2 m grids in the model's frame. Two sources, the better one first:
 //  1. the city's own 3D building survey (GISHue; scripts/fetch-gishue-heights.py): for every footprint, the height
