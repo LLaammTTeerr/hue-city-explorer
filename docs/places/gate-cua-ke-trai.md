@@ -36,7 +36,8 @@ Model: `src/landmarks/places/gate-cua-ke-trai.js` (id `gate:Cửa Kẻ Trài`). 
 
 ## Estimates
 - Block top: 1.0 m above the wall walk, with a crenellated brick parapet.
-- Tower plan: 12.4 × 8.2 m, on a 0.35 m stone stylobate. Its ridge stands about 17.4 m above ground and about
+- Tower plan: 11.2 × 7.4 m (column line, as at the sibling gates Nhà Đồ and Thượng Tứ), eaves 1.1 m, on a 0.35 m
+  stone stylobate. Before Nov 2026 it was 12.4 × 8.2 m with 1.3 m eaves; the satellite shows the roofs narrower than that. Its ridge stands about 17.4 m above ground and about
   9.8 m above the wall top.
 - Colours were not confirmed for Kẻ Trài. I found no usable photo description. They are assumed:
   - brick weathered dark, like the rampart;
@@ -53,6 +54,15 @@ Model: `src/landmarks/places/gate-cua-ke-trai.js` (id `gate:Cửa Kẻ Trài`). 
   - the parapet;
   - a taller two-storey tower matching the >9 m / >17 m figures.
 - Before, the generic citadel.js gate drew a 4.2 × 5.4 m arch and a shorter tower.
+
+## Satellite check (Nov 2026)
+- Google satellite (z19/z20) against the model's matched top view: the block and the passage's ground-level ends sit
+  within about 1.5 m of the OSM centre, and the passage bearing (about 55° from north, along the Cửa Trài road) is
+  within about 2° of the model. The tower top reads 3-5 m north-west in the imagery; that is the camera's lean on a
+  17 m tower, so the anchor was kept.
+- From above, the tower roofs read a greyish tan, not bright yellow, and the block top a warm brownish grey. The roof
+  colour was weathered to match; the tiles are still taken to be yellow glazed.
+- Street View returned no usable frames here, so the faces, the bays and the upper storey are still unchecked.
 
 ## Left
 - The tower's real colours, the bay count of the lower storey, and the form of the upper storey all need checking

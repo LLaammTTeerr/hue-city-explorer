@@ -22,6 +22,9 @@ import { pavilion } from '../citadel.js';
 export const id = 'gate:Cửa Kẻ Trài';
 
 const C = [-1228.2, -1874.9]; // centre of the OSM outline, metres in the model frame
+// Checked against Google satellite (Nov 2026): the passage's ground-level ends and the block sit within ~1.5 m of this
+// centre, and the passage bearing (~55° from north, along the Cửa Trài road) within ~2° of A. The tower top reads
+// 3-5 m north-west of it in the imagery, which is the camera's lean on a 17 m tower, not an offset.
 const A = -2.2013; // direction of s (along the wall); t = A + 90° points out, along the passage
 const ux = Math.cos(A), uz = Math.sin(A);
 const P = (s, t) => [C[0] + s * ux - t * uz, C[1] + s * uz + t * ux];
@@ -31,19 +34,21 @@ const N = (ds, dt, dy = 0) => [ds * ux - dt * uz, dy, ds * uz + dt * ux];
 const L = 19.4, D = 18.9; // the block (OSM)
 const ARCH = { w: 3.82, h: 5.19 }; // the passage (tapchidongnama.vn)
 const TOP = WALL_H + 1.0; // the block's flat top, a little above the wall walk (estimate)
-const TOWER = { w: 12.4, d: 8.2, wallH: 3.2, rh: 2.6 }; // vọng lâu: ridge ~8.5 m over the block top (> 9 m over the wall)
+// vọng lâu: ridge ~8.5 m over the block top (> 9 m over the wall). The column line follows the sibling gates (Nhà Đồ,
+// Thượng Tứ: about 11.3 × 7.4 m); the satellite shows the roofs over the block no wider than that, eaves included.
+const TOWER = { w: 11.2, d: 7.4, wallH: 3.2, rh: 2.6, over: 1.1 };
 
 const BRICK = hex('#5d5850'); // weathered brick, darkened by damp and lichen like the rampart
 const BRICK_LT = hex('#6c665d');
 const DAMP = hex('#3c3a35');
-const CAP = hex('#7d776c');
+const CAP = hex('#857a68'); // the block's top reads warm brownish-grey on the satellite
 const FRAME = hex('#a9a293');
 const DARK = hex('#1f1a18');
 const TABLET = hex('#4a5459'); // đá thanh, bluish-grey stone
 const GLYPH = hex('#d9cfb5');
 const DOOR = hex('#4a2e20');
-const ROOF = hex('#b98d3c'); // yellow glazed tube tiles, weathered
-const RIDGE = hex('#dcc27a');
+const ROOF = hex('#a38a5c'); // yellow glazed tube tiles, weathered to a greyish tan as the satellite shows them
+const RIDGE = hex('#cbb98c');
 const LACQUER = hex('#7e3524');
 
 export function build({ data, S }) {
@@ -124,7 +129,7 @@ export function build({ data, S }) {
   // ---- the vọng lâu: two storeys under yellow tube tiles, open colonnade below ---------------------------------
   // (a low stone stylobate first, as at the restored towers of Thượng Tứ and Chánh Tây)
   box(0, tm, yT, yT + 0.35, TOWER.w + 1.4, TOWER.d + 1.4, shade(PAL.stone, 0.85), { topKind: KIND.ROAD });
-  pavilion(S, ...P(0, tm), TOWER.w, TOWER.d, A, yT + 0.35, { tiers: 2, wallH: TOWER.wallH, roof: ROOF, wall: LACQUER, over: 1.3, rh: TOWER.rh, ridge: RIDGE, colonnade: true, steps: false });
+  pavilion(S, ...P(0, tm), TOWER.w, TOWER.d, A, yT + 0.35, { tiers: 2, wallH: TOWER.wallH, roof: ROOF, wall: LACQUER, over: TOWER.over, rh: TOWER.rh, ridge: RIDGE, colonnade: true, steps: false });
 
   // the gate stands on paved ground: keep trees and houses off it
   S.kind = KIND.PLAIN;
