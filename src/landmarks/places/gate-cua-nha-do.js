@@ -1,4 +1,4 @@
-import { KIND, hex, shade, unflat } from '../../geo/buf.js';
+import { KIND, hex, shade, mix, unflat, hipShape } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 
 // Cửa Nhà Đồ, officially Chánh Nam môn (正南門), a south gate of the Kinh thành (Huế Citadel), west of Kỳ Đài.
@@ -42,16 +42,19 @@ const TW = { w: 9.6, d: 7.0, h: 4.2 }; // vọng lâu, lower storey (front width
 const UP = { w: 4.6, d: 3.6, h: 2.5 }; // upper storey
 const DECK = { w: 7.2, d: 5.0 }; // flat deck over the lower storey, inside the tiled skirt
 
-const BRICK = hex('#6b4a3f'); // red-brown brick, as photographed
-const BRICK2 = hex('#74503f'); // the pilasters, arch voussoirs and frame, a shade redder
-const DAMP = hex('#57443b'), STREAK = hex('#64493e'), RELAID = hex('#73503f');
-const LIME = hex('#9d9a90'); // grey weathered lime: cornices, parapet
-const LIME_D = hex('#7c7c74'); // the parapet's recessed panels, the stains
-const PANEL = hex('#d8d1c0'), INK = hex('#3b3430');
+// The block is the same weathered red-brown brick as the rampart either side of it (one material in the photographs),
+// so it takes the rampart's own brick colour (kinhthanh.js, matched to Street View) and the same MASONRY shading.
+const BRICK = mix(PAL.brick, hex('#8a6a58'), 0.75);
+const BRICK2 = mix(BRICK, hex('#8c5e4a'), 0.2); // the pilasters, arch voussoirs and frame, a shade redder
+const DAMP = shade(BRICK, 0.78), STREAK = shade(BRICK, 0.88), RELAID = mix(BRICK, hex('#9a8070'), 0.4);
+const LIME = hex('#66645d'); // dark grey weathered lime: cornices, parapet, lintel (it reads dark in the photographs)
+const LIME_D = hex('#53524c'); // the parapet's recessed panels, the stains
+const SLAB = hex('#76736c'), RIM = hex('#97938a'), INK = hex('#4e4b45'); // the name tablet: grey stone, thin pale border
 const DARK = hex('#1f1a18');
-const TOWER = hex('#aea795'); // the tower's lime plaster
-const TILE = hex('#8a6652'); // weathered terracotta tiles
-const RIDGE = hex('#d4cdbd'); // lime-mortared ridges and horns
+const TOWER = hex('#837d6f'); // the tower's weathered lime plaster
+const TILE = hex('#a39a84'); // the tower's tiles, weathered to a pale yellow-grey
+const RIDGE = hex('#c9c2b2'); // lime-mortared ridges and the small curled ends
+const FASCIA = hex('#8e8879'); // the eave's edge and its underside, light lime as photographed (no dark soffit)
 
 export function build({ data, S }) {
   const Y = LAND_Y, keep = S.kind, n0 = S.n;
@@ -78,15 +81,16 @@ export function build({ data, S }) {
       box(sg * (L / 2 - 0.7), t + dt * 0.16, yTop - 0.75, yTop - 0.4, 1.6, 0.32, LIME);
       S.kind = KIND.MASONRY;
     }
-    for (const sg of [-1, 1]) box(sg * (FRAME.w / 2 - (FRAME.w - PW) / 4), t + dt * 0.07, Y - 0.5, Y + FRAME.h - 0.3, (FRAME.w - PW) / 2, 0.14, BRICK2);
-    box(0, t + dt * 0.07, Y + PH + 0.05, Y + FRAME.h - 0.3, PW + 0.02, 0.14, BRICK2);
+    // the frame stands 0.35 m proud: two piers from the ground to the lintel and the brick over the arch between them
+    for (const sg of [-1, 1]) box(sg * (FRAME.w / 2 - (FRAME.w - PW) / 4), t + dt * 0.175, Y - 0.5, Y + FRAME.h - 0.3, (FRAME.w - PW) / 2, 0.35, BRICK2);
+    box(0, t + dt * 0.175, Y + PH + 0.05, Y + FRAME.h - 0.3, PW + 0.02, 0.35, BRICK2);
     S.kind = KIND.PLAIN;
-    box(0, t + dt * 0.12, Y + FRAME.h - 0.3, Y + FRAME.h, FRAME.w + 0.3, 0.24, LIME);
+    box(0, t + dt * 0.22, Y + FRAME.h - 0.3, Y + FRAME.h, FRAME.w + 0.3, 0.44, LIME);
     // the voussoir ring: a band of redder brick round the mouth
     const r = PW / 2, spring = Y + PH - r, K = 12;
     for (let k = 0; k < K; k++) {
       const a0 = Math.PI - (Math.PI * k) / K, a1 = Math.PI - (Math.PI * (k + 1)) / K, R = r + 0.3;
-      S.beam(V(R * Math.cos(a0), t + dt * 0.16, spring + R * Math.sin(a0)), V(R * Math.cos(a1), t + dt * 0.16, spring + R * Math.sin(a1)), 0.05, 0.6, shade(BRICK2, 1.08));
+      S.beam(V(R * Math.cos(a0), t + dt * 0.36, spring + R * Math.sin(a0)), V(R * Math.cos(a1), t + dt * 0.36, spring + R * Math.sin(a1)), 0.05, 0.6, shade(BRICK2, 1.08));
     }
   }
 
@@ -101,18 +105,24 @@ export function build({ data, S }) {
     }
   }
 
-  // ---- name panel between the frame and the cornice: grey frame, pale tablet, 正南門 in dark characters --------
-  const yb = Y + FRAME.h + 0.3;
+  // ---- name tablet between the frame and the cornice: a grey stone set flush in the brick, a thin pale border,
+  // 正南門 cut in three dark characters (drawn as a few strokes each, not blocks) ------------------------------------
+  const yb = Y + FRAME.h + 0.35;
   for (const dt of [-1, 1]) {
     const t = dt > 0 ? T1 : T0;
-    box(0, t + dt * 0.08, yb, yb + 1.0, 2.5, 0.16, LIME);
-    box(0, t + dt * 0.16, yb + 0.1, yb + 0.9, 2.2, 0.06, PANEL);
-    for (const k of [-1, 0, 1]) box(k * 0.62, t + dt * 0.2, yb + 0.24, yb + 0.76, 0.38, 0.04, INK);
+    box(0, t + dt * 0.02, yb, yb + 0.95, 2.4, 0.04, RIM);
+    box(0, t + dt * 0.04, yb + 0.07, yb + 0.88, 2.26, 0.04, SLAB);
+    for (const k of [-1, 0, 1]) {
+      const s = k * 0.62 * -dt; // read left to right from either side
+      for (const [ds, y, w, h] of [[0, 0.68, 0.36, 0.035], [0, 0.48, 0.3, 0.035], [0, 0.26, 0.38, 0.035], [0, 0.47, 0.035, 0.42], [-0.13, 0.4, 0.035, 0.26], [0.13, 0.4, 0.035, 0.26]]) {
+        box(s + ds, t + dt * 0.065, yb + y - h / 2, yb + y + h / 2, w, 0.012, INK);
+      }
+    }
   }
 
   // ---- cornice round the top of the block and the low plastered parapet ------------------------------------------
   box(0, TC, yTop - 0.4, yTop, L + 0.5, D + 0.5, LIME, { top: PAL.stone, topKind: KIND.ROAD });
-  const PH2 = 0.8, PT = 0.4; // parapet height and thickness
+  const PH2 = 0.6, PT = 0.25; // parapet height and thickness: a low panelled balustrade, as photographed
   const ring = [[L, true, T1 + 0.05], [L, true, T0 - 0.05], [D, false, L / 2 + 0.05], [D, false, -L / 2 - 0.05]];
   for (const [len, along, off] of ring) {
     const inset = Math.sign(off - (along ? TC : 0)) * PT / 2;
@@ -123,12 +133,12 @@ export function build({ data, S }) {
     for (let k = 0; k <= n; k++) {
       const u = -len / 2 + (len * k) / n, end = k === 0 || k === n;
       const s = along ? u : c[0], tt = along ? c[1] : TC + u;
-      box(s, tt, yTop, yTop + PH2 + 0.18, 0.5, 0.5, shade(LIME, 1.04), { top: shade(LIME, 1.1) });
-      if (end) S.cyl(...P(s, tt), yTop + PH2 + 0.18, yTop + PH2 + 0.42, 0.2, 0.12, 8, shade(LIME, 1.1));
+      box(s, tt, yTop, yTop + PH2 + 0.14, 0.36, 0.36, shade(LIME, 1.04), { top: shade(LIME, 1.1) });
+      if (end) S.cyl(...P(s, tt), yTop + PH2 + 0.14, yTop + PH2 + 0.34, 0.15, 0.09, 8, shade(LIME, 1.1));
       if (k < n) {
         const um = -len / 2 + (len * (k + 0.5)) / n, side = Math.sign(off - (along ? TC : 0));
         const ps = along ? um : c[0] + side * (PT / 2 + 0.01), pt = along ? c[1] + side * (PT / 2 + 0.01) : TC + um;
-        box(ps, pt, yTop + 0.18, yTop + PH2 - 0.16, along ? len / n - 0.8 : 0.02, along ? 0.02 : len / n - 0.8, LIME_D);
+        box(ps, pt, yTop + 0.12, yTop + PH2 - 0.12, along ? len / n - 0.6 : 0.02, along ? 0.02 : len / n - 0.6, LIME_D);
       }
     }
   }
@@ -198,8 +208,8 @@ function tower(S, y0) {
   box(0, TC, y1 - 0.35, y1, TW.w + 0.3, TW.d + 0.3, LIME);
   box(0, TC, y1, y1 + 0.25, TW.w + 0.6, TW.d + 0.6, shade(LIME, 0.92));
   // the tiled skirt: a low hip whose middle the deck covers
-  const ys = y1 + 0.25, sh = 1.0;
-  S.hip(pc[0], pc[1], TW.w + 0.6, TW.d + 0.6, A, ys, sh, TILE, { flare: 0.35, over: 0.5, ridgeCol: RIDGE, hips: true, fascia: 0.18, fasciaCol: LIME_D });
+  const ys = y1 + 0.25, sh = 0.7;
+  shallowHip(S, pc, TW.w + 0.6, TW.d + 0.6, ys, sh, 0.3);
   S.kind = KIND.PLAIN;
   const yd = ys + sh + 0.3;
   box(0, TC, ys + 0.2, yd, DECK.w, DECK.d, LIME, { top: shade(LIME, 0.9) });
@@ -219,11 +229,32 @@ function tower(S, y0) {
   for (const sg of [-1, 1]) archOpening(S, false, TC, sg * (UP.w / 2 + 0.02), sg, 1.0, yd + 0.6, yd + 1.9, false);
   box(0, TC, yu - 0.25, yu, UP.w + 0.3, UP.d + 0.3, LIME);
   // top roof
-  const hr = 0.95;
-  S.hip(pc[0], pc[1], UP.w + 0.3, UP.d + 0.3, A, yu, hr, TILE, { flare: 0.45, over: 0.55, ridgeCol: RIDGE, hips: true, fascia: 0.16, fasciaCol: LIME_D });
+  const hr = 0.75;
+  shallowHip(S, pc, UP.w + 0.3, UP.d + 0.3, yu, hr, 0.3);
   // a flagstaff on the ridge, as photographed
   S.kind = KIND.PLAIN;
   S.cyl(pc[0], pc[1], yu + hr - 0.1, yu + hr + 1.4, 0.035, 0.03, 5, hex('#5a5753'), { cap: false });
+  S.kind = keep;
+}
+
+// The vọng lâu's roofs as photographed: a shallow straight hip of pale tiles with a thin light eave (no flying eave,
+// no dark soffit), white hip ridges and only a small curled end at each corner, drawn here rather than with hip()'s
+// đầu đao horns, which are far larger than these.
+function shallowHip(S, pc, w, d, y0, h, over) {
+  S.hip(pc[0], pc[1], w, d, A, y0, h, TILE, { flare: 0, over, ridgeCol: RIDGE, fascia: 0.14, fasciaCol: FASCIA });
+  // the four hip ridges, straight from the ridge's ends down to the eave corners, each ending in a small curl
+  const { hw, hd, rl } = hipShape(w + over * 2, d + over * 2, 0, false, RIDGE);
+  const t = 0.2, keep = S.kind;
+  const at = (u, v, y) => [pc[0] + u * ux - v * uz, y, pc[1] + u * uz + v * ux];
+  S.kind = KIND.PLAIN;
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    const top = at(su * rl, 0, y0 + h + t * 0.4), e = at(su * hw, sv * hd, y0 + t * 0.4);
+    S.beam(top, e, t * 0.9, t, RIDGE);
+    const dx = su * ux - sv * uz, dz = su * uz + sv * ux, dl = Math.hypot(dx, dz);
+    const m = [e[0] + (dx / dl) * 0.18, e[1] + 0.1, e[2] + (dz / dl) * 0.18];
+    S.beam(e, m, t * 0.8, t * 0.9, RIDGE);
+    S.beam(m, [m[0] + (dx / dl) * 0.06, m[1] + 0.2, m[2] + (dz / dl) * 0.06], t * 0.6, t * 0.7, RIDGE);
+  }
   S.kind = keep;
 }
 
