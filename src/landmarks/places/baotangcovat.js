@@ -172,6 +172,15 @@ export function build({ data, S }) {
     box(TH.u, TH.v, yt + 3.85, yt + 4.35, 2.3, 2.0, RENDER, { top: TILE2 });
     S.kind = KIND.TILE;
     hip(TH.u, TH.v, 2.3, 2.0, yt + 4.3, 0.7, BTILE, { over: 0.4, flare: 0.2, hips: false, glazed: false, ridgeCol: null, segs: 2 });
+    // small merlon blocks at the corners of the upper tier, as on the real roof
+    S.kind = KIND.MASONRY;
+    for (const a of [-1, 1]) for (const b of [-1, 1]) box(TH.u + a * 1.2, TH.v + b * 1.05, yt + 4.3, yt + 4.75, 0.3, 0.3, RENDER, { top: TILE2 });
+    // a dark name board over the door, a cream notice panel beside it, and a low balustrade stub either side
+    S.kind = KIND.PLAIN;
+    box(TH.u + 0.7, TH.v + TH.d / 2 + 0.04, yt + 2.55, yt + 2.9, 1.3, 0.06, WOOD_D);
+    box(TH.u + 0.7, TH.v + TH.d / 2 + 0.07, yt + 2.62, yt + 2.82, 0.9, 0.04, CREAM);
+    S.kind = KIND.MASONRY;
+    for (const a of [-1, 1]) box(TH.u + a * (TH.w / 2 + 0.9), TH.v + TH.d / 2 + 0.2, yt - 0.1, yt + 0.95, 1.2, 0.35, STONE, { top: shade(STONE, 1.15) });
   }
   const thRing = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => P(TH.u + a * (TH.w / 2 + 0.3), TH.v + b * (TH.d / 2 + 0.3)));
 
