@@ -22,10 +22,10 @@ Replica in `src/landmarks/places/duyetthi.js`. It covers the royal theatre in th
 
 ## Estimated
 - The heights: eave 4.6 m, upper eave 7.6 m, ridge 11.8 m (the sources' 12 m). Measured against the width in the photo, the front gable's apex stands nearer 9 m; the model keeps the sources' height (an open question for the owner).
-- The 0.4 m plinth and the two front steps; the portico's 2 m depth.
+- The 0.4 m plinth and the two front steps; the portico's 3.2 m depth, the display boards before its dark back wall, and the carved stone columns' rings.
 - The side and back walls, which no capture shows: drawn like the front (stucco, pilasters at the bay lines, a medallion window per bay), with one back door where the gallery joins.
-- The forecourt's extent (26 × 24 m), the cauldron and figures' places, and the form of Duyệt Thị Môn (one doorway under a hip roof).
-- The gate the photo is taken through stands on the hall's axis north-east of the forecourt; it is not mapped and not drawn.
+- The cauldron, figures and lamp post places (the photo shows them on the axis before the hedge; the lamp post carries three yellow lanterns to about the gable's foot). The form of the north-wall Duyệt Thị Môn (one doorway under a hip roof).
+- The axial gate the photo is taken through is OSM way 695949056 (also named Duyệt Thị Môn; the photo's plaque reads 閱是門), 4.6 m along the Tử Cấm Thành's east wall. Drawn from its outline: yellow pillars trimmed in blue, a lintel with a grey plaque, a blue crest with small finials, red leaves. The wall (places/dainoi.js) still runs through the opening, so the leaves are drawn shut on both faces; cutting the opening needs an entry in dainoi.js.
 
 ## Changed
 - Before: the theatre was the generic extruded mapped building (12 m, kind 2).
@@ -33,7 +33,11 @@ Replica in `src/landmarks/places/duyetthi.js`. It covers the royal theatre in th
 
 - Rebuild from Google references: the upper roof is now gabled (it was a hip over a 30 × 13.6 m clerestory) and narrower, and the skirt rises to meet it; walls are yellow stucco with pilasters, medallion windows and a frieze instead of red-lacquered panels; the front has an open portico; the tiles are grey-brown instead of yellow; the brick yard round the hall became a narrow stone apron, and the front walk a paved forecourt with a cauldron, hedge and two bronze figures.
 
+- Review fixes: the forecourt's paving now runs from the hall to the east wall (~36 m deep, 28 m wide, as the satellite shows); the hip ridges are thin with small upturned finials in place of the heavy horns; the upper roof's slope is nearly straight (it was concave and peaked); the tympanum is porcelain mosaic in a blue border over a decorated blue band; the portico is a deep dark recess with two slim columns and display boards; the medallions are white-framed blue windows with a white lattice and roundel; a lamp post stands behind the cauldron; the axial gate is drawn.
+
 ## Left to do
 - No night lights.
 - The yard's other walls (towards Ngự Y and Thượng Thiện) and the medicinal-herb garden are not drawn.
 - A data tree stands on the front walk.
+- The height: the photo puts the gable's foot at ~7.0 m and its apex at ~9 m, against the sources' 12 m (the model keeps 7.6 m and 11.8 m, the constants FOOT and TOP). An owner question.
+- The opening in the east wall behind the axial gate (places/dainoi.js).
