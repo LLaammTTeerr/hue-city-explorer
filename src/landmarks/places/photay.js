@@ -41,11 +41,11 @@ const C = {
   tileR: hex('#a4a29b'), tileG: hex('#b4b1a9'), lane: hex('#9d968a'), paper: hex('#efe9dc'),
   lantern: hex('#c8352a'), lanternY: hex('#d9a236'), table: hex('#d8d4cc'), tableS: hex('#8e9aa3'),
 };
-const SIGNS = ['#c62f2a', '#1f5fa8', '#e1b52d', '#2f7d4a', '#1d1d1f', '#e7e2d6', '#7a2f6b', '#d8662a', '#1f8a8a'].map(hex);
+const SIGNS = ['#a8453b', '#3d6a94', '#cdb06a', '#4a7a58', '#222426', '#e2ddd0', '#6a4a62', '#b8734a', '#4a8585'].map(hex);
 const INK = ['#f4f1e8', '#f4f1e8', '#1d1d1f', '#f4f1e8', '#e1b52d', '#c62f2a', '#f4f1e8', '#f4f1e8', '#f4f1e8'].map(hex); // lettering against each sign
 const GLOW = [0xff4a3a, 0x58a8ff, 0xffd060, 0x60ff98, 0xfff2d0, 0xffe8b0, 0xff70d8, 0xffa040, 0x60fff0]; // the sign's light at night
-const CANVAS = ['#b8322b', '#2b5f8a', '#2f7046', '#c99a2e', '#7c2c3a', '#3b3b3b'].map(hex);
-const STOOLS = ['#c8352a', '#c8352a', '#2f62b0', '#d9a236', '#2f62b0'].map(hex);
+const CANVAS = ['#9a4038', '#4a6a85', '#44614a', '#b89a50', '#6a3a44', '#3b3b3b'].map(hex);
+const STOOLS = ['#6b5a48', '#3a3532', '#8a7860', '#5f6a6e', '#3a3532'].map(hex);
 const BULBS = [[1, 0.86, 0.6], [1, 0.8, 0.5], [1, 0.9, 0.7]]; // paper lanterns lit from inside
 
 // nearest point of a polyline: distance, the point, the unit tangent there
@@ -245,7 +245,7 @@ export function build({ data, S, group, place }) {
   const blocked = (x, z) => !inside(x, z) || rects.some((r) => inRect(r, x, z)) || zones.some((r) => inRect(r, x, z)) ||
     rings.some((g) => inRing(x, z, g)) || allRoads.some((r) => nearest(r.pts, x, z).d < r.half + 0.4) ||
     streetOf(x, z).d < SET - 0.1; // the pavements of all three stay open, at the corners too
-  const WALLS = ['#e8dcc0', '#d6a08a', '#bccacd', '#ece8df', '#e4cd8e', '#c2d6c3', '#cfcac0', '#e9d6b8', '#d9b9a6'].map(hex);
+  const WALLS = ['#e4d8bd', '#c98f78', '#b5c3c6', '#e6e2d8', '#dcc684', '#bccfbf', '#c9c4b8', '#e6d3b4', '#c8a190', '#b8785f'].map(hex);
   const ROOF = ['#b8b4ac', '#a09d97', '#cfcbc3', '#7f7b76', '#9a6a55'].map(hex); // concrete trays, grey sheet, a few rusty tin roofs (satellite)
   const SET = HALF + 2.3; // the house front: kerb plus a 2 m pavement
   // the runs to fill: the three streets, both sides (the paved lane's sides are already built up)
@@ -287,6 +287,17 @@ export function build({ data, S, group, place }) {
           // a parapet along the street, and on most a stair head at the back of the roof
           S.kind = KIND.PLAIN;
           S.box(o[0] - f[0] * 0.1, o[1] - f[1] * 0.1, gy + h, gy + h + 0.75, w - 0.08, 0.2, ang, shade(col, 0.95));
+          // floor-slab ledges, a balcony with a rail on the upper floors of some houses, and a cornice
+          for (let fl = 1; fl < floors; fl++) {
+            const yy = gy + fl * 3.4;
+            S.box(o[0] - f[0] * 0.05, o[1] - f[1] * 0.05, yy - 0.12, yy + 0.08, w - 0.02, 0.3, ang, shade(col, 0.9));
+            if (fl >= 2 && rand(key, 60 + fl) < 0.45) {
+              const bc = [o[0] + f[0] * 0.45, o[1] + f[1] * 0.45];
+              S.box(bc[0], bc[1], yy - 0.1, yy + 0.08, Math.min(w - 0.9, 3), 1.0, ang, shade(col, 0.85));
+              S.box(bc[0] + f[0] * 0.46, bc[1] + f[1] * 0.46, yy + 0.08, yy + 1.0, Math.min(w - 0.9, 3), 0.06, ang, hex('#d8d4cc'));
+            }
+          }
+          S.box(o[0] + f[0] * 0.08, o[1] + f[1] * 0.08, gy + h - 0.25, gy + h, w - 0.02, 0.4, ang, shade(col, 0.88));
           if (rand(key, 45) < 0.6) {
             const sc = [o[0] - f[0] * (d - 1.8), o[1] - f[1] * (d - 1.8)];
             S.box(sc[0], sc[1], gy + h, gy + h + 2.7, Math.min(3, w - 1), 3, ang, shade(col, 0.92), { top: pick(ROOF, key, 46) });
