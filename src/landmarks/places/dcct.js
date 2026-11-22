@@ -23,9 +23,12 @@ import { fence, leaves, roadsNear, buildingsNear, offStreets, FENCE } from '../e
 export const id = 'dcct';
 
 const DEG = Math.PI / 180;
-const ANG = 176.46 * DEG; // axis, front -> sanctuary
+// The OSM outline is drawn about 2-4 m south of the church and turned 1.5 degrees off it: on the satellite (2026-11
+// review) the front stands 2-2.5 m and the sanctuary 4.5 m further north, the axis bearing 88.5 degrees, not 86.5. The
+// outline keeps its shape; the frame is moved onto the building.
+const ANG = 177.96 * DEG; // axis, front -> sanctuary
 const F = [Math.cos(ANG), Math.sin(ANG)], P = [-F[1], F[0]];
-const O = [733.94, 1205.86]; // a = 0, b = 0: the middle of the front wall
+const O = [733.94, 1203.56]; // a = 0, b = 0: the middle of the front wall
 const W = (a, b) => [O[0] + F[0] * a + P[0] * b, O[1] + F[1] * a + P[1] * b];
 const gY = (x, z) => LAND_Y + rise(x, z);
 
@@ -45,6 +48,7 @@ const GATE_MAIN = [819.8, 1192.6, 3.4], GATE_SIDE = [757, 1223.9, 2.6], GATE_NH 
 const st = hex('#d3dbe1'), stL = hex('#e4e9ec'), stD = hex('#8f8a7f'), trim = hex('#f1f0ea'), tile = hex('#b0573c'), tileD = hex('#86412f');
 const slate = hex('#5d6870'), glass = hex('#2e4f86'), door = hex('#2c2722'), doorF = hex('#3d5f99'), white = hex('#efeae0'), pave = hex('#a9a69e');
 const cream = hex('#f3e8d2'), band = hex('#d9b9a6'), glassS = hex('#7f93ad'), plaque = hex('#cfdbe8'), plaqueG = hex('#6fa05a');
+const soffit = hex('#7a4a3a'), pier = hex('#bdbcb4'), spireC = hex('#5b5650'); // dressed pale-grey stone piers; the spire reads dark in the satellite and from Nguyễn Huệ
 
 export function build({ data, S, group }) {
   let gmax = -1e9;
@@ -53,7 +57,7 @@ export function build({ data, S, group }) {
   const V = (a, b, h) => { const q = W(a, b); return [q[0], h, q[1]]; };
   const box = (a, b, y0, y1, la, lb, col, o = {}) => { const q = W(a, b); S.box(q[0], q[1], y0, y1, la, lb, ANG + (o.rot || 0), col, o); };
   const hipAB = (a, b, la, lb, y0, h, col, o) => { const q = W(a, b); if (la >= lb) S.hip(q[0], q[1], la, lb, ANG, y0, h, col, o); else S.hip(q[0], q[1], lb, la, ANG + Math.PI / 2, y0, h, col, o); };
-  const oct = (a, b, y0, y1, r0, r1, col, kind = KIND.MASONRY) => { const q = W(a, b); S.kind = kind; S.cyl(q[0], q[1], y0, y1, r0, r1, 8, col, { cap: false, rot: ANG + Math.PI / 8 }); };
+  const oct = (a, b, y0, y1, r0, r1, col, kind = KIND.PLAIN) => { const q = W(a, b); S.kind = kind; S.cyl(q[0], q[1], y0, y1, r0, r1, 8, col, { cap: false, rot: ANG + Math.PI / 8 }); };
   // a disc facing the front (-F), e.g. the clock and the round window
   const disc = (a, b, h, r, col, n = 12) => { for (let i = 0; i < n; i++) { const t0 = (i / n) * 2 * Math.PI, t1 = ((i + 1) / n) * 2 * Math.PI; S.tri(V(a, b, h), V(a, b + Math.cos(t0) * r, h + Math.sin(t0) * r), V(a, b + Math.cos(t1) * r, h + Math.sin(t1) * r), col, [-F[0], 0, -F[1]]); } };
   // a tall window with a pointed head on a wall facing ±b (s = sign) at (a, b)
@@ -99,21 +103,43 @@ export function build({ data, S, group }) {
     const c = pts.reduce((s, p) => [s[0] + p[0] / pts.length, s[1] + p[1] / pts.length], [0, 0]);
     for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; S.tri(M(...c), M(...p), M(...q), col, n); }
   };
-  // a round-headed opening whose sides lean in: width w0 at the sill h0, w1 at the springing hs, a half-circle head
-  const archPts = (w0, w1, h0, hs) => { const p = [[-w0 / 2, h0], [w0 / 2, h0]]; for (let i = 0; i <= 10; i++) { const t = (i / 10) * Math.PI; p.push([(Math.cos(t) * w1) / 2, hs + (Math.sin(t) * w1) / 2]); } return p; };
-  const archHW = (w0, w1, h0, hs, h) => (h <= hs ? w0 / 2 + ((w1 - w0) / 2) * ((h - h0) / (hs - h0)) : Math.sqrt(Math.max(0, (w1 / 2) ** 2 - (h - hs) ** 2)));
-  // a window of that shape: white frame, glass, a grid of glazing bars and an optional cross [bottom, top, arm y, arm half]
-  const archWin = (M, n, w0, w1, h0, hs, { frame = 0.6, grid = [0.8, 0.9], bar = 0.08, cross = null } = {}) => {
+  // an opening whose sides lean in: width w0 at the sill h0, w1 at the springing hs, and a head rising `rise` above the
+  // springing: a half circle when rise is w1 / 2, a pointed (two-centred) head when it is more
+  const head = (w1, rise = w1 / 2) => {
+    const hw = w1 / 2, R = (rise * rise + hw * hw) / (2 * hw), c = R - hw;
+    return { up: (u) => Math.sqrt(Math.max(0, R * R - (Math.abs(u) + c) ** 2)), half: (dh) => Math.max(0, Math.sqrt(Math.max(0, R * R - dh * dh)) - c) };
+  };
+  const archPts = (w0, w1, h0, hs, rise) => { const H = head(w1, rise), p = [[-w0 / 2, h0], [w0 / 2, h0]]; for (let i = 0; i <= 16; i++) { const u = (w1 / 2) * (1 - (2 * i) / 16); p.push([u, hs + H.up(u)]); } return p; };
+  const archHW = (w0, w1, h0, hs, h, rise) => (h <= hs ? w0 / 2 + ((w1 - w0) / 2) * ((h - h0) / (hs - h0)) : head(w1, rise).half(h - hs));
+  // a window of that shape: white frame, glass, a grid of glazing bars, an optional cross [bottom, top, arm y, arm half]
+  // and an optional band of pierced squares round the frame (the great front window)
+  const archWin = (M, n, w0, w1, h0, hs, { frame = 0.6, grid = [0.8, 0.9], bar = 0.08, cross = null, rise = w1 / 2, lattice = false } = {}) => {
     S.kind = KIND.PLAIN;
-    fan((u, h) => M(u, h, 0.05), archPts(w0 + 2 * frame, w1 + 2 * frame, h0 - frame * 0.6, hs), trim, n);
-    fan((u, h) => M(u, h, 0.1), archPts(w0, w1, h0, hs), glass, n);
-    const top = hs + w1 / 2;
+    fan((u, h) => M(u, h, 0.05), archPts(w0 + 2 * frame, w1 + 2 * frame, h0 - frame * 0.6, hs, rise + frame), trim, n);
+    fan((u, h) => M(u, h, 0.1), archPts(w0, w1, h0, hs, rise), glass, n);
+    const H = head(w1, rise), top = hs + rise;
     for (let u = 0; u < w0 / 2 - 0.1; u += grid[0]) for (const s of u ? [-1, 1] : [1]) {
-      const hi = u <= w1 / 2 ? hs + Math.sqrt((w1 / 2) ** 2 - u * u) : h0 + ((hs - h0) * (w0 / 2 - u)) / ((w0 - w1) / 2);
+      const hi = u <= w1 / 2 ? hs + H.up(u) : h0 + ((hs - h0) * (w0 / 2 - u)) / ((w0 - w1) / 2);
       S.beam(M(s * u, h0, 0.16), M(s * u, hi, 0.16), bar, bar, trim);
     }
-    for (let h = h0 + grid[1]; h < top - 0.25; h += grid[1]) { const hw = archHW(w0, w1, h0, hs, h); S.beam(M(-hw, h, 0.16), M(hw, h, 0.16), bar, bar, trim); }
+    for (let h = h0 + grid[1]; h < top - 0.25; h += grid[1]) { const hw = archHW(w0, w1, h0, hs, h, rise); S.beam(M(-hw, h, 0.16), M(hw, h, 0.16), bar, bar, trim); }
     if (cross) { const [c0, c1, cy, cw] = cross; S.beam(M(0, c0, 0.2), M(0, c1, 0.2), 0.4, 0.16, trim); S.beam(M(-cw, cy, 0.2), M(cw, cy, 0.2), 0.4, 0.16, trim); }
+    if (lattice) { // squares along the middle of the frame, up both sides and over the head
+      const ring = archPts(w0 + frame, w1 + frame, h0, hs, rise + frame / 2).slice(2), path = [[(w0 + frame) / 2, h0], ...ring, [-(w0 + frame) / 2, h0]];
+      const q = 0.13 * frame / 0.6;
+      for (let i = 0; i + 1 < path.length; i++) {
+        const [u0, v0] = path[i], [u1, v1] = path[i + 1], L = Math.hypot(u1 - u0, v1 - v0), k = Math.max(1, Math.round(L / 0.5));
+        for (let j = 0; j < k; j++) { const t = (j + 0.5) / k, u = u0 + (u1 - u0) * t, v = v0 + (v1 - v0) * t; S.quad(M(u - q, v - q, 0.08), M(u + q, v - q, 0.08), M(u + q, v + q, 0.08), M(u - q, v + q, 0.08), slate, n); }
+      }
+    }
+  };
+  // a claustra panel: a white grid of pierced blocks over a dark ground, on a wall mapped by M(u, h, d) (d out of it)
+  const claustra = (M, n, u0, u1, h0, h1, cu = 0.42, ch = 0.42) => {
+    S.kind = KIND.PLAIN;
+    S.quad(M(u0, h0, 0.04), M(u1, h0, 0.04), M(u1, h1, 0.04), M(u0, h1, 0.04), slate, n);
+    const nu = Math.max(1, Math.round((u1 - u0) / cu)), nh = Math.max(1, Math.round((h1 - h0) / ch));
+    for (let i = 0; i <= nu; i++) { const u = u0 + ((u1 - u0) * i) / nu; S.beam(M(u, h0, 0.1), M(u, h1, 0.1), 0.09, 0.07, trim); }
+    for (let j = 0; j <= nh; j++) { const h = h0 + ((h1 - h0) * j) / nh; S.beam(M(u0, h, 0.1), M(u1, h, 0.1), 0.07, 0.09, trim); }
   };
   const nF = [-F[0], 0, -F[1]];
   const MF = (u, h, d) => V(d === undefined ? 0 : -d, u, h); // the front face: u across (+b), d out in front
@@ -126,6 +152,11 @@ export function build({ data, S, group }) {
     S.quad(V(0, s * 13.7, y), V(10, s * 13.7, y), V(10, s * 13.7, y + 5.8), V(0, s * 13.7, y + 5.8), st, [P[0] * s, 0, P[1] * s]);
     S.kind = KIND.MASONRY;
     box(5, s * 13.4, y, y + 1.2, 10.2, 0.7, stD); // the grey stone base
+    // the claustra block in the wing's side under the coping, and the tall pierced panel up the gable's flank above
+    // the wing (Street View from the north-east)
+    const ns = [P[0] * s, 0, P[1] * s];
+    claustra((u, h, d) => V(u, s * (13.75 + d), h), ns, 1.8, 8.2, y + 1.7, y + 5.0);
+    claustra((u, h, d) => V(u, s * (GW + d), h), ns, 1.4, 7.0, y + 9.0, y + 16.9, 0.4, 0.45);
   }
   for (const s of [-1, 1]) { // the pale plaques on the wings, with a string course above the stone base
     box(-0.04, s * 10.2, y + 2.4, y + 4.6, 0.1, 1.9, plaque); box(-0.07, s * 10.2, y + 2.7, y + 3.6, 0.1, 0.5, plaqueG);
@@ -133,35 +164,39 @@ export function build({ data, S, group }) {
   }
   S.kind = KIND.MASONRY;
   box(5, 0, y, y + 1.2, 10.2, 27.6, stD);
-  // the gable: a straight shaft to its cornice, three steps with ledges and corner pinnacles, the summit block
+  // the gable: a straight shaft to its cornice at 17.8 m, then four narrow steps, each under a small moulded ledge, to
+  // the summit block at 24.3 m with the niche and its figure over a small cross (the head-on pano, ~18 px/m)
   const GD = 8.4; // depth of the gable block
   S.kind = KIND.PLAIN;
-  box(GD / 2, 0, y + 1.2, y + 18, GD, 2 * GW, st, { top: stL });
-  box(GD / 2, 0, y + 18, y + 18.4, GD + 0.3, 2 * GW + 0.8, trim);
-  const steps = [[18.4, 20.4, 8.0, 6.4], [20.7, 22.0, 5.0, 3.7], [22.3, 24.4, 2.8, 2.1]]; // bottom, top, width, pinnacle b
-  for (const [h0, h1, w, pb] of steps) {
+  box(GD / 2, 0, y + 1.2, y + 17.8, GD, 2 * GW, st, { top: stL });
+  box(GD / 2, 0, y + 17.8, y + 18.1, GD + 0.3, 2 * GW + 0.8, trim);
+  const steps = [[18.1, 19.05, 10.7], [19.35, 20.2, 7.8], [20.5, 21.3, 5.0], [21.6, 24.3, 2.8]]; // bottom, top, width
+  for (const [h0, h1, w] of steps) {
     box(GD / 2 - 0.4, 0, y + h0, y + h1, GD - 0.8, w, st, { top: stL });
-    box(GD / 2 - 0.4, 0, y + h1, y + h1 + 0.3, GD - 0.5, w + 0.6, trim);
-    for (const sb of [-1, 1]) { box(0.45, sb * pb, y + h0, y + h0 + 0.9, 0.6, 0.6, trim); box(0.45, sb * pb, y + h0 + 0.9, y + h0 + 1.1, 0.8, 0.8, trim); }
+    box(GD / 2 - 0.4, 0, y + h1, y + h1 + 0.3, GD - 0.5, w + 0.8, trim);
   }
-  S.beam(V(0.6, 0, y + 24.7), V(0.6, 0, y + 25.9), 0.2, 0.2, cream); // the small cross at the summit
-  S.beam(V(0.6, -0.4, y + 25.5), V(0.6, 0.4, y + 25.5), 0.16, 0.16, cream);
-  box(-0.04, 0, y + 22.7, y + 23.9, 0.1, 0.9, door); // the niche in the summit block and its white figure
-  box(-0.08, 0, y + 22.8, y + 23.7, 0.1, 0.34, white);
-  // the great window: sides leaning in from 6.2 m at the sill to 5.4 m, a round head to 17.3 m, the grid and the cross
-  const WW = 5.6, W0 = 8.0, W1 = 14.6; // (for the night glow) width, sill, springing
-  box(-0.04, 0, y + 6.9, y + 7.5, 0.1, 7.8, band); // the band under the sill
-  archWin(MF, nF, 6.2, 5.4, y + W0, y + W1, { frame: 0.7, grid: [0.75, 0.9], cross: [y + 9.2, y + 16.6, y + 13.8, 1.7] });
-  disc(-0.06, 0, y + 19.4, 0.75, white, 16); // the clock
-  S.beam(V(-0.1, 0, y + 19.4), V(-0.1, 0, y + 19.95), 0.08, 0.05, door);
-  S.beam(V(-0.1, 0, y + 19.4), V(-0.1, 0.4, y + 19.4), 0.08, 0.05, door);
-  for (const s of [-1, 1]) for (let i = 0; i <= 10; i++) { const t = i / 10; disc(-0.06, s * (4.5 + 1.9 * t * t), y + 17.6 - 9.4 * t, 0.13, door, 6); } // dotted bands
+  box(-0.04, 0, y + 22.5, y + 23.9, 0.1, 0.9, door); // the niche in the summit block and its white figure
+  box(-0.08, 0, y + 22.6, y + 23.7, 0.1, 0.34, white);
+  S.beam(V(-0.1, 0, y + 21.4), V(-0.1, 0, y + 22.4), 0.16, 0.12, trim); // the small cross under the niche
+  S.beam(V(-0.1, -0.35, y + 22.1), V(-0.1, 0.35, y + 22.1), 0.12, 0.12, trim);
+  // the great window: sides leaning in from 6.2 m at the sill to 5.3 m, a tall pointed head to 16.7 m (the frame to
+  // 17.4), a band of pierced squares round the frame, the grid and the cross
+  const WW = 5.6, W0 = 7.4, W1 = 12.4; // (for the night glow) width, sill, springing
+  box(-0.04, 0, y + 6.3, y + 6.9, 0.1, 7.8, band); // the band under the sill
+  archWin(MF, nF, 6.2, 5.3, y + W0, y + W1, { frame: 0.75, grid: [0.75, 0.9], rise: 4.3, lattice: true, cross: [y + 8.6, y + 16.0, y + 13.0, 1.6] });
+  disc(-0.06, 0, y + 18.65, 0.58, white, 16); // the clock
+  S.beam(V(-0.1, 0, y + 18.65), V(-0.1, 0, y + 19.1), 0.08, 0.05, door);
+  S.beam(V(-0.1, 0, y + 18.65), V(-0.1, 0.32, y + 18.65), 0.08, 0.05, door);
+  for (const s of [-1, 1]) for (let i = 0; i <= 16; i++) { // dotted bands curving down from beside the clock, with portholes
+    const t = i / 16, b = s * (1.7 + 4.0 * (1 - (1 - t) ** 2.2)), h = y + 19.2 - 11.3 * t;
+    if (i % 4 === 2) { disc(-0.06, b, h, 0.28, white, 10); disc(-0.09, b, h, 0.2, door, 10); } else disc(-0.06, b, h, 0.1, door, 6);
+  }
   // three blue-framed doors under a tiled canopy on four stone pillars
   for (const b of [-3.35, 0, 3.35]) { box(-0.05, b, y, y + 4.0, 0.1, 2.3, doorF); box(-0.09, b, y, y + 3.75, 0.1, 1.8, door); }
   box(-1.3, 0, y + 5.0, y + 5.4, 2.8, 13.8, trim);
   hipAB(-1.3, 0, 2.8, 13.8, y + 5.4, 0.9, tile, { over: 0.5, flare: 0.2, segs: 2 });
-  S.kind = KIND.MASONRY;
-  for (const b of [-5, -1.7, 1.7, 5]) box(-2.3, b, yf - 0.2, y + 5.0, 0.5, 0.5, stD);
+  S.kind = KIND.PLAIN;
+  for (const b of [-5, -1.7, 1.7, 5]) box(-2.3, b, yf - 0.2, y + 5.0, 0.55, 0.55, pier);
 
   // ---- nave with its side corridors (26 x 4.2 m), the clerestory above, tiered roofs. Street View from Nguyễn Huệ:
   //      the corridors are grey-brown stone with round-arched windows under a white band; the clerestory is white,
@@ -171,7 +206,7 @@ export function build({ data, S, group }) {
   box(20.5, 0, y, y + 6.0, 21, 27.4, stD); // side corridors, the stone
   S.kind = KIND.PLAIN;
   box(20.5, 0, y + 6.0, y + 7.4, 21, 27.4, st, { top: tileD }); // and the white band
-  box(20.5, 0, y, y + NE, 21.4, 19, st, { top: tileD }); // nave
+  box(25.2, 0, y, y + NE, 30.9, 19, st, { top: tileD }); // nave, on to the tower over the crossing
   S.kind = KIND.TILE;
   for (const s of [-1, 1]) { // corridor lean-to roofs, the lower tier
     const lo = s * 14.6, hi = s * 9.5;
@@ -179,9 +214,11 @@ export function build({ data, S, group }) {
   }
   { // the nave roof, a steep pitch, running back from behind the front gable
     const ye = y + NE - 1.1;
-    for (const s of [-1, 1]) S.quad(V(8.4, s * 10.6, ye), V(31.2, s * 10.6, ye), V(31.2, 0, y + NR), V(8.4, 0, y + NR), tile, [P[0] * s, 1.2, P[1] * s]);
+    for (const s of [-1, 1]) S.quad(V(8.4, s * 10.6, ye), V(40.65, s * 10.6, ye), V(40.65, 0, y + NR), V(8.4, 0, y + NR), tile, [P[0] * s, 1.2, P[1] * s]);
+    S.kind = KIND.PLAIN; // its west gable against the tower
+    S.tri(V(40.6, -9.5, ye + 1.0), V(40.6, 9.5, ye + 1.0), V(40.6, 0, y + NR - 0.1), st, [F[0], 0, F[1]]);
     S.kind = KIND.TILE;
-    S.beam(V(8.4, 0, y + NR + 0.1), V(31.2, 0, y + NR + 0.1), 0.45, 0.35, tileD);
+    S.beam(V(8.4, 0, y + NR + 0.1), V(40.65, 0, y + NR + 0.1), 0.45, 0.35, tileD);
   }
   for (const s of [-1, 1]) for (let i = 0; i < 5; i++) { // round-arched windows in the corridor's stone wall
     const a = 12.2 + i * 4.3, n = [P[0] * s, 0, P[1] * s];
@@ -204,25 +241,26 @@ export function build({ data, S, group }) {
     S.quad(V(a, s * 9.8, ap + 0.15), V(a + hw + 0.15, s * 9.8, e - 0.7), V(a + hw + 0.15, bi, ye + 1.5), V(a, bi, ap - 0.4), tile, [F[0], 1, F[1]]);
   }
 
-  // ---- the crossing: the widest part of the plan, with the bell tower rising from its roof (below). Each arm ends in
-  //      an entrance front like the main one in small (Street View from Nguyễn Huệ; the satellite shows the steps at
+  // ---- the crossing (2026-11 review against the satellite): a gabled transept, 16.6 m across, runs the full width
+  //      from front to front with the bell tower rising out of its ridge; the nave roof runs on into the tower; the
+  //      four corners between the arms, the nave and the choir step down under low hipped roofs. Each arm ends in an
+  //      entrance front like the main one in small (Street View from Nguyễn Huệ; the satellite shows the steps at
   //      both ends): a white gable with a tall round-headed window, curved-coped wings with pierced claustra panels,
   //      and a tiled canopy on pillars over three doors.
+  const TC = 45.4, TH = 8.3, TE = 11, TR = 17; // the arms' centre line (a), half-width, wall-head, ridge
   S.kind = KIND.PLAIN;
-  box(44.95, 0, y, y + 8.2, 26.2, 38.6, st, { top: tileD }); // b ±19.3
-  box(45.4, 0, y, y + 5.5, 17.6, 44, st, { top: tileD }); // the arms, up to the end fronts at b ±22
-  box(44.95, 0, y, y + 18, 26.6, 27.4, st, { top: tileD }); // the core
-  box(44.95, 0, y + 17.5, y + 18, 27.1, 27.9, trim);
-  hipAB(44.95, 0, 26.2, 38.6, y + 8.2, 3.4, tile, { over: 1.2, flare: 0.35, segs: 2 });
-  hipAB(44.95, 0, 26.6, 27.4, y + 18, 4.2, tile, { over: 1.4, flare: 0.4, fascia: 0.3, fasciaCol: trim, hips: true, segs: 3 });
-  const TC = 45.4; // the arms' centre line (a)
+  box(44.95, 0, y, y + 8.2, 26.2, 38.6, st, { top: tileD }); // the low corners, b ±19.3
+  hipAB(44.95, 0, 26.2, 38.6, y + 8.2, 3.4, tile, { over: 1.0, flare: 0.3, segs: 2 });
+  box(TC, 0, y, y + TE, 2 * TH, 43.8, st, { top: tileD }); // the transept, b ±21.9
+  box(TC, 0, y + TE - 0.5, y + TE - 0.15, 2 * TH + 0.4, 44.2, trim); // the cornice under its eave
+  S.kind = KIND.TILE;
+  for (const e of [-1, 1]) S.quad(V(TC + e * (TH + 0.7), -22.3, y + TE - 0.5), V(TC + e * (TH + 0.7), 22.3, y + TE - 0.5), V(TC, 22.3, y + TR), V(TC, -22.3, y + TR), tile, [F[0] * e, 1.2, F[1] * e]);
+  S.beam(V(TC, -22.3, y + TR + 0.1), V(TC, 22.3, y + TR + 0.1), 0.45, 0.35, tileD);
+  S.kind = KIND.PLAIN;
+  for (const s of [-1, 1]) S.tri(V(TC - TH, s * 21.9, y + TE), V(TC + TH, s * 21.9, y + TE), V(TC, s * 21.9, y + TR - 0.2), st, [P[0] * s, 0, P[1] * s]);
+  for (const s of [-1, 1]) for (const a of [TC - 5, TC + 5]) winB(a, s * 21.9, s, 1.6, y + 8.6, y + 12.2, glassS); // high windows in the arms' gables
   for (const s of [-1, 1]) {
     const n = [P[0] * s, 0, P[1] * s], Mw = (u, h, d) => V(TC + u, s * (25 - d), h), Mo = (u, h, d = 0) => V(TC + u, s * (25 + d), h);
-    // the arm's gabled roof from the crossing out to the wings, closed by a gable wall
-    S.kind = KIND.TILE;
-    for (const e of [-1, 1]) S.quad(V(TC + e * 9.2, s * 19.6, y + 5.3), V(TC + e * 9.2, s * 21.9, y + 5.3), V(TC, s * 21.9, y + 11.4), V(TC, s * 19.6, y + 11.4), tile, [F[0] * e, 1.2, F[1] * e]);
-    S.kind = KIND.PLAIN;
-    S.tri(V(TC - 8.8, s * 21.85, y + 5.5), V(TC + 8.8, s * 21.85, y + 5.5), V(TC, s * 21.85, y + 11.2), st, n);
     // the wings, 5.5 m at the corners rising to 8 m against the gable
     for (const e of [-1, 1]) profileWall(Mw, n, e * 8.8, e * 4, 3.1, (u) => { const t = (8.8 - Math.abs(u)) / 4.8; return y + 5.5 + 2.5 * t * t; }, st, tile, 6);
     for (const e of [-1, 1]) { S.kind = KIND.PLAIN; S.quad(V(TC + e * 8.8, s * 25, y), V(TC + e * 8.8, s * 21.9, y), V(TC + e * 8.8, s * 21.9, y + 5.5), V(TC + e * 8.8, s * 25, y + 5.5), st, [F[0] * e, 0, F[1] * e]); }
@@ -238,93 +276,133 @@ export function build({ data, S, group }) {
     S.beam(V(TC, s * 24.2, y + 17.9), V(TC, s * 24.2, y + 19.1), 0.16, 0.16, cream);
     S.beam(V(TC - 0.35, s * 24.2, y + 18.7), V(TC + 0.35, s * 24.2, y + 18.7), 0.14, 0.14, cream);
     archWin(Mo, n, 3.4, 3.0, y + 6.2, y + 11.6, { frame: 0.4, grid: [0.6, 0.8], bar: 0.07 });
-    // the claustra panels on the wings: a white grid over dark openings
-    for (const e of [-1, 1]) {
-      const c = e * 6.4;
-      box(TC + c, s * 25.04, y + 1.6, y + 4.8, 3.2, 0.1, slate);
-      for (let u = -1.6; u <= 1.61; u += 0.4) S.beam(Mo(c + u, y + 1.6, 0.1), Mo(c + u, y + 4.8, 0.1), 0.08, 0.06, trim);
-      for (let h = 1.6; h <= 4.81; h += 0.4) S.beam(Mo(c - 1.6, y + h, 0.1), Mo(c + 1.6, y + h, 0.1), 0.06, 0.08, trim);
-    }
+    for (const e of [-1, 1]) claustra(Mo, n, e * 6.4 - 1.6, e * 6.4 + 1.6, y + 1.6, y + 4.8, 0.4, 0.4); // on the wings
     // the doors, the canopy on four pillars, the steps
     for (const u of [-2.3, 0, 2.3]) { box(TC + u, s * 25.05, y, y + 3.5, 1.6, 0.1, doorF); box(TC + u, s * 25.09, y, y + 3.3, 1.2, 0.1, door); }
     box(TC, s * 26.3, y + 4.0, y + 4.4, 7.4, 2.6, trim);
     hipAB(TC, s * 26.3, 7.4, 2.6, y + 4.4, 0.8, tile, { over: 0.4, flare: 0.2, segs: 2 });
-    S.kind = KIND.MASONRY;
-    for (const u of [-3.4, -1.15, 1.15, 3.4]) box(TC + u, s * 27.3, y - 1.6, y + 4.0, 0.4, 0.4, stD);
+    S.kind = KIND.PLAIN;
+    for (const u of [-3.4, -1.15, 1.15, 3.4]) box(TC + u, s * 27.3, y - 1.6, y + 4.0, 0.42, 0.42, pier);
     S.kind = KIND.ROAD;
     box(TC, s * 26.5, y - 1.6, y - 0.05, 8.4, 3.0, pave);
   }
-  for (const s of [-1, 1]) {
-    for (const a of [34.2, 55.8]) winB(a, s * 19.4, s, 1.8, y + 1.3, y + 5.8);
-    for (const a of [37.4, 44.95, 52.5]) winB(a, s * 13.7, s, 2.6, y + 11.2, y + 15.8); // the great side windows
-  }
+  for (const s of [-1, 1]) for (const a of [34.2, 55.8]) winB(a, s * 19.4, s, 1.8, y + 1.3, y + 5.8);
 
-  // ---- the choir narrowing to the sanctuary: an apse of pointed arches under a fanned roof
-  const CH = [[58, -14.5], [63.3, -13.3], [68.5, -10.3], [71.4, -6.5], [77, -6.2], [80.6, -1.6], [80.4, 4.3], [76.5, 8.1], [70.6, 8.2], [67, 11.6], [62.3, 14.2], [57.1, 14.8]];
-  const CE = 11, top = V(66, 0.5, y + 20);
-  S.kind = KIND.MASONRY;
-  S.prism(CH.map(([a, b]) => W(a, b)), y, y + CE, st, tileD);
+  // ---- the west end, as the satellite shows it: a narrow apse under a fanned roof behind the transept, a ring of four
+  //      round chapels with their own conical roofs round it, low lean-to roofs between, and at the far west a broad
+  //      polygonal hall under a low hipped roof (its walls on the mapped outline).
+  const CH = [[58, -14.5], [63.3, -13.3], [68.5, -10.3], [71.4, -6.5], [70.6, 8.2], [67, 11.6], [62.3, 14.2], [57.1, 14.8]];
+  S.kind = KIND.PLAIN;
+  S.prism(CH.map(([a, b]) => W(a, b)), y, y + 5.2, st, tileD, { top: false });
   S.kind = KIND.TILE;
-  const cc = W(66, 0.5);
-  for (let i = 0; i + 1 < CH.length; i++) {
-    const out = (p) => { const q = W(p[0], p[1]), dx = q[0] - cc[0], dz = q[1] - cc[1], d = Math.hypot(dx, dz) || 1; return [q[0] + (dx / d) * 1.1, y + CE - 0.7, q[1] + (dz / d) * 1.1]; };
-    const e0 = out(CH[i]), e1 = out(CH[i + 1]);
-    S.tri(e0, e1, top, tile, [e0[0] + e1[0] - 2 * top[0], 3, e0[2] + e1[2] - 2 * top[2]]);
-  }
-  for (let i = 0; i + 1 < CH.length; i++) { // pointed arches round the choir walls
-    const [a0, b0] = CH[i], [a1, b1] = CH[i + 1], len = Math.hypot(a1 - a0, b1 - b0);
-    if (len < 3) continue;
-    const q0 = W(a0, b0), q1 = W(a1, b1), m = [(q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2], n = [m[0] - cc[0], m[1] - cc[1]], nl = Math.hypot(...n);
-    const ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]), x = m[0] + (n[0] / nl) * 0.09, z = m[1] + (n[1] / nl) * 0.09, w = Math.min(2.2, len * 0.4);
+  S.prism(CH.map(([a, b]) => W(a, b)), y + 5.0, y + 6.6, tile, tile, { scaleTop: 0.82, centre: W(63, 0.6) });
+  // the apse: half an ellipse from the transept's west wall, 13.3 m deep and 13.2 m across, walls to 12 m
+  const AC = [TC + TH, 0.8], AP = [];
+  for (let i = 0; i <= 8; i++) { const t = -Math.PI / 2 + (i / 8) * Math.PI; AP.push([AC[0] + 13.3 * Math.cos(t), AC[1] + 6.6 * Math.sin(t)]); }
+  S.kind = KIND.PLAIN;
+  S.prism(AP.map(([a, b]) => W(a, b)), y, y + 12, st, tileD);
+  box(AC[0] + 0.1, AC[1], y + 11.5, y + 12.2, 0.2, 13.4, trim);
+  { // the fanned roof: pleated, a ridge rib on each facet, and its back closed against the transept roof
+    const apex = V(AC[0] + 0.3, AC[1], y + 17.5), eave = AP.map(([a, b]) => V(AC[0] + (a - AC[0]) * 1.07, AC[1] + (b - AC[1]) * 1.07, y + 11.4));
+    S.kind = KIND.TILE;
+    for (let i = 0; i + 1 < eave.length; i++) {
+      const e0 = eave[i], e1 = eave[i + 1], m = [(e0[0] + e1[0]) / 2, y + 12.1, (e0[2] + e1[2]) / 2];
+      S.tri(e0, m, apex, tile, [m[0] - apex[0], 2.5, m[2] - apex[2]]); S.tri(m, e1, apex, tile, [m[0] - apex[0], 2.5, m[2] - apex[2]]);
+      S.beam(e0, apex, 0.22, 0.18, tileD);
+    }
     S.kind = KIND.PLAIN;
-    S.box(x, z, y + 1.4, y + 7.4, w, 0.14, ang, glass);
-    S.tri([x - Math.cos(ang) * w / 2, y + 7.4, z - Math.sin(ang) * w / 2], [x + Math.cos(ang) * w / 2, y + 7.4, z + Math.sin(ang) * w / 2], [x, y + 7.4 + w * 0.8, z], glass, [n[0], 0, n[1]]);
+    S.tri(eave[0], eave[eave.length - 1], apex, st, [-F[0], 0, -F[1]]);
+  }
+  for (let i = 0; i < 8; i++) { // tall pointed windows round the apse
+    const t = -Math.PI / 2 + ((i + 0.5) / 8) * Math.PI, a = AC[0] + 13.36 * Math.cos(t), b = AC[1] + 6.64 * Math.sin(t);
+    const q = W(a, b), tn = [Math.cos(t) / 13.3, Math.sin(t) / 6.6], nl = Math.hypot(...tn), nw = [F[0] * tn[0] / nl + P[0] * tn[1] / nl, F[1] * tn[0] / nl + P[1] * tn[1] / nl];
+    const ang = Math.atan2(nw[1], nw[0]), w = 1.3;
+    S.box(q[0], q[1], y + 6.6, y + 10.2, 0.14, w, ang, glass);
+    S.tri([q[0] - Math.sin(ang) * w / 2, y + 10.2, q[1] + Math.cos(ang) * w / 2], [q[0] + Math.sin(ang) * w / 2, y + 10.2, q[1] - Math.cos(ang) * w / 2], [q[0], y + 11.0, q[1]], glass, [nw[0], 0, nw[1]]);
+  }
+  // the four round chapels with conical roofs
+  for (const [ca, cb] of [[58.6, 11.4], [65.4, 9.6], [58.6, -10.4], [65.4, -8.4]]) {
+    const q = W(ca, cb);
+    S.kind = KIND.MASONRY;
+    S.cyl(q[0], q[1], y, y + 1.0, 3.35, 3.35, 12, stD, { cap: false });
+    S.kind = KIND.PLAIN;
+    S.cyl(q[0], q[1], y + 1.0, y + 6.8, 3.3, 3.3, 12, st, { cap: false });
+    S.cyl(q[0], q[1], y + 6.5, y + 6.9, 3.45, 3.45, 12, trim, { cap: false });
+    for (let k = 0; k < 6; k++) { const t = k * Math.PI / 3 + 0.26; S.box(q[0] + Math.cos(t) * 3.33, q[1] + Math.sin(t) * 3.33, y + 2.0, y + 5.4, 0.1, 0.8, t, glass); }
+    S.kind = KIND.TILE;
+    S.cyl(q[0], q[1], y + 6.8, y + 10.0, 3.95, 0.15, 12, tile, { cap: false });
+  }
+  { // the polygonal hall at the far west, on the mapped outline
+    const HP = [[67.6, -6.5], [71.4, -6.5], [77, -6.2], [80.6, -1.6], [80.4, 4.3], [76.5, 8.1], [70.6, 8.2], [67.6, 8.2]];
+    const ring = HP.map(([a, b]) => W(a, b)), hc = W(74.3, 0.9), apex = [hc[0], y + 12.6, hc[1]];
+    S.kind = KIND.PLAIN;
+    S.prism(ring, y, y + 7.6, st, tileD);
+    S.kind = KIND.MASONRY;
+    S.prism(ring, y, y + 1.0, stD, stD, { top: false });
+    S.kind = KIND.TILE;
+    for (let i = 0; i < ring.length; i++) {
+      const out = (p) => { const dx = p[0] - hc[0], dz = p[1] - hc[1], d = Math.hypot(dx, dz) || 1; return [p[0] + (dx / d) * 1.0, y + 7.1, p[1] + (dz / d) * 1.0]; };
+      const e0 = out(ring[i]), e1 = out(ring[(i + 1) % ring.length]);
+      S.tri(e0, e1, apex, tile, [e0[0] + e1[0] - 2 * apex[0], 3, e0[2] + e1[2] - 2 * apex[2]]);
+    }
+    for (let i = 1; i + 2 < HP.length; i++) { // round-headed windows in its walls
+      const [a0, b0] = HP[i], [a1, b1] = HP[i + 1], am = (a0 + a1) / 2, bm = (b0 + b1) / 2, q0 = W(a0, b0), q1 = W(a1, b1);
+      const ang = Math.atan2(q1[1] - q0[1], q1[0] - q0[0]), qm = W(am, bm), d = [qm[0] - hc[0], qm[1] - hc[1]], dl = Math.hypot(...d);
+      S.kind = KIND.PLAIN;
+      S.box(qm[0] + d[0] / dl * 0.08, qm[1] + d[1] / dl * 0.08, y + 2.0, y + 5.6, 1.6, 0.14, ang, glass);
+    }
   }
 
-  // ---- the bell tower over the crossing (the octagonal lantern seen inside): a square lattice shaft out of the crossing
-  //      roof, three eight-sided tiers each under a flared tiled skirt (the middle one an open gallery), the
-  //      terracotta spire and the cross at 53 m. Tier heights estimated from photographs (docs/places/dcct.md).
+  // ---- the bell tower over the crossing (the octagonal lantern seen inside): a square lattice shaft out of the
+  //      transept ridge, three eight-sided tiers each under a flared tiled skirt (the middle one an open gallery), the
+  //      spire and the cross at 53 m. Tier heights estimated from photographs (docs/places/dcct.md).
   const TA = 44.95, yg = gY(...W(40, 0)); // tower centre; heights are measured from the ground mid-church
   const tc = W(TA, 0);
-  S.kind = KIND.MASONRY;
-  box(TA, 0, y + 17, yg + 25.2, 8.6, 8.6, stL);
   S.kind = KIND.PLAIN;
-  for (let k = 0; k < 4; k++) { // lattice panels on the four faces of the shaft
-    const t = ANG + (k * Math.PI) / 2, r = 4.36;
-    S.box(tc[0] + Math.cos(t) * r, tc[1] + Math.sin(t) * r, y + 22.4, yg + 24.4, 0.12, 5.6, t + Math.PI / 2, slate);
-    // the claustra: a white grid of pierced blocks over the dark panel
-    const c = [tc[0] + Math.cos(t) * 4.45, tc[1] + Math.sin(t) * 4.45], u = [-Math.sin(t), Math.cos(t)], at = (v, h) => [c[0] + u[0] * v, h, c[1] + u[1] * v];
-    for (let v = -2.8; v <= 2.81; v += 0.56) S.beam(at(v, y + 22.4), at(v, yg + 24.4), 0.1, 0.08, trim);
-    for (let h = y + 22.4; h <= yg + 24.41; h += 0.6) S.beam(at(-2.8, h), at(2.8, h), 0.08, 0.1, trim);
+  box(TA, 0, y + 13, yg + 25.2, 8.6, 8.6, stL);
+  for (let k = 0; k < 4; k++) { // lattice panels on the four faces of the shaft, seated on the face
+    const t = ANG + (k * Math.PI) / 2, h0 = k === 2 ? y + 22.4 : y + 18.2, h1 = yg + 24.4;
+    const c = [tc[0] + Math.cos(t) * 4.3, tc[1] + Math.sin(t) * 4.3], u = [-Math.sin(t), Math.cos(t)];
+    claustra((v, h, d) => [c[0] + u[0] * v + Math.cos(t) * d, h, c[1] + u[1] * v + Math.sin(t) * d], [Math.cos(t), 0, Math.sin(t)], -2.8, 2.8, h0, h1, 0.56, 0.6);
   }
   box(TA, 0, yg + 24.9, yg + 25.4, 9.4, 9.4, trim);
-  const ring = (y0, y1, r, col) => { const n = 8; for (let i = 0; i < n; i++) { const t = ANG + Math.PI / 8 + (i * Math.PI) / 4 + Math.PI / 8, rr = r * Math.cos(Math.PI / 8) + 0.06; S.kind = KIND.PLAIN; S.box(tc[0] + Math.cos(t) * rr, tc[1] + Math.sin(t) * rr, y0, y1, 0.14, r * 0.62, t + Math.PI / 2, col); } };
+  // the openings, flat on the eight faces of a tier (a box thin along the face normal)
+  const ring = (y0, y1, r, w, col) => { for (let i = 0; i < 8; i++) { const t = ANG + Math.PI / 4 + (i * Math.PI) / 4, rr = r * Math.cos(Math.PI / 8) + 0.04; S.kind = KIND.PLAIN; S.box(tc[0] + Math.cos(t) * rr, tc[1] + Math.sin(t) * rr, y0, y1, 0.1, w, t, col); } };
   // [body bottom, body top, body radius, skirt radius, opening colour]
   const tiers = [[25.2, 29.7, 4.9, 8.4, slate], [30.5, 34.0, 4.8, 6.6, door], [34.8, 38.3, 3.1, 4.8, door]];
   for (const [t0, t1, r, rs, oc] of tiers) {
-    oct(TA, 0, yg + t0 - 0.8, yg + t1, r, r * 0.97, stL);
-    ring(yg + t0 + 0.5, yg + t1 - 0.6, r * 0.97, oc);
-    oct(TA, 0, yg + t1, yg + t1 + 1.1, rs, r * 0.7, tile, KIND.TILE);
+    oct(TA, 0, yg + t0 - 0.8, yg + t1, r, r, stL, KIND.PLAIN);
+    ring(yg + t0 + 0.5, yg + t1 - 0.7, r, r * 0.42, oc);
+    // the skirt: a fascia under a concave tiled slope, shallow at the eave and steep into the tier above
+    const e = yg + t1 - 0.5, rm = r + (rs - r) * 0.42;
+    oct(TA, 0, e - 0.3, e, rs, rs, trim, KIND.PLAIN);
+    S.kind = KIND.PLAIN; // the soffit, facing down: what a visitor below sees of the skirt
+    for (let i = 0; i < 8; i++) {
+      const t0 = ANG + Math.PI / 8 + (i * Math.PI) / 4, t1 = t0 + Math.PI / 4, hy = e - 0.3;
+      const p = (t, rr) => [tc[0] + Math.cos(t) * rr, hy, tc[1] + Math.sin(t) * rr];
+      S.quad(p(t0, r), p(t1, r), p(t1, rs), p(t0, rs), soffit, [0, -1, 0]);
+    }
+    oct(TA, 0, e, e + 0.55, rs + 0.05, rm, tile, KIND.TILE);
+    oct(TA, 0, e + 0.55, e + 2.0, rm, r * 0.72, tile, KIND.TILE);
   }
-  oct(TA, 0, yg + 30.5, yg + 31.6, 5.3, 5.3, trim); // the gallery's balustrade
+  oct(TA, 0, yg + 30.6, yg + 31.6, 5.0, 5.0, trim, KIND.PLAIN); // the gallery's balustrade
   const spire0 = yg + 38.5, crossY = yg + 50.0; // cross from 50 to 53 m above the ground
-  oct(TA, 0, spire0, crossY + 0.2, 1.7, 0.1, tile, KIND.TILE);
+  oct(TA, 0, spire0, crossY + 0.2, 1.7, 0.1, spireC, KIND.TILE);
   S.kind = KIND.PLAIN;
   S.beam([tc[0], crossY, tc[1]], [tc[0], yg + 53, tc[1]], 0.3, 0.3, cream);
   S.beam(V(TA, -0.9, crossY + 2.0), V(TA, 0.9, crossY + 2.0), 0.28, 0.28, cream);
   // four small square turrets with gabled caps at the corners of the crossing
   for (const ta of [36.2, 54.6]) for (const s of [-1, 1]) {
     const tb = s * 20.4, h1 = y + 15.5;
-    S.kind = KIND.MASONRY;
-    box(ta, tb, y, h1, 3.0, 3.0, stL);
     S.kind = KIND.PLAIN;
+    box(ta, tb, y, h1, 3.0, 3.0, st);
     box(ta, tb, h1 - 0.3, h1, 3.4, 3.4, trim);
     for (const [da, db] of [[-1.52, 0], [1.52, 0], [0, -1.52], [0, 1.52]]) box(ta + da, tb + db, y + 12.4, y + 14.8, da ? 0.1 : 1.6, da ? 1.6 : 0.1, door);
     S.kind = KIND.TILE;
     S.quad(V(ta - 1.8, tb - 1.8, h1), V(ta + 1.8, tb - 1.8, h1), V(ta + 1.8, tb, h1 + 1.8), V(ta - 1.8, tb, h1 + 1.8), tile, [P[0] * -1, 1, P[1] * -1]);
     S.quad(V(ta + 1.8, tb + 1.8, h1), V(ta - 1.8, tb + 1.8, h1), V(ta - 1.8, tb, h1 + 1.8), V(ta + 1.8, tb, h1 + 1.8), tile, [P[0], 1, P[1]]);
-    S.kind = KIND.MASONRY;
-    for (const sa of [-1, 1]) S.tri(V(ta + sa * 1.5, tb - 1.5, h1), V(ta + sa * 1.5, tb + 1.5, h1), V(ta + sa * 1.5, tb, h1 + 1.7), stL, [F[0] * sa, 0, F[1] * sa]);
+    S.kind = KIND.PLAIN;
+    for (const sa of [-1, 1]) S.tri(V(ta + sa * 1.5, tb - 1.5, h1), V(ta + sa * 1.5, tb + 1.5, h1), V(ta + sa * 1.5, tb, h1 + 1.7), st, [F[0] * sa, 0, F[1] * sa]);
   }
 
   // ---- the grotto of Our Lady at the rear left: a rough stone mound with a niche and the white statue
