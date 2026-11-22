@@ -57,7 +57,9 @@ const GOLD = hex('#d8b25a');
 
 export function build({ S }) {
   const Y = LAND_Y, keep = S.kind;
-  const box = (s, t, y0, y1, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, opts); };
+  // every box gets its underside: the cornice, frieze, caps and bands all overhang what they stand on, and an open
+  // bottom let a visitor looking up see through the overhang to the tower behind (thin dark slits under the cornice)
+  const box = (s, t, y0, y1, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, { bottom: true, ...opts }); };
 
   // ---- the plinth and the block, with the three passages driven through it -----------------------------------
   S.kind = KIND.MASONRY;
@@ -192,7 +194,7 @@ export function build({ S }) {
 // stone surround on each mouth.
 function archPassage(S, o, y0, y1, depth) {
   const r = o.w / 2, fl = y0 + 0.35, crown = y0 + o.h, spring = crown - r, K = 8;
-  const box = (s, t, a, b, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], a, b, ss, st, A, col, opts); };
+  const box = (s, t, a, b, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], a, b, ss, st, A, col, { bottom: true, ...opts }); };
   S.kind = KIND.MASONRY;
   box(o.s, 0, crown, y1, o.w + 0.02, depth, BODY, { top: TOWER });
   const arc = (k) => { const th = Math.PI - (Math.PI * k) / K; return [o.s + r * Math.cos(th), spring + r * Math.sin(th)]; };
@@ -204,17 +206,22 @@ function archPassage(S, o, y0, y1, depth) {
     }
   }
   S.kind = KIND.PLAIN;
-  const tin = depth / 2 - 0.45; // the lining starts this far in, so the reveals keep the wall's colour
+  const tin = depth / 2 - 0.01; // the yellow reveal runs right out to the face, as in the photo
   for (let k = 0; k < K; k++) { // vault
     const [sa, ya] = arc(k), [sb, yb] = arc(k + 1);
     S.quad(V(sa, -depth / 2 + 0.01, ya), V(sb, -depth / 2 + 0.01, yb), V(sb, depth / 2 - 0.01, yb), V(sa, depth / 2 - 0.01, ya), shade(REVEAL, 0.62), N(o.s - (sa + sb) / 2, 0, spring - (ya + yb) / 2));
   }
-  for (const sg of [-1, 1]) { // dark lining on the pier faces inside
+  // the doors hang about a metre in from the outer face; each leaf stands open against its reveal, as tall as the
+  // vault allows there (its top follows the curve, so the leaf reaches above the springing without cutting the vault)
+  const hinge = depth / 2 - 1.0, off = 0.1, lw = 0.08;
+  const ds = r - off, ytop = spring + Math.sqrt(Math.max(0, r * r - ds * ds)) - 0.04;
+  for (const sg of [-1, 1]) { // yellow lining on the pier faces inside
     const s = o.s + sg * (r - 0.02);
     S.quad(V(s, -tin, fl), V(s, tin, fl), V(s, tin, spring), V(s, -tin, spring), REVEAL, N(-sg, 0));
-    // a red door leaf standing open against the reveal, hung from a frame a little in from the outer face
-    const p = P(s - sg * 0.06, tin - 0.05 - r / 2);
-    S.box(p[0], p[1], fl, spring + r * 0.55, 0.08, r, A, DOOR);
+    const p = P(o.s + sg * (r - off - lw / 2), hinge - r / 2);
+    S.box(p[0], p[1], fl, ytop, lw, r, A, DOOR, { bottom: true });
+    const q = P(o.s + sg * (r - 0.06), hinge + 0.06); // the timber post of the door frame, against the reveal
+    S.box(q[0], q[1], fl, spring, 0.1, 0.12, A, shade(DOOR, 0.7));
   }
   S.kind = KIND.ROAD;
   S.quad(V(o.s - r, -depth / 2 - 0.2, fl + 0.01), V(o.s + r, -depth / 2 - 0.2, fl + 0.01), V(o.s + r, depth / 2 + 0.2, fl + 0.01), V(o.s - r, depth / 2 + 0.2, fl + 0.01), shade(PAL.stone, 0.7), [0, 1, 0]);

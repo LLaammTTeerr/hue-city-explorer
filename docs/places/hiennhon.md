@@ -53,6 +53,15 @@ Imperial City gate in `src/landmarks/citadel.js` skips this gate with a `replace
   8.6 × 5.2) with its side openings over the side passages, the upper storey 6.6 × 2.8 m (was 5.4 × 3.2). Heights
   unchanged (not visible in any capture).
 
+- Review fixes: the yellow reveals now run right out to the face (no grey strip on the jambs); the door leaves hang
+  about 1 m in from the outer face on a timber frame post and reach above the springing, their tops following the
+  vault; the cornice, frieze, caps and bands have undersides, so looking up no longer shows dark slits through them.
+
 ## Left to do
-- Check the proportions and ornament against photos; no photos were viewed.
-- Doors in the passages, and night lighting (none is known).
+- The piers between the arches are narrower than in the photo: the documented passage widths (3.0 and 2.0 m) in a
+  14.3 m block leave no more room.
+- The brick-paved apron between the gate and the Ngoại Kim Thủy ponds is drawn as lawn: OSM maps it as
+  landuse=grass and the data build's paving pass skips the band round the Imperial City (inImperial), which the
+  place files share. A fix belongs in the shared ground, not in this file.
+- Tower heights, the two roof tiers and the inner (west) face are estimates (no capture shows them).
+- Night lighting (none is known).
