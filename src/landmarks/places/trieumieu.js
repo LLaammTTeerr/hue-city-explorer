@@ -124,8 +124,8 @@ function court(S) {
   S.kind = KIND.ROAD;
   fbox(S, 0, 19.95, g - 0.5, g + 0.12, 22, 15.3, BRICK);
   fbox(S, 0, 19.65, g + 0.12, g + 0.16, 2.15, 14.7, shade(STONE, 1.08));
-  // six porcelain planters on stone stools along the front, as at Hưng Miếu, and a bronze urn to the right of the walk
-  for (const u of [-9.5, -6.5, -3.5, 3.5, 6.5, 9.5]) {
+  // eight porcelain planters on stone stools in a row along the front (the satellite shows 7-8), as at Hưng Miếu, and a bronze urn to the right of the walk
+  for (const u of [-10, -7.1, -4.2, -1.4, 1.4, 4.2, 7.1, 10]) {
     const p = P(u, 13.4); // the row the satellite shows just in front of the steps
     S.kind = KIND.MASONRY;
     S.cyl(p[0], p[1], g, g + 0.5, 0.3, 0.34, 6, shade(STONE, 0.95));
