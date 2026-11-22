@@ -37,10 +37,11 @@ const BAR_W = 0.05;
 // Colours as the walk looks now (Street View photosphere on the deck, Google satellite): the lim has weathered to a
 // grey-brown and the bronze, gold-toned when new in 2018, has dulled to a dark brown-grey
 const C = {
-  lim: hex('#857a70'), fascia: hex('#4f4741'), bronze: hex('#6f6250'), bronzeDk: hex('#5a4f42'),
+  lim: hex('#857a70'), fascia: hex('#4f4741'), bronze: hex('#7a6e5d'), bronzeDk: hex('#5f5446'), seam: hex('#4a443e'),
   pile: hex('#a39d92'), head: hex('#8f897e'), lamp: hex('#3b3328'),
 };
-const BOARD = [1, 0.9, 0.96, 0.86, 0.93, 0.98];
+const BOARD = [1, 0.95, 0.98, 0.93, 0.96, 0.99];
+const SEAMS = 15; // lengthwise board seams across the 4 m deck (boards ~25 cm)
 
 // ------------------------------------------------------------------ plan
 function resample(pts, step) {
@@ -173,6 +174,10 @@ export function build({ data, S, group }) {
   for (let i = 0; i + 1 < m; i++) {
     const col = shade(C.lim, BOARD[i % BOARD.length]);
     S.quad(P(i, -HW), P(i + 1, -HW), P(i + 1, HW), P(i, HW), col, [0, 1, 0]);
+    for (let k = 1; k < SEAMS; k++) {
+      const o = -HW + (WIDTH * k) / SEAMS, w = 0.01;
+      S.quad(P(i, o - w, 0.004), P(i + 1, o - w, 0.004), P(i + 1, o + w, 0.004), P(i, o + w, 0.004), C.seam, [0, 1, 0]);
+    }
     for (const e of [-1, 1]) S.quad(P(i, e * HW), P(i + 1, e * HW), P(i + 1, e * HW, -0.45), P(i, e * HW, -0.45), C.fascia, hn(i, e));
     S.quad(P(i, -HW, -0.45), P(i + 1, -HW, -0.45), P(i + 1, HW, -0.45), P(i, HW, -0.45), C.fascia, [0, -1, 0]);
   }
