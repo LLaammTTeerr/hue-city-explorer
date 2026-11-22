@@ -26,6 +26,15 @@ Replica: `src/landmarks/places/khaidinh.js` (id `khaidinh`). The older generic t
 ## Estimates (not in the sources)
 - How the last 61 steps split: 13 + 13 + 13 + 22. The riser height is fitted to the terrain (0.15–0.2 m).
 - Court depths follow OSM positions rather than the Wikipedia figures where they disagree (Bái Đình runs shorter in OSM).
+- **The Bái Đình's 40.5 m (checked 2026-11, not changed).** vi.wikipedia gives "sân Bái đình (47m x 40,5m)" with no
+  dài/rộng labels. In the same article the other pairs read across × along the axis when set against OSM: Cung Thiên
+  Định 34.5 × 26.4 (OSM 35.0 across, 26.2 along) and the Tòng Tự court 47 × 24.5 (the model's court runs 23.8 m up
+  the axis). By that convention 40.5 m is along the axis, where the model's court runs 26 m (s = 31 to 57). But OSM
+  puts the Bi Đình (way 242940961), which the article says stands "ở giữa phía cuối sân", at s 42–49, and the palace
+  front at s 81.5. A 40.5 m court (s 31 to 71.5) would leave about 10 m for three more courts and 61 steps, and the
+  article's own 117 m total does not fit it either. So the figure cannot be the Bái Đình alone on the axis; the court
+  stays at OSM's positions. One reading (speculation): 31 + 40.5 ≈ 71, the top of the third of the upper courts, so
+  the figure may span the Bái Đình and the courts above it. Needs a survey drawing to settle.
 - All heights: walls, piers, Bi Đình (~8 m), obelisks (~15 m), palace (~12 m at the Khải Thành, checked against
   docs/heights-reference.json's 11–12 m estimate).
 - Form of the main gate (four tower-capped piers with iron gates), the count and size of statues, flagpole positions.
@@ -41,3 +50,8 @@ Replica: `src/landmarks/places/khaidinh.js` (id `khaidinh`). The older generic t
 ## What's left
 - Palace interior (the glass and porcelain mosaics, the bronze statue under its canopy) is not modelled.
 - Exact heights, the gate's real form and the statue arrangement need on-site or survey figures.
+- **The Bái Đình's depth waits on a survey drawing** (owner's call, 2026-11-21): the 40.5 m stays unapplied until a
+  measured plan settles which axis it measures and where the court ends. Searched 2026-11-21 (vi/en web, the
+  heritage and travel write-ups, thesis repositories): no published site plan or measured drawing; every source
+  repeats vi.wikipedia's figures. Likely holders: the Huế Monuments Conservation Centre (Trung tâm Bảo tồn Di tích Cố
+  đô Huế) and the EFEO archives. When one turns up, check the court ends against OSM's Bi Đình (s 42–49) first.

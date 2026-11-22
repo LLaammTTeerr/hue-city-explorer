@@ -15,15 +15,17 @@ import { rise } from '../../geo/terrain.js';
 //  - mia.vn travel guide: stone steps (bậc đá) on the climb; the top flat enough that people camp there.
 // The terrain grid (25 m, scripts/build-data.mjs §9) already stands the hill at the right height (rise 101 m on a
 // floor of about 3 m: 104 m) but peaks it on a single node. Here a local cap levels the crest into the flat top.
-// Estimated: the size and line of the flat top (a stadium about 130 x 40 m along the crest the grid shows, nearly level,
-// standing up to about 9 m over the grid's slopes), the bare clearing on it, path width, tomb sizes and colours. The
+// The flat top's size and line follow the bare-earth DEM (FABDEM, data/raw/dem/terrain.json, ~30 m cells): ground over
+// 85 m runs about 220 m from just east of the summit to the west-south-west (13° south of west), 50-60 m across, its
+// highest points within about 6 m of each other; the grid agrees (93-97 m out to 200 m west). The sources give no size.
+// Estimated: the exact edge and the shoulder (a stadium 220 x 40 m on that line, nearly level), the bare clearing on it, path width, tomb sizes and colours. The
 // data's trees on the cap are kept off it by geo/city.js (paved) and drawn again here at the cap's height. Tả Bật / Hữu Bật are not drawn: no source places them.
 
 export const id = 'ngubinh';
 
 const O = [774.2, 2997.7]; // the place's summit point, model metres; everything below is relative to it
 // the flat top: a stadium round the crest from A (north-east) to B (west-south-west), half-width W; M is the shoulder
-const A = [28, -38], B = [-42, 22], W = 20, M = 30, WC = 13; // WC: half-width of the bare clearing
+const A = [20, -15], B = [-195, 35], W = 20, M = 30, WC = 13; // WC: half-width of the bare clearing
 // OSM way 631812146, relative metres: up the west ridge, over the top, down the north face (cut where the town starts)
 const PATH = [[-340, 141], [-332, 80], [-256, 60], [-224, 47], [-184, 35], [-156, 27], [-143, 29], [-93, 49], [-31, 37], [-6, 23], [5, 12], [20, -6], [28, -19], [32, -29], [34, -40], [34, -47], [32, -55], [30, -63], [24, -69], [12, -79], [-4, -91], [-14, -96], [-20, -101], [-22, -106], [-22, -130], [-23, -154], [-22, -167], [-21, -177], [-14, -210], [-8, -224], [-8, -235], [-4, -244], [1, -249], [10, -254]];
 
@@ -123,7 +125,7 @@ export function build({ data, S }) {
   let replanted = 0;
   for (let i = 0; i < tr0.length; i += 4) {
     const x = tr0[i] / 10 - O[0], z = tr0[i + 1] / 10 - O[1];
-    if (Math.abs(x) > 200 || Math.abs(z) > 200) continue;
+    if (Math.abs(x) > 300 || Math.abs(z) > 300) continue;
     const d = out(x, z);
     if (d >= M + 6 || d < WC - W + 1) continue; // off the cap (city.js may still clear a few at its edge), or on the clearing
     if (onPath.some((p) => Math.hypot(p[0] - x, p[1] - z) < 2.5)) continue;

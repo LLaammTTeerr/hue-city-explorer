@@ -43,6 +43,15 @@
   meeting their 6 m continuations at x≈-220, z≈-196; class changes mid-street) now narrows over its last 30 m to the
   other's width (build-data "Width steps": per-point widths, 5th element of a road record; city.js draws casing, kerb,
   carriageway and lamps from them; medians use them). 228 joints tapered.
+- Churches from the photo audit (2026-11-21): Dòng Chúa Cứu Thế has one tower, over the crossing (the old front
+  tower and the 32 m crossing crown were the same tower counted twice), with the photo-read tiers, gallery and
+  terracotta spire to the sourced 53 m cross. The front is its own block: stepped gable, pointed window, clock,
+  canopy on four pillars over three doors, curved wings. The sanctuary lantern is gone. Phủ Cam's centre screen is
+  replaced by two stone shoulders sloping inward to the low centre, lattice strips, and the nave gable with its
+  cross. The towers are continuous prisms (no stage caps) with the setbacks on the inner side, to the sourced 43.5 m.
+  Photo-derived figures are marked *est.* in docs/places/dcct.md and phucam.md. Views `dcct-front`, `dcct-aerial`,
+  `phucam-front`, `phucam-aerial`. Note: shot.mjs poses pass through clampView, which puts the target at y 2.6 and
+  drops the camera by the same amount, so a view's target should sit on the ground (phucam-front aims past the church).
 - Shadow maps cached (2026-11-21): csm.js redraws a map only when its snapped box, the sun direction, a casting
   LOD chunk reaching into it (lodFlips in lod.js) or `shadows.invalidate()` changes; moving casters (traffic, boats,
   tree sway) refresh on a cadence (near 33-100 ms, wide 100-330 ms). ~0.44 map renders per frame instead of 1.0
@@ -770,3 +779,17 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   the card returns focus to search.
 - Not verified: the single-stall case in a live tab, because the hidden browser pane pauses requestAnimationFrame
   while still reporting the page as visible. The simulation covers that case.
+
+## Geometry audit: Ngọ Môn, Ngự Bình, Khải Định (2026-11-21, branch `claude/peaceful-varahamihira-11124f`, uncommitted, awaiting owner)
+- Ngọ Môn: footprint now the published 57.96 m front × 27.5 m wings (vi.wikipedia citing Phan Thanh Hải 2015; the
+  audit's 57.77 is Lê Đình Phúc's figure, 0.2 m off). The OSM outline was 55.8 × 24.75 m (the header's 25.3 was OSM's east
+  wing alone). The back face stays on OSM's line; the ends move out 1.08 m and the wing tips 2.75 m. The Lầu plinth and end roof units
+  follow. Tả/Hữu Dịch Môn are now real bent, vaulted tunnels cut through the wings (polygon-clipping difference of the
+  half-base): in at the inner face, a right-angle turn, out at the back. The central three stay rectangular (bronze beams).
+  New view `ngo-mon-dich-mon`.
+- Ngự Bình: cap moved to the crest that the FABDEM DEM and the grid both show (220 × 40 m from (+20,−15) to (−195,+35)
+  about the summit; was 130 × 40 m, east part only, about 23° off). New view `ngu-binh-north`.
+- Khải Định: the 40.5 m of the Bái Đình reads as along-axis by the article's own convention, but it cannot fit between
+  OSM's Bi Đình and palace positions. The court is unchanged and the finding is documented in `docs/places/khaidinh.md`.
+- `npm run check` and `npm run build` pass. Captures are in `scratch/compare/index.html` and `scratch/shots/`. Open questions for
+  the owner: 57.96 vs 57.77, and how to read the Khải Định figure.
