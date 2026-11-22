@@ -1,6 +1,6 @@
 import { KIND, hex, shade, inRing, unflat, pathLength } from '../../geo/buf.js';
 import { PAL } from '../../config.js';
-import { waterY } from '../../geo/terrain.js';
+import { waterY, groundY } from '../../geo/terrain.js';
 import { bridgeProfiles } from '../../geo/bridges.js';
 
 // ---- Đông Thành Thủy Quan (cầu / cống Lương Y): the eastern water gate, where Ngự Hà leaves the Citadel for sông
@@ -30,6 +30,15 @@ import { bridgeProfiles } from '../../geo/bridges.js';
 // waterline), and the short walls that join the bridge's feet to the ends of the rampart, with the two doors in them.
 // The deck follows geo/bridges.js's profile for this bridge (4.3 m crown, climbing within 45 % of the length from
 // each end), so traffic and lamp posts in landmarks/life.js ride on it.
+//
+// Checked against Google satellite and four car Street View panoramas (Nov 2026; scratch/rebuild/thuyquan, not in
+// the repo): the OSM line sits within about 1 m and 1 degree of the deck seen from above, and its north-west end
+// meets the parapets' end there, but the parapets stop about 5.5 m short of the line's south-east end, where the
+// road runs on at street level to the Lê Văn Hưu corner (69-70 m of parapet, against the 71.7 m published). Two
+// tall square gate posts with ball finials stand about 5 m north-east of the road's centre at that foot, one at
+// the parapet's end and one about 5 m further south-east, framing the opening to the path along the canal; the
+// south-east wing wall is drawn in two pieces either side of that opening. Post size (1 m square, 3.6 m shaft,
+// 0.6 m ball) is read from the panorama, about +-20 %.
 
 export const id = 'thuyquan';
 const NAME = 'Đông Thành Thủy Quan';
@@ -43,6 +52,8 @@ const PORT_R = 0.25, PORTS = 13; // gun ports
 const PIL_W = 1.0, PIL_P = 0.22; // pilasters (estimate)
 // the inner corners of the rampart's two ends beside the gate (data.wall[0], metres)
 const WALL_ENDS = [[-884.0, -1391.7], [-938.8, -1461.7]];
+const SE_BARE = 5.5; // metres of road at the south-east end (u = 0) beyond the parapets' end (satellite)
+const POST_V = 5.0, POST_GAP = 5.0; // the gate posts: offset north-east of the road's centre, spacing along it
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -68,6 +79,7 @@ export function build({ data, S }) {
   const P3 = (u, v, y) => { const [x, z] = XZ(u, v); return [x, y, z]; };
   const yD = (u) => P.y(clamp(u, 0, L));
   const uc = L / 2;
+  const U0 = Math.min(SE_BARE, L * 0.1); // where the parapets begin at the south-east end
   const water = waterY(...XZ(uc, 0));
   const spring = water + 0.5, bed = water - 1.2;
   const T3 = [t[0], 0, t[1]], N3 = [n[0], 0, n[1]];
@@ -142,7 +154,7 @@ export function build({ data, S }) {
   }
 
   // ---- laterite footing along both faces at the waterline (not under the vault) ----
-  for (const s of [-1, 1]) for (const [a, b] of [[0, u0a - 0.02], [u1a + 0.02, L]]) {
+  for (const s of [-1, 1]) for (const [a, b] of [[U0, u0a - 0.02], [u1a + 0.02, L]]) {
     const [x, z] = XZ((a + b) / 2, s * (W + PIL_P / 2 - 0.05));
     S.box(x, z, water - 0.4, water + 0.55, b - a, PIL_P + 0.1, ang, laterite);
   }
@@ -159,27 +171,50 @@ export function build({ data, S }) {
   // ---- parapets: the outer one with its 13 round gun ports, the inner one with the two gate posts ----
   const ports = [];
   for (let k = 0; k < PORTS; k++) {
-    let u = (L * (k + 1)) / (PORTS + 1);
+    let u = U0 + ((L - U0) * (k + 1)) / (PORTS + 1);
     for (const p of pil) if (Math.abs(u - p) < PIL_W / 2 + PORT_R + 0.15) u = p + Math.sign(u - uc || 1) * (PIL_W / 2 + PORT_R + 0.3);
-    ports.push({ u, r: PORT_R, yc: yD(u) + 0.85 });
+    ports.push({ u: u - U0, r: PORT_R, yc: yD(u) + 0.85 });
   }
-  const along = (v) => ({ p0: XZ(0, v), dir: t, len: L });
-  pierced(S, along(W - OUT_T / 2), OUT_T, (u) => yD(u) - 0.02, (u) => yD(u) + OUT_H, ports, brickD, stone);
-  pierced(S, along(-W + IN_T / 2), IN_T, (u) => yD(u) - 0.02, (u) => yD(u) + IN_H, [], brickD, stone);
+  const along = (v) => ({ p0: XZ(U0, v), dir: t, len: L - U0 });
+  const yP = (u) => yD(u + U0);
+  pierced(S, along(W - OUT_T / 2), OUT_T, (u) => yP(u) - 0.02, (u) => yP(u) + OUT_H, ports, brickD, stone);
+  pierced(S, along(-W + IN_T / 2), IN_T, (u) => yP(u) - 0.02, (u) => yP(u) + IN_H, [], brickD, stone);
   for (const e of [-1, 1]) {
     const u = uc + e * (R - 1.0), [x, z] = XZ(u, -W + 0.27), y = yD(u);
     S.box(x, z, y, y + 1.9, 0.54, 0.54, ang, stoneL, { top: stone });
   }
 
-  // ---- the feet: short walls from each end of the bridge to the rampart's end, each with its small arched door ----
+  // ---- the south-east gate posts: square shafts on a plinth, a moulded cap and a ball finial ----
+  const posts = [[U0, POST_V], [U0 - POST_GAP, POST_V]].map(([u, v]) => XZ(u, v));
+  for (const [x, z] of posts) {
+    const g = groundY(x, z) - 0.2;
+    S.box(x, z, g, g + 0.6, 1.25, 1.25, ang, stoneD);
+    S.box(x, z, g + 0.6, g + 3.8, 1.0, 1.0, ang, brickD);
+    S.box(x, z, g + 3.8, g + 3.95, 1.22, 1.22, ang, stoneL);
+    S.box(x, z, g + 3.95, g + 4.15, 1.05, 1.05, ang, stone);
+    S.cyl(x, z, g + 4.15, g + 4.3, 0.16, 0.14, 10, stone, { cap: false });
+    const BR = 0.3, yb = g + 4.3 + BR; // the ball, as stacked bands
+    for (let k = 0; k < 6; k++) {
+      const a0 = -Math.PI / 2 + (Math.PI * k) / 6, a1 = -Math.PI / 2 + (Math.PI * (k + 1)) / 6;
+      S.cyl(x, z, yb + BR * Math.sin(a0), yb + BR * Math.sin(a1), BR * Math.cos(a0) + 0.01, BR * Math.cos(a1) + 0.01, 12, stoneL, { cap: k === 5 });
+    }
+  }
+
+  // ---- the feet: short walls from each end of the bridge to the rampart's end, each with its small arched door;
+  // at the south-east the wall breaks between the gate posts ----
   for (const [k, wall] of WALL_ENDS.entries()) {
-    const foot = XZ(k === 0 ? 0 : L, W - 0.6);
-    const dx = wall[0] - foot[0], dz = wall[1] - foot[1], len = Math.hypot(dx, dz);
-    if (len < 2 || len > 20) continue; // the rampart has moved in the data: leave the gap
-    const dir = [dx / len, dz / len];
-    const yb = (u) => bed, top = (u) => yD(k === 0 ? 0 : L) + 2.6;
-    const door = { u: len / 2, r: 0.4, yc: yD(k === 0 ? 0 : L) - 0.42 + 0.9, y0: bed };
-    pierced(S, { p0: foot, dir, len }, 1.2, yb, top, [door], brick, stone);
+    const uF = k === 0 ? U0 : L, yF = yD(uF);
+    const foot = XZ(uF, W - 0.6);
+    const legs = k === 0 ? [[foot, posts[0], true], [posts[1], wall, false]] : [[foot, wall, true]];
+    if (Math.hypot(wall[0] - foot[0], wall[1] - foot[1]) > 24) continue; // the rampart has moved in the data: leave the gap
+    for (const [p, q, withDoor] of legs) {
+      const dx = q[0] - p[0], dz = q[1] - p[1], len = Math.hypot(dx, dz);
+      if (len < 1.5) continue;
+      const dir = [dx / len, dz / len];
+      const yb = () => bed, top = () => yF + 2.6;
+      const doors = withDoor ? [{ u: len / 2, r: 0.4, yc: yF - 0.42 + 0.9, y0: bed }] : [];
+      pierced(S, { p0: p, dir, len }, k === 0 ? 0.9 : 1.2, yb, top, doors, brick, stone);
+    }
   }
 
   S.kind = KIND.PLAIN;

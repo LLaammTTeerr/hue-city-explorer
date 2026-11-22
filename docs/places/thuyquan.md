@@ -34,3 +34,10 @@ Builder: `src/landmarks/places/thuyquan.js` (id `thuyquan`). Guard: `src/geo/cit
 - The drop gate (áp quan) itself, and any timber beam between the posts, are not modelled.
 - The exact vault shape, the springing height and the door positions need on-site photos or drawings.
 - The water level is the shared POND_Y, not a measured sluice level.
+
+## Google check (Nov 2026)
+Compared with Google satellite (z17-z20) and four car Street View panoramas (Đường Xuân 68 from the NW and SE, the Lê Văn Hưu corner, Lương Y); captures stay in scratch/, not in the repo.
+- Position and axis: the OSM road line lies within about 1 m and 1 degree of the deck seen from above (deck bearing about 143 degrees); not moved.
+- Length: the parapets run about 69-70 m. The north-west end meets the OSM line's end; at the south-east the parapets stop about 5.5 m short of it, and the road runs on at street level. The model now starts the parapets, footing and wing wall 5.5 m in (`SE_BARE`).
+- Gate posts: two tall square posts with ball finials stand about 5 m north-east of the road's centre at the south-east foot, about 5 m apart along the road, where the path along the canal leaves the road. The model adds them (1 m square, about 4.9 m to the top of the ball, sized from the panorama) and splits the south-east wing wall either side of the opening between them.
+- Crown height: the two end-on views do not agree about how high the crown stands above the street (from the SE about 2.5 m, from the NW 5 m or more; the street levels at the two cameras are unknown). The profile keeps the 4.3 m that the published 8.05 m height gives.
