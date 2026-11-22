@@ -17,6 +17,14 @@
   dragon pair.
 
 ## Done
+- West moat (2026-11-22, branch claude/issue-62-canal-1b1ad3, issue #62): Hộ Thành Hào along the citadel's west face
+  (Tây Thành Đài → cửa Chánh Tây → Tây Thành Thủy Quan) is not mapped as water in OSM, so the scene showed dry land
+  there and cầu Chánh Tây as a road. `scripts/build-data.mjs` section 1 now adds it: outer bank parallel to the wall,
+  out to cầu Chánh Tây's mapped landing (70 m off the wall, the width of the mapped moat south of the inlet), cut to
+  the wall band; hull patches join it to the mapped moat at the corner and the Ngự Hà at the inlet. Water ≈ 61,300 m²
+  against 56,319 m² in the 2026 embankment project (VNA, 24/07/2026). The ring joins the river polygon, so the
+  moorings' random stream shifted (most sampans moved; two landed with their ends on a bank): a mooring now needs water
+  under the whole hull. View `citadel-west-moat`. Width decided (owner, 2026-11-22): keep the 70 m bank at the bridge landing, not the 56,319 m² project figure (about 50 m, which splits the moat at the bastion tips); see `docs/places/gate-cua-chanh-tay.md`.
 - Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
   Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
   bridges; 11 of them sat under a deck (Thượng Tứ, Cồn Dã Viên, …). They now keep 3 m from every bridge road, rail and

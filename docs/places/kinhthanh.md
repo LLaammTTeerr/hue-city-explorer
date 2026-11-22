@@ -19,7 +19,7 @@ which belong to other places.
 - Weathering colours (near-black damp foot, lichen and soot streaks, lighter relaid patches) are judged from photos, not measured.
 
 ## Not changed / left
-- Moat (22.8 m) and the path beside it: left as the mapped water and ground, which already read right in plan.
+- Moat (22.8 m) and the path beside it: left as the mapped water and ground, which already read right in plan, except the west face, which OSM lacks; the build draws it (width choice in `gate-cua-chanh-tay.md`).
 - Ngự Hà: mapped water, not changed.
 - Not modelled: powder magazines in the bastions, the ramps up to the walk (mã đạo), and the moat's stone revetment. No source gave their positions or sizes.
 - Not mine: the gates, Kỳ Đài, Trấn Bình Đài / Mang Cá, Đông Thành Thủy Quan.

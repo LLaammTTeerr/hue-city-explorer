@@ -281,6 +281,55 @@ for (const e of els) {
   if (!rings.length) { if (e.type === 'relation') console.warn('unclosed water relation', e.id, t.name); continue; }
   for (const poly of evenOdd(rings)) waterPolys.push(poly);
 }
+// Hộ Thành Hào along the citadel's west face, from Tây Thành Đài (the west corner) past cửa Chánh Tây to Tây Thành
+// Thủy Quan (where the Ngự Hà enters), is not mapped as water in OSM: the moat on the other faces is, this stretch
+// stops at the wall. It is open water today: the province's 2026 embankment project for it gives "lòng hồ Hộ thành
+// hào có diện tích 56.319m2" behind a 1,257 m outer embankment, with houses along the outer bank (VNA, 24 July 2026),
+// and the stretch beside it was dredged in March 2025 (Công Lý; Tiền Phong). Its outer bank is not mapped either, so
+// it is drawn parallel to the wall's face out to the landing of the bridge that crosses it, and cut back to the
+// wall's outer line (bastions included). Its ends run into the mapped moat at the corner and the Ngự Hà's water at the inlet.
+{
+  const MOAT_AREA = 56319;
+  const A = [-3290, -1040], B = [-2480, -60]; // west corner, Ngự Hà inlet (scene metres, rough)
+  const L = Math.hypot(B[0] - A[0], B[1] - A[1]), u = [(B[0] - A[0]) / L, (B[1] - A[1]) / L], n = [u[1], -u[0]];
+  const loc = (p) => [(p[0] - A[0]) * u[0] + (p[1] - A[1]) * u[1], (p[0] - A[0]) * n[0] + (p[1] - A[1]) * n[1]];
+  const glob = ([s, t]) => [A[0] + u[0] * s + n[0] * t, A[1] + u[1] * s + n[1] * t];
+  const band = evenOdd(stitch(get('relation', 8541343).members.filter((m) => m.type === 'way').map((m) => m.geometry)));
+  // the wall band's inner face: a line through its innermost points over this face
+  let pts = band.flatMap((poly) => poly.flat()).map(loc).filter(([s, t]) => s > 100 && s < L - 20 && Math.abs(t) < 150);
+  let fa = 0, fb = 0;
+  for (let it = 0; it < 6; it++) {
+    const ms = pts.reduce((q, p) => q + p[0], 0) / pts.length, mt = pts.reduce((q, p) => q + p[1], 0) / pts.length;
+    fb = pts.reduce((q, p) => q + (p[0] - ms) * (p[1] - mt), 0) / pts.reduce((q, p) => q + (p[0] - ms) ** 2, 0);
+    fa = mt - fb * ms;
+    pts = pts.filter(([s, t]) => t >= fa + fb * s - 3);
+  }
+  const face = (s) => fa + fb * s;
+  // from D outside the inner face to inside the (21 m) band, minus the band; only water reaching the outer
+  // bank is kept, not the bastions' earth-filled insides behind that inner line
+  const strip = (D, s0, s1) => {
+    const q = [[s0, face(s0) - D], [s1, face(s1) - D], [s1, face(s1) - 8], [s0, face(s0) - 8]].map(glob);
+    return pc.difference([[[...q, q[0]]]], ...band.map((p) => [p])).filter((poly) => poly[0].some((p) => { const [ps, pt] = loc(p); return Math.abs(pt - face(ps) + D) < 0.5; }));
+  };
+  const polyArea = (mp) => mp.reduce((s, p) => s + Math.abs(ringArea(p[0])) - p.slice(1).reduce((h, r) => h + Math.abs(ringArea(r)), 0), 0);
+  // The outer bank is where Cầu Chánh Tây (way 39416352), the bridge over this moat before the gate, lands: the
+  // bridge is mapped, its bank is not. That is also the width of the mapped moat south of the inlet (about 70 m from
+  // the wall). The water it encloses comes to about 61,000 m², close to the embankment project's 56,319 m²; both
+  // are logged.
+  const bridgeOut = Math.min(...get('way', 39416352).geometry.map(proj).map(loc).map(([s, t]) => t - face(s)));
+  const D = -bridgeOut;
+  const S0 = -10, S1 = L + 30;
+  const moat = strip(D, S0, S1);
+  // where it meets the mapped water at each end, a hull of its end and that water's nearby outline closes the gap
+  for (const s0 of [S0, S1]) {
+    const near = waterPolys.flatMap((poly) => poly[0]).filter((p) => { const [ps, pt] = loc(p); return Math.abs(ps - s0) < 30 && pt > face(ps) - D - 5 && pt < face(ps) - 21; });
+    if (near.length < 2) continue;
+    const h = hull(near.concat([glob([s0, face(s0) - D]), glob([s0, face(s0) - 21])]));
+    for (const poly of pc.difference([[[...h, h[0]]]], ...band.map((p) => [p]))) moat.push(poly);
+  }
+  for (const poly of moat) waterPolys.push(poly);
+  console.log('west moat (unmapped in OSM): outer bank', (D - 21).toFixed(1), 'm off the wall at Cầu Chánh Tây\'s landing |', Math.round(polyArea(strip(D, 0, L))), 'm² over the face (embankment project: ' + MOAT_AREA + ') |', moat.length, 'piece(s)');
+}
 // The scene is a diorama: one rectangular slab of city, cut clean at the edge of the bundled data.
 const MARGIN = 0;
 const slabRect = rect(MINX, MINZ, MAXX, MAXZ);
@@ -465,8 +514,8 @@ for (const e of els) {
     // (under cầu Trường Tiền's trusses, beside cầu Dã Viên's and cầu Phú Xuân's decks). The carriageway's deck (or the
     // hand model) carries it; its ground stays road in the mask, as under the deck.
     if (tagged && t.footway === 'sidewalk') { stampLine(pts, ROAD_W[c] / 2 + 1.2, ROAD); nSidewalkBridges++; continue; }
-    // A way tagged as a bridge that crosses no drawn water is laid as ordinary road: the moat before cửa Chánh Tây
-    // and several canals have been filled in, and a raised deck with piers there stands on dry land.
+    // A way tagged as a bridge that crosses no drawn water is laid as ordinary road: several canals have been filled
+    // in, and a raised deck with piers there stands on dry land.
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
     roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: ROAD_W[c], pts, id: e.id });
@@ -1705,7 +1754,8 @@ for (const poly of water) {
         if (px < -2500 || px > 900 || pz < -1000 || pz > 1700 || rnd() < 0.35) continue;
         for (const sgn of [1, -1]) {
           const x = px - tz * sgn * 7, z = pz + tx * sgn * 7;
-          if (!(at(x, z) & WATER && at(px - tz * sgn * 16, pz + tx * sgn * 16) & WATER)) continue;
+          // water under the hull, bow to stern, and beyond it: at a bend in the bank the ends otherwise sit on land
+          if (![[0, 0], [-7, 0], [7, 0], [-7, 3], [7, 3], [0, 9]].every(([d, o]) => at(x + tx * d - tz * sgn * o, z + tz * d + tx * sgn * o) & WATER)) continue;
           if ([-6, 0, 6].some((d) => nearBridge(x + tx * d, z + tz * d, 3))) { nUnderBridge++; break; }
           moorings.push(q(x), q(z), Math.round(Math.atan2(tz, tx) * 1000));
           break;
