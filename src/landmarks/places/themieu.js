@@ -181,6 +181,12 @@ function sides(S) {
     S.kind = KIND.MASONRY;
     fbox(S, u, v, yq - 0.3, yq + 0.5, 12.6, 14.4, shade(STONE, 0.95), { taper: 0.98, topKind: KIND.ROAD });
     fbox(S, u, v, yq + 0.5, yq + 3.4, 10.4, 12.4, LAC);
+    // a door of three leaves and a short stair on the side toward the axis, a gilt lintel over it
+    S.kind = KIND.PLAIN;
+    fbox(S, u + f * 5.25, v, yq + 0.5, yq + 2.7, 0.14, 4.2, shade(LAC, 0.62));
+    fbox(S, u + f * 5.27, v, yq + 2.7, yq + 3.2, 0.14, 4.6, GOLD);
+    S.kind = KIND.MASONRY;
+    for (let k = 1; k <= 3; k++) fbox(S, u + f * (6.3 + 0.3 * k - 0.15), v, yq - 0.3, yq + 0.5 - 0.17 * k, 0.3, 4.6, shade(STONE, 1.05), { topKind: KIND.ROAD });
     S.kind = KIND.TIMBER;
     for (const [du, w, rh] of [[f * 2.9, 5.6, 2.2], [-f * 2.9, 5.6, 2.4]]) {
       const r = P(u + du, v);
