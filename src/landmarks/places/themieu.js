@@ -5,6 +5,7 @@ import { glowPoints } from '../../geo/materials.js';
 import { pavilion } from '../citadel.js';
 import { fence, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
 import { REAR_GATE_CUTS } from './hungmieu.js';
+import { planter, kylan, kiosk } from '../props.js';
 
 // Thế Miếu (Thế Tổ Miếu), the dynastic temple of the Nguyễn emperors in the south-west of the Imperial City, built
 // 1821-22 under Minh Mạng. Sources and estimates: docs/places/themieu.md.
@@ -133,21 +134,14 @@ function court(S) {
   for (let i = 0; i < 14; i++) {
     const u = (i - 6.5) * 4.3, p = P(u, 19.5);
     if (Math.abs(u) < 3) continue;
-    S.kind = KIND.MASONRY;
-    S.cyl(p[0], p[1], g, g + 0.55, 0.32, 0.36, 6, shade(STONE, 0.95));
-    S.kind = KIND.PLAIN;
-    S.cyl(p[0], p[1], g + 0.55, g + 0.95, 0.36, 0.26, 6, hex('#3e6f8c'));
-    S.cyl(p[0], p[1], g + 0.95, g + 1.45, 0.55, 0.35, 6, hex('#3c5a2e'));
+    planter(S, p[0], g + 0.06, p[1], ANG, { r: 0.4, stand: 0.55, standCol: shade(STONE, 0.95) });
   }
-  // a pair of bronze kỳ lân on plinths either side of the walk
+  // a pair of bronze kỳ lân, one on each side of the court, each in its metal kiosk (thiết đình, vi.wikipedia),
+  // facing the walk; the kiosk's form and both positions are estimated (docs/places/courtyard-objects.md)
   for (const s of [-1, 1]) {
-    const p = P(s * 6, 26);
-    S.kind = KIND.MASONRY;
-    S.box(p[0], p[1], g, g + 0.9, 1.5, 2.2, ANG, STONE);
-    S.kind = KIND.PLAIN;
-    const b = P(s * 6, 25.8), h = P(s * 6, 26.6);
-    S.box(b[0], b[1], g + 0.9, g + 1.6, 0.8, 1.5, ANG, BRONZE);
-    S.box(h[0], h[1], g + 1.4, g + 2.3, 0.7, 0.7, ANG, shade(BRONZE, 1.1));
+    const p = P(s * 25, 28);
+    kiosk(S, p[0], g + 0.06, p[1], ANG, { w: 2.6, h: 3.3, slabCol: STONE });
+    kylan(S, p[0], g + 0.31, p[1], ANG + (s > 0 ? Math.PI : 0), { s: 1.15, col: BRONZE, plinth: 0.7, plinthCol: STONE });
   }
   // the old pine by the west end of the hall
   const t = P(-33, 4), y = gy(t);

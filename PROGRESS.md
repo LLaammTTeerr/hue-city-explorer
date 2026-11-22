@@ -1,5 +1,21 @@
 # Progress
 
+## In progress
+- Finished buildings, not building sites (2026-11-21, branch `claude/rebuild-mode-concerns-fcf0b6`): owner decision —
+  a hall that is lost, being rebuilt or only a foundation is drawn complete, as it stood before its loss, instead of
+  as it stands today. First four: Điện Cần Chánh (was a bare lim frame), Đại Cung Môn (foundation), Thái Miếu's main
+  hall and its smaller halls (bases), Đức Hinh lâu at Lăng Thiệu Trị (ruin). One agent per place; heights merged into
+  docs/heights-reference.json afterwards.
+- Courtyard objects (2026-11-21, same branch): owner asked for the statues, jars and bronzes in the courts.
+  `src/landmarks/props.js` holds shared builders (mandarins, elephant, horse, kỳ lân, vạc, đỉnh, crane on tortoise,
+  cannon, jar, planter); `src/landmarks/courtyard.js` draws the Quảng Đức and Thể Nhơn cannon houses and four Đại
+  Nội vạc. Tombs, Cửu Đỉnh, Thế Miếu, Hưng Miếu, Kiến Trung and Thái Hòa use them; sources per object in
+  docs/places/courtyard-objects.md. Second pass (sources sought): Thái Hòa keeps one vạc, gains a kỳ lân pair on
+  Đan Bệ, cranes moved inside by the throne, second vạc and censers removed; Thế Miếu kỳ lân stand in thiết đình
+  (kiosk shape estimated). Thái Hòa's three middle front bays now stand open so the cranes and the throne (sourced size, three tiers, gilt
+  bửu tán) show. Open for the owner: kiosk shape; 1842
+  dragon pair.
+
 ## Done
 - Junctions and unmarked road types (2026-11-22, branch claude/issue-67-junctions-76663f, issue #67): on main the
   north end of cầu Trường Tiền and Lý Thường Kiệt × Hà Nội were already right after #68/#72; both ends of cầu Phú Xuân
@@ -9,6 +25,23 @@
   slip roads are kept (junctions.js `ISLAND_MIN`). Views `junction-phu-xuan-south(-oblique)`, `junction-phu-xuan-north`,
   `junction-truong-tien-north`, `junction-ly-thuong-kiet-ha-noi`. Follow-up: 10 trees still stand on painted junction
   holes elsewhere (12 on main).
+- West moat (2026-11-22, branch claude/issue-62-canal-1b1ad3, issue #62): Hộ Thành Hào along the citadel's west face
+  (Tây Thành Đài → cửa Chánh Tây → Tây Thành Thủy Quan) is not mapped as water in OSM, so the scene showed dry land
+  there and cầu Chánh Tây as a road. `scripts/build-data.mjs` section 1 now adds it: outer bank parallel to the wall,
+  out to cầu Chánh Tây's mapped landing (70 m off the wall, the width of the mapped moat south of the inlet), cut to
+  the wall band; hull patches join it to the mapped moat at the corner and the Ngự Hà at the inlet. Water ≈ 61,300 m²
+  against 56,319 m² in the 2026 embankment project (VNA, 24/07/2026). The ring joins the river polygon, so the
+  moorings' random stream shifted (most sampans moved; two landed with their ends on a bank): a mooring now needs water
+  under the whole hull. View `citadel-west-moat`. Width decided (owner, 2026-11-22): keep the 70 m bank at the bridge landing, not the 56,319 m² project figure (about 50 m, which splits the moat at the bastion tips); see `docs/places/gate-cua-chanh-tay.md`.
+- Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
+  Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
+  bridges; 11 of them sat under a deck (Thượng Tứ, Cồn Dã Viên, …). They now keep 3 m from every bridge road, rail and
+  mapped outline along ±6 m of hull. The dragon boats had the same blind spot: they turned around under cầu Dã Viên,
+  ran into Cồn Hến's landings and the outer lane (58 m) hit Phú Xuân's piers. `fleetRouter` in
+  `src/landmarks/boats.js` now picks each boat's lane (26/34/42 m, slid ±4 m if needed) and stretch of river from the
+  built structures, using the exact hull-box test in `src/geo/clearance.js`. `npm run check:boats` (in `npm run check`)
+  tests every moored sampan and a full round trip of every dragon boat against all static faces. Cost: ~100 ms more at
+  load for the routing (an inline y prefilter could cut it).
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
   the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them
@@ -26,6 +59,15 @@
   meeting their 6 m continuations at x≈-220, z≈-196; class changes mid-street) now narrows over its last 30 m to the
   other's width (build-data "Width steps": per-point widths, 5th element of a road record; city.js draws casing, kerb,
   carriageway and lamps from them; medians use them). 228 joints tapered.
+- Churches from the photo audit (2026-11-21): Dòng Chúa Cứu Thế has one tower, over the crossing (the old front
+  tower and the 32 m crossing crown were the same tower counted twice), with the photo-read tiers, gallery and
+  terracotta spire to the sourced 53 m cross. The front is its own block: stepped gable, pointed window, clock,
+  canopy on four pillars over three doors, curved wings. The sanctuary lantern is gone. Phủ Cam's centre screen is
+  replaced by two stone shoulders sloping inward to the low centre, lattice strips, and the nave gable with its
+  cross. The towers are continuous prisms (no stage caps) with the setbacks on the inner side, to the sourced 43.5 m.
+  Photo-derived figures are marked *est.* in docs/places/dcct.md and phucam.md. Views `dcct-front`, `dcct-aerial`,
+  `phucam-front`, `phucam-aerial`. Note: shot.mjs poses pass through clampView, which puts the target at y 2.6 and
+  drops the camera by the same amount, so a view's target should sit on the ground (phucam-front aims past the church).
 - Shadow maps cached (2026-11-21): csm.js redraws a map only when its snapped box, the sun direction, a casting
   LOD chunk reaching into it (lodFlips in lod.js) or `shadows.invalidate()` changes; moving casters (traffic, boats,
   tree sway) refresh on a cadence (near 33-100 ms, wide 100-330 ms). ~0.44 map renders per frame instead of 1.0
@@ -193,7 +235,7 @@
   now thin railed walkways on piers.
 - Boat ride: the guided ride under cầu Trường Tiền was removed (2026-11-21). Gone: `src/camera/ride.js`, the ride
   button, HUD and scrub bar, the `B` key, the spare ride boat, and click-a-boat-to-follow. Kept: the dragon-boat fleet as scenery.
-- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only. Gone: `src/era.js`,
+- Eras: the era switcher and its engine were removed (2026-11-21); the model shows today only (except lost halls, which are drawn complete: see "Finished buildings"). Gone: `src/era.js`,
   the per-face `span` / `aSpan` clipping, the older houses, the era roles in `life.js`, the per-era flag and lamps.
   `src/geo/eras.js` became `src/geo/districts.js` (`inCitadel`, `inHills`, used by the trees). Still in the data and
   unused: the `eras` texts in `public/data/stories.json` (43 places).
@@ -753,3 +795,17 @@ one PR per issue. sleepyluno is credited in the README (Contributors) and the Ab
   the card returns focus to search.
 - Not verified: the single-stall case in a live tab, because the hidden browser pane pauses requestAnimationFrame
   while still reporting the page as visible. The simulation covers that case.
+
+## Geometry audit: Ngọ Môn, Ngự Bình, Khải Định (2026-11-21, branch `claude/peaceful-varahamihira-11124f`, uncommitted, awaiting owner)
+- Ngọ Môn: footprint now the published 57.96 m front × 27.5 m wings (vi.wikipedia citing Phan Thanh Hải 2015; the
+  audit's 57.77 is Lê Đình Phúc's figure, 0.2 m off). The OSM outline was 55.8 × 24.75 m (the header's 25.3 was OSM's east
+  wing alone). The back face stays on OSM's line; the ends move out 1.08 m and the wing tips 2.75 m. The Lầu plinth and end roof units
+  follow. Tả/Hữu Dịch Môn are now real bent, vaulted tunnels cut through the wings (polygon-clipping difference of the
+  half-base): in at the inner face, a right-angle turn, out at the back. The central three stay rectangular (bronze beams).
+  New view `ngo-mon-dich-mon`.
+- Ngự Bình: cap moved to the crest that the FABDEM DEM and the grid both show (220 × 40 m from (+20,−15) to (−195,+35)
+  about the summit; was 130 × 40 m, east part only, about 23° off). New view `ngu-binh-north`.
+- Khải Định: the 40.5 m of the Bái Đình reads as along-axis by the article's own convention, but it cannot fit between
+  OSM's Bi Đình and palace positions. The court is unchanged and the finding is documented in `docs/places/khaidinh.md`.
+- `npm run check` and `npm run build` pass. Captures are in `scratch/compare/index.html` and `scratch/shots/`. Open questions for
+  the owner: 57.96 vs 57.77, and how to read the Khải Định figure.

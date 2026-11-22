@@ -3,7 +3,8 @@ import { LAND_Y, POND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { pavilion } from '../citadel.js';
 
-// Lăng Thiệu Trị (Xương Lăng), the tomb of Emperor Thiệu Trị, built 1847-48 at Cư Chánh, as it stands in 2026.
+// Lăng Thiệu Trị (Xương Lăng), the tomb of Emperor Thiệu Trị, built 1847-48 at Cư Chánh, drawn complete: Đức Hinh
+// lâu stands whole, not as the base that survived into the 2000s.
 // Sources and estimates: docs/places/thieutri.md.
 //
 // Two parallel axes facing north-west, about 100-150 m apart, and no La Thành: the hills are the enclosure.
@@ -12,9 +13,9 @@ import { pavilion } from '../citadel.js';
 //    sides → Đông / Tây Phối điện → điện Biểu Đức (23.4 x 21.5 m, a double hall, trùng thiềm roof) flanked behind by
 //    Tả / Hữu Tòng viện → arched brick gate in the back wall.
 //  - Lăng (tomb, right axis): hồ Nhuận Trạch (half-moon) → bronze nghi môn (long vân đồng trụ) → sân chầu (Bái
-//    Đình) with elephants, horses and mandarins → Bi Đình on a 2.65 m platform → Đức Hinh lâu, a ruin: only its
-//    18.5 x 18.5 m base on a low hill and the two brick trụ biểu either side → hồ Ngưng Thúy (half-moon) crossed by
-//    three bridges (Tây Định, Chánh Trung, Đông Hòa) → the round Bửu Thành (260 m round) with its bronze gate, the
+//    Đình) with elephants, horses and mandarins → Bi Đình on a 2.65 m platform → Đức Hinh lâu, drawn whole (a
+//    two-storey lầu like Minh Lâu) on its 18.5 x 18.5 m base on a low hill, the two brick trụ biểu either side → hồ
+//    Ngưng Thúy (half-moon) crossed by three bridges (Tây Định, Chánh Trung, Đông Hòa) → the round Bửu Thành (260 m round) with its bronze gate, the
 //    grave mound and pines inside.
 // Plan positions are the OSM outlines (ways listed below) in metres from the site centre; the lakes themselves are
 // water data, drawn elsewhere.
@@ -359,25 +360,18 @@ function tomb(S) {
     pavilion(S, bi.c[0], bi.c[1], W - 0.6, W - 0.6, T.av, top, { tiers: 2, wallH: 3.4, rh: 2.4, roof: COL.roof, wall: COL.lac, over: 1.3, colonnade: true, segs: 3 });
     walk(S, T, P / 2 + 4.4, sDH - 13.5, 0, 4.5);
   }
-  // Đức Hinh lâu: only its base is left, on a low hill, with the two brick trụ biểu either side
+  // Đức Hinh lâu on its low hill, with the two brick trụ biểu either side: the tomb's Minh Lâu, drawn whole, as it
+  // stood (and as the 2024-26 restoration rebuilds it) rather than as the bare 18.5 m base of the 20th century
   {
     const B = 18.5, { hi } = span(T, sDH, 0, B + 7, B + 7);
     const y1 = terrace(S, T, sDH, 0, B + 7, B + 7, hi + 0.3, COL.stoneGrey);
-    const y2 = terrace(S, T, sDH, 0, B, B, y1 + 1.1, COL.stoneGrey, shade(COL.stoneGrey, 1.04));
+    const y2 = terrace(S, T, sDH, 0, B, B, y1 + 1.1, COL.stone, shade(COL.stone, 1.04));
     for (const sg of [-1, 1]) {
       const e1 = sDH + sg * (B + 7) / 2, e2 = sDH + sg * B / 2;
       flight(S, T.at(e1 + sg * 1.8), gY(...T.at(e1 + sg * 1.8)), T.at(e1), y1, 4.6);
       flight(S, T.at(e2 + sg * 1.6), y1, T.at(e2), y2, 4.6);
     }
-    // the stone column bases of the lost hall, a 6 x 6 grid, a few missing
-    S.kind = KIND.MASONRY;
-    for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) {
-      if ((i * 7 + j * 3) % 11 === 4) continue;
-      const p = T.at(sDH - 7.5 + i * 3, -7.5 + j * 3);
-      S.box(p[0], p[1], y2 - 0.05, y2 + 0.28, 0.62, 0.62, T.a, shade(COL.stoneGrey, 0.86));
-    }
-    // broken stubs of the brick back wall
-    for (const [t, l, h] of [[-6, 3.5, 0.8], [-1.5, 2.2, 0.5], [5.5, 4, 0.9]]) { const p = T.at(sDH + 8.6, t); S.box(p[0], p[1], y2 - 0.1, y2 + h, 0.6, l, T.a, COL.brick, { top: shade(COL.brick, 0.9) }); }
+    lau(S, T, sDH, y2);
     for (const sd of [-1, 1]) truBieu(S, T.at(sDH, sd * 15.5));
     walk(S, T, sDH + (B + 7) / 2 + 1.8, 71, 0, 4.5);
   }
@@ -449,6 +443,56 @@ function bronzeGate(S, T, s) {
     S.box(m[0], m[1], g + y + 0.22, g + y + 0.62, 0.12, wd * 0.8, T.a, COL.bronzeHi); // the openwork cloud panel
     S.hip(m[0], m[1], wd + 0.3, 0.6, T.av, g + y + 0.84, 0.45, COL.bronze, { flare: 0.2, over: 0.2, ridgeCol: COL.bronzeHi, hips: true });
   }
+}
+
+// Đức Hinh lâu, standing on its 18.5 m base (top at y): a square lầu of two storeys and two tiers of hipped glazed
+// roofs, like Minh Lâu at Lăng Minh Mạng. Ground storey: a closed lacquered core with a door in each face inside a
+// 15 m colonnade of 6 x 6 bays (3 m: the column grid of the base); the lower roof skirts it. Upper storey: a 10.6 m
+// lacquered room with a band of lattice windows all round and the name board on the front, under the upper roof.
+// The ridge stands about 10.4 m over the base, some 13.5 m over the foot of the hill (Minh Lâu: 13.5 m on its higher terraces).
+function lau(S, T, s, y) {
+  const c = T.at(s), W1 = 15, core = 10.2, H1 = 4.0, W2 = 10.6, H2 = 3.6, a = T.a;
+  const P = (u, v) => T.at(s + u, v);
+  const eave = { flare: 0.5, fascia: 0.3, fasciaCol: shade(COL.lac, 0.75), hips: true, glazed: true, segs: 3 };
+  S.base = y - LAND_Y;
+  // ground storey: the core, its four doors, the colonnade and the verandah ceiling
+  S.kind = KIND.TIMBER;
+  S.box(c[0], c[1], y, y + H1 - 0.2, core, core, a, COL.lac, { top: shade(COL.roof, 0.8) });
+  S.kind = KIND.PLAIN;
+  for (const [u, v, ang] of [[-core / 2 - 0.04, 0, a], [core / 2 + 0.04, 0, a], [0, -core / 2 - 0.04, a + Math.PI / 2], [0, core / 2 + 0.04, a + Math.PI / 2]]) {
+    const q = P(u, v);
+    S.box(q[0], q[1], y, y + 3.1, 0.08, 3.2, ang, shade(COL.lac, 0.55));
+    S.box(q[0], q[1], y + 3.1, y + 3.35, 0.12, 3.7, ang, shade(COL.lac, 0.75));
+  }
+  S.box(c[0], c[1], y + H1 - 0.2, y + H1, W1, W1, a, shade(COL.lac, 0.5), { top: shade(COL.roof, 0.8), bottom: true });
+  const r = 0.24, posts = [];
+  for (let i = 0; i <= 5; i++) for (const sg of [-1, 1]) { posts.push([-W1 / 2 + i * 3, sg * W1 / 2]); if (i > 0 && i < 5) posts.push([sg * W1 / 2, -W1 / 2 + i * 3]); }
+  for (const [u, v] of posts) {
+    const q = P(u, v);
+    S.cyl(q[0], q[1], y, y + 0.28, r * 1.8, r * 1.55, 6, shade(COL.stone, 0.92), { cap: false, rot: a });
+    S.cyl(q[0], q[1], y + 0.28, y + H1 - 0.2, r, r * 0.92, 6, shade(COL.lac, 0.92), { cap: false, rot: a });
+  }
+  const C4 = [P(-W1 / 2, -W1 / 2), P(W1 / 2, -W1 / 2), P(W1 / 2, W1 / 2), P(-W1 / 2, W1 / 2)];
+  for (let i = 0; i < 4; i++) { const p = C4[i], q = C4[(i + 1) % 4]; S.beam([p[0], y + H1 - 0.55, p[1]], [q[0], y + H1 - 0.55, q[1]], r * 1.3, 0.34, shade(COL.lac, 0.7)); }
+  // the lower roof, a skirt of four slopes round the upper storey
+  S.kind = KIND.TIMBER;
+  S.hip(c[0], c[1], W1, W1, T.av, y + H1, 2.6, COL.roof, { ...eave, over: 1.3 });
+  // upper storey: a lacquered room rising out of the lower roof, lattice windows all round, the name board in front
+  const y3 = y + H1 + H2;
+  S.box(c[0], c[1], y + H1 - 0.2, y3, W2, W2, a, COL.lac, { top: shade(COL.roof, 0.8) });
+  S.kind = KIND.PLAIN;
+  for (const [u, v, ang, l] of [[-W2 / 2 - 0.04, 0, a, W2 - 1.2], [W2 / 2 + 0.04, 0, a, W2 - 1.2], [0, -W2 / 2 - 0.04, a + Math.PI / 2, W2 - 1.2], [0, W2 / 2 + 0.04, a + Math.PI / 2, W2 - 1.2]]) {
+    const q = P(u, v);
+    S.box(q[0], q[1], y + H1 + 1.5, y + H1 + 2.9, 0.08, l, ang, shade(COL.lac, 0.5));
+    S.box(q[0], q[1], y + H1 + 2.9, y + H1 + 3.1, 0.12, W2 - 0.4, ang, shade(COL.lac, 0.72));
+  }
+  { const q = P(-W2 / 2 - 0.1, 0); S.box(q[0], q[1], y3 - 1.25, y3 - 0.4, 0.12, 2.6, a, COL.enamel[0]); S.box(q[0], q[1], y3 - 1.13, y3 - 0.52, 0.14, 2.2, a, COL.enamel[2]); }
+  // the upper roof, its ridge and a gourd finial on top
+  S.kind = KIND.TIMBER;
+  S.hip(c[0], c[1], W2, W2, T.av, y3, 2.8, COL.roof, { ...eave, over: 1.2, ridgeCol: RIDGE });
+  S.kind = KIND.PLAIN;
+  S.cyl(c[0], c[1], y3 + 2.65, y3 + 3.15, 0.32, 0.18, 8, RIDGE);
+  S.cyl(c[0], c[1], y3 + 3.15, y3 + 3.55, 0.24, 0.04, 8, RIDGE);
 }
 
 // a brick trụ biểu: square plinth, tall tapering shaft, lotus cap and a finial
