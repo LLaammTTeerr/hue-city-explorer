@@ -513,9 +513,10 @@ export function treePlanter(data, group, off = null) {
       const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
       if (off && off(x, z, 2.2 * sc)) continue; // a landmark model stands here
       if (forecourts.some((c) => (x - c[0]) ** 2 + (z - c[1]) ** 2 < 46 * 46)) continue; // the great halls stand in open courts
-      let type = kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
+      // kind 4: a broad shade tree a landmark plants on purpose (a banyan by a river walk): spreading, never a willow
+      let type = kind === 4 ? 'spreading' : kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
       let lean = null;
-      if (type === 'spreading' || type === 'upright') {
+      if ((type === 'spreading' || type === 'upright') && kind !== 4) {
         const w = rand(i, 71) < 0.5 ? nearWater(x, z) : null;
         if (w !== null) { type = 'willow'; lean = w; }
       }
