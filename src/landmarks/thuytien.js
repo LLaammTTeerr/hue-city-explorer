@@ -9,8 +9,8 @@ import { glowPoints } from '../geo/materials.js';
 // of the lakeside amphitheatre and its show pool, the slide pools and the slide tower, the two entrance plazas and
 // their sculptures, the entrance, the lake itself.
 // Drawn by hand, from what stands there: the aquarium as a saucer-rimmed drum under a dome, the dragon coiled
-// round the dome with its head reared over the lake (the top floor opens into its mouth), the tiers of faded blue
-// and yellow seats, three slides. (The pines are planted by the data build, as trees.)
+// round the dome with its head reared to the north over the lake (the top floor opens into its mouth), three slides;
+// the amphitheatre's grandstand and show pool as the sandy clearing the 2026 satellite shows where they stood. (The pines are planted by the data build, as trees.)
 
 const dark = hex('#2b2422');
 const gy = (x, z) => LAND_Y + rise(x, z);
@@ -148,9 +148,9 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
   }
   const yT = yD + hD, E = pts[pts.length - 1];
   const W = (a, y, side = 0) => [C[0] + hd[0] * a - hd[1] * side, y, C[1] + hd[1] * a + hd[0] * side];
-  // the neck rears to put the crown of the head ~20 m over the water and the snout ~25 m out from the axis, so the
-  // dragon spans ~50 m tail to snout (VnExpress 2024: 20 m tall, 50 m long)
-  const neck = catmull([pts[pts.length - 8], E, W(-4.4, yT + 1.4, 1.6), W(-5.0, yT + 3.6, 0.8), W(-2.2, yT + 5.6, 0), W(3.8, yT + 6.4, 0), W(9.4, yT + 5.6, 0), W(14.2, yT + 4.6, 0)], 0.85).slice(1);
+  // the neck rears to put the crown of the head ~20 m over the water and the head ~23 m out from the axis, where the
+  // 2026 satellite shows it (snout ~28 m), so the dragon spans ~50 m tail to snout (VnExpress 2024: 20 m tall, 50 m long)
+  const neck = catmull([pts[pts.length - 8], E, W(-4.4, yT + 1.4, 1.6), W(-5.0, yT + 3.6, 0.8), W(-2.2, yT + 5.6, 0), W(4.6, yT + 6.4, 0), W(11.4, yT + 5.6, 0), W(17.6, yT + 4.6, 0)], 0.85).slice(1);
   neck.forEach((p, i) => {
     const t = i / Math.max(1, neck.length - 1);
     pts.push(p); rad.push(R * (1 - 0.2 * t));
@@ -289,43 +289,6 @@ function footbridge(S, from, to) {
 
 // ------------------------------------------------------------------ the amphitheatre
 // Tiers on the mapped grandstand outline, rising away from the show pool; blocks of blue and yellow seats.
-function stands(S, ring, focus) {
-  const o = obb(ring), c = centroid(ring);
-  const axes = [[Math.cos(o.a), Math.sin(o.a)], [-Math.sin(o.a), Math.cos(o.a)]];
-  const away = [c[0] - focus[0], c[1] - focus[1]];
-  let up = Math.abs(axes[0][0] * away[0] + axes[0][1] * away[1]) > Math.abs(axes[1][0] * away[0] + axes[1][1] * away[1]) ? axes[0] : axes[1];
-  if (up[0] * away[0] + up[1] * away[1] < 0) up = [-up[0], -up[1]];
-  const ac = [-up[1], up[0]];
-  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity, g0 = Infinity;
-  for (const p of ring) { const a = p[0] * up[0] + p[1] * up[1], b = p[0] * ac[0] + p[1] * ac[1]; u0 = Math.min(u0, a); u1 = Math.max(u1, a); v0 = Math.min(v0, b); v1 = Math.max(v1, b); g0 = Math.min(g0, gy(p[0], p[1])); }
-  const rows = Math.max(8, Math.min(22, Math.round((u1 - u0) / 1.7))), dep = (u1 - u0) / rows, riseH = 0.48;
-  const segs = Math.max(4, Math.round((v1 - v0) / 3.0)), wid = (v1 - v0) / segs, ang = Math.atan2(up[1], up[0]);
-  const conc = hex('#a09f94'), seats = [hex('#4d7da6'), hex('#d0ad4a'), hex('#4d7da6'), hex('#b9b6aa')], faded = hex('#9a9c93');
-  S.base = g0 - LAND_Y;
-  S.kind = KIND.PLAIN;
-  let topY = g0;
-  for (let r = 0; r < rows; r++) for (let k = 0; k < segs; k++) {
-    const a = u0 + (r + 0.5) * dep, b = v0 + (k + 0.5) * wid, x = up[0] * a + ac[0] * b, z = up[1] * a + ac[1] * b;
-    if (!inRing(x, z, ring)) continue;
-    const y = g0 + 0.7 + r * riseH, aisle = k % 5 === 0;
-    const col = aisle ? shade(conc, 1.06) : mix(seats[Math.floor(k / 5) % seats.length], faded, 0.2 + 0.35 * hash(r * 31 + k));
-    S.box(x, z, g0 - 0.4, y, dep + 0.02, wid + 0.02, ang, conc, { top: col });
-    if (!aisle) S.box(x + up[0] * dep * 0.32, z + up[1] * dep * 0.32, y, y + 0.42, dep * 0.18, wid * 0.9, ang, shade(col, 0.82)); // seat backs
-    topY = Math.max(topY, y);
-  }
-  // back wall and the lighting gantry over the top row
-  const bc = [up[0] * (u1 + 0.4) + ac[0] * (v0 + v1) / 2, up[1] * (u1 + 0.4) + ac[1] * (v0 + v1) / 2];
-  S.kind = KIND.MASONRY;
-  S.box(bc[0], bc[1], g0 - 0.4, topY + 1.6, 0.6, (v1 - v0) * 0.9, ang, shade(conc, 0.92));
-  S.kind = KIND.PLAIN;
-  // the stage arch on the far side of the pool
-  // the music-fountain stage stood in the show pool, across the water from the seats (2,500 places: VnExpress)
-  const sc = [focus[0] - up[0] * 8, focus[1] - up[1] * 8], gs = gy(sc[0], sc[1]);
-  for (const sd of [-1, 1]) S.box(sc[0] + ac[0] * sd * 9, sc[1] + ac[1] * sd * 9, gs - 0.3, gs + 7.5, 1.1, 1.1, ang, hex('#b4b2a6'));
-  S.box(sc[0], sc[1], gs + 6.6, gs + 7.7, 1.0, 20, ang, hex('#8f6f5a'));
-  S.box(sc[0] + up[0] * 2, sc[1] + up[1] * 2, gs - 0.3, gs + 0.7, 7, 16, ang, hex('#a6a498'), { topKind: KIND.ROAD });
-}
-
 // ------------------------------------------------------------------ pools, plazas, sculptures, the gate
 function pool(S, ring) {
   const c = centroid(ring);
@@ -337,20 +300,58 @@ function pool(S, ring) {
   S.prism(ring, lo - 0.4, g + 0.45, hex('#b7c3c2'), hex('#c6cfcc'), { holes: [scaled(ring, c, 0.9).reverse()] });
   S.prism(scaled(ring, c, 0.9), lo - 0.4, g + 0.2, hex('#5d7558'), hex('#4f6a52')); // what is left of the water
 }
-function plaza(S, ring) {
-  // paving laid over the slope as it falls, with a planted roundel in the middle
-  const c = centroid(ring), lift = 0.24, mid = scaled(ring, c, 0.5), col = hex('#bdb8a8');
+// The round plaza east of the entrance (OSM 493380761) is three concentric paved rings with grass between them on
+// the 2026 satellite, not a solid disc.
+const RINGED = new Set(['493380761']);
+function plaza(S, ring, ringed = false) {
+  // paving laid over the slope as it falls, with a planted roundel in the middle; the entrance plaza's pavers are a
+  // weathered terracotta (Street View, 2025 photosphere), the ringed plaza's grey concrete (satellite)
+  const c = centroid(ring), lift = 0.24, mid = scaled(ring, c, 0.5), col = hex(ringed ? '#bdb8a8' : '#a28c82'), grass = hex('#7d8d5c');
   const P = (p) => [p[0], gy(p[0], p[1]) + lift, p[1]];
+  // ringed: paving from the rim inward in bands (fractions of the radius), grass between
+  const bands = [[1, 0.84], [0.7, 0.55], [0.42, 0.28]];
+  const band = (k) => (ringed ? bands.findIndex(([a, b]) => k <= a && k > b) >= 0 : true);
   S.kind = KIND.ROAD;
   for (let i = 0; i < ring.length; i++) {
     const j = (i + 1) % ring.length;
-    S.tri(P(c), P(mid[i]), P(mid[j]), col, [0, 1, 0]);
-    S.quad(P(mid[i]), P(ring[i]), P(ring[j]), P(mid[j]), i % 2 ? col : shade(col, 0.95), [0, 1, 0]);
+    if (ringed) {
+      const cuts = [1, 0.84, 0.7, 0.55, 0.42, 0.28, 0];
+      for (let b = 0; b < cuts.length - 1; b++) {
+        const o0 = cuts[b], o1 = cuts[b + 1], pave = band((o0 + o1) / 2);
+        const A = scaled(ring, c, o0), B = scaled(ring, c, o1);
+        S.kind = pave ? KIND.ROAD : KIND.GROUND;
+        if (o1 === 0) S.tri(P(c), P(A[i]), P(A[j]), pave ? col : grass, [0, 1, 0]);
+        else S.quad(P(B[i]), P(A[i]), P(A[j]), P(B[j]), pave ? (i % 2 ? col : shade(col, 0.95)) : shade(grass, i % 2 ? 1 : 0.95), [0, 1, 0]);
+      }
+      S.kind = KIND.ROAD;
+    } else {
+      S.tri(P(c), P(mid[i]), P(mid[j]), col, [0, 1, 0]);
+      S.quad(P(mid[i]), P(ring[i]), P(ring[j]), P(mid[j]), i % 2 ? col : shade(col, 0.95), [0, 1, 0]);
+    }
     S.quad([ring[i][0], gy(ring[i][0], ring[i][1]) - 0.3, ring[i][1]], [ring[j][0], gy(ring[j][0], ring[j][1]) - 0.3, ring[j][1]], P(ring[j]), P(ring[i]), hex('#9c998c'), [ring[i][0] - c[0], 0.2, ring[i][1] - c[1]]);
   }
   const g = gy(c[0], c[1]);
-  S.kind = KIND.MASONRY;
-  S.prism(scaled(ring, c, 0.2), g - 0.6, g + 0.75, hex('#a8a598'), hex('#7f8f68'));
+  if (!ringed) {
+    S.kind = KIND.MASONRY;
+    S.prism(scaled(ring, c, 0.2), g - 0.6, g + 0.75, hex('#a8a598'), hex('#7f8f68'));
+  }
+  S.kind = KIND.PLAIN;
+}
+// bare ground where something was pulled down: sand draped over the slope, a few grey slab scraps left
+function cleared(S, ring) {
+  const c = centroid(ring), lift = 0.12, sand = hex('#c9b48e');
+  const P = (p) => [p[0], gy(p[0], p[1]) + lift, p[1]];
+  S.kind = KIND.GROUND;
+  for (let i = 0; i < ring.length; i++) { const j = (i + 1) % ring.length; S.tri(P(c), P(ring[i]), P(ring[j]), shade(sand, 0.94 + 0.08 * hash(i)), [0, 1, 0]); }
+  S.kind = KIND.ROAD;
+  const o = obb(ring);
+  for (let k = 0; k < 4; k++) {
+    const u = (hash(k * 7 + ring.length) - 0.5) * o.w * 0.6, v = (hash(k * 13 + 3) - 0.5) * o.d * 0.6;
+    const x = o.c[0] + Math.cos(o.a) * u - Math.sin(o.a) * v, z = o.c[1] + Math.sin(o.a) * u + Math.cos(o.a) * v;
+    if (!inRing(x, z, ring)) continue;
+    const g = gy(x, z);
+    S.box(x, z, g - 0.2, g + lift + 0.06, 3 + hash(k) * 4, 2 + hash(k + 1) * 3, o.a, hex('#a7a59c'));
+  }
   S.kind = KIND.PLAIN;
 }
 function sculpture(S, x, z, seed) {
@@ -444,7 +445,6 @@ export function buildThuyTien(data, S, group) {
   const st = data.sites && data.sites.thuytien;
   if (!st) return;
   const items = (st.items || []).map((it) => ({ ...it, pts: unflat(it.ring) }));
-  const cm = [st.c[0] / 10, st.c[1] / 10];
   const waters = items.filter((it) => it.k === 'w').map((it) => it.pts);
   const wet = (x, z) => waters.some((w) => inRing(x, z, w));
   const used = new Set();
@@ -455,10 +455,10 @@ export function buildThuyTien(data, S, group) {
   if (aq) part(() => {
     used.add(aq.id);
     const { C, Rd } = aquariumDisc(aq);
-    // the head looks out over the main lake
-    const lake = waters.slice().sort((a, b) => b.length - a.length)[0];
-    let hd = lake ? sub([...centroid(lake), 0], [...C, 0]) : [cm[0] - C[0], cm[1] - C[1], 0];
-    { const l = Math.hypot(hd[0], hd[1]) || 1; hd = [hd[0] / l, hd[1] / l]; }
+    // the head rears to the north, a little west (bearing ~353°): on the 2026 satellite the round head with its
+    // radiating mane sits ~23 m north and ~3 m west of the drum's axis, at the end of the neck. (It used to be
+    // aimed at the lake's centroid, ~45° further west.)
+    const hd = [Math.sin(-7 * Math.PI / 180), -Math.cos(-7 * Math.PI / 180)];
     // where the mapped footbridges arrive
     const angles = [];
     for (const { ends, d } of aquariumBridges(data.roads, C, Rd)) {
@@ -471,18 +471,19 @@ export function buildThuyTien(data, S, group) {
     dragon(S, C, Rd, hd, angles);
   });
 
-  // the amphitheatre: stands, with the nearest small water as the show pool
+  // the amphitheatre is gone: on the 2026 satellite the mapped grandstand and its show pool are a bare sandy
+  // clearing with grey slab scraps, palms along the shore (the 2024-25 clean-up and asset auction). Lay the
+  // clearing (the seats and stage were drawn by stands(), removed here; see git history).
   for (const it of items.filter((i) => i.k === 's')) part(() => {
     const c = centroid(it.pts);
-    const pools = waters.map((w) => centroid(w)).filter((q) => Math.hypot(q[0] - c[0], q[1] - c[1]) < 90).sort((a, b) => Math.hypot(a[0] - c[0], a[1] - c[1]) - Math.hypot(b[0] - c[0], b[1] - c[1]));
+    const pools = waters.filter((w) => { const q = centroid(w); return Math.hypot(q[0] - c[0], q[1] - c[1]) < 90; });
     const n0 = S.n;
-    stands(S, it.pts, pools[0] || cm);
+    for (const r of [it.pts, ...pools]) cleared(S, r);
     (S.paved = S.paved || []).push([n0, S.n]);
-    scrubAlong(S, it.pts, wet, +it.id % 97);
   });
   const poolRings = items.filter((i) => i.k === 'p').map((i) => i.pts).sort((a, b) => b.length - a.length);
   for (const p of poolRings) part(() => { pool(S, p); scrubAlong(S, p, wet, p.length * 13); });
-  for (const it of items.filter((i) => i.k === 'q')) part(() => { const n0 = S.n; plaza(S, it.pts); (S.paved = S.paved || []).push([n0, S.n]); });
+  for (const it of items.filter((i) => i.k === 'q')) part(() => { const n0 = S.n; plaza(S, it.pts, RINGED.has(String(it.id))); (S.paved = S.paved || []).push([n0, S.n]); });
   (st.points || []).forEach((p, i) => part(() => {
     const x = p.x / 10, z = p.z / 10;
     if (p.k === 'art') sculpture(S, x, z, i * 7 + 3); // (the old entrance gate was pulled down in the 2024-25 clean-up)
