@@ -44,7 +44,7 @@ const WALL = [[-1484.7, -58.7], [-1533.5, -22.8], [-1584.4, -93.2], [-1484.1, -1
 const REAR_WALL = [[-1530.0, -93.7], [-1545.6, -81.8], [-1529.6, -61.2], [-1514.2, -73.1]];
 
 // halls: dark grey-green unglazed tile, grey ridges (satellite, Street View); the gate keeps its yellow glaze
-const TILE = hex('#565b58'), RIDGE = hex('#8e8f88'), GTILE = PAL.imperialRoof, GRIDGE = hex('#f1d77a');
+const TILE = hex('#4f5a52'), RIDGE = hex('#9a9b92'), GTILE = PAL.imperialRoof, GRIDGE = hex('#f1d77a');
 const LAC = PAL.lacquer, GOLD = hex('#d9b04a'), RED = hex('#8a3324'), GREY = hex('#8a877d');
 const STONE = PAL.stone, BRICK = hex('#a68a6c'), MUSTARD = hex('#d4a845'), DARK = hex('#3a2420'), ROCK = hex('#7d7a70');
 const gY = (x, z) => LAND_Y + rise(x, z);
@@ -268,7 +268,10 @@ export function build({ data, S }) {
       if (Math.hypot((ax + bx) / 2 - cx, (az + bz) / 2 - cz) < 80 + Math.hypot(bx - ax, bz - az) / 2) paths.push([ax, az, bx, bz, 3.0]);
     }
     const BAL = { h: 0.95, plinth: 0.4, rail: true, t: 0.3, every: 2.4, postW: 0.34, postUp: 0.12, wall: shade(GREY, 0.85), cap: shade(GREY, 1.05), iron: shade(GREY, 0.55), pierW: 0.55, pierUp: 0.35 };
-    fence(S, ring, BAL, { closed: true, roads: paths });
+    // two levels as Street View shows: a low outer kerb wall at the water, the pierced balustrade 1.6 m behind it
+    const inner = isl.map(([x, z]) => { const l = Math.hypot(cx - x, cz - z) || 1; return [x + ((cx - x) / l) * 2.2, z + ((cz - z) / l) * 2.2]; });
+    fence(S, ring, { ...BAL, h: 0.55, plinth: 0.55, rail: false, wall: shade(GREY, 0.8), cap: shade(GREY, 1.1) }, { closed: true, roads: paths });
+    fence(S, inner, BAL, { closed: true, roads: paths });
   }
   S.kind = KIND.PLAIN;
   S.base = 0;
