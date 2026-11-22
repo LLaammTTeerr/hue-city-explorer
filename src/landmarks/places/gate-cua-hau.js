@@ -42,7 +42,7 @@ const UP2 = { w: 4.0, d: 3.0, h: 2.7 }; // tower, upper storey (walls above the 
 const OV1 = 0.45, OV2 = 0.45; // the tile skirts stand out only a little past the walls (car pano)
 
 const BODY = hex('#5b5953'); // brick and stucco gone near-black with damp and lichen
-const BODY_UP = hex('#67655e');
+const BODY_UP = hex('#706e67'); // the tower's stucco is a lighter, patchier grey than the block
 const DAMP = hex('#3f3d38');
 const TRIM = hex('#77746b'); // cornices, pilasters and frames, slightly lighter where the stucco has held
 const BAND = hex('#525c60'); // the blue-grey band between the two storeys
@@ -112,6 +112,8 @@ export function build({ S }) {
     for (const s of [-2.8, 2.8]) oculus(S, s, TC + (dt * UP1.d) / 2, dt, y1f + 1.5, 0.6); // round side openings
     for (const s of [-UP1.w / 2 + 0.2, UP1.w / 2 - 0.2]) box(s, TC + dt * (UP1.d / 2 + 0.04), y1f, y1f + UP1.h, 0.4, 0.1, TRIM);
   }
+  for (const dt of [-1, 1]) for (const [ps, py] of [[-3.3, 2.2], [3.1, 0.4], [-1.2, 2.9]]) // weathered patches
+    box(ps, TC + dt * (UP1.d / 2 + 0.02), y1f + py, y1f + py + 0.7, 1.1, 0.04, shade(BODY_UP, 1.1));
   for (const sg of [-1, 1]) archPanel(S, (sg * UP1.w) / 2, TC, sg, false, y1f, 1.3, 1.8);
   box(0, TC, y1f + UP1.h - 0.35, y1f + UP1.h, UP1.w + 0.12, UP1.d + 0.12, TRIM); // frieze under the eave
   const yr1 = y1f + UP1.h;
@@ -127,6 +129,15 @@ export function build({ S }) {
     box(s, t, yr1 + 0.1, yr1 + 1.2, 0.32, 0.32, TRIM);
     S.cyl(p[0], p[1], yr1 + 1.2, yr1 + 1.45, 0.13, 0.05, 5, TRIM);
   }
+  // a low balustrade of pale posts along the band's edge, as in the pano
+  S.kind = KIND.PLAIN;
+  const bw = (UP2.w + 1.0) / 2 - 0.12, bd = TC;
+  for (const sg of [-1, 1]) {
+    for (let k = 0; k <= 8; k++) box(-bw + (2 * bw * k) / 8, bd + sg * ((UP2.d + 0.8) / 2 - 0.12), yr1 + 1.0, yr1 + 1.4, 0.16, 0.16, CHAR);
+    for (let k = 1; k < 6; k++) box(sg * bw, bd - (UP2.d + 0.8) / 2 + 0.12 + ((UP2.d + 0.8 - 0.24) * k) / 6, yr1 + 1.0, yr1 + 1.4, 0.16, 0.16, CHAR);
+    box(0, bd + sg * ((UP2.d + 0.8) / 2 - 0.12), yr1 + 1.4, yr1 + 1.5, 2 * bw + 0.2, 0.22, TRIM);
+  }
+  S.kind = KIND.MASONRY;
   const y2 = yr1 + 1.0;
   box(0, TC, y2, y2 + UP2.h, UP2.w, UP2.d, BODY_UP, { top: TILE });
   S.kind = KIND.PLAIN;

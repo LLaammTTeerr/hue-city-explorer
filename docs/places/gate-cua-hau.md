@@ -46,3 +46,6 @@ Model: `src/landmarks/places/gate-cua-hau.js`. The gates loop in `src/landmarks/
 - The French-era pillbox beside the gate's outer face (in the photo) is not modelled.
 - In Street View the tile skirts read terracotta with a dark edge, not yellow-edged as in the 2008 photo; the yellow edge is kept for now.
 - Real tablet characters and dimensions from a survey drawing (Trung tâm Bảo tồn Di tích Cố đô Huế) were not found.
+
+## Polish
+- Tower stucco lightened and patched; pale post balustrade added on the band between the storeys (pano).
