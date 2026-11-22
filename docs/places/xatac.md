@@ -20,15 +20,32 @@ Model: `src/landmarks/places/xatac.js` (new; no older builder drew this place, s
 - Restored from 2007, with the rite revived in 2008. Today both tiers are lawn (OSM grassland), not the five-colour
   earth of the original.
 
+## Today's site (Google satellite and car Street View, checked 2026-11)
+- The upper tier stands where OSM puts it, within about 1 m, its edges about 36 degrees off the grid. Matched views
+  from three car panos (Xã Tắc lane west and north of the altar) put its width, height (about 1.6 m of brick plus a
+  0.9 m balustrade) and stair positions in the same place as the model.
+- It is the only raised part today. The lawn round it is flush with its foot and with the lanes: no 1.2 m lower tier,
+  no red railing, no enclosing wall or gate posts. The four grey stone walks run out across the lawn to about 34 m
+  from the centre (27 m on the south, where they meet the open ground toward Trần Nguyên Hãn).
+- The upper tier's base reads as dark red-brown brick, its balustrade as weathered grey stone with openwork panels.
+- A stone incense burner (đỉnh) stands on the lawn north-west of the upper tier (not modelled).
+- Note on the captures: the Street View frames fit the model at a horizontal field of view of about 105 degrees, not
+  the 80 requested.
+
+## Drawn
+- The upper tier with its brick base, grey balustrade with dark openwork panels, and a stone stair in the middle of
+  each side; its lawn is kept clear of the scattered city trees (bare on the satellite).
+- The lower tier only as its flush lawn square (73 m, cut at 27 m on the south) with the four grey walks to its edges.
+
 ## Estimated
-- The lower tier is cut short on the south at 24.5 m from the centre, where the Xã Tắc lane now crosses the old
-  south band. The other three sides are 36.5 m from the centre.
-- The wall's line: 42.5 m out on the E/W sides and 46 m on the N side, following the alleys that bound the lot.
-  Its height (1.1 m), colour and gate posts are estimates.
-- Step counts: 7 per upper flight and 6 per lower flight. Stair width 3.8 m (from the OSM walk widths).
-- The railings are drawn as a plinth, piers and a top rail. Plaster and laterite colours are estimates.
+- The lower tier's lawn stops at 27 m on the south (satellite); the other three sides are 36.5 m from the centre.
+- Step counts: 7 per flight. Stair width 3.8 m (from the OSM walk widths).
+- Balustrade detail and the colours.
 
 ## Left out / open
 - The square pond (minh đường) in front, the 32 stone bases for umbrella poles, and the mù u tree rows. None of
-  them are in OSM today. Whether the low wall and gates exist in 2026 is unconfirmed.
+  them are in OSM today. The low wall and gates of the sources are not there today
+  (Street View) and are not drawn.
+- Owner question: the sources give a 1.2 m brick lower tier with a red railing and a yellow upper railing; today's
+  imagery shows neither (flush lawn, grey stone balustrade). The model follows the imagery.
 - No night lights; no lighting at the site was found in any source.
