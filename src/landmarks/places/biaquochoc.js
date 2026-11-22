@@ -2,6 +2,7 @@ import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
+import { kylan } from '../props.js';
 
 // ---- Bia Quốc Học: Đài tưởng niệm Chiến sĩ trận vong (1920), on the south bank opposite Trường Quốc Học ----
 // Replaces buildBiaQuocHoc (landmarks/memorial.js). Sources and estimates: docs/places/biaquochoc.md.
@@ -19,6 +20,7 @@ import { glowPoints } from '../../geo/materials.js';
 //    gate's normal to within 1°), 37 m from the Lê Lợi sidewalk and 12 m in front of the riverside footway.
 // Matched to Google imagery (satellite + two car panoramas, 2024): the terrace, inner platform and trụ biểu layout,
 // the screen's width and tier proportions, the orientation (the satellite's walls agree with the gate normal to <1°).
+// Colours follow the panoramas (weathered ochre, dark aged roofs, grey stone lan can), not the 2017 "bright yellow".
 // Estimated: bay widths within the matched overall width, tile colour (only "glazed" is known), the pillar heads,
 // the stairs at the back and ends, and the heights (the documented 10.95 m is kept from the plaza; the panorama reads
 // ~15% taller, see the notes).
@@ -65,9 +67,12 @@ export function build({ data, S, group, place }) {
   const y0 = LAND_Y + lo, yTop = LAND_Y + hi + 0.12;
   S.base = lo;
 
-  const yellow = hex('#e3b545'), yellowD = hex('#c99a38'), trim = hex('#f1e2bc'), panel = hex('#d8a948');
-  const roof = hex('#a9823e'), ridge = hex('#e9c76a'), slab = hex('#5e4a3e'), tablet = hex('#cdbf9f'), dark = hex('#3a302a');
-  const pillar = hex('#d9c27f'), blue = hex('#6f87a3'), pave = hex('#cfcabd'), bronze = hex('#c9a040');
+  // Colours as the 2024 car panoramas show them: the 2016-17 yellow has weathered to an ochre-brown, the glazed roofs
+  // have aged dark, the ceramic panels are a deep blue, and the lan can is grey stone with dark pierced panels.
+  const yellow = hex('#b48d52'), yellowD = hex('#977445'), trim = hex('#cbb994'), panel = hex('#a3804c');
+  const roof = hex('#5c4d3f'), ridge = hex('#7d6b52'), slab = hex('#5a4a3e'), tablet = hex('#bdb197'), dark = hex('#3a302a');
+  const pillar = hex('#b99c66'), blue = hex('#41678e'), pave = hex('#cfcabd'), bronze = hex('#9a7e45');
+  const railStone = hex('#a29d92'), railPanel = hex('#55524b');
 
   const box = (a, b, ya, yb, da, db, col, o) => { const q = at(a, b); S.box(q[0], q[1], ya, yb, da, db, A, col, o); };
   const hipAt = (a, b, wb, da, y, h, col, o) => { const q = at(a, b); S.hip(q[0], q[1], wb, da, A + Math.PI / 2, y, h, col, o); };
@@ -96,18 +101,28 @@ export function build({ data, S, group, place }) {
   stairs(PA0, 0, -1.0, 3.6, yT, yP, 4, 'a');
   (S.paved = S.paved || []).push([paved0, S.n]);
 
+  // ---- a low kerb wall ~3.5 m behind the terrace, ~41 m long (the satellite's line toward the riverside path) ----
+  S.kind = KIND.MASONRY;
+  for (const s of [-1, 1]) { // two halves, each bedded on its own ground
+    const q = at(-TA - 3.5, s * 10.25), g = LAND_Y + rise(q[0], q[1]);
+    if (Number.isFinite(g)) S.box(q[0], q[1], g - 0.2, Math.max(g, yTop) + 0.45, 0.4, 20.5, A, railStone);
+  }
+  // ---- guardian beasts on plinths flanking the foot of the front stairs (stone; the species is an estimate) ----
+  for (const s of [-1, 1]) { const q = at(TA + 2.9, s * 3.9); kylan(S, q[0], yTop, q[1], A, { s: 0.9, plinth: 0.5 }); }
+  S.base = lo;
+
   // ---- the lan can (~1.3 m) along the terrace edge, open at the stairs; a low rail round the inner platform ----
   S.kind = KIND.MASONRY;
   const rail = (a0, b0, a1, b1, ya, h, posts) => { // a straight run from (a0, b0) to (a1, b1)
     const alongA = Math.abs(a1 - a0) > Math.abs(b1 - b0), len = alongA ? Math.abs(a1 - a0) : Math.abs(b1 - b0);
     const am = (a0 + a1) / 2, bm = (b0 + b1) / 2, da = alongA ? len : 0.3, db = alongA ? 0.3 : len;
-    box(am, bm, ya + h - 0.16, ya + h, da, db, trim);
-    box(am, bm, ya, ya + 0.16, alongA ? len : 0.34, alongA ? 0.34 : len, trim);
-    box(am, bm, ya + 0.16, ya + h - 0.16, alongA ? len : 0.12, alongA ? 0.12 : len, yellowD); // pierced panel, as a thin wall
+    box(am, bm, ya + h - 0.16, ya + h, da, db, railStone);
+    box(am, bm, ya, ya + 0.16, alongA ? len : 0.34, alongA ? 0.34 : len, railStone);
+    box(am, bm, ya + 0.16, ya + h - 0.16, alongA ? len : 0.12, alongA ? 0.12 : len, railPanel); // pierced panel, as a thin wall
     const n = Math.max(1, Math.round(len / posts));
     for (let i = 0; i <= n; i++) {
       const t = i / n, end = i === 0 || i === n;
-      box(a0 + (a1 - a0) * t, b0 + (b1 - b0) * t, ya, ya + h + (end ? 0.3 : 0.05), 0.36, 0.36, end ? trim : yellowD);
+      box(a0 + (a1 - a0) * t, b0 + (b1 - b0) * t, ya, ya + h + (end ? 0.3 : 0.05), 0.36, 0.36, railStone);
     }
   };
   const e = 0.2, H = 1.3;
@@ -192,16 +207,17 @@ export function build({ data, S, group, place }) {
     S.box(q[0], q[1], pY + 2.4, hd - 0.7, 1.0, 0.6, A, panel); // couplet panels front/back
     S.box(q[0], q[1], hd, hd + 0.3, 1.25, 1.25, A, trim);
     for (const [k, w] of [[1.5, 1.1], [3.2, 1.0], [5.0, 0.98]]) S.box(q[0], q[1], pY + k, pY + k + 0.14, w, w, A, trim); // banding on the shaft
-    S.box(q[0], q[1], hd + 0.3, hd + 1.1, 0.85, 0.85, A, yellowD); // the lantern
-    for (const k of [-1, 1]) {
-      S.box(q[0] + f[0] * k * 0.44, q[1] + f[1] * k * 0.44, hd + 0.45, hd + 0.95, 0.04, 0.45, A, dark);
-      S.box(q[0] + p[0] * k * 0.44, q[1] + p[1] * k * 0.44, hd + 0.45, hd + 0.95, 0.45, 0.04, A, dark);
+    // the head: four stacked, flaring tiers narrowing upward, then a lotus seat and bud (as in sv-B and sv-C)
+    let ty = hd + 0.3;
+    for (const w of [1.08, 0.92, 0.76, 0.6]) {
+      S.box(q[0], q[1], ty, ty + 0.12, w * 0.72, w * 0.72, A, yellowD); // neck
+      S.kind = KIND.GLAZED;
+      S.box(q[0], q[1], ty + 0.12, ty + 0.41, w, w, A, roof, { taper: 0.78 }); // flared, dark-glazed cornice
+      S.kind = KIND.PLAIN;
+      ty += 0.41;
     }
-    S.kind = KIND.GLAZED;
-    S.box(q[0], q[1], hd + 1.1, hd + 1.35, 1.2, 1.2, A, roof, { taper: 0.6 });
-    S.kind = KIND.PLAIN;
-    S.cyl(q[0], q[1], hd + 1.35, hd + 1.7, 0.22, 0.42, 6, trim, { cap: false, rot: A });
-    S.cyl(q[0], q[1], hd + 1.7, hd + 2.5, 0.42, 0.05, 6, trim, { rot: A });
+    S.cyl(q[0], q[1], ty, ty + 0.22, 0.18, 0.36, 8, ridge, { cap: false, rot: A }); // lotus seat
+    S.cyl(q[0], q[1], ty + 0.22, hd + 2.5, 0.36, 0.04, 8, ridge, { rot: A }); // bud, its tip at 9.85 m
   }
 
   // ---- after dark ("67 lamps on roof, walls, pillars" since the restoration) ----
@@ -211,7 +227,7 @@ export function build({ data, S, group, place }) {
   eave(-cW / 2 - 0.6, cW / 2 + 0.6, y + cH - 0.15, T / 2 + 0.8, 4);
   eave(-uW / 2 - 0.5, uW / 2 + 0.5, topY - 0.15, T * 0.425 + 0.7, 3);
   for (const s of [-1, 1]) eave(s * (sbB - sbW / 2 - 0.4), s * (sbB + sbW / 2 + 0.4), y + sbH - 0.15, T / 2 + 0.7, 3);
-  for (const s of [-1, 1]) for (const k of [-1, 1]) lampAt(at(pA + k * 0.5, s * pB), hd + 0.7, [1, 0.85, 0.55]); // the lanterns' openings
+  for (const s of [-1, 1]) for (const k of [-1, 1]) lampAt(at(pA + k * 0.6, s * pB), hd + 0.5, [1, 0.85, 0.55]); // under the heads' first tier
   lampAt(cs, r0 + rH * 0.85);
   const pts = glowPoints(pos, col, 3);
   pts.userData.glow = true;

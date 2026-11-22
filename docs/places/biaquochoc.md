@@ -69,3 +69,15 @@ memorial's bearing from both panoramas line up with the model; at 80 they do not
 ## Left
 - No measured plan or elevation drawing found; bay widths inside the matched overall width and the roof profiles are
   estimates. Three sections are confirmed by the panoramas.
+
+## Review fixes (car panoramas sv-B, sv-C)
+- Colours: the 2024 car panoramas show the 2016-17 yellow weathered to ochre-brown, the glazed roofs aged dark, deep
+  blue ceramic panels, and a grey stone lan can with dark pierced panels. The model now follows the imagery rather
+  than the press description of "bright yellow".
+- Trụ biểu heads: four stacked, flaring tiers narrowing upward, then a lotus seat and bud, as seen in both panoramas
+  (the tier count is an estimate); the tip stays at the sourced 9.85 m.
+- Added a low kerb wall ~3.5 m behind the terrace, ~41 m long (satellite), and a pair of stone guardian beasts at the
+  foot of the front stairs (seen in sv-C; the species is not identifiable at that range, kỳ lân is an estimate).
+- Open: the height datum. At matched width the panorama reads the crown ~12.3 m and pillars ~11.3 m over the plaza,
+  which would fit the sourced 10.95 / 9.85 m counted from the terrace top (1.2 m). Kept from the plaza until the owner
+  decides. The lan can reads low against the screen for the same reason; its 1.3 m stays near the sourced ~1.4 m.
