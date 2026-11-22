@@ -29,16 +29,31 @@ height 11.5 m) from `data.bld`, so the city builder no longer draws it. No older
   (Duy Tấn, Hoàng Ngọc, Phương Nam) with red-and-gold counters, blue-and-white striped awnings, and a sign band
   up to about 5 m. The upper floor has breeze-block lattice panels between white piers, from about 5 to 9.3 m.
   A deep cantilevered roof slab, about 1.4 m out, sits at about 9.3-10.3 m, with a large billboard on the south roof.
-- **The corner.** Where the cut front meets Đặng Văn Ngữ the corner is rounded, with stacked curved slabs and a
-  tall white blade of about 15 m or more. Red letters reading "CHỢ AN CỰU" stand on a frame over the cut front,
-  facing the junction.
-- **The south-east corner.** The upper floor is painted periwinkle blue, with windows, for about 12 m along the
-  south front and 10 m up the east side. The east wing further north is lower: shops and a gallery, about 6 m.
-- **Inside the lot (satellite).** A square pyramid-roofed hall of about 16 x 16 m. Long gabled sheds behind the
-  west and south fronts. A flat block east of the hall. An open yard in the north-east behind a curved wall.
+- **The corner.** Where the cut front meets Đặng Văn Ngữ the corner is open: the walls are cut across behind it,
+  and three thin curved slabs sweep round it, cantilevered out further at the nose than along the fronts. The
+  top slab is the roof slab, with a curved parapet. The frame for the red letters "CHỢ AN CỰU" stands on the roof
+  over the cut front, facing the junction, and is seen edge-on above the corner from Đặng Văn Ngữ. The car pano on
+  Đặng Văn Ngữ (looking north) and the satellite both put this corner about 3 m west of the OSM vertex. The model
+  draws it there, on the line of the south front; the rest of the OSM outline is kept.
+- **The cut front.** The upper floor is plain white wall with a row of small windows high up and white banners
+  below them. It has no lattice.
+- **The south-east corner.** A broad grey ledge with a deep fascia projects about 1.5 m at first-floor level and
+  runs on north over the lower east wing. The upper floor above it is a periwinkle-blue box, set back on the ledge,
+  for about 12 m along the south front and 10 m up the east side. Its windows have projecting blue hoods, with A/C
+  units beside some of them. The east wing further north is lower: shops and a gallery, about 6 m.
+- **The north end of the Hùng Vương front.** The user photosphere on Hùng Vương, looking north-east, shows a second
+  blue upper-floor block at the north end of the front, about 11 m long and flush with the wall. It has two windows
+  and a mural.
+- **The hoarding.** A large hoarding, about 10 x 5 m, stands on the roof of the south front just east of the curved
+  corner. It is tilted back on a steel frame, with a row of lamps on arms over its top edge.
+- **Shopfronts.** The awnings are deep striped canvas, sloping 3-4 m out over the walk, with green and teal tarps
+  hung below their edges.
+- **Inside the lot (satellite).** A square pyramid-roofed hall of about 14 x 14 m. Two or three concentric bands of
+  long pale-cream sheet sheds, 18-20 m deep in all with the perimeter block, follow the west, cut and south fronts. A flat block east of the hall. An open yard in the north-east behind a curved wall.
   All the roofs are pale grey; none are rust.
 
 ## Estimated
+- The exact radius of the curved slabs (5 m on the wall line) and their reach, and the hoarding's artwork.
 - The passages through the west and south fronts, the kiosk row along the north lane, the louvres on the hall,
   the umbrella stalls in the north-east yard, and the night lights.
 
