@@ -89,3 +89,9 @@ The queen mothers' residence in the north-west of the Imperial City. The model i
 - The four wells are not modelled.
 - A few data trees stand in the paved courts, because low paving does not keep trees off.
 - Phoenix finials on the hip ends are not drawn.
+
+## Polish (Street View detail pass)
+- Khương Ninh Các: ground-storey leaves now have joints, a lattice band, bottom rails and dark posts; gallery railing has
+  balusters; upper windows are dark panes with a cream grid; pale bracket fringe under the pent eave.
+- Thọ Chỉ: stepped stone plinth, grey string course, frieze split into separate red/blue panels, cream mosaic grounds
+  with blue patterns and low red panels, five-panel upper storey. Side gates got pier finials.

@@ -204,7 +204,7 @@ export function build({ S }) {
     hipR(u0, v0, 16.4, 11.8, yp + 3.4, 1.1, GREY_TILE, { over: 1.1, flare: 0.3, ...grey });
     box(u0 + 0.6, v0, yp + 3.6, yp + 6.4, 8.0, 12.4, LAC, { top: shade(GREY_TILE, 0.8) });
     S.kind = KIND.PLAIN;
-    boxR(u0 - 3.42, v0, yp + 4.5, yp + 6.0, 11.0, 0.08, shade(GLASS, 0.7)); // the upper windows
+    boxR(u0 - 3.42, v0, yp + 4.5, yp + 6.0, 11.0, 0.08, hex('#3b3a33')); // the upper windows
     for (let k = -2; k <= 2; k++) boxR(u0 - 3.45, v0 + k * 2.6, yp + 4.4, yp + 6.1, 0.18, 0.08, shade(LAC, 0.8));
     boxR(u0 - 4.6, v0, yp + 3.7, yp + 4.55, 14.6, 0.1, shade(LAC, 0.85)); // the gallery railing
     boxR(u0 - 4.6, v0, yp + 4.55, yp + 4.65, 14.8, 0.16, hex('#4e7a52'));
@@ -212,6 +212,19 @@ export function build({ S }) {
     for (let i = 0; i <= 5; i++) col(u0 - 5.7, v0 - 7.6 + i * (15.2 / 5), yp, yp + 3.45, 0.19);
     S.kind = KIND.PLAIN;
     for (let i = -2; i <= 2; i++) boxR(u0 - 4.62, v0 + i * 2.95, yp, yp + 2.8, 2.6, 0.08, shade(WOOD, 0.85)); // the leaves
+    // each section is a row of narrow folding leaves with a lattice band above and a lower panel (Street View)
+    for (let i = -2; i <= 2; i++) {
+      boxR(u0 - 4.66, v0 + i * 2.95, yp + 2.15, yp + 2.75, 2.5, 0.06, shade(WOOD, 0.55)); // the lattice band
+      for (let k = -3; k <= 3; k++) boxR(u0 - 4.68, v0 + i * 2.95 + k * 0.37, yp + 0.1, yp + 2.1, 0.05, 0.05, shade(WOOD, 0.5)); // leaf joints
+      boxR(u0 - 4.66, v0 + i * 2.95, yp + 0.1, yp + 0.55, 2.5, 0.06, shade(WOOD, 0.7)); // the bottom rail
+    }
+    for (let i = -3; i <= 3; i++) boxR(u0 - 4.64, v0 + i * 2.18, yp, yp + 3.0, 0.3, 0.14, shade(WOOD, 0.6)); // the dark ground-floor posts
+    // balusters in the gallery railing, and a dark pane grid in the upper windows
+    for (let k = -22; k <= 22; k++) boxR(u0 - 4.6, v0 + k * 0.325, yp + 3.7, yp + 4.55, 0.05, 0.05, k % 4 ? shade(LAC, 0.9) : hex('#4e7a52'));
+    for (let k = -8; k <= 8; k++) boxR(u0 - 3.47, v0 + k * 0.72, yp + 4.5, yp + 6.0, 0.05, 0.05, CREAM);
+    boxR(u0 - 3.47, v0, yp + 5.25, yp + 5.3, 11.0, 0.05, CREAM);
+    // pale brackets under the eave (the white-and-brown fringe in the photo)
+    for (let k = -8; k <= 8; k++) boxR(u0 - 5.9, v0 + k * 0.9, yp + 3.0, yp + 3.5, 0.28, 0.35, k % 2 ? CREAM : shade(WOOD, 0.7));
     cyl(u0 + 0.6, v0, yp + 8.85, yp + 9.4, 0.28, 0.1, 8, GOLD);
     // the back hall (OSM 695810779)
     S.kind = KIND.TIMBER;
@@ -338,12 +351,24 @@ export function build({ S }) {
       hip(u0 + s * 4.9, v0, 5.2, 3.4, yb + H, 0.8, TILE, { over: 0.55, segs: 2, flare: 0.12 });
     }
     S.kind = KIND.PLAIN;
-    box(u0, v0, yb + H - 0.55, yb + H - 0.1, 14.7, 3.45, MOSAIC); // the frieze of panels over the openings
+    // the frieze: separate small panels (red and cream) between ochre piers, not a continuous band
+    for (let k = -6; k <= 6; k++) box(u0 + k * 1.1, v0, yb + H - 0.62, yb + H - 0.12, 0.8, 3.45, k % 2 ? ARCH_RED : MOSAIC);
+    S.kind = KIND.MASONRY;
+    box(u0, v0, yb + 3.6, yb + 3.78, 14.9, 3.6, shade(STONE, 1.1)); // the grey string course over the openings
+    box(u0, v0, y0, yb + 0.5, 15.0, 3.7, shade(STONE, 1.05)); // the stepped plinth
+    S.kind = KIND.PLAIN;
+    for (const s of [-1, 1]) {
+      for (const f of [-1, 1]) {
+        box(u0 + s * 2.65, v0 + f * 1.72, yb + 0.9, yb + 3.3, 1.35, 0.03, shade(OCHRE, 1.1)); // the pale ground of the mosaic
+        box(u0 + s * 2.65, v0 + f * 1.73, yb + 1.1, yb + 3.1, 0.9, 0.03, MOSAIC); // the blue pattern
+        box(u0 + s * 2.65, v0 + f * 1.72, yb + 0.15, yb + 0.7, 1.2, 0.04, ARCH_RED); // the low panel under it
+      }
+    }
     S.kind = KIND.MASONRY;
     box(u0, v0, yb + H, yb + H + 1.6, 6.4, 3.0, OCHRE, { top: shade(TILE, 0.8) });
     S.kind = KIND.PLAIN;
-    box(u0, v0, yb + H + 0.4, yb + H + 1.2, 5.6, 3.06, ARCH_RED); // the panels of the upper storey
-    box(u0, v0, yb + H + 0.6, yb + H + 1.0, 2.2, 3.1, GOLD); // the name board
+    for (let k = -2; k <= 2; k++) box(u0 + k * 1.1, v0, yb + H + 0.35, yb + H + 1.25, 0.85, 3.06, k % 2 ? MOSAIC : ARCH_RED); // five panels of the upper storey
+    box(u0, v0, yb + H + 0.55, yb + H + 1.05, 0.85, 3.1, GOLD);
     hip(u0, v0, 6.4, 3.0, yb + H + 1.6, 1.2, TILE, { over: 0.7 });
   }
   // Diễn Trạch (rear), Thiện Khánh (east) and Địch Tường (west): a painted masonry frontispiece, taller than the
@@ -354,6 +379,8 @@ export function build({ S }) {
     B(u0, v0, y0 - 0.3, y0 + 4.2, 5.2, 1.6, OCHRE_OLD, { top: OLD_CAP });
     B(u0, v0, y0 + 2.6, y0 + 3.2, 5.6, 1.9, shade(OCHRE_OLD, 0.9)); // the cornice
     arch(B, u0, v0, y0, 2.0, 2.9, 1.6, DARK);
+    S.kind = KIND.MASONRY;
+    for (const e of [-2.1, 2.1]) B(u0 + (rot ? 0 : e), v0 + (rot ? e : 0), y0 + 4.2, y0 + 4.75, 0.3, 0.3, OCHRE_OLD); // pier finials
     Hh(u0, v0, 4.6, 1.4, y0 + 4.2, 0.6, GREY_TILE, { over: 0.3, segs: 2, flare: 0, glazed: false, ridgeCol: shade(GREY_TILE, 0.6) });
   }
 
