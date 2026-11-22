@@ -46,12 +46,13 @@ const BUU_C = [139, -12.5]; // Bửu Thành centre, metres from C0, measured on 
 const COL = {
   roof: PAL.imperialRoof, roofOld: hex('#b8913f'), lac: hex('#8e3628'), lacOld: hex('#74402f'),
   stone: PAL.stone, stoneGrey: hex('#9d998f'), stoneDark: hex('#7b776e'), thanh: hex('#6c7377'), marble: hex('#ddd8cc'),
-  brick: hex('#6b6152'), brickMoss: hex('#5c6049'), cap: hex('#77746a'), bat: hex('#94705a'), // Bát Tràng brick paving, weathered
-  roofSide: hex('#93714a'), gateWall: hex('#c4a35a'), roofGrey: hex('#6f6a60'), // weathered side-hall tiles, ochre gate plaster (Street View)
+  brick: hex('#6b6152'), brickMoss: hex('#5c6049'), cap: hex('#6a675f'), bat: hex('#94705a'), // Bát Tràng brick paving, weathered
+  roofSide: hex('#93714a'), gateWall: hex('#b89a58'), roofGrey: hex('#6f6a60'), // weathered side-hall tiles, ochre gate plaster (Street View)
   bronze: hex('#4d3f2c'), bronzeHi: hex('#8a7040'), door: hex('#2b2422'), statue: hex('#a29d92'),
   enamel: [hex('#2f7d8c'), hex('#3f8f4f'), hex('#e0b23a')], moss: PAL.moss, pine: hex('#3d5734'), earth: hex('#6f6a4b'),
 };
 const RIDGE = hex('#f1d77a');
+const RIDGE_OLD = hex('#a58a52'); // weathered ridge of side halls and gates: Street View shows no bright gilding there
 
 // ---------- helpers ----------
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -133,7 +134,7 @@ function archGate(S, p, a, w, d, h, roof = COL.roofGrey) {
   const ow = Math.min(1.8, w * 0.42), oh = h * 0.62;
   S.box(p[0], p[1], g, g + oh, ow, d + 0.1, a, COL.door);
   S.box(p[0], p[1], g + oh, g + oh + ow * 0.32, ow * 0.7, d + 0.1, a, COL.door, { taper: 0.6 });
-  S.hip(p[0], p[1], w + 0.4, d + 0.3, a, g + h, 0.9, roof, { flare: 0.25, over: 0.5, fascia: 0.18, ridgeCol: RIDGE, hips: true, glazed: true });
+  S.hip(p[0], p[1], w + 0.4, d + 0.3, a, g + h, 0.9, roof, { flare: 0.25, over: 0.5, fascia: 0.18, ridgeCol: RIDGE_OLD, hips: true, glazed: true });
 }
 // timber hall on a stone plinth (the mapped outline is the plinth), long side found from the outline
 function hall(S, r, { plinth = 0.6, tiers = 1, wallH = 3.2, rh = 2.2, roof = COL.roofOld, wall = COL.lacOld, inset = 1.0, colonnade = true, floor = null } = {}) {
@@ -141,7 +142,7 @@ function hall(S, r, { plinth = 0.6, tiers = 1, wallH = 3.2, rh = 2.2, roof = COL
   if (w < d) { [w, d] = [d, w]; a += Math.PI / 2; }
   const F = frame(c, a), sp = span(F, 0, 0, w, d), top = floor ?? sp.hi + plinth;
   terrace(S, F, 0, 0, w, d, top);
-  return { top: pavilion(S, c[0], c[1], w - inset * 2, d - inset * 2, a, top, { tiers, wallH, rh, roof, wall, over: 1.1, colonnade, segs: 3 }), F, w, d, floor: top };
+  return { top: pavilion(S, c[0], c[1], w - inset * 2, d - inset * 2, a, top, { tiers, wallH, rh, roof, wall, over: 1.1, colonnade, segs: 3, ridge: roof === COL.roofSide ? RIDGE_OLD : RIDGE }), F, w, d, floor: top };
 }
 // stone statues facing the axis: mandarins, elephants, horses
 function mandarin(S, p, a, military = false) {
@@ -421,7 +422,7 @@ function tomb(S) {
     S.kind = KIND.MASONRY; S.base = g - LAND_Y;
     for (const sd of [-1, 1]) { const p = T.at(sG, sd * 3.1); S.box(p[0], p[1], g - 0.6, g + 4.6, 1.6, 1.4, T.a, COL.brick, { top: COL.cap }); S.box(p[0], p[1], g + 4.6, g + 5.1, 1.0, 1.0, T.a, COL.cap, { taper: 0.5 }); }
     S.box(gp[0], gp[1], g + 3.4, g + 4.3, 1.5, 4.8, T.a, COL.brick, { top: COL.cap });
-    S.hip(gp[0], gp[1], 6.6, 1.9, T.av, g + 4.3, 0.8, COL.roofOld, { flare: 0.25, over: 0.4, fascia: 0.15, ridgeCol: RIDGE, hips: true, glazed: true });
+    S.hip(gp[0], gp[1], 6.6, 1.9, T.av, g + 4.3, 0.8, COL.roofOld, { flare: 0.25, over: 0.4, fascia: 0.15, ridgeCol: RIDGE_OLD, hips: true, glazed: true });
     S.kind = KIND.PLAIN;
     for (const sd of [-1, 1]) { const p = T.at(sG, sd * 0.85); S.box(p[0], p[1], g, g + 3.3, 0.14, 1.6, T.a, COL.bronze); S.box(p[0], p[1], g + 1.4, g + 1.7, 0.18, 1.5, T.a, COL.bronzeHi); }
     flight(S, T.at(sG - 4.4), g - 0.4, T.at(sG - 1), g + 0.1, 5, COL.stoneGrey, false);
