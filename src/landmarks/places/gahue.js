@@ -23,23 +23,38 @@ import { fence, roadsNear, streetTest, FENCE } from '../enclosure.js';
 //  - vnexpress.net/ga-tau-hoa-hon-100-tuoi-o-hue-4588681.html: two-storey main building, single-storey wings,
 //    painted the colour of Quốc Học, a clock over 100 years old on the front. The 2026 photo shows it a deep crimson
 //    with white trim and a blue-grey dado.
-// Heights are scaled from the photos on the mapped 21.8 m width (estimates): floor +0.5 m on three steps, cornice
-// 10 m, parapet 11.6 m, clock plate top 13.5 m above the floor; wings 5.6 m to the cornice, 6.9 m to the balustrade.
+// Heights (estimates, from the photos and the Street View pano on the satellite's 19.4 m width): floor +0.5 m on three
+// steps, cornice 9.55 m, parapet 10.35 m, clock plate top 12 m above the floor; wings 5 m to the cornice, 6.2 m to the
+// balustrade. (The first estimates, scaled on OSM's 21.8 m, were 10 / 11.6 / 13.5 and 5.6 / 6.9.)
 
 export const id = 'gahue';
 
-const red = hex('#b3343c'), redD = hex('#9c2a33'), white = hex('#f1ece4'), grey = hex('#7f8890'), roofTop = hex('#8e8a84');
+// Nov 2026 rebuild against Google satellite (z18-z20) and a car Street View pano on the forecourt
+// (scratch/rebuild/gahue, not in the repo). The OSM outline's total span (west pavilion to east annex) matches the
+// satellite, but its division does not: the two-storey block's roof measures about 19 m by 11 m between its parapet
+// piers (OSM 21.8 x 14.7), its clock axis sits about 1.3 m west of the OSM centre, and the wings run longer. The pano
+// confirms the width (the block subtends the same angle as a 19.4 m front at the front's distance) and the axis, and
+// gives the heights: with the block 19.4 m wide, parapet 10.35 m, clock plate 12 m above the floor; the photo
+// estimates below were scaled on the OSM 21.8 m and came out about 12 % tall. The satellite also shows a low hipped
+// roof (red tile) behind the middle block's parapet, red-brown flat roofs on the wings, and a narrower street canopy
+// (about 23 m, six columns at +-2.1, +-6.2, +-9.3 m) standing just behind three steps. Colour from the pano: a brick red.
+const red = hex('#b0473b'), redD = hex('#963a31'), white = hex('#f1ece4'), grey = hex('#7f8890'), roofTop = hex('#8a5650');
+const tile = hex('#8e4a40'), slab = hex('#8e8a84'); // tile roof; the concrete canopies and the annexes' flat roofs
 const glass = hex('#2c2f36'), door = hex('#c9ccc8'), column = hex('#d4857c'), pave = hex('#a9a49b'), asphalt = hex('#5d5d5f');
 const green = hex('#3f6a50'), steel = hex('#d6d2c8'), gold = hex('#c79a2e'), blue = hex('#24489a');
 
 // plan (metres, x east, z south); the front looks north toward the forecourt and Bùi Thị Xuân
-const C = { x0: -1165.1, x1: -1143.3, z0: 1368.2, z1: 1382.9 }; // the middle block
-const WW = { x0: -1177.6, x1: -1165.1, z0: 1372.0, z1: 1380.9 }; // west wing
-const WE = { x0: -1183.2, x1: -1177.6, z0: 1369.5, z1: 1380.8 }; // west end pavilion
-const EW = { x0: -1143.3, x1: -1129.2, z0: 1372.2, z1: 1380.7 }; // east wing
-const EE = { x0: -1129.2, x1: -1123.8, z0: 1370.1, z1: 1380.8 }; // east end pavilion
-const AW = { x0: -1193.6, x1: -1183.2, z0: 1369.5, z1: 1380.6 }; // west annex
-const AE = { x0: -1123.8, x1: -1106.8, z0: 1370.2, z1: 1381.0 }; // east annex
+// x divisions from the satellite (OSM's were 21.8 / 12.5 / 14.1 / 5.6 / 5.4 m); z from OSM, except the middle block:
+// the satellite measures it 11.3 m deep between its parapets (OSM 14.7, running over the platform canopy), and with
+// the roofs' lean taken out (about 0.35 m per metre of height here, from the wings and pavilions, whose OSM fronts it
+// then matches) its front stands at 1368.8 (OSM 1368.2); the car pano puts it a little further south, about 1370.5
+const C = { x0: -1165.2, x1: -1145.8, z0: 1368.8, z1: 1380.1 }; // the middle block
+const WW = { x0: -1179.3, x1: -1165.2, z0: 1372.0, z1: 1380.9 }; // west wing
+const WE = { x0: -1183.9, x1: -1179.3, z0: 1369.5, z1: 1380.8 }; // west end pavilion
+const EW = { x0: -1145.8, x1: -1131.0, z0: 1372.2, z1: 1380.7 }; // east wing
+const EE = { x0: -1131.0, x1: -1126.6, z0: 1370.1, z1: 1380.8 }; // east end pavilion
+const AW = { x0: -1193.6, x1: -1183.9, z0: 1369.5, z1: 1380.6 }; // west annex
+const AE = { x0: -1126.6, x1: -1106.8, z0: 1370.2, z1: 1381.0 }; // east annex
 const CX = (C.x0 + C.x1) / 2;
 // main line through the station (way 1135136989): z at x
 const railZ = (x) => (x > -1162.5 ? 1386.6 + ((x + 1162.5) * 1.8) / 167.4 : 1386.6 + ((x + 1162.5) * 1.1) / 109.4);
@@ -59,39 +74,45 @@ export function build({ data, S, group, THREE }) {
   S.box(-1154, 1351, y0 - 0.5, y0 + 0.04, 84, 26, 0, asphalt, { topKind: KIND.ROAD });
   S.kind = KIND.MASONRY;
   S.box(-1153.5, 1375.3, y0 - 0.5, y0 + 0.12, 77, 13.6, 0, pave, { topKind: KIND.ROAD });
-  // under the canopy: the pavement from the facade to the kerb of the mapped drive (OSM runs it 6.5 m off the front,
-  // so its carriageway takes the canopy's outer two metres); the canopy's columns stand on the kerb
+  // in front of the steps: the pavement from the facade to the kerb of the mapped drive (OSM runs it 6.5 m off the front)
   const street = streetTest(data, [CX, 1364], 60);
   let zKerb = C.z0 - 5.6;
-  for (let z = C.z0 - 1; z > C.z0 - 5.6; z -= 0.1) if ([-14, 0, 14].some((u) => street(CX + u, z, 0.3))) { zKerb = z; break; }
+  for (let z = C.z0 - 1; z > C.z0 - 5.6; z -= 0.1) if ([-14, -12, -9, -6, -3, 0, 3, 6, 9, 12, 14].some((u) => street(CX + u, z, 0.3))) { zKerb = z; break; }
   S.box(CX, (zKerb + C.z0) / 2, y0 - 0.4, y0 + 0.16, 30, C.z0 - zKerb, 0, pave, { topKind: KIND.ROAD });
-  for (let k = 0; k < 3; k++) S.box(CX, 1366.9 + k * 0.4, y0, y0 + 0.17 * (k + 1), 15 - k * 0.6, 2.6 - k * 0.8, 0, shade(pave, 1.05 - k * 0.04)); // three steps
-  S.box(CX, 1368.0, y0, F, 22.6, 0.6, 0, pave);
+  // three steps up to a landing under the canopy; the columns stand on the landing's front edge (pano)
+  const zStep = Math.max(C.z0 - 4.8, zKerb + 0.6); // kept off the mapped drive
+  for (let k = 0; k < 3; k++) S.box(CX, (zStep + k * 0.4 + C.z0) / 2, y0, y0 + 0.17 * (k + 1), 17.6 - k * 0.4, C.z0 - zStep - k * 0.4, 0, shade(pave, 1.05 - k * 0.04));
+  S.box(CX, C.z0 - 0.3, y0, F, 20.2, 0.6, 0, pave);
   // white planters either side of the steps
   for (const s of [-1, 1]) {
     S.kind = KIND.PLAIN;
-    S.box(CX + s * 9.4, 1366.6, y0, y0 + 0.9, 4.6, 1.6, 0, white);
+    S.box(CX + s * 10.8, zStep + 0.3, y0, y0 + 0.9, 4.0, 1.4, 0, white);
     S.kind = KIND.TIMBER;
-    for (const d of [-1.3, 0, 1.3]) S.cyl(CX + s * 9.4 + d, 1366.6, y0 + 0.9, y0 + 1.7, 0.45, 0.6, 6, hex('#4f7a3c'));
+    for (const d of [-1.1, 0, 1.1]) S.cyl(CX + s * 10.8 + d, zStep + 0.3, y0 + 0.9, y0 + 1.7, 0.45, 0.6, 6, hex('#4f7a3c'));
   }
-  // parking bays painted on the square
+  // the square is open asphalt with rows of parking (satellite and pano; the earlier estimated garden island is gone)
   S.kind = KIND.PLAIN;
-  for (let x = -1188; x <= -1112; x += 2.6) if (x < -1173 || x > -1137) S.box(x, 1349, y0 + 0.04, y0 + 0.06, 0.12, 5, 0, hex('#d9d6cf'));
-  // a kerbed garden island in the middle of the square (estimated: lawn, clipped shrubs), its kerb knee-high
-  S.box(-1155, 1350.5, y0, y0 + 0.8, 35, 10, 0, white, { top: green });
-  S.kind = KIND.TIMBER;
-  for (let x = -1169; x <= -1141; x += 4) S.cyl(x, 1350.5, y0 + 0.8, y0 + 1.5, 0.6, 0.75, 6, hex('#4f7a3c'));
-  S.kind = KIND.PLAIN;
+  for (let x = -1188; x <= -1112; x += 2.6) S.box(x, 1349, y0 + 0.04, y0 + 0.06, 0.12, 5, 0, hex('#d9d6cf'));
   S.box(-1150, 1346.5, y0 + 0.04, y0 + 0.06, 78, 0.12, 0, hex('#d9d6cf'));
   S.box(-1150, 1351.5, y0 + 0.04, y0 + 0.06, 78, 0.12, 0, hex('#d9d6cf'));
+  // frangipani trees along the front of both wings (pano; a row of crowns on the satellite)
+  S.kind = KIND.TIMBER;
+  for (const x of [-1181, -1176.5, -1172, -1139.5, -1135, -1130.5]) {
+    S.cyl(x, 1368.6, y0, y0 + 2.8, 0.18, 0.14, 6, hex('#6b5a48'), { cap: false });
+    S.cyl(x, 1368.6, y0 + 2.6, y0 + 4.6, 1.9, 1.5, 7, hex('#4f7a3c'));
+  }
+  S.kind = KIND.PLAIN;
 
   // ---- walls ----
   S.kind = KIND.PLAIN;
   const top = { top: roofTop };
-  B(C, F, F + 10.0, red, top);
-  for (const r of [WW, EW]) B(r, F, F + 5.6, red, top);
-  for (const r of [WE, EE]) B(r, F, F + 6.0, red, top);
-  for (const r of [AW, AE]) B(r, y0 + 0.3, y0 + 4.8, red, top);
+  B(C, F, F + 9.4, red, top);
+  for (const r of [WW, EW]) B(r, F, F + 5.0, red, top);
+  for (const r of [WE, EE]) B(r, F, F + 5.4, red, top);
+  // the middle block's low hipped roof behind its parapet (satellite: hip lines from the corners, red tile)
+  S.hip(CX, (C.z0 + C.z1) / 2, C.x1 - C.x0 - 1.0, C.z1 - C.z0 - 1.0, 0, F + 9.4, 1.4, tile);
+  S.kind = KIND.PLAIN;
+  for (const r of [AW, AE]) B(r, y0 + 0.3, y0 + 4.8, red, { top: slab });
   // grey dado round the ground floor
   const grow = (r, d) => ({ x0: r.x0 - d, x1: r.x1 + d, z0: r.z0 - d, z1: r.z1 + d });
   for (const r of [C, WW, EW, WE, EE]) B(grow(r, 0.04), F, F + 2.0, grey);
@@ -121,91 +142,99 @@ export function build({ data, S, group, THREE }) {
   const win = (face, u, ya, yb, w) => { face(u, ya - 0.15, yb + 0.25, w + 0.5, 0.07, white); face(u, ya, yb, w, 0.12, glass); face(u, ya + (yb - ya) * 0.48, ya + (yb - ya) * 0.52, w, 0.15, white); };
 
   // ---- the middle block: front (north) and back (south) ----
+  // Heights above the floor and bay positions measured on the car pano with the front 19.4 m wide: string course
+  // 5.6, upstairs windows 6.3-8.4, a band 8.8, main cornice to 9.55, parapet 10.35 with one row of white panels,
+  // banded pilasters at +-9.15 and +-6.05, windows at 0, +-3.85, +-7.5.
+  const BW = C.x1 - C.x0, BD = C.z1 - C.z0;
   for (const [zf, s] of [[C.z0, -1], [C.z1, 1]]) {
     const f = onZ(zf, s);
-    // string course, main cornice, frieze panels, top cornice, parapet
-    f(CX, F + 5.0, F + 5.35, 22.0, 0.22, white);
-    f(CX, F + 9.3, F + 10.0, 22.4, 0.5, white);
-    S.box(CX, zf, F + 10.0, F + 10.7, 21.8, 0.4, 0, red);
-    f(CX, F + 10.7, F + 10.95, 22.2, 0.4, white);
-    S.box(CX, zf - s * 0.12, F + 10.95, F + 11.6, 21.6, 0.3, 0, red);
-    f(CX, F + 11.5, F + 11.65, 21.8, 0.1, white);
-    for (const u of [-8.5, -4.4, 0, 4.4, 8.5]) { f(CX + u, F + 10.12, F + 10.58, u === 0 ? 1.4 : 2.6, 0.06, white); f(CX + u, F + 11.05, F + 11.42, u === 0 ? 1.2 : 2.6, 0.18, white); }
-    // pilasters: banded at the corners and at the outer bays, plain white beside the middle bay
+    // string course, band over the windows, main cornice, parapet with its panels and coping
+    f(CX, F + 5.55, F + 5.9, BW + 0.2, 0.22, white);
+    f(CX, F + 8.8, F + 8.95, BW + 0.1, 0.1, white);
+    f(CX, F + 9.1, F + 9.55, BW + 0.6, 0.5, white);
+    S.box(CX, zf - s * 0.1, F + 9.4, F + 10.25, BW, 0.35, 0, red);
+    f(CX, F + 10.2, F + 10.35, BW + 0.2, 0.3, white);
+    for (const u of [-7.6, -3.9, 3.9, 7.6]) f(CX + u, F + 9.7, F + 10.05, 2.3, 0.14, white);
+    // pilasters: banded at the corners and at the outer bays, plain white beside the middle window
     for (const sgn of [-1, 1]) {
-      pilaster(f, CX + sgn * 10.25, F + 2.0, F + 9.3, 1.3);
-      pilaster(f, CX + sgn * 6.4, F + 2.0, F + 9.3, 1.15);
-      f(CX + sgn * 2.3, F + 5.35, F + 9.3, 0.55, 0.12, white);
+      pilaster(f, CX + sgn * 9.15, F + 2.0, F + 9.1, 1.1);
+      pilaster(f, CX + sgn * 6.05, F + 2.0, F + 9.1, 1.1);
+      f(CX + sgn * 1.15, F + 5.9, F + 8.8, 0.35, 0.12, white);
       // parapet piers over the pilasters, with caps
-      for (const u of [10.25, 6.4]) { S.box(CX + sgn * u, zf, F + 10.95, F + 12.0, 1.2, 0.9, 0, red); S.box(CX + sgn * u, zf, F + 12.0, F + 12.18, 1.4, 1.1, 0, white); }
+      for (const u of [9.15, 6.05]) { S.box(CX + sgn * u, zf - s * 0.1, F + 9.55, F + 10.6, 1.1, 0.8, 0, red); S.box(CX + sgn * u, zf - s * 0.1, F + 10.6, F + 10.78, 1.3, 1.0, 0, white); }
     }
-    // upstairs: five windows, the second and fourth under a pediment-like lintel
-    for (const u of [-8.5, -4.4, 0, 4.4, 8.5]) {
-      win(f, CX + u, F + 6.1, F + 8.6, 1.35);
-      if (Math.abs(u) === 4.4) f(CX + u, F + 8.95, F + 9.15, 2.6, 0.16, white);
+    // upstairs: five windows, the second and fourth in tall white frames under a lintel
+    for (const u of [-7.5, -3.85, 0, 3.85, 7.5]) {
+      win(f, CX + u, F + 6.3, F + 8.4, 1.15);
+      if (Math.abs(u) === 3.85) { for (const e of [-1, 1]) f(CX + u + e * 1.0, F + 5.9, F + 8.75, 0.28, 0.1, white); f(CX + u, F + 8.55, F + 8.75, 2.3, 0.14, white); }
     }
     // ground floor: three arched doors on the axis, a square door in each outer bay
-    for (const u of [-4.6, 0, 4.6]) arch(f, CX + u, F + 0.05, 2.5, 2.9, s < 0 ? door : glass);
-    for (const u of [-8.5, 8.5]) { f(CX + u, F, F + 3.4, 2.4, 0.07, white); f(CX + u, F, F + 3.2, 2.0, 0.12, glass); }
+    for (const u of [-4.0, 0, 4.0]) arch(f, CX + u, F + 0.05, 2.2, 2.8, s < 0 ? door : glass);
+    for (const u of [-7.6, 7.6]) { f(CX + u, F, F + 3.3, 2.1, 0.07, white); f(CX + u, F, F + 3.1, 1.7, 0.12, glass); }
     if (s < 0) { // night: the doors and windows warm
-      for (const u of [-4.6, 0, 4.6]) L.box(CX + u, zf - 0.13, F + 0.3, F + 3.4, 2.1, 0.04, 0, [1, 1, 1]);
-      for (const u of [-8.5, -4.4, 0, 4.4, 8.5]) L.box(CX + u, zf - 0.15, F + 6.2, F + 8.5, 1.2, 0.04, 0, [1, 1, 1]);
+      for (const u of [-4.0, 0, 4.0]) L.box(CX + u, zf - 0.13, F + 0.3, F + 3.3, 1.8, 0.04, 0, [1, 1, 1]);
+      for (const u of [-7.5, -3.85, 0, 3.85, 7.5]) L.box(CX + u, zf - 0.15, F + 6.4, F + 8.3, 1.0, 0.04, 0, [1, 1, 1]);
     }
   }
-  // the clock gable on the front parapet: curved shoulders, the clock, the "HUE" plate
+  // the clock gable on the front parapet: curved shoulders, the clock (face 9.7-10.95), cornice 11.3, the "HUE"
+  // plate to 12.0, and the flagpole above it (pano)
   {
     const zf = C.z0, z = zf + 0.25;
-    S.box(CX, z, F + 10.95, F + 12.6, 4.6, 0.6, 0, red);
+    S.box(CX, z, F + 9.55, F + 11.15, 4.0, 0.6, 0, red);
     for (const sgn of [-1, 1]) for (let i = 0; i < 4; i++) { // the shoulders, stepping in as a quarter curve
       const a = ((i + 1) / 4) * (Math.PI / 2);
-      S.box(CX + sgn * (2.3 + 0.9 * Math.cos(a) - 0.45), z, F + 11.6, F + 11.6 + 0.9 * Math.sin(a), 0.9 / 4 + 0.05, 0.5, 0, red);
+      S.box(CX + sgn * (2.0 + 0.8 * Math.cos(a) - 0.4), z, F + 10.25, F + 10.25 + 0.8 * Math.sin(a), 0.8 / 4 + 0.05, 0.5, 0, red);
     }
-    S.box(CX, z, F + 12.6, F + 12.85, 4.9, 0.8, 0, white);
-    S.box(CX, z, F + 12.85, F + 13.2, 2.2, 0.6, 0, red);
-    S.box(CX, z, F + 13.2, F + 13.5, 1.5, 0.7, 0, white); // the plate with HUE on it
-    S.box(CX, zf - 0.08, F + 13.25, F + 13.45, 1.0, 0.06, 0, redD);
-    S.box(CX, zf - 0.02, F + 10.9, F + 12.5, 2.2, 0.14, 0, white); // the clock frame
-    S.cyl(CX, zf - 0.12, F + 11.05, F + 12.35, 0.65, 0.65, 10, hex('#f6f3ea'));
-    S.beam([CX, F + 11.7, zf - 0.2], [CX, F + 12.2, zf - 0.2], 0.08, 0.05, glass);
-    S.beam([CX, F + 11.7, zf - 0.2], [CX + 0.35, F + 11.7, zf - 0.2], 0.08, 0.05, glass);
-    L.box(CX, zf - 0.22, F + 11.15, F + 12.25, 1.1, 0.03, 0, [1, 1, 1]);
-    lamp(CX, F + 11.7, zf - 0.8, [1, 0.97, 0.86]);
+    S.box(CX, z, F + 11.15, F + 11.35, 4.3, 0.8, 0, white);
+    S.box(CX, z, F + 11.35, F + 11.7, 1.9, 0.6, 0, red);
+    S.box(CX, z, F + 11.7, F + 12.0, 1.3, 0.7, 0, white); // the plate with HUE on it
+    S.box(CX, zf - 0.08, F + 11.75, F + 11.95, 0.9, 0.06, 0, redD);
+    S.box(CX, zf - 0.02, F + 9.6, F + 11.05, 1.9, 0.14, 0, white); // the clock frame
+    S.cyl(CX, zf - 0.12, F + 9.75, F + 10.9, 0.58, 0.58, 10, hex('#f6f3ea'));
+    S.beam([CX, F + 10.32, zf - 0.2], [CX, F + 10.75, zf - 0.2], 0.07, 0.05, glass);
+    S.beam([CX, F + 10.32, zf - 0.2], [CX + 0.3, F + 10.32, zf - 0.2], 0.07, 0.05, glass);
+    S.cyl(CX, z, F + 12.0, F + 14.2, 0.04, 0.03, 5, steel, { cap: false }); // flagpole
+    S.box(CX - 0.6, z, F + 13.4, F + 14.15, 1.2, 0.03, 0, hex('#d8262a')); // the flag
+    L.box(CX, zf - 0.22, F + 9.85, F + 10.8, 0.95, 0.03, 0, [1, 1, 1]);
+    lamp(CX, F + 10.3, zf - 0.8, [1, 0.97, 0.86]);
   }
-  // 2026: the white sign board across the upper floor (blue and gold lettering, the railway's logo)
+  // 2026: the white sign board across the upper floor (blue and gold lettering, the railway's logo). The 2024 pano
+  // shows no board, only red "GA HUẾ" letters standing on the canopy; the 2026 photo is kept (see docs/places).
   {
     const zf = C.z0 - 0.3;
-    S.box(CX, zf, F + 5.6, F + 7.7, 13.6, 0.18, 0, white);
-    S.box(CX, zf - 0.1, F + 6.3, F + 7.0, 7.4, 0.04, 0, gold);
-    S.box(CX, zf - 0.1, F + 7.25, F + 7.45, 6.0, 0.04, 0, red);
-    S.box(CX - 5.0, zf - 0.1, F + 6.3, F + 7.1, 2.0, 0.04, 0, gold);
-    L.box(CX, zf - 0.14, F + 5.7, F + 7.6, 13.4, 0.03, 0, [1, 1, 1]);
+    S.box(CX, zf, F + 5.9, F + 7.9, 12.2, 0.18, 0, white);
+    S.box(CX, zf - 0.1, F + 6.55, F + 7.2, 6.6, 0.04, 0, gold);
+    S.box(CX, zf - 0.1, F + 7.45, F + 7.65, 5.4, 0.04, 0, red);
+    S.box(CX - 4.5, zf - 0.1, F + 6.55, F + 7.3, 1.8, 0.04, 0, gold);
+    L.box(CX, zf - 0.14, F + 6.0, F + 7.8, 12.0, 0.03, 0, [1, 1, 1]);
   }
   // sides of the middle block: three windows upstairs, corner pilasters
   for (const [xf, s] of [[C.x0, -1], [C.x1, 1]]) {
     const f = onX(xf, s), zc = (C.z0 + C.z1) / 2;
-    f(zc, F + 5.0, F + 5.35, 14.6, 0.22, white);
-    f(zc, F + 9.3, F + 10.0, 15.0, 0.5, white);
-    f(zc, F + 10.7, F + 10.95, 15.0, 0.4, white);
-    S.box(xf - s * 0.12, zc, F + 10.95, F + 11.6, 0.3, 14.4, 0, red);
-    for (const sg of [-1, 1]) pilaster(f, zc + sg * 6.7, F + 6.0, F + 9.3, 1.3);
-    for (const v of [-3.4, 0, 3.4]) win(f, zc + v, F + 6.1, F + 8.6, 1.35);
+    f(zc, F + 5.55, F + 5.9, BD + 0.2, 0.22, white);
+    f(zc, F + 9.1, F + 9.55, BD + 0.6, 0.5, white);
+    f(zc, F + 10.2, F + 10.35, BD + 0.2, 0.3, white);
+    S.box(xf - s * 0.1, zc, F + 9.4, F + 10.25, 0.35, BD, 0, red);
+    for (const sg of [-1, 1]) pilaster(f, zc + sg * (BD / 2 - 0.55), F + 5.9, F + 9.1, 1.1);
+    for (const v of [-3.0, 0, 3.0]) win(f, zc + v, F + 6.3, F + 8.4, 1.15);
   }
 
   // ---- the wings and the end pavilions ----
+  // heights scaled by 0.9 from the first estimates, with the middle block (pano)
   const wing = (r, front) => {
     const xc = (r.x0 + r.x1) / 2, n = Math.max(2, Math.round((r.x1 - r.x0) / 3.4)), step = (r.x1 - r.x0) / n;
     for (const [zf, s] of [[r.z0, -1], [r.z1, 1]]) {
       const f = onZ(zf, s);
-      f(xc, F + 5.3, F + 5.9, r.x1 - r.x0 + 0.3, 0.4, white);
+      f(xc, F + 4.77, F + 5.31, r.x1 - r.x0 + 0.3, 0.4, white);
       // balustrade: base, balusters, rail
-      S.box(xc, zf - s * 0.2, F + 5.9, F + 6.2, r.x1 - r.x0, 0.35, 0, red);
-      for (let x = r.x0 + 0.3; x < r.x1 - 0.2; x += 0.55) S.box(x, zf - s * 0.2, F + 6.2, F + 6.75, 0.16, 0.18, 0, white);
-      S.box(xc, zf - s * 0.2, F + 6.75, F + 6.9, r.x1 - r.x0, 0.32, 0, white);
-      for (let i = 0; i <= n; i++) pilaster(f, r.x0 + i * step, F + 2.0, F + 5.3, 0.7);
+      S.box(xc, zf - s * 0.2, F + 5.31, F + 5.58, r.x1 - r.x0, 0.35, 0, red);
+      for (let x = r.x0 + 0.3; x < r.x1 - 0.2; x += 0.55) S.box(x, zf - s * 0.2, F + 5.58, F + 6.08, 0.16, 0.18, 0, white);
+      S.box(xc, zf - s * 0.2, F + 6.08, F + 6.21, r.x1 - r.x0, 0.32, 0, white);
+      for (let i = 0; i <= n; i++) pilaster(f, r.x0 + i * step, F + 2.0, F + 4.77, 0.7);
       for (let i = 0; i < n; i++) {
         const u = r.x0 + (i + 0.5) * step;
-        arch(f, u, F + 0.6, Math.min(1.9, step - 1.2), 2.6, (s < 0) === (i % 2 === 0) ? glass : door);
-        if (s < 0) L.box(u, zf - 0.13, F + 1.0, F + 3.0, 1.2, 0.04, 0, [1, 1, 1]);
+        arch(f, u, F + 0.6, Math.min(1.9, step - 1.2), 2.35, (s < 0) === (i % 2 === 0) ? glass : door);
+        if (s < 0) L.box(u, zf - 0.13, F + 1.0, F + 2.7, 1.2, 0.04, 0, [1, 1, 1]);
       }
     }
     void front;
@@ -215,13 +244,13 @@ export function build({ data, S, group, THREE }) {
     const xc = (r.x1 + r.x0) / 2, w = r.x1 - r.x0;
     for (const [zf, s] of [[r.z0, -1], [r.z1, 1]]) {
       const f = onZ(zf, s);
-      f(xc, F + 5.6, F + 6.15, w + 0.4, 0.45, white);
-      S.box(xc, zf - s * 0.15, F + 6.15, F + 7.1, w, 0.3, 0, red);
-      f(xc, F + 7.0, F + 7.2, w + 0.2, 0.1, white);
-      for (const sg of [-1, 1]) { pilaster(f, xc + sg * (w / 2 - 0.55), F + 2.0, F + 5.6, 1.1); S.box(xc + sg * (w / 2 - 0.55), zf - s * 0.3, F + 6.15, F + 7.6, 1.0, 0.8, 0, red); S.box(xc + sg * (w / 2 - 0.55), zf - s * 0.3, F + 7.6, F + 7.75, 1.2, 1.0, 0, white); }
+      f(xc, F + 5.04, F + 5.54, w + 0.4, 0.45, white);
+      S.box(xc, zf - s * 0.15, F + 5.54, F + 6.39, w, 0.3, 0, red);
+      f(xc, F + 6.3, F + 6.48, w + 0.2, 0.1, white);
+      for (const sg of [-1, 1]) { pilaster(f, xc + sg * (w / 2 - 0.55), F + 2.0, F + 5.04, 1.1); S.box(xc + sg * (w / 2 - 0.55), zf - s * 0.3, F + 5.54, F + 6.84, 1.0, 0.8, 0, red); S.box(xc + sg * (w / 2 - 0.55), zf - s * 0.3, F + 6.84, F + 6.98, 1.2, 1.0, 0, white); }
       arch(f, xc, F + 0.05, 2.2, 2.9, s < 0 ? door : glass);
     }
-    for (const [xf, s] of [[r.x0, -1], [r.x1, 1]]) { const f = onX(xf, s), zc = (r.z0 + r.z1) / 2; f(zc, F + 5.6, F + 6.15, r.z1 - r.z0 + 0.4, 0.45, white); arch(f, zc, F + 0.8, 1.7, 2.4); }
+    for (const [xf, s] of [[r.x0, -1], [r.x1, 1]]) { const f = onX(xf, s), zc = (r.z0 + r.z1) / 2; f(zc, F + 5.04, F + 5.54, r.z1 - r.z0 + 0.4, 0.45, white); arch(f, zc, F + 0.8, 1.7, 2.4); }
   };
   endPav(WE); endPav(EE);
   // the annexes: plainer single-storey offices under a flat roof
@@ -236,21 +265,21 @@ export function build({ data, S, group, THREE }) {
   }
 
   // ---- the street canopy: a flat concrete slab on six round columns, the welcome board on its fascia ----
+  // pano: about 22.7 m wide, its fascia about 4.1 m out from the front, the columns on the landing's front edge
   {
-    const zf = C.z0, zo = zf - 5.6, zc = (zf + zo) / 2;
+    const zf = C.z0, zo = zf - 4.1, zc = (zf + zo) / 2, cw = 22.7, zCol = zf - 3.6;
     S.kind = KIND.PLAIN;
-    S.box(CX, zc, F + 4.4, F + 4.75, 29.6, 5.6, 0, white, { bottom: true, top: roofTop });
-    S.box(CX, zo + 0.15, F + 4.3, F + 5.4, 29.6, 0.3, 0, white); // fascia
-    S.box(CX, zo - 0.02, F + 4.65, F + 5.05, 25, 0.04, 0, blue); // the lettering
-    for (const sg of [-1, 1]) S.box(CX + sg * 14.8, zc, F + 4.3, F + 5.4, 0.3, 5.6, 0, white);
-    for (const u of [-12.2, -8.0, -2.6, 2.6, 8.0, 12.2]) {
-      const zc0 = Math.max(zo + 0.6, zKerb + 0.5); // at the kerb
-      S.cyl(CX + u, zc0, y0 + 0.1, F + 4.4, 0.3, 0.27, 10, column);
-      S.box(CX + u, zc0, y0 + 0.1, y0 + 0.5, 0.8, 0.8, 0, white);
-      S.box(CX + u, zc0, F + 4.2, F + 4.4, 0.75, 0.75, 0, white);
+    S.box(CX, zc, F + 3.95, F + 4.55, cw, zf - zo, 0, white, { bottom: true, top: slab }); // top over 5 m: the drive passes under its edge
+    S.box(CX, zo + 0.15, F + 3.8, F + 4.6, cw, 0.3, 0, white); // fascia
+    S.box(CX, zo - 0.02, F + 4.0, F + 4.4, cw - 2.4, 0.04, 0, blue); // the lettering
+    for (const sg of [-1, 1]) S.box(CX + sg * (cw / 2 - 0.15), zc, F + 3.8, F + 4.6, 0.3, zf - zo, 0, white);
+    for (const u of [-9.3, -6.2, -2.1, 2.1, 6.2, 9.3]) {
+      S.cyl(CX + u, zCol, F, F + 3.95, 0.26, 0.23, 10, column);
+      S.box(CX + u, zCol, F, F + 0.35, 0.7, 0.7, 0, white);
+      S.box(CX + u, zCol, F + 3.75, F + 3.95, 0.65, 0.65, 0, white);
     }
-    for (let u = -12; u <= 12.01; u += 4) lamp(CX + u, F + 4.2, zc);
-    L.box(CX, zo - 0.04, F + 4.62, F + 5.08, 25.4, 0.02, 0, [1, 1, 1]);
+    for (let u = -9; u <= 9.01; u += 3) lamp(CX + u, F + 3.7, zc);
+    L.box(CX, zo - 0.04, F + 3.97, F + 4.43, cw - 2.0, 0.02, 0, [1, 1, 1]);
   }
 
   // ---- platform side ----
@@ -269,7 +298,7 @@ export function build({ data, S, group, THREE }) {
   S.kind = KIND.PLAIN;
   for (const [xa, xb, zw] of [[-1193.6, C.x0, 1380.8], [C.x0, C.x1, C.z1], [C.x1, -1106.8, 1381.0]]) {
     const xc = (xa + xb) / 2, zo = edge(xc) - 0.7, d = zo - zw;
-    S.box(xc, zw + d / 2, F + 3.9, F + 4.25, xb - xa, d, 0, white, { bottom: true, top: roofTop });
+    S.box(xc, zw + d / 2, F + 3.9, F + 4.25, xb - xa, d, 0, white, { bottom: true, top: slab });
     S.box(xc, zo - 0.1, F + 3.8, F + 4.5, xb - xa, 0.2, 0, white);
     for (let x = xa + 2.5; x < xb - 1; x += 5.5) { S.cyl(x, zw + 1.4, F, F + 3.9, 0.22, 0.22, 8, white, { cap: false }); lamp(x, F + 3.7, zw + d * 0.6, [1, 0.9, 0.7]); }
   }
