@@ -26,9 +26,13 @@ import * as props from '../props.js';
 //    steps before the gate (1473253253), the half-moon pond (251679817, drawn by the water layer, not here); at the
 //    tomb the stele house (627391948), the paved path round the stele court (1473256420), the path along the Bửu
 //    Thành wall (1473256419) and the tomb node (4425212171).
-// Estimated: the levels of the courts (from the terrain), bay heights and roof pitches, the rear halls' places, the
-// side gates' places, the statue count (8 a side), the Bái Đình split into three levels down the slope east of the
-// stele court, the trụ biểu height, the inner Bửu Thành walls' sizes.
+//  - Google satellite and Street View (2026, looked at only, nothing kept): both zones' frames and courts, the annex
+//    behind Ngưng Hy, the rear and front side halls' places, the grey side-hall roofs and the terracotta Cung Môn tile,
+//    the tomb's three courts with the statue rows between the Bửu Thành and the stele house, and the stele house,
+//    trụ biểu and terrace as seen from the lane east of them.
+// Estimated: the levels of the courts (from the terrain), bay heights and roof pitches, the side gates' places, the
+// statue count (6 mandarins and 2 beasts a side), the stele house's and trụ biểu's heights (from the image), the
+// inner Bửu Thành walls' sizes.
 
 const C = {
   brick: hex('#6c6656'), brickMoss: hex('#5f6350'), cap: hex('#7e7a70'),
@@ -37,8 +41,16 @@ const C = {
   roofY: hex('#c89a3a'), roofYOld: hex('#ad8a44'), ridge: hex('#e3cf86'),
   stucco: hex('#827f78'), stuccoDark: hex('#5e5c58'), lawn: hex('#a1a574'), retain: hex('#8a8474'), slate: hex('#4f4f4e'),
   mandarin: hex('#6e6c66'), door: hex('#2b2422'),
+  roofGrey: hex('#5d5c57'), roofTerra: hex('#a4573b'), render: hex('#7a756a'),
+  foot: hex('#4f5148'), court: hex('#79705f'), courtPale: hex('#ada593'), panel: hex('#97938a'),
 };
 const gY = (x, z) => LAND_Y + rise(x, z);
+// The two zones' frames, set on the Google satellite (2026, checked with scripts' matched top views; imagery is not
+// kept in the repo). Temple: the axis of Ngưng Hy and Cung Môn (OSM), bearing 144.8°, which the side walls on the
+// satellite confirm to about a degree. Tomb: the middle of the Bửu Thành, facing east by 6.6° south through the
+// stele house (the OSM path round the Bửu Thành put it 3 m too far south and 2° too far north).
+const TEMPLE_O = [-2049.8, 4261.7], TEMPLE_F = [0.57696, 0.81678];
+const TOMB_O = [-2195.1, 4335.9], TOMB_F = [0.99337, 0.11496];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // a frame along an axis: s forward (the way the place faces), t to the right of s (x east, z south)
@@ -76,7 +88,7 @@ export function build({ S, data }) {
 const POND = [[66.3, -40.1], [58.9, -40.6], [23.8, -18.4], [19.5, -13.2], [19.1, -7.4], [32.0, 20.8], [41.6, 29.7], [53.5, 35.5], [72.6, 35.1], [81.7, 30.8], [87.2, 23.1], [87.5, 15.2], [71.3, -34.2]]
   .map(([x, z]) => [x - 2045, z + 4360]);
 function grounds(S, data) {
-  const TF = axis([-2049.8, 4261.7], [0.57696, 0.81678]), BF = axis([-2193.9, 4338.8], [0.9965, 0.084]);
+  const TF = axis(TEMPLE_O, TEMPLE_F), BF = axis(TOMB_O, TOMB_F);
   const loc = (F, x, z) => { const dx = x - F.P(0)[0], dz = z - F.P(0)[1], c = Math.cos(F.a), sn = Math.sin(F.a); return [dx * c + dz * sn, -dx * sn + dz * c]; };
   const inside = (x, z, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, zi] = r[i], [xj, zj] = r[j]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c; } return c; };
   const roads = [];
@@ -91,10 +103,10 @@ function grounds(S, data) {
   const nearRoad = (x, z) => roads.some(([a, b, w]) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = clamp(((x - a[0]) * dx + (z - a[1]) * dz) / (dx * dx + dz * dz || 1), 0, 1); return Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz) < w; });
   const want = (x, z) => {
     const [ts, tt] = loc(TF, x, z), [bs, bt] = loc(BF, x, z);
-    const inPrecinct = (x > -2145 && x < -2025 && z > 4248 && z < 4372) || (bs > -20 && bs < 92 && Math.abs(bt) < 26);
+    const inPrecinct = (x > -2145 && x < -2025 && z > 4248 && z < 4372) || (bs > -20 && bs < 72 && Math.abs(bt) < 26);
     if (!inPrecinct) return false;
-    if ((ts > -26.6 && ts < 53.4 && Math.abs(tt) < 26.6) || (ts > 53 && ts < 63 && Math.abs(tt) < 7.6)) return false; // the temple's courts and its gate stair
-    if ((bs > -13.4 && bs < 13.4 && Math.abs(bt) < 13.4) || (bs > 25.8 && bs < 84.5 && Math.abs(bt) < 11.6) || (bs > 13 && bs < 26 && Math.abs(bt) < 2.6)) return false; // the tomb
+    if ((ts > -22.6 && ts < 50.6 && Math.abs(tt) < 28.6) || (ts > 50 && ts < 63 && Math.abs(tt) < 7.6)) return false; // the temple's courts and its gate stair
+    if ((bs > -13.4 && bs < 35.8 && Math.abs(bt) < 13.6) || (bs > 35 && bs < 64.5 && Math.abs(bt) < 17.6)) return false; // the tomb
     return !inside(x, z, POND) && !nearRoad(x, z);
   };
   // the lift grows with the slope, so every face stays clear of the ground under its middle (a vertex's lift depends
@@ -133,9 +145,10 @@ function steps(S, F, s0, y0, s1, y1, w, t = 0, { col = C.blueStone, cheeks = 0 }
   }
 }
 // a wall along a polyline of (s, t) points; `top(p)` gives the level it stands on (defaults to the ground); gaps
-// [[s or t position along the run, width], ...] per run are left open
-function wall(S, F, pts, h, th, { col = C.brickMoss, cap = C.cap, base = null, gaps = [], maxSeg = 8 } = {}) {
-  S.kind = KIND.MASONRY;
+// [[s or t position along the run, width], ...] per run are left open; `h` may be a function (level it stands on,
+// lowest ground under it) => height, for a wall whose height is set from the ground outside
+function wall(S, F, pts, h, th, { col = C.brickMoss, cap = C.cap, base = null, gaps = [], maxSeg = 8, kind = KIND.MASONRY } = {}) {
+  S.kind = kind;
   for (let i = 0; i + 1 < pts.length; i++) {
     const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const runs = [];
@@ -150,9 +163,10 @@ function wall(S, F, pts, h, th, { col = C.brickMoss, cap = C.cap, base = null, g
         const pa = F.P(...sa), pb = F.P(...sb), pm = F.P((sa[0] + sb[0]) / 2, (sa[1] + sb[1]) / 2);
         const gs = [gY(...pa), gY(...pb), gY(...pm)];
         const lo = Math.min(...gs) - 0.6, on = base != null ? base(sa, sb) : Math.max(...gs);
+        const hh = typeof h === 'function' ? h(on, lo + 0.6) : h;
         S.base = on - LAND_Y;
-        S.box(pm[0], pm[1], lo, on + h, rl / ns + (k === ns - 1 ? th * 0.5 : 0), th, Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), col, { top: cap });
-        S.box(pm[0], pm[1], on + h, on + h + 0.12, rl / ns, th + 0.14, Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), cap);
+        S.box(pm[0], pm[1], lo, on + hh, rl / ns + (k === ns - 1 ? th * 0.5 : 0), th, Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), col, { top: cap });
+        S.box(pm[0], pm[1], on + hh, on + hh + 0.12, rl / ns, th + 0.14, Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), cap);
       }
     }
   }
@@ -173,25 +187,27 @@ function archGate(S, cx, cz, a, w, d, y0, h, { col = C.brickMoss, roof = C.roofY
 // Frame: the axis of Ngưng Hy and Cung Môn (OSM), facing south-east (bearing 145°) toward the half-moon pond; s = 0
 // at the back of the hall's 25 m base, t = 0 on the gate's centre line.
 function temple(S) {
-  const F = axis([-2049.8, 4261.7], [0.57696, 0.81678]);
+  const F = axis(TEMPLE_O, TEMPLE_F);
   const at = F.a + Math.PI / 2; // an angle with the long side across the axis
-  const S0 = -26, S1 = 53, T = 26; // the wall: 79 x 52 m, 262 m round
+  // the wall on the satellite: about 72 x 56 m (the wiki's 262 m round is a little more than the 256 m drawn)
+  const S0 = -22, S1 = 50, T = 28, B1 = 26.9, B2 = 43.8;
   // court levels down the slope: hall precinct, upper court (the side halls), forecourt behind the gate
-  const lvH = span(F, S0, 26, -T, T).hi + 0.1;
-  const lvC = Math.min(lvH - 0.3, span(F, 26, 43, -T, T).hi + 0.1);
-  const lvF = Math.min(lvC - 0.3, span(F, 43, S1, -T, T).hi + 0.1);
-  slab(S, F, S0, 26, -T, T, lvH, C.paving, C.retain);
-  slab(S, F, 26, 43, -T, T, lvC, C.paving, C.retain);
-  slab(S, F, 43, S1, -T, T, lvF, C.paving, C.retain);
-  steps(S, F, 43.1, lvF, 41.5, lvC, 6);
-  for (const t of [-14, 14]) steps(S, F, 43.1, lvF, 41.5, lvC, 3, t);
-  steps(S, F, 26.1, lvC, 24.4, lvH, 7);
+  const lvH = span(F, S0, B1, -T, T).hi + 0.1;
+  const lvC = Math.min(lvH - 0.3, span(F, B1, B2, -T, T).hi + 0.1);
+  const lvF = Math.min(lvC - 0.3, span(F, B2, S1, -T, T).hi + 0.1);
+  slab(S, F, S0, B1, -T, T, lvH, C.paving, C.foot);
+  slab(S, F, B1, B2, -T, T, lvC, C.paving, C.foot);
+  slab(S, F, B2, S1, -T, T, lvF, C.paving, C.foot);
+  // the flights go down onto the lower court, clear of the hall's own steps
+  steps(S, F, B2 + 1.6, lvF, B2, lvC, 6);
+  for (const t of [-14, 14]) steps(S, F, B2 + 1.6, lvF, B2, lvC, 3, t);
+  steps(S, F, B1 + 1.6, lvC, B1, lvH, 7);
   // a stone path (thần đạo) down the court
-  { const p = F.P(34.5); S.kind = KIND.MASONRY; S.box(p[0], p[1], lvC - 0.2, lvC + 0.06, 15, 3, F.a, C.blueStone, { topKind: KIND.ROAD }); }
-  { const p = F.P(48); S.box(p[0], p[1], lvF - 0.2, lvF + 0.06, 10, 3, F.a, C.blueStone, { topKind: KIND.ROAD }); }
+  { const p = F.P((B1 + 1.6 + B2) / 2); S.kind = KIND.MASONRY; S.box(p[0], p[1], lvC - 0.2, lvC + 0.06, B2 - B1 - 1.6, 3, F.a, C.blueStone, { topKind: KIND.ROAD }); }
 
-  // Điện Ngưng Hy: a 25 x 24 m stone base, three houses joined under three roofs (front, main, rear)
-  const hb0 = -2.7, hb1 = 21.3, plinth = lvH + 0.75;
+  // Điện Ngưng Hy: a 25 x 24 m stone base, three houses joined under three roofs (front, main, rear); the yellow roofs
+  // reach s 0.5-24.7 on the satellite
+  const hb0 = -0.3, hb1 = 23.7, plinth = lvH + 0.75;
   slab(S, F, hb0 - 1, hb1 + 1, -13.5, 13.5, plinth, shade(C.paving, 1.04), C.blueStone);
   for (const t of [-8, 0, 8]) steps(S, F, hb1 + 2.6, lvH, hb1 + 1, plinth, t ? 2.6 : 3.6, t, { cheeks: 0.4 });
   // the ridge 8-9 m over the ground at the hall (docs/heights-reference.json): main house 8.6, the others lower
@@ -215,45 +231,66 @@ function temple(S) {
     }
   }
 
-  // side halls: Công Nghĩa đường and Minh Ân viện at the front, the two tòng viện at the back (3 bays + 2 wings)
-  for (const sd of [-1, 1]) {
-    const pf = F.P(31, sd * 18.5);
-    S.kind = KIND.MASONRY; S.base = lvC - LAND_Y;
-    S.box(pf[0], pf[1], lvC - 0.4, lvC + 0.45, 17, 12, F.a, C.stone, { top: shade(C.paving, 1.04), topKind: KIND.ROAD });
-    pavilion(S, pf[0], pf[1], 15.5, 10, F.a, lvC + 0.45, { wallH: 3.0, rh: 2.6, roof: C.roofYOld, wall: C.lacquerOld, over: 0.9, segs: 2 });
-    const pb = F.P(-11.5, sd * 19.5);
+  // an annex behind the hall, narrower and roofed in grey tile (satellite; its name and use not documented)
+  {
+    const p = F.P(-4.6);
     S.kind = KIND.MASONRY; S.base = lvH - LAND_Y;
-    S.box(pb[0], pb[1], lvH - 0.4, lvH + 0.4, 17, 11, F.a, C.stone, { top: shade(C.paving, 1.04), topKind: KIND.ROAD });
-    pavilion(S, pb[0], pb[1], 15.5, 9.5, F.a, lvH + 0.4, { wallH: 2.9, rh: 2.5, roof: C.roofYOld, wall: C.lacquerOld, over: 0.9, segs: 2 });
+    S.box(p[0], p[1], lvH - 0.4, lvH + 0.45, 7.2, 15, F.a, C.stone, { top: shade(C.paving, 1.04), topKind: KIND.ROAD });
+    pavilion(S, p[0], p[1], 13, 6, at, lvH + 0.45, { wallH: 3.0, rh: 2.6, roof: C.roofGrey, wall: C.lacquerOld, over: 0.8, segs: 2 });
   }
 
-  // the wall, 3 m high and 0.55 m thick, on each court's level; Cung Môn in the front, arched gates in the others
-  const level = (sa, sb) => { const s = Math.max(sa[0], sb[0]); return s > 43 ? lvF : s > 26 ? lvC : lvH; };
-  const ring = [[S1, -T], [S1, T], [S0, T], [S0, -T], [S1, -T]];
-  wall(S, F, ring, 3, 0.55, { base: level, gaps: [[[T, 13.4]], [[S1 - 47, 3.6]], [[T, 3.6]], [[S1 - 47, 3.6]]] });
-  for (const sd of [-1, 1]) { const p = F.P(47, sd * T); archGate(S, p[0], p[1], F.a, 3.6, 1.4, lvF, 3.4); }
-  { const p = F.P(S0, 0); archGate(S, p[0], p[1], at, 4.2, 1.4, lvH, 3.6); }
+  // side halls: Công Nghĩa đường and Minh Ân viện at the front, the two tòng viện at the back (3 bays + 2 wings), set
+  // where the satellite shows them, each about 17.5 x 11 m over its eaves and roofed in dark grey tile
+  for (const sd of [-1, 1]) {
+    const pf = F.P(35.3, sd * 18.2);
+    S.kind = KIND.MASONRY; S.base = lvC - LAND_Y;
+    S.box(pf[0], pf[1], lvC - 0.4, lvC + 0.45, 16.6, 12, F.a, C.stone, { top: shade(C.paving, 1.04), topKind: KIND.ROAD });
+    pavilion(S, pf[0], pf[1], 15.5, 10, F.a, lvC + 0.45, { wallH: 3.0, rh: 2.6, roof: C.roofGrey, wall: C.lacquerOld, over: 0.9, segs: 2 });
+    const pb = F.P(-5.3, sd * 19.6);
+    S.kind = KIND.MASONRY; S.base = lvH - LAND_Y;
+    S.box(pb[0], pb[1], lvH - 0.4, lvH + 0.4, 17, 11, F.a, C.stone, { top: shade(C.paving, 1.04), topKind: KIND.ROAD });
+    pavilion(S, pb[0], pb[1], 15.5, 9.5, F.a, lvH + 0.4, { wallH: 2.9, rh: 2.5, roof: C.roofGrey, wall: C.lacquerOld, over: 0.9, segs: 2 });
+  }
+
+  // the wall, 0.55 m thick, on each court's level, grey render over a dark stone foot (Street View from the lane):
+  // about 2.6 m over the ground outside, the courts' retaining sides as its foot, never under 1.4 m over the court;
+  // Cung Môn in the front, arched gates in the others (the side ones where small gate roofs show on the satellite)
+  const level = (sa, sb) => { const s = Math.max(sa[0], sb[0]); return s > B2 ? lvF : s > B1 ? lvC : lvH; };
+  const ring = [[S1, -T], [S1, T], [S0, T], [S0, -T], [S1, -T]], SG = 22.8;
+  wall(S, F, ring, (on, g) => Math.max(1.4, g + 2.6 - on), 0.55, { col: C.render, kind: KIND.PLAIN, base: level, gaps: [[[T, 13.4]], [[S1 - SG, 3.6]], [[T, 3.6]], [[SG - S0, 3.6]]] });
+  for (const sd of [-1, 1]) { const p = F.P(SG, sd * T); archGate(S, p[0], p[1], F.a, 3.6, 1.4, lvH, 3.4, { col: C.render }); }
+  { const p = F.P(S0, 0); archGate(S, p[0], p[1], at, 4.2, 1.4, lvH, 3.6, { col: C.render }); }
 
   // Cung Môn: three bays, two storeys of wood on its own terrace, three steps down to the forecourt behind it and
-  // fifteen blue-stone steps with dragon cheeks down to the lane and the pond in front
-  const gTop = lvF + 0.45;
-  { const p = F.P(S1 + 0.5); S.kind = KIND.MASONRY; S.base = gTop - LAND_Y; S.box(p[0], p[1], span(F, S1 - 4, S1 + 5, -8, 8).lo - 0.8, gTop, 9, 15, F.a, C.blueStone, { top: shade(C.paving, 1.05), topKind: KIND.ROAD }); }
-  steps(S, F, S1 - 4.5, lvF, S1 - 3.9, gTop, 5);
-  { const p = F.P(S1 + 0.5); S.base = gTop - LAND_Y; pavilion(S, p[0], p[1], 12.6, 6.4, at, gTop, { tiers: 2, wallH: 3.3, rh: 2.3, roof: C.roofY, wall: C.lacquer, over: 0.9, colonnade: true, segs: 3 }); }
-  const foot = F.P(S1 + 5 + 4.6), footY = Math.max(gY(...foot), gTop - 15 * 0.17);
-  steps(S, F, S1 + 5 + 4.6, footY, S1 + 5, gTop, 5, 0, { cheeks: 0.5 });
+  // fifteen blue-stone steps with dragon cheeks down to the lane and the pond in front; its roofs are terracotta
+  // tile (Street View from the pond), not glazed yellow
+  const gTop = lvF + 0.45, GC = S1 + 2.5;
+  { const p = F.P(GC); S.kind = KIND.MASONRY; S.base = gTop - LAND_Y; S.box(p[0], p[1], span(F, GC - 4.5, GC + 4.5, -8, 8).lo - 0.8, gTop, 9, 15, F.a, C.blueStone, { top: shade(C.paving, 1.05), topKind: KIND.ROAD }); }
+  steps(S, F, GC - 5, lvF, GC - 4.4, gTop, 5);
+  { const p = F.P(GC); S.base = gTop - LAND_Y; pavilion(S, p[0], p[1], 12.6, 6.4, at, gTop, { tiers: 2, wallH: 3.3, rh: 2.3, roof: C.roofTerra, wall: C.lacquer, over: 0.9, colonnade: true, segs: 3 }); }
+  const foot = F.P(GC + 4.5 + 4.6), footY = Math.max(gY(...foot), gTop - 15 * 0.17);
+  steps(S, F, GC + 4.5 + 4.6, footY, GC + 4.5, gTop, 5, 0, { cheeks: 0.5 });
 }
 
-// ---------- the tomb: Bái Đình, Bi Đình, trụ biểu, Bửu Thành ----------
-// Frame: from the middle of the Bửu Thành (OSM path round its wall) east through the stele house (OSM), facing east
-// by 5° south. s = 0 at the grave.
+// ---------- the tomb: Bửu Thành, the front court, Bái Đình, the stele court with Bi Đình and trụ biểu ----------
+// Frame: from the middle of the Bửu Thành east through the stele house, facing east by 6.6° south. s = 0 at the
+// grave. The satellite reads west to east: the Bửu Thành (s -12.5..12.5), a pale paved front court (to s 23), the
+// Bái Đình, darker paving with rows of statues along both sides (to s 35.5), and the wider stele court (to s 61.5,
+// 34 m across) with the stele house at s 44; nothing built east of it. mia.vn's "three-level court" is read as these
+// three courts, each a step lower than the one behind it.
 function tomb(S) {
-  const F = axis([-2193.9, 4338.8], [0.9965, 0.084]);
+  const F = axis(TOMB_O, TOMB_F);
   const at = F.a + Math.PI / 2;
   const M = (s, t, h, col = C.mandarin) => statue(S, F, s, t, h, col);
+  const P1 = 23, A1 = 35.5, C1 = 61.5, WA = 13, WC = 16;
+
+  // levels from the east up: stele court, Bái Đình, front court, Bửu Thành
+  const cF = span(F, A1, C1, -WC, WC).hi + 0.3;
+  const aF = Math.max(span(F, P1, A1, -WA, WA).hi + 0.25, cF + 0.35);
+  const pF = Math.max(span(F, 12.5, P1, -WA, WA).hi + 0.25, aF + 0.35);
+  const bF = Math.max(span(F, -13, 13, -13, 13).hi + 0.3, pF + 0.35);
 
   // Bửu Thành: three square walls round the grave, each with one gate in the front
-  const bF = span(F, -13, 13, -13, 13).hi + 0.3;
   slab(S, F, -13, 13, -13, 13, bF, shade(C.paving, 0.95), C.brick);
   const sq = (r) => [[r, -r], [r, r], [-r, r], [-r, -r], [r, -r]];
   const flat = (y) => () => y;
@@ -275,73 +312,86 @@ function tomb(S) {
     S.hip(p[0], p[1], 4.2, 2.6, F.a, iF + 1.5, 0.8, shade(C.blueStone, 0.85), { flare: 0.15, over: 0.25, ridgeCol: shade(C.blueStone, 1.1), hips: true });
   }
 
-  // the paved way from the stele court to the Bửu Thành gate
-  const cF = span(F, 26, 52, -10.5, 10.5).hi + 0.35;
-  slab(S, F, 13, 26, -2.5, 2.5, Math.min(bF, cF), C.paving, C.brick);
+  // the three courts, a stone path down the middle of all of them, and steps between
+  slab(S, F, 12.5, P1, -WA, WA, pF, C.courtPale, C.retain);
+  slab(S, F, P1, A1, -WA, WA, aF, C.court, C.retain);
+  // the stele court; the lane from the north (OSM) comes in at grade at s 44.5-50, so the court is cut back there
+  const LN0 = 44.5, LN1 = 50, LT = -11.2;
+  slab(S, F, A1, LN0, -WC, WC, cF, C.court, C.retain);
+  slab(S, F, LN0, LN1, LT, WC, cF, C.court, C.retain);
+  slab(S, F, LN1, C1, -WC, WC, cF, C.court, C.retain);
+  const path = (s0, s1, y) => { const p = F.P((s0 + s1) / 2); S.kind = KIND.MASONRY; S.box(p[0], p[1], y - 0.2, y + 0.05, s1 - s0, 2.4, F.a, C.blueStone, { top: shade(C.blueStone, 1.25), topKind: KIND.ROAD }); };
+  path(14.3, P1, pF); path(P1 + 1.2, A1, aF); path(51.6, C1, cF);
+  steps(S, F, 14.3, pF, 12.7, bF, 2.4);
+  steps(S, F, P1 + 1.2, aF, P1, pF, 3);
+  steps(S, F, A1 + 1.2, cF, A1, aF, 3);
+  { const out = Math.max(gY(...F.P(C1 + 2.4)), cF - 2.4); steps(S, F, C1 + 2.4, out, C1, cF, 4); }
 
-  // the stele court (OSM path round it), the Bi Đình in it with a trụ biểu each side
-  slab(S, F, 26, 52, -10.5, 10.5, cF);
-  const sF = cF + 0.7;
-  slab(S, F, 37, 48.6, -5.8, 5.8, sF, shade(C.paving, 1.05), C.stuccoDark);
-  for (const s of [49.4, 36.2]) steps(S, F, s, cF, s + (s > 40 ? -0.8 : 0.8), sF, 3);
-  biDinh(S, F, 42.8, sF);
-  for (const sd of [-1, 1]) truBieu(S, F, 44, sd * 8.2, cF);
+  // the stele house on a balustraded terrace, a trụ biểu each side of it (Street View from the east)
+  const sF = cF + 1.0, ts0 = 38.2, ts1 = 49.8, tw = 5.8;
+  slab(S, F, ts0, ts1, -tw, tw, sF, shade(C.paving, 0.95), C.stuccoDark);
+  wall(S, F, [[ts1, -tw], [ts1, tw], [ts0, tw], [ts0, -tw], [ts1, -tw]], 0.7, 0.25, { col: C.stucco, cap: C.panel, base: flat(sF), gaps: [[[tw, 3.4]], [], [[tw, 3.4]]], maxSeg: 6 });
+  steps(S, F, ts1 + 1.8, cF, ts1, sF, 3.2);
+  steps(S, F, ts0 - 1.8, cF, ts0, sF, 3.2);
+  biDinh(S, F, 44, sF);
+  for (const sd of [-1, 1]) truBieu(S, F, 44, sd * 9, cF);
 
-  // Bái Đình: three levels down the slope east of the stele house, two rows of statues a side on each
-  let prev = cF;
-  const lv = [];
-  for (let k = 0; k < 3; k++) {
-    const s0 = 52 + k * 10, s1 = s0 + 10, y = Math.min(prev - 0.35, span(F, s0, s1, -10.5, 10.5).hi + 0.2);
-    slab(S, F, s0, s1, -10.5, 10.5, y);
-    steps(S, F, s0 + 1.4, y, s0 - 0.1, prev, 4);
-    lv.push(y); prev = y;
-  }
-  steps(S, F, 84.2, Math.max(gY(...F.P(84.2)), prev - 2), 82, prev, 4);
-  // statues: civil and military mandarins (tall, slim, of brick and lime), horses and elephants of cement
+  // statues on the Bái Đình: an outer row of four mandarins a side, an inner row of two mandarins, a horse and an
+  // elephant (the beasts nearest the stele court), all of brick, lime and cement
   for (const sd of [-1, 1]) {
-    for (const s of [54.5, 58.5]) { M(s, sd * 4.2, lv[0]); M(s, sd * 7.4, lv[0]); }
-    for (const s of [64.5, 68.5]) { M(s, sd * 4.2, lv[1]); M(s, sd * 7.4, lv[1]); }
-    beast(S, F, 76.5, sd * 7, lv[2], false);
-    beast(S, F, 76.5, sd * 3.8, lv[2], true);
+    for (const s of [25, 28, 31, 34]) M(s, sd * 10.6, aF);
+    for (const s of [25, 27.6]) M(s, sd * 7.2, aF);
+    beast(S, F, 30.4, sd * 7.2, aF, false);
+    beast(S, F, 33.6, sd * 7.2, aF, true);
   }
-  // low walls along the sides of the stele court and the Bái Đình
-  for (const sd of [-1, 1]) wall(S, F, [[26, sd * 11], [82, sd * 11]], 0.9, 0.4, { base: (sa, sb) => { const s = Math.max(sa[0], sb[0]); return s <= 52.5 ? cF : lv[clamp(Math.floor((s - 52.01) / 10), 0, 2)]; }, maxSeg: 5 });
+  // low balustrades round the courts' edges, open where the paths go out (the east steps; a path south at s 44)
+  const edge = (sa, sb) => { const s = Math.max(sa[0], sb[0]); return s <= P1 + 0.01 ? pF : s <= A1 + 0.01 ? aF : cF; };
+  for (const sd of [-1, 1]) {
+    wall(S, F, [[12.6, sd * (WA - 0.2)], [A1, sd * (WA - 0.2)], [A1, sd * (WC - 0.2)], [C1 - 0.2, sd * (WC - 0.2)], [C1 - 0.2, sd * 2.4]], 0.8, 0.3,
+      { col: C.stucco, cap: C.panel, base: edge, maxSeg: 5, gaps: [[], [], sd > 0 ? [[44 - A1, 3]] : [[(LN0 + LN1) / 2 - A1, LN1 - LN0]], []] });
+  }
 }
 
-// the stele house: square, rendered concrete with pilasters and round-arched doors on all four sides, a cornice, a
-// slate roof of two tiers; the stele inside
+// the stele house (Street View from the east): a tall square pavilion of grey cement with an arched door in a framed
+// front, pilasters and panels, a flared cornice with curled corners, an attic, a small hipped top roof and a finial;
+// the stele inside. About 7.2 m square, its finial some 9 m over the terrace (estimated from the image).
 function biDinh(S, F, s, y) {
-  const p = F.P(s), a = F.a, w = 10.4, wallH = 4.6;
+  const p = F.P(s), a = F.a, w = 7.2, wallH = 5.6;
   S.kind = KIND.PLAIN; S.base = y - LAND_Y;
   S.box(p[0], p[1], y, y + wallH, w, w, a, C.stucco);
   for (let i = 0; i < 4; i++) {
     const r = a + (i * Math.PI) / 2, ux = Math.cos(r), uz = Math.sin(r);
-    // the arched door: a dark opening with a round head
-    S.kind = KIND.PLAIN;
     const q = [p[0] + ux * (w / 2 + 0.02), p[1] + uz * (w / 2 + 0.02)];
-    S.box(q[0], q[1], y, y + 2.9, 0.06, 2.4, r, C.door);
-    S.box(q[0], q[1], y + 2.9, y + 3.6, 0.06, 2.4, r, C.door, { taper: 0.5 });
-    // pilasters at the corners and either side of the door
-    S.kind = KIND.PLAIN;
-    for (const v of [-4.6, -1.9, 1.9, 4.6]) S.box(q[0] - uz * v, q[1] + ux * v, y, y + wallH, 0.3, 0.65, r, shade(C.stucco, 1.08));
+    // the arched door: a dark opening with a round head
+    S.box(q[0], q[1], y, y + 2.9, 0.06, 2.2, r, C.door);
+    S.box(q[0], q[1], y + 2.9, y + 3.6, 0.06, 2.2, r, C.door, { taper: 0.5 });
+    // pilasters at the corners and either side of the door, light panels between them
+    for (const v of [-3.35, -1.7, 1.7, 3.35]) S.box(q[0] - uz * v, q[1] + ux * v, y, y + wallH, 0.3, 0.55, r, shade(C.stucco, 1.08));
+    for (const v of [-2.52, 2.52]) S.box(q[0] - uz * v, q[1] + ux * v, y + 0.9, y + 4.3, 0.08, 1.0, r, C.panel);
   }
-  S.box(p[0], p[1], y + wallH, y + wallH + 0.5, w + 0.7, w + 0.7, a, shade(C.stucco, 1.1), { top: C.stuccoDark });
-  S.hip(p[0], p[1], w + 0.4, w + 0.4, a, y + wallH + 0.5, 1.5, C.slate, { flare: 0.3, over: 0.7, fascia: 0.22, fasciaCol: C.stuccoDark, ridgeCol: C.stuccoDark, hips: true, segs: 2 });
-  S.box(p[0], p[1], y + wallH + 1.3, y + wallH + 2.9, 5.2, 5.2, a, C.stucco, { top: C.stuccoDark });
-  S.hip(p[0], p[1], 5.2, 5.2, a, y + wallH + 2.9, 1.7, C.slate, { flare: 0.3, over: 0.6, fascia: 0.2, fasciaCol: C.stuccoDark, ridgeCol: C.stuccoDark, hips: true, segs: 2 });
+  const yc = y + wallH;
+  S.box(p[0], p[1], yc, yc + 0.45, w + 0.6, w + 0.6, a, shade(C.stucco, 1.1), { top: C.stuccoDark });
+  S.hip(p[0], p[1], w + 0.6, w + 0.6, a, yc + 0.45, 0.4, C.slate, { flare: 0.15, over: 0.25, ridgeCol: C.stuccoDark, hips: true });
+  S.box(p[0], p[1], yc + 0.6, yc + 2.0, 5.6, 5.6, a, C.stucco, { top: C.stuccoDark });
+  for (let i = 0; i < 4; i++) { const r = a + (i * Math.PI) / 2, q = [p[0] + Math.cos(r) * 2.82, p[1] + Math.sin(r) * 2.82]; S.box(q[0], q[1], yc + 0.9, yc + 1.7, 0.06, 3.6, r, C.panel); }
+  S.hip(p[0], p[1], 5.8, 5.8, a, yc + 2.0, 0.9, C.slate, { flare: 0.1, over: 0.3 });
+  S.cyl(p[0], p[1], yc + 2.85, yc + 3.6, 0.35, 0.06, 8, C.stuccoDark);
   // the stele (1917) on its plinth, seen through the doors
-  S.kind = KIND.PLAIN;
   S.box(p[0], p[1], y, y + 0.6, 1.4, 2.6, a, C.blueStone);
   S.box(p[0], p[1], y + 0.6, y + 3.2, 0.3, 1.8, a, shade(C.blueStone, 1.15));
 }
-// a trụ biểu: a square shaft of rendered brick on a stepped base, a capital and a pointed finial
+// a trụ biểu: a square shaft of rendered brick on a stepped base, a lantern-like crown with small curled roofs and a
+// finial; about 10 m, its top a little over the stele house's finial (Street View)
 function truBieu(S, F, s, t, y) {
-  const p = F.P(s, t), a = F.a, h = 7.5;
+  const p = F.P(s, t), a = F.a, h = 10;
   S.kind = KIND.PLAIN; S.base = y - LAND_Y;
-  S.box(p[0], p[1], y - 0.3, y + 0.9, 1.7, 1.7, a, C.stuccoDark);
-  S.box(p[0], p[1], y + 0.9, y + h - 1.4, 1.0, 1.0, a, C.stucco, { taper: 0.82 });
-  S.box(p[0], p[1], y + h - 1.4, y + h - 0.9, 1.25, 1.25, a, shade(C.stucco, 1.1));
-  S.box(p[0], p[1], y + h - 0.9, y + h, 0.7, 0.7, a, C.stuccoDark, { taper: 0.1 });
+  S.box(p[0], p[1], y - 0.3, y + 0.35, 2.3, 2.3, a, C.stuccoDark);
+  S.box(p[0], p[1], y + 0.35, y + 1.2, 1.8, 1.8, a, C.stucco, { top: C.panel });
+  S.box(p[0], p[1], y + 1.2, y + h - 2.2, 1.7, 1.7, a, C.stucco, { taper: 0.9 });
+  S.box(p[0], p[1], y + h - 2.2, y + h - 1.9, 1.8, 1.8, a, shade(C.stucco, 1.1));
+  S.box(p[0], p[1], y + h - 1.9, y + h - 1.0, 1.3, 1.3, a, C.panel);
+  S.hip(p[0], p[1], 1.5, 1.5, a, y + h - 1.0, 0.45, C.stuccoDark, { flare: 0.15, over: 0.15, hips: true });
+  S.cyl(p[0], p[1], y + h - 0.6, y + h, 0.22, 0.04, 6, C.stuccoDark);
 }
 // the cement statues of the salutation court (src/landmarks/props.js): mandarins facing the axis, beasts facing
 // down it
