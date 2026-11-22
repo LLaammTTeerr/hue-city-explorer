@@ -24,7 +24,7 @@
   the wall band; hull patches join it to the mapped moat at the corner and the Ngự Hà at the inlet. Water ≈ 61,300 m²
   against 56,319 m² in the 2026 embankment project (VNA, 24/07/2026). The ring joins the river polygon, so the
   moorings' random stream shifted (most sampans moved; two landed with their ends on a bank): a mooring now needs water
-  under the whole hull. View `citadel-west-moat`. Open for the owner: bank by bridge landing vs. the project's area.
+  under the whole hull. View `citadel-west-moat`. Width decided (owner, 2026-11-22): keep the 70 m bank at the bridge landing, not the 56,319 m² project figure (about 50 m, which splits the moat at the bastion tips); see `docs/places/gate-cua-chanh-tay.md`.
 - Boats clear of bridges (2026-11-21, branch claude/jolly-euler-6c43bd): a visitor saw a boat through cầu Cửa Thượng
   Tứ (view `thuong-tu-boat`). Moorings in `scripts/build-data.mjs` were picked along the water rings with no regard for
   bridges; 11 of them sat under a deck (Thượng Tứ, Cồn Dã Viên, …). They now keep 3 m from every bridge road, rail and
