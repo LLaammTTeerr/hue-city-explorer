@@ -134,6 +134,18 @@ export function build({ S }) {
     const Bl = P(-run, b1, y0), Cl = P(0.3, b1, y0);
     S.quad(Bl, Cl, Cc, B, BRICK, [px * sg, 0.05, pz * sg]);
     S.quad(B, Cc, Cl, Bl, BRICK, [px * sg, 0.05, pz * sg]); // both windings: seen from either side of the edge
+    // creeper on the outer wall's upper end and a few dark streaks lower down (Street View)
+    S.kind = KIND.PLAIN;
+    for (let k = 0; k < 7; k++) {
+      const a0 = -run * (0.02 + rand(k + sg * 9, 21) * 0.28), w = 1.6 + rand(k, 22) * 2.4, hh = 1.2 + rand(k + sg, 23) * 2.2;
+      const ya = (a) => LAND_Y + (DECK - LAND_Y) * (1 + a / run);
+      const g = mix(hex('#3f5a2e'), hex('#5f7a3a'), rand(k, 24));
+      const n = [px * sg, 0.05, pz * sg], o = 0.05;
+      const Q = (a, y) => { const q = at(a, b1); return [q[0] + px * sg * o, y, q[1] + pz * sg * o]; };
+      S.quad(Q(a0 - w, ya(a0 - w) - hh), Q(a0, ya(a0) - hh), Q(a0, ya(a0)), Q(a0 - w, ya(a0 - w)), g, n);
+      S.quad(Q(a0, ya(a0) - hh), Q(a0 - w, ya(a0 - w) - hh), Q(a0 - w, ya(a0 - w)), Q(a0, ya(a0)), g, [-n[0], n[1], -n[2]]);
+    }
+    S.kind = KIND.MASONRY;
     // a brick kerb along the outer edge
     const k0 = P(-run, b1 - sg * 0.18, yFoot + 0.18), k1 = P(0.3, b1 - sg * 0.18, yTop + 0.18);
     S.beam(k0, k1, 0.36, 0.36, shade(SLOPE, 1.08));
