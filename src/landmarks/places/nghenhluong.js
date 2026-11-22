@@ -11,12 +11,18 @@ import { lightMaterial, glowPoints } from '../../geo/materials.js';
 // by gutters. Main roof two-tiered (chồng diêm) in yellow glazed tubular tiles, the porch roofs in yellow glazed
 // flat tiles; on the main ridge two dragons facing the sun. Platform 0.9 m, brick and bluestone kerbs; on the river
 // side 13 steps down to a corridor at the water.
-// Footprint: OSM way 239568224, 14.7 m along the axis × 11.1 m across (taken as the platform). The column grid,
-// tier heights and the porch depth are estimates from photos, scaled to that outline.
+// Footprint: OSM way 239568224, 14.7 m along the axis × 11.1 m across, is the pavilion under its roofs (the satellite
+// roof measures 15.0 × 11.9 m). The pavilion stands on a square terrace about 17.7 × 18 m (satellite), reached from
+// the plaza by a flight about 8 m wide between low ochre parapets (Street View from Lê Duẩn), with a brick-paved
+// apron about 9 m deep and 28 m wide before it. The column grid, tier heights and the porch depth are estimates from
+// photos, scaled to the OSM outline.
 export const id = 'nghenhluong';
 
-// the OSM outline's centre and long axis (metres, model frame: x east, z south), the axis pointing to the river
-const C0 = [-796.33, 453.15];
+// the centre and long axis (metres, model frame: x east, z south), the axis pointing to the river. OSM's outline
+// centre is (-796.33, 453.15); on the satellite (z20, measured on the terrace and on the roof, which agree) the
+// pavilion stands 1.8 m north-east of it across the axis and 0.4 m toward the river, so the outline is re-framed here.
+// The axis (145.4°) matches the satellite to within a degree.
+const C0 = [-794.62, 452.46];
 const AX = (() => { const dx = 8.3 + 8.4, dz = 12.1 + 12.1, l = Math.hypot(dx, dz); return [dx / l, dz / l]; })();
 
 const ROOF = PAL.imperialRoof; // bright yellow glazed tiles (lưu ly vàng)
@@ -24,7 +30,8 @@ const RIDGE = hex('#f1d77a');
 const LAC = PAL.lacquer; // red lacquered columns and beams
 const GOLD = hex('#c9a13b');
 const KERB = hex('#7d817f'); // đá thanh, the grey-blue bluestone of the kerbs and steps
-const BRICK = hex('#9a6a52'); // gạch vồ, the platform's brick face
+const OCHRE = hex('#c4a067'); // the terrace's plastered face and parapets, a weathered ochre (Street View)
+const PAVE = hex('#a3735c'); // the brick-paved apron toward the plaza (satellite)
 const FLOOR = hex('#b8ab95');
 const LANTERN = [1.0, 0.72, 0.34];
 
@@ -39,16 +46,24 @@ export function build({ S, group, place, THREE }) {
   const lan = [], lanC = [];
   const lantern = (q, y) => { lan.push(q[0], y, q[1]); lanC.push(...LANTERN); };
 
-  // ---- platform (0.9 m), brick faces on a bluestone plinth and kerb ----
-  const PL = 14.7, PW = 11.1, PH = 0.9, y0 = LAND_Y + PH;
+  // ---- the brick-paved apron between the plaza and the terrace (satellite: about 9 m deep, 28 m wide) ----
+  const PL = 17.7, PW = 18.0, PH = 0.9, y0 = LAND_Y + PH; // the terrace (satellite)
+  const n = 5, rise = PH / n, tread = 0.3;
   S.kind = KIND.MASONRY;
+  {
+    const a0 = -(PL / 2 + tread * (n - 1)), a1 = -18.0, q = at((a0 + a1) / 2, 0);
+    S.box(q[0], q[1], LAND_Y - 0.2, LAND_Y + 0.05, a0 - a1, 28.0, fa, PAVE, { topKind: KIND.ROAD });
+  }
+
+  // ---- the terrace (0.9 m): an ochre plastered face on a bluestone plinth, a bluestone kerb round the floor ----
   S.box(cx, cz, LAND_Y - 0.3, LAND_Y + 0.18, PL + 0.2, PW + 0.2, fa, KERB, { topKind: KIND.ROAD });
-  S.box(cx, cz, LAND_Y + 0.18, y0 - 0.14, PL, PW, fa, BRICK);
+  S.box(cx, cz, LAND_Y + 0.18, y0 - 0.14, PL, PW, fa, OCHRE);
   S.box(cx, cz, y0 - 0.14, y0, PL + 0.12, PW + 0.12, fa, KERB, { top: FLOOR, topKind: KIND.ROAD });
 
-  // a flight up the middle of the road (front) face and the river (back) face, between bluestone cheek walls
-  const n = 5, rise = PH / n, tread = 0.34, sw = 3.4;
+  // a flight up the middle of the plaza (front) face, about 8 m wide (Street View), and a narrower one on the
+  // river face (not visible in the imagery; kept from the earlier estimate)
   for (const sg of [-1, 1]) {
+    const sw = sg < 0 ? 8.0 : 3.4;
     S.kind = KIND.MASONRY;
     for (let k = 1; k < n; k++) {
       const q = at(sg * (PL / 2 + tread * (k - 0.5)), 0);
@@ -59,6 +74,13 @@ export function build({ S, group, place, THREE }) {
       const a = at(sg * (PL / 2 - 0.2), s2 * (sw / 2 + 0.2)), b = at(sg * (PL / 2 + tread * (n - 1) + 0.1), s2 * (sw / 2 + 0.2));
       S.beam([a[0], y0 + 0.1, a[1]], [b[0], LAND_Y + 0.12, b[1]], 0.36, 0.34, KERB);
     }
+  }
+  // the low parapets along the front edge either side of the flight, ochre with a dark coping (Street View)
+  for (const s2 of [-1, 1]) {
+    const b0 = 4.2, b1 = PW / 2, q = at(-(PL / 2 - 0.2), s2 * (b0 + b1) / 2);
+    S.kind = KIND.MASONRY;
+    S.box(q[0], q[1], y0, y0 + 0.5, 0.4, b1 - b0, fa, OCHRE);
+    S.box(q[0], q[1], y0 + 0.5, y0 + 0.62, 0.5, b1 - b0 + 0.1, fa, shade(KERB, 0.7));
   }
 
   // ---- the open pavilion: 16 columns in a 4 × 4 grid (one bay and four aisles), porches before and behind ----
@@ -97,6 +119,19 @@ export function build({ S, group, place, THREE }) {
       fret(sg * 4, m, pa, len, y0 + hOut - 0.27, 0.42); // main square, front/back faces (inside the porch)
       fret(m, sg * 4, fa, len, y0 + hOut - 0.27, 0.42); // main square, the open sides
       fret(sg * (4 + PD), m, pa, len, y0 + hPorch - 0.26, 0.36); // porch fronts
+    }
+    // the porch fronts' side bays close in carved arches (Street View: two round-headed openings flanking the wide
+    // square middle one); a stepped spandrel panel above a gilt arch rib
+    for (const i of [0, 2]) {
+      const b0 = G[i] + 0.17, b1 = G[i + 1] - 0.17, yTop = y0 + hPorch - 0.53, ySpring = y0 + hPorch - 1.15, N = 8;
+      const arch = (t) => ySpring + (yTop - 0.12 - ySpring) * Math.sin(Math.PI * t);
+      for (let k = 0; k < N; k++) {
+        const t0 = k / N, t1 = (k + 1) / N, bm = b0 + (b1 - b0) * (t0 + t1) / 2, ym = Math.min(arch(t0), arch(t1));
+        const q = at(sg * (4 + PD), bm);
+        S.box(q[0], q[1], ym, yTop, 0.06, (b1 - b0) / N + 0.01, fa, shade(LAC, 0.62));
+        const p0 = at(sg * (4 + PD), b0 + (b1 - b0) * t0), p1 = at(sg * (4 + PD), b0 + (b1 - b0) * t1);
+        S.beam([p0[0], arch(t0), p0[1]], [p1[0], arch(t1), p1[1]], 0.1, 0.07, GOLD);
+      }
     }
   }
 
@@ -147,10 +182,10 @@ export function build({ S, group, place, THREE }) {
   }
 
   // ---- toward the river: an apron to the bank, 13 steps down it, the corridor at the water and the jetty ----
-  // The model's bank (the land polygon) runs about 18.5 m out along the axis; OSM's landing (way 618267890) reaches
+  // The model's bank (the land polygon) runs about 18 m out along the axis from the centre; OSM's landing (way 618267890) reaches
   // the same line, its jetty 36 m out. The real flight starts at the platform, but the model's land fills the space
   // where it drops, so the 13 steps are laid down the bank face instead, keeping the landing and jetty where OSM has them.
-  const bank = 18.4, wl = 0.45; // river surface is y = 0; the corridor stands just above it
+  const bank = 18.0, wl = 0.45; // river surface is y = 0; the corridor stands just above it
   S.kind = KIND.MASONRY;
   const r = at((PL / 2 + tread * (n - 1) + bank) / 2, 0);
   S.box(r[0], r[1], LAND_Y - 0.25, LAND_Y + 0.12, bank - PL / 2 - tread * (n - 1), 8.4, fa, shade(FLOOR, 0.95), { topKind: KIND.ROAD });
@@ -172,7 +207,7 @@ export function build({ S, group, place, THREE }) {
   let q = at(bank + run + lw / 2, 0);
   S.box(q[0], q[1], wl - 0.9, wl, lw, 10.4, fa, shade(KERB, 0.95), { topKind: KIND.ROAD });
   // the narrow jetty out to 36 m (OSM), a deck on piles
-  const j0 = bank + run + lw, j1 = 36.1;
+  const j0 = bank + run + lw, j1 = 35.7;
   q = at((j0 + j1) / 2, 0);
   S.kind = KIND.PLAIN;
   S.box(q[0], q[1], wl - 0.12, wl, j1 - j0, 1.0, fa, hex('#a59d90'));

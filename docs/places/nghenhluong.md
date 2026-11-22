@@ -35,3 +35,17 @@ Replica: `src/landmarks/places/nghenhluong.js` (old code in `citadel.js` skipped
 - Fretwork and ridge ornament are simplified at model scale; tile colour is from photos, not a measured value.
 - Real dimensions of the column grid and roof heights are not published; confirm if a survey drawing turns up.
 - Note for the coordinator: `scripts/shot.mjs` leaves its vite preview server running after each run (kill it by port).
+
+## Satellite and Street View alignment (2026-11)
+Compared against Google satellite (z17–z20) and three car Street View panos from Lê Duẩn (visual reference only,
+captures kept out of the repo).
+- Position: the OSM outline centre sits 1.8 m south-west of the pavilion (across the axis) and 0.4 m short of it
+  toward the river; terrace and roof agree, so `C0` is re-framed to (-794.62, 452.46). Axis 145.4° matches within 1°.
+- Terrace: the pavilion (roof 15.0 × 11.9 m on the satellite, OSM 14.7 × 11.1 m) stands on a square terrace about
+  17.7 × 18 m, not on a platform the size of the OSM outline. Street View from the plaza shows its face and the low
+  parapets either side of the front flight in a weathered ochre with a dark coping, and the flight about 8 m wide.
+- Before the terrace a brick-paved apron (about 9 m deep, 28 m wide) joins the plaza (satellite).
+- The porch fronts: the side bays close in round-headed carved arches either side of the wide square middle opening
+  (Street View).
+- Not visible, kept as estimated: column grid and heights, roof tiers, the river-side flight width (3.4 m).
+- The landing and jetty keep their OSM line (bank 18.0 m, jetty end 35.7 m from the re-framed centre).
