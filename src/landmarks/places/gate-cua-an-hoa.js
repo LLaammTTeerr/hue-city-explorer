@@ -1,7 +1,6 @@
 import { KIND, hex, shade, unflat } from '../../geo/buf.js';
-import { gateAxis } from '../../geo/gates.js';
+import { gateAxis, rectRing } from '../../geo/gates.js';
 import { LAND_Y, WALL_H, PAL } from '../../config.js';
-import { pavilion } from '../citadel.js';
 
 // Cửa An Hòa (安和, officially Tây Bắc Môn 西北門), the north-west gate of the Kinh thành Huế, at the end of đường
 // Nguyễn Trãi, opening over Cầu An Hòa and the moat towards An Hòa village and market. Notes and sources:
@@ -13,21 +12,31 @@ import { pavilion } from '../citadel.js';
 // tubular tiles rising more than 9 m over the wall top, the whole gate more than 17 m high (huetourism.gov.vn, after
 // Phan Thuận An). The rampart is 6.6 m high. Plan, centre and axis: the OSM gate building (way 367959065, 17.5 m
 // along the wall × 13.9 m), Nguyễn Trãi's passage through it (way 39418370) and Cầu An Hòa over the moat
-// (way 39412997, drawn as a road bridge by the shared bridge code, not here).
+// (way 39412997, drawn as a road bridge by the shared bridge code, not here). The satellite agrees with that axis
+// (bridge bearing 324.5° against 323.3° here) and puts the gate within about 2-3 m of the OSM centre.
 //
-// Estimated from photographs of the Kinh thành gates: the block a little higher than the wall walk, of weathered
-// lime-rendered brick gone dark and mossy on this north-facing side, pilasters framing the arch bay, a moulded cornice
-// and a crenellated parapet round the flat top; the vọng lâu a colonnaded lower storey under the first roof and a
-// small closed upper storey under the second, red lacquered timber and yellow glazed tiles.
+// As it stands (street-level photographs from the bridge, Nguyễn Trãi and Lương Ngọc Quyền, 2025; heights scaled from
+// the sourced arch): a block of dark weathered brick, mottled with lime render and black lichen, its ends stepped out
+// as broad corner piers; the arch set in a framed panel that rises to rampart height under a moulded band; the
+// pale stone plaque between that band and a cornice at 9 m; a plain parapet with corner posts round the flat
+// top (no crenellations). On it a masonry vọng lâu, not a timber pavilion: a lime-rendered lower storey with three
+// arched openings on the long faces (the middle one tall and wide, its back painted red) and one on each end, a short
+// skirt of terracotta tiles with up-turned corners, a balustraded terrace, and a small upper storey with an arched
+// window front and back and a round window in each end, under a low hipped terracotta roof with ridge ornaments and
+// a lightning rod: about 19 m to the ridge.
 export const id = 'gate:Cửa An Hòa';
 const NAME = 'Cửa An Hòa';
 
 const ARCH_W = 3.82, ARCH_H = 5.19; // huetourism.gov.vn
 const PLAQUE_W = 2.31, PLAQUE_H = 1.1; // the stone tablet, same source
-const TOP = 1.45; // the block above the wall walk (estimate: room for arch + plaque + cornice, 17 m in all)
-const BODY = hex('#6c675f'), DAMP = hex('#45433c'), MOSS = hex('#545a45'), FRAME = hex('#aaa290');
-const CORNICE = hex('#837d72'), DARK = hex('#1d1916'), DOOR = hex('#4a2c1e'), IRON = hex('#2a2826');
-const PLAQUE = hex('#cfc4aa'), PLAQUE_IN = hex('#38312c');
+const TOP = 2.4; // the block's flat top over the wall walk: the cornice tops out at 9.0 m (photo, scaled by the arch)
+const LOW = { w: 10.2, d: 7.0, h: 5.05 }; // vọng lâu, lower storey (photo from the bridge; depth estimated)
+const UP = { w: 4.9, d: 3.8, h: 3.3 }; // upper storey (same)
+const BODY = hex('#625f57'), DAMP = hex('#3f3d37'), LICHEN = hex('#535049'), LIME = hex('#726f66'), FRAME = hex('#7a766b');
+const CORNICE = hex('#77736a'), DARK = hex('#1d1916'), DOOR = hex('#4a2c1e'), IRON = hex('#2a2826');
+const PLAQUE = hex('#8c887c'), PLAQUE_IN = hex('#b9b4a5');
+const RENDER = hex('#7f7d73'), STONE = hex('#8e8b80'), RED = hex('#7e4532');
+const TILE = hex('#ac5f3e'), TILE_D = hex('#74452f'), ORN = hex('#cfc9b8'), CURL = hex('#57514a');
 
 export function build({ data, S, group, place, THREE }) {
   const norm = (s) => String(s || '').normalize('NFC');
@@ -99,48 +108,128 @@ export function build({ data, S, group, place, THREE }) {
     for (const yy of [fl + 0.6, (fl + spring) / 2, spring - 0.6]) box(sg * (r - 0.18), vOut - 2.4, yy, yy + 0.1, 0.03, r * 0.95, IRON);
   }
 
-  // ---- the faces: damp foot, moss streaks, pilasters, the arch's surround, the plaque, the cornice ----
+  // ---- the faces: damp foot, corner piers, the framed arch panel, lichen and lime, the plaque, the cornice ----
+  S.kind = KIND.MASONRY;
   for (const [v, sg] of [[vIn, -1], [vOut, 1]]) {
     const t = v + sg * 0.1;
-    box(0, t + sg * 0.02, y0, LAND_Y + 0.8, W + 0.3, 0.25, DAMP);
+    box(0, t + sg * 0.02, y0, LAND_Y + 0.7, W + 0.3, 0.25, DAMP);
     for (const s of [-1, 1]) {
-      box(s * (W / 2 - 0.5), t, LAND_Y + 0.8, yT - 0.55, 1.0, 0.2, shade(BODY, 1.07)); // corner pilasters
-      box(s * 4.2, t, LAND_Y + 0.8, yT - 0.55, 0.75, 0.16, shade(BODY, 1.05)); // pilasters framing the arch bay
+      // the broad corner piers, stepped out from the face and capped under the cornice
+      box(s * (W / 2 - 1.0), t + sg * 0.06, y0, yT - 0.75, 2.0, 0.32, shade(BODY, 1.05));
+      box(s * (W / 2 - 1.0), t + sg * 0.1, yT - 0.95, yT - 0.55, 2.2, 0.4, CORNICE);
+      // the panel the arch is set in, framed up to rampart height
+      box(s * 3.1, t + sg * 0.02, fl, LAND_Y + 6.4, 0.6, 0.14, FRAME);
       box(s * (r + 0.2), t + sg * 0.02, fl, spring, 0.4, 0.14, FRAME); // the arch's jambs
-      // lichen run down from the cornice, more on the outer (north-west) face
-      for (const [u0, h] of sg > 0 ? [[2.6, 3.2], [6.1, 4.4]] : [[6.4, 2.4]]) box(s * u0, t + sg * 0.01, yT - 0.6 - h, yT - 0.6, 0.9 + (h % 1), 0.2, MOSS);
+      // black lichen run down from the cornice and pale patches of the old lime render
+      for (const [u0, h, w] of sg > 0 ? [[4.6, 3.4, 1.1], [6.9, 5.2, 0.8], [1.9, 1.2, 0.9]] : [[5.8, 3.0, 1.0], [2.2, 1.0, 0.8]]) box(s * u0, t + sg * 0.01, yT - 0.6 - h, yT - 0.6, w, 0.2, LICHEN);
+      for (const [u0, ya, yb, w] of sg > 0 ? [[5.4, 2.4, 4.4, 1.3], [2.5, 6.8, 7.7, 0.7]] : [[4.8, 3.0, 4.6, 1.1]]) box(s * u0, t + sg * 0.01, LAND_Y + ya, LAND_Y + yb, w, 0.2, LIME);
     }
     for (let k = 0; k < K; k++) { // the arch's moulded band
       const [sa, ya] = arc(k, r + 0.2), [sb, yb] = arc(k + 1, r + 0.2);
       S.beam(V(sa, t + sg * 0.02, ya), V(sb, t + sg * 0.02, yb), 0.14, 0.4, FRAME);
     }
-    box(0, t + sg * 0.05, crown + 0.02, crown + 0.48, 0.42, 0.14, FRAME); // keystone
-    // the stone plaque: a light frame, the characters on a dark ground
-    const pb = crown + 0.62;
+    box(0, t + sg * 0.06, LAND_Y + 6.4, LAND_Y + 6.7, 6.9, 0.28, CORNICE); // the band over the panel
+    // the stone plaque over the band: a grey frame round a paler field cut with the characters
+    const pb = LAND_Y + 6.95;
     box(0, t + sg * 0.06, pb - 0.12, pb + PLAQUE_H + 0.12, PLAQUE_W + 0.3, 0.16, PLAQUE);
     box(0, t + sg * 0.12, pb, pb + PLAQUE_H, PLAQUE_W, 0.06, PLAQUE_IN);
-    box(0, t, crown + 0.5, crown + 0.56, 7.6, 0.16, shade(BODY, 1.06)); // the band across the arch bay
     box(0, t + sg * 0.08, yT - 0.55, yT - 0.15, W + 0.5, 0.36, CORNICE);
     box(0, t + sg * 0.14, yT - 0.15, yT, W + 0.7, 0.48, shade(CORNICE, 1.08), { top: shade(PAL.stone, 0.8) });
   }
 
-  // ---- the crenellated parapet (lỗ châu mai) round the flat top ----
+  // ---- the plain parapet round the flat top, with a post at each corner ----
+  const pc = P(0, vm);
+  const ring = (w, d) => rectRing(pc[0], pc[1], w, d, ang);
   S.kind = KIND.MASONRY;
-  for (const [len, alongU, off] of [[W, true, vIn + 0.25], [W, true, vOut - 0.25], [D, false, -W / 2 + 0.25], [D, false, W / 2 - 0.25]]) {
-    const n = Math.max(3, Math.round(len / 1.4) | 1);
-    for (let k = 0; k < n; k++) {
-      const s = -len / 2 + (len * (k + 0.5)) / n, h = k % 2 === 0 ? 1.15 : 0.62;
-      if (alongU) box(s, off, yT, yT + h, len / n, 0.5, shade(BODY, 1.1), { top: PAL.stone });
-      else box(off, vm + s, yT, yT + h, 0.5, len / n, shade(BODY, 1.1), { top: PAL.stone });
+  {
+    const outer = ring(W + 0.3, D + 0.2), inner = ring(W - 0.3, D - 0.4);
+    S.prism(outer, yT, yT + 0.45, shade(BODY, 1.06), shade(BODY, 1.06), { holes: [inner.slice().reverse()] });
+    const co = ring(W + 0.45, D + 0.35), ci = ring(W - 0.45, D - 0.55);
+    S.prism(co, yT + 0.45, yT + 0.6, CORNICE, shade(PAL.stone, 0.85), { holes: [ci.slice().reverse()] });
+    for (const a of [-1, 1]) for (const b of [-1, 1]) {
+      const u = a * (W / 2 - 0.05), v = vm + b * (D / 2 - 0.05), q = P(u, v);
+      box(u, v, yT, yT + 1.0, 0.5, 0.5, shade(BODY, 1.06));
+      S.box(q[0], q[1], yT + 1.0, yT + 1.15, 0.62, 0.62, ang, CORNICE);
     }
   }
-  // a stone sill under the tower's colonnade
-  box(0, vm, yT, yT + 0.25, Math.min(pwid * 0.7, 12.2) + 0.8, Math.min(D * 0.5, 7.6) + 0.8, shade(PAL.stone, 0.92), { topKind: KIND.ROAD });
 
-  // ---- the vọng lâu: two storeys, red lacquer under yellow glazed tubular tiles ----
+  // ---- the vọng lâu: a masonry lower storey, a skirt of tiles, a terrace, a small upper storey ----
+  // An arched opening on one of the tower's faces: a render ring round a recess (rectangle to the spring, half-disc
+  // above). along: the face is at constant v (centred at u = s); otherwise at constant u (centred at v = t).
+  const opening = (s, t, sg, along, ya, w, h, back) => {
+    const rr0 = w / 2, sp = ya + h - rr0, KK = 7;
+    const at = (q, y, d) => (along ? V(s + q, t + sg * d, y) : V(s + sg * d, t + q, y));
+    const n = along ? N(0, sg) : N(sg, 0);
+    for (const [rr, d, col] of [[rr0 + 0.2, 0.03, STONE], [rr0, 0.05, back]]) {
+      quad(at(-rr, ya, d), at(rr, ya, d), at(rr, sp, d), at(-rr, sp, d), col, n);
+      for (let k = 0; k < KK; k++) {
+        const a0 = Math.PI - (Math.PI * k) / KK, a1 = Math.PI - (Math.PI * (k + 1)) / KK;
+        S.tri(at(0, sp, d), at(rr * Math.cos(a0), sp + rr * Math.sin(a0), d), at(rr * Math.cos(a1), sp + rr * Math.sin(a1), d), col, n);
+      }
+    }
+  };
+  // a round window on an end face (constant u): a stone ring round a dark disc
+  const roundel = (s, sg, yc, rad) => {
+    const KK = 12, n = N(sg, 0);
+    for (const [rr, d, col] of [[rad + 0.14, 0.03, STONE], [rad, 0.05, DARK]]) for (let k = 0; k < KK; k++) {
+      const a0 = (2 * Math.PI * k) / KK, a1 = (2 * Math.PI * (k + 1)) / KK;
+      S.tri(V(s + sg * d, vm, yc), V(s + sg * d, vm + rr * Math.cos(a0), yc + rr * Math.sin(a0)), V(s + sg * d, vm + rr * Math.cos(a1), yc + rr * Math.sin(a1)), col, n);
+    }
+  };
+
+  S.kind = KIND.MASONRY;
+  box(0, vm, yT, yT + 0.4, LOW.w + 0.5, LOW.d + 0.5, STONE, { top: shade(PAL.stone, 0.85), topKind: KIND.ROAD }); // plinth
+  const yf = yT + 0.4, ye = yf + LOW.h;
+  box(0, vm, yf, ye, LOW.w, LOW.d, RENDER, { top: STONE });
+  box(0, vm, yf, yf + 0.6, LOW.w + 0.02, LOW.d + 0.02, DAMP); // damp, darkened foot
+  for (const sg of [-1, 1]) for (const [u0, h, w] of [[-4.3, 2.2, 0.9], [4.0, 1.4, 1.1]]) box(sg * u0, vm + sg * (LOW.d / 2 + 0.01), ye - h, ye, w, 0.04, shade(RENDER, 0.86));
   S.kind = KIND.PLAIN;
-  const pc = P(0, vm);
-  pavilion(S, pc[0], pc[1], Math.min(pwid * 0.7, 12.2), Math.min(D * 0.5, 7.6), ang, yT + 0.25, { tiers: 2, wallH: 3.2, roof: PAL.imperialRoof, ridge: hex('#f1d77a'), over: 1.3, rh: 2.9, colonnade: true });
+  for (const dt of [-1, 1]) {
+    const t = vm + (dt * LOW.d) / 2;
+    opening(0, t, dt, true, yf, 2.4, 3.95, RED); // the middle opening, its back painted red
+    opening(-3.2, t, dt, true, yf, 1.4, 2.65, dt > 0 ? DARK : RED);
+    opening(3.2, t, dt, true, yf, 1.4, 2.65, dt > 0 ? RED : DARK);
+  }
+  for (const sg of [-1, 1]) opening((sg * LOW.w) / 2, vm, sg, false, yf, 1.5, 2.5, RED);
+  // the cornice and the skirt of tiles with up-turned corners
+  S.kind = KIND.MASONRY;
+  box(0, vm, ye - 0.05, ye + 0.25, LOW.w + 0.35, LOW.d + 0.35, STONE);
+  const ys = ye + 0.25;
+  S.kind = KIND.TILE;
+  S.prism(ring(LOW.w + 1.6, LOW.d + 1.6), ys - 0.12, ys + 0.4, TILE, TILE, { scaleTop: 0.86, top: false });
+  S.kind = KIND.PLAIN;
+  box(0, vm, ys - 0.3, ys - 0.12, LOW.w + 1.6, LOW.d + 1.6, ORN); // the pale lime edge under the tiles
+  for (const a of [-1, 1]) for (const b of [-1, 1]) { // corner horns
+    const s = a * (LOW.w / 2 + 0.8), t = vm + b * (LOW.d / 2 + 0.8);
+    S.beam(V(s, t, ys - 0.05), V(s + a * 0.2, t + b * 0.2, ys + 0.4), 0.2, 0.2, CURL);
+  }
+  // the terrace on it, and its balustrade
+  S.kind = KIND.MASONRY;
+  box(0, vm, ys, ys + 0.35, LOW.w - 0.05, LOW.d - 0.05, STONE, { top: shade(PAL.stone, 0.85), topKind: KIND.ROAD });
+  const yt = ys + 0.35;
+  S.kind = KIND.PLAIN;
+  S.prism(ring(LOW.w - 0.2, LOW.d - 0.2), yt, yt + 0.55, shade(STONE, 0.9), shade(STONE, 1.05), { holes: [ring(LOW.w - 0.5, LOW.d - 0.5).slice().reverse()] });
+  for (const a of [-1, 1]) for (const b of [-1, 1]) box(a * (LOW.w / 2 - 0.25), vm + b * (LOW.d / 2 - 0.25), yt, yt + 0.9, 0.38, 0.38, STONE);
+  for (const sg of [-1, 1]) for (const s of [-1.8, 1.8]) box(s, vm + sg * (LOW.d / 2 - 0.25), yt, yt + 0.8, 0.32, 0.32, STONE);
+
+  // the upper storey and its roof
+  S.kind = KIND.MASONRY;
+  const yu = yt + UP.h;
+  box(0, vm, yt, yu, UP.w, UP.d, RENDER, { top: STONE });
+  S.kind = KIND.PLAIN;
+  for (const dt of [-1, 1]) opening(0, vm + (dt * UP.d) / 2, dt, true, yt + 0.3, 1.4, 1.9, DARK);
+  for (const sg of [-1, 1]) roundel((sg * UP.w) / 2, sg, yt + 1.5, 0.48);
+  S.kind = KIND.MASONRY;
+  box(0, vm, yu - 0.05, yu + 0.2, UP.w + 0.3, UP.d + 0.3, STONE);
+  const rh = 0.6;
+  S.hip(pc[0], pc[1], UP.w, UP.d, ang, yu + 0.2, rh, TILE, { flare: 0.3, over: 0.6, fascia: 0.18, fasciaCol: TILE_D, ridgeCol: hex('#c99060'), hips: true, segs: 2, horns: false });
+  // ridge ornaments: curled ends on the ridge and the four hips, a small finial and the lightning rod
+  S.kind = KIND.PLAIN;
+  const yr = yu + 0.2 + rh, rl = Math.max(0, (UP.w + 1.2) / 2 - ((UP.d + 1.2) / 2) * 0.92);
+  for (const sg of [-1, 1]) box(sg * rl, vm, yr, yr + 0.45, 0.3, 0.25, ORN);
+  for (const a of [-1, 1]) for (const b of [-1, 1]) box(a * (UP.w / 2 + 0.5), vm + b * (UP.d / 2 + 0.5), yu + 0.25, yu + 0.6, 0.22, 0.22, CURL);
+  box(0, vm, yr, yr + 0.35, 0.35, 0.3, ORN);
+  box(0, vm, yr + 0.35, yr + 1.6, 0.05, 0.05, hex('#4a4a48'));
 
   (S.paved = S.paved || []).push([n0, S.n]);
   S.kind = keep;
@@ -150,8 +239,8 @@ export function build({ data, S, group, place, THREE }) {
     const cv = document.createElement('canvas');
     cv.width = 256; cv.height = 112;
     const c = cv.getContext('2d');
-    c.fillStyle = '#38312c'; c.fillRect(0, 0, 256, 112);
-    c.fillStyle = '#e0c472'; c.font = 'bold 62px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillStyle = '#b9b4a5'; c.fillRect(0, 0, 256, 112);
+    c.fillStyle = '#4a443d'; c.font = 'bold 62px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
     ['門', '北', '西'].forEach((ch, i) => c.fillText(ch, 48 + i * 80, 58));
     const tex = new THREE.CanvasTexture(cv);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -159,7 +248,7 @@ export function build({ data, S, group, place, THREE }) {
     const geo = new THREE.PlaneGeometry(PLAQUE_W - 0.1, PLAQUE_H - 0.1);
     for (const [v, sg] of [[vIn, -1], [vOut, 1]]) {
       const p = P(0, v + sg * 0.27), m = new THREE.Mesh(geo, mat);
-      m.position.set(p[0], crown + 0.62 + PLAQUE_H / 2, p[1]);
+      m.position.set(p[0], LAND_Y + 6.95 + PLAQUE_H / 2, p[1]);
       m.rotation.y = Math.atan2(ox * sg, oz * sg);
       m.userData.landmark = id;
       group.add(m);
