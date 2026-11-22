@@ -130,7 +130,10 @@ Every push to `main` is checked, built and published to GitHub Pages by `.github
 `npm run data:fetch` (`scripts/fetch-osm-all.sh`) refreshes every OSM extract the build merges: the main Overpass
 extract (`scripts/fetch-osm.sh`, bbox 16.4455–16.4965 N, 107.552–107.613 E → `data/raw/hue-osm.json`), the western
 strip out to chùa Thiên Mụ at 107.5385 E (`data/raw/hue-osm-west.json`), the southern hills down to lăng Minh Mạng at
-16.382 N in six pieces (`scripts/fetch-osm-south.sh` → `hue-osm-south1..6.json`) and the fine detail of the water
+16.382 N in six pieces (`scripts/fetch-osm-south.sh` → `hue-osm-south1..6.json`), the northern villages to làng
+Sình at 16.530 N in four (`scripts/fetch-osm-north.sh` → `hue-osm-north1..4.json`), the eastern strip out to Aeon
+Mall at 107.620 E in three (`scripts/fetch-osm-east.sh` → `hue-osm-east1..3.json`; the box's east edge moved there
+from 107.613 E for issue #71), the paved squares and car parks over the whole box (`hue-osm-paved.json`) and the fine detail of the water
 park at hồ Thủy Tiên from the OSM API (`scripts/fetch-osm-detail.mjs` → `hue-osm-thuytien.json`). All the Overpass
 extracts use one query (`scripts/fetch-osm-strip.sh`). A response replaces its file only once it parses, holds
 elements and carries no Overpass `remark` (a timed-out, partial result); a piece that fails keeps its old copy and the
@@ -167,7 +170,9 @@ two kinds of measured height:
 
 - **ICESat-2 satellite lidar** (`scripts/fetch-lidar.py` → `data/raw/lidar/icesat2-ground.json`): about 7,400 laser
   ground heights on land inside the box, good to a few decimetres, along tracks that pass within a few hundred metres
-  of most of it. The difference between them and the model is spread from the tracks as a smooth correction. Each
+  of most of it (not refetched when the box grew east to 107.620 E: a new pull would shift the calibration across the
+whole city, and the strip leans on the nearby tracks). The difference between them and the model is spread from the
+tracks as a smooth correction. Each
   overpass predicted from the others, the calibrated ground is within 0.8 m rms of the laser on the plain (FABDEM
   alone: 1.1 m) and unbiased on the slopes.
 - **Documented summits** (`data/control-points.json`): the tracks mostly miss the hilltops, where FABDEM reads 2-10 m

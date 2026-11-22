@@ -7,6 +7,7 @@
 import fs from 'node:fs';
 import pc from 'polygon-clipping';
 import zlib from 'node:zlib';
+import { LANDINGS as CONHEN_LANDINGS } from '../src/landmarks/conhen-landings.js';
 
 const RAW = 'data/raw/hue-osm.json';
 const OUT = 'public/data/hue.json';
@@ -815,7 +816,11 @@ const thienMuSmall = [];
 const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall',
   // named places that get their own model instead of a generic extrusion (src/landmarks/civic.js)
   175063593: 'gahue', 118792054: 'phucam', 1172894102: 'dcct', 1172897446: 'andinh', 771244228: 'dieude', 771244225: 'dieudeGate',
-  172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong' };
+  172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong',
+  // the terminal halls of the two intercity bus stations (src/landmarks/places/benxebac.js, benxenam.js; issue #71)
+  1435288831: 'benxebac', 260244336: 'benxenam',
+  // AEON MALL Huế (src/landmarks/places/aeon.js; issue #71), past the old east edge at 107.613 E
+  1575540652: 'aeon' };
 const special = {};
 // The southern sites (royal tombs, đàn Nam Giao, hồ Thủy Tiên, Thiên An): everything mapped inside each circle is
 // handed to the site's own model (src/landmarks/tombs.js, south.js) instead of being extruded as an ordinary building.
@@ -828,6 +833,19 @@ const SITE_DEFS = [
 const sites = {};
 // Bia Quốc Học stands in an open riverside court: keep generated trees and houses off it
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; stamp(c[0], c[1], 26, TREE | NOBUILD); }
+// Bến xe phía Bắc (issue #71) is mapped only as its hall (way 1435288831) and a node, with no outline for its yard: keep
+// generated houses and trees off the ground its own service roads (ways 656647882, 656647880) enclose and off its
+// forecourt out to Lý Thái Tổ, the way the bus loop leaves from. That is about 0.6 ha of the station's 1.95 ha lot.
+{
+  const hall = get('way', 1435288831), loop = get('way', 656647882), exit = get('way', 656647880);
+  if (hall && loop && exit) {
+    const pts = [...hall.geometry, ...loop.geometry, ...exit.geometry].map(proj);
+    const street = els.filter((e) => e.type === 'way' && e.tags && e.tags.name === 'Lý Thái Tổ' && e.nodes && e.nodes.includes(loop.nodes[0]) && e.geometry).map((e) => e.geometry.map(proj));
+    const foot = (p, line) => { let b = null, bd = Infinity; for (let i = 1; i < line.length; i++) { const a = line[i - 1], c = line[i], dx = c[0] - a[0], dz = c[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz))), q = [a[0] + dx * t, a[1] + dz * t], d = Math.hypot(q[0] - p[0], q[1] - p[1]); if (d < bd) { bd = d; b = q; } } return b; };
+    for (const line of street) for (const p of hall.geometry.map(proj)) pts.push(foot(p, line));
+    fillPoly([hull(pts)], TREE | NOBUILD);
+  }
+}
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
 
@@ -836,7 +854,7 @@ const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(
 // Thương Bạc and the other riverside pavilions. Planting every park as close woodland buried them. A paved yard is
 // laid as its own ground ('paved' in green, drawn over the park) and nothing is grown or built on it. Two sources:
 //  1. what OSM maps as paved ground: highway areas (area=yes: pedestrian squares, footway courts), area:highway,
-//     place=square and surface car parks (amenity=parking, not multi-storey, underground or on a roof). These were
+//     place=square, surface car parks (amenity=parking, not multi-storey, underground or on a roof) and bus station yards. These were
 //     dropped altogether before (the road pass skips area=yes). A hand-modelled site lays its own ground.
 //  2. what OSM leaves inside a park: the Sentinel-2 scene (the roof-colour grid) shows bare paving as bright, grey to
 //     buff 10 m pixels with no green in them, where lawn and canopy are green. Such cells inside a park or lawn
@@ -856,7 +874,8 @@ const paved = [];
   for (const e of els) {
     const t = e.tags || {};
     if (e.type === 'node' || t.building || t['building:part']) continue;
-    const lot = t.amenity === 'parking' && !/multi-storey|underground|rooftop/.test(t.parking || '');
+    // a bus station's yard (amenity=bus_station, from the paved extract) is paved ground as a car park is
+    const lot = (t.amenity === 'parking' && !/multi-storey|underground|rooftop/.test(t.parking || '')) || t.amenity === 'bus_station';
     if (!((t.highway in ROAD_CLASS || PAVED_HW.has(t.highway)) && t.area === 'yes') && !t['area:highway'] && t.place !== 'square' && !lot) continue;
     let polys = evenOdd(elementRings(e));
     if (!polys.length || siteOf(centroid(openRing(polys[0][0])))) continue;
@@ -1566,12 +1585,14 @@ const tt = get('way', TT_WAY).geometry.map(proj);
 const ttOutline = openRing(get('way', 1431129413).geometry.map(proj));
 const ttBox = obb(ttOutline);
 const bridgeOutlines = [];
+const piers = []; // mapped piers and jetties (man_made=pier, as areas or as lines), kept clear of the moorings
 for (const e of els) {
   const t = e.tags || {};
   if (t.man_made === 'bridge' && e.type === 'way' && e.id !== 1431129413) {
     const ring = openRing(e.geometry.map(proj));
     if (ring.length >= 3 && inBox(centroid(ring))) bridgeOutlines.push({ n: t.name || '', ring: flat(ring) });
   }
+  if (t.man_made === 'pier' && e.type === 'way' && e.geometry) piers.push(e.geometry.map(proj));
 }
 const riverLine = [];
 for (const id of [1263060877, 52736210]) {
@@ -1614,6 +1635,13 @@ addPlace('quochoc', 'Trường Quốc Học', wayCentre(695775622), 3, 'place', 
   if (gh) addPlace('giahoi', 'Cầu Gia Hội', wayCentre(1431132258), 3, 'bridge', 12);
   const vin = findByName(/Vincom Plaza/);
   if (vin && vin.geometry) addPlace('vincom', 'Vincom Plaza Huế', centroid(openRing(vin.geometry.map(proj))), 3, 'place', 165);
+  // the two intercity bus stations (issue #71): phía Nam is mapped as its yard, phía Bắc only as a node on Lý Thái Tổ
+  const bxN = els.find((e) => e.tags && e.tags.amenity === 'bus_station' && /phía Nam/i.test(e.tags.name || '') && e.geometry);
+  if (bxN) addPlace('benxenam', 'Bến xe phía Nam', centroid(openRing(bxN.geometry.map(proj))), 3, 'place', 12);
+  const bxB = els.find((e) => e.tags && e.tags.amenity === 'bus_station' && /ph[íi]a B[ắăa]c/i.test(e.tags.name || ''));
+  const aeon = get('way', 1575540652);
+  if (aeon) addPlace('aeon', 'AEON MALL Huế', centroid(openRing(aeon.geometry.map(proj))), 3, 'place', 24);
+  if (bxB) addPlace('benxebac', 'Bến xe phía Bắc', bxB.type === 'node' ? proj(bxB) : centroid(openRing(bxB.geometry.map(proj))), 3, 'place', 12);
   const cath = els.find((e) => e.tags && e.tags.building === 'cathedral');
   if (cath && cath.geometry) addPlace('phucam', 'Nhà thờ Phủ Cam', centroid(openRing(cath.geometry.map(proj))), 3, 'place', 46);
 }
@@ -1756,9 +1784,21 @@ const nearBridge = (x, z, m) => {
 // The moorings start from their own seed, so that a change upstream that draws more or fewer numbers (planting along a
 // new median) does not move every sampan on the river: 579897935 is where the shared stream stood here before the
 // tapering medians, so the moorings, and everything drawn after them, stay as they were.
+// Nor off a pier or jetty (OSM man_made=pier: Nghênh Lương Đình's jetty, ...), nor at Cồn Hến's landings, where its own
+// model ties up the clam boats (src/landmarks/conhen-landings.js): a generic sampan there ran into the steps or a boat.
+const pierSegs = [];
+for (const w of piers) for (let i = 0; i + 1 < w.length; i++) pierSegs.push([w[i], w[i + 1]]);
+const nearPier = (x, z, m) => {
+  for (const [a, b] of pierSegs) {
+    const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2)) : 0;
+    if (Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t) < m) return true;
+  }
+  return piers.some((r) => r.length >= 4 && pip([x, z], r)) || CONHEN_LANDINGS.some(([lx, lz]) => Math.hypot(x - lx, z - lz) < 25);
+};
 seed = 579897935;
 const moorings = [];
-let nUnderBridge = 0;
+let nUnderBridge = 0, nAtPier = 0;
 for (const poly of water) {
   if (!touchesEdge(poly) && Math.abs(ringArea(poly[0])) < 400000) continue;
   for (const ring of poly) {
@@ -1777,6 +1817,7 @@ for (const poly of water) {
           // water under the hull, bow to stern, and beyond it: at a bend in the bank the ends otherwise sit on land
           if (![[0, 0], [-7, 0], [7, 0], [-7, 3], [7, 3], [0, 9]].every(([d, o]) => at(x + tx * d - tz * sgn * o, z + tz * d + tx * sgn * o) & WATER)) continue;
           if ([-6, 0, 6].some((d) => nearBridge(x + tx * d, z + tz * d, 3))) { nUnderBridge++; break; }
+          if ([-6, 0, 6].some((d) => nearPier(x + tx * d, z + tz * d, 4))) { nAtPier++; break; }
           moorings.push(q(x), q(z), Math.round(Math.atan2(tz, tx) * 1000));
           break;
         }
@@ -1785,7 +1826,7 @@ for (const poly of water) {
     }
   }
 }
-console.log('moorings', moorings.length / 3, `(${nUnderBridge} left out under bridges)`);
+console.log('moorings', moorings.length / 3, `(${nUnderBridge} left out under bridges, ${nAtPier} at piers and landings)`);
 
 // Riverside lights (issue #21). After dark the Hương is lit along its city banks: lamp posts on the embankments,
 // garden lights along the riverside walkways, and warm floodlight on the facades that face the water. All three are

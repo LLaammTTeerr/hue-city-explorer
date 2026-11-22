@@ -42,6 +42,20 @@
   built structures, using the exact hull-box test in `src/geo/clearance.js`. `npm run check:boats` (in `npm run check`)
   tests every moored sampan and a full round trip of every dragon boat against all static faces. Cost: ~100 ms more at
   load for the routing (an inline y prefilter could cut it).
+- Bus stations (2026-11-22, issue #71, branch claude/issue-71-places-c31c0c): Bến xe phía Nam (`benxenam`, OSM way
+  260244336) and Bến xe phía Bắc (`benxebac`, OSM way 1435288831 + node 4797504422) are searchable places with
+  replica files, stories and `docs/places/` notes. The paved extract now includes `amenity=bus_station` lots. Bắc has no
+  mapped yard, so build-data clears infill and trees from the hull of its hall and service roads. No published heights,
+  so no `heights-reference.json` entries. Infill reshuffles citywide on any build-data change (sequential RNG), as before.
+  Aeon Mall Huế (`aeon`, OSM way 1575540652) added on the owner's go-ahead: the frame's east edge moved 107.613 → 107.620
+  E (three new OSM extracts via `scripts/fetch-osm-east.sh`, paved extract refetched, 15 tiles). Height rasters were
+  refetched and spliced so the old area keeps its values; the northern villages get raster heights for the first time;
+  ICESat-2 lidar was not refetched. check-joints no longer skips big
+  triangles (it had missed Võ Nguyên Giáp's 226 m carriageway faces); that exposed a 1.1 m step at road 8314's hill
+  landing (southern hills, pre-existing), fixed by leaning a deck's last 6 m to the street's cross-slope
+  (`landingTilt` in src/geo/city.js; decks on the flat floor are unchanged). After merging main (#78-#80), moorings also keep clear of OSM piers and of Cồn Hến's own landings
+  (`src/landmarks/conhen-landings.js`, shared by the model and build-data); two sampans had run into them. Bến xe Nguyễn Hoàng skipped: the owner
+  asked sleepyluno on the issue for its location.
 - Citadel bridge landings (2026-11-21, branch claude/road-junction-bug-d62c51): the brick bridges over the citadel
   moats (`zone` bridges) were left at full deck height, so at bridge 397 (x≈-464, z≈-49) the deck end stood 0.37 m over
   the street it joins, a step casting a shadow across the carriageway. `makeProfile` (src/geo/bridges.js) now lands them
