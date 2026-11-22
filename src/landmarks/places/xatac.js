@@ -29,7 +29,7 @@ const A1 = 36.5, Q0 = -36.5, Q1 = 27; // lower tier (flush today): half-width ac
 const A2 = 15.2; // upper tier half-side
 const LAWN = hex('#8b9f5e'), LAWN2 = hex('#93a764');
 const BRICK = hex('#71503f'), COPE = hex('#8f8a7e');
-const STONE = hex('#8c887c'), PAVE = hex('#9b9a92'), STEP = hex('#a19d91');
+const STONE = hex('#8c887c'), PAVE = hex('#8a9096'), STEP = hex('#a19d91');
 
 export const id = 'xatac';
 
@@ -68,6 +68,12 @@ export function build({ S }) {
   (S.paved = S.paved || []).push([n0, S.n]); // its lawn is bare on the satellite: no trees, no houses (geo/city.js coverOf)
   span(-A2 - 0.1, A2 + 0.1, -A2 - 0.1, A2 + 0.1, y2 - 0.16, y2 - 0.02, COPE);
   span(-A2 - 0.12, A2 + 0.12, -A2 - 0.12, A2 + 0.12, yb - 0.2, yb + 0.25, shade(BRICK, 0.85)); // footing course
+  // weathered brick: darker mortar-stained courses and a lighter band under the cope, proud of the wall by a few cm
+  for (const [f, k] of [[0.3, 0.78], [0.55, 0.9], [0.8, 0.8]]) {
+    const yy = yb + (y2 - yb) * f;
+    span(-A2 - 0.05, A2 + 0.05, -A2 - 0.05, A2 + 0.05, yy, yy + 0.12, shade(BRICK, k));
+  }
+  span(-A2 - 0.06, A2 + 0.06, -A2 - 0.06, A2 + 0.06, y2 - 0.42, y2 - 0.2, shade(BRICK, 1.12));
 
   // ---- grey stone walks: the ring round the upper tier's foot and the four walks out to the lower tier's edges ----
   const W = 3.8; // walk and stair width
