@@ -60,3 +60,6 @@ buildings being rebuilt are drawn as the finished historic building, not the bui
   about 1°. The galleries, Tả Vu, Hữu Vu and Thái Hòa line up as well. No change to the anchor or frame.
 - No Google car imagery inside Tử Cấm Thành; all Street View there is user photospheres, which show the site under
   restoration (no hall), so the hall's massing is unchanged from the documented sources above.
+
+## Polish (Nov 2026)
+Court brick darkened to #74625a and the ngự đạo made blue-grey (#a3a9a8) and 3.3 m wide, following sv-center-s. The hall itself has no photographic reference (site under restoration) and is unchanged.

@@ -29,8 +29,8 @@ const STONE = hex('#9b998f'); // Thanh Hóa stone, blue-grey
 const BRICK = hex('#6f665c'); // gạch vồ facing
 // the court: red-brown brick (gạch Bát Tràng) with a pale blue-grey stone ngự đạo, as the court is paved today
 // (Street View, user photosphere from the platform's front edge, 2026)
-const PAVE = hex('#7e695e');
-const PAVE2 = hex('#aeaea6');
+const PAVE = hex('#74625a');
+const PAVE2 = hex('#a3a9a8');
 const FLOOR = hex('#b8b0a0');
 const RED = hex('#9a2a1e');
 const RED_DK = hex('#6e1f17');
@@ -55,7 +55,7 @@ export function build({ S }) {
   const cu0 = -33.2, cu1 = 33.8, cv0 = 18.3, cv1 = 46;
   box((cu0 + cu1) / 2, (cv0 + cv1) / 2, G - 0.3, CT, cu1 - cu0, cv1 - cv0, PAVE, { topKind: KIND.ROAD });
   box(0, (PD / 2 + cv0) / 2, G - 0.3, CT, PW, cv0 - PD / 2 + 0.05, PAVE, { topKind: KIND.ROAD }); // up to the platform
-  box(0, (PD / 2 + cv1) / 2, CT, CT + 0.06, 3.6, cv1 - PD / 2, PAVE2, { topKind: KIND.ROAD }); // ngự đạo
+  box(0, (PD / 2 + cv1) / 2, CT, CT + 0.06, 3.3, cv1 - PD / 2, PAVE2, { topKind: KIND.ROAD }); // ngự đạo
   // stone kerbs along the open edges toward the Vu halls
   for (const u of [cu0 + 0.2, cu1 - 0.2]) box(u, (cv0 + cv1) / 2, CT, CT + 0.18, 0.35, cv1 - cv0, STONE);
 
