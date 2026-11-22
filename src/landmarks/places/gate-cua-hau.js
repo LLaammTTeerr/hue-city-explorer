@@ -8,8 +8,14 @@ import { LAND_Y } from '../../config.js';
 // through it to Cầu Cửa Hậu over the moat. As it stands (Commons, Cửa_Chánh_Bắc.jpg): a single arched passage through a
 // block of near-black weathered brick and stucco that stands a little proud of the rampart, a framed name tablet over
 // the arch inside a raised central bay, a cornice and a low balustrade with posts round the flat top; on it a masonry
-// tower in two storeys — the lower one with three arches on the long faces, the upper one with one — each under a
-// skirt of terracotta tiles edged in yellow, ridge beasts on top.
+// tower in two storeys — the lower one with an arch between two round oculi on the long faces, the upper one with one
+// arch — each under a short skirt of terracotta tiles edged in yellow, ridge beasts on top.
+//
+// Checked against Google satellite and Street View (2026): Google's road line through the gate runs at bearing 322.8°
+// and passes within 0.5 m of C, so plan and axis stand. From the car pano on Cầu Cửa Hậu the block, arch and lower
+// storey match; the tower's storeys were re-proportioned to it (the lower storey taller, short skirts with little
+// overhang, the upper storey taller, side openings round), which puts the ornaments at about 17.6 m, near the sourced
+// 17.4 m.
 //
 // Plan: the OSM outline (way 367959063), 18.1 m along the wall. Through the wall the block runs from the rampart's inner
 // face (OSM) to 1 m proud of its outer face (the rampart band in hue.json is 14.4 m thick here), so the passage goes
@@ -31,8 +37,9 @@ const TC = (T0 + T1) / 2, D = T1 - T0;
 const HB = 8.4; // block to the top of its frieze (estimate: in the photo the block stands ~1.3× the rampart beside it)
 const ARCH = { s: 0, w: 4.0, h: 4.8 }; // the passage (estimate from the photo: ~4 m wide)
 const BAY = 3.3; // half-width of the raised central bay, between its pilasters
-const UP1 = { w: 8.6, d: 6.2, h: 3.4 }; // tower, lower storey (estimates)
-const UP2 = { w: 4.0, d: 3.0, h: 1.85 }; // tower, upper storey
+const UP1 = { w: 8.6, d: 6.2, h: 3.7 }; // tower, lower storey (estimates; height from the car pano)
+const UP2 = { w: 4.0, d: 3.0, h: 2.7 }; // tower, upper storey (walls above the band; height from the car pano)
+const OV1 = 0.45, OV2 = 0.45; // the tile skirts stand out only a little past the walls (car pano)
 
 const BODY = hex('#5b5953'); // brick and stucco gone near-black with damp and lichen
 const BODY_UP = hex('#67655e');
@@ -101,7 +108,8 @@ export function build({ S }) {
   box(0, TC, y1f, y1f + UP1.h, UP1.w, UP1.d, BODY_UP, { top: TILE });
   S.kind = KIND.PLAIN;
   for (const dt of [-1, 1]) {
-    for (const [s, w, h] of [[0, 1.9, 2.5], [-2.8, 1.3, 1.8], [2.8, 1.3, 1.8]]) archPanel(S, s, TC + (dt * UP1.d) / 2, dt, true, y1f, w, h);
+    archPanel(S, 0, TC + (dt * UP1.d) / 2, dt, true, y1f, 1.9, 2.5);
+    for (const s of [-2.8, 2.8]) oculus(S, s, TC + (dt * UP1.d) / 2, dt, y1f + 1.5, 0.6); // round side openings
     for (const s of [-UP1.w / 2 + 0.2, UP1.w / 2 - 0.2]) box(s, TC + dt * (UP1.d / 2 + 0.04), y1f, y1f + UP1.h, 0.4, 0.1, TRIM);
   }
   for (const sg of [-1, 1]) archPanel(S, (sg * UP1.w) / 2, TC, sg, false, y1f, 1.3, 1.8);
@@ -109,35 +117,35 @@ export function build({ S }) {
   const yr1 = y1f + UP1.h;
   S.kind = KIND.TILE;
   const c = P(0, TC);
-  S.hip(c[0], c[1], UP1.w, UP1.d, A, yr1, 1.0, TILE, { flare: 0.35, over: 0.85, fascia: 0.25, fasciaCol: FASCIA, hips: true, segs: 2 });
+  S.hip(c[0], c[1], UP1.w, UP1.d, A, yr1, 0.8, TILE, { flare: 0.25, over: OV1, fascia: 0.22, fasciaCol: FASCIA, hips: true, segs: 2 });
 
   // ---- the band and the upper storey, under its own tiled roof with the ridge beasts --------------------------------
   S.kind = KIND.MASONRY;
-  box(0, TC, yr1 + 0.1, yr1 + 1.15, UP2.w + 1.0, UP2.d + 0.8, BAND, { top: TRIM });
+  box(0, TC, yr1 + 0.1, yr1 + 1.0, UP2.w + 1.0, UP2.d + 0.8, BAND, { top: TRIM });
   for (const ss of [-1, 1]) for (const st of [-1, 1]) { // corner posts with finials on the band
     const s = ss * (UP2.w / 2 + 0.5), t = TC + st * (UP2.d / 2 + 0.4), p = P(s, t);
-    box(s, t, yr1 + 0.1, yr1 + 1.35, 0.32, 0.32, TRIM);
-    S.cyl(p[0], p[1], yr1 + 1.35, yr1 + 1.6, 0.13, 0.05, 5, TRIM);
+    box(s, t, yr1 + 0.1, yr1 + 1.2, 0.32, 0.32, TRIM);
+    S.cyl(p[0], p[1], yr1 + 1.2, yr1 + 1.45, 0.13, 0.05, 5, TRIM);
   }
-  const y2 = yr1 + 1.15;
+  const y2 = yr1 + 1.0;
   box(0, TC, y2, y2 + UP2.h, UP2.w, UP2.d, BODY_UP, { top: TILE });
   S.kind = KIND.PLAIN;
   for (const dt of [-1, 1]) archPanel(S, 0, TC + (dt * UP2.d) / 2, dt, true, y2 + 0.1, 1.25, 1.55);
   for (const sg of [-1, 1]) archPanel(S, (sg * UP2.w) / 2, TC, sg, false, y2 + 0.2, 0.8, 1.2);
   box(0, TC, y2 + UP2.h - 0.28, y2 + UP2.h, UP2.w + 0.1, UP2.d + 0.1, TRIM);
-  const yr2 = y2 + UP2.h, rh2 = 1.05;
+  const yr2 = y2 + UP2.h, rh2 = 0.8;
   S.kind = KIND.TILE;
-  S.hip(c[0], c[1], UP2.w, UP2.d, A, yr2, rh2, TILE, { flare: 0.4, over: 0.75, fascia: 0.22, fasciaCol: FASCIA, ridgeCol: CREST, hips: true, segs: 2 });
+  S.hip(c[0], c[1], UP2.w, UP2.d, A, yr2, rh2, TILE, { flare: 0.3, over: OV2, fascia: 0.22, fasciaCol: FASCIA, ridgeCol: CREST, hips: true, segs: 2 });
   // on the short ridge: a beast at each end and a gourd between
-  const rl = Math.max(0.3, (UP2.w + 1.5) / 2 - ((UP2.d + 1.5) / 2) * 0.92);
+  const rl = Math.max(0.3, (UP2.w + 2 * OV2) / 2 - ((UP2.d + 2 * OV2) / 2) * 0.92);
   const yt = yr2 + rh2;
   S.kind = KIND.PLAIN;
   for (const sg of [-1, 1]) {
-    S.beam(V(sg * rl, TC, yt), V(sg * (rl + 0.1), TC, yt + 0.55), 0.18, 0.22, CREST);
-    S.beam(V(sg * (rl + 0.1), TC, yt + 0.55), V(sg * (rl - 0.25), TC, yt + 0.7), 0.14, 0.18, CREST);
+    S.beam(V(sg * rl, TC, yt), V(sg * (rl + 0.1), TC, yt + 0.4), 0.18, 0.22, CREST);
+    S.beam(V(sg * (rl + 0.1), TC, yt + 0.4), V(sg * (rl - 0.25), TC, yt + 0.52), 0.14, 0.18, CREST);
   }
-  S.cyl(c[0], c[1], yt, yt + 0.3, 0.16, 0.2, 6, CREST);
-  S.cyl(c[0], c[1], yt + 0.3, yt + 0.62, 0.2, 0.06, 6, CREST);
+  S.cyl(c[0], c[1], yt, yt + 0.25, 0.16, 0.2, 6, CREST);
+  S.cyl(c[0], c[1], yt + 0.25, yt + 0.5, 0.2, 0.06, 6, CREST);
 
   (S.paved = S.paved || []).push([n0, S.n]); // the gate's top and the ground under it keep trees and houses off
   S.kind = keep;
@@ -194,6 +202,17 @@ function archPanel(S, s, t, sg, along, y0, w, h) {
     for (let k = 0; k < K; k++) {
       const a0 = Math.PI - (Math.PI * k) / K, a1 = Math.PI - (Math.PI * (k + 1)) / K;
       S.tri(at(0, spring, d), at(rr * Math.cos(a0), spring + rr * Math.sin(a0), d), at(rr * Math.cos(a1), spring + rr * Math.sin(a1), d), col, n);
+    }
+  }
+}
+
+// A dark round opening drawn flat on a long face (constant t), centred at s and height yc, inside a light ring.
+function oculus(S, s, t, sg, yc, r) {
+  const K = 14, n = N(0, sg);
+  for (const [rr, d, col] of [[r + 0.16, 0.03, TRIM], [r, 0.05, DARK]]) {
+    for (let k = 0; k < K; k++) {
+      const a0 = -(2 * Math.PI * k) / K, a1 = -(2 * Math.PI * (k + 1)) / K; // same winding as archPanel
+      S.tri(V(s, t + sg * d, yc), V(s + rr * Math.cos(a0), t + sg * d, yc + rr * Math.sin(a0)), V(s + rr * Math.cos(a1), t + sg * d, yc + rr * Math.sin(a1)), col, n);
     }
   }
 }
