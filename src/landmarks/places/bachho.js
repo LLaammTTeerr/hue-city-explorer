@@ -43,7 +43,6 @@ const RAIL_S2 = [[-1692, 1350], [-1674, 1365]]; // the short girder span onto th
 const WHITE = hex('#e4e6e2'), WHITE_D = hex('#c3c8c6');
 const CONC = hex('#c9c3b6'), CONC_D = hex('#a69f92');
 const YELLOW = hex('#dba52a'), RIDGE = hex('#f1d77a'), POST = hex('#9c2f22');
-const RAILING = hex('#7d8a92');
 // pavilion piers along ROAD_A→ROAD_B (satellite), the river piers between them, and the third pavilion pair where
 // the deck leaves the islet (centre and axis from the satellite: the deck's heading there, not this span's)
 const PAV_S = [55.5, 237.3];
@@ -133,13 +132,20 @@ export function build({ data, S, group }) {
     S.box(x, z, -3, top - 0.9, 3.2, 3.4, ang, CONC, { taper: 0.94 }); // the column under the balcony
     S.kind = KIND.PLAIN;
     S.box(bx, bz, top - 1.0, top, 6.4, depth, ang, CONC_D, { top: hex('#b9b2a4'), bottom: true }); // balcony slab
+    S.box(bx, bz, top - 1.0, top - 0.8, 6.7, depth + 0.3, ang, WHITE_D, { bottom: true }); // projecting white fascia
     // balustrade round the three open sides
     const bp = (a, b) => at(a, off + side * b);
     const b0 = inner - PAV_OFF + 0.2, b1 = 2.95;
     for (const [a0, c0, a1, c1] of [[-3.05, b1, 3.05, b1], [-3.05, b0, -3.05, b1], [3.05, b0, 3.05, b1]]) {
       const p0 = bp(a0, c0), p1 = bp(a1, c1);
-      S.beam([p0[0], top + 0.95, p0[1]], [p1[0], top + 0.95, p1[1]], 0.14, 0.12, RAILING);
-      S.beam([p0[0], top + 0.2, p0[1]], [p1[0], top + 0.2, p1[1]], 0.1, 0.4, CONC);
+      // white concrete balustrade as on the deck (Street View): capped top rail, low solid base, posts every ~1.2 m
+      S.beam([p0[0], top + 1.0, p0[1]], [p1[0], top + 1.0, p1[1]], 0.2, 0.12, WHITE);
+      S.beam([p0[0], top + 0.3, p0[1]], [p1[0], top + 0.3, p1[1]], 0.14, 0.4, WHITE_D);
+      const n = Math.max(1, Math.round(Math.hypot(p1[0] - p0[0], p1[1] - p0[1]) / 1.2));
+      for (let i = 0; i <= n; i++) {
+        const q = [p0[0] + ((p1[0] - p0[0]) * i) / n, p0[1] + ((p1[1] - p0[1]) * i) / n];
+        S.cyl(q[0], q[1], top, top + 1.0, 0.09, 0.08, 6, WHITE, { cap: false });
+      }
     }
     lookout(S, x, z, ang, top, L);
     warm.push(x, top + 3.4, z); warmC.push(1.0, 0.75, 0.4);
@@ -177,7 +183,8 @@ function lookout(S, x, z, ang, y0, L) {
   const w = 4.4, ux = Math.cos(ang), uz = Math.sin(ang);
   const P = (u, v) => [x + u * ux - v * uz, z + u * uz + v * ux];
   S.kind = KIND.MASONRY;
-  S.box(x, z, y0, y0 + 0.3, w + 0.6, w + 0.6, ang, PAL.stone);
+  S.box(x, z, y0, y0 + 0.15, w + 1.2, w + 1.2, ang, PAL.stone);
+  S.box(x, z, y0 + 0.15, y0 + 0.3, w + 0.6, w + 0.6, ang, PAL.stone);
   S.kind = KIND.PLAIN;
   const y1 = y0 + 0.3, postH = 2.9;
   for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {

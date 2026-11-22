@@ -72,3 +72,6 @@ Checked against Google satellite (z18-z20) and two Google-car Street View panos 
 - The islet and south-channel road sections still use the generic piers.
 - Road railings and lamp posts are still generic.
 - Exact span lengths and pavilion dimensions are unconfirmed (no drawings found).
+
+## Polish
+Pavilion balconies now carry a white concrete balustrade (capped rail, solid base, posts every ~1.2 m) and a projecting white fascia, matching the deck parapet in Street View; the pavilion base has a second plinth step. Roof stays yellow (owner question open).
