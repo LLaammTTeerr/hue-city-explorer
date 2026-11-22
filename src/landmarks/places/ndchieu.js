@@ -246,6 +246,10 @@ export function build({ data, S, group, THREE }) {
     row.forEach(([x, z], i) => {
       if (nearBld(x, z, 6.5) || onRoad(x, z)) return;
       data.trees.push(Math.round(x * 10), Math.round(z * 10), 17 + (i % 3) * 2, 4);
+      // whitewashed trunk base, as the old banyans along the walk have
+      const keepK = S.kind; S.kind = KIND.MASONRY;
+      S.cyl(x, z, gY(x, z), gY(x, z) + 1.3, 0.55, 0.5, 10, C.plinth);
+      S.kind = keepK;
     });
     for (const [x, z] of pts) {
       if (inRing(x, z, DPT) || nearBld(x, z, 6.5) || onRoad(x, z)) continue;
@@ -328,8 +332,9 @@ function lampPost(S, x, z, y, ang, lampAt) {
   S.kind = KIND.PLAIN;
   S.cyl(x, z, y, y + 0.6, 0.14, 0.12, 8, C.pole);
   S.cyl(x, z, y + 0.6, y + 5.7, 0.085, 0.06, 8, C.pole, { cap: false });
-  S.cyl(x, z, y + 5.6, y + 5.75, 0.12, 0.36, 12, C.disc);
-  S.cyl(x, z, y + 5.75, y + 5.85, 0.4, 0.3, 12, C.pole);
+  S.cyl(x, z, y + 5.5, y + 5.68, 0.14, 0.62, 14, C.disc);
+  S.cyl(x, z, y + 5.68, y + 5.8, 0.62, 0.55, 14, C.pole);
+  S.cyl(x, z, y + 5.8, y + 5.9, 0.5, 0.2, 14, C.disc);
   lampAt(x, y + 5.55, z, [1, 0.92, 0.78]);
   S.kind = keep;
 }
