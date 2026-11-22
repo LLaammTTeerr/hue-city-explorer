@@ -33,6 +33,18 @@ The ironwood walkway on the south bank of the Hương, from the Nguyễn Đình 
 - **`geo/city.js`:** a one-line guard skips the OSM boardwalk footways (class 5 bridge ways touching the two OSM end nodes). Before, they were drawn as a pale generic slab on top of the deck.
 - **Triangles:** about 36k.
 
+## Google check (2026-11-22)
+- **Position and axis:** the model's deck was laid over Google satellite captures at z19 and z20. Its river edge falls within about 1 m of the deck edge in the imagery along the middle 300 m, and the axis agrees to within half a degree. The NE end on the Trường Tiền quay and the SW gangway by cầu Phú Xuân fall within a few metres of the imagery. The OSM line was kept unchanged.
+- **Appearance:** a user photosphere taken on the deck itself (exact pose estimated from the image) shows these details:
+  - The lim has weathered to grey-brown, which the satellite also shows.
+  - The bronze railing has dulled to a dark brown-grey. It is gold-toned in the 2018 reports.
+  - The bars are flat slats with the broad face along the railing.
+  - No railing post stands out.
+- **Model changes from this check:**
+  - Deck and railing colours now follow the photosphere.
+  - Bars are 50 mm wide, a 50 x 4 mm flat. This is derived from 7 t of bronze over 4,100 bars.
+  - Posts are slimmer, in the bar colour.
+
 ## Left to do
 - **Unconfirmed details:** real pile spacing, stair and ramp forms, lamp-post design, and the rail profile. Photos would settle them.
 - **Roads:** the land-side link footways are still drawn as flat road ribbons by `city.js`, and they reach a little over the water at the links.

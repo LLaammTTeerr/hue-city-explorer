@@ -30,9 +30,14 @@ const LINKS = [[-139.9, 351.4], [-205.6, 413.0], [-264.0, 467.4], [-298.0, 500.2
 
 const WIDTH = 4, HW = WIDTH / 2, DECK_Y = 1.2, PILE_Y = -2.2, STEP = 1.5, RAMP = 16, CLEAR = 0.4;
 const RAIL_H = 1.05, BAR = 0.21; // bar pitch: ~4,100 bars along both sides of ~430 m
+// bar face: 7 t of bronze over 4,100 bars about 0.95 m long is ~2 cm² a bar, a flat about 50 x 4 mm; the Street View
+// photosphere taken on the deck shows flat slats, broad face along the railing
+const BAR_W = 0.05;
 
+// Colours as the walk looks now (Street View photosphere on the deck, Google satellite): the lim has weathered to a
+// grey-brown and the bronze, gold-toned when new in 2018, has dulled to a dark brown-grey
 const C = {
-  lim: hex('#7a4b2e'), fascia: hex('#4e3220'), bronze: hex('#b08a45'), bronzeDk: hex('#7d6232'),
+  lim: hex('#857a70'), fascia: hex('#4f4741'), bronze: hex('#6f6250'), bronzeDk: hex('#5a4f42'),
   pile: hex('#a39d92'), head: hex('#8f897e'), lamp: hex('#3b3328'),
 };
 const BOARD = [1, 0.9, 0.96, 0.86, 0.93, 0.98];
@@ -190,7 +195,7 @@ export function build({ data, S, group }) {
     }
   }
 
-  // railings: bronze posts every ~6 m, a flat top rail and a bottom rail, and the close-set bronze bars
+  // railings: slim bronze posts every ~6 m (none stand out in the photosphere), a flat top rail and a bottom rail, and the close-set bronze bars
   S.kind = KIND.PLAIN;
   const RO = HW - 0.06;
   const railOff = (i) => (i < 2 || i > m - 3); // the two ends meet the promenade: open
@@ -207,7 +212,7 @@ export function build({ data, S, group }) {
       for (let k = k0; k <= k1; k++) {
         const f = (k * BAR - i * STEP) / L;
         const x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f, z = a[2] + (b[2] - a[2]) * f;
-        const t = path[i].t, w = 0.014;
+        const t = path[i].t, w = BAR_W / 2;
         const p0 = [x - t[0] * w, y + 0.12, z - t[1] * w], p1 = [x + t[0] * w, y + 0.12, z + t[1] * w];
         const q1 = [p1[0], y + RAIL_H, p1[2]], q0 = [p0[0], y + RAIL_H, p0[2]];
         S.quad(p0, p1, q1, q0, C.bronze, hn(i, 1));
@@ -217,7 +222,7 @@ export function build({ data, S, group }) {
     for (let i = 2; i < m - 2; i += 4) {
       if (skip(i)) continue;
       const q = P(i, e * RO), t = path[i].t;
-      S.box(q[0], q[2], q[1], q[1] + RAIL_H + 0.06, 0.1, 0.1, Math.atan2(t[1], t[0]), C.bronzeDk);
+      S.box(q[0], q[2], q[1], q[1] + RAIL_H + 0.03, 0.07, 0.06, Math.atan2(t[1], t[0]), C.bronze);
     }
   }
 
