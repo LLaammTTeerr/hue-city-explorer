@@ -22,16 +22,31 @@ Model: `src/landmarks/places/tuphuong.js`. The older one-line model in `src/land
 
 ## Estimates
 - Platform floor: level with the top of the Imperial City wall as `dainoi.js` draws it (3.75 m).
-- Pavilion: 0.6 m plinth, ground storey 3.7 m to the eave, balcony deck at 4.55 m, upper storey 3.25 m, upper roof 2.75 m. Total 16.0 m above the street; the reference is 15 m (estimated) and the check passes.
-- Five arcade bays per side. The arches are drawn as stepped haunches.
+- Position: OSM way 172802373 draws the pavilion about 4.5 m inward of where the satellite and the Street View
+  panoramas place it (the bastion's own outline, way 531016856, fits the imagery). The place file re-frames it to
+  u −0.6, v 10.2 in the bastion's frame, between the satellite (u 0.9, v 9.5 at the lower eaves, leaning north) and
+  the two car panoramas on Đặng Thái Thân (1.5–2.5 m further toward −u). Axis: the bastion's (bearing 54.5°).
+- Heights above the platform, read off the car panoramas (Google Street View, Đặng Thái Thân; visual reference only):
+  lower eave edge 3.5 m, balcony deck 5.3 m, upper eave edge 7.15 m, ridge about 10.3–10.65 m, ridge ornaments
+  about 12 m. Lower eaves about 15 m across, the upper gallery's pillar line about 10 m, upper eaves about 12 m.
+- Ground-floor arcade: six piers a face; a narrow round-arched bay at each end over an ochre relief panel, wide
+  flat-headed bays with a white baluster rail, the middle bay open to the steps (from a visitor's photo sphere).
+- Upper floor: a gallery of four light pillars a face (three bays) at the balcony's edge with a dark rail, round a
+  recessed wall (from the panoramas).
+- Broadleaf trees on the platform where the satellite shows crowns; turtle beds at u ±20.5, v 12.
 - Access: two stair flights against the inner face, climbing toward the middle. I found no source for the stairs' position or form.
-- Balustrade module and colours: taken from the photos.
 
 ## What changed
 - The bastion is now a filled, paved platform. Before, only the outline wall stood there and the pavilion sat on a small generic box. It has a balustrade on the wall cap, inner stairs, turtle beds and frangipani.
 - The pavilion is now a colonial-Asian two-storey block: arcaded verandah, skirt roof, balconied upper floor with doors and windows, and a flared yellow hipped roof with the sun-and-dragons ridge.
+- 2026-11 rebuild from the satellite and panorama audit: moved 4.8 m outward and 1.5 m west to where the imagery
+  shows it; storeys re-proportioned to the measured eaves, deck and ridge; the upper floor drawn as an open pillared
+  gallery; the arcade given its arched end bays; larger corner ornaments; trees added.
 
 ## Left to do
-- Exact stair positions, and the true height of the platform relative to the wall.
-- The real hip-and-gable shape of the upper roof (drawn as a plain hip roof) and true arch proportions.
+- Roof colour: the satellite reads tan-brown and Street View dark; photos and sources say yellow glazed tile. The
+  model keeps yellow (owner question).
+- The ref wall top stands about 0.5 m higher than the model's shared wall height (`OUTER` in hoangthanh.js).
+- The café parasols and furniture on the platform are not drawn.
+- Exact stair positions; the true hip-and-gable shape of the upper roof; the dragons' real silhouettes.
 - No night lighting.

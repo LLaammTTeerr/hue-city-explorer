@@ -32,6 +32,8 @@ const PAVE = hex('#b8b0a0');
 const MASON = OUTER.body; // the Imperial City wall's weathered brick
 const BAL = hex('#aaa496'), PANEL = hex('#c39554'); // balustrade posts and their ochre panels
 const LEAF = hex('#5f7f3c'), BARK = hex('#7d7466');
+// the pavilion's centre in the bastion's frame (u, v), from the satellite (see the pavilion below)
+const PAV = [-0.6, 10.2];
 
 export function build({ S }) {
   const M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
@@ -68,9 +70,9 @@ export function build({ S }) {
   // the inner face's plinth and a coping along its edge
   box(0, D + 0.05, Y - 0.2, Y + 0.5, 2 * H, 0.3, shade(MASON, 0.85));
   box(0, D - 0.15, yPl - 0.05, yPl + 0.12, 2 * H, 0.5, shade(PAVE, 0.9));
-  // a paved walk round the pavilion, a shade lighter
+  // a paved walk round the pavilion, a shade lighter, kept clear of the outer balustrade
   S.kind = KIND.ROAD;
-  box(0.6, 14.3, yPl, yPl + 0.03, 22, 20, shade(PAVE, 1.07), { topKind: KIND.ROAD });
+  box(PAV[0], (1.2 + PAV[1] + 10) / 2, yPl, yPl + 0.03, 22, PAV[1] + 10 - 1.2, shade(PAVE, 1.07), { topKind: KIND.ROAD });
 
   // ---- balustrade on the wall cap round the three outer sides, and along the inner edge ----
   const rail = (a, b, y0) => { // posts every ~2.4 m, a low ochre-panelled infill and a coping rail
@@ -119,7 +121,7 @@ export function build({ S }) {
 
   // ---- turtle-shaped flower beds east and west of the pavilion ----
   for (const s of [-1, 1]) {
-    const cu = s * 19.5, cv = 14.5;
+    const cu = s * 20.5, cv = 12;
     const ell = (u0, v0, ru, rv, nseg = 14) => { const r = []; for (let i = 0; i < nseg; i++) { const t = (i / nseg) * Math.PI * 2; r.push(P(u0 + Math.cos(t) * ru, v0 + Math.sin(t) * rv)); } return r; };
     S.kind = KIND.MASONRY;
     S.prism(ell(cu, cv, 4.6, 3.4), yPl, yPl + 0.28, shade(PAVE, 0.85), hex('#5b7a37'));
@@ -141,32 +143,42 @@ export function build({ S }) {
     }
   }
 
+  // ---- broadleaf trees on the platform, where the satellite and the panoramas show them ----
+  for (const [u, v, h, r] of [[-15, 1.9, 9, 6.5], [15.6, 1.4, 7, 3.5], [21.7, 8.5, 7, 3.5], [31, 18.7, 7.5, 4]]) {
+    const q = P(u, v); tree(S, q[0], q[1], yPl, h, r, 4, [LEAF, shade(LEAF, 0.85), shade(LEAF, 1.1)]);
+  }
+
   // ---- the pavilion ----
-  const pc = L([-1384.45, -335.6]); // OSM outline's centre
-  const cu = pc[0], cv = pc[1];
+  // OSM way 172802373 centres it at u 0.9, v 14.3, but on the satellite its lower eaves are centred near u 0.9, v 9.5
+  // while the bastion's own outline (way 531016856), the Hòa Bình gate and the side walls all sit on the imagery: the
+  // pavilion outline alone is drawn ~4.5 m inward. The two car panoramas on Đặng Thái Thân put it 1.5–2.5 m further
+  // toward -u than the satellite does, which is the satellite's northward lean on a roof 7–14 m up; PAV splits that.
+  // It is re-framed here, keeping its plan and axis (the bastion's).
+  const cu = PAV[0], cv = PAV[1];
   const Q = (u, v) => P(cu + u, cv + v), Q3 = (u, y, v) => P3(cu + u, y, cv + v);
   const qb = (u, v, y0, y1, su, sv, col, opt) => box(cu + u, cv + v, y0, y1, su, sv, col, opt);
-  const hu = 7.3, hv = 6.7; // half plan along u and v (14.6 × 13.4 m mapped)
-  const yF = yPl + 0.6; // ground floor on a 0.6 m plinth
-  const yE1 = yF + 3.7; // lower eave
-  const yDk = yF + 4.55; // balcony deck
-  const yE2 = yDk + 3.25; // upper eave
-  const rh = 2.75; // upper roof
+  const hu = 7.0, hv = 6.5; // half plan: 14 × 13 m
+  // heights read off the Street View panoramas on Đặng Thái Thân (docs/places/tuphuong.md)
+  const yF = yPl + 0.45; // ground floor on a low plinth
+  const yE1 = yPl + 3.5; // lower eave edge
+  const yDk = yPl + 5.3; // balcony deck, where the skirt roof ends
+  const yE2 = yPl + 7.15; // upper eave edge
+  const rh = 3.1; // upper roof rise: ridge 10.25 m over the platform
+  const WOOD = shade(JOIN, 1.15);
 
   // plinth with three steps at the middle of each face
   S.kind = KIND.MASONRY;
   qb(0, 0, yPl - 0.05, yF, 2 * hu, 2 * hv, shade(PAVE, 0.92), { top: hex('#cfc6b4'), topKind: KIND.ROAD });
   for (const [fu, fv] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) for (let k = 1; k <= 3; k++) {
-    const off = (fu ? hu : hv) + 0.3 * k - 0.15, w = 2.6;
+    const off = (fu ? hu : hv) + 0.3 * k - 0.15, w = 2.4;
     qb(fu * off, fv * off, yPl - 0.05, yF - 0.15 * k, fu ? 0.3 : w, fu ? w : 0.3, shade(PAVE, 0.95), { topKind: KIND.ROAD });
   }
 
   // closed core: walls, a door and two windows on each face
-  const ku = 5.5, kv = 4.9;
+  const ku = 4.9, kv = 4.4;
   S.kind = KIND.PLAIN;
   qb(0, 0, yF, yDk - 0.2, 2 * ku, 2 * kv, WALL, { top: shade(WALL, 0.8) });
-  S.kind = KIND.PLAIN;
-  const openings = (hU, hV, y0, dh, wh, side) => { // door in the middle, a window either side
+  const openings = (hU, hV, y0, dh, wh) => { // door in the middle, a louvred window either side
     for (const [fu, fv] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
       const half = fu ? hV : hU, off = (fu ? hU : hV) + 0.03;
       for (const t of [-0.55, 0, 0.55]) {
@@ -174,120 +186,149 @@ export function build({ S }) {
         const a = t * half;
         qb(fu ? fu * off : a, fv ? fv * off : a, ya - 0.08, y1 + 0.22, fu ? 0.06 : w + 0.3, fu ? w + 0.3 : 0.06, PIER);
         qb(fu ? fu * (off + 0.03) : a, fv ? fv * (off + 0.03) : a, ya, y1, fu ? 0.06 : w, fu ? w : 0.06, JOIN);
-        if (side) for (const s of [-1, 1]) { // open shutters folded back either side of the upper windows
-          const b = a + s * (w / 2 + 0.25);
-          qb(fu ? fu * (off + 0.05) : b, fv ? fv * (off + 0.05) : b, ya, y1, fu ? 0.05 : 0.45, fu ? 0.45 : 0.05, shade(JOIN, 1.25));
-        }
       }
     }
   };
-  openings(ku, kv, yF, 2.7, 1.6, false);
+  openings(ku, kv, yF, 2.5, 1.5);
 
-  // verandah arcade: square cream piers, round-headed arches between them (stepped), a cornice band over them
+  // verandah arcade, after the photos: pale yellow piers with cream bases and capitals; at each end of a face a narrow
+  // round-arched bay over an ochre relief panel, then wide flat-headed bays with a white baluster rail; the middle bay
+  // open to the steps. A frieze over the piers and a dark timber ceiling.
   {
-    const nu = 5, nv = 5, pw = 0.5, yFr = yE1 - 0.8; // underside of the frieze, where the arch crowns touch
-    const pts = [];
-    for (let i = 0; i <= nu; i++) for (const s of [-1, 1]) pts.push([-hu + 0.3 + (2 * hu - 0.6) * i / nu, s * (hv - 0.3)]);
-    for (let i = 1; i < nv; i++) for (const s of [-1, 1]) pts.push([s * (hu - 0.3), -hv + 0.3 + (2 * hv - 0.6) * i / nv]);
+    const PU = [-6.7, -4.6, -1.5, 1.5, 4.6, 6.7], PV = [-6.2, -4.1, -1.35, 1.35, 4.1, 6.2];
+    const pw = 0.55, yFr = yE1 - 0.75; // underside of the frieze
+    const faces = []; // [along u?, fixed coordinate, pier positions]
+    for (const s of [-1, 1]) { faces.push([true, s * (hv - 0.3), PU]); faces.push([false, s * (hu - 0.3), PV]); }
+    const at = (alongU, a, fixed, y0, y1, along, across, col) => alongU ? qb(a, fixed, y0, y1, along, across, col) : qb(fixed, a, y0, y1, across, along, col);
     S.kind = KIND.PLAIN;
-    for (const [u, v] of pts) { qb(u, v, yF, yE1 - 0.35, pw, pw, PIER); qb(u, v, yF, yF + 0.3, pw + 0.16, pw + 0.16, shade(PIER, 0.92)); }
-    // the frieze over the arcade, round all four sides
-    for (const s of [-1, 1]) { qb(0, s * (hv - 0.3), yFr, yE1, 2 * hu, 0.5, PIER); qb(s * (hu - 0.3), 0, yFr, yE1, 0.5, 2 * hv - 0.6, PIER); }
-    // arch haunches: three stepped blocks in each upper corner of each bay
-    const haunch = (a, b, fixed, alongU) => {
-      const span = b - a - pw, r = span / 2, mid = (a + b) / 2;
-      // the arch is a half circle springing at yS; its crown touches the frieze
-      const yS = yFr - r;
-      for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
-        const wk = r / 3, d = r - wk * (k + 0.5), at = mid + s * d; // block k's centre, d from the arch's middle
-        const yb = yS + Math.sqrt(Math.max(0, r * r - d * d)); // the intrados over that point
-        const ytop = yFr;
-        if (ytop - yb < 0.04) continue;
-        if (alongU) qb(at, fixed, yb, ytop, wk, 0.44, PIER);
-        else qb(fixed, at, yb, ytop, 0.44, wk, PIER);
+    for (const [alongU, fixed, ps] of faces) {
+      for (const a of ps) {
+        at(alongU, a, fixed, yF, yFr, pw, pw, WALL);
+        at(alongU, a, fixed, yF, yF + 0.35, pw + 0.14, pw + 0.14, PIER);
+        at(alongU, a, fixed, yFr - 0.28, yFr, pw + 0.12, pw + 0.12, PIER);
       }
-    };
-    for (const s of [-1, 1]) {
-      for (let i = 0; i < nu; i++) { const a = -hu + 0.3 + (2 * hu - 0.6) * i / nu, b = -hu + 0.3 + (2 * hu - 0.6) * (i + 1) / nu; haunch(a, b, s * (hv - 0.3), true); }
-      for (let i = 0; i < nv; i++) { const a = -hv + 0.3 + (2 * hv - 0.6) * i / nv, b = -hv + 0.3 + (2 * hv - 0.6) * (i + 1) / nv; haunch(a, b, s * (hu - 0.3), false); }
+      at(alongU, 0, fixed, yFr, yE1 - 0.1, 2 * Math.abs(ps[0]) + pw, pw, WALL); // frieze
+      at(alongU, 0, fixed, yFr, yFr + 0.12, 2 * Math.abs(ps[0]) + pw + 0.1, pw + 0.08, PIER);
+      at(alongU, 0, fixed, yE1 - 0.28, yE1 - 0.12, 2 * Math.abs(ps[0]) + pw + 0.1, pw + 0.08, PIER);
+      for (let i = 0; i < ps.length - 1; i++) {
+        const a = ps[i], b = ps[i + 1], span = b - a - pw, mid = (a + b) / 2;
+        if (i === 0 || i === ps.length - 2) {
+          // the narrow end bay: a round arch (stepped haunches) over a relief panel
+          const r = span / 2, yS = yFr - 0.28 - r;
+          for (const s of [-1, 1]) for (let k = 0; k < 3; k++) {
+            const wk = r / 3, d = r - wk * (k + 0.5), yb = yS + Math.sqrt(Math.max(0, r * r - d * d));
+            if (yFr - 0.28 - yb > 0.04) at(alongU, mid + s * d, fixed, yb, yFr - 0.28, wk, pw - 0.1, PIER);
+          }
+          at(alongU, mid, fixed, yF, yF + 0.8, span, 0.2, PANEL);
+          at(alongU, mid, fixed, yF + 0.8, yF + 0.9, span, 0.28, PIER);
+        } else if (i !== 2) {
+          // a wide bay: white balusters under a coping
+          const n = Math.round(span / 0.3);
+          for (let k = 0; k < n; k++) at(alongU, a + pw / 2 + span * (k + 0.5) / n, fixed, yF, yF + 0.75, 0.12, 0.12, PIER);
+          at(alongU, mid, fixed, yF + 0.75, yF + 0.88, span, 0.26, PIER);
+        }
+      }
     }
-    // a low balustrade between the piers, open at the middle bay of each face
-    S.kind = KIND.PLAIN;
-    for (const s of [-1, 1]) {
-      for (let i = 0; i < nu; i++) if (i !== 2) { const a = -hu + 0.3 + (2 * hu - 0.6) * (i + 0.5) / nu; qb(a, s * (hv - 0.3), yF, yF + 0.75, (2 * hu - 0.6) / nu - pw, 0.22, PIER); }
-      for (let i = 0; i < nv; i++) if (i !== 2) { const a = -hv + 0.3 + (2 * hv - 0.6) * (i + 0.5) / nv; qb(s * (hu - 0.3), a, yF, yF + 0.75, 0.22, (2 * hv - 0.6) / nv - pw, PIER); }
-    }
-    // verandah ceiling
-    qb(0, 0, yE1 - 0.1, yE1, 2 * hu - 0.4, 2 * hv - 0.4, shade(PIER, 0.7), { bottom: true });
+    qb(0, 0, yE1 - 0.14, yE1 - 0.08, 2 * hu - 0.4, 2 * hv - 0.4, WOOD, { bottom: true }); // verandah ceiling
   }
 
   // skirt roof over the verandah: from the lower eave up to the balcony's edge (four trapezoids, hipped corners)
-  const bu = ku + 0.15, bv = kv + 0.15; // balcony edge (half plan)
+  const bu = 5.2, bv = 4.7; // balcony edge (half plan)
   {
-    const ov = 0.75, eu = hu + ov, ev = hv + ov;
+    const ov = 0.55, eu = hu + ov, ev = hv + ov, yL = yE1 + 0.1;
     const lo = [[-eu, -ev], [eu, -ev], [eu, ev], [-eu, ev]], hi = [[-bu, -bv], [bu, -bv], [bu, bv], [-bu, bv]];
     S.kind = KIND.GLAZED;
     for (let i = 0; i < 4; i++) {
       const j = (i + 1) % 4, mu = (lo[i][0] + lo[j][0]) / 2, mv = (lo[i][1] + lo[j][1]) / 2;
       const n = Q(mu, mv), c = Q(0, 0);
-      const corner = (p, y, lift) => Q3(p[0], y + lift, p[1]);
-      S.quad(corner(lo[i], yE1, 0.25), corner(lo[j], yE1, 0.25), corner(hi[j], yDk - 0.2, 0), corner(hi[i], yDk - 0.2, 0), ROOF, [n[0] - c[0], 1.6, n[1] - c[1]]);
-      // fascia under the eave
+      const corner = (p, y) => Q3(p[0], y, p[1]);
+      S.quad(corner(lo[i], yL), corner(lo[j], yL), corner(hi[j], yDk - 0.2), corner(hi[i], yDk - 0.2), ROOF, [n[0] - c[0], 1.6, n[1] - c[1]]);
       S.kind = KIND.PLAIN;
-      S.beam(corner(lo[i], yE1 - 0.05, 0.25), corner(lo[j], yE1 - 0.05, 0.25), 0.18, 0.22, shade(ROOF, 0.6));
-      // the hip ridge up each corner, in the ridge tile colour
-      S.beam(corner(lo[i], yE1 + 0.1, 0.25), corner(hi[i], yDk - 0.1, 0), 0.2, 0.18, RIDGE);
+      S.beam(corner(lo[i], yL - 0.05), corner(lo[j], yL - 0.05), 0.18, 0.22, shade(ROOF, 0.6)); // fascia
+      S.beam(corner(lo[i], yL + 0.1), corner(hi[i], yDk - 0.1), 0.22, 0.2, RIDGE); // hip ridge
       S.kind = KIND.GLAZED;
     }
-    // little upturned horns at the four lower corners
+    // curled ornaments at the four lower corners
     S.kind = KIND.PLAIN;
-    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) S.beam(Q3(su * eu, yE1 + 0.3, sv * ev), Q3(su * (eu + 0.35), yE1 + 0.75, sv * (ev + 0.35)), 0.16, 0.16, RIDGE);
-  }
-
-  // upper floor: the balcony deck, its dark baluster rail, the walls with a door and two windows a side
-  S.kind = KIND.PLAIN;
-  qb(0, 0, yDk - 0.22, yDk, 2 * bu, 2 * bv, shade(PIER, 0.85), { bottom: true });
-  {
-    const R = [[-bu + 0.1, -bv + 0.1], [bu - 0.1, -bv + 0.1], [bu - 0.1, bv - 0.1], [-bu + 0.1, bv - 0.1]];
-    for (let i = 0; i < 4; i++) {
-      const a = R[i], b = R[(i + 1) % 4], l = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.round(l / 0.45);
-      for (let k = 0; k < n; k++) { const t = (k + 0.5) / n; qb(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, yDk, yDk + 0.95, 0.09, 0.09, JOIN); }
-      S.beam(Q3(a[0], yDk + 0.98, a[1]), Q3(b[0], yDk + 0.98, b[1]), 0.14, 0.12, JOIN);
-      S.beam(Q3(a[0], yDk + 0.08, a[1]), Q3(b[0], yDk + 0.08, b[1]), 0.12, 0.12, JOIN);
-      qb(a[0], a[1], yDk, yDk + 1.1, 0.24, 0.24, JOIN); // corner newels
+    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      S.beam(Q3(su * eu, yL + 0.15, sv * ev), Q3(su * (eu + 0.4), yL + 0.85, sv * (ev + 0.4)), 0.2, 0.2, RIDGE);
+      S.beam(Q3(su * (eu + 0.4), yL + 0.85, sv * (ev + 0.4)), Q3(su * (eu + 0.15), yL + 1.15, sv * (ev + 0.15)), 0.16, 0.16, RIDGE);
     }
   }
-  const wu = 4.4, wv = 3.85;
-  S.kind = KIND.PLAIN;
-  qb(0, 0, yDk, yE2, 2 * wu, 2 * wv, WALL, { top: shade(ROOF, 0.7) });
-  for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) qb(su * wu, sv * wv, yDk, yE2, 0.42, 0.42, PIER); // corner pilasters
-  qb(0, 0, yE2 - 0.35, yE2, 2 * wu + 0.3, 2 * wv + 0.3, PIER); // cornice
-  S.kind = KIND.PLAIN;
-  openings(wu, wv, yDk, 2.3, 1.3, false);
-  // slim posts at the balcony corners carrying the upper eave
-  S.kind = KIND.TIMBER;
-  for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const q = Q(su * (bu - 0.25), sv * (bv - 0.25)); S.cyl(q[0], q[1], yDk, yE2, 0.11, 0.1, 6, JOIN, { cap: false }); }
 
-  // upper roof: hipped, yellow glazed tile, flared with horns at the corners
+  // upper floor: a gallery of four light pillars a face at the balcony's edge with a dark rail between them, round a
+  // recessed wall with a door and two windows a side
+  S.kind = KIND.PLAIN;
+  qb(0, 0, yDk - 0.22, yDk, 2 * bu, 2 * bv, shade(PIER, 0.85), { bottom: true });
+  const gu = bu - 0.2, gv = bv - 0.2; // the pillar line
+  {
+    const R = [[-gu, -gv], [gu, -gv], [gu, gv], [-gu, gv]];
+    for (let i = 0; i < 4; i++) {
+      const a = R[i], b = R[(i + 1) % 4], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      for (let p = 0; p < 3; p++) { // three bays a face, a rail of dark balusters in each
+        const t0 = p / 3, t1 = (p + 1) / 3, n = Math.round(l / 3 / 0.4);
+        for (let k = 1; k < n; k++) { const t = t0 + (t1 - t0) * k / n; qb(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, yDk, yDk + 0.9, 0.09, 0.09, JOIN); }
+      }
+      S.beam(Q3(a[0], yDk + 0.95, a[1]), Q3(b[0], yDk + 0.95, b[1]), 0.14, 0.12, JOIN);
+      S.beam(Q3(a[0], yDk + 0.08, a[1]), Q3(b[0], yDk + 0.08, b[1]), 0.12, 0.12, JOIN);
+      for (const t of [0, 1 / 3, 2 / 3]) { // pillars: the corner one and the two between
+        const pu = a[0] + (b[0] - a[0]) * t, pv = a[1] + (b[1] - a[1]) * t;
+        qb(pu, pv, yDk, yE2 + 0.4, 0.4, 0.4, WALL);
+        qb(pu, pv, yDk, yDk + 0.25, 0.5, 0.5, PIER);
+        qb(pu, pv, yE2 + 0.15, yE2 + 0.4, 0.5, 0.5, PIER);
+      }
+    }
+    // the lintel round the pillar heads and the gallery's timber ceiling
+    for (const s of [-1, 1]) { qb(0, s * gv, yE2 + 0.4, yE2 + 0.65, 2 * gu + 0.4, 0.4, PIER); qb(s * gu, 0, yE2 + 0.4, yE2 + 0.65, 0.4, 2 * gv - 0.4, PIER); }
+    qb(0, 0, yE2 + 0.6, yE2 + 0.66, 2 * gu, 2 * gv, WOOD, { bottom: true });
+  }
+  const wu = 3.9, wv = 3.4;
+  S.kind = KIND.PLAIN;
+  qb(0, 0, yDk, yE2 + 0.62, 2 * wu, 2 * wv, shade(WALL, 0.72), { top: shade(ROOF, 0.6) });
+  openings(wu, wv, yDk, 2.2, 1.2);
+
+  // upper roof: steep, hipped, yellow glazed tile, flared, with big curled ornaments at the corners
   S.kind = KIND.GLAZED;
-  { const c = Q(0, 0); S.hip(c[0], c[1], 2 * wu, 2 * wv, ang, yE2, rh, ROOF, { flare: 0.45, over: 1.25, hips: true, glazed: true, segs: 3, fascia: 0.24, fasciaCol: shade(ROOF, 0.6), ridgeCol: RIDGE }); }
-  // ridge ornament: a sun disc in the middle between two dragons rising from the ridge
+  { const c = Q(0, 0); S.hip(c[0], c[1], 2 * bu, 2 * bv, ang, yE2, rh, ROOF, { flare: 0.5, over: 0.9, hips: true, glazed: true, segs: 3, fascia: 0.24, fasciaCol: shade(ROOF, 0.6), ridgeCol: RIDGE }); }
   S.kind = KIND.PLAIN;
   {
-    const yR = yE2 + rh + 0.15, rd = 0.42, n = 12, c = Q3(0, yR + rd + 0.1, 0);
+    const eu = bu + 0.9, ev = bv + 0.9;
+    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const p0 = Q3(su * (eu - 0.3), yE2 + 0.6, sv * (ev - 0.3)), p1 = Q3(su * (eu + 0.35), yE2 + 1.5, sv * (ev + 0.35)), p2 = Q3(su * (eu - 0.05), yE2 + 1.95, sv * (ev - 0.05));
+      S.beam(p0, p1, 0.26, 0.26, RIDGE);
+      S.beam(p1, p2, 0.2, 0.2, RIDGE);
+    }
+  }
+  // ridge ornament: a sun disc in the middle between two dragons rising from the ridge
+  {
+    const yR = yE2 + rh + 0.15, rd = 0.5, n = 12, c = Q3(0, yR + rd + 0.1, 0);
     for (const s of [-1, 1]) for (let k = 0; k < n; k++) {
       const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
       const pA = Q3(Math.cos(a0) * rd, yR + rd + 0.1 + Math.sin(a0) * rd, s * 0.06), pB = Q3(Math.cos(a1) * rd, yR + rd + 0.1 + Math.sin(a1) * rd, s * 0.06);
       const nv = Q(0, s), c0 = Q(0, 0);
       S.tri([c[0] + (nv[0] - c0[0]) * 0.06, c[1], c[2] + (nv[1] - c0[1]) * 0.06], pA, pB, hex('#e9b62f'), [nv[0] - c0[0], 0, nv[1] - c0[1]]);
     }
-    qb(0, 0, yR - 0.2, yR + 0.12, 0.35, 0.3, RIDGE);
-    for (const s of [-1, 1]) { // each dragon: a body arching from the ridge end toward the disc, head raised
-      S.beam(Q3(s * 1.6, yR - 0.1, 0), Q3(s * 1.1, yR + 0.45, 0), 0.2, 0.2, RIDGE);
-      S.beam(Q3(s * 1.1, yR + 0.45, 0), Q3(s * 0.65, yR + 0.25, 0), 0.18, 0.18, RIDGE);
-      S.beam(Q3(s * 0.65, yR + 0.25, 0), Q3(s * 0.55, yR + 0.7, 0), 0.2, 0.2, RIDGE);
+    qb(0, 0, yR - 0.2, yR + 0.12, 0.4, 0.3, RIDGE);
+    for (const s of [-1, 1]) { // each dragon: a body arching from the ridge end toward the disc, head raised high
+      S.beam(Q3(s * 2.0, yR - 0.3, 0), Q3(s * 1.4, yR + 0.55, 0), 0.24, 0.24, RIDGE);
+      S.beam(Q3(s * 1.4, yR + 0.55, 0), Q3(s * 0.9, yR + 0.3, 0), 0.2, 0.2, RIDGE);
+      S.beam(Q3(s * 0.9, yR + 0.3, 0), Q3(s * 0.75, yR + 0.95, 0), 0.22, 0.22, RIDGE);
     }
   }
   S.kind = keep;
   return null;
+}
+
+// a broad-leaved tree: a trunk and a few overlapping crowns (as in tudam.js)
+function tree(S, x, z, y0, h, r, lumps, cols) {
+  S.kind = KIND.PLAIN;
+  S.cyl(x, z, y0, y0 + h * 0.45, r * 0.09, r * 0.07, 6, BARK, { cap: false });
+  const seed = Math.abs(Math.sin(x * 12.9898 + z * 78.233)) * 43758.5;
+  for (let k = 0; k < lumps; k++) {
+    const a = ((seed + k * 2.39996) % 6.283), d = k === 0 ? 0 : r * 0.45;
+    const lx = x + Math.cos(a) * d, lz = z + Math.sin(a) * d, lr = r * (k === 0 ? 0.8 : 0.6), yb = y0 + h * (k === 0 ? 0.42 : 0.36), yt = y0 + h * (k === 0 ? 1 : 0.85);
+    const ym = yb + (yt - yb) * 0.45, col = cols[k % cols.length];
+    S.cyl(lx, lz, yb, ym, lr * 0.55, lr, 8, shade(col, 0.85), { cap: false, rot: a });
+    S.cyl(lx, lz, ym, yt, lr, lr * 0.25, 8, col, { rot: a });
+  }
 }
