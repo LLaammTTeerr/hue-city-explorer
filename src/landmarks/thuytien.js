@@ -406,9 +406,9 @@ function slides(S, tower, pools) {
   if (!big) return;
   const cb = centroid(big), cs = centroid(small);
   S.kind = KIND.PLAIN;
-  const weather = (c) => mix(c, hex('#6f7a58'), 0.28); // twenty years of sun, rust and creeper (Saigoneer: "rusted")
-  trough(run(cb, 44, (t) => [3.5 + Math.sin(t * Math.PI * 3.2) * 5.5 * Math.sin(t * Math.PI), 0]), weather(hex('#d2b04a')));
-  for (const [off, col] of [[-3.4, hex('#5b8fb0')], [-5.2, hex('#d9dcd6')]]) trough(run(cb, 26, (t) => [off, 0], yTop - 3), weather(col), 0.75);
+  const weather = (c) => mix(c, hex('#6f7a58'), 0.22); // twenty years of sun, rust and creeper (Saigoneer: "rusted")
+  trough(run(cb, 44, (t) => [3.5 + Math.sin(t * Math.PI * 3.2) * 5.5 * Math.sin(t * Math.PI), 0]), weather(hex('#4f93a6')));
+  for (const [off, col] of [[-3.4, hex('#4a8fa8')], [-5.2, hex('#bcd3d0')]]) trough(run(cb, 26, (t) => [off, 0], yTop - 3), weather(col), 0.75);
   // the closed tube: a dark green corkscrew down to the smaller pool
   const tube = run(cs, 60, (t) => [Math.sin(t * Math.PI * 5) * 4.2 * (1 - t * 0.4), Math.cos(t * Math.PI * 5) * 4.2 * (1 - t * 0.4) - 4.2]);
   sweep(S, tube, tube.map(() => 0.85), tube.map(() => [0, 1, 0]), 8, (i) => [i % 6 < 3 ? hex('#4c6f5b') : hex('#3f5f4f'), KIND.PLAIN]);
