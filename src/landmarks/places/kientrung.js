@@ -109,6 +109,11 @@ function mosaic(S, u0, u1, v, y0, y1, k0 = 0) {
   for (let i = 0; i < n; i++) fbox(S, u0 + w * (i + 0.5), v, y0, y1, w * 0.86, 0.06, tile(i + k0));
 }
 
+// a stepped round head over a leaf: three narrowing slabs from width w, standing on y
+function arch(S, u, v, y, w, col, st = 0.12) {
+  for (let k = 0; k < 3; k++) fbox(S, u, v, y + st * k, y + st * (k + 1), w * [0.94, 0.78, 0.5][k], 0.08, col);
+}
+
 function hall(S, lamps) {
   const g = gy(0, 0), yt = g + 2.0, fl = yt + 0.9; // terrace top, hall floor
   const y1 = fl + 4.4, y2 = y1 + 0.5, y3 = y2 + 3.6; // ground storey, entablature, upper storey (to the cornice)
@@ -185,12 +190,15 @@ function hall(S, lamps) {
     fbox(S, u, f, fl + 0.6, y1 - 0.9, ow + 0.4, 0.08, TRIM);
     fbox(S, u, f + 0.02, fl + 0.6, y1 - 1.05, ow, 0.08, WOOD);
     fbox(S, u, f + 0.04, fl + 0.8, y1 - 1.6, ow - 0.4, 0.08, SHUTTER);
-    fcyl(S, u, f + 0.03, y1 - 1.3, y1 - 0.95, ow / 2, ow / 2 * 0.4, 6, GOLD); // the fanlight's gilt ring, read from afar
+    arch(S, u, f + 0.04, y1 - 1.6, ow - 0.4, SHUTTER, 0.1); // the leaves' rounded head
+    fcyl(S, u, f + 0.03, y1 - 1.0, y1 - 0.85, ow / 2 * 0.5, ow / 2 * 0.2, 6, GOLD); // a gilt boss over the arch, read from afar
     // upper storey: a window with a carved frame and a small pediment
     const wy0 = y2 + 0.9, wy1 = y3 - 1.0;
     fbox(S, u, f, wy0 - 0.15, wy1 + 0.15, ow + 0.35, 0.1, TRIM);
     fbox(S, u, f + 0.03, wy0, wy1, ow - 0.1, 0.08, SHUTTER);
-    fcyl(S, u, f + 0.02, wy1 - 0.05, wy1 + 0.12, (ow - 0.1) / 2, (ow - 0.1) / 2 * 0.5, 6, SHUTTER); // the arched head
+    arch(S, u, f + 0.03, wy1, ow - 0.1, SHUTTER, 0.12); // the arched head
+    fbox(S, u - ow / 2 - 0.12, f + 0.03, wy0 - 0.15, wy1 + 0.1, 0.22, 0.1, shade(MOSAIC[0], 0.9)); // grey-blue carved jambs
+    fbox(S, u + ow / 2 + 0.12, f + 0.03, wy0 - 0.15, wy1 + 0.1, 0.22, 0.1, shade(MOSAIC[0], 0.9));
     fbox(S, u, f + 0.05, wy1 + 0.18, wy1 + 0.5, ow + 0.6, 0.18, TRIM, { taper: 0.75 });
     // mosaic panels: under each upper window and in the frieze over each door
     mosaic(S, u - ow / 2, u + ow / 2, f + 0.06, wy0 - 0.65, wy0 - 0.25, Math.round(u * 3));
@@ -211,6 +219,7 @@ function hall(S, lamps) {
     const u = +e;
     const v = Math.max(...blocks.filter((b) => u >= b.u0 - 0.01 && u <= b.u1 + 0.01).map((b) => b.v));
     fbox(S, u, v + 0.08, fl + 0.6, y3 - 0.1, 0.5, 0.18, TRIM);
+    fbox(S, u, v + 0.14, fl + 0.7, y3 - 0.3, 0.34, 0.1, shade(MOSAIC[0], 0.95)); // the grey-blue mosaic shaft
     for (let k = 0; k < 4; k++) fbox(S, u, v + 0.18, fl + 1.2 + k * 2.2, fl + 2.0 + k * 2.2, 0.28, 0.06, tile(k + Math.round(u)));
   }
   // the name board over the middle door
