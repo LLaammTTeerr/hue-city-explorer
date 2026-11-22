@@ -1686,7 +1686,9 @@ const EXTRA = [
 ];
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
-addPlace('vongcanh', 'Đồi Vọng Cảnh', [-2784, 5161], 3, 'place', 12); // the 43 m hill standing straight over the river bend; moved onto its top in §9
+// Đồi Vọng Cảnh stands on the right bank, north of the bend; its tag starts from OSM's viewpoint node 4603986390 on the
+// brow (the old seed, [-2784, 5161], was điện Hòn Chén's hill across the river) and moves onto the highest ground in §9
+{ const m = get('node', 4603986390); addPlace('vongcanh', 'Đồi Vọng Cảnh', m ? proj(m) : [-2641.6, 4524.1], 3, 'place', 12); }
 addPlace('ngubinh', 'Núi Ngự Bình', [770, 2990], 2, 'place', 20); // the summit (16.4419 N, 107.5961 E); moved onto the highest ground in §9
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; special.biaquochoc = { c: [q(c[0]), q(c[1])], ring: [], name: 'Bia Quốc Học' }; addPlace('biaquochoc', 'Bia Quốc Học', c, 2, 'monument', 14); }
 addPlace('golim', 'Cầu gỗ lim', [-168.5, 374.8], 3, 'bridge', 5); // the ironwood walkway (midpoint from src/landmarks/boardwalk.js)

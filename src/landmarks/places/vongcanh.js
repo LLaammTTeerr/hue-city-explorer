@@ -9,10 +9,11 @@ import { glowPoints } from '../../geo/materials.js';
 // Where it is: OSM maps the hill as the forest way 1075018793 "Vong Canh Hill", its viewpoint as the node 4603986390
 // (tourism=attraction), the forest rangers' lookout tower as node 13516013279 (man_made=tower, observation) and the
 // stone-paved walks and steps up the hill (ways 1075018785…1075018790, 1200924922…26, 1473264464…68). Everything
-// below is hard-coded from those, in model metres. The place record in hue.json still stands on the hill across the
-// river (Ngọc Trản, under điện Hòn Chén: scripts/build-data.mjs seeds it at [-2784, 5161]), so build() moves the
-// record onto the real viewpoint at runtime; the terrain grid already has this hill (about 34 m above the city floor
-// at the viewpoint), so no local ground is modelled.
+// below is hard-coded from those, in model metres, and checked against Google's satellite imagery (November 2026): the
+// garden, the round court, the east-flank walk, the river walk and the road agree with it to a metre or two; the main
+// stair and the west stair are drawn where the imagery shows them (see WALKS). The place record comes from the
+// viewpoint node, moved onto the highest ground near it (scripts/build-data.mjs); the terrain grid already has this hill
+// (about 34 m above the city floor at the brow), so no local ground is modelled.
 //
 // What stands there today (after the 13-billion-đồng clean-up finished in 2024, tuoitre.vn): stone-paved walks and
 // steps up through the pines, a flower garden near the top (sim, tường vi, ngũ sắc), the rangers' fire-watch tower
@@ -20,14 +21,17 @@ import { glowPoints } from '../../geo/materials.js';
 // left from before 1975. The viewing terrace's size, the bunkers' places and the tower's exact form are estimated.
 
 export const id = 'vongcanh';
-// how far from the place point this builder reads data.trees (the pine wood's box below reaches 1.1 km from the record's
-// point); build-data.mjs keeps every record within it in hue.json, out of the tiles (default 520 m)
-export const dataReach = 1150;
+// how far from the place point this builder reads data.trees (the pine wood's box below reaches about 500 m from the
+// record's point on the brow); build-data.mjs keeps every record within it in hue.json, out of the tiles (default 520 m)
+export const dataReach = 540;
 
 const VIEW = [-2641.6, 4524.1]; // OSM node 4603986390: the lookout over the river bend
 const TOWER = [-2782.0, 4347.3]; // OSM node 13516013279: the rangers' observation tower
 const GARDEN = [-2772.4, 4383.4]; // the round garden the walks 1075018785/86 ring (centre of the inner ring)
 const RIVER = [-2735, 4645]; // a point on the bend the terrace looks toward
+// the rest stop (trạm dừng) by the garden's north gate, built after the 2024 works: a dark hip roof about 9.5 × 7 m in
+// the imagery, its long side about 20° south of east [centre, length, depth, angle]
+const REST = [[-2725.4, 4356.6], 9.5, 7.0, 0.35];
 // the two wartime pillboxes on the brow under the lookout, river side (positions estimated, clear of the walks)
 const BUNKERS = [[-2669, 4553], [-2690, 4531]];
 
@@ -36,10 +40,17 @@ const FOREST = [[-2863.3, 4456.3], [-2935.7, 4392.5], [-2940.8, 4379.9], [-2937.
 
 // walks: [width, steps?, points]
 const WALKS = [
-  // the main stone stair from the garden over the summit and down the south-east flank (way 1075018788)
-  [2.4, true, [[-2767.7, 4406.8], [-2767.7, 4415.9], [-2764.9, 4427.5], [-2759.9, 4436.6], [-2753.6, 4445.7], [-2747.1, 4455.4], [-2735.9, 4459.9], [-2726.7, 4460.5], [-2713.3, 4465.1], [-2703.8, 4471.9], [-2701.0, 4481.3], [-2692.2, 4496.6], [-2677.5, 4500.3], [-2664.0, 4499.8], [-2658.3, 4507.2], [-2659.2, 4517.7], [-2656.3, 4527.1], [-2654.3, 4535.9], [-2644.6, 4541.6], [-2634.5, 4547.0], [-2629.7, 4558.7], [-2627.9, 4571.5], [-2630.2, 4584.3], [-2620.2, 4586.3], [-2605.9, 4584.0], [-2590.4, 4588.8], [-2579.6, 4598.2], [-2576.1, 4606.5], [-2577.0, 4615.0], [-2571.3, 4623.2], [-2566.7, 4630.9], [-2560.1, 4638.0], [-2550.3, 4640.0], [-2539.2, 4641.7], [-2529.4, 4650.3], [-2522.0, 4662.2], [-2516.6, 4670.7], [-2509.1, 4671.3], [-2506.0, 4664.2], [-2502.0, 4656.8], [-2500.2, 4645.1]]],
-  // the paved walk from Huyền Trân Công Chúa (north gate) up to the lookout (way 1075018789)
-  [2.0, false, [[-2642.3, 4411.3], [-2646.3, 4443.7], [-2647.4, 4458.5], [-2648.0, 4475.9], [-2650.3, 4489.8], [-2655.1, 4501.8], [-2658.3, 4507.2]]],
+  // The walks as the satellite shows them after the 2024 works (checked against Google's imagery, November 2026): OSM's
+  // ways 1075018785…90 and 1473264464…68 give the garden, the east flank, the river walk and the tower path, which
+  // match it; the stone stair down the middle of the hill and the west stair to the river are drawn where the imagery
+  // shows them (OSM still has older, winding trails there: way 1075018788 and the upper part of 1473264466).
+  // the main stone stair: from the garden's south-east corner straight down the crest, past the lookout, to the round
+  // court at the foot of the hill
+  [2.4, true, [[-2748.6, 4406.5], [-2737.0, 4420.5], [-2725.7, 4432.7], [-2712.5, 4446.5], [-2699.8, 4459.9], [-2676.9, 4475.7], [-2655.1, 4491.2], [-2645.5, 4503.0], [-2636.6, 4514.8], [-2620.5, 4541.8], [-2604.6, 4568.7], [-2589.5, 4587.0], [-2580.5, 4614.0], [-2573.5, 4639.2], [-2561.5, 4656.0], [-2539.8, 4654.7], [-2522.1, 4672.9], [-2511.0, 4662.0], [-2500.2, 4647.0]]],
+  // its branch down to the lane past the cafés on the south side
+  [2.0, true, [[-2522.1, 4672.9], [-2538.1, 4679.6], [-2544.0, 4694.8], [-2546.5, 4705.0]]],
+  // the walk from Huyền Trân Công Chúa (north gate) down to the stair (way 1075018789; a narrow trail under the pines)
+  [1.4, false, [[-2642.3, 4411.3], [-2646.3, 4443.7], [-2647.4, 4458.5], [-2648.0, 4475.9], [-2650.3, 4489.8], [-2653.6, 4492.6]]],
   // the paved walk along the east flank, from the round court by the road to the north gate (way 1075018790)
   [2.0, false, [[-2476.4, 4658.9], [-2500.2, 4645.1], [-2511.1, 4630.9], [-2518.0, 4618.7], [-2535.5, 4595.9], [-2550.1, 4571.2], [-2566.1, 4546.4], [-2589.6, 4512.9], [-2600.2, 4487.8], [-2612.8, 4468.2], [-2624.5, 4446.9], [-2633.7, 4430.4], [-2642.3, 4411.3], [-2645.0, 4398.0]]],
   // the garden's outer walk from the road (way 1075018785), its inner ring and spokes (1075018786/87, 1200924922…26)
@@ -51,11 +62,13 @@ const WALKS = [
   [1.2, false, [[-2776.7, 4385.4], [-2786.4, 4386.7]]],
   [1.2, false, [[-2772.9, 4389.5], [-2778.3, 4401.2]]],
   [1.2, false, [[-2758.2, 4405.2], [-2753.6, 4396.0]]],
-  // the walk past the tower (way 1473264467) and the west-flank stairs down toward the river (1473264464…66, 68)
-  [1.6, false, [[-2817.1, 4369.9], [-2797.5, 4355.9], [-2782.0, 4347.3], [-2749.7, 4352.5]]],
-  [1.5, true, [[-2802.2, 4501.4], [-2816.3, 4485.9], [-2829.5, 4473.2], [-2844.4, 4461.4], [-2865.7, 4436.6], [-2877.6, 4415.8], [-2879.9, 4401.4], [-2879.3, 4394.2], [-2876.0, 4393.1], [-2867.6, 4395.3], [-2866.6, 4399.6], [-2862.0, 4396.3], [-2858.0, 4392.6], [-2860.3, 4383.7], [-2852.3, 4371.4], [-2845.9, 4364.9], [-2834.1, 4363.2], [-2823.9, 4364.4], [-2817.1, 4369.9], [-2810.4, 4375.4], [-2790.0, 4377.7]]],
-  [1.5, true, [[-2692.2, 4496.6], [-2693.4, 4509.0], [-2693.1, 4515.6], [-2700.2, 4516.9], [-2712.6, 4513.1], [-2723.1, 4509.4], [-2727.5, 4509.8], [-2729.2, 4512.3], [-2725.8, 4520.0], [-2717.5, 4525.1], [-2710.8, 4537.0], [-2709.1, 4543.6], [-2705.8, 4551.2], [-2702.4, 4557.5], [-2699.3, 4562.1], [-2700.8, 4565.0], [-2705.9, 4562.1], [-2715.1, 4558.8], [-2727.8, 4552.2]]],
-  [1.5, false, [[-2727.8, 4552.2], [-2737.5, 4546.3], [-2748.8, 4535.3], [-2761.6, 4529.4], [-2777.7, 4522.7], [-2786.2, 4514.4], [-2791.1, 4509.7], [-2802.2, 4501.4]]],
+  // the walk past the tower (way 1473264467)
+  [1.6, false, [[-2804.4, 4359.1], [-2797.5, 4355.9], [-2782.0, 4347.3], [-2749.7, 4352.5]]],
+  // the west stair: from the garden's south gate down the river flank to the walk along the bank
+  [1.8, true, [[-2767.7, 4406.8], [-2765.1, 4422.7], [-2758.5, 4434.2], [-2745.7, 4452.8], [-2725.6, 4481.4], [-2724.3, 4511.4], [-2712.0, 4537.0], [-2700.6, 4560.1], [-2700.8, 4563.5]]],
+  // the walk along the bank (1473264465/68) and on up the north-west flank to the garden (1473264464, its top as imaged)
+  [1.5, true, [[-2802.2, 4501.4], [-2816.3, 4485.9], [-2829.5, 4473.2], [-2844.4, 4461.4], [-2865.7, 4436.6], [-2877.6, 4415.8], [-2880.3, 4398.0], [-2863.0, 4387.5], [-2845.9, 4378.3], [-2825.0, 4368.6], [-2804.4, 4359.1], [-2795.8, 4359.7], [-2787.2, 4364.0], [-2785.9, 4373.9]]],
+  [1.5, false, [[-2700.8, 4563.5], [-2715.1, 4558.8], [-2727.8, 4552.2], [-2737.5, 4546.3], [-2748.8, 4535.3], [-2761.6, 4529.4], [-2777.7, 4522.7], [-2786.2, 4514.4], [-2791.1, 4509.7], [-2802.2, 4501.4]]],
   [1.5, true, [[-2786.2, 4514.4], [-2797.4, 4527.6]]],
 ];
 
@@ -167,10 +180,6 @@ function pillbox(S, x, z, face) {
 }
 
 export function build({ data, S, group }) {
-  // the place record stands on the wrong hill (see the note above): put it on the lookout
-  const rec = (data.places || []).find((p) => p.id === id);
-  if (rec) { rec.x = Math.round(VIEW[0] * 10); rec.z = Math.round(VIEW[1] * 10); }
-
   const lamps = [];
   S.kind = KIND.ROAD;
   for (const [w, steps, pts] of WALKS) walk(S, w, steps, pts);
@@ -225,7 +234,7 @@ export function build({ data, S, group }) {
   }
   // sim bushes along the main stair near the summit
   for (let i = 0; i < 14; i++) {
-    const [w, , pts] = WALKS[0], k = 10 + i, a = pts[k], b = pts[k + 1];
+    const [w, , pts] = WALKS[0], k = i, a = pts[k], b = pts[k + 1];
     const side = i % 2 ? 1 : -1, dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) || 1;
     const x = (a[0] + b[0]) / 2 + (-dz / L) * side * (w / 2 + 1.1), z = (a[1] + b[1]) / 2 + (dx / L) * side * (w / 2 + 1.1), g = gy(x, z);
     S.base = g - LAND_Y;
@@ -234,6 +243,31 @@ export function build({ data, S, group }) {
 
   // ---- the watch tower ----
   tower(S, TOWER);
+
+  // ---- the rest stop: one storey on a low plinth, its walls and openings estimated (only the roof is seen) ----
+  {
+    const [[rx, rz], rl, rd, ra] = REST, cx = Math.cos(ra), cz = Math.sin(ra);
+    const at = (u, v) => [rx + cx * u - cz * v, rz + cz * u + cx * v];
+    let g0 = Infinity, g1 = -Infinity;
+    for (const [u, v] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) { const p = at((u * rl) / 2, (v * rd) / 2), g = gy(p[0], p[1]); g0 = Math.min(g0, g); g1 = Math.max(g1, g); }
+    const yf = g1 + 0.35;
+    S.base = g0 - LAND_Y;
+    S.kind = KIND.MASONRY;
+    S.box(rx, rz, g0 - 0.3, yf, rl + 1.2, rd + 1.2, ra, hex('#a49d8d'), { topKind: KIND.ROAD });
+    S.box(rx, rz, yf, yf + 3.1, rl - 0.6, rd - 0.6, ra, hex('#ddd5c2'));
+    S.kind = KIND.PLAIN;
+    // doors and windows on the long sides, a dark band of glass
+    for (const s of [-1, 1]) {
+      const p = at(0, s * ((rd - 0.6) / 2 + 0.03));
+      S.box(p[0], p[1], yf + 0.9, yf + 2.3, rl - 2.6, 0.06, ra, dark);
+      const d = at(-rl / 2 + 2.0, s * ((rd - 0.6) / 2 + 0.04));
+      S.box(d[0], d[1], yf, yf + 2.4, 1.2, 0.06, ra, shade(TIMBER, 0.7));
+    }
+    S.kind = KIND.TILE;
+    S.hip(rx, rz, rl, rd, ra, yf + 3.1, 1.9, hex('#4a4f55'), { over: 0.6 });
+    S.kind = KIND.PLAIN;
+    S.base = 0;
+  }
 
   // ---- lamps along the main stair (new in 2024): a post every ~30 m ----
   {
@@ -257,7 +291,7 @@ export function build({ data, S, group }) {
   // ---- the pines: the hill is a pine wood (replanted from the early 2000s); keep the lookout, the tower's foot and the
   // garden open and the walks clear of trunks ----
   const clearOf = (x, z, pad) => open.some(([c, r]) => Math.hypot(x - c[0], z - c[1]) < r + pad) || WALKS.some(([w, , pts]) => pts.some((p, k) => k + 1 < pts.length && segDist(x, z, p, pts[k + 1]) < w / 2 + 0.9 + pad));
-  const open = [[VIEW, 15], [TOWER, 5], [GARDEN, 12], ...BUNKERS.map((b) => [b, 4])];
+  const open = [[VIEW, 15], [TOWER, 5], [GARDEN, 12], [REST[0], 8], ...BUNKERS.map((b) => [b, 4])];
   if (Array.isArray(data.trees)) {
     const t = data.trees, counts = data.meta && data.meta.counts;
     for (let i = t.length / 4 - 1; i >= 0; i--) {

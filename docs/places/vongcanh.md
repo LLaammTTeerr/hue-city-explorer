@@ -28,19 +28,28 @@ Builder: `src/landmarks/places/vongcanh.js`. The old `vongCanh()` in `src/landma
 - Lamp spacing (about 30 m along the main walk) and the density of the pine infill (a jittered 8 m grid).
 
 ## What changed
-- The place record is moved at runtime to the real viewpoint (−2641.6, 4524.1).
-  - The scripts/build-data.mjs seed (`addPlace('vongcanh', …, [-2784, 5161])`, about line 1027) and data/control-points.json (16.42222, 107.56278) both put Vọng Cảnh on Ngọc Trản / Hòn Chén hill across the river. They should become about [-2642, 4524] / 16.4280, 107.5641. These files were not edited.
-- The old pavilion on a drum and the pillboxes at the wrong spot are replaced. In their place:
-  - stone walks draped on the ground, with risers on the steps;
-  - the river lookout terrace (marked paved);
-  - pillboxes;
-  - the garden and sim bushes;
-  - the purple tower;
-  - night lamps (glow points).
-- Trees are cleared off the walks and open ground. About 90% of the trees inside the forest ring are converted to pines, and pines are added inside the ring.
-- The terrain is unchanged. The existing grid already has the hill, about 33–34 m above the city floor (the sources give 43 m above sea level). No local ground is modelled.
+- The place record comes from the source:
+  - scripts/build-data.mjs now seeds `vongcanh` from OSM viewpoint node 4603986390. The old seed, [-2784, 5161], was on điện Hòn Chén's hill across the river.
+  - The §9 summit search moves the record onto the top, at about (−2626, 4523).
+  - The runtime move in the place file is gone, and `dataReach` drops from 1150 to 540.
+- data/control-points.json now puts Vọng Cảnh at 16.428, 107.5641 (it was 16.42222, 107.56278, which is Hòn Chén).
+  - The point is flagged `doubt`. The model's hilltop is 37.5 m against the guides' 43 m.
+  - Bare-earth data reads about 35 m there and the surface model about 44 m, so 43 m may include the canopy or be a rounded figure.
+- The walks were checked against the satellite (reference only; nothing traced into data).
+  - The garden, upper court, road, east walk and river walk already matched to 1–2 m.
+  - The main stepped climb was redrawn, along with its branch to the garden, the west stair, the tower walk and the top of the west-flank walk. Their OSM alignments ran up to about 10 m off the visible paths.
+  - The old zigzag walk, which does not appear on the imagery, was removed.
+- Added the rest stop at the foot of the main stair, near (−2725, 4357): a 9.5 × 7 m single-storey block with a glazed front and a grey hip roof. Its form is estimated.
+- Kept from the first pass:
+  - the stone walks with step risers;
+  - the river lookout terrace;
+  - the pillboxes, garden, sim bushes, purple tower, night lamps and pine conversion.
 
 ## Left to do
-- Fix the seed and control point at the source (in a shared-data pass).
-- Add the rest stop that was under construction in 2024 and the entrance toilet block.
-- Confirm the exact tower form and garden layout from photos.
+- The hill is about 5.5 m lower in the model than the documented 43 m. Fixing that needs a terrain recalibration, which is a shared matter.
+- Confirm from photos:
+  - the tower form;
+  - the rest-stop elevations;
+  - the terrace and pillbox positions;
+  - the entrance toilet block.
+- No usable Street View was available (the captures came back black).
