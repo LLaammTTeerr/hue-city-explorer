@@ -53,23 +53,96 @@ function shed(S, u0, u1, v0, v1, h, roof, bay = 13) {
   }
 }
 
-// a stall row under arched tin hoods (the barrel of each running out to the street, v), on a concrete band
-function hoods(S, u0, u1, v0, v1, H = 5.0, step = 6.0, rise = 1.3, reach = 0.6) {
+// open stall bays on a row's street face (at v = v0, the stalls running back to v1): piers every `step`, a dark
+// recess between them under a lintel, and goods stacked at the front (Street View 2025, Chương Dương)
+const GOODS = [hex('#d8c9a0'), hex('#c44a2c'), hex('#e6e2d6'), hex('#5f8a3a'), hex('#d89a2a'), hex('#3d6f9e')];
+function bays(S, u0, u1, v0, v1, top, step, open = top - 1.0) {
   S.kind = KIND.PLAIN;
-  boxUV(S, u0, u1, v0, v1, 0, H - 0.6, GREY, { top: shade(GREY, 0.8) });
+  const D = Math.min(1.6, (v1 - v0) / 2); // the depth of the open front
+  boxUV(S, u0, u1, v0 + D, v1, 0, top, GREY, { top: shade(GREY, 0.8) });
+  boxUV(S, u0 + 0.1, u1 - 0.1, v0 + D - 0.04, v0 + D, 0, open, DARK);
+  boxUV(S, u0, u1, v0, v0 + D, open, top, GREY, { top: shade(GREY, 0.8) }); // the lintel
+  const n = Math.max(1, Math.round((u1 - u0) / step)), w = (u1 - u0) / n;
+  for (let i = 0; i <= n; i++) { const u = Math.min(u1 - 0.25, Math.max(u0 + 0.25, u0 + i * w)); boxUV(S, u - 0.25, u + 0.25, v0, v0 + D, 0, open, GREY); }
+  for (let i = 0; i < n; i++) {
+    const a = u0 + i * w;
+    for (let j = 0; j < 3; j++) {
+      const b = a + 0.6 + j * (w - 1.2) / 3, h = 0.5 + ((i * 5 + j * 3) % 4) * 0.25;
+      boxUV(S, b, b + (w - 1.2) / 3 - 0.15, v0 + 0.2, v0 + D - 0.2, 0, h, GOODS[(i * 3 + j) % GOODS.length]);
+    }
+  }
+}
+// a stall row under arched tin hoods (the barrel of each running out to the street, v), on a concrete band; the
+// hoods corrugated grey tin, rusting in patches (the ribs drawn by the roof shader, KIND.TILE)
+const RUST = [hex('#7c8288'), hex('#8a7e72'), hex('#6f767b'), hex('#857565')];
+function hoods(S, u0, u1, v0, v1, H = 5.0, step = 6.0, rise = 1.3, reach = 0.6) {
+  bays(S, u0, u1, v0, v1, H - 0.6, step);
+  S.kind = KIND.PLAIN;
   boxUV(S, u0 - 0.1, u1 + 0.1, v0 - reach, v1, H - 0.6, H, CONCRETE); // the band, carried out under the hoods
   const n = Math.max(1, Math.round((u1 - u0) / step)), w = (u1 - u0) / n, K = 8, va = v0 - reach, vb = v1;
   for (let i = 0; i < n; i++) {
     const uc = u0 + (i + 0.5) * w, y = gy(P(uc, (va + vb) / 2)) + H;
     const at = (k, v) => { const s = -1 + (2 * k) / K, p = P(uc + (s * w) / 2, v); return [p[0], y + rise * (1 - s * s), p[1]]; };
-    for (let k = 0; k < K; k++) S.quad(at(k, va), at(k + 1, va), at(k + 1, vb), at(k, vb), shade(TIN, 0.9 + 0.1 * (i % 2)), [0, 1, 0]);
-    // the open end of the barrel over the street, its tympanum in render
+    S.kind = KIND.TILE;
+    for (let k = 0; k < K; k++) S.quad(at(k, va), at(k + 1, va), at(k + 1, vb), at(k, vb), RUST[(i * 3 + (k >> 2)) % RUST.length], [0, 1, 0]);
+    // the end of the barrel over the street, closed in the same corrugated tin, ribs upright
     const out = [-N[0], 0, -N[1]], c = P(uc, va);
-    for (let k = 0; k < K; k++) S.tri([c[0], y, c[1]], at(k, va), at(k + 1, va), TRIM, out);
+    for (let k = 0; k < K; k++) S.tri([c[0], y, c[1]], at(k, va), at(k + 1, va), shade(RUST[(i + 1) % RUST.length], 1.1), out);
+    S.kind = KIND.PLAIN;
   }
   // for the mapped buildings to keep clear of, as a hip roof would (city.js roofClash)
   const c = P((u0 + u1) / 2, (va + vb) / 2);
   if (S.roofs) S.roofs.push({ cx: c[0], cz: c[1], w: u1 - u0, d: vb - va, ang: ANG, y0: gy(c) + H, h: rise, over: 0 });
+}
+// the north end of the same row: a mono-pitch corrugated roof rising toward the market, its street edge a plain
+// tin fascia with a scalloped lower edge (Street View 2025, car panorama mid-way along Chương Dương)
+function lean(S, u0, u1, v0, v1, H = 5.0, step = 6.0, reach = 1.8) {
+  bays(S, u0, u1, v0, v1, H - 0.6, step);
+  const va = v0 - reach, out = [-N[0], 0, -N[1]], FAS = hex('#c9ccc8');
+  const pt = (u, v, y) => { const p = P(u, v); return [p[0], gy(P((u0 + u1) / 2, v)) + y, p[1]]; };
+  S.kind = KIND.TILE;
+  const R = [pt(u0, va, H), pt(u1, va, H), pt(u1, v1, H + 0.6), pt(u0, v1, H + 0.6)];
+  S.quad(R[0], R[1], R[2], R[3], RUST[0], [N[0] * 0.25, 1, N[1] * 0.25]);
+  S.kind = KIND.PLAIN;
+  S.quad(R[3], R[2], R[1], R[0], shade(RUST[0], 0.6), [0, -1, 0]);
+  S.quad(pt(u0, va, H - 0.8), pt(u1, va, H - 0.8), pt(u1, va, H + 0.05), pt(u0, va, H + 0.05), FAS, out);
+  S.quad(pt(u0, va + 0.03, H + 0.05), pt(u1, va + 0.03, H + 0.05), pt(u1, va + 0.03, H - 0.8), pt(u0, va + 0.03, H - 0.8), shade(FAS, 0.7), [N[0], 0, N[1]]);
+  for (let u = u0; u < u1 - 0.3; u += 0.6) S.tri(pt(u, va, H - 0.8), pt(u + 0.3, va, H - 0.95), pt(u + 0.6, va, H - 0.8), FAS, out);
+  for (const u of [u0, u1]) boxUV(S, u - 0.04, u + 0.04, va, v0, 0, H - 0.8, DARK); // the fascia's end posts
+  const c = P((u0 + u1) / 2, (va + v1) / 2);
+  if (S.roofs) S.roofs.push({ cx: c[0], cz: c[1], w: u1 - u0, d: v1 - va, ang: ANG, y0: gy(c) + H, h: 0.6, over: 0 });
+}
+// a field of small stall roofs, light corrugated sheet in bays of a few metres (the white roofs between the end
+// halls and the main hall on the satellite)
+const STALLS = [hex('#dcdad2'), hex('#cfcdc4'), hex('#e6e4dc'), hex('#c4c6c2')];
+function stalls(S, u0, u1, v0, v1, h = 4.0) {
+  S.kind = KIND.PLAIN;
+  boxUV(S, u0, u1, v0, v1, 0, h - 0.6, GREY, { top: shade(GREY, 0.8) });
+  const nu = Math.max(1, Math.round((u1 - u0) / 4.5)), nv = Math.max(1, Math.round((v1 - v0) / 5.5));
+  const su = (u1 - u0) / nu, sv = (v1 - v0) / nv;
+  for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) {
+    hipUV(S, u0 + i * su + 0.1, u0 + (i + 1) * su - 0.1, v0 + j * sv + 0.1, v0 + (j + 1) * sv - 0.1, h - 0.6, 0.6, STALLS[(i * 3 + j) % STALLS.length], { over: 0.15 });
+  }
+}
+// open stalls on a forecourt row's street face (at v = vf, the row behind it at lower v): a dark opening in each
+// bay under a yellow or red signboard, goods at the front, and here and there a white roll-out awning (Street
+// View 2025 on Trần Hưng Đạo: a continuous run of open shopfronts under yellow and red boards)
+const BOARDS = [hex('#e8c21e'), hex('#e8c21e'), hex('#c8161d'), hex('#e8c21e'), hex('#f0d64a'), hex('#c8161d')];
+function stallFronts(S, u0, u1, vf, top) {
+  S.kind = KIND.PLAIN;
+  const n = Math.round((u1 - u0) / 3.3), bw = (u1 - u0) / n, oh = top - 0.95;
+  for (let i = 0; i < n; i++) {
+    const a = u0 + i * bw;
+    boxUV(S, a + 0.3, a + bw - 0.3, vf - 0.02, vf + 0.04, 0, oh, DARK);
+    boxUV(S, a + 0.1, a + bw - 0.1, vf, vf + 0.2, oh + 0.05, top - 0.1, BOARDS[(i + (u0 > 0 ? 3 : 0)) % BOARDS.length]);
+    boxUV(S, a + 0.35, a + bw - 0.35, vf + 0.04, vf + 0.75, 0, 0.55 + (i % 3) * 0.2, GOODS[(i * 2) % GOODS.length]);
+    if (i % 3 === 1) {
+      const A = P(a + 0.2, vf + 0.2), B = P(a + bw - 0.2, vf + 0.2), Cc = P(a + bw - 0.2, vf + 1.5), D = P(a + 0.2, vf + 1.5), y = gy(A);
+      const y1 = y + oh, y2 = y + oh - 0.55, W = hex('#ecebe6');
+      S.quad([D[0], y2, D[1]], [Cc[0], y2, Cc[1]], [B[0], y1, B[1]], [A[0], y1, A[1]], W, [N[0] * 0.5, 0.85, N[1] * 0.5]);
+      S.quad([A[0], y1, A[1]], [B[0], y1, B[1]], [Cc[0], y2, Cc[1]], [D[0], y2, D[1]], shade(W, 0.75), [-N[0] * 0.5, -0.85, -N[1] * 0.5]);
+    }
+  }
 }
 
 // stall tarpaulins pitched from the hood band down to bamboo poles at the kerb side (blue, yellow, red, green in
@@ -87,11 +160,11 @@ function tarps(S, u0, u1, va, vb, H) {
   }
 }
 // the billboard frame on the roofline: a white lattice on two posts
-function billboard(S, u, v, y, w, h) {
+function billboard(S, u, v, y, w, h, post = 1.2) {
   S.kind = KIND.PLAIN;
   boxUV(S, u - w / 2, u + w / 2, v - 0.05, v + 0.05, y, y + h, hex('#e9e9e4'));
   boxUV(S, u - w / 2 + 0.3, u + w / 2 - 0.3, v - 0.07, v + 0.07, y + 0.3, y + h - 0.3, hex('#9aa4a8'));
-  for (const du of [-w / 2 + 0.4, w / 2 - 0.4]) boxUV(S, u + du - 0.06, u + du + 0.06, v - 0.1, v + 0.1, y - 1.2, y, DARK);
+  for (const du of [-w / 2 + 0.4, w / 2 - 0.4]) boxUV(S, u + du - 0.06, u + du + 0.06, v - 0.1, v + 0.1, y - post, y, DARK);
 }
 // shopfronts on a corner building's front (face at v = vf, the street side): roll-up shutters under signboards,
 // and a window above each, on the rhythm of a Huế shophouse (about 3.6 m a bay)
@@ -158,8 +231,9 @@ export function build({ data, S, group, THREE }) {
     boxUV(S, -HU - 0.15, HU + 0.15, HV, FV + 0.15, y - 0.25, y + 0.1, TRIM);
   }
   boxUV(S, -HU - 0.1, HU + 0.1, -HV - 0.1, FV + 0.1, TOP - 0.1, TOP + 0.5, TRIM, { top: shade(CONCRETE, 0.85) });
-  // the tiled awning over the ground-floor stalls on the ends and the back (inside the body, only its skirt shows)
-  hipUV(S, -HU, HU, -HV, FV, 3.0, 1.0, TILE, { over: 1.8, flare: 0.3 });
+  // the tiled awning over the ground-floor stalls on the ends and the back (inside the body, only its skirt shows);
+  // its front eave stops inside the body, behind the arcade, where it showed as a red line across the openings
+  hipUV(S, -HU, HU, -HV, HV - 2.0, 3.0, 1.0, TILE, { over: 1.8, flare: 0.3 });
   // the roof over the hall: eleven sheet-roofed bays running across it, front to back, between light strips over
   // the front gallery and along the back (Google satellite, 2025: green-grey sheet, the ridges square to the front)
   const NB = 11, BW = (2 * HU) / NB, BV0 = -HV + 3.5, BV1 = HV;
@@ -174,13 +248,27 @@ export function build({ data, S, group, THREE }) {
   const EU = 7.0, EV0 = FV, EV1 = 44.0;
   for (const u of [-EU + 0.3, -2.4, 2.4, EU - 0.3]) boxUV(S, u - 0.3, u + 0.3, EV1 - 0.9, EV1 - 0.3, 0, 4.3, TRIM);
   boxUV(S, -EU, EU, EV0, EV1, 4.3, 4.5, SOFFIT);
-  boxUV(S, -EU - 0.1, EU + 0.1, EV0, EV1 + 0.1, 4.5, 4.85, TRIM);
+  boxUV(S, -EU - 0.1, EU + 0.1, EV0, EV1 + 0.1, 4.5, 4.85, TRIM, { top: TILE }); // salmon from above, like the rows
   const BY0 = 4.85, BY1 = 6.9; // the LED band: on the front and turning a few metres down either side
   boxUV(S, -EU - 0.1, EU + 0.1, EV1 - 0.4, EV1 + 0.1, BY0, BY1, LED);
   for (const s of [-1, 1]) boxUV(S, s * EU - 0.25, s * EU + 0.25, EV1 - 6, EV1, BY0, BY1, LED);
   // its red LED edging (by day, red trim; after dark, the light strips below)
   boxUV(S, -EU - 0.15, EU + 0.15, EV1 + 0.08, EV1 + 0.18, BY1 - 0.18, BY1, RED);
   boxUV(S, -EU - 0.15, EU + 0.15, EV1 + 0.08, EV1 + 0.18, BY0, BY0 + 0.18, RED);
+  // white roll-down awnings hanging from the canopy's edge, their hems kicked out a little (2024 photos, Street View)
+  {
+    const AW = hex('#ecedea'), hang = (a, b, c, d) => {
+      S.quad(a, b, c, d, AW, [N[0], 0, N[1]]);
+      S.quad(d, c, b, a, shade(AW, 0.7), [-N[0], 0, -N[1]]);
+    };
+    const pt = (u, v, y) => { const p = P(u, v); return [p[0], gy(P(0, EV1)) + y, p[1]]; };
+    for (let i = 0; i < 4; i++) {
+      const a = -EU + i * (2 * EU) / 4 + 0.05, b = -EU + (i + 1) * (2 * EU) / 4 - 0.05, hem = 2.0 + (i % 2) * 0.35;
+      hang(pt(a, EV1 + 0.2, 4.3), pt(b, EV1 + 0.2, 4.3), pt(b, EV1 + 0.75, hem), pt(a, EV1 + 0.75, hem));
+    }
+    S.kind = KIND.PLAIN;
+    for (const sg of [-1, 1]) boxUV(S, sg * (EU + 0.2) - 0.03, sg * (EU + 0.2) + 0.03, EV1 - 6, EV1 + 0.1, 2.3, 4.3, AW);
+  }
   // the posts the letters stand on, and the flagpoles behind them
   for (let u = -6; u <= 6.01; u += 2) boxUV(S, u - 0.06, u + 0.06, EV1 - 0.6, EV1 - 0.48, BY1, BY1 + 0.5, DARK);
   for (let i = 0; i < 7; i++) {
@@ -191,7 +279,9 @@ export function build({ data, S, group, THREE }) {
 
   // ---- the forecourt: rows of stalls either side of the entrance, and the two corner buildings ----
   shed(S, -42, -9, 31, 41, 5.0, TILE, 11);
-  shed(S, 9, 40, 31, 41, 3.8, TILE, 10.5);
+  shed(S, 9, 40, 31, 41, 4.6, TILE, 10.5);
+  stallFronts(S, -41.8, -9.2, 41, 3.6);
+  stallFronts(S, 9.2, 39.8, 41, 3.2);
   for (const [u0, u1] of [[-69, -46], [44, 67]]) {
     S.kind = KIND.CIVIC;
     boxUV(S, u0, u1, 31.5, 42, 0, 6.6, GREY, { top: shade(CONCRETE, 0.85) });
@@ -210,23 +300,42 @@ export function build({ data, S, group, THREE }) {
     for (let u = u0; u <= u1 + 0.01; u += (u1 - u0) / 8) for (let w = -30; w > v - 6; w -= 0.1) if (street(...P(u, w), 0)) { back = Math.max(back, w + 0.9); break; }
     return back;
   };
-  shed(S, -78, -36.2, -21, 30, 5.0, SHEET);
-  S.kind = KIND.CIVIC; // the two-storey spine through the south end hall
-  boxUV(S, -48, -42, -21, 30, 0, 7.0, GREY, { top: shade(CONCRETE, 0.85) });
-  S.kind = KIND.PLAIN;
-  hipUV(S, -48, -42, -21, 30, 7.0, 0.8, METAL, { over: 0.5, flare: 0.1 });
-  shed(S, 36.2, 78, -21, 30, 5.0, SHEET);
-  // along Chương Dương (Street View from the street, 2025): a row of stalls under arched tin hoods over a concrete
-  // band, the whole length of the back; behind it, the long sheet-roofed hall seen green on the satellite (u -37..38)
-  // and, at the south end, lower stall sheds
+  // south end (satellite 2025): the green sheet hall on the outer 28 m, an arm of it along the front, and small light
+  // stall roofs in the band between it and the main hall
+  shed(S, -78, -50, -21, 30, 5.0, SHEET);
+  shed(S, -50, -36.2, 15, 30, 5.0, SHEET, 7);
+  stalls(S, -50, -36.2, -21, 15, 4.0);
+  // north end: from the main hall out, a dark brown sheet strip, small light stall roofs, a second brown strip,
+  // and green sheet on the outer 14 m
+  const BROWN = hex('#6a4a3c');
+  shed(S, 36.2, 40, -21, 30, 5.6, BROWN, 13);
+  stalls(S, 40, 54, -21, 30, 4.0);
+  shed(S, 54, 64, -21, 30, 5.6, BROWN, 13);
+  shed(S, 64, 78, -21, 30, 5.0, SHEET);
+  // along Chương Dương (Street View from the street, 2025): a row of open stalls under arched tin hoods over a
+  // concrete band, turning to a mono-pitch roof with a scalloped fascia at the north end; behind it, the long
+  // sheet-roofed hall seen green on the satellite (u -37..38) and, at the south end, a taller concrete block with
+  // vertical fins on its street face and a brown roof (satellite and the southern car panorama), between stall roofs
   const back = backV(-78, 38, -49), HV0 = -42;
   shed(S, -37, 38, HV0, -22.2, 6.8, SHEET, 38);
-  shed(S, -78, -37, HV0, -22.2, 5.0, METAL);
+  stalls(S, -78, -66, HV0, -22.2, 4.2);
+  stalls(S, -41, -37, HV0, -22.2, 4.2);
+  S.kind = KIND.CIVIC;
+  boxUV(S, -66, -41, -39, -22.2, 0, 8.6, CONCRETE, { top: shade(CONCRETE, 0.85) });
+  S.kind = KIND.PLAIN;
+  hipUV(S, -66, -41, -39, -22.2, 8.6, 1.0, BROWN, { over: 0.5, flare: 0.1 });
+  boxUV(S, -66, -41, -42, -39, 0, 4.2, GREY, { top: shade(GREY, 0.8) }); // the stalls between it and the hood row
+  for (let u = -65.6; u <= -41.3; u += 0.9) boxUV(S, u - 0.07, u + 0.07, -39.6, -39, 4.4, 8.4, TRIM);
+  boxUV(S, -66.1, -40.9, -39.7, -39, 8.3, 8.6, TRIM);
   // the stall fronts stand back from the kerb, their hoods reaching out over them (both car panoramas on Chương
   // Dương put the stall fronts 4-6 m from the camera, where the kerb alone left them a metre away)
-  hoods(S, -78, 38, back + 2.5, HV0, 5.0, 6.0, 1.3, 1.8);
+  hoods(S, -78, 12, back + 2.5, HV0, 5.0, 6.0, 1.3, 1.8);
+  lean(S, 12, 38, back + 2.5, HV0, 5.0, 5.2, 1.8);
   tarps(S, -76, 36, back + 2.5, HV0, 5.0);
-  billboard(S, 22, HV0 + 4, 5.6, 9, 3.2);
+  // the billboard lattice stands on the main hall's back parapet: the two car panoramas on Chương Dương sight it on
+  // rays that cross there, about u 0, and its size in the frames puts it 35-40 m from the middle one, 14-17 m up
+  // on its frame just behind the hall's back parapet, standing on the back shed (6.8 m) rather than the hall slab
+  billboard(S, 0, -HV - 2.0, TOP + 4.4, 9, 3.2, TOP + 4.4 - 6.6);
   S.kind = KIND.CIVIC;
   boxUV(S, 38.5, 72, -40, -22.5, 0, 7.4, GREY, { top: shade(CONCRETE, 0.85) });
   S.kind = KIND.PLAIN;

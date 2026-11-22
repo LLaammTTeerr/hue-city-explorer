@@ -50,3 +50,13 @@ Model: `src/landmarks/places/dongba.js`. It replaces `buildMarket` in `src/landm
 
 ## Polish
 Added stall tarpaulins (blue, yellow, red, green) pitched from the hood band on poles along Chương Dương, a roofline billboard lattice, and shopfronts (roll-up shutters, coloured signboards, upper windows at a 3.6 m rhythm) on the two Trần Hưng Đạo corner buildings, after Street View 2025.
+
+## Review fixes (Street View car panoramas and satellite, 2025)
+- Trần Hưng Đạo forecourt rows: their street faces are now open stall bays of about 3.3 m, with yellow and red signboards, goods out front and a white awning on every third bay. The north row is 4.6 m tall.
+- Chương Dương row: the solid wall is replaced by open bays (dark recess, piers every 6 m, goods). The hoods and their end tympana are corrugated grey and rust tin (the roof shader's ribbed kind), not flat tan and white.
+- North end of that row (u 12-38): a lean-to with a mono-pitch corrugated roof (5.0-5.6 m) and a plain tin fascia with a scalloped lower edge, instead of arched hoods.
+- South end hall: green sheet roof from u -50 outward (full depth u -78..-50, plus a strip v 15-30 to u -36). Small white stall roofs fill u -50..-36. The old two-storey spine is removed.
+- North end hall, outward from the main hall: brown strip u 36-40, white stalls 40-54, brown 54-64, green 64-78. On the satellite the green band is about 14 m, against the ~17 m in the review.
+- Back south: a taller concrete block (u -66..-41, 8.6 m, brown roof) with vertical fins on its Chương Dương face. It rises behind the hoods as in the south car panorama. White stall roofs sit at u -78..-66.
+- Billboard: rays from both car panoramas cross just behind the hall's back parapet (u 0). It stands there on posts from the back shed, panel 14.8-18 m, so it clears the roofline from Chương Dương. It sits outside the hall footprint, so the hall's height check still measures the hall.
+- Front: the inner tiled awning has no 1.8 m eave over the arcade any more (the red line). The canopy roof is salmon tile. White roll-down awnings hang along the canopy front and sides.
