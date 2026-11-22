@@ -22,18 +22,31 @@ Model: `src/landmarks/places/quantuong.js` (id `quantuong`). No older builder dr
 
 ## Confirmed and modelled
 - A solid brick platform with battered faces (a truncated pyramid), a stone cornice, a brick-paved deck and a low railing. The railing has corner posts (bổ trụ) and is open at the ramp head.
-- The ramp from inside the Citadel: 51 steps of 0.78 m (39.8 m run), 8.2 m wide, a 5 m đá gan gà centre and brick-paved slopes either side with a kerb.
-- Bát Phong pavilion: octagonal, open, 12 columns (8 outer and 4 inner), red lacquer on stone bases. Two roof tiers: an eight-slope skirt, then a four-slope hip over a chồng diêm band. Blue-green glazed tiles, pale ridges with upturned horns, and a lightning rod.
+- The ramp from inside the Citadel: 51 steps of 0.75 m (38.3 m run), 8.2 m wide, a 6.4 m đá gan gà centre and brick-paved slopes either side with a kerb.
+- Bát Phong pavilion: octagonal, open, 12 columns (8 outer and 4 inner), grey (as Street View shows them) on stone bases. Two roof tiers: an eight-slope skirt, then a four-slope hip over a chồng diêm band. Green glazed tiles (weathered grey-green), pale ridges with upturned horns, and a lightning rod.
 - The stone plaque on the outward face, and the war-time bunker on the bastion's tip.
 - The deck, ramp and landing are marked `S.paved`, so houses and trees keep off.
 
 ## Estimates
-- Deck 20 m square, with faces leaning about 3 %; the pavilion's outer columns on a 3.4 m radius; heights of 2.9 m (outer) and 4.6 m (inner) columns.
-- Deck height: 0.8 m above the rampart walk (LAND_Y + 7.4 m). The sourced 5.9 m is read as measured from the court the ramp starts in. The model's wall walk is 6.6 m, and photos show the platform standing proud of the walk. As a result the risers are 14.5 cm, against the 10 cm one article gives.
-- Ramp axis: the OSM footway averaged with the bastion's bisector.
-- Colours: weathered brick with lime-render patches, and a laterite-brown đá gan gà; judged from descriptions.
+- Position and axis, from the Google satellite (Nov 2026 alignment pass): platform centre x -1931.7, z 740.8 (scene metres; the
+  deck's apparent position corrected for the lean of its 6 m faces in the oblique image), ramp foot at the kerb of
+  Tôn Thất Thiệp near x -1917, z 698. The ramp climbs on a bearing of 199° (it runs NNE from the platform); the OSM
+  footway averaged with the bastion's bisector gave the same axis to within 1°. The OSM node and footway end had put
+  the platform about 10 m too far south. The model sits 1.1 m further up the axis than that reading, so the first
+  steps stop at the mapped street's kerb.
+- Deck 14.5 m along the ramp by 16.5 m across (satellite: not square), faces leaning to 0.88 of the foot.
+- Deck height 9.5 m over the street the ramp starts from, matched in two Google Street View car panoramas (Tôn Thất
+  Thiệp, Ông Ích Khiêm). The sourced 5.9 m is read as the platform over the bastion's terreplein. Risers are about
+  19 cm.
+- Ramp: 51 treads of 0.75 m (38.3 m run, matching the satellite), a 6.4 m centre of steps with narrow brick-paved
+  sloping bands and pale copings either side, an iron pipe railing along the steps' edges, and a black iron fence
+  closing the foot at the street (all seen in Street View).
+- Pavilion: eaves about 6.2 m across, nearly as tall as wide (Street View against the 8.2 m ramp). Outer columns on a
+  2.2 m radius, columns 2.1 m (outer) and 3.4 m (inner).
+- Colours from Street View: dark, mossy grey brick and treads, pale ochre copings, a weathered grey-green glaze, and
+  grey columns.
 
 ## Not modelled / left
-- The rampart, the walk and the bastion's parapet belong to `kinhthanh` and are unchanged. The platform's outer half stands on its walk.
+- The rampart, the walk and the bastion's parapet belong to `kinhthanh` and are unchanged. The platform stands at the inner corner of its walk.
 - Flagpole: it is historical, and no source says one stands today. The 2020 rain gauge mast and cameras are too small to model.
 - No night lights (no source for floodlighting).
