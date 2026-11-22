@@ -262,7 +262,7 @@ export function build({ data, S }) {
     S.box(x, z, y + 1.0, y + 1.08, w + 0.1, w + 0.1, a, railD);
     S.box(x, z, y + 1.08, y + 1.2, w + 0.04, w + 0.04, a, rail, { taper: 0.55 });
   };
-  const CELL = 0.34;
+  const CELL = 0.25;
   const bay = (A, B) => {
     const ex = B[0] - A[0], ez = B[2] - A[2], L = Math.hypot(ex, ez), e = [ex / L, ez / L], slope = (B[1] - A[1]) / L;
     const nv = [-e[1], 0, e[0]], nb = [e[1], 0, -e[0]];
@@ -277,15 +277,16 @@ export function build({ data, S }) {
     };
     const ring = (sc, hc, r) => [...Array(7)].map((_, i) => { const t = (i / 6) * Math.PI * 2 + Math.PI / 2; return [sc + Math.cos(t) * r * 0.8, hc + Math.sin(t) * r]; });
     const a = Q(0, 0), b = Q(L, 0);
-    S.beam([a[0], a[1] + 0.9, a[2]], [b[0], b[1] + 0.9, b[2]], 0.2, 0.1, rail); // top rail
+    S.beam([a[0], a[1] + 0.9, a[2]], [b[0], b[1] + 0.9, b[2]], 0.24, 0.12, rail); // top rail
     S.beam([a[0], a[1] + 0.08, a[2]], [b[0], b[1] + 0.08, b[2]], 0.12, 0.08, railD); // bottom rail
     const p0 = 0.2, p1 = L - 0.2, nc = Math.max(1, Math.round((p1 - p0) / CELL)), cw = (p1 - p0) / nc;
     for (let k = 0; k <= nc; k++) {
       const sv = p0 + cw * k;
-      strip([[sv, 0.12], [sv, 0.85]], 0.03);
+      if (k % 2 === 0) strip([[sv, 0.12], [sv, 0.85]], 0.03);
       if (k === nc) break;
-      strip(ring(sv + cw / 2, 0.31, cw * 0.4), 0.025);
-      strip(ring(sv + cw / 2, 0.66, cw * 0.4), 0.025);
+      // three rows of small rings plus a cross scroll between them: the cast panel reads dense, not barred
+      for (const hc of [0.27, 0.48, 0.69]) strip(ring(sv + cw / 2, hc, cw * 0.42), 0.022);
+      strip([[sv, 0.38], [sv + cw, 0.58]], 0.018);
     }
   };
   const BAY = 3.0;
