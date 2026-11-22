@@ -110,7 +110,7 @@ export function build({ data, S, group }) {
   // pavilion with a hipped cap and a cross at each end.
   const NV = 40.8; // the chapel's axis
   const yC = Math.max(hiG(-48.8, -17.6, 25.5, 50.4)[1], hiG(-17.6, 7.6, 24.2, 49.9)[1], hiG(-17.6, -5, 15.5, 63.5)[1]) + 0.25;
-  const stone = hex('#8c877e'), stone2 = hex('#99938a'), glaze = hex('#c99a45'), frame = hex('#8a3a2e'), panel = hex('#b67a70');
+  const stone = hex('#a3a6a6'), stone2 = hex('#b2b4b1'), glaze = hex('#c9a45a'), frame = hex('#8a3a2e'), panel = hex('#b67a70');
   const P3 = (u, v, y) => { const q = W(u, v); return [q[0], y, q[1]]; };
   const vn = (s) => [V[0] * s, 0, V[1] * s], un = (s) => [U[0] * s, 0, U[1] * s];
   {
