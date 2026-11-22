@@ -29,7 +29,7 @@ const STONE = hex('#9b998f'); // Thanh Hóa stone, blue-grey
 const BRICK = hex('#6f665c'); // gạch vồ facing
 // the court: red-brown brick (gạch Bát Tràng) with a pale blue-grey stone ngự đạo, as the court is paved today
 // (Street View, user photosphere from the platform's front edge, 2026)
-const PAVE = hex('#74625a');
+const PAVE = hex('#7e5f4a'); // warm red-brown: the scene light cools a greyer brick to mauve
 const PAVE2 = hex('#a3a9a8');
 const FLOOR = hex('#b8b0a0');
 const RED = hex('#9a2a1e');
@@ -79,9 +79,10 @@ export function build({ S }) {
       beam(P3(uu, y1 + 0.18, v0 + 0.2), P3(uu, y0 + 0.2, v0 + tread * n + 0.1), 0.4, 0.4, STONE);
     }
   };
-  flight(0, 4.2, 5);
-  flight(-14.9, 3.2, 5);
-  flight(14.9, 3.2, 5);
+  // at the OSM ways' u (619851677, 619851679, 619851678): not quite symmetric about the outline's centre
+  flight(-0.5, 4.2, 5);
+  flight(-15.8, 3.2, 5);
+  flight(14.0, 3.2, 5);
   (S.paved = S.paved || []).push([paved0, S.n]); // stone paving and platform: no trees, no houses (geo/city.js coverOf)
 
   // ======== columns on their stone bases: red lacquer with a gilt dragon band ========
