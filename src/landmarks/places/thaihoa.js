@@ -127,18 +127,22 @@ export function build({ S, group, THREE }) {
   }
 
   // ======== columns ========
-  // 9 bays across, widest in the middle; 7 spaces deep: front verandah, front hall, the join, the main hall
+  // 9 bays across, widest in the middle; 7 spaces deep: front verandah, front hall, the join, the main hall.
+  // The outer columns stand 40.2 × 27.4 m apart, so that with the 1.9 m overhang the eaves cover about 44 × 31 m:
+  // the roof outline on Google's satellite view (2026), which OSM's 44.8 × 32.1 m way also traces. (Until 2026 the
+  // OSM outline was read as the column line, and the roof stood about 1.5 m too far out on every side.)
+  const HU = 20.1;
   const bayW = [3.4, 3.8, 4.8, 5.4, 6.2, 5.4, 4.8, 3.8, 3.4];
-  const kW = 43 / bayW.reduce((a, b) => a + b, 0);
-  const cu = [-21.5];
+  const kW = (2 * HU) / bayW.reduce((a, b) => a + b, 0);
+  const cu = [-HU];
   for (const b of bayW) cu.push(cu[cu.length - 1] + b * kW);
-  const cv = [15.25, 12.05, 7.05, 3.05, -1.75, -7.15, -11.95, -15.25];
-  const CH = 4.3; // outer columns, floor to the eave plate
+  const cv = [13.7, 10.82, 6.33, 2.74, -1.57, -6.42, -10.73, -13.7];
+  const CH = 3.9; // outer columns, floor to the eave plate: about the height of the upper roof, as the front reads from the esplanade
   const colTop = (i, j) => {
     const inner = i > 0 && i < 9;
-    if (j === 3) return FL + 5.2; // under the valley between the two roofs
+    if (j === 3) return FL + CH + 0.3; // under the valley between the two roofs
     if (j >= 4 && j <= 6 && inner && i > 1 && i < 8) return FL + 6.4; // the main hall's tall inner columns
-    if ((j === 1 || j === 2) && inner) return FL + 5.0;
+    if ((j === 1 || j === 2) && inner) return FL + CH + 0.6;
     return FL + CH;
   };
   S.kind = KIND.TIMBER;
@@ -158,7 +162,7 @@ export function build({ S, group, THREE }) {
   // bửu tán is carved gilt wood (Khải Định, 1923), two dragons facing a Thọ on each face, a dragon head at each corner.
   // Tier sizes and heights and the canopy's size and height are estimated.
   {
-    const TV = -4.0; // the dais's centre, in the middle bay between the column rows at v -1.75 and -7.15
+    const TV = -4.0; // the dais's centre, in the middle bay between the column rows at v -1.57 and -6.42
     let y = FL;
     for (const [w, d, h, c] of [[3.4, 3.0, 0.2, RED_DK], [2.7, 2.4, 0.2, RED], [2.0, 1.8, 0.2, RED_DK]]) {
       box(0, TV, y, y + h, w, d, c);
@@ -175,7 +179,7 @@ export function build({ S, group, THREE }) {
     box(0, tv - 0.34, sy + 0.05, y + 0.92, 0.5, 0.02, RED); // the red lacquer panel of the back
     // the bửu tán: a square gilt canopy hung from the roof framing over the throne, a carved valance on each face and a
     // dragon head rising at each corner
-    const cw = 2.4, cy0 = FL + 3.3, cy1 = FL + 3.75;
+    const cw = 2.4, cy0 = FL + 2.9, cy1 = FL + 3.3;
     box(0, TV, cy1, cy1 + 0.08, cw + 0.2, cw + 0.2, shade(GOLD, 0.85));
     for (const s of [-1, 1]) {
       box(0, TV + s * cw / 2, cy0, cy1, cw, 0.06, GOLD);
@@ -224,27 +228,31 @@ export function build({ S, group, THREE }) {
     const i0 = s < 0 ? 0 : 8;
     box((cu[i0] + cu[i0 + 1]) / 2, cv[1], FL, FL + CH - 0.3, cu[i0 + 1] - cu[i0] - 0.5, 0.3, WALL);
     for (const i of s < 0 ? [0, 1] : [7, 8]) box((cu[i] + cu[i + 1]) / 2, cv[7] + 0.1, FL, FL + CH - 0.3, cu[i + 1] - cu[i] - 0.5, 0.3, WALL);
-    box(s * 21.5, (cv[1] + cv[7]) / 2, FL, FL + CH - 0.3, 0.34, cv[1] - cv[7], WALL);
+    box(s * HU, (cv[1] + cv[7]) / 2, FL, FL + CH - 0.3, 0.34, cv[1] - cv[7], WALL);
     // the round windows with the character Thọ, 1.4 m across, in the gable walls of the front hall
-    const p = W(s * 21.68, (cv[1] + cv[3]) / 2);
+    const p = W(s * (HU + 0.18), (cv[1] + cv[3]) / 2);
     S.cyl(p[0], p[1], FL + 1.6, FL + 1.62, 0.7, 0.7, 10, GOLD, { cap: true });
   }
   // the interior: a dark lid under the roofs (seen through the doors and from below the eaves)
-  box(0, 0, FL + CH - 0.3, FL + CH - 0.1, 42.6, 30, shade(RED_DK, 0.6), { bottom: true });
+  box(0, 0, FL + CH - 0.3, FL + CH - 0.1, 2 * HU - 0.4, cv[0] - cv[7] - 0.4, shade(RED_DK, 0.6), { bottom: true });
 
   // ======== roofs ========
   S.kind = KIND.PLAIN;
-  const roofOpt = { flare: 0.55, fascia: 0.32, fasciaCol: RED_DK, ridgeCol: RIDGE, hips: true, glazed: true, segs: 4 };
-  // front hall: one hip roof over the verandah and the 7 + 2 bays, its back slope dropping into the valley
+  const roofOpt = { flare: 0.3, fascia: 0.32, fasciaCol: RED_DK, ridgeCol: RIDGE, hips: true, glazed: true, segs: 4 };
+  // front hall: one hip roof over the verandah and the 7 + 2 bays, its back slope dropping into the valley. It is
+  // low: seen from sân Đại Triều Nghi its ridge stays under the main hall's cổ diêm band, so the front shows three
+  // bands over the columns, the front roof, the poem panels and the upper roof (Google Street View from the
+  // esplanade). Eaves run nearly straight, turning up only a little at the corners.
+  const FRH = 1.6;
   const fhV = (cv[0] + cv[3]) / 2, fhD = cv[0] - cv[3];
-  { const p = W(0, fhV); S.hip(p[0], p[1], 43, fhD, A, FL + CH, 2.9, ROOF, { ...roofOpt, over: 1.9 }); }
+  { const p = W(0, fhV); S.hip(p[0], p[1], 2 * HU, fhD, A, FL + CH, FRH, ROOF, { ...roofOpt, over: 1.9 }); }
   // main hall: the lower skirt round the whole of it...
   const mhV = (cv[3] + cv[7]) / 2, mhD = cv[3] - cv[7];
-  { const p = W(0, mhV); S.hip(p[0], p[1], 43, mhD, A, FL + CH, 1.9, ROOF, { ...roofOpt, ridgeCol: null, over: 1.9 }); }
+  { const p = W(0, mhV); S.hip(p[0], p[1], 2 * HU, mhD, A, FL + CH, 1.9, ROOF, { ...roofOpt, ridgeCol: null, over: 1.9 }); }
   // ...the cổ diêm band above it, dark red framing round enamelled poem panels...
-  const iu = 33.6, iv = cv[4] - cv[6] + 2.2, iVc = (cv[4] + cv[6]) / 2, yd0 = FL + 5.6, yd1 = FL + 6.5;
+  const iu = 31.4, iv = cv[4] - cv[6] + 2.2, iVc = (cv[4] + cv[6]) / 2, yd0 = FL + 5.6, yd1 = FL + 6.4;
   S.kind = KIND.TIMBER;
-  box(0, iVc, FL + 5.0, yd1, iu, iv, RED_DK, { top: shade(ROOF, 0.8) });
+  box(0, iVc, FL + CH + 0.6, yd1, iu, iv, RED_DK, { top: shade(ROOF, 0.8) });
   S.kind = KIND.PLAIN;
   {
     const n = 14, m = 5;
@@ -258,7 +266,7 @@ export function build({ S, group, THREE }) {
     }
   }
   // ...and the upper hip roof. Ridge at about 11.8 m above the ground.
-  const upH = 2.85;
+  const upH = 2.95;
   { const p = W(0, iVc); S.hip(p[0], p[1], iu, iv, A, yd1, upH, ROOF, { ...roofOpt, over: 1.6 }); }
   const ridgeY = yd1 + upH + 0.3;
   // "two dragons facing the sun" (lưỡng long chầu nhật) on the main ridge: a flaming disc and two enamelled dragons
@@ -281,7 +289,7 @@ export function build({ S, group, THREE }) {
   }
   // the front hall's ridge: a row of enamelled panels, the middle one (Thổ) yellow
   {
-    const fy = FL + CH + 2.9 + 0.3, n = 9;
+    const fy = FL + CH + FRH + 0.3, n = 9;
     for (let k = 0; k < n; k++) {
       const u = -9 + (18 * (k + 0.5)) / n;
       for (const s of [-1, 1]) box(u, fhV + s * 0.33, fy - 0.05, fy + 0.3, 18 / n - 0.35, 0.04, k === 4 ? ENAMEL[2] : ENAMEL[k % 2]);
@@ -290,8 +298,8 @@ export function build({ S, group, THREE }) {
   // the bronze valley gutter between the two roofs, spouting through two dragon mouths at the gables
   {
     const y = FL + CH + 0.55;
-    beam(P3(-23.5, y, cv[3]), P3(23.5, y, cv[3]), 0.7, 0.4, BRONZE);
-    for (const s of [-1, 1]) beam(P3(s * 23.3, y, cv[3]), P3(s * 24.6, y - 0.25, cv[3]), 0.45, 0.4, shade(BRONZE, 1.25));
+    beam(P3(-(HU + 2.0), y, cv[3]), P3(HU + 2.0, y, cv[3]), 0.7, 0.4, BRONZE);
+    for (const s of [-1, 1]) beam(P3(s * (HU + 1.8), y, cv[3]), P3(s * (HU + 3.1), y - 0.25, cv[3]), 0.45, 0.4, shade(BRONZE, 1.25));
   }
 
   // ======== cầu Trung Đạo over hồ Thái Dịch ========
@@ -339,10 +347,10 @@ export function build({ S, group, THREE }) {
   // ======== night lighting ========
   // strips under the front eave of each roof and along the platform's coping; lanterns at the bridge, the steps
   const strip = (u0, u1, v, y) => L.beam(P3(u0, y, v), P3(u1, y, v), 0.14, 0.1, [1, 1, 1]);
-  strip(-22.8, 22.8, cv[0] + 1.55, FL + CH - 0.42);
-  strip(-15.9, 15.9, iVc + iv / 2 + 1.3, yd1 - 0.4);
-  strip(-15.9, 15.9, iVc - iv / 2 - 1.3, yd1 - 0.4);
-  strip(-22.8, 22.8, cv[7] - 1.55, FL + CH - 0.42);
+  strip(-(HU + 1.3), HU + 1.3, cv[0] + 1.55, FL + CH - 0.42);
+  strip(-(iu / 2 - 0.9), iu / 2 - 0.9, iVc + iv / 2 + 1.3, yd1 - 0.4);
+  strip(-(iu / 2 - 0.9), iu / 2 - 0.9, iVc - iv / 2 - 1.3, yd1 - 0.4);
+  strip(-(HU + 1.3), HU + 1.3, cv[7] - 1.55, FL + CH - 0.42);
   for (const s of [-1, 1]) for (let k = 0; k < 6; k++) lamp(s * (BW / 2 - 0.15), deck + 1.15, B0 + 6 + k * 8);
   for (const u of [-13, 13]) lamp(u, FL + 1.0, PD / 2 + 2.4);
   if (!group) return null;

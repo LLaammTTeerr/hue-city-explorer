@@ -62,6 +62,18 @@ It is modelled as it stands in 2026, after the 2021–2024 restoration (reopened
   - Without it, the 0.6 m Long Trì terrace had trees on it.
 - About 11.2k triangles.
 
+## Satellite and Street View alignment (2026-11)
+- Checked against Google satellite (z17, z19, z20) and four user photospheres from the south-east. These are visual reference only; nothing was traced into `data/`.
+- Position and axis were already right: within about 2 m and 2° at z19. The bridge and sân line up within about 1 m. At z20 the roof sits about 2 m north-west, which is most likely image lean, so the hall was not moved.
+- The plan was too wide. The OSM outline (44.8 × 32.1 m) had been read as the column line, so the eaves reached about 49 m. The satellite roof is about 44 × 31 m. The outer column line is now at ±20.1 m across (`HU`), and the depth line runs from 13.7 m to −13.7 m.
+- The front was too tall and too uniform. The south-east pano shows three bands: a low front roof, the enamelled cổ diêm band, then the upper roof. Changes:
+  - Verandah columns are 3.9 m (was 4.3).
+  - The front roof rises 1.6 m (`FRH`).
+  - The upper hip is 31.4 m wide. The skirt runs from floor +5.6 m to +6.4 m.
+  - Corner flare is 0.3 (was 0.55).
+  - The ridge stays at floor +9.65 m, so the sourced 11.8 m holds.
+- All four panos are user photospheres, so the camera pose is estimated. They look pre-restoration (faded tiles, pale columns). The model keeps the restored 2024 colours.
+
 ## Left to do
 - The bridge is drawn on piers. Its 5 brick vaults are not modelled.
 - No interior: no throne, no inner columns' lacquer detail beyond bands.
