@@ -67,7 +67,7 @@ export function build({ data, S, group, place }) {
 
   const yellow = hex('#e3b545'), yellowD = hex('#c99a38'), trim = hex('#f1e2bc'), panel = hex('#d8a948');
   const roof = hex('#a9823e'), ridge = hex('#e9c76a'), slab = hex('#5e4a3e'), tablet = hex('#cdbf9f'), dark = hex('#3a302a');
-  const blue = hex('#6f87a3'), pave = hex('#cfcabd'), bronze = hex('#c9a040');
+  const pillar = hex('#d9c27f'), blue = hex('#6f87a3'), pave = hex('#cfcabd'), bronze = hex('#c9a040');
 
   const box = (a, b, ya, yb, da, db, col, o) => { const q = at(a, b); S.box(q[0], q[1], ya, yb, da, db, A, col, o); };
   const hipAt = (a, b, wb, da, y, h, col, o) => { const q = at(a, b); S.hip(q[0], q[1], wb, da, A + Math.PI / 2, y, h, col, o); };
@@ -187,10 +187,11 @@ export function build({ data, S, group, place }) {
     S.box(q[0], q[1], y0 - 0.2, pY + 0.9, 1.6, 1.6, A, slab);
     S.box(q[0], q[1], pY + 0.9, pY + 1.1, 1.75, 1.75, A, trim);
     S.kind = KIND.CIVIC;
-    S.box(q[0], q[1], pY + 1.1, hd, 0.95, 0.95, A, yellow, { taper: 0.94 });
+    S.box(q[0], q[1], pY + 1.1, hd, 0.95, 0.95, A, pillar, { taper: 0.94 });
     S.kind = KIND.PLAIN;
     S.box(q[0], q[1], pY + 2.4, hd - 0.7, 1.0, 0.6, A, panel); // couplet panels front/back
     S.box(q[0], q[1], hd, hd + 0.3, 1.25, 1.25, A, trim);
+    for (const [k, w] of [[1.5, 1.1], [3.2, 1.0], [5.0, 0.98]]) S.box(q[0], q[1], pY + k, pY + k + 0.14, w, w, A, trim); // banding on the shaft
     S.box(q[0], q[1], hd + 0.3, hd + 1.1, 0.85, 0.85, A, yellowD); // the lantern
     for (const k of [-1, 1]) {
       S.box(q[0] + f[0] * k * 0.44, q[1] + f[1] * k * 0.44, hd + 0.45, hd + 0.95, 0.04, 0.45, A, dark);
