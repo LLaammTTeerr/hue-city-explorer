@@ -87,6 +87,12 @@ Visual reference only; captures stay outside the repo.
   - Sùng Công Môn as a plastered gate (three doors, one roof, plastered loft), drawn so for both gates.
 - Not checkable from the imagery: storey heights, the third storey and the 17 m total.
 
+- Review fixes (Nov 2026), from the court photosphere and the satellite: eaves nearly straight (flare 0.2) ending
+  in small dark curls, not gilt horns; ridges and hips dark ceramic; tile drawn weathered orange-brown (#a8692f)
+  rather than fresh imperial yellow; friezes as dark lacquer with small red and gilt panels; fretwork (balustered)
+  railings on the verandah and the second-storey balcony; a yellow fretwork screen on the base under the verandah;
+  the urn bed raised behind a low brick kerb wall with flowering hedges along the kerb and between the urns.
+
 ## Left
 - Interiors (the carved wooden stair, the altars) are not modelled. The urns' relief panels are too small to model.
 - The stele pavilions: no source places stele houses in this court, so none are drawn.
