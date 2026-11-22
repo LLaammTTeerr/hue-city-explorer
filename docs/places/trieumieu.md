@@ -25,10 +25,25 @@ model covers it. No older builder drew the precinct, so no `replaced()` guard wa
 - Yellow glazed yin-yang tiles. Ridges and gable walls carry raised work inlaid with porcelain. Woodwork is lacquered
   red with gilt motifs; the back of the main hall is stained wood-tone. Source: vi.wikipedia.
 - Court of about 300 m², Bát Tràng brick. Source: vi.wikipedia. The model's court (hall front to the shared wall) is
-  22 × 13.4 m.
+  22 × 15.3 m.
 - Low walls of about 1.2 m, one gate per side. Source: vi.wikipedia. The precinct ring from the OSM walls encloses
   5,461 m², against 5,410 m² given for the site by baophapluat.vn.
 - Thần Khố stands to the east and Thần Trù to the west. Their positions are from OSM.
+
+## Satellite alignment (Google, 2026 rebuild)
+Google imagery was used only as a visual reference (captures kept outside the repo).
+- The roof measures about 24.2 × 22.5 m. Its long eaves run on a bearing of 53-56°, the same as the OSM walls (55°).
+  It sits about 1.9 m behind and 0.6 m north-east of the OSM hall outline. The court's row of planters, just in front
+  of the steps, is about 2.5 m behind where the outline put it. The precinct walls, gates and side halls from OSM match
+  the imagery, so only the hall and its court are re-framed in the place file (`C` = OSM centre `C0` moved). The column
+  lines are at ±9.9 m (was ±10.4 m), so the roofs are 22.5 m deep. The base keeps the OSM size.
+- Thần Trù has a hipped roof of brown, unglazed clay tiles with lime-white ridges and hips. Its ridge runs along its
+  length (NW-SE), and the roof looks a little larger than the OSM outline.
+- Thần Khố is a ruin: a bare platform with a grid of white column bases (about 4 × 6), a flight up its south-west long
+  side, and a low kerb round it on the lawn. The model draws it like that, not as a roofed hall.
+- The satellite shows the front part of the main roof's inner field as brown and the rest of the roof yellow. This
+  model keeps the documented yellow glazed tiles everywhere (see Left).
+- The street-level imagery near the place (Lê Trực side, outside the moat) does not show the hall.
 - Restored from June 2014 to September 2016, with US AFCP funding. The model shows the restored, bright state.
 
 ## Estimated
@@ -42,7 +57,7 @@ model covers it. No older builder drew the precinct, so no `replaced()` guard wa
 - Gates: small brick gates with a yellow-tiled hip roof, at the three OSM gate nodes (two in the back wall, one in the
   wall to Thái Miếu). Wiki gives one gate per side; OSM maps none in the east wall, and the model follows OSM. The
   gate form is not confirmed.
-- Thần Khố and Thần Trù: small yellow-roofed halls with a verandah on low bases. Form and tile colour are not
+- Thần Trù: a hall with a verandah on a low base. The roof colour and form are from the satellite; the walls are not
   confirmed.
 - Wall colour: ochre under a glazed coping (a lowered `FENCE.imperial`).
 
@@ -52,3 +67,5 @@ model covers it. No older builder drew the precinct, so no `replaced()` guard wa
 - `populate` keeps trees only off tall cover, so a tree can still stand on the low paved court. A shared change in
   `city.js` would be needed to keep them off.
 - Interior altars and the porcelain relief on the gables are not modelled.
+- The brown patch on the satellite roof (the front part of the upper roof field) disagrees with the documented yellow
+  glazed tiles. It may be weathered or older tiles; it needs a ground photo to settle.
