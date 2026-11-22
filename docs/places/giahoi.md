@@ -45,3 +45,12 @@ Model: `src/landmarks/places/giahoi.js` (new). Guard: `src/geo/city.js` `buildRo
 - Check against a photo of today's bridge: the span count, pier form, railing pattern and colour, and whether it has decorative lamps.
 - On the west approach a tree from `populate` stands on the deck. That deck is under 0.7 m above the ground, so the cover test there does not keep trees off. This happened before this change too.
 - The balustrade runs about 20 m over land on the west side, because the OSM bridge ways extend that far.
+
+## Street View rebuild (Nov 2026)
+Reference: Google satellite and Street View car panoramas (on the deck, Chi Lăng, Bạch Đằng), visual reference only.
+- Alignment: deck outline and axis match the satellite (axis about 49-50°); no data change needed.
+- Balustrade now openwork panels between capped pilasters about 3 m apart (was two rails on posts 2.2 m apart).
+- NW parapet continues as a curved wing onto the Chi Lăng quay; five-globe bronze lamps at the deck corners, one at the wing's end.
+- Twin-arm median lights; concrete separator blocks on the NW carriageway.
+- Piers are bents of square columns under a cap beam (were wall piers with cutwaters); a water main hangs along the NW side.
+- Not modelled: the segmental arch through the SW abutment over the quay walk and the sloping approach wall (needs a deck profile change in `geo/bridges.js`). The real water is lower with reed banks, so the real deck shows more clearance.
