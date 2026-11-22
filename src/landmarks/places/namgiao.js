@@ -40,7 +40,7 @@ const A2 = 41.5, H2 = 1.1; // Phương đàn
 const R3 = 20.25, H3 = 2.8; // Viên đàn
 const LAWN_OUT = 75, LAWN_IN = 47, WALK_NS = 18.6, WALK_EW = 6.1; // the OSM lawns, made symmetric
 
-const LAWN = hex('#8ea35e'), LAWN2 = hex('#97ab66'), BANK = hex('#86985a');
+const LAWN = hex('#85955a'), LAWN2 = hex('#8d9d62'), BANK = hex('#7f8f55'); // olive, a little dry (satellite)
 const LATERITE = hex('#8a7663'), BRICK = hex('#7a6a5c'), STONE = hex('#bdb39e'), STEP = hex('#b0a690');
 const WALK = hex('#c2b49a'), THANH = hex('#9d9c92'), COPE = hex('#c9bfa9');
 const RED = hex('#9e3a2c'), YELLOW = hex('#d4ac45'), BLUE = hex('#3f6f9e');
@@ -245,6 +245,23 @@ export function build({ S }) {
   walk(0, foot, 0, G.s, 6); walk(0, -foot, 0, G.n, 6);
   walk(foot, 0, G.e, 0, 4); walk(-foot, 0, G.w, 0, 4);
   (S.paved = S.paved || []).push([w0, S.n]);
+
+  // ---- young pines in two rows each side of the walks (satellite: small dark conifers about 4.5 m apart) ----
+  {
+    S.kind = KIND.PLAIN;
+    const row = (u0, v0, u1, v1, off) => {
+      const L = Math.hypot(u1 - u0, v1 - v0), n = Math.floor(L / 4.5), nu = -(v1 - v0) / L, nv = (u1 - u0) / L;
+      for (const sd of [-1, 1]) for (let k = 0; k < n; k++) {
+        const f = (k + 0.5) / n, u = u0 + (u1 - u0) * f + nu * off * sd, v = v0 + (v1 - v0) * f + nv * off * sd;
+        const p = P(u, v), h = 5 + ((k * 7 + (sd > 0 ? 3 : 0)) % 5) * 0.5, g = gy(u, v);
+        S.cyl(p[0], p[1], g, g + h, 0.9, 0.08, 6, hex(k % 3 ? '#2f4a2c' : '#3a5530'), { cap: false });
+      }
+    };
+    for (const off of [8.5, 12.5]) {
+      row(0, foot + 2, 0, G.s - 6, off); row(0, -foot - 2, 0, G.n + 6, off);
+      row(foot + 2, 0, G.e - 6, 0, off); row(-foot - 2, 0, G.w + 6, 0, off);
+    }
+  }
 
   // ---- the stone screens before the east, south and west gates (the north one is lost) ----
   const screen = (u, v, across) => {
