@@ -44,7 +44,16 @@ Model: `src/landmarks/places/gate-cua-an-hoa.js`. The gates loop in `src/landmar
 - The model's ground is marked paved, so trees and houses keep off it.
 
 ## Left as it is
-- Cầu An Hòa is drawn by the shared bridge code from data.bridges. The shared code humps it; the real bridge is flat.
+- Cầu An Hòa is drawn by the shared bridge code from data.bridges (one design for every moat bridge, issue #19). The shared code humps it and draws it about twice as wide, with solid parapets; the real bridge is flat, about 6 m wide, with stone balusters and end posts.
+- The shared rampart (`kinhthanh`) stands as a sheer 6.6 m wall at the kerb of Lương Ngọc Quyền. The photo shows low stepped brick terraces there, so the tower shows over them; in the model only its roof does.
+- The brick courses come from the shared masonry shader and are larger than the real ones.
 - The wall, the moat and any ramps beside the gate belong to `kinhthanh`. The shared rampart's parapet stands about 1 m higher next to the gate than in the photographs.
-- The postern pillars and gateposts along Lương Ngọc Quyền are not modelled.
 - No night lighting: no source says how the gate is lit.
+
+## Review fixes
+- The damp foot is now two pieces, one each side of the arch, so the passage is open at road level.
+- The upper roof is a real tiled hip slope, 1.5 m high, with grey ridges and small dark curled tips. The long orange hip horns are gone.
+- The tile skirt is a concave slope with about 0.9 m of rise. Its corners are lifted and end in curled tips joined to the eave, and it has a fascia and soffit.
+- The vọng lâu was raised and widened to match the bridge photo: lower storey 11.0 × 7.0 × 6.0 m, set 1.4 m out from the block's middle towards the moat. It now reaches about 21.4 m to the ridge.
+- The postern on Lương Ngọc Quyền is now modelled: two capped pillars about 4.6 m high, three steps and an iron gate. It stands against the rampart's inner face about 28-32 m along the wall from the gate's axis, at a position estimated from the car photo.
+- The block face is now grey-green. The lichen and lime are irregular patches with soft halos instead of boxes.
