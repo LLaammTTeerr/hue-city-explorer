@@ -60,3 +60,19 @@ No older builder drew anything here (content.js holds only the label), so no gua
 - Pin down the đình's exact position and the pagoda's name from a site survey or photos.
 - Draw the 3.2 km embankment once it is built.
 - The bamboo is coarse (cone leaf masses) to stay inside the budget.
+
+## Google satellite and Street View check (2026-11)
+Compared against Google satellite (z17/z19/z20) and three car Street View panoramas on the island (captures kept in
+scratch, not in the repo).
+- Position and axis: the OSM shore, Ưng Bình, the east-bank lane (Ưng Bình tờ 19) and the west-bank lane fall on the
+  satellite within ~2 m; the axis matches. The east shore seems ~10 m further out on the satellite, but that is the
+  tree canopy hanging over the water, not the bank. No re-framing was needed.
+- Lanes: on the satellite and in all three panoramas the island's kiệt are 3-4 m concrete lanes, not 6.5 m streets.
+  The 42 unnamed residential ways on the island are now listed in `data/road-types.json` as `unmarked-1` (4 m, no
+  dashes, no lamps). Ưng Bình itself (~6 m on the satellite) keeps the residential width.
+- Banks: both banks are one unbroken belt of shade trees and bamboo (about 10-20 m deep on the west, 15-30 m on the
+  east). The builder now adds two staggered rows of the shared trees every ~6 m along the shore, as well as the palms
+  and bamboo clumps.
+- Not changed: the houses come from the shared infill and do not reproduce the individual houses in the panoramas
+  (a yellow two-storey house with an arched door, a white neo-classical villa, tin-roofed food stalls). The đình and
+  the pagoda could not be identified on the satellite, so their estimated positions are kept.

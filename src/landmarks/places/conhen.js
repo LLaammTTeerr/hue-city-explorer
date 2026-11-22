@@ -221,6 +221,23 @@ export function build({ data, S }) {
       else if (r < 0.8) bamboo(S, x, z, ti);
     }
   }
+  // the bank belt: on the satellite (2025-26) both banks are one unbroken canopy of shade trees and bamboo, about 10-20 m
+  // deep on the west bank and 15-30 m on the east, overhanging the water; the houses stand back behind it. Two staggered
+  // rows of the shared trees every ~6 m along the shore, between the bank's edge and the first lane or house.
+  if (Array.isArray(data.trees)) {
+    let k = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i], q = ring[(i + 1) % ring.length], len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      for (let s = 2; s < len; s += 5 + rand(k, 61) * 2.5, k++) {
+        const t = s / len, sx = p[0] + (q[0] - p[0]) * t, sz = p[1] + (q[1] - p[1]) * t, sa = shoreAt(sx, sz);
+        for (const back of [1.5 + rand(k, 62) * 3, 7 + rand(k, 63) * 6]) {
+          const x = sx - sa.n[0] * back, z = sz - sa.n[1] * back;
+          if (!inRing(x, z, ring) || inReserved(x, z, 1.5) || nearRoad(x, z, 1.2) || nearHouse(x, z, 1.8)) continue;
+          data.trees.push(Math.round(x * 10), Math.round(z * 10), 8 + Math.floor(rand(k, 64 + back) * 5), rand(k, 66) < 0.35 ? 1 : 0);
+        }
+      }
+    }
+  }
   // gardens: shade and fruit trees between the houses, handed to the shared tree builder (data.trees, decimetres)
   if (Array.isArray(data.trees)) {
     let k = 0;
