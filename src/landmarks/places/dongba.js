@@ -10,7 +10,7 @@ import { flag } from '../anim.js';
 //
 // The main hall (OSM way 172641246, 72.0 x 42.6 m) is a three-storey block in grey render ("Chợ gồm ba lầu",
 // VnExpress) whose front is on Trần Hưng Đạo ("mặt tiền nằm trên đường Trần Hưng Đạo"), not on the river. Its
-// roofline carries a row of folded concrete hoods; tiled awnings run over the ground-floor stalls. The 1899 clock
+// roof is a row of sheet-roofed bays across it; tiled awnings run over the ground-floor stalls. The 1899 clock
 // tower was lost in 1967 and is not rebuilt: the entrance on Trần Hưng Đạo is a flat canopy with a black LED band
 // edged in red, the name "CHỢ ĐÔNG BA" in giant red capitals standing on it and a row of flags above (photos of
 // 2024 on Wikimedia Commons). Before the front, two rows of stalls either side of the entrance and two two-storey
@@ -29,6 +29,7 @@ const gy = (p) => LAND_Y + rise(p[0], p[1]);
 
 const GREY = hex('#cfc8b6'), TRIM = hex('#ece6d6'), CONCRETE = hex('#b9b5ab'), DARK = hex('#2b2422');
 const TILE = PAL.marketRoof, METAL = hex('#7d8783'), SOFFIT = hex('#6b2e22'), LED = hex('#141414'), RED = hex('#c8161d');
+const SHEET = hex('#55706a'), TIN = hex('#8b8781');
 const FLAGS = [hex('#e8781e'), hex('#2f9a45'), hex('#f0c419'), hex('#7b3fa0')];
 const W1 = [1, 1, 1];
 
@@ -50,6 +51,25 @@ function shed(S, u0, u1, v0, v1, h, roof, bay = 13) {
     if (alongU) hipUV(S, u0 + i * s, u0 + (i + 1) * s, v0, v1, h - 1.4, 1.4, roof, { over: 0.7, flare: 0.15 });
     else hipUV(S, u0, u1, v0 + i * s, v0 + (i + 1) * s, h - 1.4, 1.4, roof, { over: 0.7, flare: 0.15 });
   }
+}
+
+// a stall row under arched tin hoods (the barrel of each running out to the street, v), on a concrete band
+function hoods(S, u0, u1, v0, v1, H = 5.0, step = 6.0, rise = 1.3, reach = 0.6) {
+  S.kind = KIND.PLAIN;
+  boxUV(S, u0, u1, v0, v1, 0, H - 0.6, GREY, { top: shade(GREY, 0.8) });
+  boxUV(S, u0 - 0.1, u1 + 0.1, v0 - reach, v1, H - 0.6, H, CONCRETE); // the band, carried out under the hoods
+  const n = Math.max(1, Math.round((u1 - u0) / step)), w = (u1 - u0) / n, K = 8, va = v0 - reach, vb = v1;
+  for (let i = 0; i < n; i++) {
+    const uc = u0 + (i + 0.5) * w, y = gy(P(uc, (va + vb) / 2)) + H;
+    const at = (k, v) => { const s = -1 + (2 * k) / K, p = P(uc + (s * w) / 2, v); return [p[0], y + rise * (1 - s * s), p[1]]; };
+    for (let k = 0; k < K; k++) S.quad(at(k, va), at(k + 1, va), at(k + 1, vb), at(k, vb), shade(TIN, 0.9 + 0.1 * (i % 2)), [0, 1, 0]);
+    // the open end of the barrel over the street, its tympanum in render
+    const out = [-N[0], 0, -N[1]], c = P(uc, va);
+    for (let k = 0; k < K; k++) S.tri([c[0], y, c[1]], at(k, va), at(k + 1, va), TRIM, out);
+  }
+  // for the mapped buildings to keep clear of, as a hip roof would (city.js roofClash)
+  const c = P((u0 + u1) / 2, (va + vb) / 2);
+  if (S.roofs) S.roofs.push({ cx: c[0], cz: c[1], w: u1 - u0, d: vb - va, ang: ANG, y0: gy(c) + H, h: rise, over: 0 });
 }
 
 // the giant capitals of the sign, as a picture with a clear background (mask: white letters, for the night glow)
@@ -104,13 +124,15 @@ export function build({ data, S, group, THREE }) {
   boxUV(S, -HU - 0.1, HU + 0.1, -HV - 0.1, FV + 0.1, TOP - 0.1, TOP + 0.5, TRIM, { top: shade(CONCRETE, 0.85) });
   // the tiled awning over the ground-floor stalls on the ends and the back (inside the body, only its skirt shows)
   hipUV(S, -HU, HU, -HV, FV, 3.0, 1.0, TILE, { over: 1.8, flare: 0.3 });
-  // the row of folded concrete hoods at the roofline, all round
-  const hood = (u, v, w, d) => hipUV(S, u - w / 2, u + w / 2, v - d / 2, v + d / 2, TOP + 0.5, 0.85, CONCRETE, { over: 0.35, flare: 0.25 });
-  for (let u = -HU + 2.25; u < HU; u += 4.5) { hood(u, FV - 1.0, 3.6, 2.4); hood(u, -HV + 1.0, 3.6, 2.4); }
-  for (let v = -HV + 5.5; v < FV - 4; v += 4.5) { hood(-HU + 1.0, v, 2.4, 3.6); hood(HU - 1.0, v, 2.4, 3.6); }
-  // the raised roof over the central hall (the old "lầu chuông" court), toward the north end
-  boxUV(S, -26, 32, -9, 9, TOP + 0.5, TOP + 1.8, GREY, { top: CONCRETE });
-  hipUV(S, -26, 32, -9, 9, TOP + 1.8, 1.3, METAL, { over: 0.6, flare: 0.1 });
+  // the roof over the hall: eleven sheet-roofed bays running across it, front to back, between light strips over
+  // the front gallery and along the back (Google satellite, 2025: green-grey sheet, the ridges square to the front)
+  const NB = 11, BW = (2 * HU) / NB, BV0 = -HV + 3.5, BV1 = HV;
+  S.joined(() => {
+    for (let i = 0; i < NB; i++) {
+      const p = P(-HU + (i + 0.5) * BW, (BV0 + BV1) / 2);
+      S.hip(p[0], p[1], BV1 - BV0, BW, ANG + Math.PI / 2, gy(p) + TOP + 0.1, 1.9, SHEET, { over: 0.25 });
+    }
+  });
 
   // ---- the entrance on Trần Hưng Đạo: a flat canopy, the LED band, the giant red letters and flags ----
   const EU = 7.0, EV0 = FV, EV1 = 44.0;
@@ -151,13 +173,21 @@ export function build({ data, S, group, THREE }) {
     for (let u = u0; u <= u1 + 0.01; u += (u1 - u0) / 8) for (let w = -30; w > v - 6; w -= 0.1) if (street(...P(u, w), 0)) { back = Math.max(back, w + 0.9); break; }
     return back;
   };
-  shed(S, -78, -36.2, -21, 30, 5.0, METAL);
+  shed(S, -78, -36.2, -21, 30, 5.0, SHEET);
   S.kind = KIND.CIVIC; // the two-storey spine through the south end hall
   boxUV(S, -48, -42, -21, 30, 0, 7.0, GREY, { top: shade(CONCRETE, 0.85) });
   S.kind = KIND.PLAIN;
   hipUV(S, -48, -42, -21, 30, 7.0, 0.8, METAL, { over: 0.5, flare: 0.1 });
-  shed(S, 36.2, 78, -21, 30, 5.0, METAL);
-  shed(S, -78, 38, backV(-78, 38, -49), -22.2, 5.0, METAL);
+  shed(S, 36.2, 78, -21, 30, 5.0, SHEET);
+  // along Chương Dương (Street View from the street, 2025): a row of stalls under arched tin hoods over a concrete
+  // band, the whole length of the back; behind it, the long sheet-roofed hall seen green on the satellite (u -37..38)
+  // and, at the south end, lower stall sheds
+  const back = backV(-78, 38, -49), HV0 = -42;
+  shed(S, -37, 38, HV0, -22.2, 6.8, SHEET, 38);
+  shed(S, -78, -37, HV0, -22.2, 5.0, METAL);
+  // the stall fronts stand back from the kerb, their hoods reaching out over them (both car panoramas on Chương
+  // Dương put the stall fronts 4-6 m from the camera, where the kerb alone left them a metre away)
+  hoods(S, -78, 38, back + 2.5, HV0, 5.0, 6.0, 1.3, 1.8);
   S.kind = KIND.CIVIC;
   boxUV(S, 38.5, 72, -40, -22.5, 0, 7.4, GREY, { top: shade(CONCRETE, 0.85) });
   S.kind = KIND.PLAIN;
