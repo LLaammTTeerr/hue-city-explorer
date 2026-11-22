@@ -35,10 +35,10 @@ const P = (u, v) => [A[0] + T[0] * u + N[0] * v, A[1] + T[1] * u + N[1] * v];
 const RING = [[1230.4, 1246.2], [1279.2, 1235.3], [1285.4, 1239.1], [1289.6, 1244.1], [1284.0, 1292.7], [1253.3, 1287.5], [1238.2, 1272.7]];
 const MID = [0.5 * (RING[0][0] + RING[4][0]), 0.5 * (RING[0][1] + RING[4][1])];
 
-const WHITE = hex('#ebe8df'), SLAB = hex('#dcd9d0'), CONC = hex('#b9b6ad'), LATT = hex('#7d7f7b'), BLUEW = hex('#8b9fd9');
+const WHITE = hex('#ebe8df'), SLAB = hex('#dcd9d0'), CONC = hex('#b9b6ad'), LATT = hex('#8c9090'), BLUEW = hex('#8b9fd9');
 const CREAM = hex('#e6dfcc'), DARK = hex('#2c2825'), SHUTTER = hex('#8d8f8c'), GLASS = hex('#3d4a52');
 const ROOF = hex('#b4b8b8'), ROOF_LT = hex('#d2d3cf'), ROOF_DK = hex('#9a9fa1'), LOUVRE = hex('#4a4e50');
-const PAVE = hex('#a8a49b'), POST = hex('#5b6062'), AWN = hex('#3a62a8'), RED = hex('#c3161c'), GOLD = hex('#e3c047');
+const PAVE = hex('#a8a49b'), POST = hex('#5b6062'), AWN = hex('#4a6aa0'), RED = hex('#c3161c'), GOLD = hex('#e3c047');
 const WOOD = hex('#7a5a3e'), BOARD = hex('#b4362b');
 const CANVAS = ['#c8352b', '#2f6db0', '#e0a526', '#3f8f4f', '#e8e2d2', '#d0612b'].map(hex);
 const W1 = [1, 1, 1];
@@ -102,7 +102,12 @@ function shops(S, st, s0, s1, seed, jewel = false) {
     st.box(S, a + 0.3, b - 0.3, -1.05, -0.35, 0.85, 1.05, CANVAS[(i * 5 + seed) % CANVAS.length]); // goods on the table
   }
   // the awning, in blue and white stripes a metre wide
-  for (let s = s0, k = 0; s < s1 - 0.05; s += 1.0, k++) st.box(S, s, Math.min(s + 1.0, s1), -2.0, -0.05, 2.75, 2.9, k % 2 ? WHITE : AWN);
+  for (let s = s0, k = 0; s < s1 - 0.05; s += 1.0, k++) {
+    const e = Math.min(s + 1.0, s1), c = k % 2 ? hex('#d8dbe0') : AWN;
+    st.box(S, s, e, -1.1, -0.05, 2.95, 3.05, c);
+    st.box(S, s, e, -2.0, -1.1, 2.6, 2.7, c);
+    st.box(S, s, e, -2.0, -1.95, 2.35, 2.7, c); // the valance
+  }
 }
 
 // the upper floor's breeze-block panels between white piers: a dark backing behind a grid of white bars
@@ -200,7 +205,7 @@ export function build({ data, S, group, THREE }) {
   const lift = (r, y0, y1, wall, top, opt) => {
     for (const q of Array.isArray(r[0][0]) ? r : [r]) {
       S.prism(q, Y0 + y0, Y0 + y1, wall, top, opt);
-      if (y0 > 1) for (let i = 1; i + 1 < q.length; i++) S.tri([q[0][0], Y0 + y0, q[0][1]], [q[i][0], Y0 + y0, q[i][1]], [q[i + 1][0], Y0 + y0, q[i + 1][1]], shade(wall, 0.8), [0, -1, 0]);
+      if (y0 > 1) for (let i = 1; i + 1 < q.length; i++) S.tri([q[0][0], Y0 + y0, q[0][1]], [q[i][0], Y0 + y0, q[i][1]], [q[i + 1][0], Y0 + y0, q[i + 1][1]], hex(y0 > 5 ? '#a19f98' : '#b5b2aa'), [0, -1, 0]);
     }
   };
   S.kind = KIND.CIVIC;
