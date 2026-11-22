@@ -546,7 +546,7 @@ for (const e of els) {
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
     const lanes = unmarkedLanes(e);
-    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
+    roads.push({ c, bridge, ...(tagged && !bridge ? { dry: 1 } : {}), name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges, '| streets moved off monument walls:', nCleared);
@@ -1496,7 +1496,12 @@ for (const road of roads) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
         // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
         // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
-        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
+        // no avenue on a bridge way laid at grade (road.dry): it stands for a deck (cầu Dã Viên over its islet runs ~9 m
+        // up), and nothing lines a deck; the stride is still drawn so the random stream, and every tree after, is unchanged
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) {
+          const sc = Math.round(rr(0.75, 1.15) * 10), kind = treeKind(false);
+          if (!road.dry) { trees.push(q(x), q(z), sc, kind); stamp(x, z, 3, TREE); }
+        }
         s += rr(13, 20);
       }
       s -= len;

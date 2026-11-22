@@ -43,7 +43,8 @@ const TANK_R = 8.8, TOP = 41.8; // drum 17.6 m across (photos and the satellite 
 const LAWN = [-1705.2, 1146.4]; // centre of the round lawn inside footway 1167517134 (radius ≈ 32 m)
 const TIP = [-1528, 1058]; // the eastern tip
 
-const CONC = hex('#a09d94'), CONC_D = hex('#82807a'), STAIN = hex('#5c5b55'), DARK = hex('#262523'), ROOF = hex('#9d978b');
+// pale grey concrete with dark run-off streaks (both car panoramas), the roof a lighter grey on the satellite
+const CONC = hex('#b9b8b2'), CONC_D = hex('#9a9994'), STAIN = hex('#6f6f6b'), DARK = hex('#262523'), ROOF = hex('#b3afa6');
 const WATER = hex('#3d4a40'), TILE = hex('#7d6f62');
 const LEAF = hex('#4f6a34'), OCHNA = hex('#e8c01c'), OCHNA2 = hex('#d9a514');
 const BLOOMS = ['#c8324a', '#e2709a', '#f0c23a', '#e8e2d2', '#b04ac0'].map(hex);
@@ -72,14 +73,14 @@ export function build({ data, S }) {
   const rAt = (y) => R0 + ((R1 - R0) * (y - sh0)) / (sh1 - sh0);
   for (let i = 0; i < SEG; i++) {
     const a0 = (i / SEG) * Math.PI * 2, a1 = ((i + 1) / SEG) * Math.PI * 2;
-    const col = mix(CONC, STAIN, 0.2 + 0.45 * rand(i, 7));
+    const col = mix(CONC, STAIN, 0.08 + 0.4 * rand(i, 7) ** 2);
     const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
     S.quad([cx + c0 * R0, sh0, cz + s0 * R0], [cx + c1 * R0, sh0, cz + s1 * R0], [cx + c1 * R1, sh1, cz + s1 * R1], [cx + c0 * R1, sh1, cz + s0 * R1], col, [c0 + c1, 0.05, s0 + s1]);
     // a shallow pilaster strip at each corner of the sixteen faces
     S.box(cx + c0 * (R0 + 0.05), cz + s0 * (R0 + 0.05), sh0, sh1, 0.3, 0.5, a0, shade(CONC, 0.92), { taper: 1 });
   }
   for (const y of [8.3, 19.2]) S.cyl(cx, cz, g + y, g + y + 0.6, rAt(g + y) + 0.3, rAt(g + y) + 0.3, SEG, CONC_D, { rot: 0 }); // ring bands
-  // the ladder on the face toward the bridge (bearing about 70°), and the windows: two rows of eight, a few low ones
+  // the ladder on the face toward the bridge (bearing about 70°), and the windows
   const la = -0.349;
   const lad = (y) => [cx + Math.cos(la) * (rAt(y) + 0.45), y, cz + Math.sin(la) * (rAt(y) + 0.45)];
   const lu = [-Math.sin(la), Math.cos(la)];
@@ -90,14 +91,13 @@ export function build({ data, S }) {
   for (let y = g + 1.5; y < sh1; y += 0.9) { const p = lad(y); S.beam([p[0] - lu[0] * 0.3, y, p[2] - lu[1] * 0.3], [p[0] + lu[0] * 0.3, y, p[2] + lu[1] * 0.3], 0.06, 0.06, DARK); }
   for (let y = g + 3; y < sh1 - 1; y += 2.4) { const p = lad(y); S.box(p[0] + Math.cos(la) * 0.35, p[2] + Math.sin(la) * 0.35, y, y + 0.1, 0.12, 0.9, la, DARK); } // cage hoops, side on
   const win = (a, y0, y1, w) => { const r = rAt(y0) + 0.02; S.box(cx + Math.cos(a) * r, cz + Math.sin(a) * r, y0, y1, 0.25, w, a, DARK); };
-  for (const y of [10.2, 16.4]) for (let k = 0; k < 8; k++) {
-    const a = ((k + 0.5) / 8) * Math.PI * 2;
-    if (Math.abs(Math.atan2(Math.sin(a - la), Math.cos(a - la))) < 0.3) continue; // the ladder runs here
-    win(a, g + y, g + y + 1.9, 0.85);
+  // windows, measured on both car panoramas: small, nearly square openings (about 1.1 by 1.5 m) about 30° apart, in two
+  // close rows between the ring bands (10.7-12.2 m and 17.0-18.5 m), and a few single ones low down; none above the
+  // upper band
+  for (const y of [10.7, 17.0]) for (let k = 0; k < 12; k++) {
+    win(la + ((k + 0.5) / 12) * Math.PI * 2, g + y, g + y + 1.5, 1.1); // the ladder runs up between two of them
   }
-  for (const a of [la + 0.45, la - 0.6]) win(a, g + 4.2, g + 5.6, 0.9);
-  // third row of slits just under the corbel, as on the photos
-  for (let k = 0; k < 8; k++) { const a = ((k + 0.1) / 8) * Math.PI * 2; if (Math.abs(Math.atan2(Math.sin(a - la), Math.cos(a - la))) < 0.3) continue; win(a, g + 23.4, g + 25.0, 0.8); }
+  for (const a of [la - 0.55, la + 2.2, la - 2.6]) win(a, g + 4.4, g + 5.9, 1.0);
   // the small ochre gate pavilion at the tower's foot (north-west, right of the tower from the bridge)
   { const px = cx - 9, pz = cz - 8, y = gY(px, pz), pa = -0.6, c = Math.cos(pa), sn = Math.sin(pa);
     S.box(px, pz, y - 0.2, y + 2.8, 5.0, 3.4, pa, hex('#c9a65a'));
@@ -118,15 +118,22 @@ export function build({ data, S }) {
   // the drum, streaked by run-off, with a small lip at the top
   for (let i = 0; i < 32; i++) {
     const a0 = (i / 32) * Math.PI * 2, a1 = ((i + 1) / 32) * Math.PI * 2;
-    const col = mix(CONC, STAIN, 0.15 + 0.45 * rand(i, 11));
+    const col = mix(CONC, STAIN, 0.06 + 0.42 * rand(i, 11) ** 2);
     const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
     S.quad([cx + c0 * TANK_R, TC, cz + s0 * TANK_R], [cx + c1 * TANK_R, TC, cz + s1 * TANK_R], [cx + c1 * TANK_R, TT, cz + s1 * TANK_R], [cx + c0 * TANK_R, TT, cz + s0 * TANK_R], col, [c0 + c1, 0.05, s0 + s1]);
   }
   S.cyl(cx, cz, TC - 0.3, TC, TANK_R + 0.1, TANK_R + 0.1, 32, CONC_D, { cap: false }); // drum's lower edge
   S.cyl(cx, cz, TT - 0.25, TT + 0.1, TANK_R + 0.12, TANK_R + 0.12, 32, shade(CONC, 1.04)); // lip
-  // flat roof (a faint cone with seams on the satellite), the manhole in the middle, and the railing round the edge
-  S.cyl(cx, cz, TT + 0.1, TT + 0.45, TANK_R, 0.9, 32, ROOF);
-  S.cyl(cx, cz, TT + 0.45, TT + 0.5, 0.9, 0.9, 10, DARK);
+  // the roof: a shallow cone (0.8 m rise) with radial ribs and a round hatch in the middle, as on the satellite, and
+  // the railing round the edge
+  const RR = TT + 0.1, RP = TT + 0.9, HR = 0.8;
+  S.cyl(cx, cz, RR, RP, TANK_R, HR, 32, ROOF);
+  for (let k = 0; k < 24; k++) {
+    const a = ((k + 0.5) / 24) * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), r0 = TANK_R - 0.3, r1 = HR + 0.1;
+    const y0 = RR + ((TANK_R - r0) / (TANK_R - HR)) * (RP - RR), y1 = RR + ((TANK_R - r1) / (TANK_R - HR)) * (RP - RR);
+    S.beam([cx + c * r0, y0 + 0.04, cz + s * r0], [cx + c * r1, y1 + 0.04, cz + s * r1], 0.12, 0.08, shade(ROOF, 0.86));
+  }
+  S.cyl(cx, cz, RP, RP + 0.15, HR, HR, 16, DARK);
   for (let k = 0; k < 36; k++) {
     const a = (k / 36) * Math.PI * 2;
     S.box(cx + Math.cos(a) * (TANK_R - 0.15), cz + Math.sin(a) * (TANK_R - 0.15), TT + 0.1, g + TOP, 0.06, 0.06, a, DARK);
