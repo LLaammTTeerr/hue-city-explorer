@@ -29,8 +29,12 @@ const STUPA = [hex('#9a978a'), hex('#a89a7a'), hex('#8a887c'), hex('#b2a483')];
 export const id = 'baoquoc';
 
 export function build({ data, S, group }) {
-  // local frame: u toward the front (north-east, to the gate and the street), v across; the hall's axis is v = 45.2
-  const A = [-1035.6, 1624.6], U = [0.766, -0.643], V = [0.643, 0.766];
+  // local frame: u toward the front (north-east, to the gate and the street), v across; the hall's axis is v = 45.2.
+  // Re-framed from OSM: the mapped halls (ways 239977717-21) sit about 5.8 m south and 1.3 m east of where the
+  // satellite shows them (the long range, the inner garden and the hall front all agree on the same shift), while the
+  // precinct outline and the streets round it line up, so only the halls' frame moves (OSM had A = [-1035.6, 1624.6]).
+  // The axis stays at 50 degrees east of north (OSM 49.9, satellite 48-50).
+  const A = [-1036.9, 1618.9], U = [0.766, -0.643], V = [0.643, 0.766];
   const W = (u, v) => [A[0] + u * U[0] + v * V[0], A[1] + u * U[1] + v * V[1]];
   const T = (u, v) => rise(...W(u, v));
   const ang = Math.atan2(V[1], V[0]), angU = ang + Math.PI / 2; // box local x along v / along u
@@ -46,15 +50,19 @@ export function build({ data, S, group }) {
   };
   // w across (along v), d along u
   const box = (u, v, ya, yb, w, d, col, o) => { const q = W(u, v); S.box(q[0], q[1], ya, yb, w, d, ang, col, o); };
-  const roof = (u, v, w, d, ya, h, o) => { const q = W(u, v); S.hip(q[0], q[1], w, d, ang, ya, h, TILE, { flare: 0.4, over: 0.9, fascia: 0.22, fasciaCol: shade(TILE, 0.7), ridgeCol: RIDGE, hips: true, segs: 3, ...o }); };
-  const roofU = (u, v, len, wid, ya, h, o) => { const q = W(u, v); S.hip(q[0], q[1], len, wid, angU, ya, h, TILE, { flare: 0.35, over: 0.8, fascia: 0.2, fasciaCol: shade(TILE, 0.7), ridgeCol: RIDGE, hips: true, segs: 3, ...o }); };
+  const roof = (u, v, w, d, ya, h, o) => { const q = W(u, v); S.hip(q[0], q[1], w, d, ang, ya, h, o?.col ?? TILE, { flare: 0.4, over: 0.9, fascia: 0.22, fasciaCol: shade(TILE, 0.7), ridgeCol: RIDGE, hips: true, segs: 3, ...o }); };
+  const roofU = (u, v, len, wid, ya, h, o) => { const q = W(u, v); S.hip(q[0], q[1], len, wid, angU, ya, h, o?.col ?? TILE, { flare: 0.35, over: 0.8, fascia: 0.2, fasciaCol: shade(TILE, 0.7), ridgeCol: RIDGE, hips: true, segs: 3, ...o }); };
   const cyl = (u, v, ya, yb, r0, r1, n, col, o) => { const q = W(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, { rot: ang, ...o }); };
   const V3 = (u, v, y) => { const q = W(u, v); return [q[0], y, q[1]]; };
   const glowPos = [], glowCol = [];
   const glow = (u, v, y, c = [1, 0.84, 0.56]) => { const q = W(u, v); glowPos.push(q[0], y, q[1]); glowCol.push(...c); };
 
-  // ---- the gate (tam quan) at the head of 15 stone steps, on the axis at the precinct's front ----
-  const gU = 116, gD = 3, gW = 11;
+  // ---- the gate (tam quan) at the head of 15 stone steps, on the axis at the paved court's north-east end ----
+  // The satellite shows the court ending at u = 89 with a pale structure on the axis just beyond it (u 94-96), in the
+  // trees on the hill's edge; the stair goes down from there and a path runs on to where the service road meets the
+  // precinct wall (OPEN, the gate's mapped place).
+  const gU = 92.5, gD = 3, gW = 11;
+  const OPEN = [-917.7, 1584.6];
   const [gLo, gHi] = span(gU - gD / 2, gU + gD / 2, AX - gW / 2, AX + gW / 2);
   const stepR = 0.15, stepT = 0.35, nSteps = 15;
   const footU = gU + gD / 2 + nSteps * stepT;
@@ -73,6 +81,17 @@ export function build({ data, S, group }) {
     for (let k = 0; k < nSteps; k += 3) {
       const u0 = footU - (k + 3) * stepT, u1 = footU - k * stepT, y = footY + (k + 3) * (Yg - footY) / nSteps;
       box((u0 + u1) / 2, AX + s * 5.0, Math.min(gLo, footY) - 0.4, y + 0.55, 0.8, u1 - u0, shade(GATE, 1.05), { top: MOSS });
+    }
+  }
+  // the path on from the stair's foot, down the slope to the precinct wall where the service road arrives
+  {
+    const rel = [OPEN[0] - A[0], OPEN[1] - A[1]];
+    const oU = rel[0] * U[0] + rel[1] * U[1], oV = rel[0] * V[0] + rel[1] * V[1];
+    const n = Math.max(2, Math.ceil(Math.hypot(oU - footU, oV - AX) / 2));
+    for (let k = 0; k < n; k++) {
+      const pu = (f) => footU + (oU - footU) * f, pv = (f) => AX + (oV - AX) * f;
+      const f0 = k / n, f1 = (k + 1) / n;
+      S.beam(V3(pu(f0), pv(f0), LAND_Y + T(pu(f0), pv(f0)) + 0.06), V3(pu(f1), pv(f1), LAND_Y + T(pu(f1), pv(f1)) + 0.06), 3.0, 0.14, shade(STONE, k % 2 ? 0.95 : 1.0));
     }
   }
   // gate body: three arched openings, the middle one taller, dark weathered plaster with moss
@@ -103,7 +122,7 @@ export function build({ data, S, group }) {
   glow(gU + gD / 2 + 0.6, AX, Yg + 3.0);
 
   // ---- the forecourt: red tiles climbing from the gate to the terrace, following the hill ----
-  const cV0 = 31, cV1 = 59, tU = 72;
+  const cV0 = 36.5, cV1 = 54.5, tU = 64; // satellite: the lower court is about 18 m wide, the step to the terrace at u 64
   const fu = [];
   for (let u = gU - gD / 2; u > tU - 0.01; u -= 2.5) fu.push(Math.max(u, tU));
   if (fu[fu.length - 1] > tU) fu.push(tU);
@@ -129,13 +148,14 @@ export function build({ data, S, group }) {
 
   // ---- the terrace before the hall: red-brick retaining wall, five steps, two stone lantern pillars ----
   const Fy = fy[fy.length - 1];
-  const [tLo, tHi] = span(26, tU, 26, 64);
+  const [tLo, tHi] = span(31, tU, 31, 59);
   const Yt = Math.max(Fy + 0.9, tHi + 0.1);
-  box((46 + tU) / 2, 45, tLo - 0.5, Yt, 38, tU - 46, BRICK, { top: PAVE, topKind: KIND.ROAD });
-  box(36, 45, tLo - 0.5, Yt, 38, 20.6, BRICK, { top: PAVE, topKind: KIND.ROAD }); // round the hall to its back
+  // the upper court on the satellite: about 24 m across (v 32-56) between the long range's trees and the forest
+  box((46 + tU) / 2, 45, tLo - 0.5, Yt, 28, tU - 46, BRICK, { top: PAVE, topKind: KIND.ROAD });
+  box(36, 45, tLo - 0.5, Yt, 28, 20.6, BRICK, { top: PAVE, topKind: KIND.ROAD }); // round the hall to its back
   for (let k = 0; k < 5; k++) box(tU + 0.35 * (k + 0.5), AX, Fy - 0.3, Yt - ((Yt - Fy) / 5) * (k + 1) + (Yt - Fy) / 5, 9, 0.35, shade(BRICK, 1.08), { topKind: KIND.ROAD });
   // stone balustrade along the front edge, small lanterns on its posts
-  for (const [v0, v1] of [[26.2, AX - 4.6], [AX + 4.6, 63.8]]) {
+  for (const [v0, v1] of [[31.2, AX - 4.6], [AX + 4.6, 58.8]]) {
     box(tU - 0.2, (v0 + v1) / 2, Yt, Yt + 0.65, v1 - v0, 0.25, GREY, { top: shade(GREY, 1.1) });
     for (let v = v0; v <= v1 + 0.01; v += (v1 - v0) / 4) {
       box(tU - 0.2, v, Yt, Yt + 0.95, 0.35, 0.35, shade(GREY, 1.05));
@@ -201,15 +221,15 @@ export function build({ data, S, group }) {
   }
 
   // ---- the ranges round the inner court (tăng xá, nhà khách, nhà hậu), the rear hall, the side halls ----
-  const hall = (u0, u1, v0, v1, alongU, wallH = 3.3, roofH = 1.8) => {
+  const hall = (u0, u1, v0, v1, alongU, wallH = 3.3, roofH = 1.8, ro) => {
     const [lo, hi] = span(u0, u1, v0, v1);
     const y = hi + 0.35, u = (u0 + u1) / 2, v = (v0 + v1) / 2;
     S.kind = KIND.MASONRY;
     box(u, v, lo - 0.4, y, v1 - v0 + 0.4, u1 - u0 + 0.4, shade(GREY, 0.9));
     S.kind = KIND.MASONRY;
     box(u, v, y, y + wallH, v1 - v0 - 1.0, u1 - u0 - 1.0, WALL, { top: shade(TILE, 0.8) });
-    if (alongU) roofU(u, v, u1 - u0 - 1.0, v1 - v0 - 1.0, y + wallH, roofH);
-    else roof(u, v, v1 - v0 - 1.0, u1 - u0 - 1.0, y + wallH, roofH);
+    if (alongU) roofU(u, v, u1 - u0 - 1.0, v1 - v0 - 1.0, y + wallH, roofH, ro);
+    else roof(u, v, v1 - v0 - 1.0, u1 - u0 - 1.0, y + wallH, roofH, ro);
     return y;
   };
   hall(0, 22.4, 0, 11, true);
@@ -217,7 +237,8 @@ export function build({ data, S, group }) {
   hall(0, 22.6, 28.1, 38.7, true);
   hall(0, 9.8, 38.7, 56.1, false, 3.6, 2.0);
   hall(0, 22.7, 56.1, 63.7, true);
-  hall(-8.8, -1, 28.8, 49.3, false, 3.6, 2.0); // nhà hậu tổ
+  // nhà hậu tổ: the satellite puts it 5.7 m further south-east than OSM (v 34.3-54.8), its roof a lighter, oranger tile
+  hall(-8.8, -1, 34.3, 54.8, false, 3.6, 2.0, { col: hex('#a5603f'), ridgeCol: hex('#8a4c33') });
   hall(45.8, 56.2, 0, 11.5, true);
   for (const [u0, u1] of [[45.4, 61.6], [61.6, 77.8], [77.8, 94]]) hall(u0, u1, 17, 25.3, true, 3.1, 1.6);
   // the inner court, paved
@@ -260,7 +281,7 @@ export function build({ data, S, group }) {
   fence(S, RING, LOW, {
     closed: true,
     roads: roadsNear(data, c, 160),
-    openings: [[...W(gU, AX), gW / 2 + 0.3], [-950.4, 1531.4, 2.5]],
+    openings: [[...OPEN, 2.2], [-950.4, 1531.4, 2.5]],
     solid: buildingsNear(data, c, 120),
   });
 
@@ -279,6 +300,17 @@ export function build({ data, S, group }) {
       for (const v of keep) a.push(v);
       if (data.meta?.counts && data.meta.counts.infillNear != null) data.meta.counts.infillNear = nearKept;
     }
+  }
+
+  // ---- the mapped halls come out: re-framed above, they no longer sit under the model, so populate would draw them ----
+  if (Array.isArray(data.bld)) {
+    const inside = (b) => {
+      const r = b[0];
+      let x = 0, z = 0;
+      for (let i = 0; i < r.length; i += 2) { x += r[i]; z += r[i + 1]; }
+      return inRing(x / (r.length / 2) / 10, z / (r.length / 2) / 10, RING);
+    };
+    for (let i = data.bld.length - 1; i >= 0; i--) if (inside(data.bld[i])) data.bld.splice(i, 1);
   }
 
   // ---- after dark: the hall's lanterns, the pillar lanterns, a lamp in the gate ----

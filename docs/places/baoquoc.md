@@ -41,6 +41,15 @@ Model: `src/landmarks/places/baoquoc.js`. It covers the pagoda precinct on Hàm 
 - Generated filler houses inside the OSM precinct are removed, as quochoc.js does. Trees are left.
 - The forecourt, terrace, hall platform and inner court are marked paved.
 
+## Satellite alignment (2026-11)
+Checked against Google satellite (visual reference only, nothing traced):
+- The OSM halls sit about 5.8 m south and 1.3 m east of the satellite's halls; the long range, the inner garden and the hall front agree on that shift. The precinct outline and the streets line up, so only the halls' frame moved (A in the place file); the axis stays at 50° (satellite 48-50°).
+- The paved court ends at u 89 with a structure on the axis just beyond, so the gate moved from u 116 to u 92.5. A stone path now runs from the stair's foot to the wall opening where the service road arrives (the gate's old place).
+- The court is about 18 m wide; the step up to the terrace is at u 64, not 72; the terrace is about 28 m wide, not 38.
+- The nhà hậu tổ moved 5.7 m south-east to the lighter orange-roofed block the satellite shows behind the 口.
+- The mapped OSM halls are removed from the building data inside the precinct, since the model no longer covers their offset outlines.
+- No Street View panorama shows the pagoda: trees and houses hide it from every street.
+
 ## Left to do
 - The Hàm Long well (north, at the foot of the hill), the bell tower and the Buddhist school buildings are not modelled.
 - Interior and mosaic (mảnh sành) detail, and the exact ridge ornaments, are left out.
