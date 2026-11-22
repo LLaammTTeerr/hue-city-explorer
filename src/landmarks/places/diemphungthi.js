@@ -48,8 +48,8 @@ const GARDEN = [
   [59.6, 230.2], [56.2, 229.6], [53.0, 230.6],
 ];
 
-const WALL = hex('#ece8dd'), TRIM = hex('#f6f3ea'), SHUT = hex('#d4b25a'), PLINTH = hex('#9d968a'), ROOF = PAL.indochineRoof[0];
-const DOOR = hex('#4a3626'), GLASS = hex('#26313a'), IRON = hex('#2c2a27');
+const WALL = hex('#ece8dd'), TRIM = hex('#f6f3ea'), SHUT = hex('#dcc27c'), PLINTH = hex('#9d968a'), ROOF = PAL.indochineRoof[0];
+const DOOR = hex('#4a3626'), GLASS = hex('#5a6368'), IRON = hex('#2c2a27');
 const LAWN = hex('#93ab66'), PATH = hex('#cfc4ae');
 const WHITE = hex('#e8e4da'), GREY = hex('#a7a49c'), BRONZE = hex('#4e4a3c'), LATERITE = hex('#9a5a3e'), BLACK = hex('#2f2e2c');
 const gY = (x, z) => LAND_Y + rise(x, z);
@@ -180,6 +180,13 @@ export function build({ data, S, group }) {
   win('se', DV, 0, yp + 0.05, 3.0, 1.6, true);
   for (const v of [0.5, 5.0, 7.3]) win('se', v, 0, yp + 0.8, 2.3);
   for (const v of [DV, 5.0, 7.3, 0.5]) win('se', v, 0, ys + 0.6, 2.2);
+  // two low steps up to the door, with a landing the width of the awning
+  {
+    S.kind = KIND.MASONRY;
+    box(LEN + 0.45, DV, y0, yp + 0.05, 0.9, 2.2, PLINTH);
+    box(LEN + 0.95, DV, y0, yp - 0.25, 0.7, 2.0, shade(PLINTH, 1.06));
+    S.kind = KIND.PLAIN;
+  }
   // the awning over the door: a short tiled slope on two iron brackets
   {
     const q = P(LEN + 0.7, DV);
