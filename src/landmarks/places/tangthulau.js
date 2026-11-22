@@ -110,6 +110,7 @@ function archive(S, lamps) {
       const u = -LW / 2 + (i + 0.5) * bay;
       fbox(u, s * (LD / 2 + 0.03), fl + 0.1, fl + 2.6, 1.5, 0.08, i === 5 ? C.doorDark : C.door); // leaves
       fbox(u, s * (LD / 2 + 0.05), fl + 2.6, fl + 2.8, 1.8, 0.1, C.trim); // lintel
+      fbox(u, s * (LD / 2 + 0.2), fl - 0.05, fl + 0.12, 1.7, 0.4, shade(C.stone, 1.0)); // threshold step
       fbox(u, s * (LD / 2 + 0.03), fl + 3.0, fl + 3.55, 1.1, 0.08, C.doorDark); // vent over the door
     }
     const eb = LD / 3;
@@ -175,7 +176,7 @@ function archive(S, lamps) {
   S.kind = KIND.PLAIN;
   const rl = Math.max(0, (UW + 2 * over) / 2 - ((UD + 2 * over) / 2) * 0.92);
   const top = ridgeTop - 0.35;
-  for (const s of [-1, 1]) { const p = P(s * rl, 0); S.box(p[0], p[1], top, top + 0.55, 0.6, 0.35, ang, C.ridge); }
+  for (const s of [-1, 1]) { const p = P(s * rl, 0); S.box(p[0], p[1], top, top + 0.75, 0.6, 0.35, ang, C.ridge); S.box(p[0], p[1], top + 0.75, top + 0.95, 0.4, 0.25, ang, shade(C.ridge, 1.1)); }
   { const p = P(0, 0); S.cyl(p[0], p[1], top, top + 0.3, 0.35, 0.3, 6, C.ridge); S.cyl(p[0], p[1], top + 0.3, top + 0.6, 0.22, 0.05, 6, C.ridge); }
 
   // ---- the stairs: one flight along each long side, a turn at the corner, up the east end to a landing in the middle ----
