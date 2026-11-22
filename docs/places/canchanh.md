@@ -46,8 +46,17 @@ buildings being rebuilt are drawn as the finished historic building, not the bui
 - **Walls and doors:** the 7 middle front bays are door leaves with glazed upper panels and gilt transoms; the end
   chái and the gables are red-lacquered board walls with gilt rails; the 5 middle back bays are doors.
 - **Steps:** 5 steps each, about 2 m run. The OSM ways are 2.1 m long.
-- **Court:** stone paving raised 0.22 m, with a central ngự đạo and kerbs on the open sides, up to Đại Cung Môn's
-  foundation at v ≈ 46 m.
+- **Court:** paving raised 0.22 m, with a central ngự đạo and kerbs on the open sides, up to Đại Cung Môn's
+  foundation at v ≈ 46 m. Red-brown brick with a pale blue-grey stone ngự đạo, as a 2026 Street View user photosphere
+  from the platform's front edge shows the court today. That photo suggests a ngự đạo about 3 m wide (scaled from a
+  walker; rough); the model keeps 3.6 m.
 - **Not drawn:** the galleries to Văn Minh, Võ Hiển and the Vu halls (their extent is unmapped); back and side steps
   (not mapped); the interior (throne, paintings).
 - The place label in `hue.json` is still "Nền điện Cần Chánh" (foundation); it comes from the data build, not this file.
+
+## Google alignment check (Nov 2026)
+- Satellite (z19, z20, north up) with the model rendered at the same centre and m/px: the OSM platform outline sits on
+  the pale concrete slab of today's foundation to within about 1 m at all four corners, and its axis matches to within
+  about 1°. The galleries, Tả Vu, Hữu Vu and Thái Hòa line up as well. No change to the anchor or frame.
+- No Google car imagery inside Tử Cấm Thành; all Street View there is user photospheres, which show the site under
+  restoration (no hall), so the hall's massing is unchanged from the documented sources above.

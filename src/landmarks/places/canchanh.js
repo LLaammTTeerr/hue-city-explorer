@@ -27,8 +27,10 @@ const P3 = (u, y, v) => { const p = W(u, v); return [p[0], y, p[1]]; };
 
 const STONE = hex('#9b998f'); // Thanh Hóa stone, blue-grey
 const BRICK = hex('#6f665c'); // gạch vồ facing
-const PAVE = hex('#a39c8e');
-const PAVE2 = hex('#b2ab9c');
+// the court: red-brown brick (gạch Bát Tràng) with a pale blue-grey stone ngự đạo, as the court is paved today
+// (Street View, user photosphere from the platform's front edge, 2026)
+const PAVE = hex('#7e695e');
+const PAVE2 = hex('#aeaea6');
 const FLOOR = hex('#b8b0a0');
 const RED = hex('#9a2a1e');
 const RED_DK = hex('#6e1f17');
