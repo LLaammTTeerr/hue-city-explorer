@@ -44,14 +44,14 @@ const TAB = { w: 2.31, h: 1.1 }; // the name tablet, sourced (same)
 // and to the sourced 16-17 m total
 const TOWER = { t: 3.5, w: 8.5, d: 6.0, plinth: 0.3, wallH: 3.6, uw: 3.6, ud: 4.4, uwallH: 2.2 };
 
-const BODY = hex('#6c675d'); // lime-rendered brick gone grey-black with damp and lichen
+const BODY = hex('#76665a'); // lime-rendered brick gone grey-black with damp and lichen
 const BODY_TOP = hex('#7d776b');
 const DAMP = hex('#47443d');
 const PLINTH = hex('#5a5750'); // dressed stone foot (đá thanh / laterite)
 const FRAME = hex('#8f897c'); // the arch's stone surround
 const DARK = hex('#1f1b19');
 const TABLET = hex('#5e6466'); // đá thanh, blue-grey
-const GLYPH = hex('#d9cfae');
+const GLYPH = hex('#8d9498'); // characters cut into the stone, only a shade lighter than the field
 const LIM = hex('#4a2e1f'); // the lim-wood door leaves
 const PLASTER = hex('#b9b19c'); // the vọng lâu's lime render, weathered cream-grey (photos)
 const PLASTER_TOP = hex('#a69f8b');
@@ -110,7 +110,7 @@ export function build({ S, group, THREE }) {
       box(sg * (r + 0.4 + sw / 2), t + dt * 0.05, Y - 0.2, Y + 0.8, sw, 0.1, PLINTH);
       box(sg * (r + 0.4 + sw / 2), t + dt * 0.03, Y + 0.8, Y + 1.9, sw, 0.06, DAMP);
       // a plain pilaster at each corner of the face, standing a little proud
-      box(sg * (W / 2 - 0.45), t + dt * 0.08, Y + 0.8, Y + HB - 0.35, 0.9, 0.16, shade(BODY, 1.06));
+      box(sg * (W / 2 - 0.45), t + dt * 0.08, Y + 0.8, Y + HB - 0.35, 0.9, 0.08, shade(BODY, 1.03));
     }
     // the surround: jambs and an arched band of dressed stone standing proud
     const tt = t + dt * 0.08;
