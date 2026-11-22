@@ -189,7 +189,8 @@ export function build({ data, S }) {
   for (const [x, z] of posts) {
     const g = groundY(x, z) - 0.2;
     S.box(x, z, g, g + 0.6, 1.25, 1.25, ang, stoneD);
-    S.box(x, z, g + 0.6, g + 3.8, 1.0, 1.0, ang, brickD);
+    S.box(x, z, g + 0.6, g + 3.8, 1.0, 1.0, ang, shade(PAL.brick, 0.95));
+    S.box(x, z, g + 3.5, g + 3.8, 1.06, 1.06, ang, stoneL); // the pale plastered band under the cap
     S.box(x, z, g + 3.8, g + 3.95, 1.22, 1.22, ang, stoneL);
     S.box(x, z, g + 3.95, g + 4.15, 1.05, 1.05, ang, stone);
     S.cyl(x, z, g + 4.15, g + 4.3, 0.16, 0.14, 10, stone, { cap: false });
