@@ -22,14 +22,14 @@ import { lightMaterial, glowPoints } from '../../geo/materials.js';
 // east and 0.8 m north of the building on the satellite and the car panoramas, so the centre is moved by that much.
 export const id = 'phuvanlau';
 
-const RED = hex('#7a2a20'); // dark-red lacquered columns and timber
+const RED = hex('#8a2a1e'); // dark-red lacquered columns and timber
 const CREAM = hex('#eadfc0'); // the upper floor's pale panels
 const LIME = hex('#e4d08f'); // the pale yellow balustrade
 const BALUSTER = hex('#efe6cc');
 const MARBLE = hex('#d9d3c6');
-const PLINTH = hex('#8a857a'); // the platform's weathered grey stone face
-const YARD = hex('#a8968a'); // terracotta-grey pavers
-const ROOF = PAL.imperialRoof;
+const PLINTH = hex('#a39c8e'); // the platform's weathered grey stone face
+const YARD = hex('#9a9086'); // terracotta-grey pavers
+const ROOF = hex('#c9822a'); // 2016 tiles read burnt orange in the panoramas, duller than the shared imperial gold
 const RIDGE = hex('#ddd5c0'); // ceramic-clad ridges
 const GOLD = hex('#d8b04a');
 const GLASS = hex('#2c2a2c'); // the dark wide window
