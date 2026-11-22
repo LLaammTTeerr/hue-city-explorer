@@ -25,8 +25,8 @@ const RING = [[543.8, 622.8], [601.7, 627.4], [611.4, 655.8], [574.1, 690.3], [5
 const MELIA_W = 24.6; // the hotel entrance bay: the west end of the Hà Nội front, its first three bays
 
 const C = {
-  granite: hex('#9a8573'), stone: hex('#e4d9c5'), pilaster: hex('#ece3d2'), band: hex('#3a3b3d'),
-  eave: hex('#2f3235'), roof: hex('#9a978f'), panel: hex('#24292f'), grille: hex('#b3ada2'),
+  granite: hex('#b3a284'), stone: hex('#d8cebb'), pilaster: hex('#e2dac9'), band: hex('#3a3b3d'),
+  eave: hex('#2f3235'), roof: hex('#9a978f'), panel: hex('#24292f'), grille: hex('#8d8a84'),
   glass: hex('#4f6c88'), lobby: hex('#5d7a90'), mullion: hex('#a9b8c4'), endClad: hex('#a89a80'),
   red: hex('#c4122f'), pave: hex('#c3bcae'), green: hex('#4d6b35'), rail: hex('#cfdde4'),
 };
@@ -100,17 +100,21 @@ export function build({ S, group }) {
       const p = at(u, 0.07), w = bw - 2.0;
       if (!melia) {
         // ground-floor shopfront glass, and a gold chevron grille over the upper granite storey
-        S.box(p[0], p[1], y0 + 0.3, y0 + 5.0, w + 0.4, 0.12, ang, shade(C.lobby, 0.7));
+        S.box(p[0], p[1], y0 + 0.3, y0 + 5.0, w + 0.4, 0.12, ang, hex('#2c2f31'));
+        for (let m = 1; m < 4; m++) { const q = at(u + (m - 2) * (w / 4), 0.14); S.box(q[0], q[1], y0 + 0.3, y0 + 5.0, 0.1, 0.08, ang, shade(C.grille, 0.9)); }
         S.box(p[0], p[1], y0 + 5.8, y0 + 9.3, w, 0.12, ang, C.panel);
         S.box(p[0], p[1], y0 + 7.6, y0 + 9.3, w, 0.14, ang, shade(C.grille, 0.9));
       }
       // the tall recessed bay: dark glass, or a poster banner on every other bay (windows over the hotel entrance)
       const poster = !melia && (k * 2 + i) % 5 === 0;
       S.box(p[0], p[1], y0 + H1 + 0.8, y0 + 20.4, w, 0.12, ang, poster ? POSTERS[(k * 3 + i) % POSTERS.length] : C.panel);
+      if (!poster) for (let m = 1; m < 5; m++) { const q = at(u + (m - 2.5) * (w / 5), 0.15); S.box(q[0], q[1], y0 + H1 + 0.8, y0 + 20.4, 0.1, 0.08, ang, shade(C.grille, 1.1)); }
+      if (!poster) S.box(p[0], p[1], y0 + 15.4, y0 + 15.7, w, 0.16, ang, shade(C.grille, 1.1));
       if (poster) S.box(p[0], p[1], y0 + H1 + 0.6, y0 + H1 + 0.8, w + 0.1, 0.16, ang, C.panel);
       if (melia) for (const h of [13.6, 17.0]) S.box(p[0], p[1], y0 + h, y0 + h + 0.25, w, 0.18, ang, shade(C.mullion, 0.75));
       // gold chevron grille above, lit at dusk
       S.box(p[0], p[1], y0 + 20.7, y0 + 22.7, w, 0.14, ang, C.grille);
+      for (let m = 1; m < 8; m++) { const q = at(u + (m - 4) * (w / 8), 0.2); S.box(q[0], q[1], y0 + 20.7, y0 + 22.7, 0.12, 0.06, ang, C.panel); }
       const g = at(u, 0.2);
       GB.box(g[0], g[1], y0 + 20.75, y0 + 22.65, w - 0.2, 0.05, ang, [1, 1, 1], { top: [1, 1, 1] });
     }
@@ -207,6 +211,9 @@ export function build({ S, group }) {
     for (const s of [-1, 1]) S.beam(P3(mid + s * 7.0, v - 4.0, 5.85), P3(mid + s * 5.0, v - 0.7, 11.5), 0.1, 0.1, C.mullion); // canopy ties
     lb(mid, v - 0.85, H2, H4 + 1.0, MELIA_W, 1.9, C.pilaster, { top: C.roof });
   }
+
+  // low clipped hedges either side of the Meliá steps
+  for (const [a0, a1] of [[-1.9, 4.2], [14.2, 22.0]]) lb((a0 + a1) / 2, -3.4, 0, 1.0, a1 - a0, 1.6, C.green);
 
   // the base block: plain grey stone from the street to 30 m on the west flank, two strips of windows high up, a
   // louvred plant storey on its west half, and the shaft rising out of it (Street View, Hà Nội looking east)
