@@ -31,7 +31,8 @@ const ANG = Math.atan2(-0.605, 0.796);
 const UX = Math.cos(ANG), UZ = Math.sin(ANG);
 const P = (u, v) => [C[0] + u * UX - v * UZ, C[1] + u * UZ + v * UX];
 
-const ROOF = PAL.imperialRoof, RIDGE = hex('#f1d77a'), GOLD = hex('#d9a93a');
+const ROOF = shade(PAL.imperialRoof, 0.82); // weathered tile, dull orange-brown in the photograph
+const RIDGE = hex('#f1d77a'), GOLD = hex('#d9a93a');
 const LAC = hex('#66281f'); // the pavilion's lacquer reads dark and worn in the photographs, not fresh vermilion
 const RAIL = hex('#8a3226'), DOOR = hex('#7c2a22'), GRASS = hex(PAL.green.grass), FLOWER = hex('#c8683a');
 const BASE = hex('#a99d86'), BRICK = hex('#9c7a64'), THANH = hex('#8e9396'), STONE = PAL.stone;
@@ -111,6 +112,9 @@ function pavilionBody(S, lamps) {
   for (const sg of [-1, 1]) {
     for (const u of [-4.2, 0, 4.2]) fbox(S, u, sg * (D2 / 2 + 0.04), y2 + 1.9, y2 + 3.7, 3.3, 0.08, shade(LAC, 0.6));
     fbox(S, 0, sg * (D2 / 2 + 0.06), y2 + 3.85, y2 + 4.25, W2, 0.1, shade(GOLD, 0.85));
+    // balcony railing along the second storey, over the skirt roof
+    fbox(S, 0, sg * (D2 / 2 + 0.3), y2 + 0.9, y2 + 1.0, W2, 0.1, RAIL);
+    fbox(S, 0, sg * (D2 / 2 + 0.3), y2 + 0.15, y2 + 0.9, W2, 0.04, shade(RAIL, 0.6));
     for (const u of [-6.2, -2.1, 2.1, 6.2]) fbox(S, u, sg * (D2 / 2 + 0.08), y2 + 1.4, y2 + H2, 0.32, 0.12, shade(LAC, 1.08));
   }
   for (const s of [-1, 1]) fbox(S, s * (W2 / 2 + 0.04), 0, y2 + 1.9, y2 + 3.7, 0.08, 4.4, shade(LAC, 0.6));
