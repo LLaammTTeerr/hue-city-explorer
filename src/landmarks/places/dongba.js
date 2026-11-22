@@ -72,6 +72,42 @@ function hoods(S, u0, u1, v0, v1, H = 5.0, step = 6.0, rise = 1.3, reach = 0.6) 
   if (S.roofs) S.roofs.push({ cx: c[0], cz: c[1], w: u1 - u0, d: vb - va, ang: ANG, y0: gy(c) + H, h: rise, over: 0 });
 }
 
+// stall tarpaulins pitched from the hood band down to bamboo poles at the kerb side (blue, yellow, red, green in
+// Street View 2025), with the poles
+const TARPS = [hex('#2d5fa8'), hex('#d8c27a'), hex('#b8483f'), hex('#3a8a5c'), hex('#2d5fa8')];
+function tarps(S, u0, u1, va, vb, H) {
+  S.kind = KIND.PLAIN;
+  const w = 4.2;
+  for (let i = 0, u = u0 + 1; u + w < u1; i++, u += w + 1.5 + ((i * 7) % 3) * 0.8) {
+    const col = TARPS[i % TARPS.length], yo = gy(P(u, va)), y1 = yo + H - 0.8, y2 = yo + 2.5, vo = va - 2.4;
+    const A = P(u, va), B = P(u + w, va), Cc = P(u + w, vo), D = P(u, vo);
+    S.quad([A[0], y1, A[1]], [B[0], y1, B[1]], [Cc[0], y2, Cc[1]], [D[0], y2, D[1]], col, [N[0] * 0.4, 0.9, N[1] * 0.4]);
+    S.quad([D[0], y2, D[1]], [Cc[0], y2, Cc[1]], [B[0], y1, B[1]], [A[0], y1, A[1]], shade(col, 0.8), [-N[0] * 0.4, -0.9, -N[1] * 0.4]);
+    for (const q of [D, Cc]) S.cyl(q[0], q[1], yo, y2, 0.04, 0.04, 4, hex('#8a6d3b'));
+  }
+}
+// the billboard frame on the roofline: a white lattice on two posts
+function billboard(S, u, v, y, w, h) {
+  S.kind = KIND.PLAIN;
+  boxUV(S, u - w / 2, u + w / 2, v - 0.05, v + 0.05, y, y + h, hex('#e9e9e4'));
+  boxUV(S, u - w / 2 + 0.3, u + w / 2 - 0.3, v - 0.07, v + 0.07, y + 0.3, y + h - 0.3, hex('#9aa4a8'));
+  for (const du of [-w / 2 + 0.4, w / 2 - 0.4]) boxUV(S, u + du - 0.06, u + du + 0.06, v - 0.1, v + 0.1, y - 1.2, y, DARK);
+}
+// shopfronts on a corner building's front (face at v = vf, the street side): roll-up shutters under signboards,
+// and a window above each, on the rhythm of a Huế shophouse (about 3.6 m a bay)
+const SIGNS = [hex('#2d5fa8'), hex('#c8161d'), hex('#e0b63a'), hex('#2f7a4d'), hex('#e9e6dc')];
+function shopfronts(S, u0, u1, vf, h) {
+  S.kind = KIND.PLAIN;
+  const n = Math.round((u1 - u0) / 3.6), bw = (u1 - u0) / n;
+  for (let i = 0; i < n; i++) {
+    const a = u0 + i * bw;
+    boxUV(S, a + 0.35, a + bw - 0.35, vf - 0.02, vf + 0.12, 0, 2.7, hex('#6f7a7a'));
+    boxUV(S, a + 0.25, a + bw - 0.25, vf - 0.02, vf + 0.2, 2.75, 3.25, SIGNS[(i * 2 + (u0 > 0 ? 1 : 0)) % SIGNS.length]);
+    boxUV(S, a + 0.6, a + bw - 0.6, vf - 0.02, vf + 0.1, 4.3, 5.9, hex('#3b4a52'));
+    boxUV(S, a + 0.5, a + bw - 0.5, vf - 0.02, vf + 0.16, 4.2, 4.3, TRIM);
+  }
+}
+
 // the giant capitals of the sign, as a picture with a clear background (mask: white letters, for the night glow)
 function letters(THREE, mask) {
   const cv = document.createElement('canvas');
@@ -162,6 +198,7 @@ export function build({ data, S, group, THREE }) {
     S.kind = KIND.PLAIN;
     boxUV(S, u0 - 0.1, u1 + 0.1, 31.4, 42.1, 3.3, 3.55, TRIM);
     hipUV(S, u0, u1, 31.5, 42, 6.6, 1.0, TILE, { over: 0.8, flare: 0.2 });
+    shopfronts(S, u0 + 0.3, u1 - 0.3, 42, 6.6);
   }
 
   // ---- the stall halls along both ends and the back (toward Chương Dương) ----
@@ -188,6 +225,8 @@ export function build({ data, S, group, THREE }) {
   // the stall fronts stand back from the kerb, their hoods reaching out over them (both car panoramas on Chương
   // Dương put the stall fronts 4-6 m from the camera, where the kerb alone left them a metre away)
   hoods(S, -78, 38, back + 2.5, HV0, 5.0, 6.0, 1.3, 1.8);
+  tarps(S, -76, 36, back + 2.5, HV0, 5.0);
+  billboard(S, 22, HV0 + 4, 5.6, 9, 3.2);
   S.kind = KIND.CIVIC;
   boxUV(S, 38.5, 72, -40, -22.5, 0, 7.4, GREY, { top: shade(CONCRETE, 0.85) });
   S.kind = KIND.PLAIN;

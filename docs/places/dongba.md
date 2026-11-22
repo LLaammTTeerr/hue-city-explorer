@@ -47,3 +47,6 @@ Model: `src/landmarks/places/dongba.js`. It replaces `buildMarket` in `src/landm
 - Position and axis already matched the satellite: the centre sits within about 1 m of the hall's middle, the axis is 27° from north, and the frontage, entrance canopy and both streets line up.
 - The flat roof with folded concrete hoods all round, and the raised central roof, came from a misreading. The satellite shows transverse sheet-roofed bays, and the hoods are the arched tin hoods along Chương Dương. Both are now rebuilt that way.
 - The Street View pictures sit in scratch/ only, as visual reference. Nothing is traced into data/.
+
+## Polish
+Added stall tarpaulins (blue, yellow, red, green) pitched from the hood band on poles along Chương Dương, a roofline billboard lattice, and shopfronts (roll-up shutters, coloured signboards, upper windows at a 3.6 m rhythm) on the two Trần Hưng Đạo corner buildings, after Street View 2025.
