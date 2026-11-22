@@ -46,8 +46,8 @@ const MO = ARCH.h + RING; // the moulding's foot
 const LOW = { w: 9.0, d: 6.6, h: 3.4 }; // tower, lower storey (photo; depth estimated)
 const UP = { w: 4.6, d: 3.4, h: 2.2 }; // tower, upper storey (photo; depth estimated)
 
-const BRICK = hex('#7d5a4d'); // bare, weathered red brick
-const BRICK2 = hex('#8a5f4e'); // the arch ring and frame, a shade brighter
+const BRICK = hex('#74554a'); // bare, weathered red brick
+const BRICK2 = hex('#7f5a4a'); // the arch ring and frame, a shade brighter
 const STONE = hex('#9c988a'); // grey rendered mouldings and balustrade
 const RENDER = hex('#a19e8b'); // the tower's lime render, weathered grey-ochre
 const MOSS = hex('#7e7c68');
@@ -102,6 +102,10 @@ export function build({ S }) {
     box(0, t, Y + MO + 0.3, Y + HB, 7.4, 0.06, RENDER);
     box(0, t - 0.1, Y + MO + 0.9, Y + MO + 1.7, 5.2, 0.16, STONE);
     box(0, t - 0.2, Y + MO + 1.05, Y + MO + 1.55, 4.4, 0.06, shade(RENDER, 0.9));
+  }
+  for (const t of [T0, T1]) { // a low grey stone footing course under each face, as in the bridge Street View
+    const dt = Math.sign(t);
+    for (const sg of [-1, 1]) box(sg * (L / 2 + r) / 2, t + dt * 0.06, Y - 0.3, Y + 0.45, L / 2 - r + 0.1, 0.14, shade(STONE, 0.85));
   }
   S.kind = KIND.PLAIN;
   for (const t of [T0, T1]) { // the arch ring: radial brick voussoirs standing proud
