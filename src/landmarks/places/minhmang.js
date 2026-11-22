@@ -39,6 +39,7 @@ const NECK = { s0: 216.5, s1: 239.5, t0: -40, t1: 38 };
 
 const LAC = PAL.lacquer || C.lacquer, TILE = PAL.imperialRoof || C.roofY, RIDGE = hex('#ead27c');
 const WALL = hex('#7d7465'), WALL_DK = hex('#625b4f'), STUCCO = hex('#cfc6b0'), WATER = hex('#3e6a69');
+const BI_BRICK = hex('#5a5249'), BI_ROOF = hex('#b8863a');
 const STELE_WALL = hex('#dcc272'), BRICK_COURT = hex('#a37a62'), PINE = hex('#355230'), MOSS = hex('#4f6a3e');
 
 function frame(o, to) {
@@ -110,14 +111,15 @@ export function build({ data, S }) {
     // two brick-faced terraces, about 21.5 and 16 m square on the satellite; Street View shows them standing some
     // 3.5 m over the Bái Đình, the upper one reached by one long flight between dragon balustrades
     const base = levelTop(c[0], c[1], 21.5, 21.5, F.a, 0.2);
-    let y = terrace(S, c[0], c[1], 21.5, 21.5, F.a, base + 1.8);
-    y = terrace(S, c[0], c[1], 16, 16, F.a, y + 1.6);
+    // the faces are old dark brick, weathered nearly black-grey
+    let y = terrace(S, c[0], c[1], 21.5, 21.5, F.a, base + 1.8, BI_BRICK);
+    y = terrace(S, c[0], c[1], 16, 16, F.a, y + 1.6, shade(BI_BRICK, 1.08));
     flight(S, at(sC - 10.75 - 3.6), base - 0.1, at(sC - 10.75), base + 1.8, 5);
     flight(S, at(sC - 8 - 4.4), base + 1.8, at(sC - 8), y, 4.4, { rail: 1 });
     flight(S, at(sC + 8), y, at(sC + 8 + 4.4), base + 1.8, 4.4, { rail: 1 });
     // square, two roof tiers, the stele "Thánh Đức Thần Công" inside: closed walls of yellow stucco with a wide door
     // in the middle (Street View), the roof some 13 m across on the satellite
-    pav(S, c[0], c[1], 9.8, 9.8, F.av, y, { tiers: 2, wallH: 4.0, roof: TILE, wall: STELE_WALL, h: 9.5, over: 0.7 });
+    pav(S, c[0], c[1], 9.8, 9.8, F.av, y, { tiers: 2, wallH: 4.0, roof: BI_ROOF, wall: STELE_WALL, h: 9.5, over: 0.9 });
     S.kind = KIND.MASONRY; S.base = y - LAND_Y;
     S.box(c[0], c[1], y, y + 0.7, 1.6, 2.6, F.a, C.stoneDark);
     S.box(c[0], c[1], y + 0.7, y + 3.4, 0.5, 1.9, F.a, hex('#4a5048'));
