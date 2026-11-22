@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { KIND, Buf, hex, shade, rand, pick } from '../../geo/buf.js';
-import { LAND_Y, ROAD_W } from '../../config.js';
+import { KIND, Buf, hex, shade, rand, pick, inRing } from '../../geo/buf.js';
+import { LAND_Y, ROAD_W, roadWidth } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { lightMaterial, glowPoints } from '../../geo/materials.js';
 
@@ -8,16 +8,19 @@ import { lightMaterial, glowPoints } from '../../geo/materials.js';
 // and Chu Văn An, which close to traffic for the walking street on Friday to Sunday evenings (18:00 to 02:00; opened
 // 29 September 2017). See docs/places/photay.md.
 //
-// There is no single building here: the place is the street scene. The houses stay the city's generic infill and
-// mapped buildings; this model dresses their street fronts and the street itself:
+// There is no single building here: the place is the street scene. The city's generic infill and mapped buildings
+// stay; this model fills the gaps between them with rows of tube houses (satellite and Street View show the streets
+// built up wall to wall), and dresses every street front and the street itself:
+//   rows        tube houses 4-5.6 m wide, 2-5 storeys, flat roofs with a parapet and often a stair head, fronts at
+//               the back of the pavement, in the plaster colours Street View shows (cream, salmon, pale blue, white)
 //   shopfronts  every house facing one of the three streets gets an open ground floor (a dark shop interior that
 //               glows warm after dark), a coloured sign board with a band of lettering over it, on the taller houses
 //               a vertical blade sign, and where the city gave it none, a striped canvas awning
 //   bars        about half the fronts are bars and eateries: low tables ringed with red and blue plastic stools on
 //               the pavement, silk lanterns and a line of bulbs along the awning, lit signs at night
-//   street      terrazzo pavements in red and grey squares on both sides, the paved lane off Chu Văn An (OSM way
-//               39419045, paving_stones, 3 m), and strings of coloured bulbs slung across the carriageway between
-//               the kerbside poles
+//   street      grey stone-slab pavements on both sides (Street View), the paved lane off Chu Văn An (OSM way
+//               39419045, paving_stones, 3 m), grey lamp posts with flat dome heads at the kerb, and strings of white
+//               paper lanterns slung across the carriageway between them (Chu Văn An, Street View 2024)
 // Street centrelines: OSM ways 39416766 (Võ Thị Sáu), 39419092 (Phạm Ngũ Lão), 39413149 (Chu Văn An), in model
 // metres (scripts/frame.json). The carriageways stay asphalt, as OSM tags them; on walking-street nights the
 // tables spill onto them, which a still model cannot show.
@@ -34,8 +37,8 @@ const LANE = [[796.1, -51.8], [790.2, -11], [776.3, 0.4]]; // Chu Văn An's pave
 const HALF = ROAD_W[3] / 2; // the three are residential streets (class 3)
 
 const C = {
-  shop: hex('#2b2522'), shopLit: hex('#4a3a2c'), pole: hex('#3c3a38'), wire: hex('#2a2a2a'),
-  tileR: hex('#a87a6c'), tileG: hex('#bdb6aa'), lane: hex('#9d968a'),
+  shop: hex('#2b2522'), shopLit: hex('#4a3a2c'), pole: hex('#6c716f'), wire: hex('#2a2a2a'),
+  tileR: hex('#a4a29b'), tileG: hex('#b4b1a9'), lane: hex('#9d968a'), paper: hex('#efe9dc'),
   lantern: hex('#c8352a'), lanternY: hex('#d9a236'), table: hex('#d8d4cc'), tableS: hex('#8e9aa3'),
 };
 const SIGNS = ['#c62f2a', '#1f5fa8', '#e1b52d', '#2f7d4a', '#1d1d1f', '#e7e2d6', '#7a2f6b', '#d8662a', '#1f8a8a'].map(hex);
@@ -43,7 +46,7 @@ const INK = ['#f4f1e8', '#f4f1e8', '#1d1d1f', '#f4f1e8', '#e1b52d', '#c62f2a', '
 const GLOW = [0xff4a3a, 0x58a8ff, 0xffd060, 0x60ff98, 0xfff2d0, 0xffe8b0, 0xff70d8, 0xffa040, 0x60fff0]; // the sign's light at night
 const CANVAS = ['#b8322b', '#2b5f8a', '#2f7046', '#c99a2e', '#7c2c3a', '#3b3b3b'].map(hex);
 const STOOLS = ['#c8352a', '#c8352a', '#2f62b0', '#d9a236', '#2f62b0'].map(hex);
-const BULBS = [[1, 0.78, 0.42], [1, 0.3, 0.22], [0.35, 1, 0.45], [0.35, 0.6, 1], [1, 0.85, 0.3]];
+const BULBS = [[1, 0.86, 0.6], [1, 0.8, 0.5], [1, 0.9, 0.7]]; // paper lanterns lit from inside
 
 // nearest point of a polyline: distance, the point, the unit tangent there
 function nearest(pts, x, z) {
@@ -81,6 +84,7 @@ export function build({ data, S, group, place }) {
     if (pts.some((p) => Math.hypot(p[0] - cx, p[1] - cz) < R + 60)) roads.push({ half: ROAD_W[Math.max(0, c | 0)] / 2, pts });
   }
   const onRoad = (x, z, pad = 0.3) => roads.some((r) => nearest(r.pts, x, z).d < r.half + pad);
+  const zones = []; // ground the new shophouses keep off: {c, t, hw, hd} rectangles
 
   // ---------------- shop fronts ----------------
   // o: the middle of the facade at ground, t: along it, f: out to the street, w: its width, h: the house's height,
@@ -91,6 +95,7 @@ export function build({ data, S, group, place }) {
     const P = (u, v) => [o[0] + t[0] * u + f[0] * v, o[1] + t[1] * u + f[1] * v];
     const B = (u, v, y0, y1, sx, sz, col, opt) => { const p = P(u, v); S.box(p[0], p[1], gy + y0, gy + y1, sx, sz, ang, col, opt); };
     const lit = (list, u, v, y0, y1, sx, sz) => { const p = P(u, v); list.push([p[0], p[1], gy + y0, gy + y1, sx, sz, ang]); };
+    zones.push({ c: P(0, 1.3), t, hw: w / 2, hd: 1.3 }); // its awning, signs and tables: no new house in front of it
     const isBar = rand(key, 3) < bar;
     // the open shopfront
     const ow = w * 0.84, oy = Math.min(2.75, h - 1.0);
@@ -210,8 +215,95 @@ export function build({ data, S, group, place }) {
     }
   });
 
+  // ---------------- the shophouse rows ----------------
+  // Satellite and Street View (2024-25, scratch/rebuild/photay) show all three streets lined wall to wall with narrow
+  // tube houses, 4-5.5 m wide and two to six storeys, their fronts at the back of the pavement; the city's generic
+  // infill and the mapped buildings leave long gaps of empty ground. Each gap is filled with tube houses here, only
+  // where no house, mapped building, road or existing shopfront stands (so populate drops nothing), and every new
+  // front is dressed like the others.
+  const near = (x, z, m) => Math.hypot(x - cx, z - cz) < R + m;
+  const rects = [], rings = [];
+  for (let i = 0; i < a.length / NS; i++) {
+    const x = a[i * NS] / 10, z = a[i * NS + 1] / 10;
+    if (!near(x, z, 30)) continue;
+    const ang = a[i * NS + 4] / 1000;
+    rects.push({ c: [x, z], t: [Math.cos(ang), Math.sin(ang)], hw: a[i * NS + 2] / 20 + 0.4, hd: a[i * NS + 3] / 20 + 0.4 });
+  }
+  for (const rec of data.bld || []) {
+    const ring = [];
+    for (let k = 0; k < rec[0].length; k += 2) ring.push([rec[0][k] / 10, rec[0][k + 1] / 10]);
+    if (ring.some((p) => near(p[0], p[1], 30))) rings.push(ring);
+  }
+  const allRoads = [];
+  for (const r of data.roads || []) {
+    if (r[1]) continue;
+    const pts = [];
+    for (let i = 0; i < r[2].length; i += 2) pts.push([r[2][i] / 10, r[2][i + 1] / 10]);
+    if (pts.some((p) => near(p[0], p[1], 60))) allRoads.push({ half: roadWidth(r) / 2, pts });
+  }
+  const inRect = (r, x, z) => { const dx = x - r.c[0], dz = z - r.c[1]; return Math.abs(dx * r.t[0] + dz * r.t[1]) < r.hw && Math.abs(-dx * r.t[1] + dz * r.t[0]) < r.hd; };
+  const blocked = (x, z) => !inside(x, z) || rects.some((r) => inRect(r, x, z)) || zones.some((r) => inRect(r, x, z)) ||
+    rings.some((g) => inRing(x, z, g)) || allRoads.some((r) => nearest(r.pts, x, z).d < r.half + 0.4) ||
+    streetOf(x, z).d < SET - 0.1; // the pavements of all three stay open, at the corners too
+  const WALLS = ['#e8dcc0', '#d6a08a', '#bccacd', '#ece8df', '#e4cd8e', '#c2d6c3', '#cfcac0', '#e9d6b8', '#d9b9a6'].map(hex);
+  const ROOF = ['#b8b4ac', '#a09d97', '#cfcbc3', '#7f7b76', '#9a6a55'].map(hex); // concrete trays, grey sheet, a few rusty tin roofs (satellite)
+  const SET = HALF + 2.3; // the house front: kerb plus a 2 m pavement
+  // the runs to fill: the three streets, both sides (the paved lane's sides are already built up)
+  const runs = Object.values(STREETS).map((s) => ({ pts: s.pts, set: SET, sides: [-1, 1], bar: s.bar }));
+  for (const s of runs) {
+    for (let i = 0; i + 1 < s.pts.length; i++) {
+      const A = s.pts[i], Bp = s.pts[i + 1], len = Math.hypot(Bp[0] - A[0], Bp[1] - A[1]);
+      const t = [(Bp[0] - A[0]) / len, (Bp[1] - A[1]) / len];
+      for (const sg of s.sides) {
+        const f = [t[1] * sg, -t[0] * sg]; // from the house out to the street
+        let u = 0.6, n = 0;
+        while (u < len - 4.6) {
+          const key = 300000 + Math.round(A[0] * 7 + A[1] * 13) * 4 + (sg > 0 ? 1 : 0) + n * 9973;
+          n++;
+          const w = 4 + rand(key, 40) * 1.6;
+          if (u + w > len - 0.6) break;
+          const um = u + w / 2, o = [A[0] + t[0] * um - f[0] * s.set, A[1] + t[1] * um - f[1] * s.set];
+          // the deepest of these plots that is clear: probe every metre, inside a 0.2 m margin
+          const fits = (d) => {
+            const vs = [];
+            for (let v = 0.2; v < d - 0.2; v += 1) vs.push(v);
+            vs.push(d - 0.2);
+            for (const v of vs) for (let j = 0; j <= 4; j++) {
+              const q = -w / 2 + 0.2 + ((w - 0.4) * j) / 4;
+              if (blocked(o[0] + t[0] * q - f[0] * v, o[1] + t[1] * q - f[1] * v)) return false;
+            }
+            return true;
+          };
+          const d = [8 + rand(key, 41) * 6, 8, 6].find(fits);
+          if (!d) { u += 1.5; continue; }
+          const c = [o[0] - f[0] * d / 2, o[1] - f[1] * d / 2], ang = Math.atan2(t[1], t[0]);
+          let lo = Infinity, hi = -Infinity;
+          for (const [qu, qv] of [[-1, 0], [1, 0], [-1, 1], [1, 1]]) { const r0 = rise(o[0] + t[0] * qu * w / 2 - f[0] * qv * d, o[1] + t[1] * qu * w / 2 - f[1] * qv * d); lo = Math.min(lo, r0); hi = Math.max(hi, r0); }
+          const gy = LAND_Y + hi, r = rand(key, 42), floors = r < 0.15 ? 2 : r < 0.5 ? 3 : r < 0.82 ? 4 : 5;
+          const h = floors * 3.4, col = pick(WALLS, key, 43);
+          S.kind = KIND.FACADE;
+          S.base = gy;
+          S.box(c[0], c[1], LAND_Y + lo - 0.15, gy + h, w - 0.08, d, ang, col, { top: pick(ROOF, key, 44), topKind: KIND.FLAT });
+          // a parapet along the street, and on most a stair head at the back of the roof
+          S.kind = KIND.PLAIN;
+          S.box(o[0] - f[0] * 0.1, o[1] - f[1] * 0.1, gy + h, gy + h + 0.75, w - 0.08, 0.2, ang, shade(col, 0.95));
+          if (rand(key, 45) < 0.6) {
+            const sc = [o[0] - f[0] * (d - 1.8), o[1] - f[1] * (d - 1.8)];
+            S.box(sc[0], sc[1], gy + h, gy + h + 2.7, Math.min(3, w - 1), 3, ang, shade(col, 0.92), { top: pick(ROOF, key, 46) });
+          }
+          S.base = 0;
+          rects.push({ c, t, hw: w / 2, hd: d / 2 });
+          front(o, t, f, w - 0.1, h, gy, key, { gap: SET - HALF - 0.3, bar: s.bar });
+          fronts++;
+          u += w;
+        }
+      }
+    }
+  }
+
   // ---------------- the street ----------------
-  // kerbside poles every 16 m, and bulbs slung across between them in a shallow catenary
+  // kerbside lamp posts every 16 m, grey with a flat dome head (as Street View shows them on all three streets), and
+  // between each pair a string of white paper lanterns slung across the street (Chu Văn An, Street View 2024)
   for (const s of Object.values(STREETS)) {
     for (let i = 0; i + 1 < s.pts.length; i++) {
       const A = s.pts[i], Bp = s.pts[i + 1], len = Math.hypot(Bp[0] - A[0], Bp[1] - A[1]);
@@ -221,20 +313,31 @@ export function build({ data, S, group, place }) {
         if (!inside(m[0], m[1])) continue;
         const ends = [-1, 1].map((sg) => [m[0] + n[0] * sg * (HALF + 0.35), m[1] + n[1] * sg * (HALF + 0.35)]);
         if (ends.some((e) => onRoad(e[0], e[1], 0))) continue; // a junction
-        const yTop = ends.map((e) => LAND_Y + rise(e[0], e[1]) + 6.2);
-        for (let k = 0; k < 2; k++) S.cyl(ends[k][0], ends[k][1], yTop[k] - 6.2, yTop[k] + 0.6, 0.11, 0.08, 5, C.pole);
-        const seg = 8, Y = (s0) => yTop[0] + (yTop[1] - yTop[0]) * s0 - 0.75 * 4 * s0 * (1 - s0);
+        const yTop = ends.map((e) => LAND_Y + rise(e[0], e[1]) + 4.7);
+        for (let k = 0; k < 2; k++) {
+          const [ex, ez] = ends[k], y = yTop[k];
+          S.cyl(ex, ez, y - 4.7, y - 4.2, 0.16, 0.12, 6, C.pole);
+          S.cyl(ex, ez, y - 4.2, y + 0.3, 0.085, 0.065, 6, C.pole);
+          S.cyl(ex, ez, y + 0.3, y + 0.42, 0.06, 0.4, 8, C.pole, { cap: false });
+          S.cyl(ex, ez, y + 0.42, y + 0.5, 0.4, 0.3, 8, C.pole);
+          gp.push(ex, y + 0.27, ez); gc.push(1, 0.92, 0.75);
+        }
+        const seg = 8, Y = (s0) => yTop[0] + (yTop[1] - yTop[0]) * s0 - 0.5 * 4 * s0 * (1 - s0);
         const W = (s0) => [ends[0][0] + (ends[1][0] - ends[0][0]) * s0, ends[0][1] + (ends[1][1] - ends[0][1]) * s0];
         for (let k = 0; k < seg; k++) {
           const p0 = W(k / seg), p1 = W((k + 1) / seg);
           S.beam([p0[0], Y(k / seg), p0[1]], [p1[0], Y((k + 1) / seg), p1[1]], 0.03, 0.03, C.wire);
         }
-        const nb = 11;
-        for (let k = 1; k < nb; k++) { const s0 = k / nb, p = W(s0); gp.push(p[0], Y(s0) - 0.12, p[1]); gc.push(...BULBS[(k + i) % BULBS.length]); }
+        const nb = Math.round((2 * HALF + 0.7) / 0.85);
+        for (let k = 1; k < nb; k++) {
+          const s0 = k / nb, p = W(s0), y = Y(s0) - 0.1;
+          S.box(p[0], p[1], y - 0.36, y, 0.24, 0.24, Math.atan2(t[1], t[0]), C.paper);
+          gp.push(p[0], y - 0.17, p[1]); gc.push(...BULBS[(k + i) % BULBS.length]);
+        }
       }
     }
   }
-  // terrazzo pavements: red and grey squares from the kerb back to the house fronts
+  // pavements: grey stone slabs in two tones, from the kerb back to the house fronts
   S.kind = KIND.GROUND;
   for (const s of Object.values(STREETS)) {
     for (let i = 0; i + 1 < s.pts.length; i++) {
@@ -286,7 +389,7 @@ export function build({ data, S, group, place }) {
     pts.userData.landmark = id;
     group.add(pts);
   }
-  if (S.n - n0 > 3 * 40000) console.warn('photay: heavy model', (S.n - n0) / 3);
+  if (S.n - n0 > 3 * 80000) console.warn('photay: heavy model', (S.n - n0) / 3);
   S.kind = KIND.PLAIN;
   S.base = 0;
 }
