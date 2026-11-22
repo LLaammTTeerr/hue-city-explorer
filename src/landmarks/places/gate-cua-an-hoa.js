@@ -32,7 +32,7 @@ const PLAQUE_W = 2.31, PLAQUE_H = 1.1; // the stone tablet, same source
 const TOP = 2.4; // the block's flat top over the wall walk: the cornice tops out at 9.0 m (photo, scaled by the arch)
 const LOW = { w: 10.2, d: 7.0, h: 5.05 }; // vọng lâu, lower storey (photo from the bridge; depth estimated)
 const UP = { w: 4.9, d: 3.8, h: 3.3 }; // upper storey (same)
-const BODY = hex('#625f57'), DAMP = hex('#3f3d37'), LICHEN = hex('#535049'), LIME = hex('#726f66'), FRAME = hex('#7a766b');
+const BODY = hex('#625f57'), DAMP = hex('#3f3d37'), LICHEN = hex('#58554d'), LIME = hex('#6a675e'), FRAME = hex('#7a766b');
 const CORNICE = hex('#77736a'), DARK = hex('#1d1916'), DOOR = hex('#4a2c1e'), IRON = hex('#2a2826');
 const PLAQUE = hex('#8c887c'), PLAQUE_IN = hex('#b9b4a5');
 const RENDER = hex('#7f7d73'), STONE = hex('#8e8b80'), RED = hex('#7e4532');
@@ -122,7 +122,7 @@ export function build({ data, S, group, place, THREE }) {
       box(s * (r + 0.2), t + sg * 0.02, fl, spring, 0.4, 0.14, FRAME); // the arch's jambs
       // black lichen run down from the cornice and pale patches of the old lime render
       for (const [u0, h, w] of sg > 0 ? [[4.6, 3.4, 1.1], [6.9, 5.2, 0.8], [1.9, 1.2, 0.9]] : [[5.8, 3.0, 1.0], [2.2, 1.0, 0.8]]) box(s * u0, t + sg * 0.01, yT - 0.6 - h, yT - 0.6, w, 0.2, LICHEN);
-      for (const [u0, ya, yb, w] of sg > 0 ? [[5.4, 2.4, 4.4, 1.3], [2.5, 6.8, 7.7, 0.7]] : [[4.8, 3.0, 4.6, 1.1]]) box(s * u0, t + sg * 0.01, LAND_Y + ya, LAND_Y + yb, w, 0.2, LIME);
+      for (const [u0, ya, yb, w] of sg > 0 ? [[5.4, 2.4, 3.6, 1.0]] : [[4.8, 3.0, 3.9, 0.9]]) box(s * u0, t + sg * 0.01, LAND_Y + ya, LAND_Y + yb, w, 0.2, LIME);
     }
     for (let k = 0; k < K; k++) { // the arch's moulded band
       const [sa, ya] = arc(k, r + 0.2), [sb, yb] = arc(k + 1, r + 0.2);
@@ -186,11 +186,11 @@ export function build({ data, S, group, place, THREE }) {
   S.kind = KIND.PLAIN;
   for (const dt of [-1, 1]) {
     const t = vm + (dt * LOW.d) / 2;
-    opening(0, t, dt, true, yf, 2.4, 3.95, RED); // the middle opening, its back painted red
-    opening(-3.2, t, dt, true, yf, 1.4, 2.65, dt > 0 ? DARK : RED);
-    opening(3.2, t, dt, true, yf, 1.4, 2.65, dt > 0 ? RED : DARK);
+    opening(0, t, dt, true, yf + 1.6, 2.0, 2.4, RED); // the middle opening, its back painted red
+    opening(-3.2, t, dt, true, yf + 1.6, 1.2, 1.4, dt > 0 ? DARK : RED);
+    opening(3.2, t, dt, true, yf + 1.6, 1.2, 1.4, dt > 0 ? RED : DARK);
   }
-  for (const sg of [-1, 1]) opening((sg * LOW.w) / 2, vm, sg, false, yf, 1.5, 2.5, RED);
+  for (const sg of [-1, 1]) opening((sg * LOW.w) / 2, vm, sg, false, yf + 1.6, 1.4, 1.8, RED);
   // the cornice and the skirt of tiles with up-turned corners
   S.kind = KIND.MASONRY;
   box(0, vm, ye - 0.05, ye + 0.25, LOW.w + 0.35, LOW.d + 0.35, STONE);
