@@ -11,6 +11,9 @@ the model draws itself.
 - baovanhoa.vn, daibieunhandan.vn: Đại Cung Môn still a foundation; works planned for 2026-2030.
 - vinwonders.com, vietnamplus.vn: Tả/Hữu Vu (1819, glazed tiles), 9-bay green-glazed corridors.
 
+- Google satellite and Street View (2024-25 user photospheres), checked visually in Nov 2026: alignment of the whole
+  layout, Tây An Môn and the colour of the walls. Not copied into the repo.
+
 ## Confirmed
 - Hoàng thành: about 600 m a side, brick, about 4 m high and 1 m thick, four gates, khuyết đài at the middle of three sides.
 - Đông Khuyết Đài restoration finished in November 2023.
@@ -18,8 +21,16 @@ the model draws itself.
 - Đại Cung Môn was destroyed in 1947. Only the stone floor and column bases are left (2026).
 - Tả Vu and Hữu Vu have yellow glazed roofs. The corridors beside Đại Cung Môn are green glazed.
 
+- Tây An Môn, the Forbidden City's west gate, stands across a lane from Trường Sanh's Trường An Môn: one round-arched
+  passage with an iron grille, grey plaster over brick, recessed panels, a plaque 西安門, a cornice and a raised
+  middle parapet (street-level photos).
+- Both wall rings read weathered grey, darkened by mould, at street level.
+- Satellite check (Nov 2026): the galleries, Vu halls, Duyệt Thị Đường, Thái Hòa and the walls land within about a
+  metre of the Google satellite at 0.29 m/px; the Imperial City's axis (data.imperial.a) matches it.
+
 ## Estimates
-- Wall colour and coping. The outer wall is drawn 3.75 m to the coping (4.17 m in all), the inner 3.36 m (3.72 m in all).
+- Tây An Môn's sizes (8.6 m wide, 2.6 m deep, 5.3 m to the cornice, about 6.9 m to the parapet top), scaled from photos.
+- Wall coping. The outer wall is drawn 3.75 m to the coping (4.17 m in all), the inner 3.36 m (3.72 m in all).
 - Đông Khuyết Đài is drawn as a bastion with a two-roof lookout pavilion; its form is not documented.
 - Tây Khuyết Đài is drawn as a bastion with only a stone base (its state is unconfirmed).
 - Cửa Hòa Bình: one arched passage with a small storey on top.
@@ -32,6 +43,7 @@ the model draws itself.
 - Both wall rings are now drawn here, at their real thicknesses. Before, the inner wall was as heavy as the outer one and had gaps.
 - The galleries (Tả/Hữu Trường Lang and the corridors around the inner courts) are open colonnades with green roofs.
   Before, they were solid yellow blocks; the L-shaped ones also escaped the cover test.
+- Nov 2026: Tây An Môn drawn in the gap the west wall had for it; wall colours changed from beige to weathered grey.
 - Added Tả Vu and Hữu Vu, the Đại Cung Môn ruin, the khuyết đài bastions, and Cửa Hòa Bình (which was not drawn).
 
 ## Left to do

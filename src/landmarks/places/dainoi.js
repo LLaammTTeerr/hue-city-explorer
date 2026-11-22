@@ -29,9 +29,14 @@ export const id = 'dainoi';
 const INNER_ADD = [
   [[170, -23], [170.5, 41], [172, 100]], // east side
   [[67, 99], [172, 100]], // south-east, from Tả Vu's corridor to the corner
-  [[-175, -202], [-174.4, -175]], // west side, north of Trường An Môn
-  [[-174.2, -159], [-171, -47]], // west side, south of it
+  [[-175, -202], [-174.4, -175], [-174.2, -159], [-171, -47]], // west side, through Tây An Môn (TAY_AN), facing Trường An Môn
 ];
+
+// Tây An Môn, the Forbidden City's west gate, across the lane from Trường Sanh's Trường An Môn (places/truongsanh.js):
+// centre (u, v), width along the wall, depth through it. Street-level photos (2024) show it standing: one round-arched
+// passage with an iron grille, grey plaster over brick, recessed panels and a plaque 西安門 over the arch, a cornice and
+// a raised middle parapet. Its sizes are estimates from those photos, scaled by the 3.72 m wall beside it.
+const TAY_AN = { u: -174.3, v: -167, w: 8.6, d: 2.6 };
 
 // covered galleries: centre line (u, v), width between the post lines, and optionally { over, butt }: how far the
 // roof's eave runs past the posts (0.8 by default), and butt when the line starts at another building's face, where
@@ -85,6 +90,7 @@ export function build({ data, S }) {
   // they stop at the gates' footprints (the gate models carry the passage) and at Ngọ Môn's whole box
   const clear = [];
   for (const g of data.gates || []) if (g.k !== 'citadel') { const t = gateAxis(g, C); clear.push(rectRing(t.cx, t.cz, t.w + 0.3, Math.max(t.d, 4) + 0.3, t.a)); }
+  { const p = W(TAY_AN.u, TAY_AN.v); clear.push(rectRing(p[0], p[1], TAY_AN.d + 0.2, TAY_AN.w + 0.2, A)); }
   if (data.special && data.special.ngomon) { const o = obb(unflat(data.special.ngomon.ring)); clear.push(rectRing(o.c[0], o.c[1], o.w + 0.4, o.d + 0.4, o.a)); }
   const outer = OUTER, inner = INNER;
   // Bắc Khuyết Đài's three outer sides are places/tuphuong.js's: it draws that wall with the bastion's paving and
@@ -120,6 +126,42 @@ export function build({ data, S }) {
     wallLine(pts, loc.every(([u, v]) => Math.abs(u) < 200 && Math.abs(v) < 215) ? inner : outer);
   }
   for (const line of INNER_ADD) wallLine(line.map(([u, v]) => W(u, v)), inner);
+
+  // ---- Tây An Môn: an arched masonry gate in the west wall of the Forbidden City ------------------------------
+  {
+    const { u: gu, v: gv, w: gw, d: gd } = TAY_AN;
+    const g = (u, v, y0, y1, su, sv, col, o) => { const p = W(gu + u, gv + v); S.box(p[0], p[1], y0, y1, su, sv, A, col, o); };
+    const PL = hex('#7c7d79'), PL_DK = shade(PL, 0.78), ARCH = 3.0, SPRING = 2.9, CROWN = 4.4, H = 5.3;
+    S.kind = KIND.FLAT; // lime plaster over the brick, not bare courses
+    const pier = (gw - ARCH) / 2;
+    for (const s of [-1, 1]) g(0, s * (ARCH / 2 + pier / 2), Y - 0.2, Y + H, gd, pier, PL);
+    g(0, 0, Y + CROWN, Y + H, gd, ARCH, PL, { bottom: true }); // over the arch
+    // the round head of the arch, in steps
+    for (let k = 1; k < 8; k++) {
+      const R = ARCH / 2, h = (k * R) / 8, hw = R - Math.sqrt(R * R - h * h);
+      for (const s of [-1, 1]) g(0, s * (R - hw / 2), Y + SPRING + h, Y + SPRING + h + R / 8, gd, hw, PL, { bottom: true });
+    }
+    // plinth, recessed panels and the plaque on both faces
+    for (const f of [-1, 1]) {
+      const fu = f * (gd / 2 + 0.03);
+      for (const s of [-1, 1]) {
+        g(f * (gd / 2 + 0.06), s * (ARCH / 2 + pier / 2), Y - 0.2, Y + 0.5, 0.12, pier + 0.1, PL_DK);
+        g(fu, s * (ARCH / 2 + pier / 2), Y + 1.2, Y + 3.4, 0.06, pier * 0.6, PL_DK);
+      }
+      g(fu, 0, Y + CROWN + 0.15, Y + H - 0.2, 0.06, 2.4, shade(PL, 0.62)); // the plaque
+    }
+    // cornice, the raised middle parapet with its own cornice, and low end parapets
+    g(0, 0, Y + H, Y + H + 0.25, gd + 0.5, gw + 0.4, PL_DK, { bottom: true });
+    g(0, 0, Y + H + 0.25, Y + H + 1.35, gd - 0.4, 4.2, PL);
+    g(0, 0, Y + H + 1.35, Y + H + 1.55, gd, 4.8, PL_DK, { bottom: true });
+    for (const s of [-1, 1]) g(0, s * (gw / 2 - 1), Y + H + 0.25, Y + H + 0.7, gd - 0.4, 1.8, PL);
+    for (const f of [-1, 1]) g(f * ((gd - 0.4) / 2 + 0.03), 0, Y + H + 0.45, Y + H + 1.15, 0.06, 2.6, shade(PL, 0.62)); // the name board 西安門
+    // the iron grille in the passage
+    S.kind = KIND.TIMBER;
+    const grille = hex('#2b2a28');
+    for (let k = 0; k <= 8; k++) { const q = W(gu, gv - ARCH / 2 + 0.15 + (k * (ARCH - 0.3)) / 8); S.cyl(q[0], q[1], Y, Y + SPRING + 0.4, 0.025, 0.025, 4, grille); }
+    for (const y of [0.15, 1.6, SPRING + 0.35]) g(0, 0, Y + y, Y + y + 0.06, 0.06, ARCH - 0.2, grille);
+  }
 
   // ---- Đông and Tây Khuyết Đài: raised bastions at the middle of the east and west sides -------------------
   for (const sg of [1, -1]) {

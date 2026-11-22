@@ -5,9 +5,10 @@ import { LAND_Y } from '../config.js';
 // the stretch round Bắc Khuyết Đài, the bastion Lầu Tứ Phương Vô Sự stands on, with the bastion's paving and
 // balustrade on top: one model owns that wall top, so the two never lay faces over the same ground).
 
-// Hoàng thành (outer ring) and Tử Cấm Thành (inner): body height and thickness, a tiled cap over it
-export const OUTER = { h: 3.75, t: 1.05, capH: 0.42, capW: 1.45, body: hex('#837a6c'), cap: hex('#6b5d4f') };
-export const INNER = { h: 3.36, t: 0.72, capH: 0.36, capW: 1.05, body: hex('#a39482'), cap: hex('#6a5546') };
+// Hoàng thành (outer ring) and Tử Cấm Thành (inner): body height and thickness, a tiled cap over it. Colours: the
+// weathered grey of the plastered brick, darkened by mould, as street-level photos show both rings (2024-25)
+export const OUTER = { h: 3.75, t: 1.05, capH: 0.42, capW: 1.45, body: hex('#676660'), cap: hex('#504d48') };
+export const INNER = { h: 3.36, t: 0.72, capH: 0.36, capW: 1.05, body: hex('#6e6d67'), cap: hex('#55524c') };
 
 // Bắc Khuyết Đài's three outer sides as OSM maps them (way 531016856): from where the north wall turns out (west),
 // round the outer face, to where it comes back (east). The north wall's line west of the first point and the gap at
