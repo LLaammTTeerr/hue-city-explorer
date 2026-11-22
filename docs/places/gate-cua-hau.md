@@ -13,12 +13,14 @@ Model: `src/landmarks/places/gate-cua-hau.js`. The gates loop in `src/landmarks/
   - ways 367959076 and 1431136602: Cầu Cửa Hậu, a beam bridge about 5.2 m wide and 63 m long.
 
 ## Confirmed
-- Plan and position from OSM. The block reaches from the rampart's inner face to 1 m proud of its outer face. The `hue.json` wall band is 14.4 m thick at the gate.
+- Plan and position from OSM: the block is the outline, 18.1 × 12.2 m, centred on it; Google satellite shows the balustraded terrace about 17.5 × 11-12 m. The inner face stands at the back of the notch OSM maps in the wall band for the inner approach (6.05 m in from the centre), between the brick piers.
+- The `hue.json` wall band is 14.4 m thick at the gate and reaches 2.2 m past the outline on the moat side, while the car pano shows the arch, pilasters and damp foot of the outer face at the moat side, proud of the rampart. So the arch casing runs through the whole band as a front apron 6.45 m high (to the cornice band under the tablet); the tablet, the upper face, the terrace and the tower stand on the outline.
 - One arched passage. A raised central bay with pilasters, a framed name tablet with three characters, a cornice band and a low balustrade with posts round the flat top.
 - A two-storey masonry tower:
-  - lower storey: on the long faces an arch between two round oculi (Street View, both faces);
+  - lower storey: on the outer face an arch between two round oculi (car pano); on the inner face pale patchy stucco with two large blind round medallions and no opening (inner pano);
   - upper storey: one arch;
-  - each storey under a terracotta tile skirt with a yellow eave band, with ridge ornaments on top.
+  - each storey under a short, nearly straight terracotta tile skirt with small corner finials, ridge ornaments on top. The edge reads dark in Street View today (yellow in the 2008 photo); the model follows today.
+- The inner face of the block is plain weathered masonry with relaid patches; the raised bay, pilasters and tablet are on the outer face only.
 - Today's look: near-black weathered masonry and a red-brick passage lining.
 
 ## Estimates
@@ -44,8 +46,15 @@ Model: `src/landmarks/places/gate-cua-hau.js`. The gates loop in `src/landmarks/
 
 ## Left
 - The French-era pillbox beside the gate's outer face (in the photo) is not modelled.
-- In Street View the tile skirts read terracotta with a dark edge, not yellow-edged as in the 2008 photo; the yellow edge is kept for now.
+- Kinh thành rampart beside the gate (place `kinhthanh`): about 0.85 of the block height in the model against about 0.6 in the car pano, dark where Street View shows red brick on the inner face, and 2.2 m deeper on the moat side than the gate outline.
+- Cầu Cửa Hậu (shared bridge code): about 16 m wide and humped in the model, 5-6 m and flat in reality.
+- The red-brick piers flanking the inner approach are only the rampart band, in its dark brick.
 - Real tablet characters and dimensions from a survey drawing (Trung tâm Bảo tồn Di tích Cố đô Huế) were not found.
 
 ## Polish
 - Tower stucco lightened and patched; pale post balustrade added on the band between the storeys (pano).
+
+## Review fixes (November 2026)
+- Block depth back to the OSM outline (12.2 m) above a front apron; terrace and tower moved 1.45 m inward onto the outline's centre.
+- Inner face: plain masonry; the tower's inner lower storey has pale blind medallions on light stucco, no arch or oculi.
+- Skirts: no flare and no upturned horns; dark edge; small finials on the eave corners.
