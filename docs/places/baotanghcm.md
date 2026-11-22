@@ -36,7 +36,7 @@ Model: `src/landmarks/places/baotanghcm.js`. It covers the museum building, the 
   - Loggia up to its soffit at 13.6 m. Eave at 14.0 m. Main roof 4.8 m high with a 2.05 m overhang, so the ridge is at 18.8 m.
   - Lantern: 11 m square, with its top at about 21.6 m.
 - The corner blocks are 4 m square. The column spacing, step count and fret pattern are simplified.
-- Positions of the fountain, palms, kiosk, Norfolk pines, gate, sign wall and gatehouse come from the satellite and street views. The flagpoles and the blue outbuilding come from the older photos; the outbuilding is not mapped in OSM and does not show in the 2026 satellite.
+- Positions of the fountain, palms, kiosk, Norfolk pines, gate, sign wall and gatehouse come from the satellite and street views. The flagpoles and the blue outbuilding seen in older photos are not drawn: neither shows in the 2026 street views or satellite.
 - The Điện Biên Phủ wall stands 7.5 m off the street's centre line, behind a wide pavement.
 - Wall colours were matched by eye to the photos.
 
@@ -44,8 +44,17 @@ Model: `src/landmarks/places/baotanghcm.js`. It covers the museum building, the 
 - Nov 2026 rebuild: walls set 2 m inside the mapped outline under a 2.05 m eave; white first floor and parapet; 4 m corner blocks, glazed as seen; steps on all faces; plain hip roof with white hip ridges and a lantern without horns. Grounds: pale-stone forecourt in place of the asphalt drive, the gate moved to the west end of the Lê Lợi front with the sign wall and gatehouse, the kiosk moved to the west corner, Norfolk pines, the Điện Biên Phủ wall and trees, and no generated houses inside the grounds.
 - First version: new replica of the building and grounds. The mapped OSM building is now covered by the model and drops out in `populate`.
 - The drive and forecourt are marked as paved.
-- Night lighting: glowing glazing and lamps along the drive and at the gate piers.
+- Night lighting: glowing glazing and lamps along the drive.
 - No older builder drew this place, so no `replaced()` guard was needed.
+
+- Nov 2026 review fixes (from the Lê Lợi, Trần Thúc Nhẫn and Điện Biên Phủ street views):
+  - Lê Lợi front: no fence or gate piers. The forecourt meets the pavement over a kerbed hedge bed with palms and the crescent bed by the axis on the east half; the west half is open paving to the pavement.
+  - Removed the blue-roofed outbuilding (a hedge bed and two trees in its place) and the two flagpoles.
+  - Eave: a thin white slab whose corners lift 0.55 m, with a white soffit back to the walls. It still reads faintly warm in shade, because down-facing faces take the scene's hemisphere ground colour.
+  - Lantern roof lighter than the main roof, with white fascia and white hip ridges.
+  - Điện Biên Phủ: a rubble-stone wall with a yellow coping and a see-through dark green iron railing, bamboo clumps and three rows of trees behind it.
+  - Trần Thúc Nhẫn edge: a lawn strip with a hedge, a shrub bed and a red-and-white barrier. Only the two tall Norfolk pines stand right of the façade; the small pine is gone.
+  - The generated house just north of the north corner is cleared; the plaza is paved there, with trees.
 
 ## What is left
 - The rear and the north-west face copy the front's pattern, without its door or relief. No view shows them, so their glazing on the west and north corner blocks is unconfirmed.
