@@ -24,6 +24,13 @@ import { glowPoints } from '../../geo/materials.js';
 
 export const id = 'tangthulau';
 
+// OSM way 173151284, re-framed (REFRAME) to the Google satellite (north up, 0.14 m/px). The image leans: the roof's
+// ridge sits ~1.5 m north-west of the middle of its eaves (~0.44 m of lean per metre of height), so the roof and the
+// terrace edge read 3.4 m and 2.1 m north-west of their footings. Corrected for that, the base stands ~2.2 m north-west
+// and ~1.1 m north-east of this outline, its long axis ~2.3° nearer east-west (bearing ~58°, OSM ~56°). The island,
+// the bridge and the streets round the lake match OSM there, so only the building moves; it keeps the mapped
+// 40.0 x 15.1 m. (The OSM gallery ring and steps the city draws as footways stay where OSM has them.)
+const REFRAME = { dx: -0.4, dz: -2.4, rot: -2.3 * Math.PI / 180 };
 const OUTLINE = [[-1326.1, -1324.5], [-1323.2, -1326.4], [-1292.9, -1346.6], [-1288.8, -1340.6], [-1284.4, -1334.1], [-1314.7, -1313.9], [-1317.6, -1311.9]];
 const BRIDGE = [[-1364.3, -1288], [-1331, -1311.8]]; // OSM way 372295922, shore (west) → island
 const STELE = [-1318.5, -1301]; // OSM node 12458493990 (historic=memorial)
@@ -69,21 +76,24 @@ function knockOut(S, n0, a, b, half, yHi) {
 }
 
 function archive(S, lamps) {
-  const o = obb(OUTLINE);
-  let ang = o.a;
+  const o0 = obb(OUTLINE);
+  let ang = o0.a;
   if (Math.cos(ang) < 0) ang += Math.PI; // u toward the east end (the stairs)
+  ang += REFRAME.rot;
+  const o = { ...o0, c: [o0.c[0] + REFRAME.dx, o0.c[1] + REFRAME.dz] };
   const UX = Math.cos(ang), UZ = Math.sin(ang);
   const P = (u, v) => [o.c[0] + u * UX - v * UZ, o.c[1] + u * UZ + v * UX];
   const fbox = (u, v, y0, y1, su, sv, col, opts) => { const p = P(u, v); S.box(p[0], p[1], y0, y1, su, sv, ang, col, opts); };
   const W = o.w, D = o.d; // 40.0 x 15.1
   let g = Infinity;
-  for (const q of OUTLINE) g = Math.min(g, LAND_Y + rise(q[0], q[1]));
+  for (const [u, v] of [[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]]) { const q = P(u, v); g = Math.min(g, LAND_Y + rise(q[0], q[1])); }
   S.base = g - LAND_Y;
 
   const fl = g + 0.6, fl2 = fl + 4.2; // ground floor, upper floor (the gallery)
   const LW = W - 1.0, LD = D - 1.0; // lower storey walls, 0.5 m in from the base edge
-  const GW = 2.2; // the upper gallery
-  const UW = LW - 2 * GW, UD = LD - 2 * GW; // upper body: 7 bays + 2 chái
+  // upper body: 7 bays + 2 chái. The satellite shows its hipped roof about 33.4 x 10.4 m (eave to eave) over an open
+  // terrace (the upper gallery, light plaster with its railing at the edge) about 3.5 m wide all round.
+  const UW = 31.8, UD = 8.8;
   const eave = fl2 + 3.0, ridgeTop = g + 11.5;
 
   // base: stone, the mapped outline
@@ -152,18 +162,14 @@ function archive(S, lamps) {
   for (const s of [-1, 1]) {
     for (let i = 0; i < 2; i++) { const p = P(s * (UW / 2 + 0.03), (i - 0.5) * UD * 0.45); S.box(p[0], p[1], fl2 + 0.8, fl2 + 2.3, 0.08, 1.2, ang, C.door); }
   }
-  // gallery columns at the edge under the eave: one on each column line, lacquered on stone bases
-  const yCol = eave - 0.05;
-  const colAt = (u, v) => { const p = P(u, v); S.cyl(p[0], p[1], fl2, fl2 + 0.22, 0.24, 0.22, 6, C.stone, { cap: false, rot: ang }); S.cyl(p[0], p[1], fl2 + 0.22, yCol, 0.15, 0.14, 6, C.lac, { cap: false, rot: ang }); };
-  const cu = LW / 2 - 0.1, cv = LD / 2 - 0.1;
-  for (const s of [-1, 1]) for (const u of [...cols.slice(1, -1), -cu, cu]) colAt(u, s * cv);
-  for (const s of [-1, 1]) for (const v of [-UD / 6, UD / 6]) colAt(s * cu, v);
-  // eave beams over the columns
-  for (const s of [-1, 1]) { fbox(0, s * cv, yCol - 0.3, yCol, LW, 0.22, shade(C.lac, 0.8)); fbox(s * cu, 0, yCol - 0.3, yCol, 0.22, LD, shade(C.lac, 0.8)); }
+  // pilasters on the upper walls, one on each column line, and a cornice under the eave
+  S.kind = KIND.MASONRY;
+  for (const s of [-1, 1]) for (const u of cols) fbox(u, s * (UD / 2 + 0.05), fl2, eave - 0.1, 0.4, 0.12, C.trim);
+  fbox(0, 0, eave - 0.35, eave - 0.1, UW + 0.25, UD + 0.25, C.trim);
 
-  // ---- roof: one hipped roof over body and gallery, terracotta tiles, curved eaves, plaster ridges ----
+  // ---- roof: one hipped roof over the upper body only (the gallery is an open terrace), terracotta tiles ----
   S.kind = KIND.TIMBER;
-  const over = GW + 0.55;
+  const over = 0.8;
   S.hip(o.c[0], o.c[1], UW, UD, ang, eave, ridgeTop - 0.35 - eave, C.roof, { flare: 0.35, over, ridgeCol: C.ridge, fascia: 0.25, fasciaCol: C.roofDark, hips: true, segs: 4 });
   // ridge ornament: a low gourd at the middle and raised ends
   S.kind = KIND.PLAIN;
@@ -205,7 +211,7 @@ function archive(S, lamps) {
   fbox(W / 2 + 0.25, 0, fl, fl2 - 0.35, 0.5, 2.6, C.wall); // fills the gap between base and landing
 
   // night: lanterns hung in the gallery
-  for (const s of [-1, 1]) for (let i = 1; i < 9; i += 2) { const p = P(cols[i], s * (cv - 0.6)); lamps.push([p[0], yCol - 0.6, p[1]]); }
+  for (const s of [-1, 1]) for (let i = 1; i < 9; i += 2) { const p = P(cols[i], s * (UD / 2 + 0.5)); lamps.push([p[0], eave - 0.6, p[1]]); }
   return { P, ang, g };
 }
 

@@ -38,12 +38,23 @@ stele). Before, the archive was only the mapped OSM footprint drawn as a generic
 ## Estimated
 - Base height 0.6 m.
 - Lower storey 4.2 m. Upper walls 3.0 m to the eave.
-- Gallery 2.2 m wide, with columns on each bay line. Roof flare and ridge ornament.
+- Upper body 31.8 x 8.8 m with a 0.8 m eave (roof 33.4 x 10.4 m, from the satellite); the gallery round it is an
+  open terrace about 3.5 m wide with its railing at the edge, no columns. Roof flare and ridge ornament.
 - Door and window shapes. The 3 bays on each short end.
 - Colours of the joinery (dark lacquer) and the tiles (weathered terracotta).
 - The bridge: 6 spans on masonry piers, solid plastered parapets, end posts.
 - The stone revetment round the island and the lake shore.
 - The memorial node is drawn as a plain stone stele.
+
+## Satellite alignment (Google, 2026-11)
+- The roof seen from above is 33.4 x 10.4 m eave to eave, hipped, ridge ~26 m, over a light open terrace about
+  3.5 m wide; the earlier model's roof covered the whole 40 x 15 m outline over a columned gallery. Now the roof covers
+  only the upper body.
+- The image leans: the ridge lies ~1.5 m north-west of the middle of the eaves (~0.44 m per metre of height). Allowing
+  for that, the base stands ~2.2 m north-west and ~1.1 m north-east of the OSM outline, with its axis ~2.3° nearer
+  east-west (bearing ~58°). The island, the bridge and the lake streets match OSM, so only the building is re-framed
+  (`REFRAME` in the place file). The OSM gallery ring and steps (drawn by the city as footways) were left as mapped.
+- No Street View pano shows the archive: houses and trees hide the island from every road.
 
 ## Left
 - The two small mapped buildings on the island (the shrine at the south tip and an 8.8 × 4.4 m block) are still
