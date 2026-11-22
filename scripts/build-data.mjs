@@ -450,7 +450,10 @@ const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 // (a slip road mapped as an ordinary street), or `marked` to keep a link at its class width with its dashes.
 const LANE_W = 3.5, UNMARKED_PAD = 0.5; // m per lane; a little shoulder
 const ROAD_TYPES = JSON.parse(fs.readFileSync('data/road-types.json', 'utf8')).ways;
-const UNMARKED = { 'unmarked-1': 1, 'unmarked-2': 2, 'unmarked-3': 3 };
+const UNMARKED = { 'unmarked-1': 1, 'unmarked-2': 2, 'unmarked-3': 3, lane: 1 };
+// `lane`: a village kiệt (Cồn Hến's): a 3.2 m concrete lane with no pavement, no kerb stones, no dashes and no lamps,
+// laid as class 4 (service) so city.js draws it plain. OSM maps these as highway=residential.
+const KIET_W = 3.2;
 for (const [id, k] of Object.entries(ROAD_TYPES)) if (!(k in UNMARKED) && k !== 'marked') throw new Error(`data/road-types.json: way ${id} has unknown type ${k}`);
 // lanes of the unmarked type way e is laid as, or 0 (an ordinary, marked road of its class)
 function unmarkedLanes(e) {
@@ -520,7 +523,8 @@ for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
   if (e.id === TT_WAY) continue;
-  const c = ROAD_CLASS[t.highway];
+  const kiet = ROAD_TYPES[e.id] === 'lane';
+  const c = kiet ? 4 : ROAD_CLASS[t.highway];
   const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
   for (const line of clipLine(e.geometry.map(proj))) {
     const pts = clearMonuments(line, c);
@@ -538,7 +542,7 @@ for (const e of els) {
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
     const lanes = unmarkedLanes(e);
-    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
+    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: kiet ? KIET_W : lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges, '| streets moved off monument walls:', nCleared);

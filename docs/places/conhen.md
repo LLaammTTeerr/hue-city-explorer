@@ -76,3 +76,23 @@ scratch, not in the repo).
 - Not changed: the houses come from the shared infill and do not reproduce the individual houses in the panoramas
   (a yellow two-storey house with an arched door, a white neo-classical villa, tin-roofed food stalls). The đình and
   the pagoda could not be identified on the satellite, so their estimated positions are kept.
+
+## Review fixes (2026-11)
+- Lanes: island kiệt now have their own road type `lane` in `data/road-types.json` (3.2 m, no kerb ribbon, no
+  dashes or lamps; `KIET_W` in `scripts/build-data.mjs`). The 42 island ways use it.
+- Village: `src/landmarks/conhen-village.js` fills the island the way the satellite shows it. It lays a 0.5 m grid
+  over the island (lanes, OSM buildings, shrines, bank wood) and lines both sides of every lane with narrow plots
+  (4.5-7.5 m frontage): tin-roofed single storeys, tile roofs, flat-roofed two and three storey houses, lane walls
+  with piers and gates or hedges, then a second row and back gardens. Generic infill inside the island is moved off
+  it (the records are relocated, not deleted, so seeds elsewhere stay put).
+- Banks: a wood is kept clear of houses along the shore: about 12 m on the west bank, 22 m on the east and 34 m on
+  the east between z -1460 and -1205, where the satellite shows a deep wood. Trees on the bank edge lean over the
+  water, which closes most of the gap to the satellite's green edge. The shore line itself is still OSM.
+- Set pieces seen in the car panoramas (sizes estimated from the images, not surveyed): the yellow two-storey house
+  with an arched fanlight door, columns, a tin porch and an iron gate on the east lane; the tin-roofed food stall,
+  turquoise lane wall, hedges, tile shed, white villa and areca palms further south on the same lane; the vacant
+  plot with chain-link fence, utility pole and white gate pier on the west lane.
+- The đình is no longer drawn: neither the satellite nor any panorama shows it, and its position was a guess.
+  Chùa Pháp Hải is kept at its OSM position.
+- Not changed: way 39419773 (a diagonal lane) and footway 1363483021 (a stub into the water) are drawn as OSM has
+  them; correcting them needs a shared way-override mechanism in build-data.
