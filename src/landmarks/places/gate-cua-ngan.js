@@ -25,10 +25,10 @@ const NAME = 'Cửa Ngăn';
 
 const OPEN_W = 3.8, OPEN_H = 4.6; // inside the 5.6 m slot city.js and kinhthanh.js cut through the rampart
 const TOP = 1.2; // cornice top over the wall walk (photo: ~7.8 m over the road, the walk at 6.6 m)
-const BRICK = hex('#7a4c40'), BRICK_D = hex('#553a31'), RENDER = hex('#8f8e86'), RENDER_D = hex('#6c6b64');
+const BRICK = hex('#7a4c40'), BRICK_D = hex('#553a31'), RENDER = hex('#7b7a72'), RENDER_D = hex('#5c5b55');
 const FRAME = hex('#875646'), DARK = hex('#1f1a18'), PANEL = hex('#b8b2a2'), PANEL_IN = hex('#4a4540');
-const TOWER = hex('#8a5442'), UPPER = hex('#a7a296'), TILE = hex('#c97a35'), RIDGE = hex('#cfc7b5');
-const WHITE = hex('#e9e7df'), CAUSE = hex('#858577'), CAUSE_D = hex('#4f5446');
+const TOWER = hex('#8a5442'), UPPER = hex('#8e8a7e'), TILE = hex('#9a6a3e'), RIDGE = hex('#cfc7b5');
+const WHITE = hex('#c4c2b8'), CAUSE = hex('#858577'), CAUSE_D = hex('#4f5446');
 
 export function build({ data, S, group, place, THREE }) {
   const norm = (s) => String(s || '').normalize('NFC');
@@ -106,7 +106,7 @@ export function build({ data, S, group, place, THREE }) {
     box(0, t + sg * 0.06, pb, pb + ph, 2.6, 0.16, RENDER);
     box(0, t + sg * 0.1, pb + 0.12, pb + ph - 0.12, 2.3, 0.08, PANEL);
     // what is left of the lime render: patches over the brick, most near the top and the corners (fixed pattern)
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 6; i++) {
       const su = 1.2 + rand(i, 7 + sg) * 2.2, sh = 0.8 + rand(i, 11 + sg) * 2.0;
       const side = i % 2 ? 1 : -1, u = side * (3.3 + rand(i, 3 + sg) * (W / 2 - 4.9 - su / 2) + su / 2) * 1;
       const yb = LAND_Y + 0.8 + rand(i, 5 + sg) * (yT - LAND_Y - 1.6 - sh);
