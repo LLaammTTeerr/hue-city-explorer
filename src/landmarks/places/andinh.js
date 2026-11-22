@@ -27,12 +27,13 @@ const W = 28.8, D = 16.6, W2 = W / 2, D2 = D / 2;
 const PAV = [-0.3, 17.7]; // Trung Lập (mapped round building, r ~3.6)
 const GATE = [0, 25.8]; // where the axis meets the river wall
 
-const STUCCO = hex('#d9b25e'), STUCCO2 = hex('#e2bd6c'), WHITE = hex('#f1ead8'), SHUT = hex('#5a3b2a');
+const STUCCO = hex('#e0c06e'), STUCCO2 = hex('#e8cb7e'), WHITE = hex('#f1ead8'), SHUT = hex('#5a3b2a');
 const ROOF = hex('#6e4a3c'), STONE = hex('#8f8a80'), STONE2 = hex('#b3ab9a'), GLASS = hex('#2d3236');
-const PAVW = hex('#d6a640'), PAVROOF = hex('#5a524a'), LATTICE = hex('#4a3a2a'), DRAGON = hex('#7c8f80');
+const PAVW = hex('#dbb04c'), PAVROOF = hex('#4a443f'), LATTICE = hex('#4a3a2a'), DRAGON = hex('#7c8f80');
 const GSTUC = hex('#b9b2a4'), RED = hex('#a3302a'), GOLD = hex('#d9a93a');
 const MOSAIC = [hex('#6f8ea3'), hex('#e6dcc4'), hex('#c99a4a')];
 const GRAVEL = hex('#c9bfae');
+const BAL = hex('#8e918e'); // weathered grey balusters of the pavilion terrace
 
 const gy = (p) => LAND_Y + rise(p[0], p[1]);
 const vec = (u, v) => [u * UX - v * UZ, u * UZ + v * UX]; // a frame direction in world x/z
@@ -216,7 +217,7 @@ function pavilionTL(S, lamps) {
   for (let i = 0; i < 8; i++) {
     const a0 = rot + (i * Math.PI) / 4, a1 = a0 + Math.PI / 4, am = (a0 + a1) / 2, r = RL - 0.2;
     if (Math.abs(Math.sin(am - fAng)) > 0.95) continue;
-    balustrade(S, [c[0] + Math.cos(a0) * r, c[1] + Math.sin(a0) * r], [c[0] + Math.cos(a1) * r, c[1] + Math.sin(a1) * r], t1, 0.8, STONE2, 0.4);
+    balustrade(S, [c[0] + Math.cos(a0) * r, c[1] + Math.sin(a0) * r], [c[0] + Math.cos(a1) * r, c[1] + Math.sin(a1) * r], t1, 0.8, BAL, 0.4);
   }
   // stairs on the west and east faces: the long flight down from the terrace with its cheeks, a short one up to the base
   const nL = 7, runL = 0.3, apoL = RL * cp, apoU = RU * cp;
