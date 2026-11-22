@@ -520,16 +520,13 @@ function wall(S, ring, y0, [g0, g1], lamp) {
       S.box(mx, mz, y0 - 0.05, y0 + 0.15, bl, 0.32, ang, C.fenceWall); // plinth
       S.kind = KIND.PLAIN;
       S.box(mx, mz, y0 + 0.15, y0 + 0.74, bl - 0.4, 0.12, ang, C.fret); // the fret blocks
-      // the key-fret cut through each block: a cross with a hook on two arms, dark where it shows the yard
+      // the key-fret cut through each block: a stepped meander, dark where it shows the yard
       const nm = Math.max(1, Math.round((bl - 0.4) / 0.9)), mw = (bl - 0.4) / nm;
       for (let m = 0; m < nm; m++) {
         const t = -(bl - 0.4) / 2 + mw * (m + 0.5), cx = mx + t * ca, cz = mz + t * sa, s2 = Math.min(0.56, mw * 0.66) / 2;
-        S.box(cx, cz, y0 + 0.22, y0 + 0.68, 0.09, 0.16, ang, C.fretCut);
-        S.box(cx, cz, y0 + 0.41, y0 + 0.49, 2 * s2, 0.16, ang, C.fretCut);
-        for (const sg of [-1, 1]) {
-          const hx = cx + sg * s2 * 0.5 * ca, hz = cz + sg * s2 * 0.5 * sa;
-          S.box(hx, hz, sg > 0 ? y0 + 0.6 : y0 + 0.22, sg > 0 ? y0 + 0.68 : y0 + 0.3, s2, 0.16, ang, C.fretCut);
-        }
+        const w2 = 2 * s2, off = (u, y1, y2, wd) => S.box(cx + u * ca, cz + u * sa, y0 + y1, y0 + y2, wd, 0.16, ang, C.fretCut);
+        off(0, 0.62, 0.68, w2); off(0, 0.41, 0.47, w2); off(0, 0.22, 0.28, w2); // three bars of the meander
+        off(s2 * 0.85, 0.47, 0.62, 0.07); off(-s2 * 0.85, 0.28, 0.41, 0.07); // joined alternately at the ends
       }
       S.box(mx, mz, y0 + 0.74, y0 + h - 0.1, bl, 0.26, ang, C.fenceWall);
       S.box(mx, mz, y0 + h - 0.1, y0 + h, bl + 0.05, 0.4, ang, C.coping, { top: C.coping });
