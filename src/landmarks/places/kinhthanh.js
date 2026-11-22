@@ -18,7 +18,7 @@ import { gateAxis, rectRing, CITADEL_PASSAGE } from '../../geo/gates.js';
 // What this adds to the plain extruded band that city.js drew before:
 //   - a parapet (nữ tường) on the outer edge only, about 1.1 m above the wall walk (estimated), with the
 //     embrasures cut through it on the bastions' faces and flanks;
-//   - the brick as it reads today: near-black with damp and lichen, streaked from the walk down, a dark damp band
+//   - the brick as it reads today: a muted red-brown, streaked dark from the walk down, a dark damp band
 //     at the foot, and lighter patches where the brick has been relaid;
 //   - a grassed wall walk (trees on it come from the foliage pass: the band is kept out of the landmark cover).
 // The gate slots are cut exactly as city.js cuts them, so the gate models still carry the passage through.
@@ -48,7 +48,10 @@ export function build({ data, S, place }) {
   }
 
   const y0 = LAND_Y - 0.5, yW = LAND_Y + WALL_H;
-  const brick = shade(PAL.brick, 0.86), dark = hex('#46443e'), damp = hex('#3a3833'), relaid = hex('#655e57'), lichen = hex('#4a4d3e');
+  // Brick colour matched to Google Street View from the Cửa Thượng Tứ bridge (car pano, 2026): in daylight the faces
+  // read a warm, muted red-brown with darker blotches, not the near-black grey of PAL.brick. The streaks stay, but
+  // fewer and warmer, so the wall still reads weathered.
+  const brick = mix(PAL.brick, hex('#7d5f4e'), 0.7), dark = hex('#4e443c'), damp = hex('#3e3731'), relaid = hex('#86705f'), lichen = hex('#55553f');
   const walk = PAL.moss;
   const n0 = S.n;
   S.kind = KIND.MASONRY;
@@ -102,8 +105,8 @@ export function build({ data, S, place }) {
       face(0, len, y0, LAND_Y + 0.7 + rand(seed, 1) * 0.5, damp);
       for (let s = rand(seed, 2) * 6; s < len - 1; s += 4 + rand(seed + s, 3) * 7) {
         const w = Math.min(len - s, 1.5 + rand(seed + s, 4) * 4.5), k = rand(seed + s, 5);
-        if (k < 0.55) face(s, s + w, LAND_Y + 0.6 + rand(seed + s, 6) * (WALL_H - 2), yW, mix(dark, lichen, rand(seed + s, 7) * 0.7));
-        else if (k < 0.8) { const h = LAND_Y + 1.2 + rand(seed + s, 8) * 2.5; face(s, Math.min(len, s + w * 1.5), h, h + 1.2 + rand(seed + s, 9) * 2.4, relaid); }
+        if (k < 0.4) face(s, s + w, LAND_Y + 0.6 + rand(seed + s, 6) * (WALL_H - 2), yW, mix(dark, lichen, rand(seed + s, 7) * 0.7));
+        else if (k < 0.65) { const h = LAND_Y + 1.2 + rand(seed + s, 8) * 2.5; face(s, Math.min(len, s + w * 1.5), h, h + 1.2 + rand(seed + s, 9) * 2.4, relaid); }
       }
 
       if (!outer) continue;

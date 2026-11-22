@@ -14,9 +14,14 @@ which belong to other places.
 - Embrasures: 5 on each bastion face and 3 on each flank. Outer edges under 120 m count as bastion faces or flanks, 60 m and under as flanks. Curtains run 130-240 m.
 - Gate slots are cut exactly as city.js cuts them (`gateAxis`, `CITADEL_PASSAGE.slot`). The slot sides are left plain for the gate models.
 
+## Google check (2026-11)
+- Satellite (z18, 0.573 m/px) at the four corner bastions (E 16.470314,107.585971; N 16.490208,107.574698; S 16.461736,107.570606; W 16.478295,107.557923), overlaid on matched top renders: the mapped band sits on the visible rampart within about 1-3 px (1-2 m) at all four corners, so position, axis and plan are right and were not changed.
+- The place's anchor (16.475125, 107.575335) is only the area's label point, in housing inside the walls; nothing of the rampart shows there.
+- Street View, car pano on the Cửa Thượng Tứ bridge (16.4693728, 107.5845351, heading 330): height and line of the wall match. In daylight the brick reads a warm, muted red-brown with darker blotches; the base brick was warmed from the grey-black PAL.brick and the dark streaks thinned. The view also shows a stone-faced moat revetment (about 1.5-2 m above the water) and a grassed path between it and the wall foot; those belong to the mapped water edge and are not drawn.
+
 ## Estimates
 - Parapet (nữ tường): 1.1 m above the walk, 1.4 m thick, on the outer edge only. Embrasures 0.9 m wide, with a 0.45 m sill.
-- Weathering colours (near-black damp foot, lichen and soot streaks, lighter relaid patches) are judged from photos, not measured.
+- Weathering colours (base matched to Street View; dark damp foot, lichen and soot streaks, lighter relaid patches) are judged from photos, not measured.
 
 ## Not changed / left
 - Moat (22.8 m) and the path beside it: left as the mapped water and ground, which already read right in plan, except the west face, which OSM lacks; the build draws it (width choice in `gate-cua-chanh-tay.md`).
