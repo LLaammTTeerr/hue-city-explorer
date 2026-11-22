@@ -166,7 +166,10 @@ export function build({ data, S, group, THREE }) {
           const x = a[0] + tx * mm + nx * (th / 2 + 0.02), z = a[1] + tz * mm + nz * (th / 2 + 0.02), ang = Math.atan2(tz, tx);
           const top = topAt(a[0] + tx * m - nx * 2, a[1] + tz * m - nz * 2);
           S.kind = KIND.MASONRY;
-          S.box(x, z, Y - 0.3, top, l, th, ang, RUBBLE);
+          // each stretch a little different, as laid by hand; the top damp and mossy under the coping
+          const v = 0.88 + 0.2 * Math.abs(Math.sin(p0 * 12.9898 + a[0] * 0.37)), top2 = top - 0.22;
+          S.box(x, z, Y - 0.3, top2, l, th, ang, shade(RUBBLE, v));
+          S.box(x, z, top2, top, l, th, ang, shade(hex('#6f7358'), 0.9 + 0.15 * v));
           S.kind = KIND.PLAIN;
           S.box(x, z, top, top + 0.16, l, th + 0.16, ang, COPING);
         }
