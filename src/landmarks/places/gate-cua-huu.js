@@ -9,7 +9,7 @@ import { LAND_Y, PAL } from '../../config.js';
 // the citadel's west front near the south-west corner, on the axis of Yết Kiêu street, and cầu Cửa Hữu crosses the moat
 // in front of it (drawn by city.js as a generic road bridge, with its parapets). As it stands (photo, Commons
 // "Cửa Hữu.jpg", 2018): a bare red-brick block a little higher than the rampart, its ends stepped out as pilasters with
-// cap blocks, one round-headed passage with a brick arch ring inside a framed panel, a stone moulding at rampart height
+// cap blocks, one round-headed passage with a deep brick arch ring inside a framed panel, a stone moulding sitting on the ring
 // and above it the grey stone name tablet (西南門); a cornice and a grey rendered balustrade with posts round its flat
 // top. On it a masonry tower of two storeys, lime-rendered and weathered grey-ochre: the lower one with three arched
 // openings on the long faces (the middle one larger) under a short skirt of terracotta tiles with up-turned corners,
@@ -22,9 +22,16 @@ import { LAND_Y, PAL } from '../../config.js';
 // + out towards the moat (west-south-west).
 export const id = 'gate:Cửa Hữu';
 
-const G0 = [-2235.1, 293.3]; // the gate's centre (data.gates / OSM), metres in the model frame
 const A = Math.atan2(0.80662, 0.59107); // direction of s (along the rampart); t = (-sin A, cos A) points out of the city
 const ux = Math.cos(A), uz = Math.sin(A);
+// The gate's centre: the OSM outline's (data.gates, x -2235.1 z 293.3) moved 0.8 m along the wall to the north-west.
+// On Google's satellite the moat bridge and Yết Kiêu meet the face about 1.8 m north-west of the outline's centre,
+// and the car Street View panos on the bridge and in Yết Kiêu put the passage 1-2 m that way too; the model's own
+// road runs about 1 m north-west of the outline's centre. 0.8 m is as far as the move can go with the 3.8 m passage
+// still inside the 5.6 m slot city.js cuts at the outline's centre. The outline's outer face (t +7.1) matches the
+// satellite; the block runs on to t +9.4 only because the rampart in data.wall stands 1.8 m proud of the real one.
+const SHIFT = -0.8;
+const G0 = [-2235.1 + SHIFT * ux, 293.3 + SHIFT * uz];
 const P = (s, t) => [G0[0] + s * ux - t * uz, G0[1] + s * uz + t * ux];
 const V = (s, t, y) => { const p = P(s, t); return [p[0], y, p[1]]; };
 const N = (ds, dt, dy = 0) => [ds * ux - dt * uz, dy, ds * uz + dt * ux];
@@ -33,7 +40,9 @@ const L = 19.8; // block length along the wall (OSM 19.7)
 const T0 = -7.6, T1 = 9.4; // block from 0.5 m inside the rampart's inner face to 0.5 m beyond its outer face
 const TC = (T0 + T1) / 2, D = T1 - T0;
 const HB = 8.3; // block to the cornice (photo: ~1.7 m over the 6.6 m rampart)
-const ARCH = { w: 4.4, h: 5.4 }; // the passage (photo, scaled by the block's length)
+const ARCH = { w: 3.8, h: 4.8 }; // the passage (Street View from the bridge, scaled by the riders in it)
+const RING = 0.75; // the arch ring's depth (Street View: a deep brick ring with the moulding right on it)
+const MO = ARCH.h + RING; // the moulding's foot
 const LOW = { w: 9.0, d: 6.6, h: 3.4 }; // tower, lower storey (photo; depth estimated)
 const UP = { w: 4.6, d: 3.4, h: 2.2 }; // tower, upper storey (photo; depth estimated)
 
@@ -85,22 +94,29 @@ export function build({ S }) {
       box(sg * (L / 2 - 1.0), t + dt * 0.12, Y - 0.3, Y + HB - 0.5, 2.0, 0.24, BRICK);
       box(sg * (L / 2 - 1.0), t + dt * 0.2, Y + HB - 0.6, Y + HB, 2.25, 0.4, STONE);
     }
-    for (const sg of [-1, 1]) box(sg * 3.2, t + dt * 0.05, Y - 0.2, Y + 6.55, 0.75, 0.1, BRICK2); // the frame
-    box(0, t + dt * 0.12, Y + 6.55, Y + 6.85, 7.3, 0.24, STONE); // moulding over the frame, at rampart height
+    for (const sg of [-1, 1]) box(sg * 2.95, t + dt * 0.05, Y - 0.2, Y + MO, 0.7, 0.1, BRICK2); // the frame
+    box(0, t + dt * 0.12, Y + MO, Y + MO + 0.3, 6.7, 0.24, STONE); // the moulding, sitting on the arch ring
+  }
+  { // the inner face above the moulding is lime-rendered, with a raised panel (Street View from Yết Kiêu)
+    const t = T0 - 0.03;
+    box(0, t, Y + MO + 0.3, Y + HB, 7.4, 0.06, RENDER);
+    box(0, t - 0.1, Y + MO + 0.9, Y + MO + 1.7, 5.2, 0.16, STONE);
+    box(0, t - 0.2, Y + MO + 1.05, Y + MO + 1.55, 4.4, 0.06, shade(RENDER, 0.9));
   }
   S.kind = KIND.PLAIN;
   for (const t of [T0, T1]) { // the arch ring: radial brick voussoirs standing proud
-    const dt = Math.sign(t), tt = t + dt * 0.08, R2 = r + 0.32;
+    const dt = Math.sign(t), tt = t + dt * 0.08, R2 = r + RING / 2;
     for (let k = 0; k < K; k++) {
       const th0 = Math.PI - (Math.PI * k) / K, th1 = Math.PI - (Math.PI * (k + 1)) / K;
-      S.beam(V(R2 * Math.cos(th0), tt, spring + R2 * Math.sin(th0)), V(R2 * Math.cos(th1), tt, spring + R2 * Math.sin(th1)), 0.16, 0.64, BRICK2);
+      S.beam(V(R2 * Math.cos(th0), tt, spring + R2 * Math.sin(th0)), V(R2 * Math.cos(th1), tt, spring + R2 * Math.sin(th1)), 0.16, RING, BRICK2);
     }
-    for (const sg of [-1, 1]) box(sg * R2, tt, Y - 0.2, spring, 0.64, 0.16, BRICK2);
+    for (const sg of [-1, 1]) box(sg * R2, tt, Y - 0.2, spring, RING, 0.16, BRICK2);
   }
   // the tablet (outer face only): grey stone frame, paler field, the three characters 西南門
-  box(0, T1 + 0.1, Y + 7.05, Y + 8.2, 2.75, 0.2, hex('#8f8b7f'));
-  box(0, T1 + 0.2, Y + 7.17, Y + 8.08, 2.45, 0.06, hex('#a8a496'));
-  for (const k of [-1, 0, 1]) box(k * 0.72, T1 + 0.24, Y + 7.3, Y + 7.95, 0.56, 0.04, hex('#3a3430'));
+  const yt0 = Y + MO + 0.4;
+  box(0, T1 + 0.1, yt0, yt0 + 1.15, 2.75, 0.2, hex('#8f8b7f'));
+  box(0, T1 + 0.2, yt0 + 0.12, yt0 + 1.03, 2.45, 0.06, hex('#a8a496'));
+  for (const k of [-1, 0, 1]) box(k * 0.72, T1 + 0.24, yt0 + 0.25, yt0 + 0.9, 0.56, 0.04, hex('#3a3430'));
 
   // ---- cornice and the balustrade round the flat top ----------------------------------------------------------
   S.kind = KIND.MASONRY;
