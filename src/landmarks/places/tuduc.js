@@ -60,7 +60,7 @@ const LAKE_Y = LAND_Y + 4.2 + 0.08; // Lưu Khiêm's surface (pond level 4.2 m, 
 const C = {
   brick: hex('#6e6253'), brickMoss: hex('#5e6249'), stone: PAL.stone, stoneGrey: hex('#9b978d'), stoneDark: hex('#7c786f'),
   stucco: hex('#d6cdb6'), lacquer: hex('#86362a'), lacquerOld: hex('#6f3c30'), roofY: PAL.imperialRoof, roofYOld: hex('#b48b3e'),
-  roofTile: hex('#7a6552'), rubble: hex('#5a554c'), coping: hex('#878377'), door: hex('#2b2422'), moss: PAL.moss, mandarin: hex('#a29d92'), timber: hex('#5a3d2c'), mosaic: hex('#8fa6a0'),
+  roofTile: hex('#7a6552'), rubble: hex('#675f53'), coping: hex('#878377'), door: hex('#2b2422'), moss: PAL.moss, mandarin: hex('#a29d92'), timber: hex('#5a3d2c'), mosaic: hex('#8fa6a0'),
 };
 const RIDGE = hex('#e9d27e');
 
@@ -97,8 +97,7 @@ function flight(S, a, b, w, yA, yB, col = C.stoneGrey, cheeks = true) {
   }
 }
 // a wall along a polyline, cut into short pieces that follow the ground, broken where `skip(x, z)` says
-function wallLine(S, pts, h, th, col, { closed = false, skip = () => false, cap = C.stoneDark, piece = 6, capH = 0.18 } = {}) {
-  S.kind = KIND.MASONRY;
+function wallLine(S, pts, h, th, col, { closed = false, skip = () => false, cap = C.stoneDark, piece = 6, capH = 0.18, body = KIND.MASONRY, groove = null } = {}) {
   const n = pts.length, m = closed ? n : n - 1;
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
@@ -109,7 +108,11 @@ function wallLine(S, pts, h, th, col, { closed = false, skip = () => false, cap 
       const cx = (p[0] + q[0]) / 2, cz = (p[1] + q[1]) / 2;
       if (skip(cx, cz, p, q)) continue;
       const g0 = Math.min(gY(p[0], p[1]), gY(q[0], q[1])), g1 = Math.max(gY(p[0], p[1]), gY(q[0], q[1]));
+      S.kind = body;
       S.box(cx, cz, g0 - 0.5, g1 + h, l + 0.05, th, ang, col, { top: cap });
+      S.kind = KIND.MASONRY;
+      // the dark groove under the coping that the street views show, then the coping itself
+      if (groove) S.box(cx, cz, g1 + h - 0.22, g1 + h, l + 0.06, th + 0.08, ang, groove);
       S.box(cx, cz, g1 + h, g1 + h + capH, l + 0.05, th + 0.18, ang, cap);
     }
   }
@@ -473,7 +476,7 @@ export function build({ data, S }) {
   const crosses = (p, q, s) => { const wx = q[0] - p[0], wz = q[1] - p[1], sx = s[2] - s[0], sz = s[3] - s[1]; return Math.abs(wx * sz - wz * sx) > Math.sin(0.44) * Math.hypot(wx, wz) * Math.hypot(sx, sz); };
   // dark rubble stone under a smooth lime coping, as the street views along Đoàn Như Hải show it
   wallLine(S, LA_THANH, 2.5, 0.75, C.rubble, {
-    closed: true, piece: 6, cap: C.coping, capH: 0.3,
+    closed: true, piece: 4, cap: C.coping, capH: 0.3, body: KIND.PLAIN, groove: shade(C.rubble, 0.8),
     skip: (x, z, p, q) => waters.some((r) => inRing(x, z, r)) || Math.hypot(x - vk[0], z - vk[1]) < 6.5 ||
       paths.some((s) => near(x, z, s) < s[4] / 2 + 2.2 && crosses(p, q, s)) || items.some((r) => inRing(x, z, corners(obb(r), 2.5))) || keep.some((r) => inRing(x, z, r)),
   });

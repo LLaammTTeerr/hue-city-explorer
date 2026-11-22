@@ -72,3 +72,6 @@ Builder: `src/landmarks/places/tuduc.js` (id `tuduc`, about 33k triangles). The 
 - Ôn Khiêm is drawn whole, although it is currently taken down for restoration.
 - The Thượng Khiêm and Tự Khiêm gates are not placed separately because their positions are unconfirmed. The west run of the La Thành is approximate.
 - Heights and the statue order should be checked against measured drawings if any turn up.
+
+## Polish
+- La Thành body now uses the plain (unpatterned) kind in a mottled dark rubble colour instead of the shared brick-pattern masonry, with a dark groove band under the lime coping, as in the car panos of Đoàn Như Hải. Pieces are 4 m long so the coping follows the ground more closely.
