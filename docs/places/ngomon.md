@@ -26,7 +26,12 @@ Model: `src/landmarks/places/ngomon.js`. The old Ngọ Môn block in `src/landma
   - The Dịch tunnels are real vaulted passages cut through the wing masonry: in from the forecourt through the wing's inner face, a right-angle turn under a flat ceiling, and out through the back face of the set-back end. Semicircular vaults (2.3 m span, crown at 2.8 m), dark lining set 0.5 m in from each mouth so the reveals stay lit, stone floor, proud bluestone arched surrounds. The exact line of the bend inside the wing is my reading of "gấp khúc".
   - The three central passages stay rectangular (bronze beams, "under bronze beams" in the sources); they were already lined through-tunnels.
 - **Stairs:** placement is my reading of "one each side of the body, toward the rear". The two flights run along the back face, rising outward to the terrace.
-- **Lầu Ngũ Phụng layout:** the 9 units run along the U in this order: wing hall, corner link, side hall, link, centre, link, side hall, corner link, wing hall. Sizes and roof heights are estimates; the centre ridge is about 15 m above the ground.
+- **Lầu Ngũ Phụng layout:** the 9 units run along the U in this order: wing hall, corner link, side hall, link, centre, link, side hall, corner link, wing hall. The centre ridge is about 15 m above the ground.
+- **Lầu proportions (2026-11 Google audit):** checked against the Google satellite (z18-20 at the gate) and a user Street View photosphere taken on the causeway about 120 m out (camera pose estimated from the image, not its GPS). The satellite puts the base within about 1 m and 1° of the model; ground features (Kim Thủy ponds, forecourt terrace) overlay. What changed:
+  - the yellow centre hall is about 20 m along the front at its eave (walls ±8.8 m, was ±6.2), with its upper storey nearly as wide as the lower one; the side halls' upper storeys likewise. The links between centre and side halls are now low one-storey roofs mostly hidden between them (kept for the documented count of nine);
+  - the wing halls are about 9 m square (u 15.6–24.6 m), leaving about 3 m of open terrace to the parapet on the outer side, as both the satellite (averaging the two wings to cancel the image's lean) and the photo show; the plinth now ends 1 m past them;
+  - the lower storey is shorter (2.4 m posts, eave about 2 m over the parapet) under taller, steeper upper roofs, with the overall top unchanged; the wing halls' and corner links' lower storeys are open colonnades (sky shows through them in the photo);
+  - the round Thọ windows are on the front face of each wing tip, centred, about halfway up the base (two Street View images show them there), not on the outer side faces.
 - **Colours:** weathered grey-brown masonry, green glaze band, red lacquer, yellow/green tile palette.
 
 ## What changed (vs the old model in citadel.js)
@@ -36,7 +41,7 @@ Model: `src/landmarks/places/ngomon.js`. The old Ngọ Môn block in `src/landma
 - Night uplighting kept: warm strips along the parapet top and under every eave, plus lamps before and behind each gateway.
 
 ## Left
-- The plan of the Lầu (how the 9 roofs sit, and which way each ridge runs) still needs checking against an aerial photo or measured drawing.
+- The plan of the Lầu was checked against the satellite at the level of unit widths; which way each ridge runs and the exact plan of the corner links still want a measured drawing.
 - The thước-to-metre conversion for the gate sizes is unresolved.
 - No ridge ornaments (pháp lam gourd, dragons) and no upper-storey window panels.
 - The Kim Thủy bridges belong to the Đại Nội place.
