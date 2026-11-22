@@ -67,6 +67,21 @@ The queen mothers' residence in the north-west of the Imperial City. The model i
   - The green-tiled corridors and the brick courts.
   - Both screens and all four gates.
   - The precinct wall and the inner walls.
+- Google satellite and Street View check (2026-11): the hall, Thọ Ninh, the tạ, Tả Trà, Tịnh Minh Lâu and Thọ Chỉ
+  sit on the satellite within about 2 m, and the hall's axis matches within 1-2°, so the OSM frame stays. What the
+  imagery changed (all Street View panos there are user photospheres, so they were used for form and colour only):
+  - The precinct and inner walls are dark, moss-stained brick with a plain coping (was ochre with posts).
+  - Tả Trà wears dark brown unglazed tiles on the satellite; Khương Ninh Các and its back hall wear grey tiles
+    with dark ridges (was yellow glazed).
+  - Khương Ninh Các: dark brown timber leaves on the ground storey, a red-and-green gallery railing over the pent
+    roof, red upper walls with glazed windows.
+  - Thọ Chỉ: one painted masonry front (ochre, red arch frames) with three round-headed openings, the middle one
+    larger, blue-and-gold mosaic panels and frieze, a tiled eave over the side bays and a raised panelled middle
+    storey under the top roof (was a gatehouse with square openings and a timber upper storey).
+  - Thiện Khánh, Địch Tường and Diễn Trạch: a painted masonry frontispiece taller than the wall, round-headed
+    opening, small grey tiled cap.
+- Not changed, sources disagree: the wiki gives green glazed tiles for the corridors and the tạ; on the satellite
+  they read dark grey-brown (weathering or a different tile). The model keeps green.
 - The mapped buildings drop out on their own, because the model covers them. No `replaced()` guard was needed: no older builder drew this place.
 
 ## Left to do

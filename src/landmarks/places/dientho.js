@@ -34,9 +34,15 @@ import { fence } from '../enclosure.js';
 const C = [-1436.575, 0.5], UX = 0.80967, UZ = -0.58688;
 
 const TILE = PAL.imperialRoof, GREEN = PAL.jadeRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, DARKLAC = hex('#4a1f19');
-const GOLD = hex('#d9b04a'), STONE = PAL.stone, BRICK = hex('#9c6a56'), WALL = hex('#b48a58'), DARK = hex('#2e211c');
+const GOLD = hex('#d9b04a'), STONE = PAL.stone, BRICK = hex('#8f6b57'), WALL = hex('#b48a58'), DARK = hex('#2e211c');
 const CREAM = hex('#e8d49a'), WHITE = hex('#f1ece0'), RED_TILE = hex('#8e3f2c'), SHUTTER = hex('#4f6f55');
 const GLASS = hex('#9fb4b8'), WATER = hex('#4f6d5c'), ROCK = hex('#7c776c');
+// from the Google satellite and Street View check (docs/places/dientho.md, "Changed"): the precinct wall is dark,
+// moss-stained brick with a plain coping; Tả Trà, Khương Ninh Các and its back hall wear dark unglazed tiles; the
+// gates are painted masonry (ochre, red panels round the arches, blue-and-gold mosaic panels on Thọ Chỉ)
+const OLD_WALL = PAL.brick, OLD_CAP = shade(PAL.brick, 0.8), DARK_TILE = hex('#6e5f52'), GREY_TILE = hex('#6c6861');
+const OCHRE = hex('#c79a45'), OCHRE_OLD = hex('#a08a5c'), ARCH_RED = hex('#94473a'), MOSAIC = hex('#6f86b8');
+const DOOR = hex('#6b2c22'), WOOD = hex('#5a4436');
 const gY = (x, z) => LAND_Y + rise(x, z);
 const ANG = Math.atan2(UZ, UX);
 const P = (u, v) => [C[0] + u * UX - v * UZ, C[1] + u * UZ + v * UX];
@@ -63,8 +69,9 @@ const CORRIDORS = [
 ];
 const POND = [[56.7, -16.2], [56.6, 1.1], [55.1, 2.6], [30.8, 3.0], [29.0, 1.2], [28.6, -16.5], [29.9, -17.4], [55.5, -17.3]];
 
-const STYLE = { h: 2.5, plinth: 2.5, rail: false, t: 0.5, every: 6.0, postW: 0.7, postUp: 0.25, wall: WALL, cap: hex('#c79a3a'), iron: null, pierW: 1.1, pierUp: 1.2 };
-const INNER = { ...STYLE, h: 2.2, plinth: 2.2, t: 0.4, postW: 0.55 };
+// a plain wall: the posts are flush with it, so only the coping shows
+const STYLE = { h: 2.5, plinth: 2.5, rail: false, t: 0.55, every: 8.0, postW: 0.55, postUp: 0, wall: OLD_WALL, cap: OLD_CAP, iron: null, pierW: 0.8, pierUp: 0.3 };
+const INNER = { ...STYLE, h: 2.2, plinth: 2.2, t: 0.45, postW: 0.45 };
 
 export const id = 'dientho';
 
@@ -145,8 +152,8 @@ export function build({ S }) {
     box(u0, v0, y0 - 0.3, yp, 13.4, 25.9, STONE, { taper: 0.99, topKind: KIND.ROAD });
     for (let k = 1; k <= 3; k++) boxR(u0 - 6.7 - 0.32 * (k - 0.5), v0, y0 - 0.25, yp - 0.15 * k, 4.5, 0.32, shade(STONE, 1.05), { topKind: KIND.ROAD });
     S.kind = KIND.TIMBER;
-    box(u0 + 0.9, v0, yp, yp + 3.3, 9.6, 22.4, DARKLAC, { top: shade(TILE, 0.8) });
-    hipR(u0, v0, 22.4, 11.2, yp + 3.3, 3.3, TILE, { over: 1.2 });
+    box(u0 + 0.9, v0, yp, yp + 3.3, 9.6, 22.4, DARKLAC, { top: shade(DARK_TILE, 0.8) });
+    hipR(u0, v0, 22.4, 11.2, yp + 3.3, 3.3, DARK_TILE, { over: 1.2, glazed: false, ridgeCol: shade(DARK_TILE, 0.8) });
     for (let i = 0; i <= 7; i++) col(u0 - 5.4, v0 - 11.0 + i * (22 / 7), yp, yp + 3.35, 0.19);
     S.kind = KIND.PLAIN;
     for (let i = -2; i <= 2; i++) {
@@ -190,20 +197,26 @@ export function build({ S }) {
     box(u0, v0, y0 - 0.3, yp, 13.6, 18.7, STONE, { taper: 0.99, topKind: KIND.ROAD });
     for (let k = 1; k <= 3; k++) boxR(u0 - 6.8 - 0.32 * (k - 0.5), v0, y0 - 0.25, yp - 0.2 * k, 4.0, 0.32, shade(STONE, 1.05), { topKind: KIND.ROAD });
     S.kind = KIND.TIMBER;
-    box(u0 + 0.6, v0, yp, yp + 3.4, 10.4, 15.2, DARKLAC, { top: shade(TILE, 0.8) });
-    hipR(u0, v0, 16.4, 11.8, yp + 3.4, 1.1, TILE, { over: 1.1, flare: 0.3 });
-    box(u0 + 0.6, v0, yp + 3.6, yp + 6.4, 8.0, 12.4, LAC, { top: shade(TILE, 0.8) });
+    // Street View (the west court): a ground storey walled in dark brown timber leaves under a wide pent roof, a
+    // gallery with a red-and-green railing above it, red upper walls with glazed windows, grey tiles, dark ridges
+    const grey = { glazed: false, ridgeCol: shade(GREY_TILE, 0.6) };
+    box(u0 + 0.6, v0, yp, yp + 3.4, 10.4, 15.2, WOOD, { top: shade(GREY_TILE, 0.8) });
+    hipR(u0, v0, 16.4, 11.8, yp + 3.4, 1.1, GREY_TILE, { over: 1.1, flare: 0.3, ...grey });
+    box(u0 + 0.6, v0, yp + 3.6, yp + 6.4, 8.0, 12.4, LAC, { top: shade(GREY_TILE, 0.8) });
     S.kind = KIND.PLAIN;
-    boxR(u0 - 3.42, v0, yp + 4.2, yp + 6.0, 9.6, 0.08, GOLD); // the upper doors
-    hipR(u0 + 0.6, v0, 12.4, 8.0, yp + 6.4, 2.5, TILE, { over: 1.0 });
+    boxR(u0 - 3.42, v0, yp + 4.5, yp + 6.0, 11.0, 0.08, shade(GLASS, 0.7)); // the upper windows
+    for (let k = -2; k <= 2; k++) boxR(u0 - 3.45, v0 + k * 2.6, yp + 4.4, yp + 6.1, 0.18, 0.08, shade(LAC, 0.8));
+    boxR(u0 - 4.6, v0, yp + 3.7, yp + 4.55, 14.6, 0.1, shade(LAC, 0.85)); // the gallery railing
+    boxR(u0 - 4.6, v0, yp + 4.55, yp + 4.65, 14.8, 0.16, hex('#4e7a52'));
+    hipR(u0 + 0.6, v0, 12.4, 8.0, yp + 6.4, 2.5, GREY_TILE, { over: 1.3, ...grey });
     for (let i = 0; i <= 5; i++) col(u0 - 5.7, v0 - 7.6 + i * (15.2 / 5), yp, yp + 3.45, 0.19);
     S.kind = KIND.PLAIN;
-    for (let i = -1; i <= 1; i++) boxR(u0 - 4.62, v0 + i * 3.6, yp, yp + 2.4, 3.0, 0.08, shade(DARKLAC, 0.75));
+    for (let i = -2; i <= 2; i++) boxR(u0 - 4.62, v0 + i * 2.95, yp, yp + 2.8, 2.6, 0.08, shade(WOOD, 0.85)); // the leaves
     cyl(u0 + 0.6, v0, yp + 8.85, yp + 9.4, 0.28, 0.1, 8, GOLD);
     // the back hall (OSM 695810779)
     S.kind = KIND.TIMBER;
-    box(-31.2, -30.55, y0, y0 + 3.0, 9.0, 8.8, DARKLAC, { top: shade(GREEN, 0.8) });
-    hip(-31.2, -30.55, 9.0, 8.8, y0 + 3.0, 2.2, GREEN, { over: 0.9 });
+    box(-31.2, -30.55, y0, y0 + 3.0, 9.0, 8.8, DARKLAC, { top: shade(GREY_TILE, 0.8) });
+    hip(-31.2, -30.55, 9.0, 8.8, y0 + 3.0, 2.2, GREY_TILE, { over: 0.9, glazed: false, ridgeCol: shade(GREY_TILE, 0.6) });
     // the court: bát tràng brick, a shallow basin with a rockery, two small kiosks by its walls
     S.kind = KIND.MASONRY;
     box(-56.1, -17.6, y0 - 0.25, y0 + 0.06, 14.0, 19.0, BRICK, { topKind: KIND.ROAD });
@@ -301,34 +314,47 @@ export function build({ S }) {
   }
 
   // ---- the gates ----
-  // Thọ Chỉ Môn: a two-storey gate (cửa lầu chồng), the main door with the side doors Trinh Ứng and Thụy Quang
+  // a round-headed opening: a dark slot under three stepped courses (reads as an arch at this scale), framed red
+  const arch = (B, u, v, ya, w, h, d, fill) => {
+    S.kind = KIND.PLAIN;
+    B(u, v, ya, ya + h + 0.35, w + 0.7, d + 0.04, ARCH_RED);
+    B(u, v, ya, ya + h - w * 0.3, w, d + 0.1, fill);
+    for (let k = 1; k <= 3; k++) B(u, v, ya + h - w * 0.3, ya + h - w * 0.3 + (w * 0.3 * k) / 3, w * Math.cos((k / 3.4) * 1.2), d + 0.1, fill);
+  };
+  // Thọ Chỉ Môn (Street View from the front court): one painted masonry front, three round-headed openings (the
+  // middle one larger), blue-and-gold mosaic panels between them, a tiled eave over the side bays and a raised
+  // middle storey of panels under the top roof; red-brown timber leaves in the side doors Trinh Ứng and Thụy Quang
   {
-    const u0 = 1.05, v0 = 71.5, yb = y0 + 0.2;
+    const u0 = 1.05, v0 = 71.5, yb = y0 + 0.2, H = 4.3;
     S.kind = KIND.MASONRY;
     box(u0, v0, y0 - 0.3, yb, 15.3, 4.4, STONE, { topKind: KIND.ROAD });
-    box(u0, v0, yb, yb + 3.4, 7.0, 3.4, WALL, { top: shade(TILE, 0.8) });
-    for (const s of [-1, 1]) box(u0 + s * 5.4, v0, yb, yb + 2.8, 3.8, 3.0, WALL, { top: shade(TILE, 0.8) });
-    S.kind = KIND.PLAIN;
-    box(u0, v0, yb, yb + 2.7, 2.6, 3.5, DARK);
+    box(u0, v0, yb, yb + H, 14.6, 3.4, OCHRE, { top: shade(TILE, 0.8) });
+    arch(box, u0, v0, yb, 2.4, 3.4, 3.4, DARK);
     for (const s of [-1, 1]) {
-      box(u0 + s * 5.4, v0, yb, yb + 2.1, 1.4, 3.1, DARK);
-      hip(u0 + s * 5.4, v0, 3.8, 3.0, yb + 2.8, 0.9, TILE, { over: 0.45, segs: 2 });
+      arch(box, u0 + s * 5.0, v0, yb, 1.9, 2.9, 3.4, DOOR);
+      S.kind = KIND.PLAIN;
+      for (const f of [-1, 1]) box(u0 + s * 2.65, v0 + f * 1.71, yb + 1.0, yb + 3.2, 1.1, 0.04, MOSAIC); // the mosaic panels
+      for (const f of [-1, 1]) box(u0 + s * 6.9, v0 + f * 1.71, yb + 1.0, yb + 3.2, 0.7, 0.04, MOSAIC);
+      hip(u0 + s * 4.9, v0, 5.2, 3.4, yb + H, 0.8, TILE, { over: 0.55, segs: 2, flare: 0.12 });
     }
-    hip(u0, v0, 7.0, 3.4, yb + 3.4, 0.8, TILE, { over: 0.6, flare: 0.3 });
-    S.kind = KIND.TIMBER;
-    box(u0, v0, yb + 3.6, yb + 5.4, 5.0, 2.6, LAC, { top: shade(TILE, 0.8) });
     S.kind = KIND.PLAIN;
-    box(u0, v0 + 1.32, yb + 4.0, yb + 5.0, 2.2, 0.06, GOLD); // the name board
-    hip(u0, v0, 5.0, 2.6, yb + 5.4, 1.4, TILE, { over: 0.7 });
+    box(u0, v0, yb + H - 0.55, yb + H - 0.1, 14.7, 3.45, MOSAIC); // the frieze of panels over the openings
+    S.kind = KIND.MASONRY;
+    box(u0, v0, yb + H, yb + H + 1.6, 6.4, 3.0, OCHRE, { top: shade(TILE, 0.8) });
+    S.kind = KIND.PLAIN;
+    box(u0, v0, yb + H + 0.4, yb + H + 1.2, 5.6, 3.06, ARCH_RED); // the panels of the upper storey
+    box(u0, v0, yb + H + 0.6, yb + H + 1.0, 2.2, 3.1, GOLD); // the name board
+    hip(u0, v0, 6.4, 3.0, yb + H + 1.6, 1.2, TILE, { over: 0.7 });
   }
-  // Diễn Trạch (rear), Thiện Khánh (east) and Địch Tường (west): one door under a yellow roof
+  // Diễn Trạch (rear), Thiện Khánh (east) and Địch Tường (west): a painted masonry frontispiece, taller than the
+  // wall, round-headed opening and a small tiled cap (Street View, Thiện Khánh from the east road)
   for (const [u0, v0, rot] of [[-1.35, -66.25, false], [62.4, 35.7, true], [-63.35, -17.5, true]]) {
     const B = rot ? boxR : box, Hh = rot ? hipR : hip;
     S.kind = KIND.MASONRY;
-    B(u0, v0, y0 - 0.3, y0 + 3.0, 5.5, 2.5, WALL, { top: shade(TILE, 0.8) });
-    S.kind = KIND.PLAIN;
-    B(u0, v0, y0, y0 + 2.3, 1.8, 2.6, DARK);
-    Hh(u0, v0, 5.5, 2.5, y0 + 3.0, 1.1, TILE, { over: 0.5, segs: 2 });
+    B(u0, v0, y0 - 0.3, y0 + 4.2, 5.2, 1.6, OCHRE_OLD, { top: OLD_CAP });
+    B(u0, v0, y0 + 2.6, y0 + 3.2, 5.6, 1.9, shade(OCHRE_OLD, 0.9)); // the cornice
+    arch(B, u0, v0, y0, 2.0, 2.9, 1.6, DARK);
+    Hh(u0, v0, 4.6, 1.4, y0 + 4.2, 0.6, GREY_TILE, { over: 0.3, segs: 2, flare: 0, glazed: false, ridgeCol: shade(GREY_TILE, 0.6) });
   }
 
   // ---- the walls ----
