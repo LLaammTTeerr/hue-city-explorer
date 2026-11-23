@@ -26,8 +26,9 @@ Imperial City gate in `src/landmarks/citadel.js` skips this gate with a `replace
 - Heights: block 4.8 m to the cornice, top of the ridge about 12.8 m, pearl finial about 13.9 m. No published
   figure was found.
 - Passage sizes: middle 3.0 × 4.0 m, sides 2.0 × 3.1 m.
-- Tower storey sizes (8.6 × 5.2 m and 5.4 × 3.2 m).
-- Colours: weathered cream lime-wash, white trim, a green glazed balustrade, blue, green, red and gold mosaic.
+- Tower storey sizes (11.2 × 4.8 m and 6.6 × 2.8 m; the lower one's length from Street View and the satellite).
+- Colours: weathered grey mosaic masonry, light grey trim, a green glazed balustrade, blue, green, red and gold mosaic
+  (body, arches, reveals and doors confirmed from Street View).
 - The ornament layout: pilasters, plaque, keystones, and two dragons facing a fire pearl on the ridge.
 
 ## What changed
@@ -37,6 +38,30 @@ Imperial City gate in `src/landmarks/citadel.js` skips this gate with a `replace
   openings and its flared yellow roof; the upper storey and its roof with ridge dragons and the fire pearl.
 - The block is 14.3 m long, so it meets the wall ends `places/dainoi.js` leaves at the footprint plus 0.15 m.
 
+## Google check (Nov 2026)
+- Satellite (z20, 0.14 m/px): the gate's lit top is a long narrow strip about 14 m long and 5 m across, centred
+  within about 1 m of the OSM centre, its long axis within about 2° of the outline's and of the wall line. Kept
+  the OSM centre and axis. The capture stage's "3-4 m west" estimate counted the gate's shadow, which falls
+  south-west along the wall line.
+- Street View: one user photosphere on the outer (east) plaza shows the outer face looking south-south-east along
+  it; no car pano sees the gate. From it: weathered grey porcelain-encrusted masonry (not cream lime-wash), each
+  arch ringed by a blue band with a white band inside, ochre-yellow passage reveals, red door leaves standing open
+  inside, tall pale pedestals with blue mosaic panels and framed red-brown relief panels on the piers, a crested
+  cornice, and the upper storey's arched openings set over the side passages.
+- Changed: colours as above; pedestals and relief panels on the piers in place of thin pilasters; blue and white
+  arch bands; yellow reveals and vaults; red door leaves; the tower's lower storey widened to 11.2 × 4.8 m (was
+  8.6 × 5.2) with its side openings over the side passages, the upper storey 6.6 × 2.8 m (was 5.4 × 3.2). Heights
+  unchanged (not visible in any capture).
+
+- Review fixes: the yellow reveals now run right out to the face (no grey strip on the jambs); the door leaves hang
+  about 1 m in from the outer face on a timber frame post and reach above the springing, their tops following the
+  vault; the cornice, frieze, caps and bands have undersides, so looking up no longer shows dark slits through them.
+
 ## Left to do
-- Check the proportions and ornament against photos; no photos were viewed.
-- Doors in the passages, and night lighting (none is known).
+- The piers between the arches are narrower than in the photo: the documented passage widths (3.0 and 2.0 m) in a
+  14.3 m block leave no more room.
+- The brick-paved apron between the gate and the Ngoại Kim Thủy ponds is drawn as lawn: OSM maps it as
+  landuse=grass and the data build's paving pass skips the band round the Imperial City (inImperial), which the
+  place files share. A fix belongs in the shared ground, not in this file.
+- Tower heights, the two roof tiers and the inner (west) face are estimates (no capture shows them).
+- Night lighting (none is known).
