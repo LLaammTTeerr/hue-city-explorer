@@ -1,4 +1,4 @@
-import { KIND, Buf, hex, shade, unflat, inRing, pathLength, rand } from '../../geo/buf.js';
+import { KIND, Buf, hex, shade, unflat, inRing, pathLength } from '../../geo/buf.js';
 import { LAND_Y, POND_Y, quality, roadWidth } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { bridgeProfiles } from '../../geo/bridges.js';
@@ -119,6 +119,28 @@ export function build({ data, S, group, THREE }) {
   }
   if (!basins.length) throw new Error('Tịnh Tâm basins not found in data.ponds');
 
+  // ---------------- Bồng Lai as a square ----------------
+  // OSM rounds the island's corners (way 1432251331 ring); the satellite shows a crisp square with a stone revetment
+  // line. Its four long sides, extended to meet, give the corners; the squared ring stands in for the OSM hole from
+  // here on (banks, lotus, trees), and the corner wedges it gains from the water are filled as lawn.
+  let isle = null;
+  {
+    const rings = basins[0], k = rings.findIndex((r, i) => i > 0 && inRing(PAVILION[0], PAVILION[1], r));
+    if (k > 0) {
+      const ring = rings[k];
+      const sides = ring.map((a, i) => { const b = ring[(i + 1) % ring.length]; return { a, b, L: Math.hypot(b[0] - a[0], b[1] - a[1]) }; })
+        .sort((p, q) => q.L - p.L).slice(0, 4)
+        .sort((p, q) => Math.atan2((p.a[1] + p.b[1]) / 2 - PAVILION[1], (p.a[0] + p.b[0]) / 2 - PAVILION[0]) - Math.atan2((q.a[1] + q.b[1]) / 2 - PAVILION[1], (q.a[0] + q.b[0]) / 2 - PAVILION[0]));
+      const meet = (e, f) => {
+        const d1 = [e.b[0] - e.a[0], e.b[1] - e.a[1]], d2 = [f.b[0] - f.a[0], f.b[1] - f.a[1]], den = d1[0] * d2[1] - d1[1] * d2[0];
+        const t = ((f.a[0] - e.a[0]) * d2[1] - (f.a[1] - e.a[1]) * d2[0]) / den;
+        return [e.a[0] + d1[0] * t, e.a[1] + d1[1] * t];
+      };
+      isle = sides.map((e, i) => meet(e, sides[(i + 1) % 4]));
+      rings[k] = isle;
+    }
+  }
+
   // ---------------- banks: stone revetment, moss line, coping; bamboo stakes along the dyke ----------------
   S.kind = KIND.MASONRY;
   for (const rings of basins) {
@@ -218,6 +240,23 @@ export function build({ data, S, group, THREE }) {
   bridge(BR_BONGLAI, { width: 3.0, thick: 0.45, span: 6, concrete: true });
   bridge(BR_PHUONG, { width: 2.0, thick: 0.25, span: 3.2, concrete: false });
 
+  // ---------------- Bồng Lai's lawn ----------------
+  // The satellite (Nov 2026): grass to the revetment, an inner square of paler, drier lawn edged by a narrow path
+  // around the terrace, darker green under the trees at the edges.
+  if (isle) {
+    const c = isle.reduce((m, p) => [m[0] + p[0] / 4, m[1] + p[1] / 4], [0, 0]), g = groundY(c[0], c[1]);
+    const inset = (f) => isle.map((p) => [c[0] + (p[0] - c[0]) * f, c[1] + (p[1] - c[1]) * f]);
+    S.kind = KIND.GROUND;
+    S.prism(isle, g - 0.35, g + 0.03, hex('#55613a'), hex('#5d6c3c'), { topKind: KIND.GROUND });
+    const inner = inset(0.6);
+    S.prism(inner, g + 0.02, g + 0.05, hex('#6f7446'), hex('#757b49'), { topKind: KIND.GROUND });
+    S.kind = KIND.MASONRY;
+    for (let i = 0; i < 4; i++) {
+      const a = inner[i], b = inner[(i + 1) % 4], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      S.box((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, g, g + 0.07, L + 1.2, 1.2, Math.atan2(b[1] - a[1], b[0] - a[0]), shade(C.plinth, 0.92), { topKind: KIND.ROAD });
+    }
+  }
+
   // ---------------- nhà bát giác on Bồng Lai (1960, rebuilt 2020) ----------------
   {
     const [cx, cz] = PAVILION, y0 = groundY(cx, cz);
@@ -283,7 +322,7 @@ export function build({ data, S, group, THREE }) {
       for (let k = 0; k < steps; k++) {
         const s0 = a + ((b - a) * k) / steps, s1 = a + ((b - a) * (k + 1)) / steps, sm = (s0 + s1) / 2;
         const x = cx + ux * sm, z = cz + uz * sm, g = groundY(x, z);
-        S.box(x, z, g - 0.1, g + 0.05, s1 - s0 + 0.05, 1.8, Math.atan2(uz, ux), shade(C.plinth, 0.95), { topKind: KIND.ROAD });
+        S.box(x, z, g - 0.1, g + 0.08, s1 - s0 + 0.05, 1.8, Math.atan2(uz, ux), shade(C.plinth, 0.95), { topKind: KIND.ROAD });
       }
     }
 
@@ -310,19 +349,19 @@ export function build({ data, S, group, THREE }) {
   for (const r of data.roads || []) {
     if (!r || !Array.isArray(r[2])) continue;
     const p = unflat(r[2]);
-    if (p.some((q) => q[0] > -1650 && q[0] < -1100 && q[1] > -1250 && q[1] < -750)) roadsNear.push([p, roadWidth(r) / 2 + (r[0] <= 2 ? 3.6 : r[0] <= 3 ? 2.4 : 0.6) / 2 + 1.2]);
+    // half the paved ribbon (carriageway and pavements, city.js pavW) and a little: a trunk stands on the verge beyond
+    if (p.some((q) => q[0] > -1650 && q[0] < -1100 && q[1] > -1250 && q[1] < -750)) roadsNear.push([p, (roadWidth(r) + (r[0] <= 2 ? 3.6 : r[0] <= 3 ? 2.4 : 0)) / 2 + 0.4]);
   }
   const onRoad = (x, z) => roadsNear.some(([p, hw]) => distLine(x, z, p) < hw);
   const trees = Array.isArray(data.trees) ? data.trees : null, have = [];
   if (trees) for (let k = 0; k < trees.length; k += 4) { const x = trees[k] / 10, z = trees[k + 1] / 10; if (x > -1650 && x < -1100 && z > -1250 && z < -750) have.push([x, z]); }
-  // city.js turns about half the shade trees near water into willows, chosen by their index in data.trees. The
-  // imagery shows round broadleaf canopies on Bồng Lai and the Tịnh Tâm bank, so those (broad) take the slots that
-  // stay broadleaf and the rest, where a willow is plausible (the dyke, the other banks), take the others.
-  const broad = [], any = [];
-  const addTree = (x, z, sc, kind, gap = 6, mustBroad = false) => {
+  // city.js turns about half the shade trees near water into willows. The imagery (Nov 2026) shows round broadleaf
+  // canopies (bàng, a banyan, fruit trees) on every bank and island here and no weeping willow, so they all go in as
+  // kind 4, a broadleaf the planter never makes a willow.
+  const addTree = (x, z, sc, gap = 6) => {
     if (!trees || wet(x, z) || onRoad(x, z) || have.some((q) => Math.hypot(q[0] - x, q[1] - z) < gap)) return false;
-    if (distLine(x, z, BR_BONGLAI) < 5 || distLine(x, z, BR_PHUONG) < 5) return false;
-    (mustBroad ? broad : any).push([Math.round(x * 10), Math.round(z * 10), Math.round(sc * 10), kind]);
+    if (distLine(x, z, BR_BONGLAI) < 4 || distLine(x, z, BR_PHUONG) < 4) return false;
+    trees.push(Math.round(x * 10), Math.round(z * 10), Math.round(sc * 10), 4);
     have.push([x, z]);
     return true;
   };
@@ -351,35 +390,42 @@ export function build({ data, S, group, THREE }) {
     const rr = rng(2020);
     const { total, along } = walker(DYKE);
     const L0 = Math.hypot(DYKE[1][0] - DYKE[0][0], DYKE[1][1] - DYKE[0][1]); // the first leg is the north-west bank, not the dyke
+    // the banyan at the corner where the north-west bank meets the dyke (car pano at the corner: a wide dark crown
+    // about 17 m east of the camera, on the south bank, over the water)
+    { const A = along(L0 + 17), q = A && toBank(A, 1, 1.2, 2.5, 12); if (q) addTree(q[0], q[1], 2.1, 3); }
     // side -1 is the dyke's north (left, walking north-east), side 1 its south
-    for (let s = L0 + 4; s < total; s += 8.5) {
+    for (let s = L0 + 3; s < total; s += 6.5) {
       const A = along(s);
       if (!A) break;
-      const q = toBank(A, -1, 1.0 + rr() * 0.4, 3.5, 12);
+      const q = toBank(A, -1, 0.9 + rr() * 0.4, 2.5, 12);
       if (!q) continue;
       const [x, z] = q;
-      if (distLine(x, z, BR_BONGLAI) < 6 || distLine(x, z, BR_PHUONG) < 6) continue;
-      if (roadsNear.some(([p, hw]) => distLine(x, z, p) < hw + 1.2)) continue; // the crown stays off the carriageway
+      if (distLine(x, z, BR_BONGLAI) < 5 || distLine(x, z, BR_PHUONG) < 5) continue;
+      if (onRoad(x, z)) continue; // the clump stands on the verge; its leaves may lean over the lane
       const y = groundY(x, z);
       // lean the clump out over the water
       const lx = -A.u[1] * -1, lz = A.u[0] * -1;
-      const h = 6 + rr() * 2, top = 1.5 + rr() * 0.4, lean = 0.6 + rr() * 0.3;
+      // young clumps (planted 2020, car pano at the corner): bare culms to head height, then a loose crown
+      const h = 5.5 + rr() * 2, top = 1.1 + rr() * 0.35, lean = 0.6 + rr() * 0.3;
       S.kind = KIND.TIMBER;
-      for (let k = 0; k < 7; k++) { // the culms, splaying out of the clump's foot
-        const a = (k / 7) * 6.28 + rr() * 0.6, d = 0.15 + rr() * 0.35;
-        S.beam([x + Math.cos(a) * d, y - 0.1, z + Math.sin(a) * d], [x + Math.cos(a) * (d + 0.5) + lx * 0.3, y + 2.6, z + Math.sin(a) * (d + 0.5) + lz * 0.3], 0.09, 0.09, k % 3 ? C.bambooOld : C.bamboo);
+      for (let k = 0; k < 9; k++) { // the culms, splaying out of the clump's foot
+        const a = (k / 9) * 6.28 + rr() * 0.6, d = 0.12 + rr() * 0.3, t = 0.55 + rr() * 0.25;
+        S.beam([x + Math.cos(a) * d, y - 0.1, z + Math.sin(a) * d], [x + Math.cos(a) * (d + 0.6) + lx * lean * t, y + h * t, z + Math.sin(a) * (d + 0.6) + lz * lean * t], 0.07, 0.07, k % 3 ? C.bambooOld : C.bamboo);
       }
       S.kind = KIND.PLAIN;
       const rot = rr() * 6.28;
-      // a vase of feathery leaves: narrow at the foot, widest high up, drooping to a soft tip
-      S.cyl(x + lx * 0.3, z + lz * 0.3, y + 1.8, y + h * 0.62, 0.7, top, 7, C.leaf2, { cap: false, rot });
-      S.cyl(x + lx * lean, z + lz * lean, y + h * 0.62, y + h, top, 0.35, 7, C.leaf, { cap: false, rot: rot + 0.4 });
-      S.cyl(x + lx * lean, z + lz * lean, y + h * 0.62 - 0.01, y + h * 0.62, top * 0.98, 0.7, 7, shade(C.leaf, 0.7), { cap: false, rot }); // underside
+      // feathery leaf tufts at the culm heads, a few to a clump, the highest leaning out over the water
+      for (let k = 0; k < 3; k++) {
+        const a = rot + k * 2.1, o = 0.5 + rr() * 0.5, f = 0.55 + k * 0.18, cx = x + Math.cos(a) * o + lx * lean * f, cz = z + Math.sin(a) * o + lz * lean * f;
+        const yb = y + h * (0.42 + k * 0.12), yt = y + h * (0.78 + k * 0.08), w = top * (0.65 + 0.15 * rr());
+        S.cyl(cx, cz, yb, yb + (yt - yb) * 0.45, 0.2, w, 6, k % 2 ? C.leaf : C.leaf2, { cap: false, rot: rot + k });
+        S.cyl(cx, cz, yb + (yt - yb) * 0.45, yt, w, 0.12, 6, k % 2 ? C.leaf2 : C.leaf, { cap: false, rot: rot + k + 0.5 });
+      }
     }
-    // single trees along the dyke's south side
-    for (let s = L0 + 10; s < total; s += 17) { const A = along(s); const q = A && toBank(A, 1, 1.4, 3.5, 12); if (q) addTree(q[0], q[1], 1.0 + rr() * 0.3, 0); }
-    // the broadleaf belt on the north-west bank (first leg)
-    for (let s = 4; s < L0 - 4; s += 9) { const A = along(s); const q = A && toBank(A, 1, 1.6, 3.5, 14); if (q) addTree(q[0], q[1], 1.1 + rr() * 0.4, rr() < 0.5 ? 1 : 0); }
+    // the row of trees along the dyke's south side
+    for (let s = L0 + 28; s < total; s += 8 + rr() * 3) { const A = along(s); const q = A && toBank(A, 1, 1.2, 2.5, 12); if (q) addTree(q[0], q[1], 1.2 + rr() * 0.4, 6); }
+    // the broadleaf belt on the north-west bank (first leg): crowns every few metres along the water
+    for (let s = 3; s < L0 - 2; s += 5 + rr() * 1.5) { const A = along(s); const q = A && toBank(A, 1, 1.3, 2.5, 14); if (q) addTree(q[0], q[1], 1.1 + rr() * 0.4, 4.5); }
   }
   // the parapet on Tịnh Tâm and the tree rows on the Tịnh Tâm and Đinh Tiên Hoàng banks
   {
@@ -404,43 +450,87 @@ export function build({ data, S, group, THREE }) {
       if (rr() < 0.25) S.box(x - A.u[1] * lakeSide * 0.12, z + A.u[0] * lakeSide * 0.12, g + 0.2, g + 0.62, 0.5 + rr() * 0.8, 0.05, ang, C.moss); // moss streak
       S.box(x - A.u[1] * lakeSide * 0.15, z + A.u[0] * lakeSide * 0.15, g - 0.2, g + 0.12, step + 0.02, 0.06, ang, C.moss); // damp foot
     }
-    for (let s = 5; s < total; s += 8 + rr() * 3) { const A = along(s); const q = A && toBank(A, lakeSide, 2.8 + rr(), 3.5, 26); if (q) addTree(q[0], q[1], 1.4 + rr() * 0.5, rr() < 0.4 ? 1 : 0, 6, true); }
+    for (let s = 5; s < total; s += 8 + rr() * 3) { const A = along(s); const q = A && toBank(A, lakeSide, 2.8 + rr(), 3.5, 26); if (q) addTree(q[0], q[1], 1.5 + rr() * 0.5, 6); }
     const D = walker(DTH_RD);
     const midD = D.along(D.total / 2), sideD = toBank(midD, 1, 0, 3.5, 30) ? 1 : -1;
-    for (let s = 4; s < D.total; s += 8 + rr() * 3) { const A = D.along(s); const q = A && toBank(A, sideD, 2.5 + rr(), 7, 26); if (q) addTree(q[0], q[1], 1.3 + rr() * 0.5, rr() < 0.4 ? 1 : 0); }
+    for (let s = 4; s < D.total; s += 6 + rr() * 2) { const A = D.along(s); const q = A && toBank(A, sideD, 2.2 + rr(), 3.5, 26); if (q) addTree(q[0], q[1], 1.4 + rr() * 0.5, 5.5); }
   }
-  // Bồng Lai's canopies
-  ISLAND_TREES.forEach(([x, z], k) => addTree(x, z, 2.3 + ((k * 7) % 5) * 0.1, k % 3 ? 0 : 1, 3, true));
-  if (trees) {
-    while (broad.length || any.length) {
-      const j = trees.length / 4, willowSlot = rand(j, 71) < 0.5;
-      const t = (willowSlot ? any.shift() : broad.shift()) || broad.shift() || any.shift();
-      trees.push(...t);
+  // Bồng Lai's canopies: the big shade trees read off the satellite, then a ring of crowns along the revetment
+  // (densest on the south-east side, so from đường Tịnh Tâm the island is a dark mass of trees with the pavilion's
+  // roof only glimpsed through them, as in the car pano there)
+  ISLAND_TREES.forEach(([x, z], k) => addTree(x, z, 2.3 + ((k * 7) % 5) * 0.1, 3));
+  if (isle) {
+    const c = isle.reduce((m, p) => [m[0] + p[0] / 4, m[1] + p[1] / 4], [0, 0]), rr = rng(1960);
+    for (let i = 0; i < 4; i++) {
+      const a = isle[i], b = isle[(i + 1) % 4], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], toTT = distLine(m[0], m[1], TINHTAM_RD) < 75;
+      for (let t = 5; t < L - 4; t += toTT ? 7 : 10) {
+        const f = t / L, e = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+        const d = Math.hypot(c[0] - e[0], c[1] - e[1]), x = e[0] + ((c[0] - e[0]) / d) * 4.5, z = e[1] + ((c[1] - e[1]) / d) * 4.5;
+        if (Math.hypot(x - PAVILION[0], z - PAVILION[1]) < 15 || distLine(x, z, [PAVILION, SW_PATH_END]) < 4) continue;
+        addTree(x, z, (toTT ? 1.9 : 1.6) + rr() * 0.4, 6.5);
+      }
+      // a crown in the corner where this side starts (the south corner points at đường Tịnh Tâm)
+      { const d = Math.hypot(c[0] - a[0], c[1] - a[1]); addTree(a[0] + ((c[0] - a[0]) / d) * 5, a[1] + ((c[1] - a[1]) / d) * 5, 1.7 + rr() * 0.3, 4); }
+      // lower crowns between them on the sides facing đường Tịnh Tâm, so the screen reaches down to the bank
+      if (toTT) for (let t = 8.5; t < L - 4; t += 7) {
+        const f = t / L, e = [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+        const d = Math.hypot(c[0] - e[0], c[1] - e[1]), x = e[0] + ((c[0] - e[0]) / d) * 2.6, z = e[1] + ((c[1] - e[1]) / d) * 2.6;
+        if (Math.hypot(x - PAVILION[0], z - PAVILION[1]) < 13 || distLine(x, z, [PAVILION, SW_PATH_END]) < 3) continue;
+        addTree(x, z, 0.9 + rr() * 0.25, 3.2);
+      }
+    }
+  }
+  // Doanh Châu, the small south-west island: a clump of trees over its rockery (satellite)
+  {
+    const dc = basins[0].find((r, i) => i > 0 && r !== isle && inRing(-1444, -886, r));
+    if (dc) {
+      const c = dc.reduce((m, p) => [m[0] + p[0] / dc.length, m[1] + p[1] / dc.length], [0, 0]);
+      for (const [ox, oz, sc] of [[0, 0, 1.6], [-6.5, -4, 1.2], [6, -5, 1.3], [-5, 6, 1.2], [6, 5.5, 1.1]]) {
+        if (distLine(c[0] + ox, c[1] + oz, [...dc, dc[0]]) > 2.5) addTree(c[0] + ox, c[1] + oz, sc, 4);
+      }
     }
   }
   S.kind = KIND.PLAIN;
 
   // ---------------- white lotus (sen trắng) over both basins ----------------
-  // The satellite and Street View (Nov 2026) show the lotus as a near-continuous mat, with a few open patches in the
-  // south basin: leaves held 0.2–0.9 m above the water on their stalks over a floor of floating ones.
+  // The satellite (z19, Nov 2026) shows a near-continuous mat, 90–95 % of the water, open only in a few places:
+  // a moat around Doanh Châu, a streak running north-east from it, the south-west corner, a pool by the north-west
+  // corner of the south basin, a narrow channel along the north-west bank. Leaves are held 0.2–0.9 m above the
+  // water on their stalks over a floor of floating ones. The pads go out in proportion to each basin's water area.
   {
     const rnd = rng(1838_2020);
     const pads = [], blooms = [];
-    const MAX = quality.low ? 2400 : 6000, MAT = quality.low ? 2000 : 5000;
+    const FLOAT = quality.low ? 4500 : 9000, EMERGE = quality.low ? 3000 : 6000;
+    const dc = basins[0].find((r, i) => i > 0 && r !== isle && inRing(-1444, -886, r));
+    // open water, read off the satellite (scene metres)
+    const STREAK = [[-1430.4, -896.2], [-1366.2, -930.6], [-1352.5, -962.7]];
+    const open = (x, z) => {
+      const wob = Math.sin(x * 0.11) * Math.cos(z * 0.09);
+      if (dc && distLine(x, z, [...dc, dc[0]]) < 3.5 + wob) return true;
+      if (distLine(x, z, STREAK) < 7 + 2.5 * wob) return true;
+      if (((x + 1515) / 25) ** 2 + ((z + 874) / 45) ** 2 < 1 + 0.15 * wob) return true; // the south-west corner
+      if (Math.hypot(x + 1420.6, z + 1003.3) < 8 + 2 * wob) return true;
+      return distLine(x, z, [DYKE[0], DYKE[1]]) < 8.5 + wob; // along the north-west bank
+    };
+    const ringArea = (r) => { let a = 0; for (let i = 0; i < r.length; i++) { const p = r[i], q = r[(i + 1) % r.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; };
+    const areas = basins.map((rings) => ringArea(rings[0]) - rings.slice(1).reduce((m, h) => m + ringArea(h), 0));
+    const sum = areas.reduce((m, a) => m + a, 0);
     basins.forEach((rings, bi) => {
       const outer = rings[0];
       let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
       for (const p of outer) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
-      const want = (MAX + MAT) / 2;
-      for (let k = 0, tries = 0; k < want && tries < want * 8; tries++) {
+      const share = areas[bi] / sum, nF = Math.round(FLOAT * share), want = nF + Math.round(EMERGE * share);
+      for (let k = 0, tries = 0; k < want && tries < want * 12; tries++) {
         const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
-        if (Math.sin(x * 0.06 + bi) * Math.cos(z * 0.05) + Math.sin((x - z) * 0.027) < -1.15 - rnd() * 0.5) continue; // the open patches
         if (!inRing(x, z, outer) || rings.slice(1).some((h) => inRing(x, z, h))) continue;
-        if (distLine(x, z, [...outer, outer[0]]) < 1.6) continue;
-        if (rings.slice(1).some((h) => distLine(x, z, [...h, h[0]]) < 1.6)) continue;
-        if (distLine(x, z, BR_BONGLAI) < 2.6 || distLine(x, z, BR_PHUONG) < 2.2) continue;
-        const floating = k < MAT / 2;
-        const r = floating ? 1.8 + rnd() * 1.2 : 0.75 + rnd() * 0.8, h = floating ? 0.05 + rnd() * 0.03 : 0.2 + rnd() * 0.7;
+        if (open(x, z)) continue;
+        const floating = k < nF;
+        const r = floating ? 2.2 + rnd() * 1.6 : 0.75 + rnd() * 0.8, h = floating ? 0.04 + rnd() * 0.05 : 0.2 + rnd() * 0.7;
+        const gap = floating ? Math.min(1.2, r * 0.5) : 1.2;
+        if (distLine(x, z, [...outer, outer[0]]) < gap) continue;
+        if (rings.slice(1).some((ring) => distLine(x, z, [...ring, ring[0]]) < gap)) continue;
+        if (distLine(x, z, BR_BONGLAI) < 1.8 + (floating ? r * 0.6 : 0) || distLine(x, z, BR_PHUONG) < 1.4 + (floating ? r * 0.6 : 0)) continue;
         pads.push([x, z, r, rnd() * 6.28, h]);
         if (!floating && rnd() < 0.08) blooms.push([x + (rnd() - 0.5), z + (rnd() - 0.5), 1.1 + rnd() * 0.6, h]);
         k++;

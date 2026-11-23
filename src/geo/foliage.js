@@ -513,9 +513,10 @@ export function treePlanter(data, group, off = null) {
       const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
       if (off && off(x, z, 2.2 * sc)) continue; // a landmark model stands here
       if (forecourts.some((c) => (x - c[0]) ** 2 + (z - c[1]) ** 2 < 46 * 46)) continue; // the great halls stand in open courts
-      let type = kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
+      // kind 4: a broadleaf shade tree a landmark placed from imagery (bàng on a lake bank): spreading, never a willow
+      let type = kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : kind === 4 ? 'spreading' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
       let lean = null;
-      if (type === 'spreading' || type === 'upright') {
+      if ((type === 'spreading' || type === 'upright') && kind !== 4) {
         const w = rand(i, 71) < 0.5 ? nearWater(x, z) : null;
         if (w !== null) { type = 'willow'; lean = w; }
       }
@@ -537,8 +538,8 @@ export function treePlanter(data, group, off = null) {
           const ax = 0.88 + rand(i, 73) * 0.24; // not every crown round in plan
           s.set(rr * ax, hgt, rr / ax);
           mesh.setMatrixAt(k, m.compose(p, q, s));
-          let col = type === 'pine' ? pick(pineC, i, 49) : type === 'palm' ? pick(palmC, i, 48) : type === 'flamboyant' ? pick(flameBase, i, 44) : type === 'willow' ? pick(willowC, i, 50) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
-          if (type === 'spreading' || type === 'upright') {
+          let col = type === 'pine' ? pick(pineC, i, 49) : type === 'palm' ? pick(palmC, i, 48) : type === 'flamboyant' ? pick(flameBase, i, 44) : type === 'willow' ? pick(willowC, i, 50) : kind === 1 || kind === 4 ? pick(dark, i, 45) : pick(greens, i, 46);
+          if ((type === 'spreading' || type === 'upright') && kind !== 4) { // kind 4 is a placed bàng: no blossom
             const bl = rand(i, 67);
             if (bl < 0.035 && !inHills(x, z)) col = pick(lilac, i, 68);
             else if (bl < 0.065 && inCitadel(x, z)) col = pick(mai, i, 69);

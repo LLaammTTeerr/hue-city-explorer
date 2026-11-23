@@ -50,7 +50,9 @@ Replica: `src/landmarks/places/tinhtam.js`. Modelled as the lake stands in 2026,
 - There are no rockeries on Phương Trượng yet.
 - Low perimeter walls: it is not confirmed whether they still exist, so they are not drawn.
 - Whether any remains of the gates or the Bồng Doanh foundations are visible is unconfirmed.
-- The bamboo clumps are simple cones.
+- The bamboo clumps are thin culms with leaf tufts.
+- Lê Văn Hưu's OSM line runs 6-8 m off the real lane on the south-west side; the car pano at that point lands at the kerb. Not corrected (it would mean tracing imagery).
+- Đinh Tiên Hoàng is drawn as a long two-lane secondary street by the shared road builder; narrowing it is a city-wide road task.
 
 ## Alignment with Google imagery (2026-11)
 Satellite and car Street View were used as visual reference only. Nothing was copied or traced into `data/`.
@@ -70,3 +72,9 @@ Satellite and car Street View were used as visual reference only. Nothing was co
   - the roads are drawn at their OSM class width, wider than the real lanes;
   - the houses on the north-west bank are missing;
   - the satellite image cannot show whether the pavilion roof has a second tier.
+
+## Review fixes (2026-11)
+- Lotus: about 9,000 floating pads and 6,000 emergent leaves (half on low quality), shared by water area, nearly closing both basins. Open water is kept only where the satellite shows it: a moat round Doanh Châu, a streak in the north basin, the south-west corner, a small pool, and a channel along the north-west dyke leg.
+- Bồng Lai is squared from the four longest edges of its mapped outline, with a revetment line, a lawn, an inner lawn square and pale paths.
+- Trees placed by this landmark use tree kind 4 (a broadleaf shade tree, bàng): always spreading and dark green, never a willow or blossom (`src/geo/foliage.js`). This covers the dyke rows, the corner banyan, the north-west belt, the Tịnh Tâm and Đinh Tiên Hoàng banks, and the island rings that screen the pavilion from đường Tịnh Tâm.
+- Lê Văn Hưu's two segments beside the lake are typed `unmarked-1` in `data/road-types.json` (a 4 m carriageway, 6.4 m with pavements), matching the 5-7 m lane in imagery.
