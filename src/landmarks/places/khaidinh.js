@@ -12,10 +12,13 @@ import * as props from '../props.js';
 // court, with two rows of stone mandarins, soldiers, horses and elephants each side; the two-tier octagonal stele
 // pavilion (Bi Đình) at the back of it between two trụ biểu (obelisks); three narrow courts 13 steps apart, each
 // flight between four dragons, two concrete flagpoles on the middle one; Cung Thiên Định (34.5 × 26.4 m) on top.
-// Placed on the OSM outlines (hue.json sites.khaidinh, converted to the local frame below): the precinct (way
-// 175035807, 109.6 × 47.1 m: the first stair lies outside it, which makes up the 117 m), Cung Thiên Định
-// (242940960), the two Tòng Tự (242940962/3, 17 × 8.6 m, long side along the axis) and the stele pavilion
-// (242940961). Riser heights, the depth of the upper courts, every height above the floors: estimated from photos.
+// Placed on the OSM outlines (hue.json sites.khaidinh, converted to the local frame below): the precinct's front and
+// sides (way 175035807), the two Tòng Tự (242940962/3, 17 × 8.6 m, long side along the axis) and the stele pavilion
+// (242940961) agree with the satellite to about a metre. Re-framed from the satellite (2026-11, docs/places/
+// khaidinh.md): OSM's precinct stops at 109.6 m, but the palace roof reaches 113 m up the axis, so the precinct runs
+// the 117 m of the plan from its front edge; Cung Thiên Định (OSM 242940960) stands about 5 m further up than its OSM
+// ring; the wall lines between the courts, the flights, the statue rows and the obelisks are read off the satellite.
+// Riser heights and every height above the floors: estimated from photos.
 //
 // Local frame: s up the axis from the precinct's front edge (south-west, at the head of the first stair) to its back
 // (north-east), t across it, + to the south-east.
@@ -32,10 +35,15 @@ const W2 = 24.25; // half the precinct's width (48.5 m)
 // weathered concrete: dark grey walls streaked black, darker ardoise roofs, paler mouldings, cornices and statues
 const WALL = hex('#5e5c59'), DARKW = hex('#4c4a47'), ROOF = hex('#3f3e3c'), TRIM = hex('#a19d94'), PAVE = hex('#77746d');
 const STAT = hex('#8a867e'), IRON = hex('#1f1e1d'), VOID = hex('#1b1918'), PALW = hex('#8d8a84');
+const STONE = hex('#4f4f4a'), GRASS = hex('#6f8a45'), WOOD = hex('#5a3a26'), TILEB = hex('#4a3b33');
+// the Tòng Tự roofs are terracotta tile (satellite); the stair cheeks weathered stone grey (Street View from the road);
+// the palace's ridges dark like its ardoise
+const TERRA = hex('#a35a3c'), CHEEK = hex('#7b7972'), RIDGE = hex('#2f2e2c');
 // the concrete is drawn as KIND.FLAT (mottled render), not KIND.MASONRY, whose shader lays brick courses on it
 
 // the levels: [front s, back s]; each flight stands on the level below, against the front wall of the next one
-const LV = { L2: [0, 31], L3: [31, 57], L4: [57, 64], L5: [64, 71], L6: [71, 81], L7: [81, 110] };
+// (wall lines on the satellite at s 26.5, 51, 61, 70.7 and the palace terrace at 81)
+const LV = { L2: [0, 26.5], L3: [26.5, 51], L4: [51, 61], L5: [61, 70.7], L6: [70.7, 81], L7: [81, 116.5] };
 // flights: steps, from s, to s, the level they climb from, lane layout
 const STEPS = [37, 29, 13, 13, 13, 22]; // 127 in all; the split of the last 61 into 13 + 13 + 13 + 22 is estimated
 
@@ -70,22 +78,66 @@ export function build({ S }) {
       for (let s = a + 0.3; s <= b; s += Math.max(3, (b - a) / Math.round((b - a) / 5))) box(s, sd * (W2 - 0.3), top, top + 2.1, 0.9, 0.9, DARKW, { top: TRIM });
     }
   }
-  // front wall of the Tòng Tự court, with the gate in it, and the back wall behind the palace
-  for (const sd of [-1, 1]) box(0.3, sd * (W2 + 8.4) / 2, Y.L2, Y.L2 + 1.6, 0.6, W2 - 8.4, WALL, { top: TRIM });
-  box(LV.L7[1] - 0.3, 0, Y.L7, Math.max(Y.L7 + 2.2, gY(110) + 1.6), 0.6, 2 * W2, WALL, { top: TRIM });
+  // front wall of the Tòng Tự court, with the gate in it and a wrought-iron railing on it, and the back wall behind
+  // the palace
+  for (const sd of [-1, 1]) {
+    box(0.3, sd * (W2 + 8.4) / 2, Y.L2, Y.L2 + 1.0, 0.6, W2 - 8.4, WALL, { top: TRIM });
+    S.kind = KIND.PLAIN;
+    for (const [y0, y1] of [[Y.L2 + 1.0, Y.L2 + 1.08], [Y.L2 + 1.86, Y.L2 + 1.94]]) box(0.3, sd * (W2 + 8.4) / 2, y0, y1, 0.08, W2 - 8.4, IRON);
+    for (let t = 8.9; t < W2 - 0.3; t += 0.45) box(0.3, sd * t, Y.L2 + 1.0, Y.L2 + (Math.round(t / 0.45) % 4 ? 1.94 : 2.15), 0.05, 0.05, IRON);
+    S.kind = KIND.FLAT;
+  }
+  // the hill below the front wall either side of the first stair: two low retaining walls of grey rubble stone, each
+  // about 2 m high with a grass ledge several metres deep on top, the precinct wall with its railing set well back
+  // behind them (Street View from Đ. Đại Nam, the car pano at the south-west corner)
+  S.kind = KIND.MASONRY;
+  for (const sd of [-1, 1]) {
+    const t0 = 10.4, t1 = sd > 0 ? 21.2 : W2; // (the kiosk stands at the SE end; a gap of grass beside the stair)
+    let top = -Infinity;
+    for (const [s0, s1] of [[-8.4, -4.4], [-4.4, 0]]) {
+      let gF = -Infinity, lo = Infinity;
+      for (let t = t0; t <= t1; t += 2) gF = Math.max(gF, gY(s0, sd * t));
+      for (let s = s0; s <= s1; s += 1.15) for (let t = t0; t <= t1; t += 2) lo = Math.min(lo, gY(s, sd * t));
+      top = Math.max(top, gF) + 1.9;
+      S.base = lo - 1 - LAND_Y;
+      box((s0 + s1) / 2, sd * (t0 + t1) / 2, lo - 1, top, s1 - s0, t1 - t0, STONE, { top: GRASS, topKind: KIND.GROUND });
+    }
+  }
+  S.kind = KIND.FLAT;
+  box(LV.L7[1] - 0.3, 0, Y.L7, Math.max(Y.L7 + 2.2, gY(LV.L7[1]) + 1.6), 0.6, 2 * W2, WALL, { top: TRIM });
+  // a balustrade along the front edge of each upper court, either side of its flights (the parapet with lattice
+  // panels the photos show at the head of the stairs)
+  for (const k of ['L4', 'L5', 'L6', 'L7']) {
+    const a = LV[k][0], top = Y[k];
+    // (behind the stele pavilion there is no flight on the axis: the parapet runs through)
+    for (const [t0, t1] of k === 'L4' ? [[-W2 + 0.6, W2 - 0.6]] : [[-W2 + 0.6, -5.6], [5.6, W2 - 0.6]]) {
+      const cuts = k === 'L4' ? [[-14.6, -11.4], [11.4, 14.6]] : k === 'L7' ? [] : [[-21.4, -17.6], [17.6, 21.4]];
+      let segs = [[t0, t1]];
+      for (const [c0, c1] of cuts) segs = segs.flatMap(([u0, u1]) => (c1 <= u0 || c0 >= u1 ? [[u0, u1]] : [[u0, c0], [c1, u1]].filter(([x, y]) => y - x > 0.5)));
+      for (const [u0, u1] of segs) box(a + 0.35, (u0 + u1) / 2, top, top + 0.95, 0.4, u1 - u0, DARKW, { top: TRIM });
+    }
+  }
 
   // ---- the flights ----
   // the first: 37 steps from the road, three lanes between four dragon balustrades
   flight(S, -10, 0, y0, Y.L2, STEPS[0], [[-5.1, 3.2], [0, 6], [5.1, 3.2]], [-8.1, -3.4, 3.4, 8.1], true);
-  // to Bái Đình: 29 steps, one wide flight between plain balustrades
-  flight(S, 23.8, 31, Y.L2, Y.L3, STEPS[1], [[0, 10]], [-5.4, 5.4], false);
-  // the three upper flights of 13 steps, each between four dragons
+  // to Bái Đình: 29 steps, the broad flight the satellite shows about 22 m wide, in three lanes
+  flight(S, 20, 26.5, Y.L2, Y.L3, STEPS[1], [[-7.3, 6.6], [0, 7.4], [7.3, 6.6]], [-10.9, -3.7, 3.7, 10.9], false);
+  // the upper flights of 13 steps. Behind Bái Đình the stele pavilion stands against the wall on the axis, and the
+  // satellite shows the way up as two flights either side of it; the next two walls have a flight on the axis
+  // between four dragons and a narrow one near either side
   const lanes3 = [[-3.4, 2.2], [0, 3.6], [3.4, 2.2]], rails3 = [-5.0, -2.2, 2.2, 5.0];
-  flight(S, 53.6, 57, Y.L3, Y.L4, STEPS[2], lanes3, rails3, true);
-  flight(S, 60.6, 64, Y.L4, Y.L5, STEPS[3], lanes3, rails3, true);
-  flight(S, 67.6, 71, Y.L5, Y.L6, STEPS[4], lanes3, rails3, true);
+  for (const sd of [-1, 1]) flight(S, 47.4, 51, Y.L3, Y.L4, STEPS[2], [[sd * 13, 2.6]], [sd * 11.5, sd * 14.5], false);
+  flight(S, 57.6, 61, Y.L4, Y.L5, STEPS[3], lanes3, rails3, true);
+  flight(S, 67.3, 70.7, Y.L5, Y.L6, STEPS[4], lanes3, rails3, true);
+  for (const sd of [-1, 1]) {
+    flight(S, 57.6, 61, Y.L4, Y.L5, STEPS[3], [[sd * 19.5, 2.4]], [sd * 18.1, sd * 20.9], false);
+    flight(S, 67.3, 70.7, Y.L5, Y.L6, STEPS[4], [[sd * 19.5, 2.4]], [sd * 18.1, sd * 20.9], false);
+  }
   // up to the palace terrace
   flight(S, 75.3, 81, Y.L6, Y.L7, STEPS[5], [[0, 9]], [-4.9, 4.9], false);
+  // cast lamp standards on pedestals at the head of the top two flights
+  for (const [s, y, big] of [[71.9, Y.L6, false], [82.6, Y.L7, true]]) for (const sd of [-1, 1]) lamp(S, s, sd * (big ? 6.0 : 5.6), y, big);
 
   // ---- the main gate at the head of the first stair: four tower-capped piers, wrought-iron gates (made in France) ----
   S.kind = KIND.FLAT; S.base = Y.L2 - LAND_Y;
@@ -106,42 +158,50 @@ export function build({ S }) {
     const s = 14.3, t = sd * 17.1, f = Y.L2 + 0.6;
     S.kind = KIND.FLAT; S.base = Y.L2 - LAND_Y;
     box(s, t, Y.L2, f, 17.6, 9.2, TRIM, { topKind: KIND.ROAD });
-    box(s, t + sd * 1.0, f, f + 3.6, 17, 6.6, WALL, { top: ROOF }); // the walled back of the hall
+    box(s, t + sd * 1.0, f, f + 3.6, 17, 6.6, WALL, { top: TERRA }); // the walled back of the hall
     for (let k = 0; k < 4; k++) box(s - 8.1 + k * 5.4, t - sd * 3.6, f, f + 3.6, 0.5, 0.5, TRIM); // front pillars
     box(s, t - sd * 3.6, f + 3.3, f + 3.8, 17, 0.6, TRIM);
     const p = P(s, t);
-    S.hip(p[0], p[1], 17, 8.6, A, f + 3.7, 2.0, ROOF, { flare: 0.25, over: 0.8, fascia: 0.25, fasciaCol: TRIM, ridgeCol: TRIM, hips: true });
+    S.hip(p[0], p[1], 17, 8.6, A, f + 3.7, 2.0, TERRA, { flare: 0.08, over: 0.8, fascia: 0.2, fasciaCol: shade(TERRA, 0.7), ridgeCol: shade(TERRA, 0.75), hips: true });
   }
 
   // ---- Bái Đình: two rows of statues each side, facing the axis: elephant and horse at the front, then mandarins
   // in the inner row, soldiers in the outer ----
   for (const sd of [-1, 1]) {
     const face = sd > 0 ? -1 : 1;
-    beast(S, 33.5, sd * 10.8, Y.L3, true);
-    beast(S, 33.5, sd * 7.4, Y.L3, false);
+    // rows read off the satellite: inner at t ±10.4, outer at ±15.2, from s 29.6 to 38.6
+    beast(S, 29.6, sd * 15.2, Y.L3, true);
+    beast(S, 29.6, sd * 10.4, Y.L3, false);
     for (let k = 0; k < 4; k++) {
-      figure(S, 36.2 + k * 1.8, sd * 7.4, Y.L3, face, 1);
-      figure(S, 36.2 + k * 1.8, sd * 10.8, Y.L3, face, 0.82);
+      figure(S, 32.0 + k * 2.2, sd * 10.4, Y.L3, face, 1);
+      figure(S, 32.0 + k * 2.2, sd * 15.2, Y.L3, face, 0.82);
     }
   }
-  // the axis walk
-  S.kind = KIND.FLAT; S.base = Y.L3 - LAND_Y;
-  box(36, 0, Y.L3, Y.L3 + 0.08, 9.5, 4, TRIM, { topKind: KIND.ROAD });
 
-  // ---- Bi Đình: octagonal, two roofs of ardoise, an arched opening in each face; the 3.1 m stele inside ----
+  // ---- Bi Đình: octagonal, two storeys of pale grey concrete, a large arched opening in each face of both, a
+  // balustrade round the base, two roofs of ardoise; the 3.1 m stele inside (Street View, the user photosphere on the
+  // forecourt) ----
   {
-    const sp = 45.5, p = P(sp), rot = A + Math.PI / 8;
+    const sp = 45, p = P(sp), rot = A + Math.PI / 8;
+    const PALE = hex('#94918a');
     let fy = Y.L3;
     S.kind = KIND.FLAT; S.base = fy - LAND_Y;
     for (const [rr, h] of [[6.0, 0.4], [5.4, 0.4], [4.8, 0.4]]) { S.cyl(p[0], p[1], fy - 0.05, fy + h, rr, rr, 8, TRIM, { rot }); fy += h; }
-    // eight piers at the corners and a low drum; the openings dark
-    S.cyl(p[0], p[1], fy, fy + 4.3, 4.0, 4.0, 8, VOID, { rot, cap: false });
+    // the balustrade on the lowest step, open on the faces toward and away from the axis walk
+    for (let i = 0; i < 8; i++) {
+      const a0 = rot + (i / 8) * Math.PI * 2, a1 = rot + ((i + 1) / 8) * Math.PI * 2, am = (a0 + a1) / 2;
+      if (Math.abs(Math.cos(am - A)) > 0.9) continue;
+      const yb = Y.L3 + 0.4, R = 5.75;
+      S.beam([p[0] + Math.cos(a0) * R, yb + 0.35, p[1] + Math.sin(a0) * R], [p[0] + Math.cos(a1) * R, yb + 0.35, p[1] + Math.sin(a1) * R], 0.25, 0.7, PALE);
+    }
+    // eight piers at the corners; the large arched openings dark
+    S.cyl(p[0], p[1], fy, fy + 4.3, 3.9, 3.9, 8, VOID, { rot, cap: false });
     for (let i = 0; i < 8; i++) {
       const a = rot + (i / 8) * Math.PI * 2, x = p[0] + Math.cos(a) * 4.1, z = p[1] + Math.sin(a) * 4.1;
-      S.box(x, z, fy, fy + 4.3, 1.0, 1.0, a, WALL, { top: TRIM });
-      // the arch heads between the piers
+      S.box(x, z, fy, fy + 4.3, 0.8, 0.8, a, PALE, { top: TRIM });
+      // the arch heads between the piers, high: the openings fill most of each face
       const b = a + Math.PI / 8, xm = p[0] + Math.cos(b) * 3.85, zm = p[1] + Math.sin(b) * 3.85;
-      S.box(xm, zm, fy + 3.2, fy + 4.3, 0.5, 2.6, b, WALL);
+      S.box(xm, zm, fy + 3.5, fy + 4.3, 0.4, 2.8, b, PALE);
     }
     S.box(p[0], p[1], fy, fy + 0.76, 0.85, 2.1, AV, TRIM); // the stele's plinth and the stele (3.1 × 1.2 m)
     S.box(p[0], p[1], fy + 0.76, fy + 3.86, 0.3, 1.2, AV, STAT);
@@ -150,8 +210,9 @@ export function build({ S }) {
     S.kind = KIND.TILE;
     S.cyl(p[0], p[1], ry, ry + 1.2, 5.6, 3.0, 8, ROOF, { rot }); ry += 1.2;
     S.kind = KIND.FLAT;
-    S.cyl(p[0], p[1], ry, ry + 2.0, 2.8, 2.8, 8, WALL, { rot, cap: false });
-    for (let i = 0; i < 8; i++) { const a = rot + ((i + 0.5) / 8) * Math.PI * 2; S.box(p[0] + Math.cos(a) * 2.62, p[1] + Math.sin(a) * 2.62, ry + 0.5, ry + 1.6, 0.12, 1.0, a, VOID); }
+    S.cyl(p[0], p[1], ry, ry + 2.0, 2.8, 2.8, 8, PALE, { rot, cap: false });
+    // an arched opening in each face of the upper storey, most of its width
+    for (let i = 0; i < 8; i++) { const a = rot + ((i + 0.5) / 8) * Math.PI * 2; S.box(p[0] + Math.cos(a) * 2.6, p[1] + Math.sin(a) * 2.6, ry + 0.25, ry + 1.75, 0.14, 1.6, a, VOID); }
     ry += 2.0;
     S.cyl(p[0], p[1], ry, ry + 0.3, 3.3, 3.3, 8, TRIM, { rot }); ry += 0.3;
     S.kind = KIND.TILE;
@@ -159,14 +220,14 @@ export function build({ S }) {
     S.kind = KIND.FLAT;
     S.cyl(p[0], p[1], ry - 0.1, ry + 0.9, 0.35, 0.05, 6, TRIM);
     // the trụ biểu either side: square shafts on stepped bases, a stupa finial
-    for (const sd of [-1, 1]) obelisk(S, sp, sd * 16, Y.L3);
+    for (const sd of [-1, 1]) obelisk(S, sp + 0.5, sd * 18.5, Y.L3); // the satellite puts them near t ±19
   }
 
   // ---- the two concrete flagpoles on the middle of the three upper courts ----
   S.kind = KIND.FLAT; S.base = Y.L5 - LAND_Y;
   for (const sd of [-1, 1]) {
-    box(66.4, sd * 8, Y.L5, Y.L5 + 1.2, 1.8, 1.8, TRIM);
-    box(66.4, sd * 8, Y.L5 + 1.2, Y.L5 + 12, 0.5, 0.5, WALL, { taper: 0.55 });
+    box(65.9, sd * 8, Y.L5, Y.L5 + 1.2, 1.8, 1.8, TRIM);
+    box(65.9, sd * 8, Y.L5 + 1.2, Y.L5 + 12, 0.5, 0.5, WALL, { taper: 0.55 });
   }
 
   palace(S, Y.L7);
@@ -174,6 +235,7 @@ export function build({ S }) {
 
   // the mapped outbuildings of the site, outside the precinct (ticket office and stalls at the foot): plain halls
   for (const ring of OUT) house(S, ring);
+  kiosk(S);
   S.kind = keep; S.base = 0;
 }
 
@@ -193,11 +255,11 @@ function flight(S, s0, s1, ya, yb, n, lanes, rails, dragon) {
     // the solid balustrade, bedded to the level below
     const a = V(s0, t, ya + rh / 2), b = V(s1, t, yb + rh / 2);
     S.kind = KIND.FLAT;
-    S.beam(a, b, rw, rh, dragon ? WALL : TRIM);
+    S.beam(a, b, rw, rh, dragon ? CHEEK : TRIM);
     const lo = Math.min(ya, gY(s0, t)) - 0.5;
     S.base = lo - LAND_Y;
     const p0 = P(s0 + (s1 - s0) * 0.5, t);
-    S.box(p0[0], p0[1], lo, ya + (yb - ya) * 0.5, s1 - s0, rw, A, DARKW);
+    S.box(p0[0], p0[1], lo, ya + (yb - ya) * 0.5, s1 - s0, rw, A, CHEEK);
     if (!dragon) {
       for (const [s, yy] of [[s0, ya], [s1, yb]]) { const q = P(s, t); S.box(q[0], q[1], yy, yy + 1.4, 0.7, 0.7, A, TRIM, { top: shade(TRIM, 1.1) }); }
       continue;
@@ -213,11 +275,11 @@ function flight(S, s0, s1, ya, yb, n, lanes, rails, dragon) {
       prev = q;
     }
     const h = P(s0 - 0.3, t), hh = P(s0 - 1.1, t);
-    S.box(h[0], h[1], ya - 0.1, ya + 2.0, 1.4, rw + 0.25, A, WALL, { taper: 0.8, top: TRIM });
+    S.box(h[0], h[1], ya - 0.1, ya + 2.0, 1.4, rw + 0.25, A, CHEEK, { taper: 0.8, top: TRIM });
     S.box(hh[0], hh[1], ya + 1.5, ya + 2.3, 1.3, rw, A, TRIM); // the head and jaws, looking down the stair
     S.beam(V(s0 - 0.3, t, ya + 2.0), V(s0 + 0.4, t, ya + 2.8), 0.25, 0.4, TRIM); // the mane
     const tl = P(s1 - 0.2, t);
-    S.box(tl[0], tl[1], yb, yb + 1.9, 0.8, 0.8, A, WALL, { top: TRIM, taper: 0.6 });
+    S.box(tl[0], tl[1], yb, yb + 1.9, 0.8, 0.8, A, CHEEK, { top: TRIM, taper: 0.6 });
   }
 }
 
@@ -246,49 +308,93 @@ function obelisk(S, s, t, y) {
 }
 
 // Cung Thiên Định on its terrace at level y: plinth, the long body of five rooms (Tả/Hữu trực phòng either end, the
-// three rooms of Khải Thành between), a portico of arched entrances on the front, and the raised two-tier roof over
-// the central room where the bronze statue stands over the grave
+// three rooms of Khải Thành between), a portico of arched entrances across the front, and the raised square tier
+// over Khải Thành, where the bronze statue stands over the grave. From the satellite the roof is one concentric
+// two-tier roof, about 35.7 m across by 24.1 m up the axis (s 88.4-112.6), an even skirt on all four sides around
+// the raised tier; the portico stands under the front of the main skirt, with no lean-to of its own, and the dark
+// rectangle in front of it is the central stair in the open. The OSM outline (242940960, s 81.5-107.6) is about
+// 5 m short of that up the axis; the 34.5 m width of the plan is kept, its 26.4 m depth is taken with the portico.
 function palace(S, y) {
   const box = (s, t, y0, y1, ss, st, col, o) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, o); };
-  const hip = (s, t, w, d, y0, h, o) => { const p = P(s, t); S.hip(p[0], p[1], w, d, AV, y0, h, ROOF, { flare: 0.3, fascia: 0.3, fasciaCol: TRIM, ridgeCol: TRIM, hips: true, ...o }); };
-  const sc = 94.55, tc = -0.7, D = 26.4, Wd = 34.5; // the OSM outline: s 81.5-107.6, t -18.2-16.8
+  const hip = (s, t, w, d, y0, h, o) => { const p = P(s, t); S.hip(p[0], p[1], w, d, AV, y0, h, ROOF, { flare: 0.3, fascia: 0.3, fasciaCol: DARKW, ridgeCol: RIDGE, hips: true, ...o }); };
+  const rc = 100.5, tc = 0, Wd = 34.5, Dr = 23.0; // the roof's plan (eaves 0.6 further): s 89-112
+  const ps = rc - Dr / 2 + 0.6; // the portico's pillar line, under the front eave
+  const bf = ps + 2.6, bb = rc + Dr / 2 - 0.3, sc = (bf + bb) / 2, D = bb - bf; // the walled body behind it
   const f = y + 0.9;
   S.kind = KIND.FLAT; S.base = y - LAND_Y;
-  box(sc, tc, y, f, D + 1.2, Wd + 1.2, TRIM, { topKind: KIND.ROAD });
-  // the body: dark lower walls, a pale cornice band
+  box(rc - 0.8, tc, y, f, Dr + 3.6, Wd + 1.2, TRIM, { topKind: KIND.ROAD });
+  // the body: grey walls, a pale cornice band round body and portico together
   box(sc, tc, f, f + 5.2, D, Wd, PALW, { top: ROOF });
-  box(sc, tc, f + 5.2, f + 5.7, D + 0.4, Wd + 0.4, TRIM);
-  // windows and doors: dark recesses on the front and the sides
+  box((ps - 0.5 + bb + 0.2) / 2, tc, f + 5.2, f + 5.7, bb + 0.2 - ps + 0.5, Wd + 0.4, TRIM);
+  // windows and doors: dark recesses on the front wall (in the shade of the portico) and the sides
   S.kind = KIND.PLAIN;
-  for (let i = 0; i < 9; i++) { const t = tc + (i - 4) * 3.7; box(sc - D / 2 - 0.02, t, f + 0.4, f + (Math.abs(i - 4) < 3 ? 3.8 : 3.0), 0.1, 1.5, VOID); }
-  for (const sd of [-1, 1]) for (let i = 0; i < 6; i++) box(sc - 10 + i * 4, tc + sd * (Wd / 2 + 0.02), f + 1.0, f + 3.4, 1.4, 0.1, VOID);
-  // the front portico: five arched entrances between square pillars, a balustraded roof terrace over it
+  for (let i = 0; i < 9; i++) { const t = tc + (i - 4) * 3.7; box(bf - 0.02, t, f + 0.4, f + (Math.abs(i - 4) < 3 ? 3.8 : 3.0), 0.1, 1.5, VOID); }
+  for (const sd of [-1, 1]) for (let i = 0; i < 5; i++) box(sc - 8 + i * 4, tc + sd * (Wd / 2 + 0.02), f + 1.0, f + 3.4, 1.4, 0.1, VOID);
+  // the portico: arched entrances between square pillars across the whole front, up to the cornice
   S.kind = KIND.FLAT;
-  const ps = sc - D / 2 - 2.2;
-  for (let i = 0; i < 6; i++) { const t = tc + (i - 2.5) * 4.2; box(ps, t, f, f + 4.4, 0.8, 0.8, TRIM); }
-  for (let i = 0; i < 5; i++) { const t = tc + (i - 2) * 4.2; box(ps, t, f + 3.4, f + 4.4, 0.6, 3.4, WALL); }
-  box(ps + 0.9, tc, f + 4.4, f + 5.0, 5.2, 22.6, TRIM, { topKind: KIND.ROAD });
-  box(ps - 0.8, tc, f + 5.0, f + 5.8, 0.4, 22.6, WALL, { top: TRIM });
-  // the main roof over the five rooms, low-pitched ardoise
-  hip(sc + 1.0, tc, Wd, D - 2, f + 5.7, 2.1, { over: 0.9 });
-  // Khải Thành: the raised central block, its skirt roof and the upper tier
-  box(sc, tc, f + 5.7, f + 8.2, 15, 12, WALL, { top: TRIM });
-  hip(sc, tc, 13.6, 16.6, f + 8.2, 0.9, { flare: 0.25, over: 0.6 });
-  box(sc, tc, f + 8.2, f + 9.0, 11, 8.6, PALW, { top: TRIM });
-  hip(sc, tc, 9.2, 11.6, f + 9.0, 1.5, { flare: 0.3, over: 0.7 });
-  // front gable-ends of the two end rooms rise as low pavilions over the corners
-  for (const sd of [-1, 1]) {
-    const t = tc + sd * (Wd / 2 - 3.6);
-    box(sc - D / 2 + 3.6, t, f + 5.7, f + 6.9, 6.4, 6.4, WALL, { top: TRIM });
-    hip(sc - D / 2 + 3.6, t, 6.4, 6.4, f + 6.9, 1.4, { over: 0.5 });
+  for (let i = 0; i < 9; i++) { const t = tc + (i - 4) * 4.25; box(ps, t, f, f + 5.2, 0.8, 0.8, TRIM); }
+  for (let i = 0; i < 8; i++) { const t = tc + (i - 3.5) * 4.25; box(ps, t, f + 3.9, f + 5.2, 0.6, 3.45, WALL); }
+  // the portico's ceiling under the skirt
+  box((ps + bf) / 2, tc, f + 5.0, f + 5.2, bf - ps, Wd, DARKW);
+  // the main roof, low-pitched ardoise, the skirt even on all four sides
+  hip(rc, tc, Wd, Dr, f + 5.7, 2.1, { over: 0.6 });
+  // Khải Thành: the raised square tier in the middle, a clerestory with dark windows under its own hipped roof
+  const ks = rc + 0.4, kw = 17.6;
+  box(ks, tc, f + 5.7, f + 8.6, kw, kw, WALL, { top: TRIM });
+  S.kind = KIND.PLAIN;
+  for (let i = 0; i < 5; i++) box(ks - kw / 2 - 0.02, tc + (i - 2) * 3.3, f + 7.6, f + 8.3, 0.1, 1.6, VOID);
+  S.kind = KIND.FLAT;
+  hip(ks, tc, kw + 1.4, kw + 0.6, f + 8.6, 2.0, { flare: 0.25, over: 0.5, fasciaCol: TRIM }); // its pale eave outlines the tier from above
+}
+
+// a cast lamp standard on a pedestal at level y: a square pedestal with a cornice, a fluted post, four scrolled arms
+// and a crown (the pair at the head of the palace stair is the larger)
+function lamp(S, s, t, y, big) {
+  const p = P(s, t), k = big ? 1 : 0.75;
+  const bx = (y0, y1, w, col, o) => S.box(p[0], p[1], y0, y1, w, w, A, col, o);
+  S.kind = KIND.FLAT; S.base = y - LAND_Y;
+  bx(y, y + 0.3, 1.7 * k, TRIM);
+  bx(y + 0.3, y + 2.0 * k, 1.4 * k, WALL, { top: TRIM });
+  bx(y + 2.0 * k, y + 2.2 * k, 1.6 * k, TRIM);
+  const y1 = y + 2.2 * k;
+  S.cyl(p[0], p[1], y1, y1 + 3.2 * k, 0.2 * k, 0.12 * k, 8, IRON, { cap: true });
+  const ya = y1 + 2.7 * k;
+  for (const [ds, dt] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const q = V(s + ds * 0.7 * k, t + dt * 0.7 * k, ya + 0.25 * k);
+    S.beam([p[0], ya, p[1]], q, 0.08, 0.08, IRON);
+    S.cyl(q[0], q[2], q[1], q[1] + 0.45 * k, 0.16 * k, 0.2 * k, 6, TRIM, { cap: true });
   }
+  S.cyl(p[0], p[1], y1 + 3.2 * k, y1 + 3.9 * k, 0.28 * k, 0.05, 8, IRON, { cap: true });
+}
+
+// the ticket kiosk at the foot of the first stair (OSM 1330598717, s -14.6..-8.3, t 21.7..28.6): a small timber
+// house on a stepped plinth under a tiled hip roof (Street View from the south-east road). The OSM ring lies half on
+// the model's Đ. Đại Nam, as it does on the satellite, while Street View shows the kiosk's steps at the road's edge:
+// it is moved 5.6 m up the axis to stand off the carriageway (the road here is drawn wider than it is)
+function kiosk(S) {
+  const s = -11.45 + 5.6, t = 25.15, w = 6.3, d = 6.9; // d across the axis
+  const p = P(s, t);
+  let lo = Infinity;
+  for (const ds of [-w / 2, w / 2]) for (const dt of [-d / 2, d / 2]) lo = Math.min(lo, gY(s + ds, t + dt));
+  // the floor four steps above the road at its foot; the hill behind rises over its back
+  const fl = lo + 0.7;
+  S.kind = KIND.FLAT; S.base = lo - 0.4 - LAND_Y;
+  S.box(p[0], p[1], lo - 0.4, fl, w + 0.8, d + 0.8, A, DARKW, { top: PAVE, topKind: KIND.ROAD });
+  S.kind = KIND.TIMBER;
+  S.box(p[0], p[1], fl, fl + 2.6, w - 1.2, d - 1.2, A, WOOD);
+  // a dark cornice band at the counter height, under the deep eave
+  S.kind = KIND.FLAT;
+  S.box(p[0], p[1], fl + 0.85, fl + 1.0, w - 0.8, d - 0.8, A, DARKW);
+  S.kind = KIND.TILE;
+  S.hip(p[0], p[1], d + 0.4, w + 0.4, AV, fl + 2.6, 1.6, TILEB, { flare: 0.4, over: 0.6, hips: true });
+  S.kind = KIND.FLAT;
 }
 
 // the mapped outbuildings of the site, outside the precinct (OSM 1205438742, 1330598711), local frame
 const OUT = [
   [[-32.3, 85.4], [-22.1, 90.4], [-45.2, 140.4], [-55.4, 135.5]],
   [[9.4, 50.4], [9.5, 63.9], [2.9, 63.8], [2.7, 50.5]],
-]; // 1330598717 (s -14.6..-8.3, t 21.7..28.6) is left out: the road at the foot of the stair now runs over it
+]; // 1330598717, the ticket kiosk, is drawn by kiosk() below
 function house(S, ring) {
   const ps = ring.map(([s, t]) => P(s, t));
   const c = [ps.reduce((a, p) => a + p[0], 0) / 4, ps.reduce((a, p) => a + p[1], 0) / 4];
