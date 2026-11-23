@@ -1027,6 +1027,7 @@ function roofClash(roofs) {
 export function populate(world, data) {
   const cover = coverOf(world.structures);
   const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
+  const R16 = Array.from({ length: 16 }, (_, i) => [Math.cos((i * Math.PI) / 8), Math.sin((i * Math.PI) / 8)]), RINGS = [0.41, 0.71, 0.91];
   // a tree: its trunk and the reach of its lower branches
   // A tree stands off the asphalt too: carriageways, the junction patches painted between them and the paved slivers
   // (geo/junctions.js). The data keeps trees off the carriageways it knows, but the patches are only found here, once
@@ -1035,9 +1036,11 @@ export function populate(world, data) {
   const asphalt = world.marks ? asphaltTest([...world.marks.cw, ...(world.marks.paved || [])], world.marks.holeCells) : () => false;
   const onRoad = (x, z, R) => {
     if (asphalt(x, z)) return true;
+    // 16 bearings on three rings, each the middle of a third of the crown's area: two rings of 8 missed a crown over
+    // carriageways on both sides of a narrow median (its edges falling between the samples), which check:trees caught
     let n = 0;
-    for (const [u, v] of R8) { if (asphalt(x + u * R * 0.5, z + v * R * 0.5)) n++; if (asphalt(x + u * R * 0.85, z + v * R * 0.85)) n++; }
-    return n > CROWN_ROAD * 16;
+    for (const [u, v] of R16) for (const f of RINGS) if (asphalt(x + u * R * f, z + v * R * f)) n++;
+    return n > CROWN_ROAD * R16.length * RINGS.length;
   };
   const treeOff = (x, z, r, crown = r * 1.5) => { if (cover.hitTall(x, z) || onRoad(x, z, crown)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
   // a house: its plan sampled every metre (the middle of each metre strip, and both edges), so a model's step or
