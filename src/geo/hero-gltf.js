@@ -334,6 +334,77 @@ export const HERO_MODELS = [
     rotY: -0.7156,
     radius: 280,
   },
+  // 10 Kinh Thành Citadel Gates (exact per-gate watchtower hero .glb assets)
+  {
+    id: 'gate:Cửa Quảng Đức',
+    file: 'gate-quangduc-hero.glb',
+    pos: [-1090.35, 0, 356.73],
+    rotY: -2.6386,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Thượng Tứ',
+    file: 'gate-thuongtu-hero.glb',
+    pos: [-497.31, 0, -99.89],
+    rotY: 0.626,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Hậu',
+    file: 'gate-cuahau-hero.glb',
+    pos: [-1910.74, 0, -1980.42],
+    rotY: 3.7845,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa An Hòa',
+    file: 'gate-anhoa-hero.glb',
+    pos: [-2821.3, 0, -1314.4],
+    rotY: -2.5016,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Chánh Tây',
+    file: 'gate-chanhtay-hero.glb',
+    pos: [-2923.89, 0, -633.74],
+    rotY: 2.197,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Hữu',
+    file: 'gate-cuahuu-hero.glb',
+    pos: [-2235.23, 0, 292.78],
+    rotY: -0.9384,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Nhà Đồ',
+    file: 'gate-nhado-hero.glb',
+    pos: [-1428.34, 0, 536.4],
+    rotY: 0.473,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Ngăn',
+    file: 'gate-cuangan-hero.glb',
+    pos: [-796.51, 0, 146.66],
+    rotY: -2.395,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Đông Ba',
+    file: 'gate-dongba-hero.glb',
+    pos: [-540.25, 0, -958.84],
+    rotY: -7.2246,
+    radius: 280,
+  },
+  {
+    id: 'gate:Cửa Kẻ Trài',
+    file: 'gate-ketrai-hero.glb',
+    pos: [-1228.2, 0, -1874.9],
+    rotY: 2.2013,
+    radius: 280,
+  },
 ];
 
 // Convert a loaded glTF Mesh to Hue's shared cityMaterial convention (sqrt-encoded linear vertex colors, aKind, aBase).
