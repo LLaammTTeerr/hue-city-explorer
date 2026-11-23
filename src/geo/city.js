@@ -13,7 +13,7 @@ import { bridgeProfiles, bridgeLamps, resample, subPath, LAND_RAMP, ownLit } fro
 import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
-import { replaced, placeDeckEnds, placeOwns } from '../landmarks/places/index.js';
+import { replaced, placeDeckEnds, placeOwns, placeOwnsWay } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { ownRoads as daVienRoads } from '../landmarks/places/bachho.js';
 import { ownRoads as minhMangRoads } from '../landmarks/places/minhmang.js';
@@ -288,7 +288,8 @@ function medianShrubs(S, medians) {
 function buildRoads(data, group, structures) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
+  const owned = placeOwnsWay(data); // paths a replica draws itself (places/index.js)
+  const roads = (data.roads || []).filter((e) => !owned(e)).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
   const profiles = bridgeProfiles(data);
   // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
   // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
