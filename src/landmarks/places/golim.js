@@ -39,8 +39,8 @@ const BOARD_W = 0.15, PANEL = 2; // board width; samples (STEP each) per panel
 // Colours as the walk looks now (Street View photosphere on the deck, Google satellite): the lim has weathered to a
 // grey-brown and the bronze, gold-toned when new in 2018, has dulled to a dark brown-grey
 const C = {
-  lim: hex('#7f7c79'), fascia: hex('#4f4a46'), bronze: hex('#968b7c'), bronzeDk: hex('#7d7366'), seam: hex('#55524f'),
-  pile: hex('#a39d92'), head: hex('#8f897e'),
+  lim: hex('#967c63'), fascia: hex('#5e4c3d'), bronze: hex('#c2a36b'), bronzeDk: hex('#9a7f52'), seam: hex('#615041'),
+  pile: hex('#a8a296'), head: hex('#928c80'),
 };
 const BOARD = [1, 0.95, 0.98, 0.93, 0.96, 0.99];
 

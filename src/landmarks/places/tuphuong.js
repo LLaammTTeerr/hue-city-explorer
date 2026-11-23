@@ -40,7 +40,7 @@ const LEAF = hex('#5f7f3c'), BARK = hex('#7d7466');
 // the pavilion's centre in the bastion's frame (u, v), from the satellite (see the pavilion below)
 const PAV = [-0.6, 10.2];
 
-export function build({ S }) {
+export function build({ data, S }) {
   const M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
   const len = Math.hypot(B[0] - A[0], B[1] - A[1]);
   const ux = (B[0] - A[0]) / len, uz = (B[1] - A[1]) / len;
@@ -178,10 +178,17 @@ export function build({ S }) {
     }
   }
 
-  // ---- broadleaf trees on the platform, where the satellite and the panoramas show them ----
-  for (const [u, v, h, r] of [[-15, 1.9, 9, 6.5], [15.6, 1.4, 7, 3.5], [21.7, 8.5, 7, 3.5], [31, 18.7, 7.5, 4]]) {
-    const q = P(u, v); tree(S, q[0], q[1], yPl, h, r, 4, [LEAF, shade(LEAF, 0.85), shade(LEAF, 1.1)]);
+  // ---- broadleaf trees on the platform: real instanced foliage lifted onto Bắc Khuyết Đài via S.stand ----
+  if (Array.isArray(data?.trees)) {
+    for (const [u, v, sc] of [[-15, 2.5, 11], [15.6, 2.2, 9], [21.7, 8.5, 9], [30, 18.5, 10]]) {
+      const q = P(u, v);
+      data.trees.push(Math.round(q[0] * 10), Math.round(q[1] * 10), sc, 4);
+    }
   }
+  (S.stand = S.stand || []).push((x, z) => {
+    const [u, v] = L([x, z]);
+    return Math.abs(u) <= H && v >= 0 && v <= D ? OUTER.h : 0;
+  });
 
   // ---- the pavilion ----
   // OSM way 172802373 centres it at u 0.9, v 14.3, but on the satellite its lower eaves are centred near u 0.9, v 9.5

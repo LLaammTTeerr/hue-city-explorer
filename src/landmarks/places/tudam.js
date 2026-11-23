@@ -184,8 +184,16 @@ export function build({ data, S, group, THREE }) {
   // ---------------- tháp Ấn Tôn: octagonal, seven storeys, about 27 m ----------------
   stupa(S, STUPA[0], STUPA[1], Y, lamp);
 
-  // ---------------- the Bodhi tree, and the other trees of the yard ----------------
-  tree(S, ...P(15.5, 42), Y, 15, 5.5, 5, [C.leaf, C.leafDark, C.leaf2]); // cây bồ đề, planted 1939: a tall trunk, a high crown
+  // ---------------- the Bodhi tree, and the other trees of the yard (real instanced foliage lifted onto the terrace) ----------------
+  if (Array.isArray(data.trees)) {
+    const b = P(15.5, 42);
+    data.trees.push(Math.round(b[0] * 10), Math.round(b[1] * 10), 14, 5); // cây bồ đề (1939): spreading banyan crown
+    for (const [u, v, sc] of [[-24, -22, 10], [-26, -8, 10], [-24, 6, 10], [-30, 24, 11], [-12, 52, 9], [9, 52, 9], [-18, -36, 12]]) {
+      const q = P(u, v);
+      if (inRing(q[0], q[1], site)) data.trees.push(Math.round(q[0] * 10), Math.round(q[1] * 10), sc, 4);
+    }
+  }
+  (S.stand = S.stand || []).push((x, z) => (inRing(x, z, site) ? Math.max(0, yAt(x, z) - (LAND_Y + rise(x, z))) : 0));
   // slender Ashoka trees in ring planters along the east hall (yard panorama)
   for (const v of [8, 16, 24, 32]) ashoka(S, ...P(17.6, v), Y, 7.5);
   // Ashoka trees ringing the stupa
@@ -193,11 +201,6 @@ export function build({ data, S, group, THREE }) {
     const a = (k / 8) * Math.PI * 2 + 0.3;
     if (Math.abs(Math.sin(a - ANG) - 1) < 0.3) continue; // leave the path from the yard open
     ashoka(S, STUPA[0] + Math.cos(a) * 7.2, STUPA[1] + Math.sin(a) * 7.2, Y, 9, false);
-  }
-  // frangipani and round shade trees along the west wall (on Điện Biên Phủ) and by the gate
-  for (const [u, v, h, r] of [[-24, -22, 6.5, 3.6], [-26, -8, 7, 3.8], [-24, 6, 6.5, 3.6], [-30, 24, 7.5, 4], [-12, 52, 5.5, 3], [9, 52, 5.5, 3], [-18, -36, 8, 4.5]]) {
-    const q = P(u, v);
-    if (inRing(q[0], q[1], site)) tree(S, q[0], q[1], Y, h, r, 3, [C.leaf2, C.leaf, C.leafDark]);
   }
   // potted bonsai along the foot of the stair, and the bronze incense urn on the axis
   S.kind = KIND.PLAIN;

@@ -139,8 +139,9 @@ export function build({ S, group }) {
   {
     const yard0 = S.n;
     S.kind = KIND.ROAD;
-    // concrete yard west and north of the terminal hall
+    // concrete yard west and north of the terminal hall (covering both the canopy bays and the main yard)
     box(-10, -28, y0 - 0.2, y0 + 0.08, 66, 36, hex('#b8b4aa'), { topKind: KIND.ROAD });
+    box(-18, 2.5, y0 - 0.2, y0 + 0.08, 34, 19, hex('#b8b4aa'), { topKind: KIND.ROAD });
     (S.paved = S.paved || []).push([yard0, S.n]);
     // teal-green pitched boarding shelter along the north-east edge of the yard (prominent on satellite)
     S.kind = KIND.PLAIN;

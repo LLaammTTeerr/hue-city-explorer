@@ -221,22 +221,33 @@ export function build({ data, S, group }) {
   }
 
   // ---------------- the roof: tree terraces on the inner side, solar panels and plant beyond ----------------
+  // Guard every rooftop element with inRing(p, R) so nothing ever floats beyond the L-shaped roof slab.
   {
     const yr = y0 + ROOF;
+    const onRoof = (u, v, pad = 2.5) => {
+      for (const [du, dv] of [[0, 0], [-pad, 0], [pad, 0], [0, -pad], [0, pad]]) {
+        const q = P(u + du, v + dv);
+        if (!inRing(q[0], q[1], R)) return false;
+      }
+      return true;
+    };
     for (const [cu, cv, su, sv] of [[-14, 14, 20, 40], [30, -26, 30, 14], [-20, -14, 14, 14]]) {
-      box(cu, cv, yr, yr + 0.35, su, sv, C.deck, { top: C.deck, topKind: KIND.ROAD });
+      if (onRoof(cu, cv, Math.min(su, sv) * 0.42)) {
+        box(cu, cv, yr, yr + 0.35, su, sv, C.deck, { top: C.deck, topKind: KIND.ROAD });
+      }
       for (let k = 0; k < 7; k++) {
         const pu = cu + (((k * 37) % 10) / 10 - 0.45) * (su - 6), pv = cv + (((k * 53) % 10) / 10 - 0.45) * (sv - 6);
+        if (!onRoof(pu, pv, 2.2)) continue;
         box(pu, pv, yr + 0.35, yr + 0.9, 3.6, 3.6, C.greenDk, { top: C.green });
         const p = P(pu, pv);
-        S.cyl(p[0], p[1], yr + 0.9, yr + 3.4 + (k % 3) * 0.8, 1.7, 1.1, 7, k % 2 ? C.green : C.greenDk);
+        S.cyl(p[0], p[1], yr + 0.9, yr + 3.0 + (k % 3) * 0.6, 1.5, 1.0, 7, k % 2 ? C.green : C.greenDk);
       }
     }
     S.kind = KIND.FLAT;
-    for (let v = 44; v < vFar - 4; v += 5) box(uW / 2, v, yr + 0.3, yr + 0.7, -uW - 12, 3.2, C.solar, { top: C.solar });
-    for (let u = 40; u < umax - 40; u += 5) box(u, (vS - 20) / 2 - 6, yr + 0.3, yr + 0.7, 3.2, -20 - vS - 22, C.solar, { top: C.solar });
+    for (let v = 44; v < vFar - 4; v += 5) if (onRoof(uW / 2, v, 3)) box(uW / 2, v, yr + 0.3, yr + 0.7, -uW - 12, 3.2, C.solar, { top: C.solar });
+    for (let u = 40; u < umax - 40; u += 5) if (onRoof(u, (vS - 20) / 2 - 6, 3)) box(u, (vS - 20) / 2 - 6, yr + 0.3, yr + 0.7, 3.2, -20 - vS - 22, C.solar, { top: C.solar });
     S.kind = KIND.PLAIN;
-    for (const [cu, cv] of [[uW / 2, -40], [uW / 2 - 12, -30], [30, (vS - 20) / 2 + 12]]) box(cu, cv, yr, yr + 2.4, 8, 5, C.grey);
+    for (const [cu, cv] of [[uW / 2, -40], [uW / 2 - 12, -30], [30, (vS - 20) / 2 + 12]]) if (onRoof(cu, cv, 4.5)) box(cu, cv, yr, yr + 2.4, 8, 5, C.grey);
   }
 
   for (const [B, col, boost] of [[LB, 0xffe2b0, 1.0], [MB, 0xff4fb0, 1.4], [GB, 0xfff1c8, 0.85]]) {

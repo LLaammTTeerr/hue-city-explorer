@@ -3,6 +3,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { cityMaterial } from './materials.js';
 import { KIND } from './buf.js';
 import { LAND_Y, quality } from '../config.js';
+import { rise } from './terrain.js';
 
 // Self-hosted lazy-loaded hero .glb assets (public/data/models/<file>).
 // Each entry is streamed on demand when the camera approaches within `radius` metres or the visitor picks `id`,
@@ -14,10 +15,23 @@ export const HERO_MODELS = [
   {
     id: 'ngomon',
     file: 'ngomon-hero.glb',
-    // Matches ngomon.js centre C and angle A = -0.633 rad
-    pos: [-1033.95 + 2.0 * Math.sin(-0.633), LAND_Y, 132.78 - 2.0 * Math.cos(-0.633)],
+    pos: [-1033.95 + 2.0 * Math.sin(-0.633), 0, 132.78 - 2.0 * Math.cos(-0.633)],
     rotY: 0.633,
     radius: 320,
+  },
+  {
+    id: 'thaihoa',
+    file: 'thaihoa-hero.glb',
+    pos: [-1118.6, 0, 17.4],
+    rotY: -Math.atan2(-0.5978, 0.8016),
+    radius: 320,
+  },
+  {
+    id: 'thienmu',
+    file: 'thienmu-hero.glb',
+    pos: [-4678.5, 0.8, 1824.9],
+    rotY: 0,
+    radius: 360,
   },
 ];
 
@@ -77,7 +91,7 @@ export function createHeroLoader(parentGroup, onLoaded = null) {
         (gltf) => {
           const root = gltf.scene;
           root.name = `hero:${entry.id}`;
-          root.position.set(entry.pos[0], entry.pos[1], entry.pos[2]);
+          root.position.set(entry.pos[0], LAND_Y + rise(entry.pos[0], entry.pos[2]) + (entry.pos[1] || 0), entry.pos[2]);
           root.rotation.y = entry.rotY || 0;
           root.traverse((o) => {
             if (o.isMesh) {
