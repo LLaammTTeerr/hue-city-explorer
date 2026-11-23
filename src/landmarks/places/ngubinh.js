@@ -21,15 +21,18 @@ import { rise } from '../../geo/terrain.js';
 // Ground cover from the satellite (Google, 2026-11; reference only, outlines read by eye to ~5 m, nothing traced): the
 // WSW crest is under closed pine; the open ground is a grassy glade round the summit and down the south face, where the
 // path crosses it, and a second on the upper north-east slope, both with scattered young pines (OPEN below).
-// Estimated: the exact edge and the shoulder (a stadium 220 x 40 m on that line, nearly level), the glades' edges, path
+// Estimated: the exact edge and the shoulder (a 28 m band on the terrain's ridge, at most 3 m proud), the glades' edges, path
 // width, tomb sizes and colours. The data's trees on the cap and the glades are kept off by geo/city.js (paved) and
 // drawn again here at the new ground's height. Tả Bật / Hữu Bật are not drawn: no source places them.
 
 export const id = 'ngubinh';
 
 const O = [774.2, 2997.7]; // the place's summit point, model metres; everything below is relative to it
-// the flat top: a stadium round the crest from A (north-east) to B (west-south-west), half-width W; M is the shoulder
-const A = [20, -15], B = [-195, 35], W = 20, M = 30;
+// the flat top: a band of half-width W round the crest line CREST (north-east end at the summit, out to the west-south-
+// west), M the shoulder down to the hillside. The line follows the terrain's own ridge (the ridge of rise(): it bows
+// 25-30 m south of the straight summit-to-west-end line over the middle), so the cap only levels the crest and lifts
+// the ground at most LMAX anywhere (a soft limit, so the top never stands proud of the hillside as an embankment).
+const CREST = [[22, -22], [0, 0], [-30, 24], [-80, 45], [-125, 48], [-150, 30], [-182, 25]], W = 14, M = 26, LMAX = 3;
 // OSM way 631812146, relative metres: up the west ridge, over the top, down the north face (cut where the town starts).
 // From (-26, 20) to (-22, -103) the way is re-framed onto the trodden line the satellite shows through the glade: OSM
 // had it 10-15 m east and south of it over the summit (the rest of the way agrees with the imagery, or is under canopy).
@@ -42,39 +45,56 @@ const OPEN = [
   [[-17, -121], [0, -123], [46, -109], [86, -112], [120, -115], [140, -103], [140, -80], [117, -63], [80, -60], [52, -63], [37, -75], [25, -86], [-14, -97]],
 ];
 const LIFT = 0.35; // the glades' grass is a skin this far above the terrain (the data's trees stand through it as before)
-const GRASS = hex('#a2ad62'), GRASS2 = hex('#96a75e'), WORN = hex('#aaa077'), FLOOR = mix(hex(PAL.green.wood), hex('#a3b077'), 0.3);
+const GRASS = hex('#a2ad62'), GRASS2 = hex('#96a75e'), WORN = hex('#aaa077'), FLOOR = hex(PAL.green.wood); // the terrain mesh's own wood colour, so the cap meets it without a seam
 const BARK = hex('#5b4b3d'), PINE = ['#2f5040', '#345644', '#3c5c42', '#2b4a3a', '#445f3c'].map(hex); // foliage.js pine colours
 const DIRT = hex('#a48d6a'), STONE = hex('#9d978a'), STONE2 = hex('#8c877c');
 const TOMB = ['#d8d4ca', '#cfcabd', '#e2ddd0', '#bfbab0', '#d9cfae', '#c9d0d0', '#b5b0a5'].map(hex), BIA = hex('#6d6a66');
 
 export function build({ data, S }) {
   const keep = S.kind;
-  const ax = B[0] - A[0], az = B[1] - A[1], L = Math.hypot(ax, az), ux = ax / L, uz = az / L;
-  const ang = Math.atan2(uz, ux);
-  const mid = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
-  // relative point -> (s along the crest, t across)
-  const st = (x, z) => { const dx = x - mid[0], dz = z - mid[1]; return [dx * ux + dz * uz, -dx * uz + dz * ux]; };
-  const out = (x, z, w = W) => { const [s, t] = st(x, z); const e = Math.max(0, Math.abs(s) - L / 2); return Math.hypot(e, t) - w; };
   const r0 = (x, z) => rise(O[0] + x, O[1] + z);
-  // the top: level across, and very nearly level along the crest (it eases down a few metres from the summit to the
-  // west end, where the grid's ridge is lower), so the cap never stands more than a few metres proud of the hillside
-  const maxNear = (p, R) => { let m = -Infinity; for (let dx = -R; dx <= R; dx += 2) for (let dz = -R; dz <= R; dz += 2) if (dx * dx + dz * dz <= R * R) m = Math.max(m, r0(p[0] + dx, p[1] + dz)); return m; };
-  const g = (maxNear(B, W) - maxNear(A, W)) / L;
-  const sC = (x, z) => Math.max(-L / 2, Math.min(L / 2, st(x, z)[0]));
-  let t0 = -Infinity;
-  for (let s = -L / 2 - W; s <= L / 2 + W; s += 2) for (let t = -W; t <= W; t += 2) {
-    const x = mid[0] + s * ux - t * uz, z = mid[1] + s * uz + t * ux;
-    if (out(x, z) <= 0) t0 = Math.max(t0, r0(x, z) - g * sC(x, z));
+  // the crest line's segments, with their running length
+  const seg = [];
+  let L = 0;
+  for (let i = 0; i + 1 < CREST.length; i++) {
+    const [x0, z0] = CREST[i], [x1, z1] = CREST[i + 1], l = Math.hypot(x1 - x0, z1 - z0);
+    seg.push({ x0, z0, ux: (x1 - x0) / l, uz: (z1 - z0) / l, l, s0: L });
+    L += l;
   }
-  t0 += 0.2;
-  const topAt = (x, z) => t0 + g * sC(x, z);
-  // ground height (rise) with the cap: flat on top, a rounded shoulder down to the hillside over M metres
+  // relative point -> [s along the crest (clamped to it), distance from it]
+  const crestAt = (x, z) => {
+    let best = [0, Infinity];
+    for (const q of seg) {
+      const u = Math.max(0, Math.min(q.l, (x - q.x0) * q.ux + (z - q.z0) * q.uz));
+      const d = Math.hypot(x - q.x0 - q.ux * u, z - q.z0 - q.uz * u);
+      if (d < best[1]) best = [q.s0 + u, d];
+    }
+    return best;
+  };
+  const out = (x, z, w = W) => crestAt(x, z)[1] - w;
+  const along = (s) => { // the crest point and its normal at length s
+    const q = seg.find((g) => s <= g.s0 + g.l) || seg[seg.length - 1], u = Math.min(q.l, s - q.s0);
+    return [q.x0 + q.ux * u, q.z0 + q.uz * u, -q.uz, q.ux];
+  };
+  // the top's height along the crest: the ridge's highest ground across the band (within 8 m of the line), smoothed
+  // over 40 m, so it is level across and eases gently along (the grid's ridge falls about 6 m from summit to west end)
+  const DS = 2, prof = [];
+  for (let s = 0; s <= L + 0.01; s += DS) {
+    const [x, z, nx, nz] = along(s);
+    let m = -Infinity;
+    for (let t = -8; t <= 8; t += 2) m = Math.max(m, r0(x + nx * t, z + nz * t));
+    prof.push(m);
+  }
+  const sm = prof.map((_, i) => { let a = 0, n = 0; for (let k = i - 10; k <= i + 10; k++) if (k >= 0 && k < prof.length) { a += prof[k]; n++; } return a / n; });
+  const topS = (s) => { const f = Math.max(0, Math.min(sm.length - 1, s / DS)), i = Math.min(sm.length - 2, Math.floor(f)); return sm[i] + (sm[i + 1] - sm[i]) * (f - i) + 0.2; };
+  // ground height (rise) with the cap: flat on top, a rounded shoulder down to the hillside over M metres; the lift over
+  // the terrain is eased into LMAX (tanh), so where the hillside falls away fast the cap follows it down
   const capH = (x, z) => {
-    const d = out(x, z), r = r0(x, z);
+    const [s, dd] = crestAt(x, z), d = dd - W, r = r0(x, z);
     if (d >= M) return r;
-    const top = topAt(x, z);
+    const top = topS(s);
     const h = d <= 0 ? top : top - (top - r) * (1 - Math.cos((Math.PI * d) / M)) / 2;
-    return Math.max(h, r);
+    return h > r ? r + LMAX * Math.tanh((h - r) / LMAX) : r;
   };
   // the glades: a thin skin of grass over the terrain, or over the cap where that already stands higher
   const inOpen = (x, z) => OPEN.some((r) => inRing(x, z, r));
@@ -84,15 +104,17 @@ export function build({ data, S }) {
   // ---- the flat top and the glades: one smooth-shaded 3 m grid, drawn only where it stands clear of the terrain ----
   S.kind = KIND.GROUND;
   const G = 3;
-  let gx0 = Math.min(A[0], B[0]) - W - M, gx1 = Math.max(A[0], B[0]) + W + M, gz0 = Math.min(A[1], B[1]) - W - M, gz1 = Math.max(A[1], B[1]) + W + M;
+  let gx0 = Infinity, gx1 = -Infinity, gz0 = Infinity, gz1 = -Infinity;
+  for (const [x, z] of CREST) { gx0 = Math.min(gx0, x - W - M); gx1 = Math.max(gx1, x + W + M); gz0 = Math.min(gz0, z - W - M); gz1 = Math.max(gz1, z + W + M); }
   for (const r of OPEN) for (const [x, z] of r) { gx0 = Math.min(gx0, x); gx1 = Math.max(gx1, x); gz0 = Math.min(gz0, z); gz1 = Math.max(gz1, z); }
   gx0 = Math.floor(gx0 / G) * G - G; gz0 = Math.floor(gz0 / G) * G - G;
   const ns = Math.ceil((gx1 + G - gx0) / G), nt = Math.ceil((gz1 + G - gz0) / G);
   const V = [];
   for (let j = 0; j <= nt; j++) for (let i = 0; i <= ns; i++) {
     const x = gx0 + i * G, z = gz0 + j * G, r = r0(x, z), h = hTop(x, z), k = i * 7919 + j * 104729;
-    // a glade: dry grass with worn, sandy patches; elsewhere the pine wood's floor, the hill's own colour
-    const c = inOpen(x, z) ? (rand(k, 3) < 0.1 ? shade(WORN, 0.95 + rand(k, 4) * 0.1) : mix(GRASS, GRASS2, rand(k, 5))) : shade(FLOOR, 0.94 + rand(k, 6) * 0.1);
+    // a glade: dry grass with worn, sandy patches; elsewhere the pine wood's floor in exactly the terrain's colour (no
+    // jitter), so where the cap thins out into the hillside the two read as one ground
+    const c = inOpen(x, z) ? (rand(k, 3) < 0.1 ? shade(WORN, 0.95 + rand(k, 4) * 0.1) : mix(GRASS, GRASS2, rand(k, 5))) : FLOOR;
     V.push({ x: O[0] + x, z: O[1] + z, lift: h - r, cap: capH(x, z) - r > 0.05, y: LAND_Y + (h - r > 0.05 ? h : r - 0.3), c });
   }
   const at = (i, j) => V[Math.min(nt, Math.max(0, j)) * (ns + 1) + Math.min(ns, Math.max(0, i))];
@@ -159,6 +181,40 @@ export function build({ data, S }) {
     S.box(X, Z, y - 0.3, y + hg * 1.55, 0.35 * sc, 0.35 * sc, a, BARK, { taper: 0.6 }); // the tall bare trunk
     S.box(X, Z, y + hg * 1.2, y + hg * 1.75, r * 1.15, r * 1.0, a, col, { taper: 0.7, top: shade(col, 1.1) }); // needle tiers
     S.box(X, Z, y + hg * 1.75, y + hg * 2.15, r * 0.8, r * 0.7, a + 0.6, shade(col, 1.05), { taper: 0.5, top: shade(col, 1.15) });
+  }
+
+  // ---- the closed wood: the satellite shows unbroken canopy over the hill outside the two glades, where the data's
+  // generic wood fill stands 8-15 m apart over bare ground. Pines fill its gaps inside OSM's wood ring, on a jittered
+  // 5 m lattice, kept clear of the data's own trees, the glades, the path and the graveyards ----
+  const woods = [], graves = [];
+  for (const [k, rings] of data.green || []) {
+    if (k !== 'wood' && k !== 'cemetery') continue;
+    for (const f of rings) {
+      const r = [];
+      for (let i = 0; i < f.length; i += 2) r.push([f[i] / 10 - O[0], f[i + 1] / 10 - O[1]]);
+      if (r.some(([x, z]) => Math.hypot(x, z) < 300)) (k === 'wood' ? woods : graves).push(r);
+    }
+  }
+  const occ = new Map(), oKey = (x, z) => `${Math.floor(x / 6)},${Math.floor(z / 6)}`;
+  const occupy = (x, z) => { const q = oKey(x, z); if (!occ.has(q)) occ.set(q, []); occ.get(q).push([x, z]); };
+  const taken = (x, z, R) => {
+    const i0 = Math.floor(x / 6), j0 = Math.floor(z / 6);
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) for (const p of occ.get(`${i0 + di},${j0 + dj}`) || []) if (Math.hypot(p[0] - x, p[1] - z) < R) return true;
+    return false;
+  };
+  for (let i = 0; i < tr0.length; i += 4) { const x = tr0[i] / 10 - O[0], z = tr0[i + 1] / 10 - O[1]; if (Math.hypot(x, z) < 420) occupy(x, z); }
+  const FS = 5;
+  for (let z = -260; z <= 260; z += FS) for (let x = -400; x <= 220; x += FS) {
+    const k = 900000 + Math.round(z / FS) * 1000 + Math.round(x / FS);
+    const px = x + (rand(k, 51) - 0.5) * 3, pz = z + (rand(k, 52) - 0.5) * 3;
+    if (!woods.some((r) => inRing(px, pz, r)) || graves.some((r) => inRing(px, pz, r)) || inOpen(px, pz)) continue;
+    if (taken(px, pz, 4) || onPath.some((p) => Math.hypot(p[0] - px, p[1] - pz) < 3.5)) continue;
+    occupy(px, pz);
+    const r = 3.0 + rand(k, 53) * 1.3, hg = r * 1.42 * (0.95 + rand(k, 54) * 0.45);
+    const X = O[0] + px, Z = O[1] + pz, y = gY(px, pz), a = rand(k, 55) * 6.28, col = PINE[Math.floor(rand(k, 56) * PINE.length)];
+    S.box(X, Z, y - 0.3, y + hg * 1.55, 0.35, 0.35, a, BARK, { taper: 0.6 });
+    S.box(X, Z, y + hg * 1.2, y + hg * 1.75, r * 1.45, r * 1.3, a, col, { taper: 0.7, top: shade(col, 1.1) });
+    S.box(X, Z, y + hg * 1.75, y + hg * 2.15, r * 1.0, r * 0.9, a + 0.6, shade(col, 1.05), { taper: 0.5, top: shade(col, 1.15) });
   }
 
   // ---- graves round the foot: the graveyards OSM maps on the slopes (data.green), thinned to what reads ----
