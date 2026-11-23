@@ -983,6 +983,215 @@ function buildXaTacHero() {
   return scene;
 }
 
+// Sculpted cathedral/abbey finial cross with stepped plinth, chamfered arms & gilded halo ring
+function sculptedCross(cx, cy, cz, h = 2.8, col = 0xf2ede0, trimCol = 0xe8c45e) {
+  const parts = [];
+  const sc = h / 2.8;
+  // Stepped octagonal base collar
+  const base = new THREE.CylinderGeometry(0.24 * sc, 0.34 * sc, 0.28 * sc, 8);
+  base.translate(cx, cy + 0.14 * sc, cz);
+  parts.push(paint(base, trimCol));
+  // Vertical shaft & horizontal crossbar
+  const shaft = new THREE.BoxGeometry(0.24 * sc, h, 0.24 * sc);
+  shaft.translate(cx, cy + h * 0.5, cz);
+  parts.push(paint(shaft, col));
+  const arm = new THREE.BoxGeometry(0.22 * sc, 0.24 * sc, 1.75 * sc);
+  arm.translate(cx, cy + h * 0.68, cz);
+  parts.push(paint(arm, col));
+  // Flared trefoil/bud tips on top & both arms
+  const topBud = new THREE.SphereGeometry(0.18 * sc, 10, 8);
+  topBud.translate(cx, cy + h + 0.06 * sc, cz);
+  parts.push(paint(topBud, trimCol));
+  for (const s of [-1, 1]) {
+    const bud = new THREE.SphereGeometry(0.16 * sc, 10, 8);
+    bud.translate(cx, cy + h * 0.68, cz + s * 0.92 * sc);
+    parts.push(paint(bud, trimCol));
+  }
+  // Radiant halo ring around the crossing
+  const halo = new THREE.TorusGeometry(0.42 * sc, 0.055 * sc, 8, 20);
+  halo.rotateY(Math.PI / 2);
+  halo.translate(cx, cy + h * 0.68, cz);
+  parts.push(paint(halo, trimCol));
+  return parts;
+}
+
+// Build Cửa Hiển Nhơn (East Imperial City Gate) hero accent .glb
+function buildHienNhonHero() {
+  const parts = [];
+  const ry = 12.60;
+  // Flaming fire pearl (hỏa châu) on lotus base + flanking jade-gold porcelain-mosaic dragons
+  const pearl = new THREE.SphereGeometry(0.32, 12, 10);
+  pearl.scale(1, 1.15, 0.55);
+  pearl.translate(0, ry + 0.62, 0);
+  parts.push(paint(pearl, 0xe85a34));
+  parts.push(latheGourd(0, ry + 0.05, 0, 0.45, 0xe8b83a));
+  parts.push(...sculptedDragon(0, ry + 0.15, 0, 1, 2.5, 0.78));
+  parts.push(...sculptedDragon(0, ry + 0.15, 0, -1, 2.5, 0.78));
+  // Upper & lower yellow-glazed roof eave corner scrolls + 4 jade corner balustrade finials
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 4.25, 10.85, sv * 2.35, su * 0.72, sv * 0.72, 0.85));
+    parts.push(cornerScroll(su * 6.60, 8.40, sv * 3.40, su * 0.78, sv * 0.78, 0.92));
+    parts.push(latheGourd(su * 6.95, 6.82, sv * 3.75, 0.48, 0x3d8f6e));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'hiennhon_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Cửa Chương Đức (West Imperial City Gate) hero accent .glb
+function buildChuongDucHero() {
+  const parts = [];
+  const ry = 9.55;
+  // Porcelain-mosaic lotus gourd + miniature ridge dragons
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.95, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 1.5, 0.58));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 1.5, 0.58));
+  // Upper & lower roof corner scrolls
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 2.25, 8.30, sv * 2.30, su * 0.62, sv * 0.62, 0.72));
+    parts.push(cornerScroll(su * 5.80, 5.35, sv * 3.09, su * 0.75, sv * 0.75, 0.85));
+  }
+  // 8 sculpted jade-glazed lotus buds crowning the 4 front & 4 back pilaster caps
+  for (const sv of [-1, 1]) for (const u of [-5.1, -1.55, 1.55, 5.1]) {
+    parts.push(latheGourd(u, 5.80, sv * 2.79, 0.36, 0x3e8f6e));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'chuongduc_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Quốc Tự Diệu Đế (Đại Giác Main Hall) hero accent .glb
+function buildDieuDeHero() {
+  const parts = [];
+  // Upper main roof ridge (z = 0, ry = 9.30)
+  parts.push(latheGourd(0, 9.32, 0, 1.15, 0xe8c45e));
+  parts.push(...sculptedDragon(0, 9.30, 0, 1, 5.2, 1.0));
+  parts.push(...sculptedDragon(0, 9.30, 0, -1, 5.2, 1.0));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 12.9, 6.70, sv * 6.0, su * 0.78, sv * 0.78, 0.95));
+  }
+  // Front hall roof ridge (z = +9.5, ry = 7.70)
+  parts.push(latheGourd(0, 7.72, 9.5, 0.92, 0xe8c45e));
+  parts.push(...sculptedDragon(0, 7.70, 9.5, 1, 4.2, 0.85));
+  parts.push(...sculptedDragon(0, 7.70, 9.5, -1, 4.2, 0.85));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 14.0, 5.10, 9.5 + sv * 5.7, su * 0.72, sv * 0.72, 0.88));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'dieude_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Chùa Báo Quốc (Chánh Điện Main Hall) hero accent .glb
+function buildBaoQuocHero() {
+  const parts = [];
+  const ry = 9.33;
+  // Gilded dharma wheel & lotus finial + twin sculpted dragons on upper ridge
+  const wheel = new THREE.TorusGeometry(0.42, 0.08, 8, 18);
+  wheel.translate(0, ry + 0.55, 0);
+  parts.push(paint(wheel, 0xe8c45e));
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.42, 0xd8b454));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 3.4, 0.88));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 3.4, 0.88));
+  // Upper & lower main roof corner scrolls
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 6.4, 7.58, sv * 4.4, su * 0.72, sv * 0.72, 0.88));
+    parts.push(cornerScroll(su * 10.0, 5.78, sv * 7.6, su * 0.78, sv * 0.78, 0.95));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'baoquoc_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Nhà thờ Chính tòa Phủ Cam hero accent .glb (twin 43.5 m bell tower crosses, hood cross & St Peter/Paul statues)
+function buildPhuCamHero() {
+  const parts = [];
+  // Twin 43.5 m bell tower crosses (x = 0, z = ±12.8, y = 41.95)
+  for (const s of [-1, 1]) {
+    parts.push(...sculptedCross(0, 41.95, s * 12.8, 3.0, 0xf2ede0, 0xe8c45e));
+  }
+  // Curved front hood cross (x = 0.2, z = 0, y = 21.95)
+  parts.push(...sculptedCross(0.2, 21.95, 0, 2.8, 0xf2ede0, 0xe8c45e));
+  // Sculpted robed marble statues of St Peter & St Paul on forecourt pedestals (x = -24.7, z = ±7.0, y = 1.85)
+  for (const s of [-1, 1]) {
+    const sx = -24.7, sz = s * 7.0, sy = 1.85;
+    const pts = [
+      [0.44, 0.0], [0.42, 0.45], [0.36, 1.05], [0.40, 1.55],
+      [0.24, 1.78], [0.22, 1.98], [0.18, 2.22], [0.02, 2.34],
+    ].map(([r, y]) => new THREE.Vector2(r, y));
+    const fig = new THREE.LatheGeometry(pts, 14);
+    fig.translate(sx, sy, sz);
+    parts.push(paint(fig, 0xf2ede4));
+    const halo = new THREE.TorusGeometry(0.26, 0.035, 8, 16);
+    halo.rotateY(Math.PI / 2);
+    halo.translate(sx - 0.08, sy + 2.15, sz);
+    parts.push(paint(halo, 0xe8c45e));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'phucam_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Nhà thờ Dòng Chúa Cứu Thế hero accent .glb (53 m 3-tier octagonal bell tower cross & 24 upturned corner scrolls)
+function buildDcctHero() {
+  const parts = [];
+  // Sculpted gilded-cream cross crowning the 53 m spire (y = 50.0)
+  parts.push(...sculptedCross(0, 50.0, 0, 3.3, 0xf5ecd6, 0xe8c45e));
+  // 24 upturned pagoda-style corner scrolls across all 3 octagonal tiled skirts
+  for (const [rs, ye, sc] of [[8.45, 29.2, 0.95], [6.65, 33.5, 0.82], [4.85, 37.8, 0.70]]) {
+    for (let k = 0; k < 8; k++) {
+      const a = Math.PI / 8 + (k * Math.PI) / 4;
+      parts.push(cornerScroll(Math.cos(a) * rs, ye, Math.sin(a) * rs, Math.cos(a) * 0.72, Math.sin(a) * 0.72, sc));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'dcct_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Đan viện Thiên An hero accent .glb (7-storey Phước Duyên-style bell tower cross & 56 glazed eave scrolls)
+function buildThienAnHero() {
+  const parts = [];
+  // Sculpted lotus-gourd pedestal & gilded-white finial cross crowning the 7-storey tower (y = 33.95)
+  parts.push(latheGourd(0, 33.45, 0, 0.65, 0xe8c45e));
+  parts.push(...sculptedCross(0, 33.95, 0, 2.8, 0xf5f0e2, 0xe8c45e));
+  // 56 yellow-glazed upturned corner scrolls around all 7 octagonal eaves
+  const eaves = [
+    [6.15, 5.90, 0.78], [5.93, 10.35, 0.75], [5.71, 14.60, 0.72], [5.49, 18.65, 0.68],
+    [5.27, 22.60, 0.65], [5.05, 26.45, 0.62], [4.83, 30.20, 0.58],
+  ];
+  for (const [r, ye, sc] of eaves) {
+    for (let k = 0; k < 8; k++) {
+      const a = Math.PI / 8 + (k * Math.PI) / 4;
+      parts.push(cornerScroll(Math.cos(a) * r, ye, Math.sin(a) * r, Math.cos(a) * 0.65, Math.sin(a) * 0.65, sc));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'thienan_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
@@ -1017,6 +1226,13 @@ for (const [name, buildFn] of [
   ['hoquyen-hero.glb', buildHoQuyenHero],
   ['namgiao-hero.glb', buildNamGiaoHero],
   ['xatac-hero.glb', buildXaTacHero],
+  ['hiennhon-hero.glb', buildHienNhonHero],
+  ['chuongduc-hero.glb', buildChuongDucHero],
+  ['dieude-hero.glb', buildDieuDeHero],
+  ['baoquoc-hero.glb', buildBaoQuocHero],
+  ['phucam-hero.glb', buildPhuCamHero],
+  ['dcct-hero.glb', buildDcctHero],
+  ['thienan-hero.glb', buildThienAnHero],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
