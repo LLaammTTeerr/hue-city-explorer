@@ -62,6 +62,25 @@ the gates loop's shared guard `replaced('gate:' + name)`. The rampart, its slot 
   10.6 x 6.8 m (eave overhang and lean); the real rampart's inner side is stepped (about 4 m retaining wall, wall set
   back above) where kinhthanh.js draws one 6.6 m face.
 
+## Review fixes (2026-11-23)
+- Passage in three stages, as the car pano through it shows: an outer vault 5.4 m wide with its crown at 5.7 m,
+  t -8.8..-3.8 (the outer face moved out to the satellite's lean-corrected -8.8); the door arch, 4.7 m wide and
+  0.8 m deep (seen 5-6 m from the outer mouth, about 635 px at fov 80); then the 4.2 m vault to the inner face at
+  +3.5. Lining in red brick (#7e5c4c), mottled per course and lighter towards the mouths, damp at the foot, a stone
+  course at the springing. The car pano a (t -9.3) now stands at the outer mouth, inside the opening.
+- Still unresolved: from the outer mouth the inner mouth reads 25-30 m away (115 px at fov 80, and a car 15-18 m in
+  is still under the vault), where the city-side pano b (inner arch about 16 m from t +19.5) and the satellite hold
+  the inner face at about +3.5. The block stays at 12.3 m; the depth is an owner question.
+- Vọng lâu resized from pano b (lower roof 270 px and upper 125 px against the 210 px arch, about 21 m away) and
+  pano f (lower roof 215 px at about 33 m, 36 degrees off the end): lower storey 6.3 x 4.8 m, 2.1 m tall, roof about
+  6.9 x 5.4 m over the eaves; upper 2.7 x 2.2 m, 1.9 m tall, roof about 3.3 m. Moved to t -1.5 and s +2 (NW of the
+  axis): the satellite after the lean puts the roof at about t -1.4, s +2.8; pano b's parallax gives s +1.5.
+- Roofs now pitched tile hips in orange-tan (#b4774c) with a slight flare and small corner ornaments, instead of
+  flat slabs with standing tiles and spike fins; walls weathered grey plaster (#9d988b) with brick-red arch rims.
+- Damp streaks on both fronts are tapered and close to the brick's colour; the hard olive bars are gone.
+- Left for kinhthanh.js / build-data (owner questions): stepped inner rampart, the forecourt wider on the SE, the
+  moat as lotus field and the causeway width.
+
 ## Moat width
 - The drawn west moat covers about 61,300 m². VNA (24/07/2026, on the moat-embankment project) gives 56,319 m² for
   this stretch. Matching that would put the outer bank about 50 m off the wall, where the bastion tips cut the moat
