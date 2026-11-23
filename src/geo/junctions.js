@@ -211,8 +211,10 @@ export function markingGuard(roads, holeCells = null) {
   const ends = new Map(); // end point → roads ending there, to find each road's continuations
   for (const r of roads) {
     for (const p of [r.pts[0], r.pts.at(-1)]) { const k = pkey(p); if (!ends.has(k)) ends.set(k, []); ends.get(k).push(r); }
-    const hw = r.w / 2 + MARK_PAD;
     for (let i = 0; i + 1 < r.pts.length; i++) {
+      // a tapering road (r.ws, one width per point) guards each piece at its own width, not its widest: a slip road
+      // widening into a main road at one end is narrow everywhere else
+      const hw = (r.ws ? Math.max(r.ws[i], r.ws[i + 1]) : r.w) / 2 + MARK_PAD;
       const a = r.pts[i], b = r.pts[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
       const it = { r, a, b, hw, ux: (b[0] - a[0]) / l, uz: (b[1] - a[1]) / l };
       for (let x = Math.floor((Math.min(a[0], b[0]) - hw) / G); x <= Math.floor((Math.max(a[0], b[0]) + hw) / G); x++)
@@ -312,4 +314,25 @@ export function slivers(roads) {
     flush(0); flush(1);
   });
   return out;
+}
+
+// Asphalt: the carriageway ribbons as drawn (ribbons: [{ L, R }], the edge points of each), the junction holes painted
+// between them and the paved slivers. Returns on(x, z): is that point on it? Trees keep off it (geo/city.js populate).
+export function asphaltTest(ribbons, holeCells) {
+  const G = 8, grid = new Map();
+  for (const { L, R } of ribbons) for (let i = 0; i + 1 < L.length; i++) for (const t of [[L[i], R[i], R[i + 1]], [L[i], R[i + 1], L[i + 1]]]) {
+    const xs = [t[0][0], t[1][0], t[2][0]], zs = [t[0][1], t[1][1], t[2][1]];
+    for (let x = Math.floor(Math.min(...xs) / G); x <= Math.floor(Math.max(...xs) / G); x++)
+      for (let z = Math.floor(Math.min(...zs) / G); z <= Math.floor(Math.max(...zs) / G); z++) {
+        const k = ck(x, z), c = grid.get(k);
+        if (c) c.push(t); else grid.set(k, [t]);
+      }
+  }
+  const inTri = ([a, b, c], x, z) => {
+    const d1 = (b[0] - a[0]) * (z - a[1]) - (b[1] - a[1]) * (x - a[0]);
+    const d2 = (c[0] - b[0]) * (z - b[1]) - (c[1] - b[1]) * (x - b[0]);
+    const d3 = (a[0] - c[0]) * (z - c[1]) - (a[1] - c[1]) * (x - c[0]);
+    return (d1 >= 0 && d2 >= 0 && d3 >= 0) || (d1 <= 0 && d2 <= 0 && d3 <= 0);
+  };
+  return (x, z) => holeCells.has(ck(Math.floor(x / CELL), Math.floor(z / CELL))) || (grid.get(ck(Math.floor(x / G), Math.floor(z / G))) || []).some((t) => inTri(t, x, z));
 }

@@ -612,7 +612,11 @@ console.log('divided roads:', nDivided, 'one-way carriageways laid at one-way wi
 // stood square out past the narrow one's kerb, a pale pavement step across the road. The wider way now narrows over
 // its last TAPER metres to the other's width at the joint (r.ws: one width per point; r.w stays the widest, for the
 // clearances that only need an outer bound).
-const TAPER = 30, TAPER_SIN = Math.sin((30 * Math.PI) / 180);
+// A slip road is the other way round: the main road does not narrow into it, so where a slip road runs straight on
+// into a wider carriageway (merging into it or leaving it, as 1169319990 joins Hà Nội eastbound at cầu Phú Xuân's south
+// end) the slip road widens over its last WIDEN metres to the main road's width instead, and its outer kerb runs on
+// into the main road's. Square, the narrow end left a notch of pavement in the main road's kerb.
+const TAPER = 30, WIDEN = 15, TAPER_SIN = Math.sin((30 * Math.PI) / 180);
 let nTaper = 0;
 {
   const key = (p) => p[0].toFixed(2) + ',' + p[1].toFixed(2), ends = new Map();
@@ -636,29 +640,33 @@ let nTaper = 0;
         const dot = -(a.ox * b.ox + a.oz * b.oz);
         if (dot > bd) { bd = dot; best = b; }
       }
-      if (!best || bd < Math.sqrt(1 - TAPER_SIN * TAPER_SIN) || a.r.w - best.r.w < 0.4) continue;
-      if (best.r.lanes) continue; // a road does not narrow into a slip road that leaves it
-      if (a.r.name && best.r.name && a.r.name !== best.r.name) continue;
+      if (!best || bd < Math.sqrt(1 - TAPER_SIN * TAPER_SIN) || Math.abs(a.r.w - best.r.w) < 0.4) continue;
+      if (a.r.w < best.r.w && !(a.r.lanes && !best.r.lanes)) continue; // only a slip road widens, into a main road
+      if (a.r.w > best.r.w && best.r.lanes) continue; // a road does not narrow into a slip road that leaves it
+      if (a.r.w > best.r.w && a.r.name && best.r.name && a.r.name !== best.r.name) continue; // a slip road widening into a main road keeps its own name
       if (!want.has(a.r)) want.set(a.r, [null, null]);
       want.get(a.r)[a.k] = best.r.w;
     }
   }
   for (const [r, [w0, w1]] of want) {
-    const len = pathLength(r.pts), T = Math.min(TAPER, len * (w0 != null && w1 != null ? 0.45 : 0.6));
-    // points at T from each tapering end, so the narrowing starts there and not at the next mapped node
+    // each end eases from its joint width back to r.w over its own length: a narrowing over TAPER, a slip road's
+    // widening over WIDEN, both shortened on a short road so the two ends don't overlap
+    const len = pathLength(r.pts), cap = len * (w0 != null && w1 != null ? 0.45 : 0.6);
+    const span = (w) => Math.min(w > r.w ? WIDEN : TAPER, cap), T0 = w0 != null ? span(w0) : 0, T1 = w1 != null ? span(w1) : 0;
+    // points at T from each tapering end, so the change starts there and not at the next mapped node
     let pts = r.pts;
-    if (w0 != null) pts = insertAt(pts, T);
-    if (w1 != null) pts = insertAt(pts, pathLength(pts) - T);
+    if (w0 != null) pts = insertAt(pts, T0);
+    if (w1 != null) pts = insertAt(pts, pathLength(pts) - T1);
     const L = pathLength(pts);
     let s = 0;
     r.ws = pts.map((p, i) => {
       if (i) s += Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]);
-      let w = r.w;
-      if (w0 != null && s < T) w = Math.min(w, w0 + ((r.w - w0) * s) / T);
-      if (w1 != null && L - s < T) w = Math.min(w, w1 + ((r.w - w1) * (L - s)) / T);
-      return w;
+      if (w0 != null && s < T0) return w0 + ((r.w - w0) * s) / T0;
+      if (w1 != null && L - s < T1) return w1 + ((r.w - w1) * (L - s)) / T1;
+      return r.w;
     });
     r.pts = pts;
+    r.w = Math.max(...r.ws); // r.w stays the widest, as the clearances read it
     nTaper++;
   }
 }

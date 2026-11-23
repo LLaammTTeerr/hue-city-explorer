@@ -16,7 +16,7 @@ import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
-import { junctionHoles, holeRects, markingGuard, inPoly, slivers } from './junctions.js';
+import { junctionHoles, holeRects, markingGuard, inPoly, slivers, asphaltTest } from './junctions.js';
 
 // Bucket instances into ~1.3 km tiles (chunked() in buf.js) so each tile can be frustum-culled (and skipped by the shadow pass) as one unit.
 // Small things (awnings, balconies, roof tanks) are only drawn near the camera: beyond that they are a pixel or
@@ -333,7 +333,12 @@ function buildRoads(data, group, structures) {
     for (const [x0, x1, z0, z1] of holeRects(h)) B.quad(v(x0, z0), v(x0, z1), v(x1, z1), v(x1, z0), col, [0, 1, 0]);
   }
   // pavement too narrow to walk on between two carriageways side by side is paved (geo/junctions.js slivers)
-  for (const v of slivers(roads.filter((r) => !r.bridge && r.c <= 4))) ribbon(B, v.pts, v.ws, y + 0.0055, cols[Math.min(v.c, ROAD_MAX)]);
+  const paved = [];
+  for (const v of slivers(roads.filter((r) => !r.bridge && r.c <= 4))) {
+    ribbon(B, v.pts, v.ws, y + 0.0055, cols[Math.min(v.c, ROAD_MAX)]);
+    const [L, R] = ribbonPoints(v.pts, v.ws);
+    paved.push({ L, R });
+  }
   // the medians of the divided roads (issue #15): a planted strip inside a pale stone kerb, under the carriageways'
   // own edges, with low clipped shrubs along it
   const medians = (data.medians || []).map(([w, flat, ws]) => { const pts = unflat(flat); return { w: w / 10, pts, ws: ws ? ws.map((v) => v / 10) : pts.map(() => w / 10) }; });
@@ -348,7 +353,7 @@ function buildRoads(data, group, structures) {
   // lane markings: a dashed line along the major roads, stopped short of every carriageway it meets and of the
   // junction holes, so the junction box itself is left plain (geo/junctions.js)
   const paint = hex('#f4eedd');
-  const guard = markingGuard(roads.map((r, id) => ({ id, c: r.c, w: r.w, pts: r.pts, bridge: r.bridge })).filter((r) => !r.bridge && r.c <= 2), holeCells);
+  const guard = markingGuard(roads.map((r, id) => ({ id, c: r.c, w: r.w, ws: r.ws, pts: r.pts, bridge: r.bridge })).filter((r) => !r.bridge && r.c <= 2), holeCells);
   const dashes = [];
   roads.forEach((r, id) => {
     if (r.bridge || r.c > 1 || r.unmarked) return;
@@ -479,7 +484,7 @@ function buildRoads(data, group, structures) {
   const lamps = glowPoints(lp, lc, 7);
   lamps.material.uniforms.uBoost.value = 0.6;
   group.add(lamps);
-  return { lamps, marks: { roads, cw, holes, holeCells, dashes } };
+  return { lamps, marks: { roads, cw, holes, holeCells, paved, dashes } };
 }
 
 // ---------- buildings from OSM footprints ----------
@@ -900,6 +905,7 @@ export function buildCity(data) {
 // Ground the landmark models stand on: every 1 m cell under a face of theirs that looks up and stands clear of the
 // ground (platforms, terraces, stairs, roofs with their eaves). The Citadel's rampart is left out: it is planted.
 const SUB = [[0.5, 0.5], [0.2, 0.2], [0.8, 0.2], [0.2, 0.8], [0.8, 0.8]];
+export const CROWN_ROAD = 0.35; // the share of a tree's crown that may hang over the asphalt
 function coverOf(structures) {
   const cells = new Set(), tall = new Set(), P = structures.pos;
   const skip = [structures.wallRange || [0, 0], ...(structures.noCover || [])]; // the rampart, and terraces that are ground
@@ -967,7 +973,18 @@ export function populate(world, data) {
   const cover = coverOf(world.structures);
   const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
   // a tree: its trunk and the reach of its lower branches
-  const treeOff = (x, z, r) => { if (cover.hitTall(x, z)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
+  // A tree stands off the asphalt too: carriageways, the junction patches painted between them and the paved slivers
+  // (geo/junctions.js). The data keeps trees off the carriageways it knows, but the patches are only found here, once
+  // the ribbons are laid, and a tree on a corner between two roads had its crown out over both. Its trunk keeps off
+  // the asphalt, and no more than CROWN_ROAD of its crown hangs over it (an avenue tree by the kerb reaches out a fifth).
+  const asphalt = world.marks ? asphaltTest([...world.marks.cw, ...(world.marks.paved || [])], world.marks.holeCells) : () => false;
+  const onRoad = (x, z, R) => {
+    if (asphalt(x, z)) return true;
+    let n = 0;
+    for (const [u, v] of R8) { if (asphalt(x + u * R * 0.5, z + v * R * 0.5)) n++; if (asphalt(x + u * R * 0.85, z + v * R * 0.85)) n++; }
+    return n > CROWN_ROAD * 16;
+  };
+  const treeOff = (x, z, r, crown = r * 1.5) => { if (cover.hitTall(x, z) || onRoad(x, z, crown)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
   // a house: its plan sampled every metre (the middle of each metre strip, and both edges), so a model's step or
   // terrace edge that reaches a corner of it is caught, not just one that reaches a third of the way in
   const along = (w) => { const out = [-w / 2]; for (let t = -w / 2 + 0.5; t < w / 2; t += 1) out.push(t); out.push(w / 2); return out; };
