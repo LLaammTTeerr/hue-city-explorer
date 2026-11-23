@@ -480,7 +480,24 @@ function overWater(pts) {
 // carriageway clears the outline by CLEAR_PAD; its course round the arena is kept.
 const CLEAR_OF = [19381147];
 const CLEAR_PAD = 0.3;
-const clearRings = CLEAR_OF.map((id) => { const e = get('relation', id); const rs = e ? elementRings(e) : []; return rs.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; }) // the outer ring.filter(Boolean);
+// Parts of a monument that stand out beyond its mapped outline, as sectors [relation, radius, from, to] (metres from
+// the outline's centre; bearings in radians, 0 = north, clockwise): at Hổ Quyền the king's stand and its two stairs
+// reach 28 m out on the north arc (src/landmarks/places/hoquyen.js, placed from the satellite), where the same way
+// passed 26 m out.
+const CLEAR_SECTORS = [[19381147, 28.5, -0.6, 0.32]];
+const outerRing = (id) => { const e = get('relation', id); const rs = e ? elementRings(e) : []; return rs.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; };
+const clearRings = [
+  ...CLEAR_OF.map(outerRing),
+  ...CLEAR_SECTORS.map(([id, r, a0, a1]) => {
+    const ring = outerRing(id);
+    if (!ring) return null;
+    const cx = ring.reduce((s, p) => s + p[0], 0) / ring.length, cz = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+    const n = Math.max(2, Math.ceil(((a1 - a0) * r) / 2)), pts = [[cx, cz]];
+    for (let k = 0; k <= n; k++) { const a = a0 + ((a1 - a0) * k) / n; pts.push([cx + Math.sin(a) * r, cz - Math.cos(a) * r]); }
+    pts.push([cx, cz]);
+    return pts;
+  }),
+].filter(Boolean);
 function clearMonuments(pts, c) {
   if (c > 3 || !clearRings.length) return pts;
   const need = ROAD_W[c] / 2 + CLEAR_PAD;
