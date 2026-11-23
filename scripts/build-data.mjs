@@ -518,6 +518,16 @@ function unmarkedLanes(e) {
   return n > 0 ? Math.min(3, n) : t.oneway === 'yes' ? 1 : 2;
 }
 const TT_WAY = 174759688; // the truss spans; modelled by hand
+// Ways a place file draws itself, at the alignment and width the satellite shows. Laid here too, each one showed
+// twice, the generic pale ribbon 5-15 m off the place's own walk (đồi Vọng Cảnh: OSM's older winding trails 1075018788
+// and the top of 1473264466 under the redrawn stairs, the court's rings under its paved court). They are left out of
+// the roads and the mask; the place file keeps its own walks clear of trees. Vọng Cảnh: src/landmarks/places/vongcanh.js
+const HAND_WAYS = new Set([
+  1075018785, 1075018786, 1075018787, 1075018788, 1075018789, 1075018790, 1075018791,
+  1200924922, 1200924923, 1200924924, 1200924925, 1200924926, 1200924927, 1200924928, 1200924929, 1200924930,
+  1200924931, 1200924932, 1200924933,
+  1473264464, 1473264465, 1473264466, 1473264467, 1473264468,
+]);
 const roads = [];
 let nDryBridges = 0, nSidewalkBridges = 0;
 function overWater(pts) {
@@ -593,7 +603,7 @@ let nCleared = 0;
 for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
-  if (e.id === TT_WAY) continue;
+  if (e.id === TT_WAY || HAND_WAYS.has(e.id)) continue;
   const kiet = ROAD_TYPES[e.id] === 'lane';
   const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
   // a closed road (access=no: the dirt track into Trấn Bình Đài, and its way on through Trấn Bình Môn's 2 m passage)
@@ -1883,7 +1893,9 @@ const EXTRA = [
 ];
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
-addPlace('vongcanh', 'Đồi Vọng Cảnh', [-2784, 5161], 3, 'place', 12); // the 43 m hill standing straight over the river bend; moved onto its top in §9
+// Đồi Vọng Cảnh stands on the right bank, north of the bend; its tag starts from OSM's viewpoint node 4603986390 on the
+// brow (the old seed, [-2784, 5161], was điện Hòn Chén's hill across the river) and moves onto the highest ground in §9
+{ const m = get('node', 4603986390); addPlace('vongcanh', 'Đồi Vọng Cảnh', m ? proj(m) : [-2641.6, 4524.1], 3, 'place', 12); }
 addPlace('ngubinh', 'Núi Ngự Bình', [770, 2990], 2, 'place', 20); // the summit (16.4419 N, 107.5961 E); moved onto the highest ground in §9
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; special.biaquochoc = { c: [q(c[0]), q(c[1])], ring: [], name: 'Bia Quốc Học' }; addPlace('biaquochoc', 'Bia Quốc Học', c, 2, 'monument', 14); }
 addPlace('golim', 'Cầu gỗ lim', [-168.5, 374.8], 3, 'bridge', 5); // the ironwood walkway (midpoint from src/landmarks/boardwalk.js)

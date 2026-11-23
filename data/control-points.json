@@ -38,12 +38,13 @@
   },
   {
     "name": "Đồi Vọng Cảnh",
-    "lat": 16.42222,
-    "lon": 107.56278,
+    "lat": 16.428,
+    "lon": 107.5641,
     "ele": 43,
     "r": 100,
     "what": "summit",
-    "source": "https://vinwonders.com/vi/wonderpedia/news/doi-vong-canh-hue/ (43 m); position: the hilltop standing over the river bend"
+    "source": "https://vinwonders.com/vi/wonderpedia/news/doi-vong-canh-hue/ (43 m); position: the brow over the river bend by OSM's viewpoint node 4603986390, on the right bank (it stood on điện Hòn Chén's hill across the river before). On the right hill the bare-earth model reads about 35 m and the surface model about 44 m with the pine canopy, so the 43 m figure (a travel guide's) may be a treetop or a rounded number",
+    "doubt": true
   },
   {
     "name": "Núi Bân",
