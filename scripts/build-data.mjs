@@ -2317,6 +2317,41 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       if (top > 1.5) { for (const k of inside) nodeLv[k] = Math.max(nodeLv[k], top); hakhe = { ring: flat(thienMu), top: q(top) }; }
       console.log('Hà Khê plateau', top.toFixed(1), 'm above the city floor |', inside.length, 'nodes');
     }
+    // Phước Quả hill: nhà thờ Phủ Cam and its forecourt stand on one levelled terrace. Street View shows the yard
+    // running on level to the gardens either side of it and dropping only along its north edge, to the lower garden
+    // and the gate; the 30 m elevation model reads the hill as an even slope, which left the yard (laid level with the
+    // church doors) standing 3 m clear of its own ground on three sides. The nodes near the cathedral's outline and on
+    // its side of every street are held at the level of the ground under the church.
+    {
+      const pc = ringOf(118792054), REACH = 32, streets = carriagewayTest(3);
+      const segDist = (x, z) => {
+        let best = Infinity, at0 = null;
+        for (let a = 0; a < pc.length; a++) {
+          const p = pc[a], b = pc[(a + 1) % pc.length], dx = b[0] - p[0], dz = b[1] - p[1];
+          const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / (dx * dx + dz * dz || 1)));
+          const d = Math.hypot(x - p[0] - t * dx, z - p[1] - t * dz);
+          if (d < best) { best = d; at0 = [p[0] + t * dx, p[1] + t * dz]; }
+        }
+        return pip([x, z], pc) ? [0, [x, z]] : [best, at0];
+      };
+      const terrace = [], under = [];
+      if (pc) for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        const x = GX0 + i * STEP, z = GZ0 + j * STEP;
+        if (Math.abs(x - pc[0][0]) > 120 || Math.abs(z - pc[0][1]) > 120) continue;
+        const [d, q0] = segDist(x, z);
+        if (d > REACH) continue;
+        let crosses = false; // a street between the node and the church: the node is the neighbour's ground
+        for (let s = 0, n = Math.ceil(d / 2); s <= n && !crosses; s++) crosses = streets(x + ((q0[0] - x) * s) / (n || 1), z + ((q0[1] - z) * s) / (n || 1));
+        if (crosses) continue;
+        const k = j * nx + i;
+        terrace.push(k);
+        if (d < 10) under.push(Math.max(0, fine[k] - floor) * gateOf(broad[k] - floor));
+      }
+      under.sort((a, b) => a - b);
+      const lv = under.length ? under[under.length >> 1] : 0;
+      if (lv > 1.5) for (const k of terrace) nodeLv[k] = Math.max(nodeLv[k], lv);
+      console.log('Phủ Cam terrace', lv.toFixed(1), 'm above the city floor |', terrace.length, 'nodes');
+    }
     const nearWet = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx * STEP, z + dz * STEP) & WATER) return true; return false; };
     const lock = new Uint8Array(nx * nz);
     h = new Float32Array(nx * nz);
