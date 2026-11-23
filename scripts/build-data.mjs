@@ -1064,6 +1064,20 @@ let nMeasured = 0, nSurvey = 0, nHouseMeasured = 0;
 const PERIOD_CAP = { 1: 13, 2: 5.2 }, PERIOD_SLACK = 1.2; // tallest Indochine building / Nguyễn-period house, m
 const periodKept = { 1: 0, 2: 0 }; // surveyed buildings too tall for their district's period
 const gates = [];
+// OSM gate buildings drawn away from where the satellite shows the gate, while the road, bridge and moat beside them
+// are right: [east, south] in metres added to the footprint. Cửa Đông Ba (way 695810694) is mapped about 7.4 m inside
+// the wall and 3 m south-east along it; on Google's z19/z20 imagery the block's outer face is on the wall's outer face,
+// and Street View puts its arch on the axis of the road and bridge (docs/places/gate-cua-dong-ba.md).
+// `reach` [east, south]: where the mapped rampart (data.wall) runs further into the city than the real one, the record
+// is lengthened that far inward so the slot the walls cut for the passage (gateAxis plen) comes out on the city side;
+// the gate model keeps its own block depth from the outer face and lines the cut behind it. With a `notch` the record
+// reaches on to the gateposts on the city street (the passage the carriageway narrows to runs that far).
+// `notch` { half, back }: the mapped band's city side cut back to `back` m inside the gate's outer face over `half` m
+// either side of the passage. At Cửa Đông Ba the band runs on as a 7 m vertical face to the street, with a leftover
+// notch where OSM put the gate building; Street View from Xuân 68 and Mai Thúc Loan shows instead a brick retaining
+// wall about 4 m high with capped gateposts at the passage, the bank rising behind it, and the gate block and tower
+// standing clear above. The gate model draws that wall and bank in the notch.
+const GATE_FIX = { 695810694: { shift: [4.2, -6.8], reach: [-6.31, 4.59], notch: { half: 18, back: 12.5 } } };
 const buildings = [];
 const smeared = new Set(), surveyed = new Set(); // buildings whose height is the satellite prediction / the city survey's reading
 const hash = (id) => { let h = (id * 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; };
@@ -1090,7 +1104,27 @@ for (const e of els) {
   // the small pavilions and gate standing with tháp Phước Duyên on its terrace are modelled with the tower
   if (towerC && Math.hypot(c[0] - towerC[0], c[1] - towerC[1]) < 27) { thienMuSmall.push(flat(ring)); fillPoly([ring], BLD); continue; }
   if (t.historic === 'city_gate') {
+    const fix = GATE_FIX[e.id];
+    if (fix) for (const p of ring) { p[0] += fix.shift[0]; p[1] += fix.shift[1]; }
     const o = obb(ring);
+    if (fix?.reach) {
+      const [rx, rz] = fix.reach, len = Math.hypot(rx, rz);
+      if (Math.abs(rx * Math.cos(o.a) + rz * Math.sin(o.a)) / len > 0.707) o.w += len; else o.d += len;
+      o.c = [o.c[0] + rx / 2, o.c[1] + rz / 2];
+    }
+    if (fix?.notch && fix.reach) {
+      const [rx, rz] = fix.reach, len = Math.hypot(rx, rz), ix = rx / len, iz = rz / len; // into the city
+      const along = Math.abs(ix * Math.cos(o.a) + iz * Math.sin(o.a)) > 0.707 ? o.w : o.d;
+      const ox = o.c[0] - (ix * along) / 2, oz = o.c[1] - (iz * along) / 2; // the outer face, on the axis
+      const { half, back } = fix.notch;
+      const R = (s, u) => [ox + ix * s - iz * u, oz + iz * s + ix * u];
+      const probe = R(back + 2, half + 3); // in the band just past the notch's end
+      const k = wall.findIndex((poly) => pipPoly(probe, poly));
+      if (k >= 0) {
+        const cut = pc.difference(wall[k], [[R(back, -half), R(back, half), R(back + 40, half), R(back + 40, -half), R(back, -half)]]);
+        if (cut.length === 1) wall[k] = cut[0]; else console.warn('gate notch split the wall band; left whole');
+      }
+    }
     const onCitadel = wallBandTest(c);
     gates.push({ n: t.name || (e.id === 1568259450 ? 'Cửa Kẻ Trài' : ''), c: [q(o.c[0]), q(o.c[1])], w: q(o.w), d: q(o.d), a: Math.round(o.a * 1000), k: onCitadel ? 'citadel' : 'imperial' });
     fillPoly([ring], BLD);
