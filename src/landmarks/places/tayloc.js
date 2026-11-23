@@ -1,3 +1,5 @@
+import * as T3 from 'three';
+import polygonClipping from 'polygon-clipping';
 import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
@@ -15,9 +17,12 @@ import { offStreets } from '../enclosure.js';
 //    city survey reads 3.5 m to the top, so one storey under a low sheet roof;
 //  - a two-storey block (survey 7.7 m) and a low hall in the two courts of the E, two small sheds in the courts;
 //  - six long stall halls (3.0-4.5 m, survey) on the east half, either side of the lane that comes in from Nguyễn Trãi
-//    at the middle of the block: the market gate. Before it, the flea market on tarpaulins (vinwonders.com).
-// Estimated: roof forms (low gables of corrugated sheet, the oval hall's a low cone), colours, the gate's form and sign,
-// stall bays, awnings, tarpaulins and umbrellas; the lit strips (the market keeps open to 22:00).
+//    at the middle of the block. In the gap between the two front halls, at the lane's mouth, stands the market gate:
+//    yellow pillars under a two-tier red roof, the name board between the tiers and a flag on top (Street View on
+//    Nguyễn Trãi). Before it an open paved forecourt where cars and motorbikes park, a planting strip with a row of
+//    small street trees along the kerb (Street View; the flea market on tarpaulins of older accounts is gone).
+// Estimated: roof forms (low gables of corrugated sheet, the oval hall's a low cone), colours, the gate's sizes,
+// stall bays, sign boards, tarps and awnings, umbrellas; the lit strips (the market keeps open to 22:00).
 //
 // Frame: the block's centre C; u along the side streets toward Nguyễn Trãi (east-north-east), v toward the street on
 // the south-south-east side. hue.json's footprints, converted, are listed below in (u, v) metres.
@@ -28,23 +33,27 @@ const UL = Math.hypot(0.807, -0.586), U = [0.807 / UL, -0.586 / UL], V = [-U[1],
 const ANG = Math.atan2(U[1], U[0]);
 const P = (u, v) => [C[0] + U[0] * u + V[0] * v, C[1] + U[1] * u + V[1] * v];
 
-const WALL = hex('#ead7a2'), WALL2 = hex('#e4dccb'), PLINTH = hex('#9b968c');
+const WALL = hex('#ead7a2'), WALL2 = hex('#e4dccb'), PLINTH = hex('#9b968c'), WALL_PAV = hex('#f2e7bb');
 const ROOF_HALL = hex('#9a4c3b'), ROOF_ZINC = hex('#8c9598'), ROOF_BLUE = hex('#5f7f97');
 const PAVE = hex('#bdb6a8'), KERB = hex('#a29c90'), DARK = hex('#3a322c');
 const SHUTTER = [hex('#a3a8a6'), hex('#8f9a9f'), hex('#6f8ca3'), hex('#b8b3a6')];
 const GOODS = [hex('#c0392b'), hex('#e0a526'), hex('#2e7d9a'), hex('#5b8c3a'), hex('#d96f9a'), hex('#efe6d2'), hex('#7b4f9a')];
-const TARP = [hex('#2f63b5'), hex('#3d7dd0'), hex('#d9502f'), hex('#3e8f5a')];
 const W1 = [1, 1, 1];
 
 // the yard: the block, at most this far out; build() trims it off the mapped streets (offStreets), which run a few
-// metres inside these lines on three sides, so the kerb stands at the carriageway's edge
-const YU0 = -67.5, YU1 = 64.5, YV0 = -54.5, YV1 = 55;
+// metres inside these lines on three sides, so the kerb stands at the carriageway's edge (on Nguyễn Trãi, u ~66.8)
+const YU0 = -67.5, YU1 = 70, YV0 = -54.5, YV1 = 55;
 
 // the trees standing in the market, (u, v, scale), from the satellite: four down the lane between the E and the stall
-// halls, one in the south court; along Lê Đại Hành by the north-west corner block and along Đạm Phương over the
-// lean-tos (those whose pit would leave the trimmed yard are left out)
+// halls, one in the south court; along Lê Đại Hành by the north-west corner block and along Đạm Phương by the kerb
+// (sv-tvtrong-north shows the west side under heavy tree cover)
 const TREES = [[15.2, -28.8, 1.1], [15.6, -9.9, 1.0], [15.2, 10.2, 1.0], [14.8, 30.2, 1.1], [-19.8, 23.1, 0.9],
-  [-57.2, -52.8, 0.8], [-43.8, -51.6, 0.8], [-64.8, -32.6, 0.8], [-64.8, -16.8, 0.8], [-65.0, 1.5, 0.8], [-64.8, 20.2, 0.8]];
+  [-57.2, -53.3, 0.8], [-43.8, -52.6, 0.8], [-65.3, -32.6, 0.8], [-65.3, -16.8, 0.8], [-65.3, 1.5, 0.8], [-65.3, 20.2, 0.8],
+  [-65.3, 44.5, 0.8]];
+// the forecourt on Nguyễn Trãi: a planting strip just inside the pavement, either side of the way in, with a row of
+// small street trees (Street View from Nguyễn Trãi); u from the hall fronts (53.9) to the kerb (66.8)
+const STRIP_U = [62.3, 64.0], STRIPS = [[-50.5, -4.0], [10.0, 51.0]];
+const KERB_TREES = [-46, -36.5, -27, -17.5, -8, 14, 23.5, 33, 42.5].map((v) => [63.15, v, 0.6]);
 
 let Y0 = 0; // the yard's top: every building stands on it
 const rnd = (i, s) => { const x = Math.sin(i * 127.1 + s * 311.7) * 43758.5453; return x - Math.floor(x); };
@@ -115,8 +124,41 @@ function bays(S, side, u0, u1, v0, v1, eave, seed, awning = 1.3, awnCol = ROOF_Z
   }
 }
 
-// a single-storey hall: rendered walls on a low plinth, a gable roof, stall bays on its long sides (or all four)
-function hall(S, u0, u1, v0, v1, top, roof, seed, { all = false, eave = null, awnings = true, awn = ROOF_ZINC } = {}) {
+// the street face of a front stall hall: a band of shop sign boards hung at the eave, and blue and purple tarps
+// slung from under it down over the stall fronts (Street View on Nguyễn Trãi); side as in bays(), L0..L1 along it,
+// ya the roof's edge height, over its overhang
+const SIGNS = [hex('#f1efe8'), hex('#2f5fa8'), hex('#c8352a'), hex('#e9c23c'), hex('#e8e2d0'), hex('#3f7fbf'), hex('#d9822b')];
+const TARPS = [hex('#3256a8'), hex('#5a4c9c'), hex('#2a3f7a'), hex('#4f7fc4'), hex('#6c5aa8')];
+function shopFront(S, side, L0, L1, fixed, ya, seed, over = 0.6) {
+  const alongU = side === 'v0' || side === 'v1', out = side === 'v0' || side === 'u0' ? -1 : 1;
+  const rect = (a0, a1, w0, w1, y0, y1, col) => (alongU ? boxUV(S, a0, a1, Math.min(w0, w1), Math.max(w0, w1), y0, y1, col) : boxUV(S, Math.min(w0, w1), Math.max(w0, w1), a0, a1, y0, y1, col));
+  const q = (a, w, y) => (alongU ? W3(a, w, y) : W3(w, a, y));
+  const y1 = ya - 0.12, y0 = Math.max(ya - 0.8, 2.42), wb = fixed + out * (over - 0.08);
+  S.kind = KIND.PLAIN;
+  for (let a = L0 + 0.15, i = 0; a < L1 - 0.6; i++) {
+    const b = Math.min(L1 - 0.15, a + 2.8 + rnd(seed + i, 1) * 4.2), col = SIGNS[Math.floor(rnd(seed + i, 2) * SIGNS.length)];
+    rect(a, b, wb, wb + out * 0.1, y0, y1, col);
+    // a line of lettering in a contrasting colour
+    const ink = col === SIGNS[0] || col === SIGNS[4] || col === SIGNS[3] ? hex('#b3201c') : hex('#f4f1e6');
+    if (b - a > 1.6 && y1 - y0 > 0.35) rect(a + 0.35, b - 0.35, wb + out * 0.1, wb + out * 0.13, y0 + (y1 - y0) * 0.3, y0 + (y1 - y0) * 0.7, ink);
+    a = b + 0.06;
+  }
+  // the tarps, in runs with gaps, slung steeply from under the boards
+  for (let a = L0 + 0.3, i = 0; a < L1 - 1; i++) {
+    const b = Math.min(L1 - 0.3, a + 2.5 + rnd(seed + i, 5) * 4), col = TARPS[Math.floor(rnd(seed + i, 6) * TARPS.length)];
+    if (rnd(seed + i, 7) < 0.72) {
+      const w0 = wb - out * 0.02, w1 = fixed + out * (over + 0.75), yb = 1.75 + rnd(seed + i, 8) * 0.25;
+      const c0 = q(a, w0, y0 - 0.02), c1 = q(b, w0, y0 - 0.02), c2 = q(b, w1, yb), c3 = q(a, w1, yb);
+      S.quad(c0, c1, c2, c3, col, alongU ? [0, 1, 0] : [0, 1, 0]);
+      S.quad(c1, c0, c3, c2, shade(col, 0.55), [0, -1, 0]);
+    }
+    a = b + 0.4 + rnd(seed + i, 9) * 1.2;
+  }
+}
+
+// a single-storey hall: rendered walls on a low plinth, a gable roof, stall bays on its long sides (or all four); the
+// side named by front gets the street face (shopFront) instead of an awning
+function hall(S, u0, u1, v0, v1, top, roof, seed, { all = false, eave = null, awnings = true, awn = ROOF_ZINC, front = null } = {}) {
   const e = eave ?? top - Math.min(1.2, Math.max(0.6, Math.min(u1 - u0, v1 - v0) * 0.065));
   S.kind = KIND.PLAIN;
   boxUV(S, u0 - 0.1, u1 + 0.1, v0 - 0.1, v1 + 0.1, 0, 0.3, PLINTH);
@@ -124,48 +166,85 @@ function hall(S, u0, u1, v0, v1, top, roof, seed, { all = false, eave = null, aw
   gable(S, u0, u1, v0, v1, e, top, shade(roof, 0.92 + rnd(seed, 2) * 0.14));
   const alongU = u1 - u0 >= v1 - v0;
   const sides = all ? ['v0', 'v1', 'u0', 'u1'] : alongU ? ['v0', 'v1'] : ['u0', 'u1'];
-  sides.forEach((sd, k) => bays(S, sd, u0, u1, v0, v1, e, seed * 13 + k * 101, awnings ? 1.3 : 0, typeof awn === 'function' ? awn(sd) : awn));
+  sides.forEach((sd, k) => bays(S, sd, u0, u1, v0, v1, e, seed * 13 + k * 101, awnings && sd !== front ? 1.3 : 0, awn));
+  if (front) {
+    // the roof's edge on that side: the eave less the drop over the overhang (as gable() draws it)
+    const half = (alongU ? v1 - v0 : u1 - u0) / 2, eaveSide = (front === 'u0' || front === 'u1') !== alongU;
+    const ya = eaveSide ? e - (0.6 * (top - e)) / half : e;
+    const fixed = front === 'v0' ? v0 : front === 'v1' ? v1 : front === 'u0' ? u0 : u1;
+    const vs = front === 'u0' || front === 'u1';
+    shopFront(S, front, vs ? v0 : u0, vs ? v1 : u1, fixed, ya, seed * 31);
+  }
 }
 
 // a corner block or porch: the same walls, shutters all round, its gable across the hall's. A corner block (face set)
-// turns its gable end to the street, as the north-west one shows on Lê Đại Hành (Street View): a cream gable with an
-// arched lunette in a fan of glazing bars, a concrete canopy slab across it, and a sheet lean-to out over the
-// pavement under the trees
-function pavilion(S, u0, u1, v0, v1, top, roof, seed, face = null, eave = top - 0.9, lean = 3.0) {
+// turns its gable end to the street, as the north-west one shows on Lê Đại Hành (sv-ldhanh-se): a pale cream gable
+// with a wide, low segmental lunette, glazed between mullions, over a grey concrete canopy, and a short sheet lean-to,
+// its edge trimmed in blue, out over the steps. vents names a side with a band of breeze-block grilles over its stall
+// openings (the Đạm Phương side, sv-tvtrong-north).
+function pavilion(S, u0, u1, v0, v1, top, roof, seed, { face = null, eave = top - 0.9, lean = 0, vents = null } = {}) {
   const e = eave;
   S.kind = KIND.PLAIN;
   boxUV(S, u0 - 0.1, u1 + 0.1, v0 - 0.1, v1 + 0.1, 0, 0.3, PLINTH);
-  boxUV(S, u0, u1, v0, v1, 0.3, e, shade(WALL, 0.97));
+  boxUV(S, u0, u1, v0, v1, 0.3, e, WALL_PAV);
   gable(S, u0, u1, v0, v1, e, top, roof, 0.6, face ? 'v' : null);
   for (const sd of ['v0', 'v1', 'u0', 'u1']) bays(S, sd, u0, u1, v0, v1, Math.min(e, 3.0), seed * 7 + sd.charCodeAt(1), 0);
+  if (vents) grilles(S, vents, u0, u1, v0, v1, 2.55, Math.min(e - 0.15, 3.25));
   if (!face) return;
   const out = face === 'v0' ? -1 : 1, vf = face === 'v0' ? v0 : v1, um = (u0 + u1) / 2, hw = (u1 - u0) / 2;
-  // the gable end in the cream render, a moulded verge, the lunette over the canopy
+  // the gable end in the cream render, a moulded cornice, the lunette over it
   const g = (du, y, d = 0) => W3(um + du, vf + out * (0.04 + d), y);
   const hint = [V[0] * out, 0.1, V[1] * out];
-  S.tri(g(-hw, e), g(hw, e), g(0, top - 0.05), WALL, hint);
-  boxUV(S, u0 - 0.2, u1 + 0.2, vf + out * 0.02 - 0.25, vf + out * 0.02 + 0.25, e - 0.25, e, shade(WALL, 0.9)); // the cornice
-  const R = Math.min(1.5, (top - e) * 0.9), yc = e + 0.05, segs = 12;
-  for (let i = 0; i < segs; i++) {
-    const t0 = (Math.PI * i) / segs, t1 = (Math.PI * (i + 1)) / segs;
-    const p0 = g(R * Math.cos(t0), yc + R * Math.sin(t0), 0.03), p1 = g(R * Math.cos(t1), yc + R * Math.sin(t1), 0.03), c = g(0, yc, 0.03);
-    const q0 = g(R * 1.18 * Math.cos(t0), yc + R * 1.18 * Math.sin(t0), 0.02), q1 = g(R * 1.18 * Math.cos(t1), yc + R * 1.18 * Math.sin(t1), 0.02);
-    const glass = i % 3 === 1 ? shade(DARK, 1.6) : DARK;
-    S.tri(c, p0, p1, glass, hint);
-    S.quad(p0, q0, q1, p1, shade(WALL, 1.06), hint);
+  S.tri(g(-hw, e), g(hw, e), g(0, top - 0.05), WALL_PAV, hint);
+  boxUV(S, u0 - 0.2, u1 + 0.2, vf + out * 0.02 - 0.25, vf + out * 0.02 + 0.25, e - 0.25, e, shade(WALL_PAV, 0.92)); // the cornice
+  // a segment of a circle on the cornice: chord 2cw, rise h
+  const cw = Math.min(1.3, hw * 0.42), h = Math.min(0.6, (top - e) * (1 - cw / hw) * 0.9), base = e + 0.04;
+  const R = (cw * cw + h * h) / (2 * h), yc = base + h - R, a0 = Math.asin(cw / R), segs = 10;
+  const arc = (k, s = 1) => { const t = -a0 + (2 * a0 * k) / segs; return [R * s * Math.sin(t), yc + R * s * Math.cos(t)]; };
+  const GLASS = hex('#aab4b5'), RIM = shade(WALL_PAV, 1.08);
+  for (let k = 0; k < segs; k++) {
+    const [x0, y0] = arc(k), [x1, y1] = arc(k + 1);
+    S.tri(g(0, base, 0.03), g(x0, y0, 0.03), g(x1, y1, 0.03), GLASS, hint);
+    const [p0, q0] = arc(k, 1.1), [p1, q1] = arc(k + 1, 1.1);
+    S.quad(g(x0, y0, 0.035), g(p0, Math.max(q0, base), 0.035), g(p1, Math.max(q1, base), 0.035), g(x1, y1, 0.035), RIM, hint);
+  }
+  for (let m = 1; m < 6; m++) {
+    const x = -cw + (2 * cw * m) / 6, y = yc + Math.sqrt(R * R - x * x);
+    S.beam(g(x, base, 0.06), g(x, y, 0.06), 0.06, 0.05, DARK);
   }
   // the canopy slab, grey concrete, a metre out
-  boxUV(S, u0 + 0.6, u1 - 0.6, Math.min(vf, vf + out * 1.1), Math.max(vf, vf + out * 1.1), e - 0.55, e - 0.4, shade(PLINTH, 0.95));
-  // the lean-to: one brown sheet from under the slab out over the pavement, on a few thin posts
+  boxUV(S, u0 + 0.3, u1 - 0.3, Math.min(vf, vf + out * 1.1), Math.max(vf, vf + out * 1.1), e - 0.55, e - 0.4, hex('#b4b2ab'));
+  // the lean-to: one sheet (rusty, under fallen leaves) from under the slab out over the steps, a blue-painted edge,
+  // a few thin posts
   if (lean > 0) {
-    const w0 = vf, w1 = vf + out * lean, ya = e - 0.6, yb = 2.25, col = hex('#6f5139');
+    const w0 = vf, w1 = vf + out * lean, ya = e - 0.6, yb = 2.3, col = hex('#7a5a3c');
     const k = S.kind;
     S.kind = KIND.PLAIN;
-    const c0 = W3(u0 - 1.5, w0, ya), c1 = W3(u1 + 1.5, w0, ya), c2 = W3(u1 + 1.5, w1, yb), c3 = W3(u0 - 1.5, w1, yb);
+    const c0 = W3(u0 - 0.3, w0, ya), c1 = W3(u1 + 0.3, w0, ya), c2 = W3(u1 + 0.3, w1, yb), c3 = W3(u0 - 0.3, w1, yb);
     S.quad(c0, c1, c2, c3, col, [0, 1, 0]);
     S.quad(c1, c0, c3, c2, shade(col, 0.5), [0, -1, 0]);
-    for (let u = u0 - 1.2; u <= u1 + 1.3; u += (u1 - u0 + 2.4) / 4) { const p = P(u, w1 - out * 0.15); S.cyl(p[0], p[1], Y0, Y0 + yb, 0.05, 0.05, 4, DARK, { cap: false }); }
+    S.beam(W3(u0 - 0.3, w1, yb - 0.08), W3(u1 + 0.3, w1, yb - 0.08), 0.06, 0.18, hex('#2e5fa8'));
+    for (let u = u0; u <= u1 + 0.01; u += (u1 - u0) / 3) { const p = P(u, w1 - out * 0.15); S.cyl(p[0], p[1], Y0, Y0 + yb - 0.15, 0.05, 0.05, 4, DARK, { cap: false }); }
     S.kind = k;
+  }
+}
+
+// breeze-block grilles in the wall over the stall openings of one side: dark panels behind a grid in the wall colour
+function grilles(S, side, u0, u1, v0, v1, y0, y1) {
+  const alongU = side === 'v0' || side === 'v1';
+  const L0 = alongU ? u0 : v0, L1 = alongU ? u1 : v1, fixed = side === 'v0' ? v0 : side === 'v1' ? v1 : side === 'u0' ? u0 : u1;
+  const out = side === 'v0' || side === 'u0' ? -1 : 1;
+  const rect = (a0, a1, w0, w1, b0, b1, col) => (alongU ? boxUV(S, a0, a1, Math.min(w0, w1), Math.max(w0, w1), b0, b1, col) : boxUV(S, Math.min(w0, w1), Math.max(w0, w1), a0, a1, b0, b1, col));
+  const pt = (a, w, y) => (alongU ? W3(a, w, y) : W3(w, a, y));
+  const n = Math.max(1, Math.round((L1 - L0) / 2.6)), s = (L1 - L0) / n;
+  S.kind = KIND.PLAIN;
+  for (let i = 0; i < n; i++) {
+    const a0 = L0 + i * s + 0.45, a1 = L0 + (i + 1) * s - 0.45;
+    rect(a0, a1, fixed, fixed + out * 0.04, y0, y1, DARK);
+    const w = fixed + out * 0.07;
+    for (let k = 1; k < 3; k++) { const y = y0 + ((y1 - y0) * k) / 3; S.beam(pt(a0, w, y), pt(a1, w, y), 0.05, 0.06, WALL_PAV); }
+    const m = Math.max(2, Math.round((a1 - a0) / 0.3));
+    for (let k = 1; k < m; k++) { const a = a0 + ((a1 - a0) * k) / m; S.beam(pt(a, w, y0), pt(a, w, y1), 0.05, 0.06, WALL_PAV); }
   }
 }
 
@@ -223,48 +302,79 @@ export function build({ data, S, group, THREE }) {
 
   // ---- the yard: concrete over the whole block, a kerb round it, open round the trees ----
   // The satellite shows big shade trees standing in the market: a row of four down the lane between the E and the
-  // stall halls, one in the south court, and a line along Lê Đại Hành and Đạm Phương over the stall lean-tos (Street
-  // View). Each stands in an unpaved pit cut in the yard, so the shared tree builder may plant it (data.trees).
+  // stall halls, one in the south court, and lines along Lê Đại Hành and Đạm Phương over the stall lean-tos (Street
+  // View); along Nguyễn Trãi a planting strip at the kerb with a row of small street trees. The shared tree builder
+  // plants them (data.trees) where no tall cover stands near, and a paved court counts as tall (S.paved); so the yard
+  // is laid in small tiles (the coverage test reads a triangle a little past its edges, a few per cent of its size),
+  // and round each tree an apron of the same paving is left out of S.paved, with a soil pit at the trunk.
   const ring = offStreets(data, [P(YU0, YV0), P(YU1, YV0), P(YU1, YV1), P(YU0, YV1)]);
   const inRing = (x, z) => { let c = false; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [xi, zi] = ring[i], [xj, zj] = ring[j]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c; } return c; };
-  // A pit is cut in a 16 m square of its own (the coverage test reads a big triangle a little past its edges, so the
-  // yard's long triangles must not reach the pit), and the square is cut out of the yard.
+  const edgeDist = (x, z) => { let d = Infinity; for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) { const [ax, az] = ring[j], [bx, bz] = ring[i], dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1))); d = Math.min(d, Math.hypot(x - ax - t * dx, z - az - t * dz)); } return d; };
+  const disk = (c, r, n = 14) => Array.from({ length: n }, (_, k) => { const a = (k / n) * Math.PI * 2; return [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]; });
+  const rectUV = (u0, u1, v0, v1) => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
   const pits = [];
   for (const [u, v, sc] of TREES) {
-    const r = 2.2 * sc + 1.9, c = P(u, v), H = 8;
-    const circ = Array.from({ length: 12 }, (_, k) => { const a = (k / 12) * Math.PI * 2; return [c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]; });
-    const sq = [P(u - H, v - H), P(u + H, v - H), P(u + H, v + H), P(u - H, v + H)];
-    if (!sq.every(([x, z]) => inRing(x, z))) continue; // the square would run off the yard: leave the tree out
-    pits.push({ u, v, sc, r, c, circ, sq });
+    const c = P(u, v);
+    if (!inRing(c[0], c[1])) continue;
+    const r = 2.2 * sc + 1.9, pr = Math.min(1.2 * sc + 0.3, edgeDist(c[0], c[1]) - 0.15);
+    pits.push({ u, v, sc, r, c, pit: pr > 0.4 ? disk(c, pr, 10) : null });
   }
-  const n0 = S.n;
+  const kerb = KERB_TREES.map(([u, v, sc]) => ({ u, v, sc, r: 2.2 * sc + 1.9, c: P(u, v), pit: null }));
+  const strips = STRIPS.map(([v0, v1]) => rectUV(STRIP_U[0], STRIP_U[1], v0, v1));
+  const aprons = pits.map((p) => [disk(p.c, p.r)]).concat(STRIPS.map(([v0, v1]) => [rectUV(59.8, 68, v0 - 2, v1 + 2)]));
+  const ringP = [ring];
+  const fill = (mp, y, col, kind) => {
+    const keep = S.kind;
+    S.kind = kind;
+    for (const poly of mp) {
+      const rs = poly.map((r) => r.slice(0, -1).map(([x, z]) => new T3.Vector2(x, z)));
+      const faces = T3.ShapeUtils.triangulateShape(rs[0], rs.slice(1)), pts = [].concat(...rs);
+      for (const f of faces) { const a = pts[f[0]], b = pts[f[1]], d = pts[f[2]]; S.tri([a.x, y, a.y], [b.x, y, b.y], [d.x, y, d.y], col, [0, 1, 0]); }
+    }
+    S.kind = keep;
+  };
+  // a low rim facing into a sunken bed
+  const rim = (r, col) => { for (let i = 0; i < r.length; i++) { const a = r[i], b = r[(i + 1) % r.length], m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; S.quad([a[0], Y0 - 0.12, a[1]], [b[0], Y0 - 0.12, b[1]], [b[0], Y0, b[1]], [a[0], Y0, a[1]], col, [C[0] - m[0], 0.001, C[1] - m[1]]); } };
   S.kind = KIND.PLAIN;
-  S.prism(ring, Y0 - 1.0, Y0, KERB, PAVE, { topKind: KIND.ROAD, holes: pits.map((p) => p.sq) });
-  for (const p of pits) S.prism(p.sq, Y0 - 0.3, Y0, PAVE, PAVE, { topKind: KIND.ROAD, holes: [p.circ] });
-  (S.paved = S.paved || []).push([n0, S.n]);
-  for (const p of pits) {
-    S.prism(p.circ, Y0 - 1.0, Y0 - 0.12, KERB, hex('#7d6a52'), { topKind: KIND.GROUND });
-    if (Array.isArray(data.trees)) data.trees.push(Math.round(p.c[0] * 10), Math.round(p.c[1] * 10), Math.round(p.sc * 10), 0);
+  S.prism(ring, Y0 - 1.0, Y0, KERB, PAVE, { top: false });
+  const n0 = S.n;
+  for (let u = YU0 - 2; u < YU1 + 2; u += 12) for (let v = YV0 - 2; v < YV1 + 2; v += 12) {
+    const cell = polygonClipping.intersection([rectUV(u, u + 12, v, v + 12)], ringP);
+    if (cell.length) fill(polygonClipping.difference(cell, ...aprons), Y0, PAVE, KIND.ROAD);
   }
+  (S.paved = S.paved || []).push([n0, S.n]);
+  const beds = pits.filter((p) => p.pit).map((p) => [p.pit]).concat(strips.map((r) => [r]));
+  fill(polygonClipping.difference(polygonClipping.intersection(polygonClipping.union(...aprons), ringP), ...beds), Y0, PAVE, KIND.ROAD);
+  S.kind = KIND.PLAIN;
+  for (const p of pits) if (p.pit) { S.prism(p.pit, Y0 - 1.0, Y0 - 0.12, KERB, hex('#7d6a52'), { topKind: KIND.GROUND }); rim(p.pit, KERB); }
+  for (const r of strips) { S.prism(r, Y0 - 1.0, Y0 - 0.12, KERB, hex('#6f7a4c'), { topKind: KIND.GROUND }); rim(r, KERB); }
+  S.kind = KIND.PLAIN;
+  if (Array.isArray(data.trees)) for (const p of pits.concat(kerb)) data.trees.push(Math.round(p.c[0] * 10), Math.round(p.c[1] * 10), Math.round(p.sc * 10), 0);
   const nearPit = (u, v, m) => pits.some((p) => Math.hypot(u - p.u, v - p.v) < p.r + m);
 
   // ---- the main hall: the E on the west half (survey 3.5 m to the top) ----
   const HT = 3.5;
   hall(S, -57.3, -45.3, -34.3, 37.8, HT, ROOF_HALL, 1, { all: false, awnings: false }); // the back wing, on the back street
   hall(S, -45.3, 7.2, 36.7, 50.3, HT, ROOF_HALL, 2); // the arm on the south-south-east street
-  hall(S, -44.7, 8.5, -45.9, -33.4, HT, ROOF_HALL, 3); // the arm on the north-north-west street
+  hall(S, -44.7, 8.5, -45.9, -33.4, HT, hex('#5d3c35'), 3); // the arm on Lê Đại Hành, its sheet dark maroon (Street View)
   hall(S, -22.8, 1.2, -6.0, 9.4, HT, ROOF_HALL, 4, { all: true }); // the middle bar
   hall(S, -45.3, -37.7, -3.0, 5.5, HT - 0.3, ROOF_HALL, 5, { awnings: false }); // its link to the back wing
-  // the corner blocks, gable ends to the side streets (the north-west one on Street View: about 5 m to the apex, above
-  // the survey's 3.5 m for the whole hall), and the back porch
-  pavilion(S, -61.6, -45.3, 37.8, 52.2, 5.0, ROOF_HALL, 6, 'v1', 3.3, 2.2);
-  pavilion(S, -60.6, -45.3, -49.3, -34.3, 5.0, ROOF_HALL, 7, 'v0', 3.3, 2.6);
+  // the corner blocks and the back porch. The north-west corner on Lê Đại Hành (sv-ldhanh-se, sv-gate-lane-west): a
+  // narrow pale gable bay at the corner (about 6 m wide, eave 3.4, apex 4.4), its end to the street, beside a plain
+  // block under a darker sheet; the south-west one on Đạm Phương turns a wide gable to Thân Trọng Một, breeze-block
+  // grilles over its stall openings (sv-tvtrong-north)
+  pavilion(S, -60.6, -54.6, -48.6, -34.3, 4.4, ROOF_HALL, 7, { face: 'v0', eave: 3.4, lean: 1.8, vents: 'u0' });
+  pavilion(S, -54.6, -45.3, -48.6, -34.3, 4.0, hex('#8e4a3a'), 17, { eave: 3.2 });
+  pavilion(S, -61.6, -45.3, 37.8, 52.2, 4.4, ROOF_HALL, 6, { face: 'v1', eave: 3.4, lean: 1.2, vents: 'u0' });
   pavilion(S, -61.0, -57.3, -6.6, 8.5, HT, ROOF_HALL, 8); // the back porch
   // the stall-holders' lean-tos: dark green and olive sheet out over the pavement of Đạm Phương (Street View), and grey
   // corrugated sheet down the inner side of the back wing, in the courts (satellite)
   const GREENS = [hex('#3f5a3c'), hex('#5a6038'), hex('#4c5b47'), hex('#6b6a48')], GREYS = [hex('#9aa0a0'), hex('#8d9496'), hex('#a7aaa6')];
   leanTo(S, 'u0', -34.3, -6.6, -57.3, 3.7, 2.55, 2.15, GREENS, 71);
   leanTo(S, 'u0', 8.5, 37.8, -57.3, 3.7, 2.55, 2.15, GREENS, 72);
+  leanTo(S, 'u0', 38.3, 51.7, -61.6, 1.2, 2.55, 2.25, GREENS, 75, 5);
+  // and two square green stall canopies on poles at the kerb by the south-west corner
+  for (const v of [38.5, 50.5]) { const p = P(-64.2, v); S.cyl(p[0], p[1], Y0, Y0 + 2.3, 0.04, 0.04, 4, DARK, { cap: false }); boxUV(S, -65.3, -63.1, v - 1.1, v + 1.1, 2.3, 2.38, GREENS[0]); }
   leanTo(S, 'u1', -32.0, -3.0, -45.3, 7.0, 2.55, 2.2, GREYS, 73, 9);
   leanTo(S, 'u1', 5.5, 35.3, -45.3, 7.0, 2.55, 2.2, GREYS, 74, 9);
   // the oval hall: walls on the mapped outline, a low cone of sheet, a small vent lantern
@@ -300,15 +410,15 @@ export function build({ data, S, group, THREE }) {
   hall(S, -36.4, -30.2, -29.2, -19.0, 3.5, ROOF_ZINC, 11, { awnings: false });
 
   // ---- the stall halls on the east half, either side of the lane from Nguyễn Trãi (survey heights) ----
-  // roofs: rust-red and dark brown corrugated sheet, as the satellite shows them; blue tarpaulin awnings along the
-  // street front (Street View)
-  const front = (sd) => (sd === 'u1' ? ROOF_BLUE : ROOF_ZINC);
+  // roofs: rust-red and dark brown corrugated sheet, as the satellite shows them; on the street front a band of shop
+  // signs at the eave and blue and purple tarps under it (Street View). The south front hall reads about 3.8 m to the
+  // ridge on Street View, above the survey's 3.0.
   hall(S, 21.8, 41.0, -29.4, 0.6, 4.5, hex('#8f4f3c'), 12, { all: true });
   hall(S, 21.3, 40.5, 6.6, 34.8, 3.5, hex('#6e4c40'), 13, { all: true });
   hall(S, 12.85, 39.6, -45.6, -34.9, 3.0, hex('#5e4a42'), 14);
   hall(S, 13.45, 40.15, 38.8, 49.5, 4.0, hex('#5f5550'), 15);
-  hall(S, 43.6, 53.9, -45.6, -1.5, 4.0, hex('#94503d'), 16, { all: true, awn: front });
-  hall(S, 43.4, 53.5, 7.0, 50.5, 3.0, hex('#8a5040'), 17, { all: true, awn: front });
+  hall(S, 43.6, 53.9, -45.6, -1.5, 4.0, hex('#94503d'), 16, { all: true, front: 'u1' });
+  hall(S, 43.4, 53.5, 7.0, 50.5, 3.8, hex('#8a5040'), 17, { all: true, eave: 3.1, front: 'u1' });
 
   // ---- the courts and the lane under the stall-holders' tarpaulins and sheets: the mottled grey, white, black and
   // blue the satellite shows between the halls, clear of the trees and of the lane's middle ----
@@ -331,39 +441,65 @@ export function build({ data, S, group, THREE }) {
     k++;
   }
 
-  // ---- the street front on Nguyễn Trãi: no gateway stands at the lane's mouth (Street View shows an open forecourt
-  // where cars and motorbikes park); the market's name is a board on the roof edge of the front hall by the lane ----
-  const GU = 54.05, GV0 = -12.2, GV1 = -2.2, GH = 3.0;
+  // ---- the gate at the lane's mouth on Nguyễn Trãi (Street View): two yellow pillars and a lintel under a red tiled
+  // roof, a smaller roof over it, the market's name on a red board between the two, a flag on top ----
+  const GU = 54.6, GC = 2.75, TILE_RED = hex('#a8442f'), GOLD = hex('#d8b448');
   S.kind = KIND.PLAIN;
-  boxUV(S, GU - 0.05, GU + 0.12, GV0 - 0.15, GV1 + 0.15, GH - 0.1, GH + 1.25, hex('#8e1c18'));
-  // the flea market before the market: goods on tarpaulins either side of the way in, a few umbrellas
-  const LV0 = -2.4, LV1 = 8.4;
-  for (let i = 0; i < 14; i++) {
-    const side = i % 2 ? 1 : -1, v = side > 0 ? LV1 + 2 + Math.floor(i / 2) * 3.1 : LV0 - 2 - Math.floor(i / 2) * 3.1;
-    const u = 58.5 + rnd(i, 9) * 3, w = 2.2 + rnd(i, 10) * 0.8;
-    boxUV(S, u - w / 2, u + w / 2, v - 1.2, v + 1.2, 0.0, 0.05, TARP[i % TARP.length]);
-    boxUV(S, u - w / 3, u + w / 3, v - 0.7, v + 0.7, 0.05, 0.3, GOODS[(i * 3) % GOODS.length]);
+  for (const v of [GC - 3, GC + 3]) boxUV(S, GU - 0.35, GU + 0.35, v - 0.35, v + 0.35, 0, 4.1, GOLD);
+  boxUV(S, GU - 0.4, GU + 0.4, GC - 3.4, GC + 3.4, 3.6, 4.1, GOLD);
+  gable(S, GU - 0.65, GU + 0.65, GC - 3.65, GC + 3.65, 4.1, 4.7, TILE_RED, 0.6, 'v');
+  S.kind = KIND.PLAIN;
+  boxUV(S, GU - 0.3, GU + 0.3, GC - 2.15, GC + 2.15, 4.35, 5.5, GOLD);
+  boxUV(S, GU + 0.3, GU + 0.36, GC - 1.95, GC + 1.95, 4.5, 5.35, hex('#8e1c18'));
+  gable(S, GU - 0.35, GU + 0.35, GC - 2.35, GC + 2.35, 5.5, 5.95, TILE_RED, 0.45, 'v');
+  S.kind = KIND.PLAIN;
+  {
+    const p = P(GU, GC);
+    S.cyl(p[0], p[1], Y0 + 5.9, Y0 + 7.6, 0.03, 0.03, 5, DARK, { cap: false });
+    const f0 = W3(GU, GC + 0.03, 6.95), f1 = W3(GU, GC + 0.93, 6.95), f2 = W3(GU, GC + 0.93, 7.55), f3 = W3(GU, GC + 0.03, 7.55);
+    S.quad(f0, f1, f2, f3, hex('#d42a1e'), [U[0], 0.1, U[1]]);
+    S.quad(f1, f0, f3, f2, hex('#d42a1e'), [-U[0], 0.1, -U[1]]);
+  }
+  // a billboard on posts over the south front hall's street slope (Street View), plain panels
+  S.kind = KIND.PLAIN;
+  for (const v of [10.5, 15.5, 20.5]) { const p = P(52.3, v); S.cyl(p[0], p[1], Y0 + 3.2, Y0 + 4.0, 0.05, 0.05, 4, DARK, { cap: false }); }
+  boxUV(S, 52.24, 52.36, 9.5, 21.5, 3.9, 5.5, hex('#f2efe6'));
+  boxUV(S, 52.36, 52.4, 9.8, 15.3, 4.05, 5.35, hex('#c8352a'));
+  boxUV(S, 52.36, 52.4, 15.7, 21.2, 4.05, 5.35, hex('#2f5fa8'));
+
+  // ---- the forecourt: open paving where motorbikes stand in rows before the front halls and cars park nearer the
+  // kerb (Street View) ----
+  const BIKE = [hex('#2b2b2e'), hex('#b8b9bb'), hex('#8e1c18'), hex('#e8e6df'), hex('#1f3f7a'), hex('#4a4a4d')];
+  for (const [v0, v1] of [[-44, -4], [9.5, 49]]) for (let v = v0, i = 0; v < v1; v += 0.75, i++) {
+    if (rnd(i + v0, 31) < 0.22) continue;
+    const du = (rnd(i + v0, 32) - 0.5) * 0.4;
+    boxUV(S, 55.4 + du, 57.2 + du, v - 0.15, v + 0.15, 0.25, 0.8, BIKE[Math.floor(rnd(i + v0, 33) * BIKE.length)]);
+    boxUV(S, 55.9 + du, 56.7 + du, v - 0.13, v + 0.13, 0.8, 0.95, DARK);
+  }
+  for (const [v, col] of [[18, hex('#d9dadb')], [-25, hex('#3a3d44')]]) {
+    boxUV(S, 58.6, 60.4, v - 2.2, v + 2.2, 0.2, 0.95, col);
+    boxUV(S, 58.75, 60.25, v - 1.2, v + 1.0, 0.95, 1.45, shade(col, 0.6));
   }
   const brolly = (u, v, col, r = 1.3) => { const p = P(u, v); S.cyl(p[0], p[1], Y0, Y0 + 2.2, 0.03, 0.03, 4, DARK, { cap: false }); S.cyl(p[0], p[1], Y0 + 1.9, Y0 + 2.45, r, 0.05, 8, col); };
-  [[56, -6], [56.5, 12], [59, -16], [59.5, 20], [16, 3], [5, -0.5], [18.5, -1]].forEach(([u, v], i) => { if (!nearPit(u, v, 1.5)) brolly(u, v, [hex('#2f63b5'), hex('#d9502f'), hex('#f0c419'), hex('#efe6d2')][i % 4]); });
+  [[16, 3], [5, -0.5], [18.5, -1]].forEach(([u, v], i) => { if (!nearPit(u, v, 1.5)) brolly(u, v, [hex('#2f63b5'), hex('#d9502f'), hex('#f0c419')][i % 3]); });
   S.kind = KIND.PLAIN;
 
   if (!group) return null;
-  // the name on the board, facing the street
+  // the name on the gate's board, facing the street
   const tex = signTexture(THREE);
   const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, metalness: 0 });
   {
-    const p = P(GU + 0.135, (GV0 + GV1) / 2);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(GV1 - GV0, 1.15), mat);
-    m.position.set(p[0], Y0 + GH + 0.575, p[1]);
+    const p = P(GU + 0.37, GC);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(3.7, 0.75), mat);
+    m.position.set(p[0], Y0 + 4.925, p[1]);
     m.rotation.y = Math.atan2(U[0], U[1]);
     m.userData.landmark = 'tayloc';
     group.add(m);
   }
-  // after dark: warm strips under the awnings along the lane and the yard, and under the name board
+  // after dark: warm strips under the awnings along the lane and the yard, and under the gate's lintel
   const L = new Buf(400);
   const line = (u0, v0, u1, v1, y) => L.beam(W3(u0, v0, y), W3(u1, v1, y), 0.1, 0.1, W1);
-  line(GU + 0.4, GV0, GU + 0.4, GV1, GH - 0.25);
+  line(GU + 0.45, GC - 2.9, GU + 0.45, GC + 2.9, 3.5);
   for (const [u0, u1, v] of [[43.6, 53.9, -2.9], [43.4, 53.5, 8.4], [21.8, 41.0, 2.0], [21.3, 40.5, 5.2], [-22.8, 1.2, -7.4], [-22.8, 1.2, 10.8], [-44.7, 8.5, -32.0], [-45.3, 7.2, 35.3]]) line(u0, v, u1, v, 2.45);
   for (const [u, v0, v1, y = 2.45] of [[-44.6, -32, 35.3, 2.3], [42.2, -45.6, 50.5], [20.0, -29.4, 34.8]]) line(u, v0, u, v1, y);
   const m = new THREE.Mesh(L.geometry(), lightMaterial(0xffc274, 1.2));
