@@ -9,7 +9,7 @@ import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain
 import { treePlanter } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
-import { bridgeProfiles, resample, subPath, LAND_RAMP } from './bridges.js';
+import { bridgeProfiles, resample, subPath, LAND_RAMP, ownLit } from './bridges.js';
 import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
@@ -471,6 +471,7 @@ function buildRoads(data, group, structures) {
       const { p, a } = along(r.pts, s);
       const off = ((r.ws ? widthAt(r.pts, r.ws, p) : r.w) / 2 + 0.5) * (k % 2 ? 1 : -1);
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
+      if (ownLit(data, lx, lz)) continue; // a bridge with its own lamps (geo/bridges.js `lit`) is lit by them
       lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 + profiles.get(r.flat).bump(s) : 7.5), lz);
       const warm = 0.85 + rand(k, r.c) * 0.3;
       lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
