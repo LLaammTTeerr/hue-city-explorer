@@ -15,6 +15,7 @@ import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
+import { ownRoads as minhMangRoads } from '../landmarks/places/minhmang.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
 import { junctionHoles, holeRects, markingGuard, inPoly, slivers } from './junctions.js';
 
@@ -391,6 +392,7 @@ function buildRoads(data, group, structures) {
   for (const r of roads) {
     if (!r.bridge || ownDeck.has(r.flat)) continue;
     if (replaced('giahoi') && giaHoiRoads(data).has(r.flat)) continue; // cầu Gia Hội is modelled in landmarks/places/giahoi.js
+    if (replaced('minhmang') && minhMangRoads(data).has(r.flat)) continue; // the stone bridges of lăng Minh Mạng: landmarks/places/minhmang.js
     if (replaced('golim') && r.c === 5 && r.pts.some((p) => Math.hypot(p[0] + 72.9, p[1] - 281.6) < 1 || Math.hypot(p[0] + 298, p[1] - 500.2) < 1)) continue; // the lim walkway's OSM ways: landmarks/places/golim.js
     // The deck is as wide as the street's pavement (carriageway + footways) and carries its carriageway at the street's
     // own width (narrowed on a divided road's one-way twins), so the street runs onto it edge to edge. Left at the
