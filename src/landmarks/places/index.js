@@ -29,6 +29,13 @@ function load() {
 
 export const replaced = (id) => { load(); return ids.has(String(id).normalize('NFC')); };
 
+// A place may also export ownsMapped(ring): true for a mapped building outline (data.bld, scene metres) that the
+// place's model draws itself, so geo/city.js leaves it out even where the model's roofs do not cover it.
+export function placeOwns(ring) {
+  load();
+  return list.some((m) => typeof m.ownsMapped === 'function' && m.ownsMapped(ring));
+}
+
 // A place that models a bridge deck may also export deckEnds(data): its end lines, [{ p, u, hw, reach }] (p on the
 // deck's axis at the end, u the unit vector out of the deck, hw the half width, reach how far past the end a street
 // may start and still be an approach). geo/city.js cuts the approach streets on those lines; check-joints tests them.

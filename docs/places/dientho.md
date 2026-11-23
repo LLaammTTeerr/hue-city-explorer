@@ -95,3 +95,21 @@ The queen mothers' residence in the north-west of the Imperial City. The model i
   balusters; upper windows are dark panes with a cream grid; pale bracket fringe under the pent eave.
 - Thọ Chỉ: stepped stone plinth, grey string course, frieze split into separate red/blue panels, cream mosaic grounds
   with blue patterns and low red panels, five-panel upper storey. Side gates got pier finials.
+
+## Review fixes
+- A generic house no longer stands on Tiền Bình Phong. The place now exports `ownsMapped(ring)`, which
+  `places/index.js` (`placeOwns`) passes to `geo/city.js`. Every mapped outline inside the precinct wall is drawn by
+  this file: the 17 records are the halls, the screen, Diễn Trạch, Thọ Chỉ, the corridors and the kiosks.
+- The gates have real round-headed passages: a vault, reveals and paving, with the court visible through them. The
+  middle arch of Thọ Chỉ has red leaves folded back inside, and its side doors are shut with panelled leaves. The side
+  gates have panelled piers, a red arch field, a projecting cornice, a stepped attic with framed panels and a low
+  grey cap.
+- Thọ Chỉ: the side eaves have no hip ridges or horns, the mosaic panels have cream grounds in grey frames over red
+  panels, the frieze is made of framed panels, and the ridge carries dragons and a centre ornament.
+- Khương Ninh Các: the red verandah columns are gone. It now has dark posts in the wall plane, a grey pent roof with
+  pale rafter ends, and an open railing on a full-width gallery. The upper storey is 9.2 x 15.2 m and the main roof
+  is straight, with no hips or horns. Its kiosks have grey tiles.
+- The corridors and Trường Du Tạ now use a weathered dark grey-green (the satellite colour). The west corridors are
+  narrow and run round a small court with a tree. The hall tiles are a weathered ochre.
+- The half-moon lawn has its stone kerb. Trees from the satellite canopy are added in the rear court, the gardens
+  and along the front wall.

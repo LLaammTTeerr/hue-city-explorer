@@ -13,7 +13,7 @@ import { bridgeProfiles, resample, subPath, LAND_RAMP } from './bridges.js';
 import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
-import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
+import { replaced, placeDeckEnds, placeOwns } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
 import { junctionHoles, holeRects, markingGuard, inPoly, slivers } from './junctions.js';
@@ -607,6 +607,7 @@ function buildBuildings(data, group, off = null, roofOff = null) {
     const ring = unflat(b[0]);
     if (off && off(ring, ringCentre(ring))) return; // a landmark model already stands on this footprint
     if (b[2] === 2 && dainoiOwns(ring)) return; // a gallery or hall places/dainoi.js draws
+    if (placeOwns(ring)) return; // an outline a place model draws itself (its ownsMapped)
     const start = B.n;
     B.mark = b[4] & 256 ? KIND_FLOOD : 0; // faces the Hương: floodlit after dark (build-data.mjs); the roof is drawn later
     draw(b, i);
