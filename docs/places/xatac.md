@@ -49,3 +49,9 @@ Model: `src/landmarks/places/xatac.js` (new; no older builder drew this place, s
 - Owner question: the sources give a 1.2 m brick lower tier with a red railing and a yellow upper railing; today's
   imagery shows neither (flush lawn, grey stone balustrade). The model follows the imagery.
 - No night lights; no lighting at the site was found in any source.
+- The lawn square and its walks are the place's own ground: `clearings()` in the place file (read by geo/city.js through
+  places/index.js `placeClearings`) keeps the city's OSM footways (695810875, 695810884-87), paved areas and lawn patch
+  (695810866) off it, and keeps generated trees and houses off it, so only one slate walk shows on each axis.
+- The stone incense burner (đỉnh) on the lawn north-west of the tier is drawn from the west car pano (about 1 m wide,
+  1.8 m to the tops of its ears; size estimated).
+- The brick base leans in about 9 cm (estimated from the panos) and reads dark, mottled brown.

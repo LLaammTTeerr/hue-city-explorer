@@ -13,7 +13,7 @@ import { bridgeProfiles, resample, subPath, LAND_RAMP } from './bridges.js';
 import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
-import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
+import { replaced, placeDeckEnds, placeClearings } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
 import { junctionHoles, holeRects, markingGuard, inPoly, slivers } from './junctions.js';
@@ -72,7 +72,38 @@ function overlayMaterial(order) {
   return m;
 }
 
-function buildGreen(data, group) {
+// the replicas' clearings (places/index.js placeClearings): ground a model lays itself, flush with the land
+function inClearing(clear, x, z) {
+  for (const c of clear) if (x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1 && inPoly(c.ring, x, z)) return true;
+  return false;
+}
+function clearingsOf(data) {
+  return placeClearings(data).map((ring) => {
+    const xs = ring.map((p) => p[0]), zs = ring.map((p) => p[1]);
+    return { ring, x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+  });
+}
+// a path with the stretches inside the clearings taken out (tested every half metre), as the runs left outside
+function outsideRuns(pts, clear) {
+  const runs = [];
+  let cur = [], prev = null; // prev: the last sample, if it lay outside
+  const end = () => { if (cur.length >= 2 && pathLength(cur) > 0.5) runs.push(cur); cur = []; };
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.5));
+    for (let k = i === 0 ? 0 : 1; k <= n; k++) {
+      const p = k === 0 ? a : k === n ? b : [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n];
+      const out = !inClearing(clear, p[0], p[1]);
+      // the path's own vertices, and the samples where it leaves or enters a clearing
+      if (out && (k === 0 || k === n || !prev)) cur.push(p);
+      else if (!out && prev) { if (cur[cur.length - 1] !== prev) cur.push(prev); end(); }
+      prev = out ? p : null;
+    }
+  }
+  end();
+  return runs;
+}
+
+function buildGreen(data, group, clear = []) {
   const B = new Buf(20000);
   B.kind = KIND.GROUND;
   const y = LAND_Y + 0.03;
@@ -80,6 +111,7 @@ function buildGreen(data, group) {
     const col = hex(PAL.green[k] || PAL.green.grass);
     B.kind = k === 'paved' ? KIND.ROAD : KIND.GROUND; // a paved yard is laid as paving, not planted ground
     const rings = poly.map(unflat);
+    if (clear.length) { const [cx, cz] = ringCentre(rings[0]); if (inClearing(clear, cx, cz)) continue; } // a model lays this ground
     const contour = rings[0].map((p) => new THREE.Vector2(p[0], p[1]));
     const holes = rings.slice(1).map((r) => r.map((p) => new THREE.Vector2(p[0], p[1])));
     let faces;
@@ -283,10 +315,12 @@ function medianShrubs(S, medians) {
   S.kind = k0;
 }
 
-function buildRoads(data, group, structures) {
+function buildRoads(data, group, structures, clear = []) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
+  let roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
+  // footways a model lays itself (its walks, inside its clearings) are left to it
+  if (clear.length) roads = roads.flatMap((r) => (r.c < 5 || r.bridge ? [r] : outsideRuns(r.pts, clear).map((pts) => ({ ...r, pts, flat: null }))));
   const profiles = bridgeProfiles(data);
   // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
   // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
@@ -889,8 +923,10 @@ export function buildCity(data) {
   buildLand(data, group);
   const hills = buildTerrainMesh();
   if (hills) group.add(hills);
-  buildGreen(data, group);
-  const { lamps, marks } = buildRoads(data, group, structures);
+  const clear = clearingsOf(data);
+  structures.clearings = clear; // coverOf keeps trees and houses off them
+  buildGreen(data, group, clear);
+  const { lamps, marks } = buildRoads(data, group, structures, clear);
   const w0 = structures.n;
   buildWalls(data, structures);
   structures.wallRange = [w0, structures.n];
@@ -928,6 +964,9 @@ function coverOf(structures) {
   }
   // houses keep off all of it; trees only off roofs and tall platforms (a tree may stand on a low lawn terrace, as the
   // pines do on đàn Nam Giao)
+  // the replicas' clearings (ground a model lays itself, flush with the land) count as tall ground: nothing planted
+  const clear = structures.clearings || [];
+  if (clear.length) return { hit: (x, z) => cells.has(key(Math.floor(x), Math.floor(z))) || inClearing(clear, x, z), hitTall: (x, z) => tall.has(key(Math.floor(x), Math.floor(z))) || inClearing(clear, x, z) };
   return { hit: (x, z) => cells.has(key(Math.floor(x), Math.floor(z))), hitTall: (x, z) => tall.has(key(Math.floor(x), Math.floor(z))) };
 }
 
