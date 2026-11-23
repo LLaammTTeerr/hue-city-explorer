@@ -251,11 +251,58 @@ While `npm run check` passes all 13/13 checks, this review identified **66 concr
 
 ---
 
+## 6. Height, Scale & Whole-Model Elevation Audit
+
+A dedicated quantitative audit of `public/data/hue.json`, `public/data/places.json`, `docs/heights-reference.json`, and `scripts/check-heights.mjs` surfaced **four systemic height problems** affecting both individual landmarks and the whole city model:
+
+### H1. Whole-City Elevation & Bridge-Deck Datum Mismatches
+- **Problem**:
+  1. **Ordinary road & rail bridges sit ~3 m too low above the river**: `LAND_Y` was calibrated to `2.6 m` above the river (`3.5 m` ASL city floor vs `0.9 m` ASL river). Hand-modelled bridges (`truongtien` 6.4 m deck, `nguyenhoang` 6.8 m deck) were fixed above water, but ordinary road/rail bridges (`Cầu Phú Xuân`, `Cầu Dã Viên`, `Cầu Bạch Hổ`, `Cầu Gia Hội`, `Cầu An Cựu`, `Cầu Chợ Dinh`) still sit nearly level with the bank (`~3.0 m` above water vs `5.5–7.5 m` real navigational clearance).
+  2. **DSM-as-ground artifacts (`output_hh.tif`, commit `b44900e`)**: The 30 m elevation raster is a surface model (DSM) rather than bare earth — tree canopies and dense building clusters on slopes leak into ground height. Even after the 8% road-grade smoother (`±5 m` cap), 4 road breaks up to **25% grade** remain where roads meet locked river banks, and 16 plain landmarks sit on artificially flattened 60 m pads that step against neighboring sloped streets.
+  3. **No ground below `LAND_Y`**: Low-lying river flats, rice paddies (Sình, Cồn Hến, An Vân Dương), and canal banks below `3.5 m` ASL are clamped flat to `LAND_Y = 2.6 m`, erasing low-bank transitions.
+  4. **Camera, shadows & labels assume flat `LAND_Y`**: `controls.js`, `updateShadow()`, and `labels.js` all anchor to `y = 2.6 m`, breaking navigation, shadows, and labels on every hill (`10–332 m`).
+- **Solution**:
+  - Give major river bridges (`phuxuan`, `bachho`/Dã Viên, `giahoi`, `chodinh`) proper arched/elevated deck profiles (`5.5–7.0 m` above water) with smooth approach ramps (`60–100 m`) blended into bank roads.
+  - Blend `output_hh.tif` with bare-earth FABDEM/ICESat-2 residuals in forested hill areas (or apply a morphological ground filter) so canopy height is not baked into road/hill terrain.
+  - Anchor camera targets, tight shadow focus, and label ceiling checks to `LAND_Y + rise(x, z)` everywhere.
+
+### H2. Specific Landmark Height Anomalies (`modelH = a - groundY`)
+
+| Place | `modelH` (built) | Real / Ref Height | Problem | Solution |
+|---|---:|---:|---|---|
+| `nguyenhoang` (Cầu Nguyễn Hoàng) | **29.4 m** (`32.0 m` above water) | ~17–20 m above water | Arch crown is ~1.6× too tall (`places.json` declares `h: 14`) | Lower arch rise in `src/landmarks/places/nguyenhoang.js` to ~11–13 m above the 6.8 m deck (~18–20 m above water) |
+| `baotanghcm` (Bảo tàng Hồ Chí Minh) | **22.1 m** | ~14–16 m | Overshot by ~6–8 m (as tall as 7-story Tháp Phước Duyên!) due to inflated storey/roof estimates (`1.0 + 12.2 + 5.6 + lantern`) | Rescale storey heights (`3.4 / 3.2 / 3.0 m`) and roof/lantern to ~15–16 m total in `baotanghcm.js` |
+| `aeon` (AEON MALL Huế) | **27.0 m** | ~20–22 m (4 floors) | Overshot by ~5–6 m (`places.json` declares `h: 24`) | Trim floor-to-floor height in `aeon.js` to ~21–22 m |
+| `tayloc` (Chợ Tây Lộc) | **3.8 m** (at place pt) | ~8–10 m (2-story hall) | Place anchor hits low stall shed (`3.8 m`) and central hall is under-proportioned | Raise 2-story central hall to ~8.5 m and align place point to the main hall |
+| `benxenam` / `benxebac` | **5.7 m / 7.8 m** | ~10–12 m (pitched roof) | Undersized flat boxes | Rebuild with pitched terracotta/red roofs reaching ~10–11 m |
+| `thienan` (Đan viện Thiên An) | **17.4–19.6 m** | 20–25 m (with bell tower) | Missing iconic multi-tiered bell tower; passes `check:heights` only via ±25% tolerance | Model the multi-tiered Asian-style bell tower to ~23–24 m |
+| `gahue` (Ga Huế) | **14.0 m** | 10–12 m | Over-tall central block (`+2–4 m`), passes only because `12 × 1.25 = 15.0 m` | Lower central hall + pitched roof + clock pediment to ~11.5–12.0 m |
+| `thaihoa` (Điện Thái Hòa) | **13.1 m** | 11.8 m (sourced) | `+1.3 m` (`+11%`) over documented height | Trim roof/ridge height by ~1.2 m to match 11.8 m |
+| `ngubinh` (Núi Ngự Bình) | **+13.0 m** above summit | 0 m (flat summit) | Label anchor `a = 116.4 m` catches a tall tree/object above the `103.4 m` summit | Exclude trees from `build-label-tops.mjs` for terrain/hill places |
+
+### H3. City-Wide Building Height Outliers & Stale `places.json` Fallbacks
+- **Problem**:
+  1. **GISHue height outliers near Vincom & outside urban core**: 20 mapped buildings within 300 m of Vincom stand `25.5–58.0 m` tall (42 buildings ≥ 30 m citywide, up to `79.8 m`), and outside GISHue's 12.6 km² drone-survey core, coarse DSM readings inflate buildings under tree canopies. Conversely, 323 mapped OSM buildings are clamped at `≤ 3.5 m`.
+  2. **Stale `places.json` `h` & 12 missing `a` anchors**: 12 places (`dainoi`, `kinhthanh`, `tinhtam`, `bachho`, `hoquyen`, `thuyxuan`, `sinh`, `dongkhanh`, `thieutri`, `thuytien`, `conhen`, `daVien`) have `a = null` and fall back to stale hand-typed `h` values (e.g., `dongba: 30` from the demolished 1967 clock tower, `truongtien: 22` vs `9.6 m`, `canchanh: 8` vs `12.2 m`, `tuduc: 16` vs `5.5 m`).
+- **Solution**:
+  - Cross-check GISHue building heights > 25 m against OSM `building:levels` / Google Open Buildings (flagging or capping outliers where GISHue exceeds `levels * 4.2 m` by > 50%).
+  - Audit and sync `places.json` `h` values with actual built heights and widen `build-label-tops.mjs` search radius (or use site centroids) for the 12 places currently missing `a`.
+
+### H4. `check-heights.mjs` Coverage & Loose Tolerance Blind Spots
+- **Problem**:
+  - `docs/heights-reference.json` covers only **33 entries** (6 of which are courtyard cauldrons/kỳ lân) — **over 55 of 83 landmarks have zero height verification** (`ngomon`, `kydai`, `thienmu`, `truongtien`, `nguyenhoang`, `quochoc`, `kientrung`, `themieu`, `baotanghcm`, `aeon`, `hoquyen`, `tudam`, `baoquoc`, `hienlam`, and 8/10 Citadel gates).
+  - Applying **±25% tolerance on top of an already-wide `[lo, hi]` range** creates a >2× pass window (e.g., `[20, 25]` accepts `15.0–31.25 m`), masking missing towers (`thienan`) and over-tall models (`gahue`).
+- **Solution**:
+  - Add all major unchecked landmarks (`ngomon`, `kydai`, `thienmu`, `truongtien`, `nguyenhoang`, `quochoc`, `kientrung`, `themieu`, `baotanghcm`, `aeon`, `hoquyen`, `tudam`, `baoquoc`, `hienlam`, and all 10 Citadel gates) to `docs/heights-reference.json`.
+  - Tighten `check-heights.mjs` tolerances to **±8% for sourced** and **±12% for estimated** (and do not stack percentage tolerance on top of an already-explicit `[lo, hi]` range — use `max(range, center ± tol)` instead).
+
+---
+
 ## Prioritized Fix Roadmap
 
 | Phase | Focus | Key Items |
 |---|---|---|
 | **Phase 1 — User-Facing Breakage** | Fix the most visible runtime, visual & mobile bugs | `C1` hill camera targets, `C2` 2D→3D retry trap, `QA1` rain white blowout, `QA2` night floodlight blowout, `QA3` mobile card/tool/hint overlap, `QA4` night/rain HUD text contrast, `C6` hidden t=3/4 labels, `C8` broken card photo placeholder |
 | **Phase 2 — Rendering & Perf Wins** | Free GPU budget & fix water/ink glitches | `B1` Reflector layer-1 exclusion (huge perf win), `B2` alpha-preserving rain/glows in ink mode, `B3` horizontal river reflection smear, `B4` black reflection flash on resize, `M12` double FBO resize & unused MSAA on `renderTarget2` |
-| **Phase 3 — Road, Bridge & Traffic Integrity** | Fix floating/sinking roads, bridges & vehicles | `A1` +12 cm snapped approach roads, `A2` tapered bridge `NaN` width, `A3`/`D3` bridge lamp crash & desync, `M1` flat bridge `LAND_RAMP` collapse, `D1` vehicles/train sinking through 2-vertex bridges, `D2` traffic ignoring road width, `D4` boats vs banks & hoa đăng vs piers |
-| **Phase 4 — Harden Automated Checks** | Close CI blind spots before fixing 3D models | `C3` `check-overlap.mjs` `min(up)→max(up)`, `C4` Citadel rampart checks, `D5` vertical wall / self-clipping / missing roof / tree-on-structure checks |
+| **Phase 3 — Heights, Roads, Bridges & Traffic** | Fix elevation, bridge clearances, landmark heights & traffic | `H1` river bridge deck heights & hill terrain filtering, `H2` fix `nguyenhoang`/`baotanghcm`/`aeon`/`thienan`/`gahue` heights, `A1` +12 cm snapped approach roads, `A2` tapered bridge `NaN` width, `A3`/`D3` bridge lamp crash & desync, `M1` flat bridge `LAND_RAMP` collapse, `D1` vehicles/train sinking through 2-vertex bridges, `D2` traffic ignoring road width, `D4` boats vs banks & hoa đăng vs piers |
+| **Phase 4 — Harden Automated Checks** | Close CI blind spots before fixing 3D models | `C3` `check-overlap.mjs` `min(up)→max(up)`, `C4` Citadel rampart checks, `D5` vertical wall / self-clipping / missing roof / tree-on-structure checks, `H4` expand `heights-reference.json` & tighten tolerances |
