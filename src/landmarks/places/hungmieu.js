@@ -4,6 +4,7 @@ import { rise } from '../../geo/terrain.js';
 import { fence, FENCE } from '../enclosure.js';
 import { rectRing } from '../../geo/gates.js';
 import { planter, dinh } from '../props.js';
+import { archGate } from '../archgate.js';
 
 // ---- Hưng Miếu (Hưng Tổ Miếu), the temple of Gia Long's parents, behind Thế Miếu in the Imperial City ----
 //
@@ -41,9 +42,9 @@ const GATES = [
   [[-1343.1, 166.1], [-1344.9, 167.4], [-1341.1, 172.6], [-1339.3, 171.3]], // Dục Khánh Môn (west side)
   ...REAR_GATES,
 ];
-const GATE_OVER = 0.5; // the gates' roofs run this far past the mapped outline
+const GATE_OVER = 0.5; // walls stop this far past a gate's mapped outline (the gap the hip-roofed gates once had under their eaves)
 // a wall that runs into a gate along its length stops this far past the outline's end: clear of the roof's eave by
-// 0.1 m with the wall's end post and its cap; the gate model bridges the gap with a stub of wall under its eave
+// 0.1 m with the wall's end post and its cap; a stub of wall bridges the gap to the arched gate's side
 const GATE_STUB = GATE_OVER + (FENCE.imperial.postW + 0.12) / 2 + 0.1;
 // the rear gates' outlines grown along the wall by that much: themieu.js passes them to its outer wall as solid
 export const REAR_GATE_CUTS = REAR_GATES.map((ring) => { const o = obb(ring); return rectRing(o.c[0], o.c[1], o.w + 2 * GATE_STUB, o.d, o.a); });
@@ -59,13 +60,20 @@ const WALLS = [
   [[-1325.1, 192.3], [-1340.2, 172.0]],
 ];
 
-const TILE = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
-const STONE = PAL.stone, BRICK = hex('#9c6a56'), OCHRE = hex('#cfa65a'), DARK = hex('#3a2420');
+// the 2026 satellite shows this hall's tiles weathered to a brown ochre, duller than Thế Miếu's (PAL.imperialRoof)
+const TILE = hex('#b98a4c'), RIDGE = hex('#d8c27e'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
+// the court reads pale grey on the satellite: worn bát tràng and stone, not fresh red brick
+const STONE = PAL.stone, PAVE = hex('#a7a296'), OCHRE = hex('#cfa65a');
+// the compound's walls in the photospheres: lime plaster weathered dark grey-brown under a dark coping, and along
+// the west a band of pierced tile panels under the coping (FENCE.imperial's proportions, its colours replaced)
+const WALL = { ...FENCE.imperial, wall: hex('#6f6557'), cap: hex('#463f38') };
+const PIERCED = [false, false, true, true]; // WALLS below: the two west walls, toward the garden, carry the band
+const DARKW = hex('#2a1814');
 const gY = (x, z) => LAND_Y + rise(x, z);
 
 export const id = 'hungmieu';
 
-export function build({ S }) {
+export function build({ S, data }) {
   // the hall's frame: u across the front (east-north-east), v toward the front (south-south-east, to Thế Miếu)
   const c = HALL.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
   const ex = HALL[1][0] - HALL[0][0], ez = HALL[1][1] - HALL[0][1], el = Math.hypot(ex, ez);
@@ -82,9 +90,9 @@ export function build({ S }) {
   // the Miếu Môn stands on the hall's axis (OSM has it 2.1 m off), at its mapped distance down the court
   const mm = obb(MIEU_MON).c, courtV = 7.9, gateV = (mm[0] - c[0]) * -uz + (mm[1] - c[1]) * ux;
   S.kind = KIND.MASONRY;
-  box(0, (courtV + gateV - 1.6) / 2, y0 - 0.2, y0 + 0.14, 20, gateV - 1.6 - courtV, BRICK);
+  box(0, (courtV + gateV - 1.6) / 2, y0 - 0.2, y0 + 0.14, 20, gateV - 1.6 - courtV, PAVE);
   box(0, (courtV + gateV) / 2, y0 - 0.2, y0 + 0.2, 2.15, gateV - courtV, shade(STONE, 1.08));
-  box(0, 7.6 - 18.4 / 2, y0 - 0.2, y0 + 0.14, 23, 19, shade(BRICK, 0.92)); // brick apron round the platform
+  box(0, 7.6 - 18.4 / 2, y0 - 0.2, y0 + 0.14, 23, 19, shade(PAVE, 0.93)); // paved apron round the platform
 
   // ---- the hall: platform 0.68 m, faced in stone, with a flight in the middle of the front ----
   const pt = 0.68, yp = y0 + pt;
@@ -105,8 +113,19 @@ export function build({ S }) {
 
   // the front: lacquered door leaves in the five bays, the gilt liên ba above, a 壽 medallion on each chái
   const bay = 2.7;
+  // each bay a set of four leaves: a lattice upper panel (dark behind a gilt grid) over a plain lower panel, set in a
+  // frame between brighter lacquered posts, so the front reads as doors, not one red wall
   for (let i = -2; i <= 2; i++) {
-    box(i * bay, 7.03, yp, yp + 2.3, bay - 0.5, 0.08, shade(LAC, 0.62));
+    const u0 = i * bay, lw = (bay - 0.5) / 4;
+    box(u0, 7.03, yp, yp + 2.3, bay - 0.3, 0.08, shade(LAC, 0.5));
+    for (let k = 0; k < 4; k++) {
+      const u = u0 - (bay - 0.5) / 2 + lw * (k + 0.5);
+      box(u, 7.07, yp + 0.12, yp + 0.95, lw - 0.08, 0.06, shade(LAC, 0.78));
+      box(u, 7.07, yp + 1.05, yp + 2.2, lw - 0.08, 0.06, shade(DARKW, 1));
+      for (const yy of [1.33, 1.62, 1.91]) box(u, 7.1, yp + yy, yp + yy + 0.04, lw - 0.1, 0.04, GOLD);
+      box(u, 7.1, yp + 1.05, yp + 2.2, 0.04, 0.04, GOLD);
+    }
+    for (const s of [-1, 1]) box(u0 + s * bay / 2, 7.06, yp, yp + 2.75, 0.24, 0.12, shade(LAC, 1.12));
     box(i * bay, 7.04, yp + 2.35, yp + 2.72, bay - 0.4, 0.08, GOLD);
   }
   for (const s of [-1, 1]) {
@@ -156,45 +175,22 @@ export function build({ S }) {
     box(12.5, v, y0 + 2.4, y0 + 2.65, 1.25, 0.36, shade(STONE, 0.8), { taper: 0.7 });
   }
 
-  // ---- Miếu Môn: a three-door gate at the foot of the court, a higher roof over the middle door ----
+  // ---- Miếu Môn and the four small gates: masonry arched gates under stepped mock roofs (../archgate.js) ----
+  // Every gate of the Thế Miếu / Hưng Miếu precinct seen in the photospheres is this type: a red-plastered round
+  // arch between yellow piers with relief panels, crowned by two or three tiers of panels and tiled cornices set with
+  // blue-and-white porcelain, dragon finials, about twice the wall's height. A study of the precinct's ornament
+  // describes the ridges and panels (đường nóc, ô hộc) of Hưng Tổ miếu's gates in stucco. The Miếu Môn itself is in
+  // no photo: it is drawn as the same type with three openings, the centre one taller (estimate).
   {
-    const o = obb(MIEU_MON);
-    const yg = y0, w = o.w, d = o.d;
+    const o = obb(MIEU_MON), q = P(0, gateV);
+    archGate(S, { c: q, a: ang, w: o.w, d: o.d, y: y0, body: 4.0, tiers: 3, arches: 3 });
     S.kind = KIND.MASONRY;
-    box(0, gateV, yg - 0.3, yg + 0.25, w + 0.8, d + 1.2, STONE, { topKind: KIND.ROAD });
-    const yb = yg + 0.25, side = (w - 4.2) / 2;
-    for (const s of [-1, 1]) {
-      const u = s * (2.1 + side / 2);
-      box(u, gateV, yb, yb + 3.1, side, d, OCHRE, { top: shade(TILE, 0.8) });
-      S.kind = KIND.PLAIN;
-      box(u, gateV, yb, yb + 2.3, 1.4, d + 0.08, DARK);
-      hip(u, gateV, side, d, yb + 3.1, 1.0, { over: 0.55, flare: 0.3, ridgeCol: RIDGE, segs: 3 });
-      // short screen walls either side
-      S.kind = KIND.MASONRY;
-      box(s * (w / 2 + 0.9), gateV, yg - 0.3, yg + 2.3, 1.8, 0.6, OCHRE, { top: TILE });
-    }
-    S.kind = KIND.MASONRY;
-    box(0, gateV, yb, yb + 4.1, 4.2, d + 0.2, OCHRE, { top: shade(TILE, 0.8) });
-    S.kind = KIND.PLAIN;
-    box(0, gateV, yb, yb + 3.0, 2.1, d + 0.3, DARK);
-    box(0, gateV, yb + 3.25, yb + 3.8, 1.6, d + 0.32, GOLD); // the name board
-    for (const sd of [-1, 1]) box(0, gateV + sd * (d / 2 + 0.55), yg - 0.3, yg + 0.12, 4.2, 0.5, shade(STONE, 1.04), { topKind: KIND.ROAD }); // a step at each door
-    box(0, gateV, yb + 3.15, yb + 3.9, 1.9, d + 0.28, shade(LAC, 0.8));
-    hip(0, gateV, 4.2, d + 0.2, yb + 4.1, 1.3, { over: 0.7, ridgeCol: RIDGE, segs: 3 });
+    for (const s of [-1, 1]) box(s * (o.w / 2 + 0.9), gateV, y0 - 0.3, y0 + 2.3, 1.8, 0.6, WALL.wall, { top: WALL.cap }); // short screen walls either side
   }
-
-  // ---- the four small gates in the side and rear walls: one doorway under a yellow-tiled roof ----
   for (const ring of GATES) {
     const o = obb(ring), yg = gY(o.c[0], o.c[1]);
     S.base = yg - LAND_Y;
-    S.kind = KIND.MASONRY;
-    S.box(o.c[0], o.c[1], yg - 0.3, yg + 3.2, o.w, o.d + 0.3, o.a, OCHRE, { top: shade(TILE, 0.8) });
-    S.kind = KIND.PLAIN;
-    S.box(o.c[0], o.c[1], yg, yg + 2.4, 1.5, o.d + 0.38, o.a, DARK);
-    S.box(o.c[0], o.c[1], yg, yg + 2.2, 1.1, o.d + 0.42, o.a, shade(LAC, 0.8));
-    S.box(o.c[0], o.c[1], yg + 2.45, yg + 2.95, 1.3, o.d + 0.4, o.a, GOLD); // the name board over the door
-    S.box(o.c[0], o.c[1], yg - 0.3, yg + 0.1, 2.4, o.d + 1.4, o.a, STONE, { topKind: KIND.ROAD });
-    S.hip(o.c[0], o.c[1], o.w, o.d + 0.3, o.a, yg + 3.2, 0.95, TILE, { flare: 0.3, over: GATE_OVER, fascia: 0.2, fasciaCol: shade(LAC, 0.7), ridgeCol: RIDGE, hips: true, glazed: true, segs: 3 });
+    archGate(S, { c: o.c, a: o.a, w: o.w, d: o.d + 0.3, y: yg, body: 3.5, tiers: 3 });
   }
 
   // the stubs of Thế Miếu's outer wall each side of the rear gates, under their eaves, out to where that wall stops
@@ -219,15 +215,59 @@ export function build({ S }) {
     S.hip(o.c[0], o.c[1], o.w - 2.6, o.d - 2.6, o.a, yg + 3.1, 2.1, shade(TILE, 0.92), { flare: 0.45, over: 1.1, fascia: 0.25, fasciaCol: shade(LAC, 0.7), ridgeCol: RIDGE, hips: true, glazed: true, segs: 3 });
   }
 
+  // ---- an unmapped hall outside the east side wall, south of Chương Khánh Môn ----
+  // OSM has nothing here, but the 2026 satellite shows a grey-brown tiled roof of about 12 x 7 m (long side across
+  // the hall's axis) against the outside of the wall, 33 m across and 16 m forward of the hall's centre, square to
+  // the hall. Its use and walls are not known: a plain hall with a weathered tiled hip roof (estimate).
+  {
+    const q = P(33.4, 15.9), yg = gY(q[0], q[1]);
+    S.base = yg - LAND_Y;
+    S.kind = KIND.MASONRY;
+    S.box(q[0], q[1], yg - 0.3, yg + 0.35, 11.0, 6.4, ang, STONE, { topKind: KIND.ROAD });
+    S.box(q[0], q[1], yg + 0.35, yg + 3.0, 10.4, 5.8, ang, hex('#bdb3a0'), { top: hex('#6e5f4f') });
+    S.kind = KIND.TIMBER;
+    S.hip(q[0], q[1], 10.4, 5.8, ang, yg + 3.0, 1.9, hex('#7f6b55'), { flare: 0.3, over: 0.6, fascia: 0.2, fasciaCol: hex('#4e4136'), hips: true, segs: 3 });
+  }
+
+  // ---- shade trees: the satellite and every photosphere show the compound under a dense canopy (big trees round
+  // the hall, the court's sides and the gates). OSM maps only a few; these join data.trees, and populate() (geo/
+  // city.js) plants them and drops any that land on a model. [u, v] in the hall's frame, size factor.
+  if (Array.isArray(data.trees)) {
+    const extra = [
+      [-12, -12.8, 1.2], [-2, -13, 1.3], [9, -12.6, 1.15], [18, -11, 1.25], [-21, -10, 1.1],
+      [-17, -1, 1.2], [-21, 8, 1.3], [17, 1, 1.15], [21, 9, 1.25], [-24, -4, 1.0], [24, -5, 1.1],
+      [-15, 14, 1.1], [-18, 22, 1.3], [15, 14.5, 1.2], [19, 22.5, 1.25], [-14, 30, 1.15], [15, 31, 1.2],
+      [-34, 5, 1.2], [-36, 18, 1.3], [41, 25, 1.25], [33, -9, 1.2], [-31, -12, 1.1], [42, 6, 1.1],
+    ];
+    for (const [u, v, k] of extra) { const q = P(u, v); data.trees.push(Math.round(q[0] * 10), Math.round(q[1] * 10), Math.round(k * 10), 0); }
+  }
+  // clipped shrubs along the court's sides and either side of the thần đạo at its foot
+  S.kind = KIND.PLAIN;
+  for (const [u, v] of [[-11.2, 12], [-11.2, 16], [-11.2, 20], [11.2, 12], [11.2, 16], [11.2, 20], [-2.2, 23.5], [2.2, 23.5]]) {
+    const q = P(u, v), g = gY(q[0], q[1]);
+    S.cyl(q[0], q[1], g, g + 0.25, 0.45, 0.5, 8, hex('#3d4a2c'), { cap: false });
+    S.cyl(q[0], q[1], g + 0.25, g + 1.3, 0.62, 0.15, 8, hex('#46612f'));
+  }
+
   // ---- the compound's side walls (the rear and front walls are civic.js's) ----
   S.base = 0;
   // each runs from Thế Miếu's outer or cross wall (themieu.js): it starts clear of that wall's corner post (both end
   // posts' capped halves), and stops at the side gate's face as before
-  const st = FENCE.imperial, butt0 = st.postW + 0.12 + 0.04, butt1 = st.t / 2 + 0.25;
-  for (const [a, b] of WALLS) {
+  const st = WALL, butt0 = st.postW + 0.12 + 0.04, butt1 = st.t / 2 + 0.25;
+  WALLS.forEach(([a, b], wi) => {
     const l = Math.hypot(b[0] - a[0], b[1] - a[1]), ex = (b[0] - a[0]) / l, ez = (b[1] - a[1]) / l;
-    fence(S, [[a[0] + ex * butt0, a[1] + ez * butt0], [b[0] - ex * butt1, b[1] - ez * butt1]], st, { closed: false });
-  }
+    const p0 = [a[0] + ex * butt0, a[1] + ez * butt0], p1 = [b[0] - ex * butt1, b[1] - ez * butt1];
+    fence(S, [p0, p1], WALL, { closed: false });
+    if (!PIERCED[wi]) return;
+    // the pierced band: pale tile panels with dark openings, 0.5 m under the coping, on both faces
+    const wa = Math.atan2(ez, ex), L = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), n = Math.floor(L / 0.9);
+    S.kind = KIND.PLAIN;
+    for (let k = 0; k < n; k++) {
+      const t = (k + 0.5) / n, x = p0[0] + (p1[0] - p0[0]) * t, z = p0[1] + (p1[1] - p0[1]) * t, y = gY(x, z) + WALL.h;
+      S.box(x, z, y - 0.78, y - 0.3, 0.78, WALL.t + 0.04, wa, hex('#a9a497'));
+      S.box(x, z, y - 0.7, y - 0.38, 0.5, WALL.t + 0.08, wa, hex('#2b2723'));
+    }
+  });
   S.kind = KIND.PLAIN;
   S.base = 0;
 }
