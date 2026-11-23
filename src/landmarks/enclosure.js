@@ -141,7 +141,8 @@ function gapsOf(a, b, len, roads, openings) {
 }
 
 // Styles. h: height of the fence above ground; plinth: solid wall under a railing (rail: true) or the whole wall
-// (rail: false); posts every `every` metres, `postW` square, standing `postUp` above the fence; gate piers `pierW`, `pierUp`.
+// (rail: false); posts every `every` metres, `postW` square, standing `postUp` above the fence; gate piers `pierW`, `pierUp`;
+// optional `kind`, the surface of the wall body, posts and piers (default KIND.MASONRY, brick coursing).
 export const FENCE = {
   // Quốc Học: low dark-red wall, dark iron railing, red piers with cream caps
   quochoc: { h: 2.0, plinth: 0.65, rail: true, t: 0.34, every: 3.4, postW: 0.48, postUp: 0.2, wall: hex('#9a2f27'), cap: hex('#efe2c4'), iron: hex('#24302b'), pierW: 1.0, pierUp: 1.2 },
@@ -202,6 +203,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
   const piers = [];
   const n = pts.length, m = closed ? n : n - 1;
   const keepKind = S.kind, keepBase = S.base;
+  const wallKind = st.kind ?? KIND.MASONRY; // st.kind: KIND.PLAIN for a plastered wall (no brick coursing)
   let sinceLamp = 0;
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n];
@@ -225,7 +227,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
         const yp = gY(p[0], p[1]), yq = gY(q[0], q[1]), lo = Math.min(yp, yq) - 0.4, hi = Math.max(yp, yq);
         const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, bl = rl / nb;
         S.base = lo + 0.4 - LAND_Y;
-        S.kind = KIND.MASONRY;
+        S.kind = wallKind;
         if (st.rail) {
           S.box(mx, mz, lo, hi + st.plinth, bl, st.t, ang, st.wall, { top: st.cap });
           S.kind = KIND.PLAIN;
@@ -241,7 +243,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
         const posts = k === nb - 1 ? [p, q] : [p];
         for (const o of posts) {
           const y = gY(o[0], o[1]);
-          S.kind = KIND.MASONRY;
+          S.kind = wallKind;
           S.box(o[0], o[1], y - 0.4, y + st.h + st.postUp, st.postW, st.postW, ang, st.wall, { top: st.cap });
           if (k % 2 === 0) { S.kind = KIND.PLAIN; S.box(o[0], o[1], y + st.h + st.postUp, y + st.h + st.postUp + 0.12, st.postW + 0.12, st.postW + 0.12, ang, st.cap); } // a cap on every other post (keeps the count down)
           sinceLamp += 1;
@@ -255,7 +257,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
       const p = at(fp), y = gY(p[0], p[1]), top = y + st.h + st.pierUp;
       if (solid.some((r) => inRing(p[0], p[1], r))) continue; // a gatehouse frames the opening itself
       S.base = y - LAND_Y;
-      S.kind = KIND.MASONRY;
+      S.kind = wallKind;
       S.box(p[0], p[1], y - 0.4, top, st.pierW, st.pierW, ang, st.wall, { top: st.cap });
       S.kind = KIND.PLAIN;
       S.box(p[0], p[1], top, top + 0.18, st.pierW + 0.2, st.pierW + 0.2, ang, st.cap);

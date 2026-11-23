@@ -38,17 +38,28 @@ but the precinct had no walls.
 - The rear walled court measures 26 × 19.5 m.
 - Main ridge is 8.5 m (survey). Mustard masonry walls with red-framed openings, dark grey tile roofs (imagery).
 
+- Review against the same imagery: plastered mustard walls with small red-framed windows (doors only on the
+  front house's middle bays and one per other hall); Thọ Khang's ends are mustard masonry gables with a green
+  ornament panel; roof corners lift only slightly; the court is broad tan paving about 20 m deep, with more paving
+  south-west of the hall; the channel is narrow, edged with rocks and full of lotus; big shade trees stand on the
+  island and the lawns (foliage kind 4: always spreading, never a palm or a willow); the precinct wall is grey
+  plaster (`fence` style `kind: KIND.PLAIN`).
+
 ## Estimated
 - How the OSM hall outline divides into front house, Thọ Khang and rear house.
   - The rear block stands on the site of Vạn Phước lâu but is drawn as one storey. I found no source saying the lầu was rebuilt.
 - Bay counts (5 + 2 chái), platform 0.6 m, eave heights.
-- The window rhythm (one opening per bay) and the open verandah across the front house only.
+- The window rhythm (one small window per bay, five on each side hall's long faces) and the open verandah across the
+  front house only.
 - Trường An Môn and the small gates keep yellow glazed tile: their roofs are not visible in the imagery.
 - Trường An Môn: height (about 7.9 m) and its raised middle storey.
 - Positions of Thụy and Thanh Minh gates, which are not mapped: placed on the axis and mid-wall.
 - Form of the rockeries, plus two smaller ones on the island front.
 
 ## Left
+- Gate roofs: yellow glazed or grey? Not visible in the imagery; kept yellow, an owner question.
+- The north side hall follows its OSM outline, which agrees with the satellite; the photosphere's long low range
+  may be another building or a pose error, so the hall was given more windows but not reshaped.
 - The bridges are drawn by `city.js` from OSM footways and are still grey; the sources say red.
 - No car Street View near the palace; the one usable photosphere sees the halls from across the channel only. The
   front gate's roof and the rear court are unchecked.
