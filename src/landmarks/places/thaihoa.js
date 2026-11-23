@@ -36,9 +36,9 @@ const RED_DK = hex('#6e1f17');
 const GOLD = hex('#d2a43c');
 const BRONZE = hex('#5d4a31');
 const ENAMEL = [hex('#2f6aa3'), hex('#3d8a5c'), hex('#d8b23a'), hex('#e6dcc4')];
-const ROOF = shade(PAL.imperialRoof, 0.9); // the glaze reads a little duller than the city's palette yellow in Street View
+const ROOF = shade(PAL.imperialRoof, 0.92); // warm golden imperial glaze
 const RIDGE = hex('#f1d77a');
-const WALL = hex('#c9a36a'); // ochre-painted brick of the gable and back walls
+const WALL = hex('#dfd6c2'); // cream-white plastered masonry of the gable and back walls (2024 restoration)
 const BRICK = hex('#b8a490'); // the brick paving round the hall and beside the stone esplanade (satellite)
 
 // levels above the ground: Long Trì 0.6, Đan Bệ and the hall's lower base 1.35, hall floor 2.35
@@ -347,19 +347,31 @@ export function build({ S, group, THREE }) {
     beam(P3(u, deck + 0.18, B0), P3(u, deck + 0.18, B1), 0.18, 0.16, RAIL);
     box(u, Bc, deck + 0.3, deck + 0.7, 0.06, BL, shade(RAIL, 0.8));
   }
-  // nghi môn: two bronze posts with lotus finials either side of the imperial lane, a lintel with a name plaque
+  // nghi môn (Cổng Đồng / Đại Triều Nghi): iconic triple-bay gilded bronze ceremonial arch on Cầu Trung Đạo
   const nghiMon = (v, y) => {
+    const inner = 2.25, outer = 4.15;
     for (const s of [-1, 1]) {
-      const p = W(s * 2.3, v);
-      S.box(p[0], p[1], y, y + 0.4, 0.75, 0.75, A, STONE);
-      S.box(p[0], p[1], y + 0.4, y + 4.2, 0.34, 0.34, A, BRONZE);
-      S.cyl(p[0], p[1], y + 4.2, y + 4.75, 0.28, 0.06, 6, shade(BRONZE, 1.3));
-      for (const t of [-1, 1]) beam(P3(s * 2.3, y + 3.9, v), P3(s * 2.3 + t * 0.6, y + 3.4, v), 0.12, 0.12, shade(BRONZE, 1.2)); // brackets
+      // tall inner bronze pillars flanking the emperor's lane
+      const pi = W(s * inner, v);
+      S.box(pi[0], pi[1], y, y + 0.48, 0.82, 0.82, A, STONE);
+      S.box(pi[0], pi[1], y + 0.48, y + 4.9, 0.34, 0.34, A, BRONZE);
+      S.cyl(pi[0], pi[1], y + 4.9, y + 5.55, 0.3, 0.06, 7, GOLD);
+      // outer side pillars
+      const po = W(s * outer, v);
+      S.box(po[0], po[1], y, y + 0.4, 0.68, 0.68, A, STONE);
+      S.box(po[0], po[1], y + 0.4, y + 3.8, 0.28, 0.28, A, BRONZE);
+      S.cyl(po[0], po[1], y + 3.8, y + 4.35, 0.24, 0.05, 7, GOLD);
+      // side-bay lintel + gilded openwork frieze
+      box(s * ((inner + outer) / 2), v, y + 3.15, y + 3.45, outer - inner, 0.22, BRONZE);
+      box(s * ((inner + outer) / 2), v, y + 2.75, y + 3.15, outer - inner - 0.3, 0.14, GOLD);
+      for (const t of [-1, 1]) beam(P3(s * inner, y + 4.3, v), P3(s * inner + t * 0.65, y + 3.75, v), 0.12, 0.12, GOLD);
     }
-    box(0, v, y + 3.55, y + 3.85, 5.0, 0.24, BRONZE);
-    box(0, v, y + 2.95, y + 3.55, 1.6, 0.14, GOLD); // the plaque
-    box(0, v, y + 3.85, y + 4.0, 5.6, 0.32, shade(BRONZE, 1.2));
-    lamp(-2.3, y + 4.3, v + 0.5); lamp(2.3, y + 4.3, v + 0.5);
+    // central double lintel, gilded scroll frieze and imperial name plaque
+    box(0, v, y + 4.25, y + 4.58, inner * 2 + 0.5, 0.26, BRONZE);
+    box(0, v, y + 3.65, y + 3.92, inner * 2 + 0.2, 0.22, BRONZE);
+    box(0, v, y + 3.92, y + 4.25, inner * 2 - 0.5, 0.16, GOLD);
+    box(0, v, y + 3.1, y + 3.68, 1.85, 0.16, GOLD);
+    lamp(-inner, y + 4.8, v + 0.5); lamp(inner, y + 4.8, v + 0.5);
   };
   nghiMon(B0 + 0.8, deck + 0.12);
   nghiMon(B1 - 0.8, deck + 0.12);

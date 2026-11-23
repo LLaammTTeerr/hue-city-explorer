@@ -40,7 +40,7 @@ const NECK = { s0: 216.5, s1: 239.5, t0: -21, t1: 19 };
 // cầu Thông Minh Chính Trực, its east and west ends as [s, t] along the axis, read off the satellite
 const TN = [[300.5, -2.06], [358.2, -3.55]];
 
-const LAC = PAL.lacquer || C.lacquer, TILE = PAL.imperialRoof || C.roofY, RIDGE = hex('#ead27c');
+const LAC = PAL.lacquer || C.lacquer, TILE = hex('#c28f3e'), RIDGE = hex('#e2ca7c');
 const WALL = hex('#7d7465'), WALL_DK = hex('#625b4f'), STUCCO = hex('#cfc6b0');
 const BI_BRICK = hex('#7a7166'), BI_ROOF = hex('#9d6236'), SIDE_ROOF = hex('#5f5c57');
 const STELE_WALL = hex('#dcc272'), BRICK_COURT = hex('#a37a62'), PINE = hex('#355230'), MOSS = hex('#4f6a3e');

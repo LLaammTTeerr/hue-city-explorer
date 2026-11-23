@@ -71,7 +71,7 @@ export function build({ S }) {
   const P3 = (u, v, y) => { const q = P(u, v); return [q[0], y, q[1]]; };
   const y0 = gY(c[0], c[1]);
   const box = (u, v, ya, yb, w, d, col, o) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ang, col, o); };
-  const hip = (u, v, w, d, ya, h, o) => { const q = P(u, v); S.hip(q[0], q[1], w, d, ang, ya, h, TILE, { flare: 0.5, fascia: 0.28, fasciaCol: shade(TILE, 0.6), hips: true, glazed: true, segs: 4, ...o }); };
+  const hip = (u, v, w, d, ya, h, o) => { const q = P(u, v); S.hip(q[0], q[1], w, d, ang, ya, h, TILE, { flare: 0.5, fascia: 0.28, fasciaCol: shade(TILE, 0.6), hips: true, glazed: false, segs: 4, ...o }); };
   const cyl = (u, v, ya, yb, r0, r1, n, col, o) => { const q = P(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, { rot: ang, ...o }); };
   // a flat panel on a wall face: n 'u' (front/back, the face at u = off) or 'v' (sides, at v = off), s its outward
   // sign; pts are (a, y) with a along the face (v for 'u' faces, u for 'v' faces)

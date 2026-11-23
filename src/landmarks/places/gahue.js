@@ -29,6 +29,14 @@ import { fence, roadsNear, streetTest, FENCE } from '../enclosure.js';
 
 export const id = 'gahue';
 
+// Ga Huế draws its own west and east annexes (AW, AE, AL, AB); claim their mapped footprints so geo/city.js
+// never leaves a duplicate white OSM box overlapping the station wings or forecourt.
+export function ownsMapped(ring) {
+  let x = 0, z = 0;
+  for (const p of ring) { x += p[0] / ring.length; z += p[1] / ring.length; }
+  return x >= -1196 && x <= -1104 && z >= 1366 && z <= 1384;
+}
+
 // Nov 2026 rebuild against Google satellite (z18-z20) and a car Street View pano on the forecourt
 // (scratch/rebuild/gahue, not in the repo). The OSM outline's total span (west pavilion to east annex) matches the
 // satellite, but its division does not: the two-storey block's roof measures about 19 m by 11 m between its parapet
@@ -38,9 +46,9 @@ export const id = 'gahue';
 // estimates below were scaled on the OSM 21.8 m and came out about 12 % tall. The satellite also shows a low hipped
 // roof (red tile) behind the middle block's parapet, red-brown flat roofs on the wings, and a narrower street canopy
 // (about 23 m, six columns at +-2.1, +-6.2, +-9.3 m) standing just behind three steps. Colour from the pano: a brick red.
-const red = hex('#b0473b'), redD = hex('#963a31'), white = hex('#f1ece4'), grey = hex('#7f8890'), roofTop = hex('#8a5650');
-const tile = hex('#8e4a40'), slab = hex('#8e8a84'); // tile roof; the concrete canopies and the annexes' flat roofs
-const glass = hex('#2c2f36'), column = hex('#d4857c'), pave = hex('#a9a49b'), asphalt = hex('#5d5d5f');
+const red = hex('#c97268'), redD = hex('#ad5a51'), white = hex('#f4f0e8'), grey = hex('#889199'), roofTop = hex('#9a635b');
+const tile = hex('#985045'), slab = hex('#928e88'); // tile roof; the concrete canopies and the annexes' flat roofs
+const glass = hex('#2c2f36'), column = hex('#de9b92'), pave = hex('#aea9a0'), asphalt = hex('#5d5d5f');
 const green = hex('#3f6a50'), steel = hex('#d6d2c8'), blue = hex('#24489a'), letterRed = hex('#d42a24');
 const dial = hex('#fbfaf5'), clockRim = hex('#3b2522');
 
@@ -75,6 +83,7 @@ export function build({ data, S, group, THREE }) {
   const B = (r, ya, yb, col, o) => S.box((r.x0 + r.x1) / 2, (r.z0 + r.z1) / 2, ya, yb, r.x1 - r.x0, r.z1 - r.z0, 0, col, o);
 
   // ---- ground: the forecourt (an open paved square with parking, reaching the mapped drive), the plinth ----
+  const paved0 = S.n;
   S.kind = KIND.ROAD;
   S.box(-1154, 1351, y0 - 0.5, y0 + 0.04, 84, 26, 0, asphalt, { topKind: KIND.ROAD });
   S.kind = KIND.MASONRY;
@@ -84,6 +93,7 @@ export function build({ data, S, group, THREE }) {
   let zKerb = C.z0 - 5.6;
   for (let z = C.z0 - 1; z > C.z0 - 5.6; z -= 0.1) if ([-14, -12, -9, -6, -3, 0, 3, 6, 9, 12, 14].some((u) => street(CX + u, z, 0.3))) { zKerb = z; break; }
   S.box(CX, (zKerb + C.z0) / 2, y0 - 0.4, y0 + 0.16, 30, C.z0 - zKerb, 0, pave, { topKind: KIND.ROAD });
+  (S.paved = S.paved || []).push([paved0, S.n]); // keep generic infill houses off Ga Huế's forecourt & parking lot
   // three steps up to a landing under the canopy; the columns stand on the landing's front edge (pano)
   const zStep = Math.max(C.z0 - 4.8, zKerb + 0.6); // kept off the mapped drive
   for (let k = 0; k < 3; k++) S.box(CX, (zStep + k * 0.4 + C.z0) / 2, y0, y0 + 0.17 * (k + 1), 17.6 - k * 0.4, C.z0 - zStep - k * 0.4, 0, shade(pave, 1.05 - k * 0.04));
@@ -100,11 +110,11 @@ export function build({ data, S, group, THREE }) {
   for (let x = -1188; x <= -1112; x += 2.6) S.box(x, 1349, y0 + 0.04, y0 + 0.06, 0.12, 5, 0, hex('#d9d6cf'));
   S.box(-1150, 1346.5, y0 + 0.04, y0 + 0.06, 78, 0.12, 0, hex('#d9d6cf'));
   S.box(-1150, 1351.5, y0 + 0.04, y0 + 0.06, 78, 0.12, 0, hex('#d9d6cf'));
-  // frangipani trees along the front of both wings (pano; a row of crowns on the satellite)
-  S.kind = KIND.TIMBER;
-  for (const x of [-1181, -1176.5, -1172, -1139.5, -1135, -1130.5]) {
-    S.cyl(x, 1368.6, y0, y0 + 2.8, 0.18, 0.14, 6, hex('#6b5a48'), { cap: false });
-    S.cyl(x, 1368.6, y0 + 2.6, y0 + 4.6, 1.9, 1.5, 7, hex('#4f7a3c'));
+  // frangipani trees along the front of both wings (real instanced foliage instead of static cylinders)
+  if (Array.isArray(data.trees)) {
+    for (const x of [-1181, -1174, -1138, -1131]) {
+      data.trees.push(Math.round(x * 10), Math.round(1367.5 * 10), 8, 0);
+    }
   }
   S.kind = KIND.PLAIN;
 

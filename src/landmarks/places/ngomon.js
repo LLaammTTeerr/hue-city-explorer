@@ -1,6 +1,7 @@
 import { Buf, KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { lightMaterial, glowPoints } from '../../geo/materials.js';
+import { ridgeDragons, ridgeGourd } from '../ornaments.js';
 import polygonClipping from 'polygon-clipping';
 
 // Ngọ Môn (Noon Gate, 1833), the south gate of the Imperial City. Notes and sources: docs/places/ngomon.md.
@@ -306,7 +307,9 @@ export function build({ S, group, THREE }) {
     S.kind = KIND.PLAIN; // a gilded cornice band under the upper eave and the ridge finials
     S.box(cx, cz, y3 - 0.45, y3 - 0.2, w2 + 0.1, d2 + 0.1, ang, hex('#c79a45'));
     const half = (w2 / 2 + over * 0.9) * ridge, ra = 0; // at the two ends of the ridge, which runs along the front
-    for (const sg of [-1, 1]) { const q = Q2(sg * half * 1, ang + ra); S.cyl(q[0], q[1], y3 + rh * 0.9, y3 + rh + 0.55, 0.22, 0.04, 6, hex('#e0c068'), { cap: true }); }
+    for (const sg of [-1, 1]) { const q = Q2(sg * half * 1, ang + ra); ridgeGourd(S, q[0], q[1], y3 + rh * 0.92, 0.85, hex('#e5c46a')); }
+    if (w > 15) ridgeDragons(S, [cx, cz], y3 + rh + 0.08, ang, { span: Math.min(8.0, w2 * 0.55), scale: 1.05 });
+    else ridgeGourd(S, cx, cz, y3 + rh + 0.04, 0.9, hex('#e5c46a'));
     S.kind = KIND.TIMBER;
     S.hip(cx, cz, w2, d2, ang, y3, rh, roof, { flare: FLARE, over: over * 0.9, ...eave });
     eaves.push({ cx, cz, w, d, ang, y: y1, over, fascia: eave.fascia }, { cx, cz, w: w2, d: d2, ang, y: y3, over: over * 0.9, fascia: eave.fascia });
