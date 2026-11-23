@@ -461,6 +461,16 @@ function unmarkedLanes(e) {
   return n > 0 ? Math.min(3, n) : t.oneway === 'yes' ? 1 : 2;
 }
 const TT_WAY = 174759688; // the truss spans; modelled by hand
+// Ways a place file draws itself, at the alignment and width the satellite shows. Laid here too, each one showed
+// twice, the generic pale ribbon 5-15 m off the place's own walk (đồi Vọng Cảnh: OSM's older winding trails 1075018788
+// and the top of 1473264466 under the redrawn stairs, the court's rings under its paved court). They are left out of
+// the roads and the mask; the place file keeps its own walks clear of trees. Vọng Cảnh: src/landmarks/places/vongcanh.js
+const HAND_WAYS = new Set([
+  1075018785, 1075018786, 1075018787, 1075018788, 1075018789, 1075018790, 1075018791,
+  1200924922, 1200924923, 1200924924, 1200924925, 1200924926, 1200924927, 1200924928, 1200924929, 1200924930,
+  1200924931, 1200924932, 1200924933,
+  1473264464, 1473264465, 1473264466, 1473264467, 1473264468,
+]);
 const roads = [];
 let nDryBridges = 0, nSidewalkBridges = 0;
 function overWater(pts) {
@@ -519,7 +529,7 @@ let nCleared = 0;
 for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
-  if (e.id === TT_WAY) continue;
+  if (e.id === TT_WAY || HAND_WAYS.has(e.id)) continue;
   const c = ROAD_CLASS[t.highway];
   const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
   for (const line of clipLine(e.geometry.map(proj))) {
