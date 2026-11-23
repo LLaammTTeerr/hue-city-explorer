@@ -58,17 +58,31 @@ export function build({ data, S, group, place }) {
       const q = P(u, v);
       S.box(q[0], q[1], y0 - 0.2, y0 + wallH, w, d, ANG, C.brick, { top: C.screen });
     }
-    // traditional gate piers + small tiled gate cap
+    // traditional tam quan village gate piers + two-tier tiled gate roof & gilded village plaque (Cổng làng Sình)
     for (const s of [-1, 1]) {
-      const gp1 = P(s * 2.1, -8.7);
-      S.box(gp1[0], gp1[1], y0 - 0.2, y0 + 2.8, 0.65, 0.65, ANG, C.wall2);
+      const gp1 = P(s * 2.25, -8.7);
+      S.box(gp1[0], gp1[1], y0 - 0.2, y0 + 3.1, 0.75, 0.75, ANG, C.wall2, { top: C.ridge });
+      const gp2 = P(s * 4.4, -8.7);
+      S.box(gp2[0], gp2[1], y0 - 0.2, y0 + 2.3, 0.58, 0.58, ANG, C.wall2, { top: C.ridge });
+      const sp = P(s * 3.3, -8.7);
+      S.hip(sp[0], sp[1], 2.2, 1.35, ANG, y0 + 2.3, 0.55, C.tile, { over: 0.3, flare: 0.2, ridgeCol: C.ridge, segs: 2 });
     }
     const gM = P(0, -8.7);
-    S.hip(gM[0], gM[1], 5.0, 1.6, ANG, y0 + 2.8, 0.85, C.tile, { over: 0.4, flare: 0.25, ridgeCol: C.ridge, segs: 2 });
+    S.kind = KIND.PLAIN;
+    S.box(gM[0], gM[1], y0 + 2.35, y0 + 3.1, 4.4, 0.48, ANG, C.brick);
+    S.box(gM[0], gM[1], y0 + 2.52, y0 + 2.95, 2.6, 0.54, ANG, hex('#d4a63a'));
+    S.hip(gM[0], gM[1], 5.4, 1.8, ANG, y0 + 3.1, 0.95, C.tile, { over: 0.45, flare: 0.32, ridgeCol: C.ridge, segs: 3 });
+    S.hip(gM[0], gM[1], 3.4, 1.3, ANG, y0 + 3.95, 0.75, C.tile, { over: 0.35, flare: 0.3, ridgeCol: C.ridge, segs: 2 });
+    S.cyl(gM[0], gM[1], y0 + 4.7, y0 + 5.2, 0.14, 0.04, 6, hex('#d4a63a'));
+    gp.push(gM[0], y0 + 2.6, gM[1]);
+    gc.push(1, 0.8, 0.45);
 
-    // bình phong spirit screen just inside the gate
+    // bình phong spirit screen just inside the gate with ceramic relief medallion
     const bp = P(0, -5.8);
-    S.box(bp[0], bp[1], y0 + 0.16, y0 + 2.15, 2.8, 0.38, ANG, C.screen, { top: C.tile2 });
+    S.kind = KIND.MASONRY;
+    S.box(bp[0], bp[1], y0 + 0.16, y0 + 2.25, 3.0, 0.42, ANG, C.screen, { top: C.tile2 });
+    S.kind = KIND.PLAIN;
+    S.box(bp[0], bp[1], y0 + 0.85, y0 + 1.75, 1.15, 0.48, ANG, hex('#c45b33'));
 
     // main nhà rường workshop hall (3 gian 2 chái) on the south half of the courtyard
     const hC = P(0, 3.6);
@@ -76,8 +90,8 @@ export function build({ data, S, group, place }) {
     S.box(hC[0], hC[1], y0 + 0.16, y0 + 0.55, 15.2, 8.6, ANG, shade(C.pave, 0.92), { topKind: KIND.ROAD });
     S.kind = KIND.TIMBER;
     S.box(hC[0], hC[1], y0 + 0.55, y0 + 3.8, 13.8, 7.0, ANG, C.wall, { top: C.tile2 });
-    S.hip(hC[0], hC[1], 14.2, 7.4, ANG, y0 + 3.8, 2.4, C.tile, { over: 0.9, flare: 0.35, fascia: 0.2, fasciaCol: C.wood, ridgeCol: C.ridge, hips: true, segs: 3 });
-    // open timber verandah facing the courtyard
+    S.hip(hC[0], hC[1], 14.2, 7.4, ANG, y0 + 3.8, 2.4, C.tile, { over: 0.9, flare: 0.38, fascia: 0.2, fasciaCol: C.wood, ridgeCol: C.ridge, hips: true, segs: 3 });
+    // open timber verandah facing the courtyard + folk-art hanging scroll banners
     S.kind = KIND.PLAIN;
     for (let i = -3; i <= 3; i++) {
       const col = P(i * 2.1, -0.3);
@@ -85,30 +99,35 @@ export function build({ data, S, group, place }) {
     }
     const fd = P(0, 0.12);
     S.box(fd[0], fd[1], y0 + 0.55, y0 + 2.85, 9.8, 0.14, ANG, C.wood);
+    S.box(fd[0], fd[1], y0 + 2.95, y0 + 3.45, 3.2, 0.16, ANG, hex('#d4a63a'));
     LB.box(fd[0], fd[1], y0 + 0.8, y0 + 2.6, 9.0, 0.1, ANG, [1, 1, 1]);
     gp.push(fd[0], y0 + 3.1, fd[1]);
     gc.push(1, 0.85, 0.52);
 
     // ---- signature bamboo drying racks hung with colorful Sình woodblock prints (giấy điệp) ----
-    for (const [ru, rv] of [[-6.2, -3.0], [6.2, -3.0], [-6.2, -5.6], [6.2, -5.6]]) {
-      const r0 = P(ru - 2.4, rv), r1 = P(ru + 2.4, rv);
+    for (const [ru, rv] of [[-6.4, -2.6], [6.4, -2.6], [-6.4, -5.4], [6.4, -5.4], [-8.8, 1.5], [8.8, 1.5]]) {
+      const r0 = P(ru - 2.3, rv), r1 = P(ru + 2.3, rv);
       S.kind = KIND.PLAIN;
-      for (const ep of [r0, r1]) S.cyl(ep[0], ep[1], y0 + 0.16, y0 + 1.95, 0.06, 0.05, 5, C.bamboo, { cap: false });
-      S.beam([r0[0], y0 + 1.85, r0[1]], [r1[0], y0 + 1.85, r1[1]], 0.06, 0.06, C.bamboo);
-      S.beam([r0[0], y0 + 1.15, r0[1]], [r1[0], y0 + 1.15, r1[1]], 0.05, 0.05, C.bamboo);
+      for (const ep of [r0, r1]) S.cyl(ep[0], ep[1], y0 + 0.16, y0 + 2.05, 0.06, 0.05, 5, C.bamboo, { cap: false });
+      S.beam([r0[0], y0 + 1.92, r0[1]], [r1[0], y0 + 1.92, r1[1]], 0.06, 0.06, C.bamboo);
+      S.beam([r0[0], y0 + 1.2, r0[1]], [r1[0], y0 + 1.2, r1[1]], 0.05, 0.05, C.bamboo);
       // hanging painted sheets of giấy điệp paper
       for (let j = 0; j < 6; j++) {
-        const sp = P(ru - 1.95 + j * 0.78, rv);
+        const sp = P(ru - 1.9 + j * 0.76, rv);
         const pc = PRINTS[(j + (ru > 0 ? 2 : 0) + (rv < -4 ? 1 : 0)) % PRINTS.length];
-        S.box(sp[0], sp[1], y0 + 1.25, y0 + 1.82, 0.58, 0.06, ANG, pc);
-        S.box(sp[0], sp[1], y0 + 0.58, y0 + 1.12, 0.58, 0.06, ANG, PRINTS[(j + 3) % PRINTS.length]);
+        S.box(sp[0], sp[1], y0 + 1.3, y0 + 1.88, 0.58, 0.06, ANG, pc);
+        S.box(sp[0], sp[1], y0 + 0.62, y0 + 1.16, 0.58, 0.06, ANG, PRINTS[(j + 3) % PRINTS.length]);
       }
     }
 
-    // wooden woodblock printing table in the courtyard
+    // wooden woodblock printing table + natural pigment bowls (shell white, indigo, vermilion, turmeric)
     const tb = P(0, -2.5);
-    S.box(tb[0], tb[1], y0 + 0.16, y0 + 0.92, 3.0, 1.25, ANG, C.wood);
-    S.box(tb[0], tb[1], y0 + 0.92, y0 + 0.98, 2.5, 0.9, ANG, PRINTS[4]);
+    S.box(tb[0], tb[1], y0 + 0.16, y0 + 0.92, 3.2, 1.35, ANG, C.wood);
+    S.box(tb[0], tb[1], y0 + 0.92, y0 + 0.98, 2.6, 0.95, ANG, PRINTS[4]);
+    for (let k = 0; k < 4; k++) {
+      const bp1 = P(-1.05 + k * 0.7, -2.5);
+      S.cyl(bp1[0], bp1[1], y0 + 0.98, y0 + 1.16, 0.16, 0.2, 7, PRINTS[k]);
+    }
   }
 
   // ---- 2. Neighboring tiled garden-village workshops (matching satellite cluster) ----

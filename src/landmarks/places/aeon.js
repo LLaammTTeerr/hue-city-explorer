@@ -202,10 +202,17 @@ export function build({ data, S, group }) {
       S.box(ci[0], ci[1], y0 + 5.2, y0 + 5.5, Lb, off, a, C.white, { bottom: true });
       lit(LB, mu + n[0] * off / 2, mv + n[1] * off / 2, y0 + 5.12, y0 + 5.18, L * 0.5, 1.4);
     }
-    // the band sweeps down to a point at its long-arm end and curls into a white panel at its short-arm end
+    // the band sweeps smoothly down into a crisp white portal pilaster at its long-arm end and curls cleanly at its short-arm end
     const pts = arc.flat();
     const eL = pts.reduce((m, x) => (x[1] > m[1] ? x : m)), eR = pts.reduce((m, x) => (x[0] > m[0] ? x : m));
-    for (let k = 0; k < 4; k++) box(eL[0] - 3.0, eL[1] + 2 + k * 4, y0 + 6 + k * 3.5, y0 + ROOF + 3.6 - k * 1.2, 0.9, 4.2, C.white);
+    const nSweep = 10;
+    for (let k = 0; k < nSweep; k++) {
+      const t0 = k / nSweep, t1 = (k + 1) / nSweep, tm = (t0 + t1) / 2;
+      const yb = y0 + 5.2 + (ROOF - 8.2) * (1 - Math.cos(tm * Math.PI * 0.5));
+      const yt = y0 + ROOF + 3.6 - 3.0 * tm * tm;
+      box(eL[0] - 3.0 + tm * 1.4, eL[1] + 0.5 + tm * 16.0, yb, yt, 0.9, 1.85, C.white, { bottom: true });
+    }
+    box(eL[0] - 1.6, eL[1] + 16.8, y0, y0 + ROOF + 0.6, 1.1, 2.2, C.white);
     box(eR[0] + 2.5, eR[1] - 3.0, y0, y0 + ROOF + 3.6, 5.0, 0.9, C.white);
     // AEON MALL on the band at its crown
     // centred by angle between the arc's two ends, not on its middle vertex (the OSM arc's vertices are uneven)
