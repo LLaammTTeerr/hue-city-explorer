@@ -756,6 +756,233 @@ function buildTuDamHero() {
   return scene;
 }
 
+// Sculpted imperial bronze ceremonial incense cauldron (đỉnh đồng) on tripod legs with twin dragon handles
+function bronzeCauldron(cx, cy, cz, scale = 1.0, bodyCol = 0x5c4c36, trimCol = 0x9e8248) {
+  const parts = [];
+  // Carved octagonal stone plinth
+  const plinth = new THREE.CylinderGeometry(0.62 * scale, 0.72 * scale, 0.34 * scale, 8);
+  plinth.translate(cx, cy + 0.17 * scale, cz);
+  parts.push(paint(plinth, 0x9b9589));
+  // Three tripod legs
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + Math.PI / 6;
+    const lx = Math.cos(a) * 0.36 * scale, lz = Math.sin(a) * 0.36 * scale;
+    const leg = new THREE.CylinderGeometry(0.065 * scale, 0.085 * scale, 0.52 * scale, 8);
+    leg.translate(cx + lx, cy + 0.56 * scale, cz + lz);
+    parts.push(paint(leg, bodyCol));
+  }
+  // Lathe cauldron belly + flared rim + domed pierced lid
+  const pts = [
+    [0.01, 0.58], [0.34, 0.60], [0.54, 0.80], [0.58, 1.04],
+    [0.44, 1.24], [0.52, 1.32], [0.46, 1.36], [0.36, 1.48],
+    [0.16, 1.64], [0.09, 1.78], [0.14, 1.88], [0.02, 2.02],
+  ].map(([r, y]) => new THREE.Vector2(r * scale, y * scale));
+  const body = new THREE.LatheGeometry(pts, 18);
+  body.translate(cx, cy, cz);
+  parts.push(paint(body, bodyCol));
+  // Raised gilded belly band & finial knob
+  const band = new THREE.TorusGeometry(0.57 * scale, 0.035 * scale, 8, 20);
+  band.rotateX(Math.PI / 2);
+  band.translate(cx, cy + 0.98 * scale, cz);
+  parts.push(paint(band, trimCol));
+  // Twin arched dragon ear handles
+  for (const s of [-1, 1]) {
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(cx + s * 0.48 * scale, cy + 1.05 * scale, cz),
+      new THREE.Vector3(cx + s * 0.72 * scale, cy + 1.24 * scale, cz),
+      new THREE.Vector3(cx + s * 0.68 * scale, cy + 1.48 * scale, cz),
+      new THREE.Vector3(cx + s * 0.44 * scale, cy + 1.32 * scale, cz),
+    ]);
+    parts.push(paint(new THREE.TubeGeometry(curve, 12, 0.055 * scale, 6, false), trimCol));
+  }
+  return parts;
+}
+
+// Build Quốc Học Huế Tam Quan Gate hero accent .glb (imperial yellow-tiled gate on Lê Lợi)
+function buildQuocHocHero() {
+  const parts = [];
+  const ry = 6.55;
+  // Flaming sun disc (mặt nguyệt) & flanking imperial dragons on upper ridge
+  const disc = new THREE.SphereGeometry(0.36, 14, 10);
+  disc.scale(1, 1.15, 0.35);
+  disc.translate(0, ry + 0.48, 0);
+  parts.push(paint(disc, 0xe8b83a));
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.32, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 1.8, 0.68));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 1.8, 0.68));
+  // Upper & lower vọng lâu eave corner scrolls + side bay eave corner scrolls
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 2.5, 5.60, sv * 1.15, su * 0.65, sv * 0.65, 0.72));
+    parts.push(cornerScroll(su * 3.35, 4.35, sv * 1.65, su * 0.72, sv * 0.72, 0.78));
+  }
+  for (const sg of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(sg * 4.65, 3.70, sv * 1.35, sg * 0.55, sv * 0.55, 0.6));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'quochoc_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Lăng Đồng Khánh — Điện Ngưng Hy hero accent .glb (triple-roof imperial temple hall)
+function buildDongKhanhHero() {
+  const parts = [];
+  // Main house (z = 0, ry = 8.64), front house (z = -8.0, ry = 7.94), rear house (z = +8.0, ry = 7.64)
+  const ridges = [
+    { z: 0, ry: 8.64, span: 5.4, sc: 1.05, hw: 13.5, hd: 4.9, eaveY: 4.68 },
+    { z: -8.0, ry: 7.94, span: 4.8, sc: 0.92, hw: 13.5, hd: 4.9, eaveY: 4.28 },
+    { z: 8.0, ry: 7.64, span: 4.4, sc: 0.88, hw: 12.5, hd: 4.9, eaveY: 4.28 },
+  ];
+  for (const r of ridges) {
+    parts.push(latheGourd(0, r.ry + 0.02, r.z, r.sc * 0.9, 0xe8c45e));
+    parts.push(...sculptedDragon(0, r.ry, r.z, 1, r.span, r.sc));
+    parts.push(...sculptedDragon(0, r.ry, r.z, -1, r.span, r.sc));
+    for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+      parts.push(cornerScroll(su * r.hw, r.eaveY, r.z + sv * r.hd, su * 0.72, sv * 0.72, 0.92));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'dongkhanh_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Lăng Thiệu Trị — Đức Hinh Lâu hero accent .glb (two-storey square imperial lầu)
+function buildThieuTriHero() {
+  const parts = [];
+  const ry = 12.20;
+  // Crown lotus-gourd finial + flanking dragons on upper square ridge
+  parts.push(latheGourd(0, ry + 0.02, 0, 1.35, 0xf1d77a));
+  parts.push(...sculptedDragon(0, ry - 0.05, 0, 1, 2.2, 0.85));
+  parts.push(...sculptedDragon(0, ry - 0.05, 0, -1, 2.2, 0.85));
+  // 4 upper roof eave corner scrolls + 4 lower skirt eave corner scrolls
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 6.5, 9.40, sv * 6.5, su * 0.85, sv * 0.85, 1.0));
+    parts.push(cornerScroll(su * 8.8, 5.80, sv * 8.8, su * 0.92, sv * 0.92, 1.1));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'thieutri_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Kỳ Đài (Flag Tower of Huế Citadel) hero accent .glb (flagpole crown + twin guard huts + bollards)
+function buildKyDaiHero() {
+  const parts = [];
+  // Gilded lotus-gourd finial & collar atop the 37 m flagpole
+  parts.push(latheGourd(0, 55.45, 0, 1.25, 0xe8c45e));
+  const collar = new THREE.TorusGeometry(0.46, 0.08, 8, 18);
+  collar.rotateX(Math.PI / 2);
+  collar.translate(0, 55.28, 0);
+  parts.push(paint(collar, 0xc9b26a));
+  // Twin guard huts (điếm canh) at x = ±14.88, z = -4.39: ridge finials + 4 upturned corner scrolls each
+  for (const sg of [-1, 1]) {
+    const hx = sg * 14.88, hz = -4.39;
+    parts.push(latheGourd(hx, 22.85, hz, 0.65, 0xc9b99a));
+    for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+      parts.push(cornerScroll(hx + su * 2.2, 21.35, hz + sv * 2.3, su * 0.55, sv * 0.55, 0.62));
+    }
+  }
+  // Sculpted stone lotus finials on the 4 tier-3 guy-line bollards
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(latheGourd(su * 16.38, 19.70, sv * 7.69, 0.55, 0xa8a08e));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'kydai_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Hổ Quyền (Royal Tiger & Elephant Arena) hero accent .glb (king's stand lotus finials & cornice crest)
+function buildHoQuyenHero() {
+  const parts = [];
+  // 5 sculpted limestone lotus-bud finials along king's stand front parapet (x = 2.43, y = 6.38)
+  for (let k = 0; k <= 4; k++) {
+    const z = -4.08 + (8.16 * k) / 4;
+    parts.push(latheGourd(2.43, 6.38, z, k % 4 ? 0.52 : 0.68, 0xb5b1a7));
+  }
+  // 2 side return parapet finials (x = -1.45, z = ±4.08, y = 6.38)
+  for (const s of [-1, 1]) {
+    parts.push(latheGourd(-1.45, 6.38, s * 4.08, 0.56, 0xb5b1a7));
+  }
+  // 5 arena-edge royal dais finials (x = -4.23, y = 7.68)
+  for (let k = 0; k <= 4; k++) {
+    const z = -3.8 + (7.6 * k) / 4;
+    parts.push(latheGourd(-4.23, 7.68, z, 0.48, 0xb5b1a7));
+  }
+  // Sculpted moulded crest scroll above the north face royal plaque (x = 2.60, y = 4.65)
+  const crest = new THREE.TorusGeometry(0.42, 0.07, 8, 16, Math.PI);
+  crest.rotateY(Math.PI / 2);
+  crest.translate(2.60, 4.48, 0);
+  parts.push(paint(crest, 0x9c988f));
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'hoquyen_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Đàn Nam Giao hero accent .glb (ceremonial imperial bronze tripods & Viên Đàn lotus finials)
+function buildNamGiaoHero() {
+  const parts = [];
+  const yTop = 4.86;
+  // Central imperial bronze incense cauldron + flanking ceremonial urns on Viên Đàn
+  parts.push(...bronzeCauldron(0, yTop, 0, 1.35));
+  parts.push(...bronzeCauldron(-4.8, yTop, 0, 0.85));
+  parts.push(...bronzeCauldron(4.8, yTop, 0, 0.85));
+  // 8 sculpted blue-glazed stone lotus-bud finials crowning the Viên Đàn stair-head piers
+  const rm = 20.1, W3 = [5, 5, 7.5, 5];
+  const card = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+  for (let i = 0; i < 4; i++) {
+    const [du, dv] = card[i];
+    const g = W3[i] / 2 + 0.6;
+    for (const sd of [-1, 1]) {
+      const a = Math.atan2(dv, du) + sd * Math.asin(g / rm);
+      parts.push(latheGourd(Math.cos(a) * rm, 5.91, Math.sin(a) * rm, 0.62, 0x4c7faf));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'namgiao_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Đàn Xã Tắc hero accent .glb (imperial Earth & Grain bronze cauldron + altar corner & stair finials)
+function buildXaTacHero() {
+  const parts = [];
+  const yTop = 1.60;
+  // Central imperial ceremonial bronze cauldron on carved stone plinth
+  parts.push(...bronzeCauldron(0, yTop, 0, 1.25));
+  // 4 sculpted stone ceremonial urn pedestals at the inner altar corners
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(...bronzeCauldron(su * 11.2, yTop, sv * 11.2, 0.65, 0x7a756b, 0x9e988c));
+  }
+  // 8 sculpted stone lotus buds on the 4 stair-head balustrade piers (A2 = 15.2, r2 = 0.2 -> edge 15.0, gap ±2.2)
+  for (const s of [-1, 1]) {
+    for (const g of [-2.2, 2.2]) {
+      parts.push(latheGourd(g, 2.54, s * 15.0, 0.48, 0xa8a397));
+      parts.push(latheGourd(s * 15.0, 2.54, g, 0.48, 0xa8a397));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'xatac_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
@@ -783,6 +1010,13 @@ for (const [name, buildFn] of [
   ['biaquochoc-hero.glb', buildBiaQuocHocHero],
   ['thuongbac-hero.glb', buildThuongBacHero],
   ['tudam-hero.glb', buildTuDamHero],
+  ['quochoc-hero.glb', buildQuocHocHero],
+  ['dongkhanh-hero.glb', buildDongKhanhHero],
+  ['thieutri-hero.glb', buildThieuTriHero],
+  ['kydai-hero.glb', buildKyDaiHero],
+  ['hoquyen-hero.glb', buildHoQuyenHero],
+  ['namgiao-hero.glb', buildNamGiaoHero],
+  ['xatac-hero.glb', buildXaTacHero],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
