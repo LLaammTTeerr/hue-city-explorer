@@ -53,18 +53,22 @@ Before this, the place was only the generic mapped buildings from `data.bld`. Th
 - The "two halls one behind the other" reading of the main hall's roofs.
 
 ## Street View check (2026)
-Compared from car panoramas on Điện Biên Phủ and a visitor panorama in the yard. These are visual references only; nothing was traced from them.
-- The site sits on a rubble-stone base about 1.3 m high along Điện Biên Phủ. The yard is drawn 1.4 m above the highest ground at the wall.
-- The street wall is cream, with a band of dark key-fret openings, square posts with ball finials, and a brown coping.
-- The front hall has tall red columns, a low lower roof, a clerestory of grey-green panels and a pale ceramic ridge crest with dragons at the ends. Its tiles are a dull red-brown.
-- The towers have a tall lower storey with large lattice windows. From the street the drum tower's top reaches about the hall's hip crest; from the yard the wing looks lower. The model follows the street view.
-- Not modelled: the hexagonal red-brick paving and grey concrete strip along the east hall, which has two storeys plus a pent roof and balcony; the Ashoka trees in planters in the yard.
+Compared from five car panoramas (three on Điện Biên Phủ, one at Sư Liễu Quán and Phan Bội Châu, one on Phan Bội Châu) and a visitor panorama in the yard, rendered at its estimated pose. These are visual references only; nothing was traced from them.
+- Two levels. The main yard stands on a rubble-stone base about 1.3 m high along Điện Biên Phủ; the yard is drawn 1.4 m above its highest ground. The south-east corner and the strip along Phan Bội Châu are a lower court only about 0.6 m above the pavement, with a cream retaining wall and balustrade at the edge of the upper yard.
+- A side gate on Sư Liễu Quán, on the east hall's axis: two square cream pillars with lanterns, open black iron leaves and a short ramp. From the court a broad stair rises to a two-storey porch at the south end of the east hall (red columns, a first-floor balcony under a tiled pent eave, a small hip roof).
+- The street wall is cream, with bays of pierced interlocking key-fret blocks between pilasters, ball finials and a brown tile coping, on rough rubble stone.
+- The chánh điện has three transverse roofs: a rear hall, a tall middle hall and a shallow front hall whose ridge runs on the line of the two towers. Triangulating the west crests from two car panoramas puts the big pediment (a standing figure on top) over v about 0 and the front crest at v about 11.5. Each ridge ends in a tall pale pediment with ceramic dragons and a mosaic panel; the eaves are only slightly lifted at the corners.
+- The bell and drum towers sit low against the hall: from the yard their tops are below the front hall's upper eave.
+- The east hall is a closed two-storey yellow block with a first-floor balcony on the yard side and a tiled main roof. Annex E on Phan Bội Châu has a recessed loggia upstairs, a lattice vent and windows.
+- The yard has slender Ashoka trees in ring planters in front of the east hall, Buddhist flags on the front verandah, potted bonsai and a bronze urn.
+- Walls are plain plaster, not timber.
+- Not modelled: the hexagonal red-brick paving (drawn as a plain red forecourt) and the grey concrete strip along the east hall.
 
 ## Model
-- About 18.8k triangles.
-- Night: lamps on the gate piers, wall posts, stupa eaves and gallery, plus a warm strip under the front-hall eave and the gate board.
+- Under the 40k-triangle warning.
+- Night: lamps on the gate piers, side-gate lanterns, wall posts, stupa eaves, east hall and porch, plus a warm strip under the front-hall eave and the gate board.
 
 ## Left
 - The basement assembly level, the interiors, the golden Amitabha statue (location unknown) and the great bell.
-- The dragons on the ridges are only blocky shapes.
+- The dragons and figures on the pediments are only blocky shapes.
 - The exact roof shapes of the hall's wings.
