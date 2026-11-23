@@ -9,14 +9,15 @@ import { pavilion } from '../citadel.js';
 //
 // Two parallel axes facing north-west, about 100-150 m apart, and no La Thành: the hills are the enclosure.
 //  - Tẩm (temple, left axis): brick screen → hồ Điện (half-moon, 2,400 m²) → marble nghi môn with pháp lam enamel
-//    → sân tế in three tiers with a stone walk → Hồng Trạch môn in a rectangular brick wall with gates on all four
+//    → sân tế in three tiers (a pale central column with the walk, raised darker flanks, a lower path round them
+//    behind balustrades, dragon-cheeked steps) → Hồng Trạch môn in a rectangular brick wall with gates on all four
 //    sides → Đông / Tây Phối điện → điện Biểu Đức (23.4 x 21.5 m, a double hall, trùng thiềm roof) flanked behind by
 //    Tả / Hữu Tòng viện → arched brick gate in the back wall.
 //  - Lăng (tomb, right axis): hồ Nhuận Trạch (half-moon) → bronze nghi môn (long vân đồng trụ) → sân chầu (Bái
 //    Đình) with elephants, horses and mandarins → Bi Đình on a 2.65 m platform → Đức Hinh lâu, drawn whole (a
 //    two-storey lầu like Minh Lâu) on its 18.5 x 18.5 m base on a low hill, the two brick trụ biểu either side → hồ
-//    Ngưng Thúy (half-moon) crossed by three bridges (Tây Định, Chánh Trung, Đông Hòa) → the round Bửu Thành (260 m round) with its bronze gate, the
-//    grave mound and pines inside.
+//    Ngưng Thúy (half-moon) crossed by three bridges (Tây Định, Chánh Trung, Đông Hòa) → the round Bửu Thành (260 m round) with its bronze gate, a
+//    bare raised mound and pines inside.
 // Plan positions are the OSM outlines (ways listed below) in metres from the site centre; the lakes themselves are
 // water data, drawn elsewhere.
 export const id = 'thieutri';
@@ -42,14 +43,24 @@ const box2 = (r) => obb(r.map(L));
 // widths from the satellite
 const BRIDGES = [[[54.5, -67.6], [92.3, -42.6], 3.8], [[70.5, -85.9], [106.6, -59.7], 3.2], [[47.6, -48.2], [83.8, -25.9], 3.2]];
 const BUU_C = [139, -12.5]; // Bửu Thành centre, metres from C0, measured on the satellite
+// Bi Đình: the centre of the restoration shelter over it on the satellite (z20), 37 m from Đức Hinh lâu's base at a
+// bearing of ~315°; the OSM trace (1075011937) sits ~8 m south-west of it
+const BI_C = [2.7, -113.0];
+// the stone walk of the tomb court runs on the satellite's central strip, 3.6 m north-east of the line through Đức
+// Hinh lâu at 33.5° (the court's two halves are symmetric about that strip)
+const COURT_T = -3.6;
 
 const COL = {
   roof: PAL.imperialRoof, roofOld: hex('#b8913f'), lac: hex('#8e3628'), lacOld: hex('#74402f'),
   stone: PAL.stone, stoneGrey: hex('#9d998f'), stoneDark: hex('#7b776e'), thanh: hex('#6c7377'), marble: hex('#ddd8cc'),
-  brick: hex('#6b6152'), brickMoss: hex('#5c6049'), cap: hex('#6a675f'), bat: hex('#94705a'), // Bát Tràng brick paving, weathered
+  brick: hex('#6b6152'), brickMoss: hex('#5c6049'), cap: hex('#6a675f'),
+  // Bát Tràng brick paving, weathered grey-brown with dark staining (Street View on the sân tế); the raised flank
+  // terraces read darker still on the satellite
+  bat: hex('#7f7062'), batDark: hex('#635b51'), slab: hex('#88857c'), slabDark: hex('#6f6c65'), // grey stone tier faces
   roofSide: hex('#93714a'), gateWall: hex('#b89a58'), roofGrey: hex('#6f6a60'), // weathered side-hall tiles, ochre gate plaster (Street View)
   bronze: hex('#4d3f2c'), bronzeHi: hex('#8a7040'), door: hex('#2b2422'), statue: hex('#a29d92'),
   enamel: [hex('#2f7d8c'), hex('#3f8f4f'), hex('#e0b23a')], moss: PAL.moss, pine: hex('#3d5734'), earth: hex('#6f6a4b'),
+  bare: hex('#857659'), tileOld: hex('#76654f'), // the bare earth of the Bửu Thành mound; weathered tiles on the wall gates
 };
 const RIDGE = hex('#f1d77a');
 const RIDGE_OLD = hex('#a58a52'); // weathered ridge of side halls and gates: Street View shows no bright gilding there
@@ -81,7 +92,7 @@ function terrace(S, F, s, t, ls, lt, top, col = COL.stone, topCol = null) {
   return top;
 }
 // a flight of steps from p0 (y0) up to p1 (y1), w wide, each step bedded on its own ground
-function flight(S, p0, y0, p1, y1, w, col = COL.stone, cheeks = true) {
+function flight(S, p0, y0, p1, y1, w, col = COL.stone, cheeks = true, dragon = false) {
   if (y1 < y0) { [p0, p1] = [p1, p0]; [y0, y1] = [y1, y0]; }
   const dx = p1[0] - p0[0], dz = p1[1] - p0[1], len = Math.hypot(dx, dz);
   if (len < 0.3 || y1 - y0 < 0.05) return;
@@ -93,12 +104,49 @@ function flight(S, p0, y0, p1, y1, w, col = COL.stone, cheeks = true) {
     S.base = lo - LAND_Y;
     S.box(cx, cz, Math.min(lo, top - 0.3), top, len / n + 0.02, w, a, shade(col, 1.04), { topKind: KIND.ROAD });
   }
-  if (cheeks) {
+  if (cheeks && !dragon) {
     const ux = dx / len, uz = dz / len;
     for (const sd of [-1, 1]) {
       const ox = -uz * sd * (w / 2 + 0.22), oz = ux * sd * (w / 2 + 0.22);
       S.beam([p0[0] + ox, y0 + 0.3, p0[1] + oz], [p1[0] + ox, y1 + 0.3, p1[1] + oz], 0.44, 0.6, shade(col, 0.9));
     }
+  }
+  if (dragon) {
+    // dragon cheeks (Street View on the sân tế): a slim sloping rail riding the step noses, ending at the foot in a
+    // raised dragon head that curls forward, and a square post at the top
+    const ux = dx / len, uz = dz / len, c = shade(col, 0.92);
+    for (const sd of [-1, 1]) {
+      const ox = -uz * sd * (w / 2 + 0.18), oz = ux * sd * (w / 2 + 0.18);
+      const f0 = 0.55 / len, a0 = [p0[0] + dx * f0 + ox, p0[1] + dz * f0 + oz];
+      S.beam([a0[0], y0 + 0.75, a0[1]], [p1[0] + ox, y1 + 0.45, p1[1] + oz], 0.32, 0.42, c);
+      // the panel below the rail, down to the steps
+      S.beam([a0[0], y0 + 0.3, a0[1]], [p1[0] + ox, y1 + 0.05, p1[1] + oz], 0.26, 0.5, shade(c, 0.94));
+      const h0 = [p0[0] + ox, p0[1] + oz], g0 = Math.min(y0, gY(h0[0], h0[1]));
+      S.base = g0 - 0.4 - LAND_Y;
+      S.box(h0[0], h0[1], g0 - 0.4, y0 + 0.95, 1.1, 0.4, a, c, { taper: 0.8 }); // the head, rearing
+      S.box(h0[0] - ux * 0.5, h0[1] - uz * 0.5, y0 + 0.55, y0 + 0.9, 0.35, 0.36, a, shade(c, 0.88)); // the snout curling out
+      S.box(p1[0] + ox, p1[1] + oz, y1 - 0.3, y1 + 0.85, 0.42, 0.42, a, c, { top: shade(c, 1.05) });
+      S.box(p1[0] + ox, p1[1] + oz, y1 + 0.85, y1 + 1.05, 0.3, 0.3, a, shade(c, 1.05), { taper: 0.6 });
+    }
+  }
+}
+// a stone balustrade from p to q at deck level y: posts with lotus caps every ~2 m, a plinth rail and a hand rail
+function balustrade(S, p, q, y, col = COL.slab) {
+  const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+  if (len < 0.6) return;
+  const a = Math.atan2(q[1] - p[1], q[0] - p[0]), n = Math.max(1, Math.round(len / 2.1));
+  S.kind = KIND.MASONRY; S.base = y - LAND_Y;
+  const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+  S.box(m[0], m[1], y, y + 0.22, len, 0.3, a, shade(col, 0.9));
+  S.box(m[0], m[1], y + 0.62, y + 0.74, len, 0.2, a, shade(col, 1.04));
+  for (let k = 0; k <= n; k++) {
+    const f = k / n, x = p[0] + (q[0] - p[0]) * f, z = p[1] + (q[1] - p[1]) * f;
+    S.box(x, z, y, y + 0.86, 0.3, 0.3, a, col, { top: shade(col, 1.06) });
+    S.box(x, z, y + 0.86, y + 1.08, 0.24, 0.24, a, shade(col, 1.08), { taper: 0.45 }); // the lotus bud
+  }
+  for (let k = 0; k < n; k++) { // a balustre between each pair of posts
+    const f = (k + 0.5) / n, x = p[0] + (q[0] - p[0]) * f, z = p[1] + (q[1] - p[1]) * f;
+    S.box(x, z, y + 0.22, y + 0.62, 0.16, 0.16, a, shade(col, 0.96));
   }
 }
 // a wall from p to q, cut into short runs that each stand on their own ground
@@ -126,15 +174,24 @@ function wallLine(S, F, s0, t0, s1, t1, h, th, gaps = [], col) {
   }
 }
 // a small brick gate with one arched doorway (side and back gates of the temple wall); a = angle of the wall line
-function archGate(S, p, a, w, d, h, roof = COL.roofGrey) {
-  const g = gY(p[0], p[1]);
+// Street View from the pines: ochre plaster, a moulded cornice, a tiled hip roof standing well clear of the wall, and
+// an arched opening
+function archGate(S, p, a, w, d, h, roof = COL.tileOld) {
+  const g = gY(p[0], p[1]), pl = COL.gateWall;
   S.kind = KIND.MASONRY; S.base = g - 0.6 - LAND_Y;
-  S.box(p[0], p[1], g - 0.6, g + h, w, d, a, COL.gateWall, { top: COL.cap });
+  S.box(p[0], p[1], g - 0.6, g + h, w, d, a, pl, { top: COL.cap });
+  S.box(p[0], p[1], g + h - 0.5, g + h - 0.3, w + 0.25, d + 0.25, a, shade(pl, 0.88)); // the cornice band
+  S.box(p[0], p[1], g + h - 0.3, g + h, w + 0.4, d + 0.4, a, shade(pl, 0.8));
+  // pilasters framing the opening, both faces
+  const ux = Math.cos(a), uz = Math.sin(a);
+  for (const sd of [-1, 1]) { const q = [p[0] + ux * sd * (w / 2 - 0.35), p[1] + uz * sd * (w / 2 - 0.35)]; S.box(q[0], q[1], g, g + h - 0.5, 0.5, d + 0.16, a, shade(pl, 1.07)); }
   S.kind = KIND.PLAIN;
-  const ow = Math.min(1.8, w * 0.42), oh = h * 0.62;
+  const ow = Math.min(1.9, w * 0.42), oh = h * 0.55;
   S.box(p[0], p[1], g, g + oh, ow, d + 0.1, a, COL.door);
-  S.box(p[0], p[1], g + oh, g + oh + ow * 0.32, ow * 0.7, d + 0.1, a, COL.door, { taper: 0.6 });
-  S.hip(p[0], p[1], w + 0.4, d + 0.3, a, g + h, 0.9, roof, { flare: 0.25, over: 0.5, fascia: 0.18, ridgeCol: RIDGE_OLD, hips: true, glazed: true });
+  // the arch: three courses stepping in
+  for (let k = 0; k < 3; k++) S.box(p[0], p[1], g + oh + k * ow * 0.12, g + oh + (k + 1) * ow * 0.12, ow * (0.92 - k * 0.24), d + 0.1, a, COL.door);
+  S.box(p[0], p[1], g + oh + ow * 0.36 + 0.05, g + oh + ow * 0.36 + 0.2, ow + 0.5, d + 0.14, a, shade(pl, 0.85)); // the archivolt
+  S.hip(p[0], p[1], w + 0.2, d + 0.2, a, g + h, 1.5, roof, { flare: 0.35, over: 0.6, fascia: 0.2, ridgeCol: RIDGE_OLD, hips: true, glazed: true });
 }
 // timber hall on a stone plinth (the mapped outline is the plinth), long side found from the outline
 function hall(S, r, { plinth = 0.6, tiers = 1, wallH = 3.2, rh = 2.2, roof = COL.roofOld, wall = COL.lacOld, inset = 1.0, colonnade = true, floor = null } = {}) {
@@ -227,7 +284,7 @@ function temple(S) {
   // the axis through Hồng Trạch môn at 42°: measured on the satellite (gate → Biểu Đức 42°, the hall's outline 41°,
   // the court's side walls 44-45°); the OSM centroids alone give 40°
   const Q = frame(htm.c, (42 * Math.PI) / 180);
-  // the front: brick screen beyond the lake, the marble gate, the three-tier sân tế (36 m wide, its front at the lake's
+  // the front: brick screen beyond the lake, the marble gate, the three-tier sân tế (42 m wide, its front at the lake's
   // retaining wall 57 m before the gate, as the satellite shows it)
   {
     const p = Q.at(-101), g = gY(p[0], p[1]);
@@ -236,22 +293,47 @@ function temple(S) {
     S.box(p[0], p[1], g + 2.6, g + 2.85, 1.1, 10.1, Q.a, COL.cap);
     for (const sd of [-1, 1]) { const q = Q.at(-101 + sd * 0.42); S.box(q[0], q[1], g + 0.5, g + 2.2, 0.06, 6.0, Q.a, shade(COL.brickMoss, 0.75)); }
   }
+  // the sân tế is a 3 x 3 grid (satellite z20, Street View on the court): a pale paved central column 14 m wide carrying
+  // the stone walk, flanked on each side by darker raised terraces stepped on their own; a lower paved path wraps round
+  // those terraces behind a stone balustrade on the court's edge, with small corner steps up onto them. Each tier
+  // rises about 1 m on grey stone slabs; dragon-cheek flights climb the walk between tiers
   const n0 = S.n;
-  const tiers = [[-57, -43], [-43, -24], [-24, -5.5]], TW = 36;
+  const tiers = [[-57, -43], [-43, -24], [-24, -5.5]], TW = 42, CW = 14, PATH = 2.4, CROSS = 2.2, FR = 0.8;
+  const FT0 = CW / 2, FT1 = TW / 2 - PATH; // the flank terraces span |t| FT0..FT1
   let yPrev = null;
   for (let k = 0; k < tiers.length; k++) {
-    const [a, b] = tiers[k], m = (a + b) / 2, { hi } = span(Q, m, 0, b - a, TW), top = Math.max(hi + 0.15, (yPrev ?? -Infinity) + 0.45);
-    terrace(S, Q, m, 0, b - a, TW, top, COL.stone, COL.bat);
-    // a low stone parapet along each side of the tier (Street View, on the court)
-    S.kind = KIND.MASONRY;
-    for (const sd of [-1, 1]) { const q = Q.at(m, sd * (TW / 2 - 0.2)); S.box(q[0], q[1], top, top + 0.75, b - a, 0.35, Q.a, COL.stoneGrey, { top: COL.cap }); }
+    const [a, b] = tiers[k], m = (a + b) / 2, { hi } = span(Q, m, 0, b - a, TW), top = Math.max(hi + 0.15, (yPrev ?? -Infinity) + 1.0);
+    terrace(S, Q, m, 0, b - a, TW, top, COL.slab, COL.bat); // the lower paved level, full width
     // the Thanh stone walk up the middle
     const p = Q.at(m); S.kind = KIND.ROAD; S.box(p[0], p[1], top - 0.1, top + 0.04, b - a, 3.2, Q.a, COL.thanh, { topKind: KIND.ROAD });
-    if (yPrev != null) flight(S, Q.at(a - 1.6), yPrev, Q.at(a + 0.2), top, 4.2);
+    // the raised flank terraces, darker brick on grey slab faces, with corner steps from the path at their front
+    const fa = a + CROSS + (k === 0 ? 0.8 : 0), fb = b - CROSS, fm = (fa + fb) / 2;
+    for (const sd of [-1, 1]) {
+      const tc = sd * (FT0 + FT1) / 2, fw = FT1 - FT0;
+      const q = Q.at(fm, tc);
+      S.kind = KIND.MASONRY; S.base = top - 0.3 - LAND_Y;
+      S.box(q[0], q[1], top - 0.3, top + FR, fb - fa, fw, Q.a, COL.slabDark, { top: COL.batDark, topKind: KIND.ROAD });
+      S.box(q[0], q[1], top + FR - 0.12, top + FR + 0.02, fb - fa + 0.25, fw + 0.25, Q.a, COL.slab, { top: COL.batDark, topKind: KIND.ROAD }); // the coping
+      const tS = sd * (FT1 - 1.1);
+      flight(S, Q.at(fa - 1.5, tS), top, Q.at(fa, tS), top + FR, 1.5, COL.slab, false);
+      // the balustrade on the court's outer edge, and across the tier's front where it drops to the tier below
+      const tE = sd * (TW / 2 - 0.2);
+      if (k > 0) {
+        balustrade(S, Q.at(a + 0.2, tE), Q.at(b - 0.2, tE), top);
+        balustrade(S, Q.at(a + 0.2, sd * (CW / 2 - 1.0)), Q.at(a + 0.2, sd * (FT1 + 0.1)), top);
+      } else {
+        balustrade(S, Q.at(a + 0.2, tE), Q.at(b - 0.2, tE), top);
+        balustrade(S, Q.at(a + 0.2, sd * 3.6), Q.at(a + 0.2, tE), top);
+      }
+      // the path's own steps up to the next tier
+      if (yPrev != null) flight(S, Q.at(a - 2.6, sd * (TW / 2 - PATH / 2 - 0.2)), yPrev, Q.at(a + 0.2, sd * (TW / 2 - PATH / 2 - 0.2)), top, PATH - 0.8, COL.slab, false);
+    }
+    if (yPrev != null) flight(S, Q.at(a - 3.2), yPrev, Q.at(a + 0.2), top, 5, COL.slab, true, true);
     yPrev = top;
   }
   const yTe = yPrev;
-  { const g = Q.at(-57); flight(S, Q.at(-59.6), gY(g[0], g[1]), Q.at(-57), span(Q, -50, 0, 14, TW).hi + 0.15, 5); }
+  // the front flight climbs through the middle bay of the marble gate (its inner pillars stand at t ±1.9)
+  { const g = Q.at(-57); flight(S, Q.at(-59.6), gY(g[0], g[1]), Q.at(-57), span(Q, -50, 0, 14, TW).hi + 0.15, 2.4, COL.slab, false); }
   marbleGate(S, Q, -58.5);
   S.paved.push([n0, S.n]);
 
@@ -268,21 +350,28 @@ function temple(S) {
   const all = [RING.bieuDuc, RING.phoiA, RING.phoiB, RING.tongA, RING.tongB].flatMap((r) => r.map(L));
   let s1 = -Infinity, t0 = Infinity, t1 = -Infinity;
   for (const p of all) { s1 = Math.max(s1, Q.s(p)); t0 = Math.min(t0, Q.t(p)); t1 = Math.max(t1, Q.t(p)); }
-  s1 += 7; t0 -= 5; t1 += 5;
+  // the wall hugs the side halls (satellite z20: NE wall t ≈ -27.5, back wall s ≈ 67-69; Street View from the pines
+  // shows the hall roofs right behind it)
+  s1 += 2.8; t0 -= 0.8; t1 += 0.8;
   const gh = 2.6, th = 0.7, fw = t1 - t0, sw = s1;
   const half = (htm.w > htm.d ? htm.w : htm.d) / 2 + 0.6;
   wallLine(S, Q, 0, t0, 0, t1, gh, th, [[(-half - t0) / fw, (half - t0) / fw]]);
   wallLine(S, Q, s1, t0, s1, t1, gh, th, [[(-2.2 - t0) / fw, (2.2 - t0) / fw]]);
   for (const t of [t0, t1]) wallLine(S, Q, 0, t, s1, t, gh, th, [[(sw / 2 - 2.2) / sw, (sw / 2 + 2.2) / sw]]);
   { const p = Q.at(s1); archGate(S, p, Q.av, 4.6, 1.4, 3.6); }
-  for (const t of [t0, t1]) { const p = Q.at(sw / 2, t); archGate(S, p, Q.a, 4.4, 1.2, 3.2); }
+  for (const t of [t0, t1]) { const p = Q.at(sw / 2, t); archGate(S, p, Q.a, 4.6, 1.2, 3.6); }
 
-  // the inner court: Bát Tràng paving and a stone walk from the gate to the hall
+  // the inner court: Bát Tràng paving across the full width between the two Phối điện (satellite: ~29 m), and a stone
+  // walk from the gate to the hall
   const bdS = Q.s(bd.c), front = bdS - 11.8, n2 = S.n;
   {
-    const m = (2 + front) / 2, { hi } = span(Q, m, 0, front - 2, 22);
+    let ci0 = -Infinity, ci1 = Infinity; // the inner edges of the two front side halls
+    for (const p of RING.phoiA.map(L)) ci0 = Math.max(ci0, Q.t(p));
+    for (const p of RING.phoiB.map(L)) ci1 = Math.min(ci1, Q.t(p));
+    const cw = ci1 - ci0 - 0.3, ct = (ci0 + ci1) / 2;
+    const m = (2 + front) / 2, { hi } = span(Q, m, ct, front - 2, cw);
     const top = Math.max(hi + 0.1, gFloor - 0.6);
-    terrace(S, Q, m, 0, front - 2, 22, top, COL.stone, COL.bat);
+    terrace(S, Q, m, ct, front - 2, cw, top, COL.stone, COL.bat);
     const p = Q.at(m); S.kind = KIND.ROAD; S.box(p[0], p[1], top - 0.1, top + 0.04, front - 2, 3.2, Q.a, COL.thanh, { topKind: KIND.ROAD });
     flight(S, Q.at(htm.d / 2 + 0.2), gFloor, Q.at(htm.d / 2 + 1.8), top, 4.4);
   }
@@ -341,44 +430,52 @@ function tomb(S) {
   const bi = box2(RING.biDinh), dh = box2(RING.ducHinh);
   // the axis runs through Đức Hinh lâu's base (the OSM outline sits on the satellite's within ~1.5 m) at 33.5°: the
   // bearing of the three bridges (OSM traced, and on the satellite) and of the line from the base
-  // to the centre of the Bửu Thành. s = 0 is Bi Đình, at its OSM distance from Đức Hinh lâu (it sits ~2 m off its
-  // OSM centroid; on the satellite it is under a dark restoration shelter)
+  // to the centre of the Bửu Thành. s = 0 is at the OSM distance of Bi Đình from Đức Hinh lâu.
   const AX = (33.5 * Math.PI) / 180, sDH = Math.hypot(dh.c[0] - bi.c[0], dh.c[1] - bi.c[1]);
-  const T = frame([dh.c[0] - Math.cos(AX) * sDH, dh.c[1] - Math.sin(AX) * sDH], AX), biC = T.at(0);
+  const T = frame([dh.c[0] - Math.cos(AX) * sDH, dh.c[1] - Math.sin(AX) * sDH], AX);
+  // the court keeps the 33.5° bearing, on the satellite's central strip (COURT_T); Bi Đình stands where the satellite's
+  // restoration shelter is (BI_C), facing Đức Hinh lâu, so the line from the court through Bi Đình to the base bends
+  // by ~14° at Bi Đình
+  const Tc = frame(T.at(0, COURT_T), AX), biC = L(BI_C);
+  const B = frame(biC, Math.atan2(dh.c[1] - biC[1], dh.c[0] - biC[0])), P = 17.5;
   // bronze nghi môn between hồ Nhuận Trạch and the court
-  bronzeGate(S, T, -71.5);
-  // sân chầu (Bái Đình): two levels of Bát Tràng brick, statues in two rows a side
+  bronzeGate(S, Tc, -71.5);
+  // sân chầu (Bái Đình): two levels of Bát Tràng brick, statues in two rows a side; the upper level reaches the foot
+  // of Bi Đình's front flight
   const n0 = S.n;
-  const lv = [[-70, -42], [-42, -13]];
+  const sFoot = Tc.s(B.at(-P / 2 - 4.6));
+  const lv = [[-70, -42], [-42, sFoot + 0.3]];
   let yPrev = null;
   for (const [a, b] of lv) {
-    const m = (a + b) / 2, { hi } = span(T, m, 0, b - a, 32), top = Math.max(hi + 0.15, (yPrev ?? -Infinity) + 0.35);
-    terrace(S, T, m, 0, b - a, 32, top, COL.stone, COL.bat);
-    const p = T.at(m); S.kind = KIND.ROAD; S.box(p[0], p[1], top - 0.1, top + 0.04, b - a, 3.4, T.a, COL.thanh, { topKind: KIND.ROAD });
-    if (yPrev != null) flight(S, T.at(a - 1.2), yPrev, T.at(a + 0.2), top, 5);
+    const m = (a + b) / 2, { hi } = span(Tc, m, 0, b - a, 32), top = Math.max(hi + 0.15, (yPrev ?? -Infinity) + 0.35);
+    terrace(S, Tc, m, 0, b - a, 32, top, COL.stone, COL.bat);
+    const p = Tc.at(m); S.kind = KIND.ROAD; S.box(p[0], p[1], top - 0.1, top + 0.04, b - a, 3.4, Tc.a, COL.thanh, { topKind: KIND.ROAD });
+    if (yPrev != null) flight(S, Tc.at(a - 1.2), yPrev, Tc.at(a + 0.2), top, 5);
     yPrev = top;
   }
   S.paved.push([n0, S.n]);
   for (const sd of [-1, 1]) {
-    const face = T.a + Math.PI / 2 + (sd > 0 ? Math.PI : 0);
+    const face = Tc.a + Math.PI / 2 + (sd > 0 ? Math.PI : 0);
     // outer row from the gate: elephant, horse, then two mandarins; inner row: four mandarins
-    beast(S, T.at(-62, sd * 11), T.a + Math.PI, true);
-    beast(S, T.at(-55, sd * 11), T.a + Math.PI, false);
-    for (let k = 0; k < 2; k++) mandarin(S, T.at(-34 + k * 9, sd * 11), face, true);
-    for (let k = 0; k < 4; k++) mandarin(S, T.at(-38 + k * 6.5, sd * 6.5), face, false);
+    beast(S, Tc.at(-62, sd * 11), Tc.a + Math.PI, true);
+    beast(S, Tc.at(-55, sd * 11), Tc.a + Math.PI, false);
+    for (let k = 0; k < 2; k++) mandarin(S, Tc.at(-34 + k * 9, sd * 11), face, true);
+    for (let k = 0; k < 4; k++) mandarin(S, Tc.at(-38 + k * 6.5, sd * 6.5), face, false);
   }
   // Bi Đình on its 2.65 m platform, flights front and back
   const n1 = S.n;
   {
-    const P = 17.5, { hi } = span(T, 0, 0, P, P), top = hi + 2.65;
-    terrace(S, T, 0, 0, P, P, top, COL.stone);
+    const { hi } = span(B, 0, 0, P, P), top = hi + 2.65;
+    terrace(S, B, 0, 0, P, P, top, COL.stone);
     S.kind = KIND.MASONRY; // a moulded band round the top
-    S.box(biC[0], biC[1], top - 0.35, top, P + 0.3, P + 0.3, T.a, shade(COL.stone, 0.92), { topKind: KIND.ROAD });
-    flight(S, T.at(-P / 2 - 4.6), yPrev, T.at(-P / 2), top, 5.2);
-    flight(S, T.at(P / 2 + 4.4), gY(...T.at(P / 2 + 4.4)), T.at(P / 2), top, 4);
+    S.box(biC[0], biC[1], top - 0.35, top, P + 0.3, P + 0.3, B.a, shade(COL.stone, 0.92), { topKind: KIND.ROAD });
+    flight(S, B.at(-P / 2 - 4.6), yPrev, B.at(-P / 2), top, 5.2);
+    flight(S, B.at(P / 2 + 4.4), gY(...B.at(P / 2 + 4.4)), B.at(P / 2), top, 4);
     const W = Math.min(bi.w, bi.d);
-    pavilion(S, biC[0], biC[1], W - 0.6, W - 0.6, T.av, top, { tiers: 2, wallH: 3.4, rh: 2.4, roof: COL.roof, wall: COL.lac, over: 1.3, colonnade: true, segs: 3 });
-    walk(S, T, P / 2 + 4.4, sDH - 13.5, 0, 4.5);
+    pavilion(S, biC[0], biC[1], W - 0.6, W - 0.6, B.av, top, { tiers: 2, wallH: 3.4, rh: 2.4, roof: COL.roof, wall: COL.lac, over: 1.3, colonnade: true, segs: 3 });
+    // the walk from the back flight to the foot of Đức Hinh lâu's front flight
+    const w0 = B.at(P / 2 + 4.4), w1 = T.at(sDH - 12.75 - 1.8), Fw = frame(w0, Math.atan2(w1[1] - w0[1], w1[0] - w0[0]));
+    walk(S, Fw, 0, Math.hypot(w1[0] - w0[0], w1[1] - w0[1]), 0, 4.5);
   }
   // Đức Hinh lâu on its low hill, with the two brick trụ biểu either side: the tomb's Minh Lâu, drawn whole, as it
   // stood (and as the 2024-26 restoration rebuilds it) rather than as the bare 18.5 m base of the 20th century
@@ -400,7 +497,7 @@ function tomb(S) {
   // Hinh lâu to the apron before the Bửu Thành
   // on their OSM lines (which the satellite confirms: ~21 m apart, about 40 m long, the middle one widest)
   BRIDGES.forEach(([p, q, w], i) => bridge(S, L(p), L(q), w, i ? COL.stone : shade(COL.stone, 1.05)));
-  // Bửu Thành: a ring wall 260 m round (r 41.4 m), its bronze gate on the axis, grave mound and pines inside. The
+  // Bửu Thành: a ring wall 260 m round (r 41.4 m), its bronze gate on the axis, a bare mound and pines inside. The
   // centre is where the satellite shows the ring (fitted to the visible wall: r ~40 m), 134 m beyond Đức Hinh lâu
   const n2 = S.n, R = 260 / (2 * Math.PI), sB = T.s(L(BUU_C)), cB = T.at(sB), sG = sB - R;
   {
@@ -426,18 +523,25 @@ function tomb(S) {
     S.kind = KIND.PLAIN;
     for (const sd of [-1, 1]) { const p = T.at(sG, sd * 0.85); S.box(p[0], p[1], g, g + 3.3, 0.14, 1.6, T.a, COL.bronze); S.box(p[0], p[1], g + 1.4, g + 1.7, 0.18, 1.5, T.a, COL.bronzeHi); }
     flight(S, T.at(sG - 4.4), g - 0.4, T.at(sG - 1), g + 0.1, 5, COL.stoneGrey, false);
-    // inside: the grave mound (a round earth tumulus in a stone kerb), pines round it
-    // the kerb is set on the highest ground under it (the hill climbs ~2 m across it), bedded at the lowest
-    const sp = span(T, sB, 0, 23, 23), gm = sp.hi;
-    S.kind = KIND.MASONRY; S.base = gm - LAND_Y;
-    S.cyl(cB[0], cB[1], sp.lo - 0.8, gm + 0.7, 11.5, 11.5, 24, COL.stoneGrey);
-    S.kind = KIND.GROUND;
-    S.cyl(cB[0], cB[1], gm + 0.7, gm + 3.6, 11, 3, 24, COL.moss);
-    S.cyl(cB[0], cB[1], gm + 3.6, gm + 4.2, 3, 0.4, 12, shade(COL.moss, 0.95));
+    // inside: the whole interior is one bare earth mound (the satellite shows no kerb or separate grave, just a
+    // raised, worn crown), draped over the hill so it keeps the ground's ~3 m fall to the SE; pines stand on it
+    const r = R - 1.2, hm = 2.0;
+    const prof = (u) => (u <= 0.3 ? 1 : Math.cos(((u - 0.3) / 0.7) * Math.PI * 0.5));
+    const at = (u, ang) => { const x = cB[0] + Math.cos(ang) * r * u, z = cB[1] + Math.sin(ang) * r * u; return [x, gY(x, z) + hm * prof(u) - (u >= 1 ? 0.6 : 0), z]; };
+    const U = [0, 0.15, 0.3, 0.5, 0.68, 0.84, 1], NA = 28;
+    S.kind = KIND.GROUND; S.base = 0;
+    for (let j = 0; j < NA; j++) {
+      const a0 = (j / NA) * Math.PI * 2, a1 = ((j + 1) / NA) * Math.PI * 2, am = (a0 + a1) / 2;
+      for (let k = 0; k + 1 < U.length; k++) {
+        const hint = [Math.cos(am) * U[k + 1], 1, Math.sin(am) * U[k + 1]];
+        if (k === 0) S.tri(at(0, 0), at(U[1], a0), at(U[1], a1), COL.bare, hint);
+        else S.quad(at(U[k], a0), at(U[k], a1), at(U[k + 1], a1), at(U[k + 1], a0), COL.bare, hint);
+      }
+    }
     for (let i = 0; i < 14; i++) {
-      const ang = (i / 14) * Math.PI * 2 + 0.3, rr = R * (i % 2 ? 0.55 : 0.75);
-      const p = T.at(sB + Math.cos(ang) * rr, Math.sin(ang) * rr);
-      pine(S, p[0], p[1], 7 + (i % 3) * 1.5);
+      const ang = (i / 14) * Math.PI * 2 + 0.3, u = i % 2 ? 0.55 : 0.75;
+      const x = cB[0] + Math.cos(ang) * r * u, z = cB[1] + Math.sin(ang) * r * u;
+      pine(S, x, z, 7 + (i % 3) * 1.5, gY(x, z) + hm * prof(u) - 0.15);
     }
   }
   S.paved.push([n2, S.n]);
