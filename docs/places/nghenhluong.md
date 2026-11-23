@@ -48,4 +48,20 @@ captures kept out of the repo).
 - The porch fronts: the side bays close in round-headed carved arches either side of the wide square middle opening
   (Street View).
 - Not visible, kept as estimated: column grid and heights, roof tiers, the river-side flight width (3.4 m).
-- The landing and jetty keep their OSM line (bank 18.0 m, jetty end 35.7 m from the re-framed centre).
+- The landing: bank 18.0 m from the re-framed centre; the satellite shows only a modest paved strip and a short
+  jetty about 21 m out, so the flight is 3.6 m wide and the jetty about 3.5 m long (OSM's 35.7 m jetty end is not
+  borne out by the imagery).
+
+## Roof form and front detail from Street View (review fixes, 2026-11)
+From the car pano on Lê Duẩn facing the axis, scaled by the satellite's lower eave width:
+- The upper eave is about 55% as wide as the lower one and sits almost directly on it: only about 0.4 m of dark
+  chồng diêm band shows. Upper tier 4.0 × 3.4 m walls with 0.85 m overhang; band dark, no gilt panel.
+- Eaves are nearly straight (flare 0.12, small corner stubs; `tip` option of `Buf.hip`), the silhouette carried by a
+  heavy dark crest with tall end ornaments, two dragons and a central finial.
+- Tiles read weathered ochre-brown (Street View) and tan (satellite): `#a98252`, ridges near charcoal.
+- Porch fronts: solid red piers with yellow panels, round-headed side openings, a wide plain middle opening, and a
+  deep dark-red lintel band up to the eave; the porch eave stands just under the lower eave (3.0 vs 3.2 m).
+- Terrace parapets on all four sides (satellite rim), with sunk panels on both faces and a dark coping.
+- Trees: the pavilion is closely flanked by big trees. geo/foliage.js now lets a place give its own open court
+  (`data.courts[id]`); this one keeps only the terrace, landing and the plaza corridor bare instead of a 46 m circle,
+  and two trees are added against the terrace's flanks where the satellite shows the densest crowns.
