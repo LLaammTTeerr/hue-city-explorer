@@ -36,11 +36,14 @@ Builder: `src/landmarks/places/tuduc.js` (id `tuduc`, about 33k triangles). The 
   - Other halls, the gate storeys and Vụ Khiêm Môn are scaled from photos.
 - **Double halls:** how the roof splits on Hòa Khiêm, Lương Khiêm, Minh Khiêm, Ôn Khiêm and Chấp Khiêm (two parallel hips with a valley gutter).
 - **Salutation court:** the statue count and order (12 mandarins, 2 elephants, 2 horses) and the terrace levels.
-- **Bi Đình and stele:** the Bi Đình is drawn roofless, with four arched walls, as it stands today. The stele is about 4 m on a pedestal; the trụ biểu are 8.2 m, the mapped one mirrored to make the pair.
+- **Bi Đình and stele:** the satellite shows the Bi Đình roofed: a yellow glazed two-tier hipped roof about 12 × 12 m over the four arched walls, so it is drawn that way (the earlier "roofless today" note was wrong). The stele is about 4 m on a pedestal; the trụ biểu are 8.2 m, the mapped one mirrored to make the pair.
 - **Bửu Thành:** the walls (outer and inner rings, gate, screen) are estimated from photos and the OSM platform.
 - **Side tombs:** the Khiêm Thọ tiers are 0.45 m each; the walls and yard of Bồi Lăng are estimated.
-- **La Thành:** the north, east, south-east and south runs follow the tracks and Đoàn Như Hải, set by satellite and street views. The wall stands about 4–6 m inside the track edge and about 3.9 m inside the mapped centre of road 7007. The west run is still estimated. The wall is grey rubble stone with a pale lime coping. It breaks at water, at Vụ Khiêm Môn, and only where a mapped path crosses it at more than 25°. Paths running alongside it no longer cut it away.
-- **Roofs:** yellow glazed tiles on the restored halls (Hòa Khiêm, Lương Khiêm, Minh Khiêm) and on the Xung Khiêm and Dũ Khiêm tạ, which the satellite shows ochre. Pháp Khiêm and Lễ Khiêm have dark unglazed tiles, as the satellite shows. Ôn Khiêm and the rest have old tiles.
+- **La Thành:** the north, east, south-east and south runs follow the tracks and Đoàn Như Hải, set by satellite and street views. The wall stands about 4–6 m inside the track edge and about 3.9 m inside the mapped centre of road 7007. The west run is still estimated. The wall is grey rubble stone with a pale lime coping; the coping is a continuous level line about 3 m above the road (the ground is sampled on both faces and smoothed, and each length slopes with that line, so there are no steps). From the car panos on Đoàn Như Hải it hides the interior. It breaks at water, at Vụ Khiêm Môn, and only where a mapped path crosses it at more than 25°. Paths running alongside it no longer cut it away.
+- **Roofs:** yellow glazed tiles on Hòa Khiêm (re-roofed in the restoration; an owner decision to keep), Lương Khiêm, and the Xung Khiêm and Dũ Khiêm tạ, which the satellite shows ochre. Minh Khiêm, Pháp Khiêm, Lễ Khiêm and the three Chí Khiêm halls have dark unglazed or dark grey tiles, as the satellite shows.
+- **Ôn Khiêm:** its frame is in the workshop (baovanhoa 2024) and the satellite shows a bare plinth, so it is drawn as a raised terrace with its column bases only.
+- **Tịnh Khiêm island:** a wooded island about 60 × 65 m in Lưu Khiêm, about 85 m east and 25 m south of Khiêm Cung Môn, traced in outline from the satellite.
+- **Trees:** broad-leaved canopy inside the south and south-east La Thành. Street trees between the wall and the carriageway are not added: the wall stands only about 3.9 m from the road centre.
 
 ## Satellite alignment (2026-11)
 - The hall positions and the axes matched the satellite to within about 1–3 m before this pass, so no hall was moved except as listed here.
@@ -68,10 +71,9 @@ Builder: `src/landmarks/places/tuduc.js` (id `tuduc`, about 33k triangles). The 
 
 ## What is left
 - The terrain lies 0.1–0.5 m above the water level over much of Lưu Khiêm and the crescent pond, so the water shows only in blocky patches. This is a terrain or water-data issue, not the replica's. The lake and pond are drawn by the shared water builder.
-- The small island pavilions and the details of the lake bridges are not modelled.
-- Ôn Khiêm is drawn whole, although it is currently taken down for restoration.
+- The pavilions on the Tịnh Khiêm island and the details of the lake bridges are not modelled.
 - The Thượng Khiêm and Tự Khiêm gates are not placed separately because their positions are unconfirmed. The west run of the La Thành is approximate.
 - Heights and the statue order should be checked against measured drawings if any turn up.
 
 ## Polish
-- La Thành body now uses the plain (unpatterned) kind in a mottled dark rubble colour instead of the shared brick-pattern masonry, with a dark groove band under the lime coping, as in the car panos of Đoàn Như Hải. Pieces are 4 m long so the coping follows the ground more closely.
+- La Thành body now uses the plain (unpatterned) kind in a mottled dark rubble colour instead of the shared brick-pattern masonry, with a dark groove band under the lime coping, as in the car panos of Đoàn Như Hải. Each 4 m length slopes with the smoothed coping line, so the coping runs level without steps.

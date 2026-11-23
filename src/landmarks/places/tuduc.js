@@ -1,4 +1,4 @@
-import { KIND, hex, shade, obb, inRing } from '../../geo/buf.js';
+import { KIND, hex, shade, obb, inRing, rand } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { pavilion } from '../citadel.js';
@@ -46,6 +46,9 @@ const CRESCENT = [[-2538.4, 3964.4], [-2536.5, 3958.8], [-2535.9, 3952.5], [-253
 const CHAP_KHIEM = [[-2412.4, 3833.4], [-2400, 3833], [-2399.6, 3851.4], [-2412, 3851.7]];
 const CHAP_WINGS = [[[-2434.9, 3842.9], [-2418.4, 3842.6], [-2418.3, 3847.7], [-2434.8, 3848.1]], [[-2418.4, 3842.6], [-2412.2, 3842.4], [-2412, 3849.5], [-2418.2, 3849.6]]];
 const BOI_LANG = [[-2373.4, 3828.3], [-2369.9, 3828.1], [-2369.6, 3834.1], [-2373, 3834.3]];
+// Tịnh Khiêm, the wooded island in the south-east of Lưu Khiêm (not mapped in OSM; outline estimated from the
+// satellite, about 70 × 65 m, centred some 85 m east and 25 m south of Khiêm Cung Môn)
+const TINH_KHIEM = [[-2325, 4017], [-2308, 4016], [-2296, 4023], [-2293, 4037], [-2298, 4052], [-2311, 4064], [-2325, 4077], [-2343, 4081], [-2358, 4077], [-2361, 4063], [-2354, 4049], [-2343, 4043], [-2337, 4029]];
 const KHIEM_THO = [-2534.6, 3818.6]; // the empress's bửu phong (way 205805278)
 const VU_KHIEM_MON = [[-2287.6, 3888.6], [-2283.1, 3888], [-2281.8, 3898.3], [-2286.3, 3898.9]];
 const PILLAR = [-2522.3, 3931.8]; // the mapped trụ biểu; its twin is mirrored across the tomb axis
@@ -60,11 +63,13 @@ const LAKE_Y = LAND_Y + 4.2 + 0.08; // Lưu Khiêm's surface (pond level 4.2 m, 
 const C = {
   brick: hex('#6e6253'), brickMoss: hex('#5e6249'), stone: PAL.stone, stoneGrey: hex('#9b978d'), stoneDark: hex('#7c786f'),
   stucco: hex('#d6cdb6'), lacquer: hex('#86362a'), lacquerOld: hex('#6f3c30'), roofY: PAL.imperialRoof, roofYOld: hex('#b48b3e'),
-  roofTile: hex('#7a6552'), rubble: hex('#675f53'), coping: hex('#878377'), door: hex('#2b2422'), moss: PAL.moss, mandarin: hex('#a29d92'), timber: hex('#5a3d2c'), mosaic: hex('#8fa6a0'),
+  roofTile: hex('#7a6552'), roofGrey: hex('#5e5b56'), rubble: hex('#70777a'), coping: hex('#a3a398'), door: hex('#2b2422'), moss: PAL.moss, mandarin: hex('#a29d92'), timber: hex('#5a3d2c'), mosaic: hex('#8fa6a0'),
 };
 const RIDGE = hex('#e9d27e');
 
 const gY = (x, z) => LAND_Y + rise(x, z);
+// distance from (x, z) to the segment [ax, az, bx, bz]
+const near = (x, z, [ax, az, bx, bz]) => { const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - ax - t * dx, z - az - t * dz); };
 const centre = (r) => r.reduce((a, p) => [a[0] + p[0] / r.length, a[1] + p[1] / r.length], [0, 0]);
 const corners = (o, pad = 0) => { const ux = Math.cos(o.a), uz = Math.sin(o.a), hw = o.w / 2 + pad, hd = o.d / 2 + pad; return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([s, t]) => [o.c[0] + ux * hw * s - uz * hd * t, o.c[1] + uz * hw * s + ux * hd * t]); };
 const gMax = (pts) => Math.max(...pts.map((p) => gY(p[0], p[1])));
@@ -97,7 +102,7 @@ function flight(S, a, b, w, yA, yB, col = C.stoneGrey, cheeks = true) {
   }
 }
 // a wall along a polyline, cut into short pieces that follow the ground, broken where `skip(x, z)` says
-function wallLine(S, pts, h, th, col, { closed = false, skip = () => false, cap = C.stoneDark, piece = 6, capH = 0.18, body = KIND.MASONRY, groove = null } = {}) {
+function wallLine(S, pts, h, th, col, { closed = false, skip = () => false, cap = C.stoneDark, piece = 6, capH = 0.18, body = KIND.MASONRY } = {}) {
   const n = pts.length, m = closed ? n : n - 1;
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n], dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
@@ -111,11 +116,74 @@ function wallLine(S, pts, h, th, col, { closed = false, skip = () => false, cap 
       S.kind = body;
       S.box(cx, cz, g0 - 0.5, g1 + h, l + 0.05, th, ang, col, { top: cap });
       S.kind = KIND.MASONRY;
-      // the dark groove under the coping that the street views show, then the coping itself
-      if (groove) S.box(cx, cz, g1 + h - 0.22, g1 + h, l + 0.06, th + 0.08, ang, groove);
       S.box(cx, cz, g1 + h, g1 + h + capH, l + 0.05, th + 0.18, ang, cap);
     }
   }
+}
+// the La Thành: a closed run of rubble wall whose coping stands `h` above the higher of the ground at its foot and the
+// road or track 5 m outside it, smoothed along the wall so the coping runs level instead of stepping with each piece
+function laThanh(S, pts, { h = 3.0, th = 0.75, piece = 4, capH = 0.3, skip = () => false } = {}) {
+  const n = pts.length, segs = [];
+  const cx0 = pts.reduce((s, p) => s + p[0] / n, 0), cz0 = pts.reduce((s, p) => s + p[1] / n, 0);
+  let L = 0;
+  for (let i = 0; i < n; i++) {
+    const a = pts[i], b = pts[(i + 1) % n], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (len < 0.2) continue;
+    const u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+    let nv = [-u[1], u[0]];
+    if (((a[0] + b[0]) / 2 - cx0) * nv[0] + ((a[1] + b[1]) / 2 - cz0) * nv[1] < 0) nv = [-nv[0], -nv[1]]; // outward
+    segs.push({ a, b, len, u, n: nv, s0: L });
+    L += len;
+  }
+  const at = (s) => {
+    s = ((s % L) + L) % L;
+    const g = segs.find((q) => s <= q.s0 + q.len) || segs[segs.length - 1], t = s - g.s0;
+    return { p: [g.a[0] + g.u[0] * t, g.a[1] + g.u[1] * t], n: g.n };
+  };
+  // the ground the coping is measured from, every metre, then a running max (±5 m) and a running mean (±6 m)
+  const N = Math.ceil(L), base = new Float64Array(N);
+  for (let k = 0; k < N; k++) { const { p, n: o } = at(k); base[k] = Math.max(gY(p[0] - o[0], p[1] - o[1]), gY(p[0], p[1]), gY(p[0] + o[0] * 5, p[1] + o[1] * 5)); }
+  const mx = new Float64Array(N), sm = new Float64Array(N);
+  for (let k = 0; k < N; k++) { let m = -1e9; for (let j = -5; j <= 5; j++) m = Math.max(m, base[(k + j + N) % N]); mx[k] = m; }
+  for (let k = 0; k < N; k++) { let t = 0; for (let j = -6; j <= 6; j++) t += mx[(k + j + N) % N]; sm[k] = t / 13; }
+  const topAt = (s) => { const f = ((s % N) + N) % N, k = Math.floor(f), w = f - k; return sm[k] * (1 - w) + sm[(k + 1) % N] * w + h; };
+  const foot = (p, o) => Math.min(gY(p[0], p[1]), gY(p[0] + o[0] * (th / 2 + 0.6), p[1] + o[1] * (th / 2 + 0.6)), gY(p[0] - o[0] * (th / 2 + 0.3), p[1] - o[1] * (th / 2 + 0.3)));
+  const groove = shade(C.rubble, 0.62);
+  // one length of wall from p to q: body, the dark groove under the coping, the coping, all sloping with the coping
+  // line, so neighbouring lengths meet flush
+  const one = (p, q, n, t0, t1, g0, w = th) => {
+    S.kind = KIND.PLAIN;
+    slab(S, p, q, n, w, g0 - 0.5, g0 - 0.5, t0 - capH, t1 - capH, C.rubble, C.coping);
+    S.kind = KIND.MASONRY;
+    slab(S, p, q, n, w + 0.06, t0 - capH - 0.2, t1 - capH - 0.2, t0 - capH, t1 - capH, groove, groove);
+    slab(S, p, q, n, w + 0.2, t0 - capH, t1 - capH, t0, t1, C.coping, C.coping);
+  };
+  for (const g of segs) {
+    const k = Math.max(1, Math.ceil(g.len / piece)), l = g.len / k;
+    for (let j = 0; j < k; j++) {
+      const p = [g.a[0] + g.u[0] * l * j, g.a[1] + g.u[1] * l * j], q = [g.a[0] + g.u[0] * l * (j + 1), g.a[1] + g.u[1] * l * (j + 1)];
+      const cx = (p[0] + q[0]) / 2, cz = (p[1] + q[1]) / 2;
+      if (skip(cx, cz, p, q)) continue;
+      one(p, q, g.n, topAt(g.s0 + l * j), topAt(g.s0 + l * (j + 1)), Math.min(foot(p, g.n), foot(q, g.n)));
+    }
+    // a square pier at the corner where this run meets the next, so the turn has no wedge-shaped gap
+    if (!skip(g.b[0], g.b[1], g.b, g.b)) {
+      const e = (th + 0.1) / 2, t = topAt(g.s0 + g.len);
+      one([g.b[0] - g.u[0] * e, g.b[1] - g.u[1] * e], [g.b[0] + g.u[0] * e, g.b[1] + g.u[1] * e], g.n, t, t, foot(g.b, g.n), th + 0.1);
+    }
+  }
+}
+// a straight length of wall from p to q, w thick (n the unit normal across it), its bottom and top sloping from
+// (b0, t0) at p to (b1, t1) at q
+function slab(S, p, q, n, w, b0, b1, t0, t1, col, topCol) {
+  const h = w / 2, o = [n[0] * h, n[1] * h], d = [q[0] - p[0], q[1] - p[1]];
+  const V = (e, s, y) => [e[0] + o[0] * s, y, e[1] + o[1] * s];
+  const pb = [V(p, 1, b0), V(p, -1, b0)], pt = [V(p, 1, t0), V(p, -1, t0)], qb = [V(q, 1, b1), V(q, -1, b1)], qt = [V(q, 1, t1), V(q, -1, t1)];
+  S.quad(pb[0], qb[0], qt[0], pt[0], col, [n[0], 0, n[1]]);
+  S.quad(pb[1], qb[1], qt[1], pt[1], col, [-n[0], 0, -n[1]]);
+  S.quad(pb[0], pb[1], pt[1], pt[0], col, [-d[0], 0, -d[1]]);
+  S.quad(qb[0], qb[1], qt[1], qt[0], col, [d[0], 0, d[1]]);
+  S.quad(pt[0], pt[1], qt[1], qt[0], topCol, [0, 1, 0]);
 }
 // a rectangle in a frame as a closed point list
 const rect = (F, s0, s1, t0, t1) => [F.P(s0, t0), F.P(s1, t0), F.P(s1, t1), F.P(s0, t1)];
@@ -290,10 +358,21 @@ export function build({ data, S }) {
   // Lương Khiêm điện behind it, the same form
   hall(S, LUONG_KHIEM, { front: east, base: Math.max(yB, gMax(LUONG_KHIEM)), plinth: 0.5, wallH: 3.8, rh: 3.1, roof: C.roofY, wall: C.lacquer, double: true });
   claim(LUONG_KHIEM);
-  // Minh Khiêm đường, the theatre, on the left (north), restored; Ôn Khiêm on the right (south), still old
-  hall(S, MINH_KHIEM, { front: [TA.v[0], TA.v[1]], plinth: 0.5, wallH: 3.9, rh: 3.3, roof: C.roofY, wall: C.lacquer, double: true });
+  // Minh Khiêm đường, the theatre, on the left (north): the satellite shows it under dark unglazed tiles
+  hall(S, MINH_KHIEM, { front: [TA.v[0], TA.v[1]], plinth: 0.5, wallH: 3.9, rh: 3.3, roof: C.roofGrey, wall: C.lacquer, double: true, glazed: false });
   claim(MINH_KHIEM);
-  hall(S, ON_KHIEM, { front: [-TA.v[0], -TA.v[1]], plinth: 0.45, wallH: 3.4, rh: 2.6, roof: C.roofYOld, wall: C.lacquerOld, double: true });
+  // Ôn Khiêm on the right (south): its frame is in the restorers' workshop (baovanhoa 2024), and the satellite shows
+  // only its bare stone plinth, so the plinth is drawn with the stone bases of its columns
+  {
+    const o = obb(ON_KHIEM), y = gMax(corners(o)) + 0.45;
+    terrace(S, o.c[0], o.c[1], o.w + 1.8, o.d + 1.8, o.a, y);
+    const ux = Math.cos(o.a), uz = Math.sin(o.a), nu = Math.max(3, Math.round(o.w / 3.2)), nv = Math.max(3, Math.round(o.d / 3));
+    S.kind = KIND.MASONRY;
+    for (let i = 0; i <= nu; i++) for (let j = 0; j <= nv; j++) {
+      const u = -o.w / 2 + 0.4 + ((o.w - 0.8) * i) / nu, v = -o.d / 2 + 0.4 + ((o.d - 0.8) * j) / nv;
+      S.box(o.c[0] + ux * u - uz * v, o.c[1] + uz * u + ux * v, y, y + 0.22, 0.6, 0.6, o.a, C.stoneDark);
+    }
+  }
   claim(ON_KHIEM);
   // Pháp Khiêm and Lễ Khiêm vu, the side halls facing across the front court
   // (TA.v points north: Pháp Khiêm, on the north side, opens south onto the court, Lễ Khiêm north; both under dark
@@ -310,9 +389,10 @@ export function build({ data, S }) {
     claimed.push([x, z]);
   }
   // Chí Khiêm đường, further right: the hall across the back facing north, two wings facing in
-  hall(S, CHI_KHIEM[0], { front: [0, -1], plinth: 0.45, wallH: 3.3, rh: 2.5, roof: C.roofYOld });
-  hall(S, CHI_KHIEM[1], { front: [1, 0], plinth: 0.4, wallH: 3.0, rh: 2.0, roof: C.roofYOld });
-  hall(S, CHI_KHIEM[2], { front: [-1, 0], plinth: 0.4, wallH: 3.0, rh: 2.0, roof: C.roofYOld });
+  // (all three under dark grey unglazed tiles, as the satellite shows them)
+  hall(S, CHI_KHIEM[0], { front: [0, -1], plinth: 0.45, wallH: 3.3, rh: 2.5, roof: C.roofGrey, glazed: false });
+  hall(S, CHI_KHIEM[1], { front: [1, 0], plinth: 0.4, wallH: 3.0, rh: 2.0, roof: C.roofGrey, glazed: false });
+  hall(S, CHI_KHIEM[2], { front: [-1, 0], plinth: 0.4, wallH: 3.0, rh: 2.0, roof: C.roofGrey, glazed: false });
   claimed.push([-2401.4, 4096.4]);
   { // its court, paved, in the U
     const y = gMax([[-2406, 4086], [-2398, 4086], [-2398, 4099], [-2406, 4099]]) + 0.1;
@@ -328,6 +408,22 @@ export function build({ data, S }) {
   // Dũ Khiêm tạ, the landing at the foot of the temple axis
   waterPavilion(S, DU_KHIEM, { deck: LAKE_Y + 0.55, wallH: 2.6, top: LAKE_Y + 0.55 + 4.6 });
   claim(DU_KHIEM);
+
+  // Tịnh Khiêm island: an earth bank a little above the water, its top grass, planted thick with broad-leaved trees
+  {
+    S.kind = KIND.MASONRY;
+    S.prism(TINH_KHIEM, LAKE_Y - 1.6, LAKE_Y + 0.35, hex('#5f5a48'), hex('#5f7346'), { topKind: KIND.GROUND });
+    if (Array.isArray(data && data.trees)) {
+      const xs = TINH_KHIEM.map((p) => p[0]), zs = TINH_KHIEM.map((p) => p[1]);
+      const edge = (x, z) => Math.min(...TINH_KHIEM.map((p, i) => { const q = TINH_KHIEM[(i + 1) % TINH_KHIEM.length]; return near(x, z, [p[0], p[1], q[0], q[1]]); }));
+      let k = 0;
+      for (let x = Math.min(...xs) + 2; x < Math.max(...xs); x += 5.5) for (let z = Math.min(...zs) + 2; z < Math.max(...zs); z += 5.5, k++) {
+        const tx = x + (rand(k, 81) - 0.5) * 4, tz = z + (rand(k, 82) - 0.5) * 4;
+        if (!inRing(tx, tz, TINH_KHIEM) || edge(tx, tz) < 1.5) continue;
+        data.trees.push(Math.round(tx * 10), Math.round(tz * 10), 10 + Math.floor(rand(k, 83) * 6), rand(k, 84) < 0.5 ? 1 : 0);
+      }
+    }
+  }
 
   // Vụ Khiêm Môn, the east entrance in the La Thành
   gateHouse(S, VU_KHIEM_MON, { h: 3.9, rh: 1.5, roof: C.roofYOld, body: C.stoneGrey });
@@ -349,11 +445,12 @@ export function build({ data, S }) {
   const yST = gMax([TB.P(-10.25, -10.5), TB.P(-10.25, 10.5), TB.P(10.25, -10.5), TB.P(10.25, 10.5)]) + 0.35;
   { const c = TB.P(0, 0); terrace(S, c[0], c[1], 20.5, 21, TB.a, yST); }
   flight(S, TB.P(-21, 0), TB.P(-10.25, 0), 4.5, yBD, yST);
-  // Bi Đình: four thick brick walls with an arch in each, roofless, round the stele
+  // Bi Đình: four thick brick walls with an arch in each round the stele, under the two-tiered hipped roof of yellow
+  // glazed tiles that the satellite shows on it (about 12–14 m square from above)
   {
     const o = obb(BI_DINH), a = o.a, ux = Math.cos(a), uz = Math.sin(a), vx = -uz, vz = ux;
     const P = (u, v) => [o.c[0] + ux * u + vx * v, o.c[1] + uz * u + vz * v];
-    const hw = o.w / 2, hd = o.d / 2, th = 1.3, H = 6.2, dw = 2.6, dh = 4.1;
+    const hw = o.w / 2, hd = o.d / 2, th = 1.3, H = 5.6, dw = 2.6, dh = 3.9;
     S.kind = KIND.MASONRY;
     S.box(o.c[0], o.c[1], yST - 0.2, yST + 0.35, o.w + 1.2, o.d + 1.2, a, C.stoneGrey, { top: C.stone, topKind: KIND.ROAD });
     const y0 = yST + 0.35;
@@ -369,6 +466,13 @@ export function build({ data, S }) {
     side(P(-hw, hd - th / 2), P(hw, hd - th / 2), [ux, uz], o.w, a);
     side(P(-hw + th / 2, -hd), P(-hw + th / 2, hd), [vx, vz], o.d - th * 2, a + Math.PI / 2);
     side(P(hw - th / 2, -hd), P(hw - th / 2, hd), [vx, vz], o.d - th * 2, a + Math.PI / 2);
+    // the lower roof skirting the walls, then a short upper storey and its own roof (a gác lầu over the stele)
+    const yr = y0 + H + 0.35, eave = { flare: 0.45, fascia: 0.26, fasciaCol: C.lacquerOld, ridgeCol: RIDGE, hips: true, glazed: true, segs: 3 };
+    S.hip(o.c[0], o.c[1], o.w + 0.3, o.d + 0.3, a, yr, 1.6, C.roofY, { ...eave, over: 1.0, ridgeCol: null });
+    const w2 = o.w * 0.6, d2 = o.d * 0.6, y2 = yr + 0.5;
+    S.kind = KIND.TIMBER;
+    S.box(o.c[0], o.c[1], y2, y2 + 1.7, w2, d2, a, C.lacquerOld, { top: shade(C.roofY, 0.7) });
+    S.hip(o.c[0], o.c[1], w2, d2, a, y2 + 1.7, 2.3, C.roofY, { ...eave, over: 1.0 });
     claim(BI_DINH);
     // the Khiêm Cung Ký stele on its pedestal, its face down the axis
     S.box(o.c[0], o.c[1], y0, y0 + 0.9, 1.4, 3.1, TB.a, C.stoneGrey, { top: C.stoneDark });
@@ -469,17 +573,34 @@ export function build({ data, S }) {
       if (Math.hypot((ax + bx) / 2 + 2490, (az + bz) / 2 - 3975) < 330) paths.push([ax, az, bx, bz, [15, 12, 9.5, 6.5, 4, 2.2][c] || 2.2]);
     }
   }
-  const near = (x, z, [ax, az, bx, bz]) => { const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(x - ax - t * dx, z - az - t * dz); };
   const items = site ? site.items.filter((i) => (i.k || 'b') === 'b' && i.ring && i.ring.length >= 6).map((i) => { const r = []; for (let k = 0; k + 1 < i.ring.length; k += 2) r.push([i.ring[k] / 10, i.ring[k + 1] / 10]); return r; }) : [];
   const vk = centre(VU_KHIEM_MON);
   // a lane opens a gap only where it crosses the wall (more than 25° to it); one running alongside leaves it standing
   const crosses = (p, q, s) => { const wx = q[0] - p[0], wz = q[1] - p[1], sx = s[2] - s[0], sz = s[3] - s[1]; return Math.abs(wx * sz - wz * sx) > Math.sin(0.44) * Math.hypot(wx, wz) * Math.hypot(sx, sz); };
-  // dark rubble stone under a smooth lime coping, as the street views along Đoàn Như Hải show it
-  wallLine(S, LA_THANH, 2.5, 0.75, C.rubble, {
-    closed: true, piece: 4, cap: C.coping, capH: 0.3, body: KIND.PLAIN, groove: shade(C.rubble, 0.8),
-    skip: (x, z, p, q) => waters.some((r) => inRing(x, z, r)) || Math.hypot(x - vk[0], z - vk[1]) < 6.5 ||
-      paths.some((s) => near(x, z, s) < s[4] / 2 + 2.2 && crosses(p, q, s)) || items.some((r) => inRing(x, z, corners(obb(r), 2.5))) || keep.some((r) => inRing(x, z, r)),
-  });
+  // dark grey rubble stone under a pale lime coping, as the street views along Đoàn Như Hải show it
+  const laSkip = (x, z, p, q) => waters.some((r) => inRing(x, z, r)) || Math.hypot(x - vk[0], z - vk[1]) < 6.5 ||
+    paths.some((s) => near(x, z, s) < s[4] / 2 + 2.2 && crosses(p, q, s)) || items.some((r) => inRing(x, z, corners(obb(r), 2.5))) || keep.some((r) => inRing(x, z, r));
+  laThanh(S, LA_THANH, { skip: laSkip });
+
+  // broad-leaved trees close behind the south and south-east runs, whose crowns hang over the wall onto the road
+  // (the street views show a dense canopy there, not the open pine wood further in)
+  if (Array.isArray(data && data.trees)) {
+    const run = LA_THANH.slice(11, 20); // from the east gate's south side round to the south-west
+    const cc = [-2490, 3975];
+    let k = 0;
+    for (let i = 0; i + 1 < run.length; i++) {
+      const a = run[i], b = run[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / len, (b[1] - a[1]) / len];
+      let n = [-u[1], u[0]];
+      if ((a[0] - cc[0]) * n[0] + (a[1] - cc[1]) * n[1] > 0) n = [-n[0], -n[1]]; // n points inward
+      for (let s = 2; s < len - 2; s += 6.5, k++) {
+        for (const back of [4.4, 9.5]) {
+          const d = back + rand(k, 91 + back) * 2.5, x = a[0] + u[0] * (s + rand(k, 93) * 3) + n[0] * d, z = a[1] + u[1] * (s + rand(k, 93) * 3) + n[1] * d;
+          if (waters.some((r) => inRing(x, z, r)) || paths.some((p) => near(x, z, p) < p[4] / 2 + 1.5) || items.some((r) => inRing(x, z, corners(obb(r), 3)))) continue;
+          data.trees.push(Math.round(x * 10), Math.round(z * 10), 12 + Math.floor(rand(k, 95 + back) * 5), rand(k, 97 + back) < 0.4 ? 1 : 0);
+        }
+      }
+    }
+  }
 
   // ================= the rest of the mapped buildings in the site (service houses, the village outside) =================
   for (const r of items) {
