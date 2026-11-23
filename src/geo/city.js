@@ -9,7 +9,7 @@ import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain
 import { treePlanter } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
-import { bridgeProfiles, resample, subPath, LAND_RAMP } from './bridges.js';
+import { bridgeProfiles, bridgeLamps, resample, subPath, LAND_RAMP } from './bridges.js';
 import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
@@ -465,6 +465,15 @@ function buildRoads(data, group, structures) {
   const lp = [], lc = [];
   for (const r of roads) {
     if (r.c > 2 || !r.flat || r.unmarked) continue; // a slip road is lit by the roads it joins (a bridge way's street ends are lit as part of the way: life.js posts)
+    const PL = r.bridge && profiles.get(r.flat);
+    if (PL && PL.lamps && replaced(PL.lamps.own)) { // a bridge with its own posts (bridges.js bridgeLamps): glows in their lanterns
+      for (const { y, sides } of bridgeLamps(PL, r.pts)) for (const { head } of sides) {
+        lp.push(head[0], y + PL.lamps.h, head[1]);
+        const warm = 0.85 + rand(lp.length, r.c) * 0.3;
+        lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
+      }
+      continue;
+    }
     const len = pathLength(r.pts);
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {

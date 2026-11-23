@@ -6,6 +6,7 @@ import { LAND_Y, quality, ROAD_W, ROAD_MAX, roadWidth } from '../config.js';
 import { bridgeProfiles, resample } from '../geo/bridges.js';
 import { landTest } from './boats.js';
 import { TT_LENGTH } from './truongtien.js';
+import { replaced } from './places/index.js';
 
 // Small living things that make the model feel inhabited. All illustrative.
 
@@ -451,6 +452,8 @@ function buildLampPosts(data, group, out = {}) {
   const spots = [];
   for (const r of roads) {
     if (r.c > 2 || r.pts.length < 2) continue;
+    const PL = r.bridge && profiles.get(r.flat);
+    if (PL && PL.lamps && replaced(PL.lamps.own)) continue; // the bridge's own posts, drawn by its place file (bridges.js bridgeLamps)
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < r.len; s += step, k++) {
       const { p, a } = along(r.pts, s);
