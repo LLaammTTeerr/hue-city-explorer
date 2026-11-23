@@ -1,8 +1,9 @@
 import { KIND, hex, shade, inRing, rand, signedArea } from '../../geo/buf.js';
-import { LAND_Y } from '../../config.js';
+import { LAND_Y, roadWidth } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { pavilion } from '../citadel.js';
 import { LANDINGS } from '../conhen-landings.js';
+import { makeGrid, setPieces, vacant, village, FREE, WOOD, KEEP, BUILT, MAPPED } from '../conhen-village.js';
 import { lamp, flushLamps } from '../enclosure.js';
 
 // Cồn Hến, the islet in the Hương River off Vỹ Dạ, as it stands in 2026. Sources and estimates: docs/places/conhen.md.
@@ -11,11 +12,13 @@ import { lamp, flushLamps } from '../enclosure.js';
 //             230 m, 23.9-24.6 ha of land). The 3.2 km precast embankment planned in 2025 has not been built: the banks
 //             are drawn as they are, sloping earth and sand down to the water, with concrete bến nước steps here and
 //             there (planned kè: thuonghieucongluan.com.vn 2025-08-15, 24hmoney.vn 2025-09-12).
-//   village   the houses, lanes and Cầu Phú Lưu come from the shared data (OSM lanes, illustrated infill houses); this
-//             file adds the gardens' trees, coconut palms and bamboo along the banks.
+//   village   the lanes and Cầu Phú Lưu come from the shared data (OSM; the island's kiệt drawn as 3.2 m "lane" roads);
+//             the houses, lane walls and hedges are drawn by landmarks/conhen-village.js, dense as on the satellite,
+//             in place of the shared generated infill; this file adds the bank wood, gardens' trees, palms and bamboo.
 //   fields    the lower sandbar to the north (Bồi Thành), about a fifth of the island, is farmed: corn for chè bắp
 //             Cồn and vegetable beds (OSM residential landuse 586296682 marks where the village stops).
-//   đình      Đình làng Bồi Thành, the communal house, on the frontage of Ưng Bình (position on the street estimated).
+//   đình      Đình làng Bồi Thành is not drawn: no source places it, and the satellite shows ordinary house roofs
+//             where it had been estimated (docs/places/conhen.md).
 //   chùa      Chùa Pháp Hải (7/12 Ưng Bình) at the OSM Buddhist place of worship, with the white Quan Âm statue of
 //             OSM node 5314360729 in its riverside court (identification of the OSM node with Pháp Hải estimated).
 //   boats     the clam-rakers' sampans (ghe cào hến) tied up at the landings, and white heaps of hến shells.
@@ -126,14 +129,14 @@ export function build({ data, S }) {
     sampan(S, s.p[0] + s.n[0] * (BW + 3), s.p[1] + s.n[1] * (BW + 3), ang, bi++);
   }
 
-  // ---- what the generated village must keep clear of ----
+  // ---- what the village must keep clear of: the lanes, the mapped buildings, the models ----
   const roads = [];
   for (const r of data.roads || []) {
     const pts = r[2];
     if (!pts) continue;
     let on = false;
     for (let i = 0; i < pts.length; i += 2) if (inRing(pts[i] / 10, pts[i + 1] / 10, ring)) { on = true; break; }
-    if (on) roads.push({ w: r[0] >= 5 ? 2.2 : r[0] >= 4 ? 4 : 6.5, pts });
+    if (on) roads.push({ w: roadWidth(r), pts });
   }
   const nearRoad = (x, z, m) => roads.some(({ w, pts }) => {
     for (let i = 0; i + 3 < pts.length; i += 2) {
@@ -144,27 +147,21 @@ export function build({ data, S }) {
     }
     return false;
   });
-  const houses = [];
-  const a = data.infill || [];
-  for (let i = 0; i + 7 < a.length; i += 8) {
-    const x = a[i] / 10, z = a[i + 1] / 10;
-    if (x > 330 && x < 610 && z > -2200 && z < -540 && inRing(x, z, ring)) houses.push([x, z, Math.max(a[i + 2], a[i + 3]) / 20]);
-  }
+  const mapped = [];
   for (const b of data.bld || []) {
-    const r = b[0];
-    let cx = 0, cz = 0, n = r.length / 2;
-    for (let i = 0; i < r.length; i += 2) { cx += r[i] / 10 / n; cz += r[i + 1] / 10 / n; }
-    if (!inRing(cx, cz, ring)) continue;
-    let rr = 0;
-    for (let i = 0; i < r.length; i += 2) rr = Math.max(rr, Math.hypot(r[i] / 10 - cx, r[i + 1] / 10 - cz));
-    houses.push([cx, cz, rr]);
+    const r = b[0], pts = [];
+    for (let i = 0; i < r.length; i += 2) pts.push([r[i] / 10, r[i + 1] / 10]);
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    if (inRing(cx, cz, ring)) mapped.push(pts);
   }
+  const houses = mapped.map((pts) => {
+    const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length, cz = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+    return [cx, cz, Math.max(...pts.map((p) => Math.hypot(p[0] - cx, p[1] - cz)))];
+  });
   const nearHouse = (x, z, m) => houses.some(([hx, hz, r]) => Math.hypot(hx - x, hz - z) < r + m);
   const reserved = []; // [x0, z0, x1, z1] boxes the models below take
   const inReserved = (x, z, m = 0) => reserved.some(([x0, z0, x1, z1]) => x > x0 - m && x < x1 + m && z > z0 - m && z < z1 + m);
 
-  // ---- Đình làng Bồi Thành: communal house on Ưng Bình, facing the street (south) ----
-  dinh(S, 425, -1452, reserved);
   // ---- Chùa Pháp Hải with the Quan Âm statue, facing the main river (west) ----
   chua(S, reserved);
 
@@ -178,6 +175,7 @@ export function build({ data, S }) {
     S.box(sx - s.n[0] * 0.46, sz - s.n[1] * 0.46, y + 1.4, y + 1.95, 0.5, 0.04, ang, C.red);
     S.hip(sx, sz, 1.1, 0.9, ang, y + 2.1, 0.55, C.roof, { over: 0.25, flare: 0.4 });
     lamp(sx, y + 1.7, sz, [1, 0.55, 0.3], 2);
+    reserved.push([sx - 1.5, sz - 1.5, sx + 1.5, sz + 1.5]);
   }
 
   // ---- the north sandbar: corn and vegetable plots (Bồi Thành) ----
@@ -207,7 +205,27 @@ export function build({ data, S }) {
   (S.paved = S.paved || []).push([fields0, S.n]); // no generated houses on the fields
   S.kind = KIND.PLAIN;
 
-  // ---- trees: coconut palms leaning over the banks, bamboo clumps, and the gardens' fruit and shade trees ----
+  // ---- the village (landmarks/conhen-village.js): set pieces seen from the street, vacant plots, then the houses,
+  // walls and hedges along every lane and the plots between ----
+  const grid = makeGrid({ shore: ring, village: VILLAGE, roads, mapped, reserved });
+  setPieces(S, grid);
+  vacant(S, grid);
+  const built = village(S, grid, roads);
+  // the shared generated houses (data.infill) on the island are set aside: the village above replaces them. Each record
+  // is shrunk to a point under the roof of one of the houses just drawn, so populate() drops it as standing on a model
+  // (the records keep their places in the list, and with them every other house's colours)
+  const inf = data.infill || [];
+  const sink = built.find(([, , f, d]) => f > 5 && d > 7);
+  if (sink) {
+    for (let i = 0; i + 7 < inf.length; i += 8) {
+      const x = inf[i] / 10, z = inf[i + 1] / 10;
+      if (x < 330 || x > 610 || z < -2200 || z > -540 || !inRing(x, z, ring)) continue;
+      inf[i] = Math.round(sink[0] * 10); inf[i + 1] = Math.round(sink[1] * 10); inf[i + 2] = inf[i + 3] = 1;
+    }
+  }
+  const open = (x, z) => { const v = grid.at(x, z); return v === FREE || v === WOOD || v === KEEP; };
+
+  // ---- trees: coconut palms leaning over the banks, bamboo clumps, the bank wood and the gardens' trees ----
   let ti = 0;
   for (let i = 0; i < ring.length; i++) {
     const p = ring[i], q = ring[(i + 1) % ring.length], len = Math.hypot(q[0] - p[0], q[1] - p[1]);
@@ -215,22 +233,53 @@ export function build({ data, S }) {
       const t = s / len, sx = p[0] + (q[0] - p[0]) * t, sz = p[1] + (q[1] - p[1]) * t;
       const sa = shoreAt(sx, sz), back = 1.5 + rand(ti, 22) * 3;
       const x = sx - sa.n[0] * back, z = sz - sa.n[1] * back;
-      if (inReserved(x, z, 2) || nearRoad(x, z, 1.2) || nearHouse(x, z, 1.5)) continue;
+      if (inReserved(x, z, 2) || !open(x, z) || !open(x + 1.5, z) || !open(x - 1.5, z)) continue;
       const r = rand(ti, 23);
       if (r < 0.42) palm(S, x, z, sa.n, ti);
       else if (r < 0.8) bamboo(S, x, z, ti);
     }
   }
-  // gardens: shade and fruit trees between the houses, handed to the shared tree builder (data.trees, decimetres)
   if (Array.isArray(data.trees)) {
+    const T = data.trees;
+    const tree = (x, z, sc, kind) => T.push(Math.round(x * 10), Math.round(z * 10), Math.round(sc * 10), kind);
+    // the largest scale up to sc whose crown (2.2 m per unit, as populate() reckons it) clears every house and wall,
+    // or 0: populate() drops a tree whose crown reaches a roof, so a crowded garden takes a smaller tree
+    const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
+    const solid = (x, z) => { const v = grid.at(x, z); return v === BUILT || v === MAPPED; };
+    const fit = (x, z, sc, min = 0.7) => {
+      for (let s = sc; s >= min; s -= 0.15) {
+        const r = 2.2 * s;
+        if (!solid(x, z) && R8.every(([u, v]) => !solid(x + u * r, z + v * r) && !solid(x + u * r * 0.5, z + v * r * 0.5))) return s;
+      }
+      return 0;
+    };
+    // the bank's edge: big shade trees a metre or so inside the shore every ~5 m, their crowns out over the water, so
+    // the island's green edge stands 3-5 m out from the bank as on the satellite
     let k = 0;
-    for (let n = 0; n < 2600 && k < 900; n++) {
-      const x = 352 + rand(n, 31) * 232, z = -2185 + rand(n, 32) * 1625;
-      if (!inRing(x, z, ring) || shoreDist(x, z) < 2.5) continue;
-      if (inReserved(x, z, 1.5) || nearRoad(x, z, 1.5) || nearHouse(x, z, 2)) continue;
-      if (!inRing(x, z, VILLAGE) && rand(n, 33) < 0.6) continue; // thinner over the open sandbar
-      data.trees.push(Math.round(x * 10), Math.round(z * 10), 7 + Math.floor(rand(n, 34) * 6), rand(n, 35) < 0.4 ? 1 : 0);
-      k++;
+    for (let i = 0; i < ring.length; i++) {
+      const p = ring[i], q = ring[(i + 1) % ring.length], len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      for (let s = 1; s < len; s += 4 + rand(k, 61) * 1.8, k++) {
+        const t = s / len, sx = p[0] + (q[0] - p[0]) * t, sz = p[1] + (q[1] - p[1]) * t, sa = shoreAt(sx, sz);
+        const back = 0.6 + rand(k, 62) * 1.2, x = sx - sa.n[0] * back, z = sz - sa.n[1] * back;
+        if (!inRing(x, z, ring) || inReserved(x, z, 1.5) || !open(x, z)) continue;
+        const sc = fit(x, z, 1.4 + rand(k, 63) * 0.5, 0.9);
+        if (sc) tree(x, z, sc, rand(k, 64) < 0.4 ? 1 : 0);
+      }
+    }
+    // the wood behind it: a tree every ~4.5 m over the bank wood (the grid's WOOD cells), ~11 m over the gardens
+    for (let x = 352; x < 584; x += 1.5) {
+      for (let z = -2186; z < -560; z += 1.5) {
+        const v = grid.at(x, z), n = Math.round(x * 7.3 + z * 13.1);
+        if (v !== WOOD && v !== FREE && v !== KEEP) continue;
+        const p = v === WOOD ? 0.16 : v === KEEP ? 0.05 : 0.07;
+        if (rand(n, 65) > p) continue;
+        const jx = x + (rand(n, 66) - 0.5) * 1.4, jz = z + (rand(n, 67) - 0.5) * 1.4;
+        if (!inRing(jx, jz, ring) || shoreDist(jx, jz) < 1.8 || !open(jx, jz) || inReserved(jx, jz, 1)) continue;
+        // the sandbar north of the village is open fields, with a tree only here and there
+        if (!inRing(jx, jz, VILLAGE) && v === WOOD && shoreDist(jx, jz) > 14 && rand(n, 68) < 0.85) continue;
+        const sc = fit(jx, jz, (v === KEEP ? 0.7 : v === WOOD ? 1.15 : 1.0) + rand(n, 69) * 0.55, v === FREE ? 0.6 : 0.7);
+        if (sc) tree(jx, jz, sc, rand(n, 70) < 0.45 ? 1 : 0);
+      }
     }
   }
   flushLamps();
@@ -304,56 +353,6 @@ function bamboo(S, x, z, i) {
     S.cyl(cx, cz, y, y + H * 0.38, 2.0, 0.25, 5, k % 2 ? C.bambooLeaf : C.bambooLeafD, { rot: a });
   }
   S.cyl(x, z, y0 + H * 0.35, y0 + H * 0.9, 2.3, 0.6, 5, C.bambooLeafD);
-}
-
-// Đình làng Bồi Thành. Front edge of the yard on the street at (fx, fz), facing south. A walled court with the gate
-// (nghi môn: two tall pillars and two shorter ones), the screen (bình phong) behind it, and the hall: three bays and two
-// end bays under a terracotta hip roof with an open front verandah, on a low stone plinth. Sizes estimated from the
-// usual Huế village đình (no measured survey found).
-function dinh(S, fx, fz, reserved) {
-  const x0 = fx - 15, x1 = fx + 15, z0 = fz - 36, z1 = fz - 1.5; // yard (z1: the street side)
-  reserved.push([x0, z0, x1, z1]);
-  const y = gY(fx, fz - 18);
-  const n0 = S.n;
-  S.kind = KIND.GROUND;
-  S.prism([[x0, z0], [x1, z0], [x1, z1], [x0, z1]], y - 0.3, y + 0.1, C.stone, C.pave, { topKind: KIND.ROAD });
-  // the yard wall, lime-washed with a tiled coping
-  S.kind = KIND.MASONRY;
-  const wall = (ax, az, bx, bz) => {
-    const l = Math.hypot(bx - ax, bz - az), ang = Math.atan2(bz - az, bx - ax);
-    S.box((ax + bx) / 2, (az + bz) / 2, y, y + 1.3, l, 0.3, ang, C.lime, { top: C.roof });
-  };
-  wall(x0, z0, x1, z0); wall(x0, z0, x0, z1); wall(x1, z0, x1, z1);
-  wall(x0, z1, fx - 5.2, z1); wall(fx + 5.2, z1, x1, z1);
-  // nghi môn: pillars with lantern heads and phoenix-crest tops
-  S.kind = KIND.PLAIN;
-  for (const [u, h] of [[-5, 4.2], [-2, 5.6], [2, 5.6], [5, 4.2]]) {
-    const px = fx + u, pz = z1;
-    S.box(px, pz, y, y + h, 0.7, 0.7, 0, C.ochre, { top: C.lime });
-    S.box(px, pz, y + h - 1.0, y + h - 0.3, 0.9, 0.9, 0, C.lime);
-    S.cyl(px, pz, y + h, y + h + 0.7, 0.32, 0.05, 6, C.gold);
-  }
-  S.box(fx - 3.5, z1, y + 2.6, y + 3.0, 2.6, 0.3, 0, C.ochre); // the low panels between the pillars
-  S.box(fx + 3.5, z1, y + 2.6, y + 3.0, 2.6, 0.3, 0, C.ochre);
-  S.box(fx, z1, y + 4.0, y + 4.6, 3.6, 0.35, 0, C.ochre, { top: C.roof }); // the lintel over the middle opening
-  // bình phong
-  S.kind = KIND.MASONRY;
-  S.box(fx, z1 - 6, y, y + 2.2, 4.6, 0.45, 0, C.lime, { top: C.roof });
-  S.box(fx, z1 - 6.25, y + 0.5, y + 1.9, 2.2, 0.06, 0, hex('#5f8a6a')); // the mosaic panel (dragon-horse), green
-  // the incense urn in the court
-  S.kind = KIND.PLAIN;
-  S.cyl(fx, z1 - 12, y + 0.1, y + 0.9, 0.5, 0.6, 8, hex('#5a4a38'));
-  // the hall
-  const hz = z0 + 10;
-  const top = pavilion(S, fx, hz, 14, 9, 0, y + 0.1, { platform: 0.6, wallH: 3.0, roof: C.roof, wall: C.ochre, rh: 3.4, ridge: C.ridge, colonnade: true, over: 1.3, segs: 3 });
-  // ridge ornament: two dragons facing a pearl (lưỡng long tranh châu), and the pearl itself
-  S.kind = KIND.PLAIN;
-  S.cyl(fx, hz, top, top + 0.7, 0.25, 0.25, 6, C.gold);
-  for (const s of [-1, 1]) S.beam([fx + s * 0.6, top + 0.1, hz], [fx + s * 2.2, top + 0.55, hz], 0.25, 0.35, C.ridge);
-  (S.paved = S.paved || []).push([n0, S.n]);
-  lamp(fx - 2, y + 5, z1 + 0.6, [1, 0.75, 0.42], 4);
-  lamp(fx + 2, y + 5, z1 + 0.6, [1, 0.75, 0.42], 4);
-  lamp(fx, y + 3, hz + 6, [1, 0.7, 0.4], 4);
 }
 
 // Chùa Pháp Hải: a walled court on the island's west bank, gate (tam quan) toward the river, the white Quan Âm on her
