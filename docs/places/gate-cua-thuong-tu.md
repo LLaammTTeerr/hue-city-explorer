@@ -45,3 +45,38 @@ Model: `src/landmarks/places/gate-cua-thuong-tu.js`, id `gate:Cửa Thượng T�
 - Rampart, moat and the bridge are drawn by `kinhthanh.js` and `bridges.js`, and are unchanged.
 - The tablet inscription and the vọng lâu's exact bays and tile colour are still to confirm. A photo survey or the
   Huế Monuments Conservation Centre records would settle them.
+
+## Rebuild from satellite and street photos (2026-11)
+- Position and axis checked against a z20 satellite overlay and three car Street View panoramas: the centre
+  (x −497.9, z −100.7) and the passage bearing (about 144°, rampart about 54°) agree within about 1 m and 1°, so they
+  are unchanged.
+- The vọng lâu now follows the present-day photos, not the old timber pavilion:
+  - a plastered masonry lower storey (about 8.5 × 6 m) set toward the outer face, with three brick-ringed arches on the
+    long faces and one on each end;
+  - a tiled eave skirt with upturned corners, a terrace with a low balustrade;
+  - a small upper storey with one arch per face and a low hip roof with a gourd finial.
+- A low balustrade (solid foot, pierced panel, posts) replaces the crenellations on the block, as in the photos;
+  corner pilasters and a stone band above the arch were added.
+- The top stays inside the sourced 16–17 m.
+- Still unconfirmed: the tower's exact plan and setback (estimated from the photos), the tile colour, and the tablet
+  inscription.
+
+## Review fixes (2026-11)
+
+- Vọng lâu moved and resized: lower storey 10.4 × 8.0 m with a 4.2 m wall, centred at t +1.0 (the outline's middle
+  line), upper storey 4.6 × 4.3 m. The reviewer asked for 9-10 m deep; the two car panoramas' width ratios give about
+  6.5-7 m (lower storey at about t −1.5 to +5.4), so 8 m is a compromise. Check it on site or on a drawing.
+  Total about 17.3 m above the ground, inside 16–17 m ±15 %.
+- Three arches on every face: the middle one 2.4 m wide, its ring's top 0.56 m under the cornice; the side ones
+  1.65 m, 1.0 m under it, as in the bridge-end photo. From the bridge end about 2.3 m of the lower storey shows over
+  the balustrade; from the inner road only the cornice, the eave and the top of the middle arch's ring show.
+- The inner face is no longer a copy of the outer one. The passage opens into a wider (r 2.8 m), 3 m deep red-brick
+  arched recess with no tablet. The wing walls of the notch end in 1.7 × 2.4 m piers with moulded caps. The inner
+  edge of the top is a solid parapet with a heavy coping (inner-road photo).
+- Eaves: the lower skirt has a tile-end course, a dark soffit, slightly lifted corners and short horns. The upper
+  roof's overhang is cut to 0.15 m, with small corner horns.
+- Faces: vertex-coloured brick with grey lime-plaster patches and a darker foot, not the shared 1.45 m brick
+  pattern. Battered corner pilasters rise to moulded caps above the parapet. The tablet is dark stone with small cut
+  characters, not three bright panes.
+- Not changed here: the shared moat bridge (geo/citadel-bridge.js) looks too wide and too close to the gate. It is
+  shared code, so it is left to the owner.
