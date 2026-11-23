@@ -1463,6 +1463,41 @@ function buildDiemPhungThiHero() {
   return scene;
 }
 
+// Build exact per-gate Kinh Thành Citadel watchtower (vọng lâu) hero accent .glb
+function buildGateWatchtowerHero(spec) {
+  const parts = [];
+  const { upper, lower, name } = spec;
+  const ry = upper.ry;
+  // Gilded flaming pearl & lotus finial + twin watchtower ridge dragons scaled to upper ridge
+  const sc = Math.max(0.45, Math.min(0.85, upper.w / 7.0));
+  const pearl = new THREE.SphereGeometry(0.26 * (sc / 0.65), 12, 10);
+  pearl.scale(1, 1.15, 0.5);
+  pearl.translate(0, ry + 0.36 * (sc / 0.65), 0);
+  parts.push(paint(pearl, 0xe86434));
+  parts.push(latheGourd(0, ry + 0.01, 0, 0.34 * (sc / 0.65), 0xe8c45e));
+  const span = Math.max(0.95, Math.min(2.2, (upper.w - upper.d) * 0.65 + 0.85));
+  parts.push(...sculptedDragon(0, ry, 0, 1, span, sc));
+  parts.push(...sculptedDragon(0, ry, 0, -1, span, sc));
+  // 4 upper watchtower eave corner scrolls
+  const huU = upper.w / 2 + upper.over, hvU = upper.d / 2 + upper.over;
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * huU, upper.y0, sv * hvU, su * 0.55, sv * 0.55, 0.62));
+  }
+  // 4 lower watchtower skirt corner scrolls (when gate has a lower hip roof)
+  if (lower) {
+    const huL = lower.w / 2 + lower.over, hvL = lower.d / 2 + lower.over;
+    for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+      parts.push(cornerScroll(su * huL, lower.y0, sv * hvL, su * 0.62, sv * 0.62, 0.72));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = name;
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
@@ -1511,6 +1546,16 @@ for (const [name, buildFn] of [
   ['thuytien-hero.glb', buildThuyTienHero],
   ['baotanghcm-hero.glb', buildBaoTangHcmHero],
   ['diemphungthi-hero.glb', buildDiemPhungThiHero],
+  ['gate-quangduc-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_quangduc_hero', upper: { w: 4.6, d: 4.0, over: 0.3, y0: 15.60, ry: 17.10 } })],
+  ['gate-thuongtu-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_thuongtu_hero', upper: { w: 4.9, d: 4.6, over: 0.15, y0: 16.07, ry: 16.82 } })],
+  ['gate-cuahau-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_cuahau_hero', upper: { w: 4.0, d: 3.0, over: 0.45, y0: 16.35, ry: 17.15 }, lower: { w: 8.6, d: 6.2, over: 0.45, y0: 12.65 } })],
+  ['gate-anhoa-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_anhoa_hero', upper: { w: 5.0, d: 3.8, over: 0.6, y0: 19.90, ry: 21.40 }, lower: { w: 11.0, d: 7.0, over: 0.8, y0: 15.30 } })],
+  ['gate-chanhtay-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_chanhtay_hero', upper: { w: 2.7, d: 2.2, over: 0.28, y0: 12.86, ry: 13.66 }, lower: { w: 6.3, d: 4.8, over: 0.30, y0: 10.66 } })],
+  ['gate-cuahuu-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_cuahuu_hero', upper: { w: 3.6, d: 2.8, over: 0.55, y0: 13.34, ry: 14.09 } })],
+  ['gate-nhado-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_nhado_hero', upper: { w: 4.9, d: 3.9, over: 0.30, y0: 15.95, ry: 16.70 }, lower: { w: 10.2, d: 7.6, over: 0.30, y0: 12.45 } })],
+  ['gate-cuangan-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_cuangan_hero', upper: { w: 4.0, d: 3.6, over: 0.50, y0: 14.80, ry: 15.95 }, lower: { w: 8.5, d: 7.0, over: 0.60, y0: 11.80 } })],
+  ['gate-dongba-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_dongba_hero', upper: { w: 4.2, d: 3.4, over: 0.28, y0: 14.25, ry: 14.75 }, lower: { w: 9.6, d: 6.2, over: 0.32, y0: 11.65 } })],
+  ['gate-ketrai-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_ketrai_hero', upper: { w: 6.12, d: 4.34, over: 0.68, y0: 14.226, ry: 16.436 }, lower: { w: 9.0, d: 7.0, over: 0.80, y0: 11.15 } })],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
