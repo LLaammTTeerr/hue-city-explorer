@@ -42,3 +42,34 @@ Builder: `src/landmarks/places/minhmang.js` (id `minhmang`). The older `minhMang
 - The lake pavilions (Điếu Ngư, Quan Lan, Nghênh Lương, Hư Hoài) are not built because their positions are unconfirmed.
 - Only the front stretch of the La Thành is drawn; the rest of the 1,750 m wall still needs a reliable outline.
 - The Truy Tư điện ruins and the outer guard posts are outside this pass.
+
+## Satellite alignment (rebuild pass)
+- Checked against satellite imagery at z19/z20 (visual reference only; nothing traced into `data/`). The OSM outlines
+  of the axis buildings sit about 2.9 m south of the imagery, a uniform offset, so the place file shifts the axis ends,
+  the trụ biểu and the mapped item rings 2.9 m north (`OFF`). The axis direction already matched (within ~0.5°).
+- Placed on the imagery along the shifted axis: Sùng Ân at s 174.7, the back wall of its court (Hoằng Trạch Môn) at
+  s 205.5, the side halls at s 146.8 / 190.6 and t ±22 (roofs about 19 x 13 m), the side bridges at t +15.8 / −17.6,
+  Minh Lâu, the Tân Nguyệt bridge and the Bửu Thành gate on t −0.8. Roof plans sized to the imagery: Sùng Ân about
+  25 x 26 m, Minh Lâu about 14 m, Hiển Đức Môn about 9 x 13 m, Bi Đình about 11 m.
+- Bi Đình: a Street View photosphere shows yellow stucco walls (not an open colonnade), a two-tier roof and terraces
+  some 3.5 m high with dragon-balustrade stairs; the terraces are raised to match and a flight added down the back.
+- The trụ biểu mounds are draped over the slope (the north one now sits on Thành Sơn's flank).
+- Left as OSM gives them: the lakes (the north shore of the southern lake reads 5–9 m south of the imagery) and the
+  Bái Đình width (about 40 m on the imagery vs the documented 45 m).
+
+## Review fixes
+- Trừng Minh neck: the raised water slab is gone. The lake polygon already covers the neck and the terrain carves it,
+  so the place file now only adds stone kerbs at both banks (s 216.5 / 239.5) from below the lake surface to the bank.
+  The brown humps and the dark slab on the Tân Nguyệt bridge were city.js's generic bridge decks drawn over the
+  place's own bridges; `ownRoads` in the place file lists those OSM ways, and city.js skips them (as for Gia Hội).
+- Bi Đình, from the Street View photosphere: plain yellow stucco walls with a dark front doorway; a short cổ lâu frieze
+  between two orange-brown hip roofs with a dark fascia and horns; brick-parapet terraces (21.5 and 16 m square); one
+  5 m flight at the front with dragon balustrades.
+- Side halls: dark grey weathered tile (as the imagery shows, unlike Sùng Ân), walls 17 x 9.8 m under a 0.7 m
+  overhang, so the roofs read about 19 x 13 m from above.
+- The pavilion OSM maps north of Minh Lâu (way 1330598719) is not drawn: the imagery shows only trees there, with a
+  hut of about 4 m some 9 m further north.
+- Tân Nguyệt bridge: the ends were read off the imagery (the east end is 1.3 m south of the axis, so the line runs
+  1.5° flatter); the bridge is 5 m wide, and the stair and Bửu Thành gate follow the same line.
+- Still open: the Bái Đình width (40 m on the imagery vs 45 m documented, an owner question); the Minh Lâu
+  parterres; the OSM lake shores; the rest of the La Thành.
