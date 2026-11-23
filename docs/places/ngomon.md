@@ -40,8 +40,20 @@ Model: `src/landmarks/places/ngomon.js`. The old Ngọ Môn block in `src/landma
 - Lầu Ngũ Phụng sits on its own 1.14 m U-shaped plinth with nine two-storey roof units, where the old model had five.
 - Night uplighting kept: warm strips along the parapet top and under every eave, plus lamps before and behind each gateway.
 
+## Review fixes (2026-11)
+- Roofs: all nine are low hip-and-gable roofs with their ridges along the front (`ridge` share of the half width, a new
+  optional argument of the shared `Buf.hip`/`hipShape`; default unchanged). A wing-end upper roof now reads from the
+  front as a trapezoid with its ridge about 60 % of its width, as in the frontal photosphere. Pitch lowered, eave curl
+  cut to a slight corner lift (flare 0.22, no corner horns).
+- Colour: the green tiles are a dark bottle-green (`#2a4c37`), not the light PAL.jadeRoof.
+- Height: storeys raised (lower 3.1 m, upper 2.6 m) so the pavilion stands about 1.6 times the base over the parapet.
+- Position: the whole outline sits 2 m behind OSM's (into the Imperial City), where the z20 satellite puts the base
+  once its lean is allowed for; the published 27.5 m wing then ends about where the satellite shows the tips. The
+  yellow centre hall runs 1.3 m deeper (back to v -11.6) and the plinth with it.
+
 ## Left
 - The plan of the Lầu was checked against the satellite at the level of unit widths; which way each ridge runs and the exact plan of the corner links still want a measured drawing.
 - The thước-to-metre conversion for the gate sizes is unresolved.
 - No ridge ornaments (pháp lam gourd, dragons) and no upper-storey window panels.
-- The Kim Thủy bridges belong to the Đại Nội place.
+- The Kim Thủy bridges belong to the shared bridge builder (src/geo/bridges): they render as humpback arches but are
+  flat stone causeways with low balustrades in the satellite and the frontal photosphere; to fix upstream.

@@ -203,14 +203,14 @@ export class Buf {
     }
     // a model's roofs, for the mapped buildings to keep clear of (city.js populate)
     if (this.roofs) this.roofs.push({ cx, cz, w, d, ang, y0, h, over: opts.over || 0 });
-    let { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false, segs = null, horns = null, clip = null } = opts;
+    let { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false, segs = null, horns = null, clip = null, ridge = null } = opts;
     const wallW = w, wallD = d;
     w += over * 2; d += over * 2;
     const keep = this.kind;
     this.kind = glazed ? KIND.GLAZED : KIND.TILE;
     const ux = Math.cos(ang), uz = Math.sin(ang);
     const P = (u, v, y) => [cx + u * ux - v * uz, y, cz + u * uz + v * ux];
-    const { hw, hd, rl, rows, cols, gamma, pow } = hipShape(w, d, flare, hips, ridgeCol, segs);
+    const { hw, hd, rl, rows, cols, gamma, pow } = hipShape(w, d, flare, hips, ridgeCol, segs, ridge);
     // the cut: half-planes a·(u, v) <= k in the roof's own plan
     const planes = [];
     if (clip) {
@@ -456,9 +456,11 @@ function roofSite() {
 // ---- hip roofs that meet ----
 // The proportions Buf.hip() gives a roof of plan w × d (overhang included): half sizes, half ridge length, rows and
 // columns of the mesh, the concavity of the slope (gamma) and the exponent of the corner lift.
-export function hipShape(w, d, flare = 0, hips = false, ridgeCol = null, segs = null) {
+// ridge: optional ridge half length as a share of the half width (a hip-and-gable roof's long ridge on a near-square
+// plan); left out, the ridge is what the plan leaves once the hips take 0.92 of the half depth.
+export function hipShape(w, d, flare = 0, hips = false, ridgeCol = null, segs = null, ridge = null) {
   const hw = w / 2, hd = d / 2;
-  const rl = Math.max(0, hw - hd * 0.92);
+  const rl = ridge == null ? Math.max(0, hw - hd * 0.92) : Math.max(0, Math.min(0.95, ridge)) * hw;
   const rows = Math.max(1, Math.round(segs ?? (flare > 0 && hips && ridgeCol ? 2 : 1)));
   const cols = flare > 0 ? (rows <= 2 ? 2 : rows + 2) : 1;
   const gamma = flare > 0 && rows > 1 ? 1 + Math.min(0.8, flare * 1.25) : 1;
@@ -481,7 +483,7 @@ export function joinRoofs(roofs) {
   const gutters = [];
   const fr = roofs.map((r) => {
     const ux = Math.cos(r.ang), uz = Math.sin(r.ang), over = r.over || 0;
-    const sh = hipShape(r.w + over * 2, r.d + over * 2, r.flare || 0, !!r.hips, r.ridgeCol || null, r.segs ?? null);
+    const sh = hipShape(r.w + over * 2, r.d + over * 2, r.flare || 0, !!r.hips, r.ridgeCol || null, r.segs ?? null, r.opts?.ridge ?? r.ridge ?? null);
     return { ...r, over, ux, uz, sh, R: Math.hypot(r.w, r.d) / 2 + over };
   });
   // the edge a cut leaves on roof r: its height, and the half length of the level stretch (centred on the roof's own

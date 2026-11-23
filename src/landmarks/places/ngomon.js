@@ -8,12 +8,16 @@ import polygonClipping from 'polygon-clipping';
 // Plan: the OSM outline (way 172657562), squared up and made symmetric, then brought to the published size (Phan
 // Thanh Hải 2015, cited by vi.wikipedia: base 57.96 m along the front, each wing 27.50 m). OSM draws it 55.8 m wide
 // and 24.75-25.3 m deep, 4 % and 9 % short; the back face stays on OSM's line (the Imperial City wall), the wings
-// reach further toward Kỳ Đài and the ends grow outward. The body's back face projects 4.3 m between u = ±21.1; the
+// reach further toward Kỳ Đài and the ends grow outward. The whole outline then sits 2 m behind OSM's (SHIFT). The body's back face projects 4.3 m between u = ±21.1; the
 // two ends behind the wings are set back.
 // Local frame: u along the front (east-north-east), v out of the Imperial City (south-south-east, toward the flag).
 export const id = 'ngomon';
 
-const C = [-1033.95, 132.78]; // centre of the outline's bounding box, metres in the model frame
+// centre of the outline's bounding box, metres in the model frame: OSM's centre (-1033.95, 132.78) moved 2 m back
+// (-v) into the Imperial City, where the 2026-11 z20 satellite puts the base once its lean is allowed for (the
+// published 27.5 m wing then ends where the satellite shows the tips, not 3 m out toward Kỳ Đài)
+const SHIFT = -2.0;
+const C = [-1033.95 - SHIFT * Math.sin(-0.633), 132.78 + SHIFT * Math.cos(-0.633)];
 const A = -0.633; // direction of u
 const ux = Math.cos(A), uz = Math.sin(A);
 const P = (u, v) => [C[0] + u * ux - v * uz, C[1] + u * uz + v * ux];
@@ -44,6 +48,11 @@ const FRAME = hex('#c9bfab');
 const DARK = hex('#211b19');
 const GLAZE = hex('#5d8a6a'); // the green glazed openwork tiles in the parapet
 const GOLD = hex('#d8b25a');
+// thanh lưu ly, the green glazed tiles: dark bottle-green, nearly black in shade, in every photograph and the satellite
+// (PAL.jadeRoof, the light jade of other halls, reads far too bright here)
+const GREEN = hex('#2a4c37');
+// low eave curl: Ngọ Môn's eaves run nearly straight, lifting only a little at the corners
+const FLARE = 0.22;
 
 export function build({ S, group, THREE }) {
   const y0 = LAND_Y - 0.6, yT = LAND_Y + TOP;
@@ -238,7 +247,7 @@ export function build({ S, group, THREE }) {
   // ---- Lầu Ngũ Phụng: the U-shaped plinth, then nine roofs over a two-storey timber frame ----
   const yN = yT + NEN;
   const lE = 25.6, lW = 10.5 + dV; // the plinth runs 1 m past the wing halls; the terrace beyond it is open (photo audit)
-  const lau = [[-lE, -6.8], [-19.6, -6.8], [-19.6, -10.9], [19.6, -10.9], [19.6, -6.8], [lE, -6.8], [lE, lW], [15.1, lW],
+  const lau = [[-lE, -6.8], [-19.6, -6.8], [-19.6, -12.0], [19.6, -12.0], [19.6, -6.8], [lE, -6.8], [lE, lW], [15.1, lW],
     [15.1, 1.4], [-15.1, 1.4], [-15.1, lW], [-lE, lW]];
   S.kind = KIND.MASONRY;
   S.prism(ring(lau), yT - 0.1, yN, shade(PAL.stone, 0.92), hex('#b5a58a'), { topKind: KIND.ROAD });
@@ -250,17 +259,18 @@ export function build({ S, group, THREE }) {
   // Proportions from the 2026-11 satellite and front-photo audit (docs/places/ngomon.md): the yellow centre hall is
   // about 20 m along the front at its eave and its upper storey nearly as wide as the lower one (a pent skirt round a
   // full-width upper floor, not a small top pavilion); the wing halls are about 9 m square with an open terrace
-  // between them and the parapet; the lower storey is short (eave about 2 m over the parapet) under tall, steep
-  // upper roofs. The wing halls' and corner links' lower storeys are open colonnades (sky shows through them from
+  // between them and the parapet. Review of the front view (2026-11): the roofs are low hip-and-gable roofs with long
+  // ridges along the front (a wing-end upper roof reads as a trapezoid whose ridge is about 60 % of its width) and
+  // nearly straight eaves; the pavilion stands about 1.6 times the base's height over the parapet. The wing halls' and corner links' lower storeys are open colonnades (sky shows through them from
   // the front); the centre and side halls keep a closed lacquered core.
   const eaves = [];
-  const WALLH = 2.4;
+  const WALLH = 3.1;
   // one two-storey (or one-storey) unit on the plinth; k / kd: the upper storey's share of the lower's width / depth,
   // core: the closed core's share of the colonnade (0 for an open hall)
-  const hall = (w, d, ang, cx, cz, { roof, rh, tiers = 2, k = 0.68, kd = 0.62, core = 0.8 }) => {
+  const hall = (w, d, ang, cx, cz, { roof, rh, tiers = 2, k = 0.68, kd = 0.62, core = 0.8, ridge = 0.6 }) => {
     const ex = Math.cos(ang), ez = Math.sin(ang), Q = (u, v) => [cx + u * ex - v * ez, cz + u * ez + v * ex];
     const wall = shade(PAL.lacquer, 0.82), over = 1.05, y = yN, lidY = y + WALLH - 0.2;
-    const eave = { fascia: 0.3, fasciaCol: shade(wall, 0.75), ridgeCol: hex('#f1d77a'), hips: true, glazed: true, segs: 3 };
+    const eave = { fascia: 0.3, fasciaCol: shade(wall, 0.75), ridgeCol: hex('#f1d77a'), hips: true, glazed: true, segs: 3, ridge, horns: false };
     S.kind = KIND.TIMBER;
     if (core > 0) {
       const cw = w * core, cd = d * core;
@@ -285,35 +295,34 @@ export function build({ S, group, THREE }) {
     S.kind = KIND.TIMBER;
     const y1 = y + WALLH;
     if (tiers === 1) {
-      S.hip(cx, cz, w, d, ang, y1, rh, roof, { flare: 0.55, over, ...eave });
+      S.hip(cx, cz, w, d, ang, y1, rh, roof, { flare: FLARE, over, ...eave });
       eaves.push({ cx, cz, w, d, ang, y: y1, over, fascia: eave.fascia });
       return;
     }
-    S.hip(cx, cz, w, d, ang, y1, rh * 0.62, roof, { flare: 0.5, over, ...eave, ridgeCol: null });
+    S.hip(cx, cz, w, d, ang, y1, rh * 0.5, roof, { flare: FLARE, over, ...eave, ridgeCol: null, ridge: 0.75 });
     const Q2 = (t, a) => [cx + t * Math.cos(a), cz + t * Math.sin(a)];
-    const w2 = w * k, d2 = d * kd, y2 = y1 + rh * 0.36, y3 = y2 + WALLH * 0.72;
+    const w2 = w * k, d2 = d * kd, y2 = y1 + rh * 0.34, y3 = y2 + WALLH * 0.85;
     S.box(cx, cz, y2, y3, w2, d2, ang, wall);
     S.kind = KIND.PLAIN; // a gilded cornice band under the upper eave and the ridge finials
     S.box(cx, cz, y3 - 0.45, y3 - 0.2, w2 + 0.1, d2 + 0.1, ang, hex('#c79a45'));
-    const half = Math.max(0, (Math.max(w2, d2) - Math.min(w2, d2)) / 2) * 0.8, ra = w2 >= d2 ? 0 : Math.PI / 2;
+    const half = (w2 / 2 + over * 0.9) * ridge, ra = 0; // at the two ends of the ridge, which runs along the front
     for (const sg of [-1, 1]) { const q = Q2(sg * half * 1, ang + ra); S.cyl(q[0], q[1], y3 + rh * 0.9, y3 + rh + 0.55, 0.22, 0.04, 6, hex('#e0c068'), { cap: true }); }
     S.kind = KIND.TIMBER;
-    S.hip(cx, cz, w2, d2, ang, y3, rh, roof, { flare: 0.5, over: over * 0.9, ...eave });
+    S.hip(cx, cz, w2, d2, ang, y3, rh, roof, { flare: FLARE, over: over * 0.9, ...eave });
     eaves.push({ cx, cz, w, d, ang, y: y1, over, fascia: eave.fascia }, { cx, cz, w: w2, d: d2, ang, y: y3, over: over * 0.9, fascia: eave.fascia });
   };
   const unit = (u0, u1, v0, v1, opts) => {
     const cu = (u0 + u1) / 2, cv = (v0 + v1) / 2, su = u1 - u0, sv = v1 - v0, p = P(cu, cv);
-    const along = su >= sv;
-    hall(along ? su : sv, along ? sv : su, along ? A : A + Math.PI / 2, p[0], p[1], opts);
+    hall(su, sv, A, p[0], p[1], opts); // every ridge runs along the front (u), as the front photographs show
   };
   const CU = 8.8, WU0 = 15.6, WU1 = 24.6; // centre hall half-width; wing hall from the arm's inner face outward
-  unit(-CU, CU, -10.3, 0.8, { roof: PAL.imperialRoof, rh: 3.55, k: 0.9, kd: 0.8 }); // ridge about 15 m over the ground
+  unit(-CU, CU, -11.6, 0.8, { roof: PAL.imperialRoof, rh: 3.2, k: 0.9, kd: 0.8 }); // ridge about 16 m over the ground
   for (const s of [-1, 1]) {
     const U = (a, b) => (s < 0 ? [-b, -a] : [a, b]);
-    unit(...U(CU - 0.3, 10.4), -9.7, 0.2, { roof: PAL.jadeRoof, rh: 1.5, tiers: 1 }); // link, low between the halls
-    unit(...U(10.4, 15.9), -10.0, 0.5, { roof: PAL.jadeRoof, rh: 3.0, k: 0.88, kd: 0.78 }); // side hall
-    unit(...U(15.9, WU1), -6.3, 3.6, { roof: PAL.jadeRoof, rh: 2.2, core: 0 }); // corner link over the wing's root
-    unit(...U(WU0, WU1), 3.6, 10.0 + dV, { roof: PAL.jadeRoof, rh: 3.5, core: 0 }); // wing hall on the arm of the U
+    unit(...U(CU - 0.3, 10.4), -9.7, 0.2, { roof: GREEN, rh: 1.3, tiers: 1, ridge: 0.8 }); // link, low between the halls
+    unit(...U(10.4, 15.9), -10.0, 0.5, { roof: GREEN, rh: 2.3, k: 0.88, kd: 0.78, ridge: 0.45 }); // side hall
+    unit(...U(15.9, WU1), -6.3, 3.6, { roof: GREEN, rh: 1.8, core: 0, ridge: 0.5 }); // corner link over the wing's root
+    unit(...U(WU0, WU1), 3.6, 10.0 + dV, { roof: GREEN, rh: 2.8, core: 0 }); // wing hall on the arm of the U
   }
   // upper-storey wall panels with their round windows, dark timber between the red columns (one per main hall face)
   for (const e of eaves) {
