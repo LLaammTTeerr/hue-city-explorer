@@ -32,11 +32,19 @@ const EMBRASURES = 21; // the 21 gun emplacements
 const EMB_W = 0.9, SILL = 0.4;
 const STAIR_W = 3.35, STAIRS = 6;
 
-// Trấn Bình Môn: OSM footprint, and the gate's axis (cầu Mang Cá starts at its outer mouth)
-const GATE_RING = [[-1453.2, -2161.6], [-1442.4, -2169.5], [-1451.7, -2182.2], [-1463.1, -2197.9], [-1474.1, -2190.3], [-1462.5, -2174.4]];
-const GATE_C = [-1458.2, -2179.9];
-const GT = [0.589, 0.808], GN = [0.808, -0.589]; // along the wall; out of the Citadel (north-east)
-const GATE_HALF_D = 6.7, WALL_OUTER = 10.3, AXIS = 2.0; // inner face, the Citadel wall's outer face, axis offset (m)
+// Trấn Bình Môn: OSM footprint (way 367959083), and the gate's axis (cầu Mang Cá starts at its outer mouth)
+const GT = [0.589, 0.808], GN = [0.808, -0.589]; // along the wall (towards the south-east); out of the Citadel (north-east)
+const GATE_RING_OSM = [[-1453.2, -2161.6], [-1442.4, -2169.5], [-1451.7, -2182.2], [-1463.1, -2197.9], [-1474.1, -2190.3], [-1462.5, -2174.4]];
+const GATE_C_OSM = [-1458.2, -2179.9];
+// The satellite (zoom 20, 0.14 m/px) puts the block's long roof 6 m north-west of the OSM footprint along the wall, while
+// across the wall they agree to about 1.5 m and cầu Mang Cá, the moat and the wall to 1-2 m in the same frame: the bridge
+// axis meets the roof about 72% of the way from its north-west end, not near its middle. A lean of the image would
+// shift the roof across the wall as much as along it, and it does not, so the block is moved, and the passage stays on
+// the bridge's axis.
+const SHIFT = 6.0;
+const GATE_RING = GATE_RING_OSM.map(([x, z]) => [x - GT[0] * SHIFT, z - GT[1] * SHIFT]);
+const GATE_C = [GATE_C_OSM[0] - GT[0] * SHIFT, GATE_C_OSM[1] - GT[1] * SHIFT];
+const GATE_HALF_D = 6.7, WALL_OUTER = 10.3, AXIS = 2.0 + SHIFT; // inner face, the Citadel wall's outer face, axis offset (m)
 
 export function build({ S, data }) {
   const brick = shade(PAL.brick, 0.86), damp = hex('#3a3833'), dark = hex('#46443e'), relaid = hex('#655e57'), lichen = hex('#4a4d3e');
@@ -166,6 +174,7 @@ export function build({ S, data }) {
   // ---- Trấn Bình Môn ----
   {
     const gTop = LAND_Y + WALL_H;
+    S.kind = KIND.MASONRY; // brick courses, as on the Citadel wall either side
     S.prism(GATE_RING, LAND_Y - 0.4, gTop, brick, walk, { topKind: KIND.GROUND });
     for (let i = 0; i < GATE_RING.length; i++) {
       const a = GATE_RING[i], b = GATE_RING[(i + 1) % GATE_RING.length];
@@ -174,38 +183,54 @@ export function build({ S, data }) {
       if (inRing(a[0] + dx / 2 + nx * 0.5, a[1] + dz / 2 + nz * 0.5, GATE_RING)) { nx = -nx; nz = -nz; }
       if (len > 1.5) weather(S, { a, len, ux: dx / len, uz: dz / len, nx, nz }, LAND_Y - 0.4, gTop, { damp, dark, relaid, lichen }, 31 + i);
     }
+    S.kind = KIND.PLAIN;
     const ax = GATE_C[0] + GT[0] * AXIS, az = GATE_C[1] + GT[1] * AXIS;
     // the passage's two mouths: on the gate block's city face, and on the Citadel wall's outer face over the bridge
     archway(S, ax - GN[0] * (GATE_HALF_D + 0.03), az - GN[1] * (GATE_HALF_D + 0.03), [-GN[0], -GN[1]], GT);
     archway(S, ax + GN[0] * (WALL_OUTER + 0.03), az + GN[1] * (WALL_OUTER + 0.03), GN, GT);
 
-    // the old building on top (size estimated), abandoned: stained lime wash, cement-tiled hip roof
-    const bw = 15, bd = 7.2, bh = 3.1, ang = Math.atan2(GT[1], GT[0]);
-    const wash = hex('#a89a78'), roof = hex('#6f6c66');
-    S.kind = KIND.COLONIAL;
-    S.box(ax, az, gTop, gTop + bh, bw, bd, ang, wash, { top: shade(wash, 0.8) });
-    S.kind = KIND.PLAIN;
-    for (const sd of [-1, 1]) for (let j = 0; j < 5; j++) { // empty window and door openings
-      const s = -bw / 2 + 1.5 + j * ((bw - 3) / 4), door = j === 2;
-      const px = ax + GT[0] * s + GN[0] * sd * (bd / 2 + 0.03), pz = az + GT[1] * s + GN[1] * sd * (bd / 2 + 0.03);
-      S.box(px, pz, gTop + (door ? 0.05 : 0.9), gTop + (door ? 2.4 : 2.3), door ? 1.2 : 1.0, 0.06, ang, hex('#26231f'));
+    // the old building on top, abandoned: stained lime wash, empty window and door openings, a cement-tile roof. The
+    // satellite shows one long grey roof over the whole gate block, about 36 x 10 m with square-cut ends and a ridge
+    // down its length: a pitched roof closed by gables, no hips. No source shows its ornament, so none is drawn.
+    const bw = 34.4, bd = 8.4, bh = 3.1, ang = Math.atan2(GT[1], GT[0]);
+    const bx = GATE_C[0], bz = GATE_C[1];
+    const wash = hex('#9c9179'), roof = hex('#6f6c66'), streak = mix(wash, hex('#5e5848'), 0.45);
+    S.box(bx, bz, gTop, gTop + bh, bw, bd, ang, wash, { top: shade(wash, 0.8) });
+    S.box(bx, bz, gTop, gTop + 0.9, bw + 0.05, bd + 0.05, ang, shade(wash, 0.66)); // damp up the foot of the walls
+    const NW = 11; // empty openings, about 3 m apart; a door in the middle of each long side
+    for (const sd of [-1, 1]) for (let j = 0; j < NW; j++) {
+      const s = -bw / 2 + 1.5 + j * ((bw - 3) / (NW - 1)), door = j === (NW - 1) / 2;
+      const ox = bx + GT[0] * s + GN[0] * sd * (bd / 2 + 0.03), oz = bz + GT[1] * s + GN[1] * sd * (bd / 2 + 0.03);
+      S.box(ox, oz, gTop + (door ? 0.05 : 0.9), gTop + (door ? 2.4 : 2.3), door ? 1.2 : 1.0, 0.06, ang, hex('#26231f'));
+      // rain streaks from the eaves down the wash between the openings
+      if (j < NW - 1 && rand(j * 3 + sd, 41) < 0.6) {
+        const s2 = s + (bw - 3) / (NW - 1) / 2 + (rand(j, 42) - 0.5), w = 0.25 + rand(j + sd, 43) * 0.45, y1 = gTop + bh - 0.02, y0 = y1 - 0.6 - rand(j, 44) * 1.2;
+        const px = bx + GT[0] * s2 + GN[0] * sd * (bd / 2 + 0.04), pz = bz + GT[1] * s2 + GN[1] * sd * (bd / 2 + 0.04);
+        S.quad([px - GT[0] * w / 2, y0, pz - GT[1] * w / 2], [px + GT[0] * w / 2, y0, pz + GT[1] * w / 2], [px + GT[0] * w / 2, y1, pz + GT[1] * w / 2], [px - GT[0] * w / 2, y1, pz - GT[1] * w / 2], streak, [GN[0] * sd, 0, GN[1] * sd]);
+      }
     }
-    S.box(ax, az, gTop, gTop + 0.9, bw + 0.05, bd + 0.05, ang, shade(wash, 0.62)); // damp up the foot of the walls
-    S.hip(ax, az, bw, bd, ang, gTop + bh, 2.3, roof, { over: 0.6, fascia: 0.2, fasciaCol: shade(roof, 0.8), ridgeCol: shade(roof, 1.2), hips: true });
+    gable(S, [bx, bz], bw, bd, ang, gTop + bh, 2.0, roof, wash, 0.7);
 
     // overgrowth: shrubs along the gate's top and creepers down its city face
     S.kind = KIND.PLAIN;
     for (let k = 0; k < 14; k++) {
       const s = (rand(k, 21) - 0.5) * 32, v = (rand(k, 22) - 0.5) * 11;
-      if (Math.abs(v) < bd / 2 + 1 && Math.abs(s - AXIS) < bw / 2 + 1) continue;
+      if (Math.abs(v) < bd / 2 + 1 && Math.abs(s) < bw / 2 + 1) continue;
       const px = GATE_C[0] + GT[0] * s + GN[0] * v, pz = GATE_C[1] + GT[1] * s + GN[1] * v, r = 0.9 + rand(k, 23) * 1.4;
       S.cyl(px, pz, gTop - 0.1, gTop + r * 1.3, r, r * 0.45, 6, mix(ivy, ivy2, rand(k, 24)), { rot: rand(k, 25) * 3 });
     }
+    // creepers down the city face: clumps of hanging strands of uneven length, thinning out downwards
     for (let k = 0; k < 9; k++) {
-      const s = (rand(k, 26) - 0.5) * 32, w = 1.2 + rand(k, 27) * 2.5, h = gTop - (1.5 + rand(k, 28) * 4);
-      if (Math.abs(s - AXIS) < 2.5) continue;
-      const px = GATE_C[0] + GT[0] * s - GN[0] * (GATE_HALF_D + 0.08), pz = GATE_C[1] + GT[1] * s - GN[1] * (GATE_HALF_D + 0.08);
-      S.quad([px - GT[0] * w / 2, h, pz - GT[1] * w / 2], [px + GT[0] * w / 2, h, pz + GT[1] * w / 2], [px + GT[0] * w / 2, gTop + 0.1, pz + GT[1] * w / 2], [px - GT[0] * w / 2, gTop + 0.1, pz - GT[1] * w / 2], mix(ivy, ivy2, rand(k, 29)), [-GN[0], 0, -GN[1]]);
+      const s0 = (rand(k, 26) - 0.5) * 32, w = 1.2 + rand(k, 27) * 2.5;
+      if (Math.abs(s0 - AXIS) < 2.5 + w / 2) continue;
+      const n = 3 + Math.floor(w / 0.6);
+      for (let m = 0; m < n; m++) {
+        const s = s0 - w / 2 + (m + 0.5) * (w / n), sw = (w / n) * (0.7 + rand(k * 7 + m, 45) * 0.5);
+        const len = (1 - Math.abs((m + 0.5) / n - 0.5) * 1.2) * (1.5 + rand(k, 28) * 4) * (0.6 + rand(k * 7 + m, 46) * 0.6);
+        const px = GATE_C[0] + GT[0] * s - GN[0] * (GATE_HALF_D + 0.08 + m * 0.002), pz = GATE_C[1] + GT[1] * s - GN[1] * (GATE_HALF_D + 0.08 + m * 0.002);
+        const h = gTop - len, tip = sw * 0.25;
+        S.quad([px - GT[0] * tip, h, pz - GT[1] * tip], [px + GT[0] * tip, h, pz + GT[1] * tip], [px + GT[0] * sw / 2, gTop + 0.1, pz + GT[1] * sw / 2], [px - GT[0] * sw / 2, gTop + 0.1, pz - GT[1] * sw / 2], mix(ivy, ivy2, rand(k * 7 + m, 29)), [-GN[0], 0, -GN[1]]);
+      }
     }
   }
   S.kind = KIND.PLAIN;
@@ -247,4 +272,23 @@ function archway(S, px, pz, n, t) {
     const q = (u, v, o) => [px + t[0] * u + n[0] * o, LAND_Y + v, pz + t[1] * u + n[1] * o];
     S.quad(q(u0, 0.05, 0.07), q(u1, 0.05, sd > 0 ? 0.35 : 0.07), q(u1, spring - 0.1, sd > 0 ? 0.35 : 0.07), q(u0, spring - 0.1, 0.07), sd > 0 ? shade(door, 0.8) : door, [n[0], 0, n[1]]);
   }
+}
+
+// a pitched roof with its ridge along ang over walls len x wid, the gable ends closed in the wall colour
+function gable(S, c, len, wid, ang, y0, h, roofCol, wallCol, over) {
+  const ux = Math.cos(ang), uz = Math.sin(ang);
+  const P = (u, v, y) => [c[0] + u * ux - v * uz, y, c[1] + u * uz + v * ux];
+  const hl = len / 2 + over, hw = wid / 2 + over, ye = y0 - (h * over) / (wid / 2);
+  const keep = S.kind;
+  S.kind = KIND.TILE;
+  S.quad(P(-hl, -hw, ye), P(hl, -hw, ye), P(hl, 0, y0 + h), P(-hl, 0, y0 + h), roofCol, [uz, 0.9, -ux]);
+  S.quad(P(-hl, hw, ye), P(hl, hw, ye), P(hl, 0, y0 + h), P(-hl, 0, y0 + h), roofCol, [-uz, 0.9, ux]);
+  S.kind = KIND.PLAIN;
+  for (const sd of [-1, 1]) { // the roof's underside at the gable overhangs, and the gables
+    S.tri(P(sd * (len / 2), -wid / 2, y0), P(sd * (len / 2), wid / 2, y0), P(sd * (len / 2), 0, y0 + h), wallCol, [sd * ux, 0, sd * uz]);
+    S.quad(P(sd * hl, -hw, ye - 0.15), P(sd * hl, 0, y0 + h - 0.15), P(sd * hl, 0, y0 + h), P(sd * hl, -hw, ye), shade(roofCol, 0.8), [sd * ux, 0, sd * uz]);
+    S.quad(P(sd * hl, 0, y0 + h - 0.15), P(sd * hl, hw, ye - 0.15), P(sd * hl, hw, ye), P(sd * hl, 0, y0 + h), shade(roofCol, 0.8), [sd * ux, 0, sd * uz]);
+  }
+  S.beam(P(-hl, 0, y0 + h + 0.05), P(hl, 0, y0 + h + 0.05), 0.35, 0.25, shade(roofCol, 0.85));
+  S.kind = keep;
 }
