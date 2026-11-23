@@ -522,7 +522,11 @@ export function treePlanter(data, group, off = null, lift = null) {
   const geos = { spreading: spreadingGeometry(low), upright: uprightGeometry(low), flamboyant: flamboyantGeometry(low), willow: willowGeometry(low), pine: pineGeometry(low), palm: palmGeometry(low), banyan: banyanGeometry(low) };
   const nearWater = waterNear(data);
   // illustrative planting must not stand between the visitor and the monuments of the central axis
-  const forecourts = (data.places || []).filter((p) => ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'].includes(p.id)).map((p) => [p.x / 10, p.z / 10]);
+  // a place model may give its own open court as a test (data.courts[id](x, z), set by its build) in place of the
+  // 46 m circle, where the real monument stands framed by trees (Nghênh Lương Đình)
+  const courts = data.courts || {};
+  const forecourts = (data.places || []).filter((p) => ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'].includes(p.id))
+    .map((p) => courts[p.id] || ((x, z) => (x - p.x / 10) ** 2 + (z - p.z / 10) ** 2 < 46 * 46));
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
@@ -544,7 +548,7 @@ export function treePlanter(data, group, off = null, lift = null) {
       const r = rand(i, 61);
       const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
       if (off && off(x, z, 2.2 * sc, 3.3 * sc * (0.75 + rand(i, 41) * 0.5))) continue; // a landmark model or the asphalt is here (crown radius as below)
-      if (forecourts.some((c) => (x - c[0]) ** 2 + (z - c[1]) ** 2 < 46 * 46)) continue; // the great halls stand in open courts
+      if (forecourts.some((inCourt) => inCourt(x, z))) continue; // the great halls stand in open courts
       // kind 4: a broad shade tree a landmark plants on purpose (a banyan by a river walk): spreading, never a willow
       // kind 5: a banyan a landmark plants (wide, low, whitewashed foot)
       let type = kind === 5 ? 'banyan' : kind === 4 ? 'spreading' : kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
