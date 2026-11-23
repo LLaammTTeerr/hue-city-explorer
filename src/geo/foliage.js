@@ -549,7 +549,7 @@ export function treePlanter(data, group, off = null, lift = null) {
       const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
       if (off && off(x, z, 2.2 * sc, 3.3 * sc * (0.75 + rand(i, 41) * 0.5))) continue; // a landmark model or the asphalt is here (crown radius as below)
       if (forecourts.some((inCourt) => inCourt(x, z))) continue; // the great halls stand in open courts
-      // kind 4: a broad shade tree a landmark plants on purpose (a banyan by a river walk, a bàng on a lake bank): spreading, never a willow
+      // kinds from build-data (0 broadleaf, 1 dark, 2 flame tree, 3 hill pine); kind 4: a broad shade tree a landmark plants on purpose (a banyan by a river walk, a bàng on a lake bank, an old shade tree from the imagery): spreading, never a willow
       // kind 5: a banyan a landmark plants (wide, low, whitewashed foot)
       let type = kind === 5 ? 'banyan' : kind === 4 ? 'spreading' : kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
       let lean = null;

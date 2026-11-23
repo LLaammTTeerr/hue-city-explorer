@@ -23,23 +23,44 @@ but the precinct had no walls.
   - Walls: precinct 695810771 and 695810772, rear court 695814169, screen 695814168.
   - Water: Lạch Đào Nguyên (relation 2325738), Tân Nguyệt Hồ (relation 8547961).
 - City height survey in `hue.json`: main hall 8.5 m, side halls 6.0 m.
+- Google satellite (z18–z20) and one Street View user photosphere from the lawn north-east of the island, checked
+  2026-11 (visual reference only, kept out of the repo):
+  - The halls and side halls are roofed in dark grey-green unglazed tile with grey ridges. On the satellite they read
+    dark beside Điện Thọ Ninh's yellow roof.
+  - Walls are solid mustard masonry with red-framed doors and windows (not open colonnades).
+  - The island is edged with a low grey pierced balustrade along the channel; the court before the hall is paved
+    tan brick; the precinct wall beside Trường An Môn is weathered grey plaster.
+  - The hall group, side halls and gate stand where OSM puts them: within about 1–2 m and 2° of the satellite.
 
 ## Confirmed
 - Footprints and positions of the hall, side halls, gate, south gate, walls and screen come from OSM.
 - Everything sits on one axis aimed at Trường An Môn. Main block: 21.6 × 14.2 m. Rear block: 17.1 × 9.4 m.
 - The rear walled court measures 26 × 19.5 m.
-- Main ridge is 8.5 m (survey). Mustard walls with red columns.
+- Main ridge is 8.5 m (survey). Mustard masonry walls with red-framed openings, dark grey tile roofs (imagery).
+
+- Review against the same imagery: plastered mustard walls with small red-framed windows (doors only on the
+  front house's middle bays and one per other hall); Thọ Khang's ends are mustard masonry gables with a green
+  ornament panel; roof corners lift only slightly; the court is broad tan paving about 20 m deep, with more paving
+  south-west of the hall; the channel is narrow, edged with rocks and full of lotus; big shade trees stand on the
+  island and the lawns (foliage kind 4: always spreading, never a palm or a willow); the precinct wall is grey
+  plaster (`fence` style `kind: KIND.PLAIN`).
 
 ## Estimated
 - How the OSM hall outline divides into front house, Thọ Khang and rear house.
   - The rear block stands on the site of Vạn Phước lâu but is drawn as one storey. I found no source saying the lầu was rebuilt.
 - Bay counts (5 + 2 chái), platform 0.6 m, eave heights.
-- Yellow glazed tiles, chosen to match Diên Thọ.
+- The window rhythm (one small window per bay, five on each side hall's long faces) and the open verandah across the
+  front house only.
+- Trường An Môn and the small gates keep yellow glazed tile: their roofs are not visible in the imagery.
 - Trường An Môn: height (about 7.9 m) and its raised middle storey.
 - Positions of Thụy and Thanh Minh gates, which are not mapped: placed on the axis and mid-wall.
 - Form of the rockeries, plus two smaller ones on the island front.
 
 ## Left
+- Gate roofs: yellow glazed or grey? Not visible in the imagery; kept yellow, an owner question.
+- The north side hall follows its OSM outline, which agrees with the satellite; the photosphere's long low range
+  may be another building or a pose error, so the hall was given more windows but not reshaped.
 - The bridges are drawn by `city.js` from OSM footways and are still grey; the sources say red.
-- No photos were checked directly; the forms come from the descriptions.
+- No car Street View near the palace; the one usable photosphere sees the halls from across the channel only. The
+  front gate's roof and the rear court are unchecked.
 - No night lights.
