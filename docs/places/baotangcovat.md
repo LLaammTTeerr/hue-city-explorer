@@ -36,7 +36,26 @@ Replica in `src/landmarks/places/baotangcovat.js`. It covers điện Long An (th
 - Before: a flat ochre block on the mapped outline. Now: a stepped platform, the two houses with a three-tier yellow roof and a verandah of free columns, a paved axis to a gate on Lê Trực, and a fence round the grounds.
 - The generic mapped building is dropped automatically, because the model covers it (`populate` → `buildingOff`). No older builder drew this place, so no guard was needed.
 
+## Satellite and street-view check (2026-11)
+Checked against Google satellite (z19, z20) and street-level imagery from Lê Trực and Đinh Công Tráng (visual reference only; nothing traced).
+- Hall position and axis already matched (about 1–2 m, about 1.5°). The roof eaves run about 39.5 m along the front, so the end hips now overhang 1.85 m further at each end.
+- The rear annex (OSM 695810709) is a long single-storey wing under a red corrugated two-tier roof with a sun disc and dragon finials; it is now modelled, with a paved court between it and the hall. Brown-tiled two-tier pavilions stand at both ends of it.
+- Annex 695810708 is a long shed under a green corrugated gable roof; now modelled.
+- The Lê Trực front is a moss-grey plinth with an iron railing between ochre piers; the gate piers carry lotus finials and no name board. A small two-tier ticket house stands west of the gate.
+- The back (Đinh Công Tráng) is a plain 2 m concrete wall with barbed wire, standing behind a pavement about 2.5 m wide, so the back edge of the OSM grounds is brought in 2.1 m.
+
 ## What is left
-- Mapped annexes 695810708 and 695810709 (the latter wraps the rear of the hall) are still drawn by the generic building pass, as flat-roofed blocks. Their real form, and whether they are tiled, is not confirmed.
-- The real gate form, the fence type and the positions of the outdoor exhibits need a photo check.
+- The documented length (35.7 m) against the measured eaves (about 39.5 m) is unresolved; the walls keep the documented size.
+- Whether the gate stands exactly on the hall's axis, and the south-west fence side, are not seen in a car pano.
 - Since 2023 there is a plan to move the museum out and return Long An to the heritage site. It does not change the 2026 state.
+
+## Review fixes (Nov 2026)
+
+- Back fence: the concrete wall with barbed wire runs only behind the red annex and the south-west pavilion; from
+  the north-east pavilions to the Đinh Tiên Hoàng corner the back is the street balustrade (car pano at that junction).
+  The wall is about 2.6 m: its top sits at a street-level eye in the Đinh Công Tráng car pano.
+- Rear annex: lower roof broadened into a lean-to skirt, the clerestory reduced to a narrow vented band, the upper
+  roof lowered; ridge about 6.7 m above the court (was about 7.5 m).
+- Green shed (695810708): 10.3 m between the walls, about 11.3 m at the eaves (satellite), length unchanged.
+- Hall front house: the roof is drawn in two tile tiers with a pale cổ diêm band between them, as seen from Lê Trực.
+
