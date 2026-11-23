@@ -1,5 +1,5 @@
 {
-  "_": "Road types by OSM way id (issue #67), read by scripts/build-data.mjs. unmarked-1, unmarked-2, unmarked-3: a carriageway of that many lanes (3.5 m each, plus 0.5 m), drawn without lane dashes or lamps, for the slip roads of junctions and roundabouts. Every highway=*_link way is already laid as unmarked-<its lanes tag> (1 one-way, 2 two-way when untagged); list a way here to give a slip road mapped as an ordinary street a type, `lane` for a village kiệt (3.2 m concrete, class 4: no pavement, kerb, dashes or lamps), or `marked` to keep a link at its class width with its dashes.",
+  "_": "Road types by OSM way id (issue #67), read by scripts/build-data.mjs. unmarked-1, unmarked-2, unmarked-3: a carriageway of that many lanes (3.5 m each, plus 0.5 m), drawn without lane dashes or lamps, for the slip roads of junctions and roundabouts. Every highway=*_link way is already laid as unmarked-<its lanes tag> (1 one-way, 2 two-way when untagged); list a way here to give a slip road mapped as an ordinary street a type, `lane` for a village kiệt (3.2 m concrete, class 4: no pavement, kerb, dashes or lamps), or `marked` to keep a link at its class width with its dashes. A narrow street mapped at its class width takes a type here too: đường Lê Văn Hưu on the Kim Oanh dyke and the north-west bank of hồ Tịnh Tâm (39416158, 1489626239; lane_markings=no) is a 5–7 m lane between the water and the houses (Street View, Nov 2026), not a 6.5 m carriageway with pavements.",
   "ways": {
     "39411183": "lane",
     "39411537": "lane",
@@ -10,6 +10,7 @@
     "39413655": "lane",
     "39413998": "lane",
     "39414195": "lane",
+    "39416158": "unmarked-1",
     "39416404": "lane",
     "39416734": "lane",
     "39416984": "lane",
@@ -35,6 +36,7 @@
     "830996995": "lane",
     "1125138614": "unmarked-2",
     "1317849256": "lane",
+    "1489626239": "unmarked-1",
     "1525454936": "lane",
     "1525454937": "lane",
     "1525454938": "lane",

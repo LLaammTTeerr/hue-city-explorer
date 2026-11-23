@@ -1607,7 +1607,7 @@ function plant(x, z, s, kind) {
   stamp(x, z, 3.2, TREE);
   return true;
 }
-// tree kinds: 0 broadleaf, 1 dark broadleaf, 2 flame tree, 3 hill pine
+// tree kinds: 0 broadleaf, 1 dark broadleaf, 2 flame tree, 3 hill pine (4, a dark broadleaf never drawn as a willow, is only placed by landmark files)
 const hillKind = () => (rnd() < 0.72 ? 3 : rnd() < 0.3 ? 1 : 0);
 const treeKind = (riverish) => { const r = rnd(); return r < (riverish ? 0.09 : 0.035) ? 2 : r < 0.3 ? 1 : 0; };
 for (const g of green) {
