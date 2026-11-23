@@ -405,6 +405,63 @@ export const HERO_MODELS = [
     rotY: 2.2013,
     radius: 280,
   },
+  // Track M: Phố Tây, Kinh Thành, Craft Villages & Perfume River Bridges
+  {
+    id: 'photay',
+    file: 'photay-hero.glb',
+    pos: [734.4, 0, -55.1],
+    rotY: 0,
+    radius: 280,
+  },
+  {
+    id: 'kinhthanh',
+    file: 'kinhthanh-hero.glb',
+    pos: [-1462.0, 0, -686.0],
+    rotY: 0.64,
+    radius: 300,
+  },
+  {
+    id: 'thuyxuan',
+    file: 'thuyxuan-hero.glb',
+    pos: [-2799.31, 0, 3830.72],
+    rotY: -1.4649,
+    radius: 320,
+  },
+  {
+    id: 'phuongduc',
+    file: 'phuongduc-hero.glb',
+    pos: [-2700.04, 0, 1757.56],
+    rotY: -2.9149,
+    radius: 320,
+  },
+  {
+    id: 'sinh',
+    file: 'sinh-hero.glb',
+    pos: [-1215.39, 0, -5841.51],
+    rotY: -0.08,
+    radius: 320,
+  },
+  {
+    id: 'nguyenhoang',
+    file: 'nguyenhoang-hero.glb',
+    pos: [-3101.5, 0, 1501.2],
+    rotY: -1.123,
+    radius: 420,
+  },
+  {
+    id: 'bachho',
+    file: 'bachho-hero.glb',
+    pos: [-1931.53, 0, 943.82],
+    rotY: -1.1063,
+    radius: 420,
+  },
+  {
+    id: 'daVien',
+    file: 'davien-hero.glb',
+    pos: [-1853.3, 0, 1227.9],
+    rotY: 0,
+    radius: 380,
+  },
 ];
 
 // Convert a loaded glTF Mesh to Hue's shared cityMaterial convention (sqrt-encoded linear vertex colors, aKind, aBase).

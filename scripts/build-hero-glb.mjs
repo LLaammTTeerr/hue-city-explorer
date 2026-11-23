@@ -1498,6 +1498,236 @@ function buildGateWatchtowerHero(spec) {
   return scene;
 }
 
+// Build Phố Tây Walking Street hero accent .glb (festive lantern canopy & steel archway at Võ Thị Sáu × Chu Văn An)
+function buildPhoTayHero() {
+  const parts = [];
+  // Four arched wrought-iron festival gateway ribs radiating across the walking-street intersection
+  for (let k = 0; k < 4; k++) {
+    const a = (k * Math.PI) / 2 + 0.35;
+    const ca = Math.cos(a), sa = Math.sin(a);
+    const curve = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(ca * 5.2, 0.2, sa * 5.2),
+      new THREE.Vector3(ca * 5.0, 4.8, sa * 5.0),
+      new THREE.Vector3(ca * 2.4, 6.8, sa * 2.4),
+      new THREE.Vector3(0, 7.3, 0),
+    ]);
+    parts.push(paint(new THREE.TubeGeometry(curve, 14, 0.12, 6, false), 0x363a3e));
+    // Hanging Huế silk lanterns along each catenary rib
+    const cols = [0xd83228, 0xe8b434, 0xf2ece0, 0xe85a2a];
+    for (let j = 1; j <= 4; j++) {
+      const t = j / 5;
+      const pt = curve.getPoint(t);
+      const lan = new THREE.SphereGeometry(0.28, 10, 8);
+      lan.scale(0.85, 1.25, 0.85);
+      lan.translate(pt.x, pt.y - 0.45, pt.z);
+      parts.push(paint(lan, cols[(k + j) % cols.length]));
+    }
+  }
+  // Central gilded lotus-lantern chandelier at the apex of the intersection canopy
+  const crown = new THREE.TorusGeometry(0.95, 0.09, 8, 20);
+  crown.rotateX(Math.PI / 2);
+  crown.translate(0, 7.15, 0);
+  parts.push(paint(crown, 0xe8b83a));
+  parts.push(latheGourd(0, 7.25, 0, 0.72, 0xe8c45e));
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'photay_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Kinh Thành Huế hero accent .glb (ceremonial imperial bronze cauldron & heritage monument obelisk)
+function buildKinhThanhHero() {
+  const parts = [];
+  parts.push(...bronzeCauldron(0, 0.05, 0, 1.35));
+  for (const s of [-1, 1]) {
+    const col = new THREE.CylinderGeometry(0.22, 0.28, 3.6, 8);
+    col.translate(s * 3.2, 1.8, 0);
+    parts.push(paint(col, 0xb8b0a0));
+    parts.push(latheGourd(s * 3.2, 3.6, 0, 0.65, 0xe8c45e));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'kinhthanh_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Làng hương Thủy Xuân hero accent .glb (welcome arch ridge dragons + 6 sculpted rainbow incense bouquets)
+function buildThuyXuanHero() {
+  const parts = [];
+  // Welcome arch crown at y = 6.95 (flanking piers at z = ±6.2)
+  parts.push(latheGourd(0, 6.95, 0, 0.75, 0xe8c45e));
+  parts.push(...sculptedDragon(0, 6.90, 0, 1, 2.2, 0.68));
+  parts.push(...sculptedDragon(0, 6.90, 0, -1, 2.2, 0.68));
+  for (const sz of [-1, 1]) {
+    parts.push(latheGourd(0, 5.85, sz * 6.2, 0.55, 0xe8c45e));
+  }
+  // 6 signature oversized sculpted lotus-fanned rainbow incense bouquets flanking the village arch
+  const colors = [0xd92638, 0xe83e8c, 0xf2b705, 0x7e3ff2, 0x17a589, 0xf37021];
+  for (let i = 0; i < 6; i++) {
+    const side = i < 3 ? -1 : 1;
+    const x = -2.8 + (i % 3) * 2.8, z = side * 7.6;
+    const pts = [
+      [0.02, 0.0], [0.22, 0.05], [0.16, 0.45], [0.35, 0.78], [0.78, 1.18], [0.85, 1.32], [0.55, 1.44], [0.02, 1.48],
+    ].map(([r, y]) => new THREE.Vector2(r, y));
+    const fan = new THREE.LatheGeometry(pts, 16);
+    fan.translate(x, 0.14, z);
+    parts.push(paint(fan, colors[i]));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'thuyxuan_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Làng đúc đồng Phường Đúc hero accent .glb (Ancestral Hall dragons/scrolls + monumental bronze cauldron & bells)
+function buildPhuongDucHero() {
+  const parts = [];
+  // Ancestral Hall roof (ry = 6.10, eave = 3.90, w = 12.6, d = 7.6, over = 0.9)
+  parts.push(latheGourd(0, 6.10, 0, 0.85, 0xe8c45e));
+  parts.push(...sculptedDragon(0, 6.08, 0, 1, 2.8, 0.78));
+  parts.push(...sculptedDragon(0, 6.08, 0, -1, 2.8, 0.78));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 7.2, 3.90, sv * 4.7, su * 0.68, sv * 0.68, 0.80));
+  }
+  // Monumental courtyard cast-bronze cauldron (đỉnh đồng) & twin sculpted Đại Hồng Chung bells (z = 6.6)
+  parts.push(...bronzeCauldron(0, 0.35, 6.6, 1.25));
+  for (const s of [-1, 1]) {
+    const bellPts = [
+      [0.52, 0.25], [0.46, 0.55], [0.42, 1.10], [0.36, 1.45], [0.18, 1.68], [0.08, 1.85], [0.02, 1.95],
+    ].map(([r, y]) => new THREE.Vector2(r, y));
+    const bell = new THREE.LatheGeometry(bellPts, 16);
+    bell.translate(s * 4.4, 0.35, 6.6);
+    parts.push(paint(bell, 0x5c4c36));
+  }
+  // Village craft gate roof finial (z = 8.4, ry = 4.35)
+  parts.push(latheGourd(0, 4.35, 8.4, 0.62, 0xe8c45e));
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'phuongduc_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Làng tranh Sình hero accent .glb (Nhà rường workshop dragons/scrolls + Cổng làng Sình gate ornaments)
+function buildSinhHero() {
+  const parts = [];
+  // Main nhà rường workshop hall (ry = 6.20, eave = 3.80, w = 14.2, d = 7.4, over = 0.9)
+  parts.push(latheGourd(0, 6.20, 0, 0.88, 0xe8c45e));
+  parts.push(...sculptedDragon(0, 6.18, 0, 1, 3.2, 0.80));
+  parts.push(...sculptedDragon(0, 6.18, 0, -1, 3.2, 0.80));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 8.0, 3.80, sv * 4.6, su * 0.68, sv * 0.68, 0.82));
+  }
+  // Cổng làng Sình village tam quan gate (z = -12.3, ry = 4.70, eave = 3.95)
+  parts.push(latheGourd(0, 4.72, -12.3, 0.68, 0xe8c45e));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 2.05, 3.95, -12.3 + sv * 1.0, su * 0.52, sv * 0.52, 0.62));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'sinh_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Cầu Nguyễn Hoàng hero accent .glb (twin 30.6 m crane-arch lotus crowns & golden royal parasol lamp standards)
+function buildNguyenHoangHero() {
+  const parts = [];
+  // Twin sculpted royal golden lotus crowns seated flush atop the 30.6 m arch ribs (x = 0, y = 27.6, z = ±13.0)
+  for (const s of [-1, 1]) {
+    parts.push(latheGourd(0, 27.55, s * 13.0, 1.1, 0xf2c844));
+    const ring = new THREE.TorusGeometry(0.85, 0.11, 8, 20);
+    ring.rotateX(Math.PI / 2);
+    ring.translate(0, 27.78, s * 13.0);
+    parts.push(paint(ring, 0xe8b434));
+  }
+  // 16 sculpted golden royal parasol (lọng vàng) lamp standards with slender golden posts seated on the deck rail
+  for (const s of [-1, 1]) {
+    for (let k = -4; k <= 4; k++) {
+      if (k === 0) continue;
+      const x = k * 18.0;
+      const deckY = 4.0 + 1.8 * (1 - (Math.abs(x) / 175) ** 2);
+      const postH = 5.4;
+      const post = new THREE.CylinderGeometry(0.08, 0.12, postH, 8);
+      post.translate(x, deckY + postH / 2, s * 21.35);
+      parts.push(paint(post, 0xd8a832));
+      const canopy = new THREE.ConeGeometry(0.68, 0.42, 10);
+      canopy.translate(x, deckY + postH + 0.12, s * 21.35);
+      parts.push(paint(canopy, 0xf2c844));
+      const tip = new THREE.SphereGeometry(0.14, 8, 6);
+      tip.translate(x, deckY + postH + 0.44, s * 21.35);
+      parts.push(paint(tip, 0xe8a428));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'nguyenhoang_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Cầu Dã Viên / Bạch Hổ hero accent .glb (4 north-channel yellow-glazed lookout pavilions: spires & scrolls)
+function buildBachHoHero() {
+  const parts = [];
+  // Two pairs of pavilions: at x = 0 (yE1=5.61, yE2=7.46, ry=8.96) and x = 181.8 (yE1=5.55, yE2=7.40, ry=8.90), z = ±15.8
+  for (const [px, y1, y2, ry] of [[0, 5.61, 7.46, 8.96], [181.8, 5.55, 7.40, 8.90]]) {
+    for (const sz of [-1, 1]) {
+      const pz = sz * 15.8;
+      parts.push(latheGourd(px, ry + 0.02, pz, 0.92, 0xf1d77a));
+      for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+        parts.push(cornerScroll(px + su * 2.16, y2, pz + sv * 2.16, su * 0.52, sv * 0.52, 0.62));
+        parts.push(cornerScroll(px + su * 3.20, y1, pz + sv * 3.20, su * 0.62, sv * 0.62, 0.72));
+      }
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'bachho_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Cồn Dã Viên hero accent .glb (1953 41.8 m Water Tower rooftop cupola, beacon mast & cornice finials)
+function buildDaVienHero() {
+  const parts = [];
+  const yTop = 41.8;
+  // Sculpted cylindrical rooftop lantern cupola & aviation beacon mast
+  const cup = new THREE.CylinderGeometry(2.1, 2.35, 1.6, 16);
+  cup.translate(0, yTop + 0.8, 0);
+  parts.push(paint(cup, 0xc8c4ba));
+  const dome = new THREE.SphereGeometry(2.15, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+  dome.scale(1, 0.55, 1);
+  dome.translate(0, yTop + 1.6, 0);
+  parts.push(paint(dome, 0xa8a49c));
+  const mast = new THREE.CylinderGeometry(0.08, 0.14, 3.8, 8);
+  mast.translate(0, yTop + 4.4, 0);
+  parts.push(paint(mast, 0x4c5054));
+  const beacon = new THREE.SphereGeometry(0.24, 10, 8);
+  beacon.translate(0, yTop + 6.4, 0);
+  parts.push(paint(beacon, 0xe84a34));
+  // 16 sculpted concrete parapet urn finials round the 17.6 m tank rim
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2;
+    parts.push(latheGourd(Math.cos(a) * 8.65, yTop + 0.05, Math.sin(a) * 8.65, 0.48, 0xc8c4ba));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'davien_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
@@ -1556,6 +1786,14 @@ for (const [name, buildFn] of [
   ['gate-cuangan-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_cuangan_hero', upper: { w: 4.0, d: 3.6, over: 0.50, y0: 14.80, ry: 15.95 }, lower: { w: 8.5, d: 7.0, over: 0.60, y0: 11.80 } })],
   ['gate-dongba-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_dongba_hero', upper: { w: 4.2, d: 3.4, over: 0.28, y0: 14.25, ry: 14.75 }, lower: { w: 9.6, d: 6.2, over: 0.32, y0: 11.65 } })],
   ['gate-ketrai-hero.glb', () => buildGateWatchtowerHero({ name: 'gate_ketrai_hero', upper: { w: 6.12, d: 4.34, over: 0.68, y0: 14.226, ry: 16.436 }, lower: { w: 9.0, d: 7.0, over: 0.80, y0: 11.15 } })],
+  ['photay-hero.glb', buildPhoTayHero],
+  ['kinhthanh-hero.glb', buildKinhThanhHero],
+  ['thuyxuan-hero.glb', buildThuyXuanHero],
+  ['phuongduc-hero.glb', buildPhuongDucHero],
+  ['sinh-hero.glb', buildSinhHero],
+  ['nguyenhoang-hero.glb', buildNguyenHoangHero],
+  ['bachho-hero.glb', buildBachHoHero],
+  ['davien-hero.glb', buildDaVienHero],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
