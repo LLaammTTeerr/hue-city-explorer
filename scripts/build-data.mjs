@@ -282,6 +282,24 @@ for (const e of els) {
   if (!rings.length) { if (e.type === 'relation') console.warn('unclosed water relation', e.id, t.name); continue; }
   for (const poly of evenOdd(rings)) waterPolys.push(poly);
 }
+// Trấn Bình Đài (Mang Cá), the outwork at the Citadel's north-east corner: its wall pieces are the rings of the Citadel
+// wall relation that lie wholly outside the main rampart's ring, and the fort is the hull of them. A closed military
+// ground: open grass and fish ponds on the satellite (2026-11), no houses, few trees. OSM maps its ponds as plain
+// natural=wetland; three of them are open water on the satellite (the fish-pond strips in the north-west, the round
+// pond in the east and the rectangular one beside it, under floating plants) and are laid as still water. The large
+// oval one (way 174095172) is reed and grass and stays a wetland.
+const FORT_PONDS = new Set([1568327489, 174100376, 174099525]);
+const fortRing = (() => {
+  const rings = stitch(get('relation', 8541343).members.filter((m) => m.type === 'way').map((m) => m.geometry));
+  const main = rings.reduce((a, r) => (Math.abs(ringArea(r)) > Math.abs(ringArea(a)) ? r : a));
+  const fort = rings.filter((r) => r !== main && r.every((p) => !pip(p, main)));
+  return fort.length ? hull(fort.flat()) : null;
+})();
+const inFort = (p) => !!fortRing && pip(p, fortRing);
+for (const e of els) {
+  if (e.type !== 'way' || !FORT_PONDS.has(e.id) || (e.tags || {}).natural !== 'wetland') continue;
+  for (const poly of evenOdd(elementRings(e))) if (poly[0].every(inFort)) waterPolys.push(poly);
+}
 // Hộ Thành Hào along the citadel's west face, from Tây Thành Đài (the west corner) past cửa Chánh Tây to Tây Thành
 // Thủy Quan (where the Ngự Hà enters), is not mapped as water in OSM: the moat on the other faces is, this stretch
 // stops at the wall. It is open water today: the province's 2026 embankment project for it gives "lòng hồ Hộ thành
@@ -401,13 +419,8 @@ for (const poly of wall) fillPoly(poly, NOBUILD);
 for (const poly of wall) for (const r of poly) stampLine(r.concat([r[0]]), 30, NOBUILD);
 fillPoly([imperialRing], NOBUILD);
 { const tm = get('way', 205794912); if (tm) fillPoly([openRing(tm.geometry.map(proj))], NOBUILD); } // no generated houses inside chùa Thiên Mụ
-// no generated houses inside Trấn Bình Đài (Mang Cá): a closed military ground, open grass and fish ponds on the
-// satellite. Its wall pieces are the relation's rings that lie wholly outside the main rampart's ring.
-{
-  const main = wallRings.reduce((a, r) => (Math.abs(ringArea(r)) > Math.abs(ringArea(a)) ? r : a));
-  const fort = wallRings.filter((r) => r !== main && r.every((p) => !pip(p, main)));
-  if (fort.length) fillPoly([hull(fort.flat())], NOBUILD);
-}
+// no generated houses inside Trấn Bình Đài (Mang Cá), see FORT_PONDS
+if (fortRing) fillPoly([fortRing], NOBUILD);
 
 // =====================================================================
 // 3. Green / open land
@@ -419,6 +432,7 @@ for (const e of els) {
   const k = GREEN_KINDS[t.leisure] || GREEN_KINDS[t.landuse] || GREEN_KINDS[t.natural];
   if (!k || e.type === 'node') continue;
   if (t.building) continue;
+  if (FORT_PONDS.has(e.id)) continue; // laid as water
   let polys = evenOdd(elementRings(e));
   if (!polys.length) continue;
   try { polys = pc.intersection(polys.map((p) => p), [slabRect]); } catch { continue; }
@@ -527,8 +541,10 @@ for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
   if (e.id === TT_WAY) continue;
-  const c = ROAD_CLASS[t.highway];
   const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
+  // a closed road (access=no: the dirt track into Trấn Bình Đài, and its way on through Trấn Bình Môn's 2 m passage)
+  // is laid at the service width, without kerbs; its bridge keeps its class
+  const c = t.highway === 'unclassified' && t.access === 'no' && !tagged ? ROAD_CLASS.service : ROAD_CLASS[t.highway];
   for (const line of clipLine(e.geometry.map(proj))) {
     const pts = clearMonuments(line, c);
     if (pts !== line) nCleared++;
@@ -1473,6 +1489,7 @@ for (const g of green) {
   const far = inHills(g.p[0][0]);
   const spacing = g.k === 'wood' ? (far ? 19 : 9) : g.k === 'park' ? 13 : g.k === 'cemetery' ? 22 : g.k === 'sacred' ? 16 : g.k === 'grass' ? 24 : 0;
   if (!spacing) continue;
+  if (g.k === 'grass' && inFort(g.p[0][0])) continue; // the fort's open ground
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const p of g.p[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
   const n = Math.min(far ? 900 : 2500, Math.round(((x1 - x0) * (z1 - z0)) / (spacing * spacing)));
@@ -1511,7 +1528,7 @@ for (const road of roads) {
     if (m & (TBLOCK | GREEN)) continue;
     const cit = inCitadel(p);
     const imp = cit && inImperial(p);
-    if (m & NOBUILD && !imp && !cit) continue;
+    if (m & NOBUILD && !imp && (!cit || inFort(p))) continue; // the Citadel's hull takes in Trấn Bình Đài: open ground
     if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : inVillages(p) ? 0.2 : 0.26)) continue;
     plant(p[0], p[1], rr(0.7, 1.35), inHills(p) && rnd() < 0.5 ? 3 : treeKind(false));
   }
