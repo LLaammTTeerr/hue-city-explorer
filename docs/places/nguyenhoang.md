@@ -46,7 +46,10 @@ Model: `src/landmarks/places/nguyenhoang.js` (id `nguyenhoang`). It replaces `bu
 - **Axis:** the deck edges run at 154.3°, parallel to the OSM outline.
 - **Position:** the deck sits ~1.5 m east-north-east of the OSM outline (deck edges and both ribs, corrected for the image's lean on tall things). The OSM streets at both ends share the offset, so the model stays on the outline: moving the bridge alone opens a seam at both street joints.
 - **Ribs:** parallel, not leaning inward; they cross the deck at about −76 and +82 m.
-- **Wings:** at each corner a 3.6 m walkway ramp leaves the outer edge (118 m from the middle at the north end, 128 m at the south), runs beside the deck and splays out ~20° over 42–44 m to a round terrace on the bank (~18 m across). The model matches them to within ~1–2 m. The south-west terrace is drawn 15 m across so it stays off the mapped riverside street.
+- **Wings:** at each corner a 3.8–4.4 m walkway branches off the outer walkway and peels away in one smooth curve: its outer edge already stands +0.8 m beyond the deck's edge at 95 m from the middle, +2 m at 105 m, +4 m at 115 m, and the water opens between wing and deck at ~118–120 m (north) and ~128–130 m (south). From there the wing's centreline runs 4.2, 5.5, 6.9, 8.5, 10.1, 11.9 m off the deck edge at 125–150 m and comes down over 42–44 m to its terrace. The model draws the wing 4.4 m wide with that peel.
+- **Terraces:** a pink-paved disc ~10–11 m in radius inside a white rim, ~25 m across in all, rounded toward the river and joined to the bank's paving and promenade on the land side. The model draws each one up to 12.5 m round its centre, cut back where a mapped street or building comes closer, with a white parapet only where its rim stands over the water or a drop.
+- **No mid-span bulge:** the bright deck measures 43.3 m across at every point from −90 to +90 m (west edge ~+17.5, east edge ~−25.8 in the image's leaning frame); it only widens beyond ~90 m where the wings peel off. A 49 m reading at mid-span includes the deck's black shadow on the water.
+- **Rib lean:** on z20 the two ribs stand 25.9, 26.1, 26.1 and 26.0 m apart at −60, −30, 0 and +60 m, while their apparent centre moves east with height exactly as the image's lean does (−4.1 m at 10 m up, −7.7 m at 30 m). Constant spacing means upright ribs; the diamond seen from above is their sun shadows. The model keeps them upright (the owner may still overrule from a photograph).
 
 ## What changed
 - **Arch:** the old model put one arch over a single ~70 m span. It now spans the 180 m channel and continues below the deck to yellow V piers in the river.
@@ -58,6 +61,6 @@ Model: `src/landmarks/places/nguyenhoang.js` (id `nguyenhoang`). It replaces `bu
 ## Left
 - The real span lengths, deck levels and lamp positions need the design drawings.
 - The approach viaducts beyond the 350 m main bridge are drawn as short ramps onto the OSM streets.
-- The walkway under the bridge is not modelled. The wing levels, the terrace heights and the column spacing are estimates.
+- The walkway under the bridge, the stepped amphitheatre on the north-west bank and the riverside promenade on the south-east are not modelled (the north terraces stand where the deck is still on its abutment, so a path under it needs the abutment opened; the amphitheatre and promenade need a bank-landscaping builder outside this place). The wing levels, the terrace heights and the column spacing are estimates.
 - The satellite shows dark slots and grid strips beside the carriageway. They were read as rib shadows and are not modelled.
 - The OSM roundabout at the south end sits ~8.6 m south of Google's. That is road data, not this place.

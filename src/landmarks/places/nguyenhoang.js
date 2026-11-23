@@ -22,8 +22,10 @@ import { LAND_Y, PAL, roadWidth } from '../../config.js';
 // light grey deck fascia; white railings. (The photo seemed to show the ribs leaning slightly toward each other; the satellite shows them upright.)
 // Read from the satellite (docs/places/nguyenhoang.md, 2026 rebuild): the deck 43.5 m wide on the OSM axis; the two
 // ribs stand 26 m apart from end to crown (upright, not leaning in) and come up through the deck ~159 m apart; at each
-// end two slender walkway ramps ("wings") leave the deck's outer edges, splay out ~20° and come down to round paved
-// terraces on the river banks.
+// end a broad walkway ("wing", 4.4 m) peels off each outer edge in one smooth curve (the edge starts to bend out
+// ~30 m before the water opens between them), splays out ~20° and comes down to a round paved terrace ~25 m across
+// that runs up against the bank's streets and buildings. The deck keeps one width (43.3 m) along the whole span:
+// there is no bulge at mid-span.
 // Estimated: span lengths 30 + 30 + 228 (174 between the V footings) + 30 + 30, the cross-section split, the deck
 // rise (6.6 m at the ends, 8.4 m at mid-span), rib section, hanger spacing, lamps on the rib strip, the wings' levels.
 export const id = 'nguyenhoang';
@@ -32,9 +34,10 @@ const L = 350, HW = 21.5; // length, half width
 const V_MED = 1.0, V_CAR = 11.5, V_RIB = 13, V_STRIP = 14.5, V_MOTO = 18, V_RAIL = 21.35;
 const Y_END = 6.6, Y_MID = 8.4; // deck surface at the abutments and at mid-span (river at y = 0)
 const FOOT = 87, Y_SPRING = 1.2, Y_CROWN = 30.6; // arch: springing at the V footing (ribs clear the deck at ±80), crown
-// the wings (north end, south end): where each leaves the deck (|s|), its length along the bridge, the gap in the deck's
-// railing where it leaves, its width, the terrace's radius
-const WING_S = [118, 128], WING_L = [42, 44], WING_OPEN = 8, WING_W = 3.6, PLAZA_RN = 9, PLAZA_RSW = 7.5;
+// the wings (north end, south end): where the water opens between wing and deck (|s|), the wing's length along the
+// bridge from there, its width, the terrace's radius (it stops short of streets and buildings)
+const WING_S = [118, 128], WING_L = [42, 44], WING_W = 4.4, PLAZA_R = 12.5;
+const PEEL = 30, WING_GATE = 2; // the wing's outer edge leaves the deck's PEEL m before WING_S; the water opens WING_GATE m after it
 const V_TOP = 114, PIER = 144, RAMP = 46, TRANS = 24; // TRANS: the last stretch, where the bands meet the street's
 
 // The deck's frame (s along the bridge, t across it) and where it comes down to the street: the first mapped
@@ -247,7 +250,7 @@ export function build({ data, S, group }) {
 
   // ---- railings: white steel, posts every 2.5 m, top and bottom rails and a mid rail (the lotus panels); open
   // where a wing leaves the deck
-  const gate = (s) => { const a = Math.abs(s) - WING_S[s < 0 ? 0 : 1]; return a > -0.5 && a < WING_OPEN; };
+  const gate = (s) => { const a = Math.abs(s) - WING_S[s < 0 ? 0 : 1]; return a > -PEEL - 0.5 && a < WING_GATE; };
   for (const side of [-1, 1]) {
     const t = side * V_RAIL;
     for (let s = -ends[0] + 1; s <= ends[1] - 1; s += 2.5) {
@@ -263,60 +266,125 @@ export function build({ data, S, group }) {
     }
   }
 
-  // ---- the wings: a walkway ramp leaves each outer edge near both ends, running beside the deck at first and
-  // splaying out ~20° (t = 23.3 + 0.25 d + 0.0021 d², d metres along the bridge from where it leaves), down to a round
-  // terrace on the bank. 3.6 m wide, granite paving, white railings, round grey columns where it stands clear.
+  // ---- the wings: at each corner a broad walkway branches off the deck's outer walkway and sweeps down to a terrace
+  // on the bank. Its outer edge starts to curve away from the deck PEEL m before the water opens between them (at
+  // WING_S), so the wing peels off in one smooth curve; from there it runs on its own, 4.4 m wide, splaying out
+  // (centreline t = 23.3 + 0.25 d + 0.0021 d², d metres along the bridge from WING_S) and down to the terrace.
+  // Granite paving, white railings, round grey columns where it stands clear.
+  // The bank's streets (carriageways) and mapped buildings near a terrace: the terrace stops short of them
+  const streets = [];
+  for (const r of data.roads || []) {
+    const [cls, br, f] = r;
+    if (br || cls > 3) continue;
+    for (let k = 0; k + 3 < f.length; k += 2) streets.push([f[k] / 10, f[k + 1] / 10, f[k + 2] / 10, f[k + 3] / 10, roadWidth(r) / 2]);
+  }
+  const segDist = (x, z, ax, az, bx, bz) => {
+    const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz || 1, k = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L2));
+    return Math.hypot(x - ax - dx * k, z - az - dz * k);
+  };
+  const houses = (data.bld || []).map((b) => (Array.isArray(b[0]) ? b[0] : b)).filter((f) => Array.isArray(f) && typeof f[0] === 'number');
+  const around = (p, R) => ({
+    st: streets.filter((q) => segDist(p[0], p[1], q[0], q[1], q[2], q[3]) < R + q[4] + 1),
+    hs: houses.filter((f) => { for (let k = 0; k < f.length; k += 2) if (Math.hypot(f[k] / 10 - p[0], f[k + 1] / 10 - p[1]) < R + 40) return true; return false; }),
+  });
+  const inPoly = (x, z, f) => { let ins = false; for (let i = 0, j = f.length - 2; i < f.length; j = i, i += 2) { const xi = f[i] / 10, zi = f[i + 1] / 10, xj = f[j] / 10, zj = f[j + 1] / 10; if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) ins = !ins; } return ins; };
+  const clearAt = (s, t, nb) => {
+    if (Math.abs(t) < HW + 0.5) return false; // the deck and its ramp
+    const [x, z] = xz(s, t);
+    for (const q of nb.st) if (segDist(x, z, q[0], q[1], q[2], q[3]) < q[4] + 0.3) return false;
+    for (const f of nb.hs) { if (inPoly(x, z, f)) return false; for (let i = 0, j = f.length - 2; i < f.length; j = i, i += 2) if (segDist(x, z, f[j] / 10, f[j + 1] / 10, f[i] / 10, f[i + 1] / 10) < 0.6) return false; }
+    return true;
+  };
+  const terraces = [];
+  const W2 = WING_W / 2;
   for (const e of [-1, 1]) for (const side of [-1, 1]) {
     const i = (e + 1) / 2, sA = WING_S[i], Lw = WING_L[i];
-    // the south-west terrace stops short of the riverside street (OSM) that skirts its outer edge
-    const PLAZA_R = e > 0 && side > 0 ? PLAZA_RSW : PLAZA_RN;
     const tc = (d) => 23.3 + 0.25 * d + 0.0021 * d * d, slope = (d) => 0.25 + 0.0042 * d;
-    // centre and unit normal in (s, t)
-    const pt = (d, off = 0) => { const k = slope(d), n = Math.hypot(1, k); return [e * (sA + d) - e * k * off / n, side * tc(d) + side * off / n]; }; // off > 0 outward
-    const end = pt(Lw), k1 = slope(Lw), n1 = Math.hypot(1, k1);
-    const pc = [end[0] + e * (PLAZA_R + 0.5) / n1, end[1] + side * k1 * (PLAZA_R + 0.5) / n1];
-    const ring = [];
-    for (let j = 0; j < 28; j++) { const a = (2 * Math.PI * j) / 28; ring.push([pc[0] + Math.cos(a) * PLAZA_R, pc[1] + Math.sin(a) * PLAZA_R]); }
-    const yP = Math.max(...ring.map(([s, t]) => ground(s, t)), ground(pc[0], pc[1])) + 0.25;
+    // a point on the free wing, off its centreline (off > 0 outward), in (s, t)
+    const pt = (d, off = 0) => { const k = slope(d), n = Math.hypot(1, k); return [e * (sA + d) - e * k * off / n, side * tc(d) + side * off / n]; };
+    // the terrace's centre: where the satellite shows it, on the wing's line beyond its end
+    const end = pt(Lw), k1 = slope(Lw), n1 = Math.hypot(1, k1), off0 = e > 0 && side > 0 ? 8 : 9.5;
+    const pc = [end[0] + e * off0 / n1, end[1] + side * k1 * off0 / n1];
+    // the terrace: up to PLAZA_R round its centre, pulled in where a street, a building or the deck comes closer, so it
+    // runs up against the bank's paving and streets as the satellite shows rather than standing on its own
+    const nb = around(xz(...pc), PLAZA_R);
+    const NR = 48, radii = [];
+    for (let j = 0; j < NR; j++) {
+      const a = (2 * Math.PI * j) / NR, ca = Math.cos(a), sa = Math.sin(a);
+      let r = 0;
+      while (r < PLAZA_R && clearAt(pc[0] + ca * (r + 0.25), pc[1] + sa * (r + 0.25), nb)) r += 0.25;
+      radii.push(Math.max(3, r));
+    }
+    const ring = radii.map((r, j) => { const a = (2 * Math.PI * j) / NR; return [pc[0] + Math.cos(a) * r, pc[1] + Math.sin(a) * r]; });
+    const yP = Math.max(ground(pc[0], pc[1]), ...ring.filter((_, j) => j % 2 === 0).map(([s, t]) => ground(s, t) - 0.35)) + 0.25;
+    // where the wing reaches the terrace's floor
+    const inside = (d) => { const [s, t] = pt(d), a = Math.atan2(t - pc[1], s - pc[0]), j = Math.round((((a / (2 * Math.PI)) * NR) % NR + NR) % NR) % NR; return Math.hypot(s - pc[0], t - pc[1]) < radii[j] - 0.8; };
+    let dIn = Lw;
+    for (let d = 0; d < Lw + off0; d += 0.5) if (inside(d)) { dIn = d; break; }
     const y0 = top(e * sA) + 0.2;
-    const yw = (d) => y0 + (yP - y0) * (1 - Math.cos(Math.PI * Math.min(1, d / Lw))) / 2;
+    const yw = (d) => (d < 0 ? top(e * (sA + d)) + 0.2 : y0 + (yP - y0) * (1 - Math.cos(Math.PI * Math.min(1, d / dIn))) / 2);
+    // the wing's two edges at d: before WING_S the inner one is the deck's edge and the outer one curves out to meet
+    // the free wing's; after it the inner one leaves the deck's edge where the water opens
+    const o0 = pt(0, W2), F0 = side * o0[1] - HW, dS0 = sA - e * o0[0];
+    const edgesAt = (d) => {
+      if (d < 0) {
+        const q = (d + PEEL) / PEEL, f = F0 * q ** 1.6;
+        return [[e * (sA + d), side * HW], [e * (sA + d - dS0 * q), side * (HW + f)]];
+      }
+      const I = pt(d, -W2);
+      if (side * I[1] < HW) I[1] = side * HW;
+      return [I, pt(d, W2)];
+    };
     const ds = [];
-    for (let d = 0; d < Lw; d += 2) ds.push(d);
-    ds.push(Lw + 0.6); // into the terrace's edge
-    const W2 = WING_W / 2;
+    for (let d = -PEEL; d < 0; d += 2) ds.push(d);
+    for (let d = 0; d < dIn; d += 2) ds.push(d);
+    ds.push(dIn + 0.8); // into the terrace's floor
+    S.kind = KIND.PLAIN;
     for (let j = 0; j + 1 < ds.length; j++) {
-      const a = ds[j], b = ds[j + 1], ya = yw(a), yb = yw(b);
-      const A0 = pt(a, -W2), A1 = pt(a, W2), B0 = pt(b, -W2), B1 = pt(b, W2);
+      const a = ds[j], b = ds[j + 1], ya = yw(a), yb = yw(Math.min(b, dIn));
+      const [A0, A1] = edgesAt(a), [B0, B1] = edgesAt(b);
       S.kind = KIND.ROAD;
       S.quad(at(...A0, ya), at(...A1, ya), at(...B1, yb), at(...B0, yb), granite, [0, 1, 0]);
       S.kind = KIND.PLAIN;
       S.quad(at(...A0, ya - 0.9), at(...B0, yb - 0.9), at(...B1, yb - 0.9), at(...A1, ya - 0.9), under, [0, -1, 0]);
-      for (const [P, Q] of [[A0, B0], [A1, B1]]) S.quad(at(...P, ya - 0.9), at(...Q, yb - 0.9), at(...Q, yb + 0.1), at(...P, ya + 0.1), fascia, [0, 0.1, 0]);
-      // railings on both edges; the inner one starts where the wing has left the deck
-      for (const off of [-W2 + 0.1, W2 - 0.1]) {
-        const inner = off < 0;
-        if (inner && a < WING_OPEN) continue;
-        const P = pt(a, off), Q = pt(b, off);
-        if (b <= Lw) S.box(...xz(...P), ya, ya + 1.1, 0.12, 0.12, ang, rail);
+      S.quad(at(...A1, ya - 0.9), at(...B1, yb - 0.9), at(...B1, yb + 0.1), at(...A1, ya + 0.1), fascia, [0, 0.1, 0]);
+      if (a >= WING_GATE) S.quad(at(...A0, ya - 0.9), at(...B0, yb - 0.9), at(...B0, yb + 0.1), at(...A0, ya + 0.1), fascia, [0, 0.1, 0]);
+      // railings: along the outer edge all the way, along the inner edge once the water opens
+      if (b > dIn) continue;
+      const rails = [[A1, B1, -0.1]];
+      if (a >= WING_GATE) rails.push([A0, B0, 0.1]);
+      for (const [P0, Q0, inset] of rails) {
+        const P = [P0[0], P0[1] + side * inset], Q = [Q0[0], Q0[1] + side * inset];
+        S.box(...xz(...P), ya, ya + 1.1, 0.12, 0.12, ang, rail);
         for (const h of [1.08, 0.55]) S.beam(at(...P, ya + h), at(...Q, yb + h), 0.1, 0.1, rail);
       }
     }
     // columns under the free part
-    for (let d = 7; d < Lw - 3; d += 9) {
+    for (let d = 7; d < dIn - 3; d += 9) {
       const y = yw(d), [s, t] = pt(d);
-      if (y - 0.9 > ground(s, t) + 0.6) { const p = xz(s, t); S.cyl(p[0], p[1], -2, y - 0.9, 0.5, 0.5, 8, concrete, { cap: false }); }
+      if (y - 0.9 > ground(s, t) + 0.6) { const p = xz(s, t); S.cyl(p[0], p[1], -2, y - 0.9, 0.55, 0.55, 8, concrete, { cap: false }); }
     }
-    // the terrace: a round granite floor with a white rim, open where the wing comes in
+    // the terrace: granite floor, a white parapet where its edge stands over the river or a drop, open to the bank's
+    // paving elsewhere and where the wing comes in
+    const n0 = S.n;
     S.prism(ring.map(([s, t]) => xz(s, t)), -1.5, yP, concrete, granite);
-    const inA = Math.atan2(end[1] - pc[1], end[0] - pc[0]);
-    for (let j = 0; j < 28; j++) {
-      const a0 = (2 * Math.PI * j) / 28, a1 = (2 * Math.PI * (j + 1)) / 28, am = (a0 + a1) / 2;
-      if (Math.abs(Math.atan2(Math.sin(am - inA), Math.cos(am - inA))) < 0.45) continue;
-      const r = PLAZA_R - 0.15;
-      S.beam(at(pc[0] + Math.cos(a0) * r, pc[1] + Math.sin(a0) * r, yP + 0.45), at(pc[0] + Math.cos(a1) * r, pc[1] + Math.sin(a1) * r, yP + 0.45), 0.3, 0.9, rail);
+    S.kind = KIND.PLAIN;
+    const inA = Math.atan2(pt(dIn)[1] - pc[1], pt(dIn)[0] - pc[0]);
+    for (let j = 0; j < NR; j++) {
+      const j1 = (j + 1) % NR, am = (2 * Math.PI * (j + 0.5)) / NR;
+      if (Math.abs(Math.atan2(Math.sin(am - inA), Math.cos(am - inA))) < 0.3) continue;
+      const P = ring[j], Q = ring[j1], rm = (radii[j] + radii[j1]) / 2;
+      // outside the edge: lower ground (or water) by more than a step, and the edge is the round rim, not a street's kerb
+      const o = [pc[0] + Math.cos(am) * (rm + 1.2), pc[1] + Math.sin(am) * (rm + 1.2)];
+      if (rm < PLAZA_R - 0.3 || ground(...o) > yP - 0.6) continue;
+      const k = 0.15 / Math.max(radii[j], 1);
+      S.beam(at(P[0] + (pc[0] - P[0]) * k, P[1] + (pc[1] - P[1]) * k, yP + 0.45), at(Q[0] + (pc[0] - Q[0]) * k, Q[1] + (pc[1] - Q[1]) * k, yP + 0.45), 0.3, 0.9, rail);
     }
+    (S.paved = S.paved || []).push([n0, S.n]);
+    terraces.push({ e, side, pc, yP });
   }
   S.kind = KIND.PLAIN;
+
 
   // ---- "lọng" lamps: 60 golden parasols on the rib strips, 15 to a row, rising from 4.6 m at the bridge ends to
   // ~14.2 m beside the arch, so their heads run on into the arch's curve
