@@ -54,9 +54,12 @@ the site through the scaffold's generic `replaced(id)` guard.
   - Hall heights and roof pitches.
   - The sizes of the middle and inner Bửu Thành walls.
   - The heights of the stele house and the trụ biểu, from the photo.
-- Statues: 6 mandarins, 1 horse and 1 elephant a side.
-- The lane from the north meets the stele court at grade; the court is cut back there, at s 44.5–50.
-- A lawn layer covers the open precinct between the temple, the pond and the tomb. It keeps village houses out; the lanes and the pond are left open. Its extent is estimated.
+- Statues: one row a side at t ±11.5, an elephant, a horse and 3 mandarins (about 2 m on their plinths), read from the satellite and the photo from the court west of the stele house.
+- The lane from the north meets the stele court at grade; the court is cut back there, at s 44.5–50, and the north trụ biểu stands 0.5 m west of the south one. That lane is OSM way 1075020923 (highway=unclassified, surface=paving_stones), drawn about 8–10 m wide from the pond to the stele court's north side; the photos show no such road into the court. It should be fixed in the OSM extract or the road builder (owner's call), after which the cut-back and the shift can go.
+- No lawn layer: the precinct is the terrain's own ground with its trees. Generated village houses are kept out of the grounds at the data stage (`scripts/build-data.mjs`, after the infill pass, so trees and houses elsewhere are unchanged).
+- An earth bank against the temple wall's low sides, up to 0.6 m under the court and running out at 1:3, so the wall and its foot stand about 3 m over the grass as in Street View from the road. Its slope is estimated.
+- The stele house: dark grey cement with pale panels, a lower roof with curled corners, a panelled attic and a small upper roof with a finial; about 7.2 m square and 9.5 m to the finial, on a 0.85 m terrace with an openwork balustrade and three steps each end. Proportions from the photo.
+- The half-moon pond's stone embankment, about 0.6 m over the water.
 - The family grave plots ('h' items) and the two small outbuildings are drawn simply from their OSM outlines.
 
 ## What changed
@@ -74,5 +77,6 @@ the site through the scaffold's generic `replaced(id)` guard.
 
 ## What is left
 - The pháp lam (glazed enamel) ridge decoration, roof finials, and the dragon carving on the stair cheeks.
-- Pine trees in the precinct: the lawn layer counts as paved, so populate keeps trees off it.
+- The temple wall's west corner is skewed by about 6 m on the satellite; the model draws it square.
+- From the road the temple courts sit about 1–2 m higher over the eye than in the photo (levels from the terrain's highest point).
 - The half-moon pond is drawn by the water layer from the OSM outline, which is a rough polygon rather than a clean crescent.

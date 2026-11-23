@@ -1445,6 +1445,15 @@ for (const road of roads) {
     }
   }
 }
+// Lăng Đồng Khánh's grounds, from the temple and the planted lawn east of its wall out to the west kerb of Đoàn Như Hài,
+// south past the half-moon pond and west over the tomb: no generated houses (the satellite and Street View show only
+// trees and grass there). Dropped after placing, so the rest of the city's houses and trees come out as before.
+{
+  const DK = [[-2215, 4200], [-2003, 4200], [-1982, 4292], [-1979, 4306], [-1972, 4331], [-1958, 4371], [-1960, 4395], [-2215, 4410]];
+  let w = 0;
+  for (let i = 0; i < infill.length; i += 8) if (!pip([infill[i] / 10, infill[i + 1] / 10], DK)) for (let k = 0; k < 8; k++) infill[w++] = infill[i + k];
+  infill.length = w;
+}
 console.log('infill houses', infill.length / 8);
 
 // =====================================================================
