@@ -36,3 +36,35 @@ Replica id `thuytien`. Code: `src/landmarks/places/thuytien.js`, a thin entry th
 - It is unconfirmed whether the slides, stands and other derelict blocks survived the 2024–25 asset-auction dismantling. They are kept as ruins.
 - The granite path is not modelled as its own surface; the existing OSM footways stand in for it.
 - The aquarium interior (ribcage-like structure) is not modelled.
+
+## Satellite and Street View alignment (2026 rebuild)
+Checked against Google satellite (zoom 17-20) and the Street View photospheres available (most car panos here render
+black; the two user photospheres were used for layout only). Visual reference only; nothing traced.
+- Position: the mapped aquarium disc, its three footbridges, the aqua-park pools, the peninsula and the entrance plazas
+  all sit within ~1-2 m of the satellite. No data change was needed.
+- Dragon: the head rears to the north (bearing ~353°), ~23 m out from the drum's axis, where the satellite shows the
+  round head with its radiating mane. It had been aimed at the lake's centroid, ~45° further west, and ~4 m shorter.
+- Amphitheatre: the mapped grandstand and show pool are a bare sandy clearing with grey slab scraps on the 2026
+  satellite (the 2024-25 clean-up). The seats and stage are no longer drawn; the clearing is. The OSM show-pool water
+  polygon (way 1453753909) is skipped by the data build (`DRY_WATER`), so the pool is dry ground as on the satellite.
+- Plazas: the round plaza east of the entrance (OSM 493380761) is three concentric grey paved rings with grass between;
+  the entrance plaza's pavers are weathered terracotta (2025 photosphere).
+
+## Review fixes (2026 rebuild, second pass)
+Checked against the same satellite captures and the user photospheres (layout only; poses estimated, nothing moved to fit).
+- Data build: the dragon's island is cut from the lake by `scripts/build-data.mjs` (round landing, the paved lobe to the
+  NE, the neck and the round deck under the head; open water elsewhere), and the dry show pool is skipped.
+  `data/road-types.json` gives the four park roads their satellite width (7.5 m, `unmarked-2`).
+- Aqua park: the lazy river (3.2 m channel, blue-tiled) runs round the west and north of the big pool, with an arched
+  timber railed footbridge; brick paths follow it and the south edge; pools have blue-tiled copings and a pale apron
+  (the small pool is round, not octagonal); royal palms in rows along the river and pools, fan palms under them, on a
+  grass and earth ground kept clear of the generic pines.
+- Slide tower: tree-trunk concrete columns, terracotta deck, corrugated pitched roof on timber trusses, timber railings,
+  a tiled start basin with a round tub, a switchback stair, and one dark-green tube down to a small landing house at
+  the big pool's east edge; the long open flumes are gone; the canopy between the tower and the pool is kept.
+- Entrance plaza: concentric bands (planted centre, weathered pavers, a grass ring with trees, the ring road), timber
+  bollards and low stone sculptures instead of pillars and lamp posts; no lake lamps on the plazas.
+- Dragon: the tail ends on the platform; the head sits ~23 m out over its round deck, a round cranium with a radiating
+  gold mane, so it reads round from above.
+- Amphitheatre shore: two rows of royal palms along the water.
+- Still unconfirmed: heights (every car pano here renders black), so the tower and dragon heights stay estimates.
