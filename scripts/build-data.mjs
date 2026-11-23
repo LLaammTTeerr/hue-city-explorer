@@ -401,6 +401,14 @@ for (const poly of wall) fillPoly(poly, NOBUILD);
 for (const poly of wall) for (const r of poly) stampLine(r.concat([r[0]]), 30, NOBUILD);
 fillPoly([imperialRing], NOBUILD);
 { const tm = get('way', 205794912); if (tm) fillPoly([openRing(tm.geometry.map(proj))], NOBUILD); } // no generated houses inside chùa Thiên Mụ
+// Cồn Dã Viên is a park round the 1953 water plant, with no houses (satellite and Street View); its one service road
+// would otherwise be lined with generated ones. The island is the land ring holding the water tower (way 1189213110).
+{
+  const wt = get('way', 1189213110);
+  const c = wt && areaCentroid(openRing(wt.geometry.map(proj)));
+  const dv = c && land.find((p) => Math.abs(ringArea(p[0])) < 5e5 && pip(c, p[0]));
+  if (dv) fillPoly(dv, NOBUILD); else console.warn('Cồn Dã Viên: island ring not found, generated houses may stand on it');
+}
 
 // =====================================================================
 // 3. Green / open land
@@ -559,7 +567,7 @@ for (const e of els) {
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
     const lanes = unmarkedLanes(e);
-    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: kiet ? KIET_W : lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
+    roads.push({ c, bridge, ...(tagged && !bridge ? { dry: 1 } : {}), name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: kiet ? KIET_W : lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges, '| streets moved off monument walls:', nCleared);
@@ -1580,7 +1588,12 @@ for (const road of roads) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
         // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
         // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
-        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) { const s0 = Math.round(rr(0.75, 1.15) * 10), k0 = treeKind(false); if (!cleared(x, z)) trees.push(q(x), q(z), s0, k0); stamp(x, z, 3, TREE); }
+        // no avenue on a bridge way laid at grade (road.dry): it stands for a deck (cầu Dã Viên over its islet runs ~9 m
+        // up), and nothing lines a deck; the stride is still drawn so the random stream, and every tree after, is unchanged
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) {
+          const sc = Math.round(rr(0.75, 1.15) * 10), kind = treeKind(false);
+          if (!road.dry) { if (!cleared(x, z)) trees.push(q(x), q(z), sc, kind); stamp(x, z, 3, TREE); }
+        }
         s += rr(13, 20);
       }
       s -= len;
