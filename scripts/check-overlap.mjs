@@ -9,6 +9,7 @@
 // Run: npm run check:overlap   (--all also lists what stays under the limits)
 import { buildScene } from './lib/scene.mjs';
 import { owns as dainoiOwns } from '../src/landmarks/places/dainoi.js';
+import { placeOwns } from '../src/landmarks/places/index.js';
 
 const TOL = 0.5; // a face this far inside the carriageway's edge counts (kerbs, gate piers at the edge pass)
 const ROAD_LO = 0.15, ROAD_HI = 5.0; // above this the face is overhead (an arch, a roof over the street)
@@ -43,7 +44,7 @@ const raster = [];
 for (const s of sources) {
   if (skip.has(s.name) || s.range[1] <= s.range[0]) continue;
   const cells = new Map(), kinds = new Map(), P = S.pos, K = S.knd;
-  const fine = new Map(); // cell -> the lowest upward face over the ground at each of its SUB x NB points (as cells does per cell)
+  const fine = new Map(); // cell -> the highest upward face over the ground at each of its SUB x NB points (cells keeps the lowest, for road clearance under arches)
   for (let i = s.range[0]; i + 2 < s.range[1]; i += 3) {
     if (noCover.some(([f, t]) => i >= f && i < t)) continue;
     const k = i * 3;
@@ -64,8 +65,8 @@ for (const s of sources) {
         const px = ix + SUB[si][0] + NB[ni][0], pz = iz + SUB[si][1] + NB[ni][1];
         const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
         if (!(l1 >= -1e-9 && l2 >= -1e-9 && 1 - l1 - l2 >= -1e-9)) continue;
-        if (!f) { const c = key(ix, iz); f = fine.get(c); if (!f) fine.set(c, (f = new Float32Array(SUB.length * NB.length).fill(Infinity))); }
-        const b = si * NB.length + ni; if (up < f[b]) f[b] = up;
+        if (!f) { const c = key(ix, iz); f = fine.get(c); if (!f) fine.set(c, (f = new Float32Array(SUB.length * NB.length).fill(-Infinity))); }
+        const b = si * NB.length + ni; if (up > f[b]) f[b] = up;
       }
       for (const [ox, oz] of SUB) {
         const px = ix + ox, pz = iz + oz;
@@ -80,7 +81,7 @@ for (const s of sources) {
   }
   const raised = new Map(), tallDeep = new Map();
   for (const [c, f] of fine) {
-    let br = 0, bt = 0; f.forEach((u, b) => { if (u === Infinity) return; if (u >= RAISED) br |= 1 << b; if (u >= 0.7) bt |= 1 << b; });
+    let br = 0, bt = 0; f.forEach((u, b) => { if (u === -Infinity) return; if (u >= RAISED) br |= 1 << b; if (u >= 0.7) bt |= 1 << b; });
     const mr = deepMask(br), mt = deepMask(bt); if (mr) raised.set(c, mr); if (mt) tallDeep.set(c, mt);
   }
   if (cells.size) raster.push({ name: s.name, cells, kinds, raised, tallDeep }); // raised/tallDeep: cell -> SUB points deep in the source
@@ -259,6 +260,7 @@ const tallHits = (ix, iz, inside) => { // [[source name, SUB points inside and d
   let cx = 0, cz = 0; for (const p of ring) { cx += p[0]; cz += p[1]; } cx /= ring.length; cz /= ring.length;
   if (cover.hit(cx, cz) && ring.filter((q) => cover.hit(cx + (q[0] - cx) * 0.8, cz + (q[1] - cz) * 0.8)).length >= ring.length * 0.7) return; // dropped
   if (b[2] === 2 && dainoiOwns(ring)) return;
+  if (placeOwns(ring)) return;
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const p of ring) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
   const by = new Map();

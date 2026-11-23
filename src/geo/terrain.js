@@ -115,9 +115,16 @@ export function baseUnder(ring) {
 export function drape(pts, maxLen = 7) {
   if (!T) return pts;
   let hilly = false;
+  const checkStep = T.step * 0.5;
   for (let i = 0; i < pts.length && !hilly; i++) {
-    if (rise(pts[i][0], pts[i][1]) > 0) hilly = true;
-    else if (i + 1 < pts.length && rise((pts[i][0] + pts[i + 1][0]) / 2, (pts[i][1] + pts[i + 1][1]) / 2) > 0) hilly = true;
+    if (rise(pts[i][0], pts[i][1]) > 0) { hilly = true; break; }
+    if (i + 1 < pts.length) {
+      const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const n = len > T.step ? Math.ceil(len / checkStep) : 2;
+      for (let k = 1; k < n; k++) {
+        if (rise(a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n) > 0) { hilly = true; break; }
+      }
+    }
   }
   if (!hilly) return pts;
   const out = [pts[0]];

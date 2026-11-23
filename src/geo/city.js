@@ -175,12 +175,13 @@ function snapEnds(pts, ends) {
   return out;
 }
 function ribbon(B, pts0, width, y, col, ends = null) {
-  const pts = drape(snapEnds(pts0, ends));
+  const snapped = snapEnds(pts0, ends);
+  const pts = drape(snapped);
   // per-point widths follow the points drape adds on raised ground
   if (Array.isArray(width) && pts.length !== pts0.length) width = pts.map((p) => widthAt(pts0, width, p));
   const [L, R] = ribbonPoints(pts, width, ends);
   // y is the height above the flat floor; on raised ground each edge point takes the terrain's own height
-  const lift = pts === pts0 ? 0 : 0.12;
+  const lift = pts === snapped ? 0 : 0.12;
   const yL = L.map((p) => y + rise(p[0], p[1]) + lift), yR = R.map((p) => y + rise(p[0], p[1]) + lift);
   for (let i = 0; i + 1 < pts.length; i++) B.quad([L[i][0], yL[i], L[i][1]], [R[i][0], yR[i], R[i][1]], [R[i + 1][0], yR[i + 1], R[i + 1][1]], [L[i + 1][0], yL[i + 1], L[i + 1][1]], col, [0, 1, 0]);
 }
@@ -440,7 +441,7 @@ function buildRoads(data, group, structures, clear = []) {
     // own width (narrowed on a divided road's one-way twins), so the street runs onto it edge to edge. Left at the
     // class width, a pair of twin decks overhung their 7 m streets as one broad slab. Citadel bridges keep their
     // masonry proportions (geo/citadel-bridge.js).
-    const w = r.bridge === 2 ? ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5) : r.c <= 3 ? pavW(r) : r.w + 1.5;
+    const w = r.bridge === 2 ? ROAD_W[r.c] + (r.c <= 2 ? 3 : 1.5) : r.c <= 3 ? r.w + (r.c <= 2 ? 3.6 : 2.4) : r.w + 1.5;
     const opt = r.c <= 3 ? { lane: { w: r.w, col: cols[Math.min(r.c, 3)] }, ends: r.ends } : { ends: r.ends };
     const deckTop = r.c <= 3 ? casing : cols[Math.min(r.c, 3)];
     // the deck: level at the banks (or climbing between banks of different height, or at a hill lake's level), and
@@ -469,7 +470,7 @@ function buildRoads(data, group, structures, clear = []) {
       // below the street (road 8314 in the southern hills, 1.1 m). Decks landing on the flat floor are unchanged.
       const tilt = r.c <= 3 ? landingTilt(r.pts, P.len, w) : null;
       if (tilt) slab(structures, resample(r.pts, 1.5).pts, w, P.y, P.thick, deckTop, deckSide, parapet, null, { ...opt, tilt });
-      else slab(structures, r.pts, w, P.y, P.thick, deckTop, deckSide, parapet, null, opt);
+      else slab(structures, P.breaks.length ? resample(r.pts, 8, P.breaks).pts : r.pts, w, P.y, P.thick, deckTop, deckSide, parapet, null, opt);
     }
     const len = pathLength(r.pts);
     // cầu Dã Viên (2012): six small viewing pavilions stand out over the water along its deck, three a side
@@ -509,10 +510,11 @@ function buildRoads(data, group, structures, clear = []) {
   for (const r of roads) {
     if (r.c > 2 || !r.flat || r.unmarked) continue; // a slip road is lit by the roads it joins (a bridge way's street ends are lit as part of the way: life.js posts)
     if (r.bridge && replaced('bachho') && daVienRoads(data).has(r.flat)) continue; // lit by its own parapet lamps (places/bachho.js)
-    const PL = r.bridge && profiles.get(r.flat);
-    if (PL && PL.lamps && replaced(PL.lamps.own)) { // a bridge with its own posts (bridges.js bridgeLamps): glows in their lanterns
-      for (const { y, sides } of bridgeLamps(PL, r.pts)) for (const { head } of sides) {
-        lp.push(head[0], y + PL.lamps.h, head[1]);
+    const P = r.bridge ? profiles.get(r.flat) : null;
+    if (r.bridge && !P) continue;
+    if (P && P.lamps && replaced(P.lamps.own)) { // a bridge with its own posts (bridges.js bridgeLamps): glows in their lanterns
+      for (const { y, sides } of bridgeLamps(P, r.pts)) for (const { head } of sides) {
+        lp.push(head[0], y + P.lamps.h, head[1]);
         const warm = 0.85 + rand(lp.length, r.c) * 0.3;
         lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
       }
@@ -525,7 +527,7 @@ function buildRoads(data, group, structures, clear = []) {
       const off = ((r.ws ? widthAt(r.pts, r.ws, p) : r.w) / 2 + 0.5) * (k % 2 ? 1 : -1);
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
       if (ownLit(data, lx, lz)) continue; // a bridge with its own lamps (geo/bridges.js `lit`) is lit by them
-      lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 + profiles.get(r.flat).bump(s) : 7.5), lz);
+      lp.push(lx, P ? P.y(s) + 7.5 : LAND_Y + rise(lx, lz) + 7.5, lz);
       const warm = 0.85 + rand(k, r.c) * 0.3;
       lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
     }
@@ -732,7 +734,6 @@ function infillPlanter(group, off = null) {
   const wallMat = cityMaterial({ windows: true, styled: true }), roofMat = cityMaterial(), tankMat = cityMaterial();
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
-  const zero = new THREE.Matrix4().makeScale(0, 0, 0);
   let meshes = [];
 
   const collect = (a, i0, start, end) => {
@@ -754,7 +755,6 @@ function infillPlanter(group, off = null) {
       }
       if (rc && era !== 2) roofCol = shade(pick(PAL.roofFamily[rc], i, 36), 0.92 + rand(i, 35) * 0.14);
       if (bits & 128 && era !== 2) wallCol = shade(pick(PAL.whitewash, i, 31), 0.96 + rand(i, 32) * 0.06);
-      const p0 = parts.length;
       if (era === 2) parts.push({ i, x, z, w, d, ang, h, wallCol, roofCol, salt: 0, main, front: 0, era, rc });
       else if (front !== 0 && d > 9.5 && rand(i, 50) < 0.55) {
         const vx = -Math.sin(ang), vz = Math.cos(ang);
@@ -773,7 +773,7 @@ function infillPlanter(group, off = null) {
   const inst = (geo, mat, list, layer, shadow = true, detail = false) => {
     if (!list.length) return;
     // walls carry each house's floor level, so windows line up with its own ground on a slope
-    const g = geo.clone();
+    const g = geo === geos.wall ? geo.clone() : geo;
     if (geo === geos.wall) {
       g.setAttribute('aBase', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[2] || 0), 1));
       g.setAttribute('aStyle', new THREE.InstancedBufferAttribute(Float32Array.from(list, (e) => e[3] || 0), 1)); // added to the wall's face kind
@@ -792,7 +792,7 @@ function infillPlanter(group, off = null) {
   };
   const mk = () => m.compose(p, q, s).clone();
   const place = (parts, layer) => {
-    const walls = [], hips = [], gables = [], ends = [], extras = [], tanks = [];
+    const walls = [], hips = [], gables = [], ends = [], trays = [], extras = [], tanks = [];
     for (const pt of parts) {
       const { i, x, z, salt } = pt;
       let { w, d, ang, h } = pt;
@@ -823,7 +823,7 @@ function infillPlanter(group, off = null) {
         const rh = Math.min(3.4, Math.max(1.2, d * (0.2 + rand(i, 37) * 0.07)));
         p.set(x, gy + h + 0.12, z); s.set(w + 0.24, rh, d + 1.1);
         gables.push([mk(), pt.roofCol]);
-        s.set(w, rh, d + 1.1);
+        s.set(w, rh, d);
         ends.push([mk(), shade(pt.wallCol, 0.97)]);
       } else if (!flatRoof) {
         let rw = w, rd = d;
@@ -833,11 +833,11 @@ function infillPlanter(group, off = null) {
         p.set(x, gy + h + 0.02, z); s.set(rw + ov, rh, rd + ov);
         hips.push([mk(), pt.roofCol]);
       } else {
-        if (rc >= 3) { p.set(x, gy + h + 0.01, z); s.set(w * 0.97, 0.1, d * 0.97); extras.push([mk(), pt.roofCol]); } // the tray's own colour
+        if (rc >= 3) { p.set(x, gy + h + 0.01, z); s.set(w * 0.97, 0.1, d * 0.97); trays.push([mk(), pt.roofCol]); } // the tray's own colour
       }
       if (flatRoof && rand(i, 38 + salt) < 0.6) {
-        const sc = 0.85 + rand(i, 41) * 0.3;
-        p.set(x + (rand(i, 39) - 0.5) * w * 0.3, gy + h, z + (rand(i, 40) - 0.5) * d * 0.3); s.set(sc, sc, sc);
+        const sc = 0.85 + rand(i, 41) * 0.3, dx = (rand(i, 39) - 0.5) * w * 0.3, dz = (rand(i, 40) - 0.5) * d * 0.3;
+        p.set(x + ca * dx - sa * dz, gy + h, z + sa * dx + ca * dz); s.set(sc, sc, sc);
         tanks.push([mk(), W]);
       }
       // street face: a fabric awning over the shopfront, a balcony with its railing on the floor above
@@ -862,6 +862,7 @@ function infillPlanter(group, off = null) {
     inst(geos.hip, roofMat, hips, layer, false);
     inst(geos.gable, roofMat, gables, layer, false);
     inst(geos.end, roofMat, ends, layer, false);
+    inst(geos.slab, roofMat, trays, layer, false);
     inst(geos.slab, roofMat, extras, layer, false, true);
     inst(geos.tank, tankMat, tanks, layer, false, true);
   };

@@ -511,7 +511,7 @@ export function treePlanter(data, group, off = null, lift = null) {
       #ifdef USE_MAP
       {
         vec2 hueTx = vMapUv * 1024.0;
-        float hueMip = max( 0.0, 0.5 * log2( max( dot( dFdx( hueTx ), dFdx( hueTx ) ), dot( dFdy( hueTx ), dFdy( hueTx ) ) ) ) );
+        float hueMip = 0.5 * log2( max( 1.0, max( dot( dFdx( hueTx ), dFdx( hueTx ) ), dot( dFdy( hueTx ), dFdy( hueTx ) ) ) ) );
         diffuseColor.a *= 1.0 + hueMip * 0.3;
       }
       #endif

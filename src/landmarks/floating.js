@@ -283,7 +283,7 @@ function lotusRestaurant(data, S, LB, glow, ring, name) {
 // building off the footprint through the cover test) with their night lights in `group` (the dynamic group).
 // Call before populate(). Returns { list, glows, update(time) }.
 export function buildFloatingRestaurants(data, S, group) {
-  const list = [], glows = [];
+  const list = [], glows = [], nightMeshes = [];
   let petalMat = null;
   const keepKind = S.kind, keepBase = S.base;
   try {
@@ -299,8 +299,10 @@ export function buildFloatingRestaurants(data, S, group) {
         if (!B.n) return;
         const m = new THREE.Mesh(B.geometry(), mat);
         m.renderOrder = 19;
+        m.visible = shared.uGlow.value >= 0.01;
         m.userData.landmark = true; // counts towards label heights (scripts/lib/label-tops.mjs)
         group.add(m);
+        nightMeshes.push(m);
       };
       add(LB.warm, washMaterial(0xffc98a, 0.32));
       add(LB.line, washMaterial(0xffd9a0, 1.0));
@@ -320,5 +322,13 @@ export function buildFloatingRestaurants(data, S, group) {
     S.kind = keepKind;
     S.base = keepBase;
   }
-  return { list, glows, update(time) { if (petalMat) petalMat.uniforms.uTime.value = time; } };
+  return {
+    list,
+    glows,
+    update(time) {
+      const lit = shared.uGlow.value >= 0.01;
+      for (let i = 0; i < nightMeshes.length; i++) nightMeshes[i].visible = lit;
+      if (lit && petalMat) petalMat.uniforms.uTime.value = time;
+    },
+  };
 }

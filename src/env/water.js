@@ -138,7 +138,7 @@ export function buildWater(data) {
           vec2 fwd = normalize( -V.xz + 1e-5 ), side = vec2( -fwd.y, fwd.x );
           vec2 dn = vec2( dot( n.xz, side ) * 0.75, dot( n.xz, fwd ) * 1.7 );
           vec4 uv = vUvR;
-          uv.xy += ( n.xz * 0.45 + ( side * dn.x + fwd * dn.y ) * 0.55 ) * ( 0.085 + uRain * 0.06 ) * uv.w * ( 0.35 + 0.65 * lod );
+          uv.xy += dn * ( 0.085 + uRain * 0.06 ) * uv.w * ( 0.35 + 0.65 * lod );
           refl = texture2DProj( tDiffuse, uv ).rgb;
           // bright reflections (lamps, LEDs) gather on the wavelet crests and fade softly with distance so night streaks stay silky
           float lum = dot( refl, vec3( 0.299, 0.587, 0.114 ) );
@@ -199,21 +199,32 @@ export function buildWater(data) {
     const scale = 0.45;
     mesh = new Reflector(geo, {
       shader,
-      textureWidth: Math.round(innerWidth * quality.pixelRatio * scale),
-      textureHeight: Math.round(innerHeight * quality.pixelRatio * scale),
+      textureWidth: Math.max(2, Math.round(innerWidth * quality.pixelRatio * scale)),
+      textureHeight: Math.max(2, Math.round(innerHeight * quality.pixelRatio * scale)),
       clipBias: 0.02,
       multisample: 0,
     });
-    mesh.userData.resize = (w, h) => mesh.getRenderTarget().setSize(Math.round(w * quality.pixelRatio * scale), Math.round(h * quality.pixelRatio * scale));
     // the mirror image is refreshed on alternate frames: it is soft and distorted anyway, and this halves its cost
     const renderMirror = mesh.onBeforeRender;
     let tick = 0;
-    mesh.onBeforeRender = function (...args) { if (tick++ % 2 === 0) renderMirror.apply(this, args); };
+    mesh.userData.invalidate = () => { tick = 0; };
+    mesh.userData.resize = (w, h, pr = quality.pixelRatio) => {
+      const r = typeof pr === 'object' && pr && typeof pr.getPixelRatio === 'function' ? pr.getPixelRatio() : pr;
+      mesh.getRenderTarget().setSize(Math.max(2, Math.round(w * r * scale)), Math.max(2, Math.round(h * r * scale)));
+      tick = 0;
+    };
+    mesh.onBeforeRender = function (...args) {
+      if (tick++ % 2 === 0) {
+        mesh.getReflectionCamera(args[2]).layers.set(0);
+        renderMirror.apply(this, args);
+      }
+    };
   } else {
     const u = THREE.UniformsUtils.clone(shader.uniforms);
     u.textureMatrix.value = new THREE.Matrix4();
     mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({ ...shader, uniforms: u }));
     mesh.userData.resize = () => {};
+    mesh.userData.invalidate = () => {};
   }
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set((b[0] + b[2]) / 2, 0, (b[1] + b[3]) / 2);

@@ -10,6 +10,7 @@
 // A link that fails any check is ignored as a whole and the normal opening plays.
 import * as THREE from 'three';
 import { LAND_Y } from '../config.js';
+import { rise } from '../geo/terrain.js';
 
 const VERSION = '1';
 const num = (s) => (typeof s === 'string' && /^-?\d{1,6}(\.\d{1,3})?$/.test(s) ? Number(s) : NaN);
@@ -25,7 +26,8 @@ export function parseShare(search, { places, bounds, minDistance, maxDistance })
   if (!/^[012][01][ir]$/.test(m)) return null;
   if (a < 0.2 || a > 5 || f < 5 || f > 100) return null;
   const pos = new THREE.Vector3(c[0], c[1], c[2]), target = new THREE.Vector3(t[0], LAND_Y, t[1]);
-  if (target.x < bounds.minX || target.x > bounds.maxX || target.z < bounds.minZ || target.z > bounds.maxZ) return null;
+  const tol = 0.15;
+  if (target.x < bounds.minX - tol || target.x > bounds.maxX + tol || target.z < bounds.minZ - tol || target.z > bounds.maxZ + tol) return null;
   const d = pos.distanceTo(target);
   if (pos.y <= LAND_Y || d < minDistance * 0.95 || d > maxDistance * 1.05) return null;
   if (p !== null && !places.some((x) => x.id === p)) return null;
@@ -71,7 +73,7 @@ export function createShare({ data, rig, mood, setLook, pick, ui, bounds }) {
       }
     }
     if (await copy(url)) ui.hint(ui.T.copied, 2600);
-    else ui.hint(url, 9000); // nothing could copy it: show the link to copy by hand
+    else window.prompt(ui.T?.share || 'Share link', url); // nothing could copy it: show the link in a selectable prompt
     return url;
   }
 
@@ -96,7 +98,7 @@ export function createShare({ data, rig, mood, setLook, pick, ui, bounds }) {
       const p = data.places.find((x) => x.id === v.place);
       const src = new THREE.PerspectiveCamera(v.fov, v.aspect, 1, 10);
       src.position.copy(v.pos); src.lookAt(v.target); src.updateMatrixWorld();
-      const x = Math.abs(new THREE.Vector3(p.x / 10, LAND_Y, p.z / 10).project(src).x);
+      const x = Math.abs(new THREE.Vector3(p.x / 10, LAND_Y + rise(p.x / 10, p.z / 10), p.z / 10).project(src).x);
       keepW = Math.min(1, Math.max(0.5, x * 1.1 + 0.15));
     }
     const dir = v.pos.clone().sub(v.target), d0 = dir.length();
@@ -128,7 +130,11 @@ export function createShare({ data, rig, mood, setLook, pick, ui, bounds }) {
       const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
       const look = v.target.clone().sub(camera.position).normalize().applyAxisAngle(right, -Math.atan(goal * tv));
       const t = (LAND_Y - camera.position.y) / look.y;
-      if (look.y < -0.05 && t > controls.minDistance) controls.target.copy(camera.position).addScaledVector(look, t);
+      if (look.y < -0.05 && t > controls.minDistance) {
+        controls.target.copy(camera.position).addScaledVector(look, t);
+        controls.target.x = Math.max(bounds.minX, Math.min(bounds.maxX, controls.target.x));
+        controls.target.z = Math.max(bounds.minZ, Math.min(bounds.maxZ, controls.target.z));
+      }
     }
     controls.update();
     rig.update(0); // clamps to the map and above the hills, settles the lens

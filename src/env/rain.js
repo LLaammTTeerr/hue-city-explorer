@@ -17,26 +17,32 @@ export function buildRain() {
     uniforms,
     transparent: true,
     depthWrite: false,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.SrcAlphaFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     vertexShader: `
       attribute float aEnd; uniform float uTime; varying float vA;
       const vec3 BOX = vec3( 150.0, 100.0, 150.0 );
       void main() {
-        vec3 vel = vec3( 11.0, -64.0, -7.0 );
+        vec3 vel = vec3( 17.0, -54.0, -9.2 );
         float sp = 0.8 + fract( position.x * 7.13 ) * 0.4;
         vec3 p = position * BOX + vel * uTime * sp;
         p = mod( p - cameraPosition, BOX ) - BOX * 0.5 + cameraPosition;
         p -= normalize( vel ) * aEnd * ( 1.4 + fract( position.z * 13.7 ) * 2.2 );
         vec4 mv = viewMatrix * vec4( p, 1.0 );
-        vA = ( 1.0 - aEnd * 0.7 ) * smoothstep( 76.0, 30.0, -mv.z ) * smoothstep( 0.6, 4.0, -mv.z );
+        vA = ( 1.0 - aEnd * 0.75 ) * smoothstep( 76.0, 30.0, -mv.z ) * smoothstep( 0.6, 4.0, -mv.z );
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
       uniform float uRain; uniform vec3 uTint; varying float vA;
-      void main() { gl_FragColor = vec4( uTint, vA * uRain * 0.5 );
+      void main() { gl_FragColor = vec4( uTint, vA * uRain * 0.32 );
         #include <colorspace_fragment>
       }`,
   });
   const lines = new THREE.LineSegments(geo, mat);
+  lines.layers.set(1);
   lines.frustumCulled = false;
   lines.renderOrder = 30;
   lines.visible = false;

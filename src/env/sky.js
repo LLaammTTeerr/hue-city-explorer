@@ -52,10 +52,10 @@ export function buildSky() {
         }
         // distant Trường Sơn / Ngự Bình mountain ridge washes along the horizon (strongest south-west)
         if ( d.y > -0.02 && d.y < 0.095 ) {
-          float az = atan( d.z, d.x );
+          vec2 hor = normalize( d.xz + 1e-6 );
           float swBias = 0.55 + 0.45 * smoothstep( -0.6, 0.8, -d.x * 0.45 + d.z * 0.89 );
-          float rFar = ( 0.018 + 0.036 * fbm( vec2( az * 3.1 + 1.4, 2.7 ) ) ) * swBias;
-          float rNear = ( 0.008 + 0.022 * fbm( vec2( az * 5.6 + 6.2, 5.1 ) ) ) * swBias;
+          float rFar = ( 0.018 + 0.036 * fbm( hor * 2.2 + vec2( 1.4, 2.7 ) ) ) * swBias;
+          float rNear = ( 0.008 + 0.022 * fbm( hor * 4.0 + vec2( 6.2, 5.1 ) ) ) * swBias;
           float mFar = ( 1.0 - smoothstep( rFar - 0.006, rFar + 0.005, d.y ) ) * smoothstep( -0.018, 0.004, d.y );
           float mNear = ( 1.0 - smoothstep( rNear - 0.005, rNear + 0.004, d.y ) ) * smoothstep( -0.018, 0.003, d.y );
           vec3 ridgeFar = mix( uFog, uTop * 0.72, 0.36 );
