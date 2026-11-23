@@ -78,6 +78,7 @@ Other params (`?look=`) are not carried into a shared link; a shared link's look
 | `npm run check:labels` | the label anchor heights in `places.json` (`a`) match the model tops of a freshly built scene; `--browser` (after `npm run build`) runs the same on the live page |
 | `npm run check:tiles` | loading trees and infill by tile changes nothing: the scene built the app's way (hue.json, then the tiles) matches one built from every record at once |
 | `npm run check:markings` | no lane dash crosses another major carriageway or lies in a junction hole (markings stop at the junction mouth), and dashes away from junctions are kept |
+| `npm run check:trees` | no tree the app plants (city and tiles) stands on the asphalt: its trunk off every carriageway, junction patch and paved sliver, and no more of its crown over them than the planting rule allows |
 
 ## Contributing
 

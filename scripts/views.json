@@ -197,5 +197,26 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-1200, 420, 2300], "target": [-2200, 20, 4700] }
+  },
+  "junction-phu-xuan-south-slip": {
+    "note": "Close above the south end of cầu Phú Xuân, where slip road 1169319990 joins Hà Nội eastbound and the traffic island between them carries a tree (PR #80's leftovers).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-232, 50, 556], "target": [-232, 2.6, 555.9] }
+  },
+  "junction-trees-west": {
+    "note": "Straight down on a junction patch west of the Citadel (x −1516, z 1229) where four trees stood on the painted asphalt (PR #80's leftovers).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1516, 60, 1229], "target": [-1516, 2.6, 1228.9] }
+  },
+  "junction-trees-south": {
+    "note": "Straight down on a junction patch in the south of the city (x −1056, z 2548) where four trees stood on the painted asphalt (PR #80's leftovers).",
+    "viewport": [1400, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1056, 60, 2548], "target": [-1056, 2.6, 2547.9] }
   }
 }

@@ -511,7 +511,7 @@ export function treePlanter(data, group, off = null) {
       const j = start + Math.floor(k * stride), i = i0 + j, sc = a[j * 4 + 2] / 10, kind = a[j * 4 + 3];
       const r = rand(i, 61);
       const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
-      if (off && off(x, z, 2.2 * sc)) continue; // a landmark model stands here
+      if (off && off(x, z, 2.2 * sc, 3.3 * sc * (0.75 + rand(i, 41) * 0.5))) continue; // a landmark model or the asphalt is here (crown radius as below)
       if (forecourts.some((c) => (x - c[0]) ** 2 + (z - c[1]) ** 2 < 46 * 46)) continue; // the great halls stand in open courts
       let type = kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
       let lean = null;
