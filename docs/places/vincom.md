@@ -37,7 +37,14 @@ Model: `src/landmarks/places/vincom.js`. The old builder (`vincom()` in `src/lan
 - The tower moved 15–20 m west and turned about 23°: from a V plan at the lot centre to the pentagon over the NW corner. The podium is taller (eave 23.6 m to 26.2 m). Added the grey base block, the louvre storey and the Meliá entrance. The west flank has no shop bays. Granite is lighter, grilles are grey.
 - Disagreements (kept for the owner): the 2024 photos read as a V plan with its prow NE; the capture notes call the west flank "cream with ribs" where the car panorama shows grey stone; the satellite's oblique west edge looks about 33 m long against about 20 m from Street View.
 
+## Changed (review fixes, 2026-11)
+- The base block and louvres are neutral grey. The Meliá bay is speckled beige-gold granite with dark glazed doors, a central entrance with steps, pale grey-green glass with mullions above, and a cream three-bay storey that ends in a thin cornice with roof planting. The lettering reads the right way round.
+- The tower's north end is a narrow tan strip (about 8.6 m) with floor bands, beside blue-grey glass.
+- The NW yard is cleared in `scripts/build-data.mjs` (`keepClear`: infill and trees are dropped when written, so the rest of the city keeps its shared dice). It holds paving, the basement ramp with its canopy, a plant house and four palms.
+- The SW flank is blank, with stepped pilasters. The south corner on Đống Đa has one canopied door with steps. The podium bays carry chevron lattice panels, and the bays on the left of the north front carry poster banners.
+
 ## Left
 - No tower plan drawing or exact podium height has been found.
-- The side entrances on Hà Nội and Đống Đa (if any) and the basement ramps are not modelled.
+- A side entrance on Hà Nội, if there is one, is not modelled.
+- The Meliá lettering is a simple stroke font and reads only from close up.
 - The crown details (sky bar, pool deck) are only suggested.
