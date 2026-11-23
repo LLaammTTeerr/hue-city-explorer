@@ -463,7 +463,8 @@ const TYPES = ['spreading', 'upright', 'flamboyant', 'willow', 'pine', 'palm'];
 
 // Returns plant(records, nearCount, i0): plants one batch of trees (hue.json's own, then each tile's) with the shared
 // geometry and materials and returns its meshes; i0 is the batch's first index in the whole model (dice seeds).
-export function treePlanter(data, group, off = null) {
+// off(x, z, reach) keeps a tree off a model; lift(x, z), when given, raises one onto a model's terrace (metres).
+export function treePlanter(data, group, off = null, lift = null) {
   const tex = leafAtlas();
   const mat = cityMaterial({ foliage: true, map: tex, alphaTest: 0.42, side: THREE.DoubleSide });
   mat.alphaToCoverage = true;
@@ -533,7 +534,7 @@ export function treePlanter(data, group, off = null) {
           // willows lean out toward the water (local +x is the lean); everything else turns at random
           const yaw = lean !== null ? -lean + (rand(i, 72) - 0.5) * 0.7 : rand(i, 43) * 6.28;
           q.setFromAxisAngle(up, yaw);
-          p.set(x, LAND_Y + rise(x, z) + hgt * 1.7, z);
+          p.set(x, LAND_Y + rise(x, z) + (lift ? lift(x, z) : 0) + hgt * 1.7, z);
           const ax = 0.88 + rand(i, 73) * 0.24; // not every crown round in plan
           s.set(rr * ax, hgt, rr / ax);
           mesh.setMatrixAt(k, m.compose(p, q, s));

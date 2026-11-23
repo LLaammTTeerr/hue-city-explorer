@@ -1008,7 +1008,11 @@ export function populate(world, data) {
     return n >= ring.length * 0.7;
   };
   world.buildings = buildBuildings(data, world.group, buildingOff, roofClash(world.structures.roofs || []));
-  const plantInfill = infillPlanter(world.group, houseOff), plantTrees = treePlanter(data, world.group, treeOff);
+  // a tree standing on a model's terrace (structures.stand: functions a model adds, (x, z) => metres above the ground
+  // of the terrace top there, or 0) is lifted onto it, as the pines on đàn Nam Giao's tiers
+  const stand = world.structures.stand || [];
+  const lift = stand.length ? (x, z) => { for (const f of stand) { const y = f(x, z); if (y) return y; } return 0; } : null;
+  const plantInfill = infillPlanter(world.group, houseOff), plantTrees = treePlanter(data, world.group, treeOff, lift);
   world.infill = plantInfill(data.infill, data.meta?.counts?.infillNear, 0);
   world.trees = plantTrees(data.trees, data.meta?.counts?.treesNear, 0);
   // the trees and houses of a tile (public/data/tiles/, see build-data.mjs), after the first frame: planted by the same
