@@ -39,9 +39,17 @@ const ENAMEL = [hex('#2f6aa3'), hex('#3d8a5c'), hex('#d8b23a'), hex('#e6dcc4')];
 const ROOF = shade(PAL.imperialRoof, 0.9); // the glaze reads a little duller than the city's palette yellow in Street View
 const RIDGE = hex('#f1d77a');
 const WALL = hex('#c9a36a'); // ochre-painted brick of the gable and back walls
+const BRICK = hex('#b8a490'); // the brick paving round the hall and beside the stone esplanade (satellite)
 
 // levels above the ground: Long Trì 0.6, Đan Bệ and the hall's lower base 1.35, hall floor 2.35
 const H_LT = 0.6, H_DB = 1.35, H_FL = 2.35;
+// The hall stands 2.5 m back (toward -v) from the place origin, behind a deeper Đan Bệ: Google's satellite view (2026,
+// z19 and z20) puts the roof's centre 2.8 m behind the OSM outline's, and the brick base round it 2.5-3.5 m further
+// out than the outline implied, while the sân and the bridge match OSM within 1 m. The esplanade and bridge stay put.
+const HV = -2.5;
+// the hall's lower base (Đan Bệ's level), brick-paved: its edges as the satellite shows them, in the hall's frame
+const LB_U0 = -29.6, LB_U1 = 28.4, LB_V0 = -22.8;
+const PW = 46.5, PD = 34; // the stone platform, 1 m above it
 
 export function build({ S, group, THREE }) {
   const G = LAND_Y + rise(O[0], O[1]);
@@ -72,14 +80,18 @@ export function build({ S, group, THREE }) {
   // ======== sân Đại Triều Nghi ========
   // v from the hall's lower base (20) to the bridge apron (57.5); 41 m wide. Đan Bệ (ranks 1-3) above, Long Trì
   // (ranks 4-9) below, a raised imperial way (ngự đạo) up the middle.
+  // Đan Bệ's stone runs back to the foot of the hall's platform (vDB0s); where its sides fall to the brick aprons the
+  // lower base ends (vDB0).
   const EW = 41;
-  const vDB0 = 20, vDB1 = 33, vLT1 = 57.5;
+  const vDB0 = 20, vDB1 = 33, vLT1 = 57.5, vDB0s = PD / 2 + HV;
   const paved0 = S.n;
   S.kind = KIND.MASONRY;
-  box(0, (vDB0 + vDB1) / 2, G - 0.3, G + H_DB, EW, vDB1 - vDB0, PAVE, { topKind: KIND.ROAD });
+  box(0, (vDB0s + vDB1) / 2, G - 0.3, G + H_DB, EW, vDB1 - vDB0s, PAVE, { topKind: KIND.ROAD });
   box(0, (vDB1 + vLT1) / 2, G - 0.3, G + H_LT, EW, vLT1 - vDB1, PAVE2, { topKind: KIND.ROAD });
   // the imperial way, a shade lighter and a hand higher
-  box(0, (vDB0 + vDB1) / 2, G + H_DB, G + H_DB + 0.08, 3.4, vDB1 - vDB0, shade(PAVE, 1.12), { topKind: KIND.ROAD });
+  box(0, (vDB0s + vDB1) / 2 + 0.9, G + H_DB, G + H_DB + 0.08, 3.4, vDB1 - vDB0s - 1.8, shade(PAVE, 1.12), { topKind: KIND.ROAD });
+  // the brick aprons either side of the stone esplanade, out to the low walls of the hall's court (satellite)
+  for (const [a, b] of [[LB_U0, -EW / 2], [EW / 2, LB_U1]]) box((a + b) / 2, (vDB0 + vLT1) / 2, G - 0.3, G + 0.25, b - a, vLT1 - vDB0, BRICK, { topKind: KIND.ROAD });
   box(0, (vDB1 + vLT1) / 2 - 0.6, G + H_LT, G + H_LT + 0.08, 3.4, vLT1 - vDB1 - 1.2, shade(PAVE2, 1.1), { topKind: KIND.ROAD });
   S.kind = KIND.PLAIN;
   // steps: Long Trì → Đan Bệ (5) in three flights, the middle one between dragon balustrades; ground → Long Trì (4)
@@ -93,10 +105,11 @@ export function build({ S, group, THREE }) {
   for (const [a, b] of [[-EW / 2, -13.7], [-10.3, -1.9], [1.9, 10.3], [13.7, EW / 2]]) box((a + b) / 2, vDB1 - 0.2, G + H_DB, G + H_DB + 0.45, b - a, 0.4, STONE);
   // the rank stones (phẩm sơn): chánh and tòng for each rank, civil on one side of the way, military on the other —
   // 6 a side on Đan Bệ, 12 a side on Long Trì, 18 pairs in all
+  // Each is a low stone, about knee high, on a small plinth (Street View from the esplanade).
   const stele = (u, v, y) => {
-    box(u, v, y, y + 0.12, 0.62, 0.36, shade(STONE, 0.9));
-    box(u, v, y + 0.12, y + 0.95, 0.46, 0.2, hex('#c7c1b2'));
-    box(u, v, y + 0.95, y + 1.05, 0.34, 0.2, hex('#c7c1b2'));
+    box(u, v, y, y + 0.08, 0.5, 0.3, shade(STONE, 0.9));
+    box(u, v, y + 0.08, y + 0.48, 0.38, 0.16, hex('#c7c1b2'));
+    box(u, v, y + 0.48, y + 0.55, 0.28, 0.16, hex('#c7c1b2'));
   };
   for (const s of [-1, 1]) {
     for (let k = 0; k < 6; k++) stele(s * 4.6, vDB0 + 1.6 + k * 1.95, G + H_DB);
@@ -109,21 +122,24 @@ export function build({ S, group, THREE }) {
   // a pair of kỳ lân in front of the hall (Frommers: "In front are two mythical ky lin animals"), bronze, either side
   // of the foot of the middle flight, facing out toward Ngọ Môn; material, pose and spot are estimated.
   // src/landmarks/props.js; docs/places/courtyard-objects.md
-  for (const s of [-1, 1]) { const p = W(s * 4.3, 19.4); kylan(S, p[0], G + H_DB, p[1], A + Math.PI / 2, { s: 1.0, col: BRONZE, plinth: 0.55, plinthCol: STONE }); }
+  for (const s of [-1, 1]) { const p = W(s * 4.3, PD / 2 + HV + 2.4); kylan(S, p[0], G + H_DB, p[1], A + Math.PI / 2, { s: 1.0, col: BRONZE, plinth: 0.55, plinthCol: STONE }); }
 
   // ======== the hall's two-stage base ========
-  // the lower base at Đan Bệ's level all round (9 steps up at the back), the stone platform 1 m above it
-  const PW = 46.5, PD = 34;
+  // the lower base at Đan Bệ's level all round (9 steps up at the back), brick-paved, with stone sides; in front it
+  // gives way to Đan Bệ's stone between its side strips. The stone platform 1 m above it.
+  const base0 = S.n;
   S.kind = KIND.MASONRY;
-  box(0, 0, G - 0.3, G + H_DB, PW + 7, 40, STONE, { topKind: KIND.ROAD, taper: 0.995 });
-  box(0, 0, G + H_DB, FL, PW, PD, shade(STONE, 0.96), { topKind: KIND.ROAD });
-  box(0, 0, FL - 0.18, FL + 0.02, PW + 0.3, PD + 0.3, shade(STONE, 1.1), { topKind: KIND.ROAD }); // the coping
+  box((LB_U0 + LB_U1) / 2, (LB_V0 + vDB0s) / 2, G - 0.3, G + H_DB, LB_U1 - LB_U0, vDB0s - LB_V0, STONE, { top: BRICK, topKind: KIND.ROAD });
+  for (const [a, b] of [[LB_U0, -EW / 2], [EW / 2, LB_U1]]) box((a + b) / 2, (vDB0s + vDB0) / 2, G - 0.3, G + H_DB, b - a, vDB0 - vDB0s, STONE, { top: BRICK, topKind: KIND.ROAD });
+  box(0, HV, G + H_DB, FL, PW, PD, shade(STONE, 0.96), { topKind: KIND.ROAD });
+  box(0, HV, FL - 0.18, FL + 0.02, PW + 0.3, PD + 0.3, shade(STONE, 1.1), { topKind: KIND.ROAD }); // the coping
   S.kind = KIND.PLAIN;
+  S.paved.push([base0, S.n]);
   // three flights front and back up the platform (5 steps), three down the back of the lower base (9)
   for (const u of [-13, 0, 13]) {
-    flight(u, PD / 2, 1, G + H_DB, FL, 5, u === 0 ? 4.2 : 3.2, { dragons: u === 0 });
-    flight(u, -PD / 2, -1, G + H_DB, FL, 5, u === 0 ? 4.2 : 3.2, { dragons: u === 0 });
-    flight(u, -20, -1, G, G + H_DB, 9, u === 0 ? 4.2 : 3.2);
+    flight(u, PD / 2 + HV, 1, G + H_DB, FL, 5, u === 0 ? 4.2 : 3.2, { dragons: u === 0 });
+    flight(u, -PD / 2 + HV, -1, G + H_DB, FL, 5, u === 0 ? 4.2 : 3.2, { dragons: u === 0 });
+    flight(u, LB_V0, -1, G, G + H_DB, 9, u === 0 ? 4.2 : 3.2);
   }
 
   // ======== columns ========
@@ -136,7 +152,7 @@ export function build({ S, group, THREE }) {
   const kW = (2 * HU) / bayW.reduce((a, b) => a + b, 0);
   const cu = [-HU];
   for (const b of bayW) cu.push(cu[cu.length - 1] + b * kW);
-  const cv = [13.7, 10.82, 6.33, 2.74, -1.57, -6.42, -10.73, -13.7];
+  const cv = [13.7, 10.82, 6.33, 2.74, -1.57, -6.42, -10.73, -13.7].map((v) => v + HV);
   const CH = 3.9; // outer columns, floor to the eave plate: about the height of the upper roof, as the front reads from the esplanade
   const colTop = (i, j) => {
     const inner = i > 0 && i < 9;
@@ -155,14 +171,14 @@ export function build({ S, group, THREE }) {
   // the crane and tortoise statues inside the hall (Frommers: "the statues of the heron and turtle inside the palace's
   // ornate lacquered interior"): drawn as a bronze pair of cranes on tortoises either side of the throne in the main
   // hall's middle bay, facing out; count, material, size and spot are estimated
-  for (const s of [-1, 1]) { const p = W(s * 2.3, -3.2); crane(S, p[0], FL, p[1], A + Math.PI / 2, { h: 1.8 }); }
+  for (const s of [-1, 1]) { const p = W(s * 2.3, -3.2 + HV); crane(S, p[0], FL, p[1], A + Math.PI / 2, { h: 1.8 }); }
   // the throne (ngai vàng) in the middle of the hall, between the cranes, facing Ngọ Môn. daidoanket.vn (2016):
   // "Ngai cao 101 cm, rộng 72 cm, dài 87 cm", its base "dài 118 cm, rộng 90 cm, cao 20 cm", carved and gilt; vtcnews
   // / baophapluat: a throne on three wooden tiers ("ba tầng bệ gỗ") under a gilt bửu tán. daidoanket.vn (2024): the
   // bửu tán is carved gilt wood (Khải Định, 1923), two dragons facing a Thọ on each face, a dragon head at each corner.
   // Tier sizes and heights and the canopy's size and height are estimated.
   {
-    const TV = -4.0; // the dais's centre, in the middle bay between the column rows at v -1.57 and -6.42
+    const TV = -4.0 + HV; // the dais's centre, in the middle bay between the column rows at v -1.57 and -6.42
     let y = FL;
     for (const [w, d, h, c] of [[3.4, 3.0, 0.2, RED_DK], [2.7, 2.4, 0.2, RED], [2.0, 1.8, 0.2, RED_DK]]) {
       box(0, TV, y, y + h, w, d, c);
@@ -228,13 +244,17 @@ export function build({ S, group, THREE }) {
     const i0 = s < 0 ? 0 : 8;
     box((cu[i0] + cu[i0 + 1]) / 2, cv[1], FL, FL + CH - 0.3, cu[i0 + 1] - cu[i0] - 0.5, 0.3, WALL);
     for (const i of s < 0 ? [0, 1] : [7, 8]) box((cu[i] + cu[i + 1]) / 2, cv[7] + 0.1, FL, FL + CH - 0.3, cu[i + 1] - cu[i] - 0.5, 0.3, WALL);
-    box(s * HU, (cv[1] + cv[7]) / 2, FL, FL + CH - 0.3, 0.34, cv[1] - cv[7], WALL);
-    // the round windows with the character Thọ, 1.4 m across, in the gable walls of the front hall
-    const p = W(s * (HU + 0.18), (cv[1] + cv[3]) / 2);
-    S.cyl(p[0], p[1], FL + 1.6, FL + 1.62, 0.7, 0.7, 10, GOLD, { cap: true });
+    // the gable walls run out to the front column line, closing the ends of the verandah (Street View from the
+    // esplanade: the west end is a plain wall flush with the front, a round window in it)
+    box(s * HU, (cv[0] + cv[7]) / 2, FL, FL + CH - 0.3, 0.34, cv[0] - cv[7], WALL);
+    // the round windows with the character Thọ, 1.4 m across: one in each verandah end, one in each front-hall gable
+    for (const v of [(cv[0] + cv[1]) / 2, (cv[1] + cv[3]) / 2]) {
+      const p = W(s * (HU + 0.18), v);
+      S.cyl(p[0], p[1], FL + 1.6, FL + 1.62, 0.7, 0.7, 10, GOLD, { cap: true });
+    }
   }
   // the interior: a dark lid under the roofs (seen through the doors and from below the eaves)
-  box(0, 0, FL + CH - 0.3, FL + CH - 0.1, 2 * HU - 0.4, cv[0] - cv[7] - 0.4, shade(RED_DK, 0.6), { bottom: true });
+  box(0, HV, FL + CH - 0.3, FL + CH - 0.1, 2 * HU - 0.4, cv[0] - cv[7] - 0.4, shade(RED_DK, 0.6), { bottom: true });
 
   // ======== roofs ========
   S.kind = KIND.PLAIN;
@@ -295,10 +315,10 @@ export function build({ S, group, THREE }) {
       for (const s of [-1, 1]) box(u, fhV + s * 0.33, fy - 0.05, fy + 0.3, 18 / n - 0.35, 0.04, k === 4 ? ENAMEL[2] : ENAMEL[k % 2]);
     }
   }
-  // the bronze valley gutter between the two roofs, spouting through two dragon mouths at the gables
+  // the valley between the two roofs: S.joined lays its gutter, sunk between the tiles (places/index.js); it spouts
+  // through two bronze dragon mouths at the gables
   {
-    const y = FL + CH + 0.55;
-    beam(P3(-(HU + 2.0), y, cv[3]), P3(HU + 2.0, y, cv[3]), 0.7, 0.4, BRONZE);
+    const y = FL + CH - 0.1;
     for (const s of [-1, 1]) beam(P3(s * (HU + 1.8), y, cv[3]), P3(s * (HU + 3.1), y - 0.25, cv[3]), 0.45, 0.4, shade(BRONZE, 1.25));
   }
 
@@ -352,7 +372,7 @@ export function build({ S, group, THREE }) {
   strip(-(iu / 2 - 0.9), iu / 2 - 0.9, iVc - iv / 2 - 1.3, yd1 - 0.4);
   strip(-(HU + 1.3), HU + 1.3, cv[7] - 1.55, FL + CH - 0.42);
   for (const s of [-1, 1]) for (let k = 0; k < 6; k++) lamp(s * (BW / 2 - 0.15), deck + 1.15, B0 + 6 + k * 8);
-  for (const u of [-13, 13]) lamp(u, FL + 1.0, PD / 2 + 2.4);
+  for (const u of [-13, 13]) lamp(u, FL + 1.0, PD / 2 + HV + 2.4);
   if (!group) return null;
   if (L.n) {
     const m = new THREE.Mesh(L.geometry(), lightMaterial(0xffae42, 1.2));
