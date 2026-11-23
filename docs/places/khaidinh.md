@@ -63,9 +63,17 @@ Replica: `src/landmarks/places/khaidinh.js` (id `khaidinh`). The older generic t
   balustrades, the Tòng Tự houses, the statue court, the octagonal Bi Đình with its stele, the obelisks,
   the flagpoles and Thiên Định palace (plinth, arched portico, main hip roof, raised two-tier Khải Thành,
   corner pavilions; replaced in the 2026-11 re-frame by the porch roof and the square raised tier). Flat dark-grey concrete colours (no brick courses). Courts marked as paved.
+- Review fixes (2026-11-23, satellite z19/z20 and Street View): Cung Thiên Định's roof is one concentric two-tier
+  roof 35.7 × 24.2 m (s 88.4-112.6) with the portico folded under the front of its skirt (no separate lean-to; the
+  dark rectangle in front on the satellite is the open central stair); the raised tier is centred, its pale eave
+  outlining it from above; the ridges dark. Tả/Hữu Tòng Tự roofs terracotta tile with almost no flare. Below the
+  front wall, two rubble retaining walls about 1.9 m high with grass ledges about 4 m deep (s -8.4 to -4.4 and -4.4
+  to 0), stopping short of the first stair. Stair cheeks and dragon rails weathered stone grey. Bi Đình pale grey,
+  large arched openings on both storeys, a balustrade round the base. The pale slab on the Bái Đình axis removed.
 - About 10k triangles, well under the 120k budget.
 
 ## What's left
+- From Đ. Đại Nam the precinct's front wall above the terraces still reads taller than in Street View: the court height is set by the 37 steps of the first flight (0.2 m risers), which the model keeps.
 - Palace interior (the glass and porcelain mosaics, the bronze statue under its canopy) is not modelled.
 - Exact heights, the gate's real form and the statue arrangement need on-site or survey figures.
 - **The Bái Đình's depth waits on a survey drawing** (owner's call, 2026-11-21): the 40.5 m stays unapplied until a
