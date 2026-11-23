@@ -39,7 +39,7 @@ const ANG = Math.atan2(U[1], U[0]);
 const P = (s, v) => [B0[0] + U[0] * s + W[0] * v, B0[1] + U[1] * s + W[1] * v];
 const gY = (x, z) => LAND_Y + rise(x, z);
 
-const EDGE = 0.55, S0 = 2, S1 = BL + 2.5; // walk band v ∈ [EDGE, vIn(s)]
+const EDGE = 0.55, S0 = 0, S1 = BL + 2.5; // walk band v ∈ [EDGE, vIn(s)]
 const S_DPT = 66; // up to here the Điềm Phùng Thị garden lies behind the walk, and the paving is narrower
 const vIn = (s) => (s < S_DPT ? 12.0 : 13.8); // inland edge of the paving (satellite)
 const PAVE_Y = 0.1;
@@ -48,16 +48,50 @@ const ROUND_E = { c: [56.45, 237.7], r: 6.5 }; // OSM 1167513766
 const SPURS = [[[23.5, 204.5], [52.2, 232.7]], [[60.5, 242.8], [74.6, 257.8]]];
 const WEST = [[-67.8, 300.9], [-154.4, 394.3], [-161.1, 401.5]]; // OSM 1167513730
 const CANNONS = [[14.9, 301.3], [32.2, 285.6]];
+// at the bridge end the bank turns north to cầu Trường Tiền: the walk runs on along it to the bridge's upstream side
+// (the satellite shows the paving and a stepped quay reaching the abutment)
+const BR = [125.3, 100.8]; // the next land-ring vertex
+const E2 = [(BR[0] - B0[0]) / Math.hypot(BR[0] - B0[0], BR[1] - B0[1]), (BR[1] - B0[1]) / Math.hypot(BR[0] - B0[0], BR[1] - B0[1])];
+const N2 = [-E2[1], E2[0]]; // inland of that stretch
+const TT = [0.7311, 0.6823]; // cầu Trường Tiền's axis (hue.json truongtien a→b), through the origin
+const TT_KEEP = 6.6; // the deck's half width (5.7 m) and a margin: the apron stops at this offset from the axis
+const APRON_L = (() => { // along the bank stretch from B0 to where it meets that offset
+  const off = (p) => -TT[1] * p[0] + TT[0] * p[1];
+  return (off(B0) - TT_KEEP) / (off(B0) - off(BR)) * Math.hypot(BR[0] - B0[0], BR[1] - B0[1]);
+})();
+const Q = (t, n) => [B0[0] + E2[0] * t + N2[0] * n, B0[1] + E2[1] * t + N2[1] * n];
 // Điềm Phùng Thị's mapped garden (OSM 239566225): someone else's; kept out of lawn and trees
 const DPT = [[63.5, 180.9], [84.1, 162.3], [113.4, 135.7], [154.6, 180.6], [104.7, 225.8]];
 
 const C = {
-  pave: hex('#b3b0a9'), band: hex('#9d9992'), kerb: hex('#cdc6b8'), granite: hex('#a9a39a'), graniteTop: hex('#c4bfb5'),
+  pave: hex('#cdc2b0'), band: hex('#a89e8f'), kerb: hex('#cdc6b8'), granite: hex('#a9a39a'), graniteTop: hex('#c4bfb5'),
   balus: hex('#bdb9af'), pole: hex('#8c9196'), disc: hex('#e9e6dc'), trunk: hex('#7d6e5d'), frond: hex('#577a3e'),
   path: hex('#c2b5a2'), lawn: hex(PAL.green.park), bed: hex('#5f7d45'), flower: hex('#c8564a'),
   wood: hex('#8a5a34'), bronze: hex('#5d4a35'), plinth: hex('#d2ccc0'),
   canopy: hex('#ece5d3'), counter: hex('#9a6b45'), cannon: hex('#3a3a36'),
+  brick: hex('#8e4a34'), brickTop: hex('#a35a40'), terrace: hex('#c9bba6'), joint: hex('#a69c8d'),
+  steel: hex('#c9ccce'), crownshaft: hex('#6f7d4a'), dead: hex('#8a7550'),
 };
+const CAFE = [138, 168]; // the café terrace at the inland edge of the walk (sv-ndc-south: parasols, brick edge)
+
+// the generic riverside lamps stay off the walk: it has its own (places/index.js lightAreas)
+export function lightAreas() {
+  const v1 = 15.5;
+  const walk = [P(S1 + 12, -2), P(-1, -2), Q(APRON_L + 1, -2), apronCorner(v1), P(-1, v1), P(S1 + 12, v1)];
+  const west = WEST.slice(1).map((b, i) => {
+    const a = WEST[i], l = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / l, uz = (b[1] - a[1]) / l, h = 4;
+    return [[a[0] - ux * h - uz * h, a[1] - uz * h + ux * h], [b[0] + ux * h - uz * h, b[1] + uz * h + ux * h], [b[0] + ux * h + uz * h, b[1] + uz * h - ux * h], [a[0] - ux * h + uz * h, a[1] - uz * h - ux * h]];
+  });
+  const r = ROUND_W.r + 4, round = Array.from({ length: 12 }, (_, k) => [ROUND_W.c[0] + Math.cos(k * Math.PI / 6) * r, ROUND_W.c[1] + Math.sin(k * Math.PI / 6) * r]);
+  return [walk, round, ...west];
+}
+// the apron's inland corner: from the bank at the bridge's upstream side, inland parallel to the bridge, to the line
+// v = v1 of the walk
+function apronCorner(v1) {
+  const b = Q(APRON_L, EDGE), dv = TT[0] * W[0] + TT[1] * W[1];
+  const vb = (b[0] - B0[0]) * W[0] + (b[1] - B0[1]) * W[1], t = (v1 - vb) / dv;
+  return [b[0] + TT[0] * t, b[1] + TT[1] * t];
+}
 
 export function build({ data, S, group, THREE }) {
   const lampPos = [], lampCol = [];
@@ -93,12 +127,27 @@ export function build({ data, S, group, THREE }) {
     const q = [P(sa, va), P(sb, va), P(sb, vb), P(sa, vb)].map((p) => [p[0], gY(p[0], p[1]) + y, p[1]]);
     S.quad(q[0], q[3], q[2], q[1], col, [0, 1, 0]);
   };
-  // light grey stone slabs, a faint joint line every 6 m
+  // warm light-grey stone slabs (Street View) with a darker band every 6 m, laid in a 1.2 m grid of joints
   for (let s = S0; s < S1 - 1e-6; s += 6) {
     const e = Math.min(S1, s + 6, s < S_DPT && s + 6 > S_DPT ? S_DPT : Infinity), m = Math.min(e, s + 0.3), v1 = vIn(s);
     quadSV(s, m, v0, v1, PAVE_Y + 0.004, C.band);
     if (e > m) quadSV(m, e, v0, v1, PAVE_Y, C.pave);
+    for (let v = v0 + 1.2; v < v1 - 0.3; v += 1.2) quadSV(m, e, v - 0.03, v + 0.03, PAVE_Y + 0.003, C.joint);
+    for (let t = m + 1.2; t < e - 0.3; t += 1.2) quadSV(t - 0.03, t + 0.03, v0, v1, PAVE_Y + 0.003, C.joint);
     if (e < s + 6) s = e - 6; // restart the bands at the step in width
+  }
+  // the apron at the bridge end, out to the bridge's upstream side
+  {
+    const A = P(S0, v0), B = Q(APRON_L, EDGE), Cc = apronCorner(vIn(0)), D = P(S0, vIn(0));
+    const q = [A, B, Cc, D].map((p) => [p[0], gY(p[0], p[1]) + PAVE_Y, p[1]]);
+    S.quad(q[0], q[1], q[2], q[3], C.pave, [0, 1, 0]);
+    const L = Math.hypot(Cc[0] - B[0], Cc[1] - B[1]);
+    for (let t = 1.2; t < APRON_L - 0.3; t += 1.2) { // joints across the apron, parallel to the bank stretch
+      const a = Q(t, EDGE), bb = [a[0] + (D[0] - A[0]), a[1] + (D[1] - A[1])];
+      const ux = E2[0] * 0.03, uz = E2[1] * 0.03;
+      const qq = [[a[0] - ux, a[1] - uz], [a[0] + ux, a[1] + uz], [bb[0] + ux, bb[1] + uz], [bb[0] - ux, bb[1] - uz]].map((p) => [p[0], gY(p[0], p[1]) + PAVE_Y + 0.003, p[1]]);
+      if (L > 0) S.quad(qq[0], qq[1], qq[2], qq[3], C.joint, [0, 1, 0]);
+    }
   }
   S.kind = KIND.MASONRY;
   // kerb on the park side, stepping out where the art centre's garden ends (kept under 0.2 m: inside the paved range a
@@ -113,28 +162,13 @@ export function build({ data, S, group, THREE }) {
     const a = P(S_DPT, vIn(0)), b = P(S_DPT, vIn(S1)), c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
     S.box(c[0], c[1], gY(c[0], c[1]), gY(c[0], c[1]) + PAVE_Y + 0.09, 0.3, vIn(S1) - vIn(0) + 0.3, ANG, C.kerb);
   }
-  // the stone balustrade on the embankment, from the bridge foot to the boardwalk head: a plinth, square piers every
-  // 3 m, turned balusters between them, a flat coping rail (Street View)
-  for (let s = 0; s < BL - 1e-6; s += 6) {
-    const e = Math.min(BL, s + 6), c = P((s + e) / 2, EDGE / 2);
-    const y = gY(c[0], c[1]);
-    S.box(c[0], c[1], y - 0.3, y + 0.22, e - s - 0.02, EDGE, ANG, C.granite, { top: C.graniteTop });
-  }
-  {
-    const n = Math.round(BL / 3), step = BL / n;
-    for (let k = 0; k <= n; k++) {
-      const [x, z] = P(k * step, EDGE / 2), y = gY(x, z);
-      S.box(x, z, y + 0.22, y + 1.02, 0.42, 0.42, ANG, C.balus, { top: C.graniteTop });
-      S.box(x, z, y + 1.02, y + 1.1, 0.5, 0.5, ANG, C.graniteTop);
-      if (k === n) break;
-      const c = P((k + 0.5) * step, EDGE / 2), yc = gY(c[0], c[1]);
-      S.box(c[0], c[1], yc + 0.84, yc + 0.94, step - 0.42, 0.34, ANG, C.balus, { top: C.graniteTop });
-      for (let b = 0.45; b < step - 0.4; b += 0.32) {
-        const [bx, bz] = P(k * step + b, EDGE / 2), by = gY(bx, bz);
-        S.cyl(bx, bz, by + 0.22, by + 0.5, 0.05, 0.085, 6, C.balus, { cap: false });
-        S.cyl(bx, bz, by + 0.5, by + 0.84, 0.085, 0.045, 6, C.balus, { cap: false });
-      }
-    }
+  // the stone balustrade on the embankment, from the bridge's upstream side to the boardwalk head (Street View)
+  balustrade(S, Q(APRON_L, EDGE / 2), Q(0, EDGE / 2));
+  balustrade(S, P(0, EDGE / 2), P(BL, EDGE / 2));
+  // and below it at the bridge end, the stepped quay down toward the water (satellite)
+  for (let k = 1; k <= 3; k++) {
+    const c = Q(APRON_L / 2, -0.45 * k + 0.2), y = gY(c[0], c[1]);
+    S.box(c[0], c[1], y - 0.3 - 0.5 * k - 0.4, y - 0.3 - 0.5 * (k - 1), APRON_L, 0.45, Math.atan2(E2[1], E2[0]), C.granite, { top: C.graniteTop });
   }
   // the walk turns inland at its upstream end to the roundel at the boardwalk stairs
   S.kind = KIND.ROAD;
@@ -183,7 +217,7 @@ export function build({ data, S, group, THREE }) {
     S.box(x, z, y - 0.05, y + 0.12, 1.5, 1.5, ANG, C.kerb);
     S.kind = KIND.GROUND;
     S.box(x, z, y + 0.12, y + 0.14, 1.26, 1.26, ANG, C.lawn);
-    palm(S, x, z, y + 0.12, 10.5 + ((k * 7) % 5) * 0.7, k);
+    palm(S, x, z, y + 0.12, 11.5 + ((k * 7) % 5) * 0.7, k);
   }
   // round the stair roundel, and along the upstream park path
   for (let k = 0; k < 4; k++) {
@@ -203,11 +237,29 @@ export function build({ data, S, group, THREE }) {
     }
   }
 
-  // ---- café parasols in the park behind the tree line at the Tứ Tượng end (satellite, Street View) ----
-  for (let a = 0; a < 4; a++) for (let b = 0; b < 2; b++) {
-    const [x, z] = P(111 + a * 4.2 + b * 2.1, 18.5 + b * 4.2);
-    if (nearBld(x, z, 2.5)) continue;
-    parasol(S, x, z, gY(x, z), ANG, lampAt);
+  // ---- the café terrace at the inland edge of the walk, opposite the Tứ Tượng park (satellite: HUE riverside;
+  // sv-ndc-south: cream parasols on timber poles right at the walk's edge, a red-brown brick edge) ----
+  {
+    const [sa, sb] = CAFE, va = vIn(sa) + 0.3, vb = 20.5;
+    S.kind = KIND.ROAD;
+    const n1 = S.n;
+    quadSV(sa, sb, va, vb, 0.06, C.terrace);
+    (S.paved = S.paved || []).push([n1, S.n]);
+    S.kind = KIND.MASONRY;
+    // a low brick edge round its inland side and ends, open to the walk
+    const wall = (a, b) => {
+      const c = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], l = Math.hypot(b[0] - a[0], b[1] - a[1]), y = gY(c[0], c[1]);
+      S.box(c[0], c[1], y - 0.1, y + 0.45, l, 0.3, Math.atan2(b[1] - a[1], b[0] - a[0]), C.brick, { top: C.brickTop });
+    };
+    wall(P(sa, vb), P(sb, vb));
+    wall(P(sa, va + 1.5), P(sa, vb));
+    wall(P(sb, va + 1.5), P(sb, vb));
+    S.kind = KIND.PLAIN;
+    for (const [s, v] of [[144.5, 12.9], [156.5, 12.9], [141, 16.4], [146, 17.8], [152, 16.6], [157, 18.2], [162.5, 16.6], [149.5, 19.4], [165, 19.2]]) {
+      const [x, z] = P(s, v);
+      if (nearBld(x, z, 2)) continue;
+      parasol(S, x, z, gY(x, z) + (v > vIn(s) ? 0.06 : PAVE_Y), ANG + s, lampAt);
+    }
   }
 
   // ---- sculptures on the lawn by the walk, and the two mapped cannons ----
@@ -228,11 +280,12 @@ export function build({ data, S, group, THREE }) {
     const T = data.trees, n0 = T.length;
     for (let i = 0; i < n0; i += 4) {
       const dx = T[i] / 10 - B0[0], dz = T[i + 1] / 10 - B0[1], s = dx * U[0] + dz * U[1], v = dx * W[0] + dz * W[1];
-      if (s < -4 || s > S1 + 4 || v < -3 || v > 30) continue;
-      if (v < vIn(s) + 1) T[i + 2] = 0;
+      if (s < -24 || s > S1 + 4 || v < -3 || v > 30) continue;
+      if (v < vIn(s) + 1 || (s > CAFE[0] - 1 && s < CAFE[1] + 1 && v < 21.5)) T[i + 2] = 0;
       else if (T[i + 3] === 0 || T[i + 3] === 1) T[i + 3] = 4;
     }
-    // the big shade trees along the inland edge of the paving (kind 4: broad crowns, never drawn as willows)
+    // the big old banyans along the inland edge of the paving (kind 5, foliage.js: wide low crowns over half the walk,
+    // whitewashed feet)
     const row = [];
     for (let s = 7; s < S1 - 2; s += 12) row.push(P(s, vIn(s) - 1.6));
     const pts = [];
@@ -245,11 +298,7 @@ export function build({ data, S, group, THREE }) {
     const onRoad = (x, z) => roads.some((pl) => pl.some((q, i) => i > 0 && segD([x, z], pl[i - 1], q) < 3.2));
     row.forEach(([x, z], i) => {
       if (nearBld(x, z, 6.5) || onRoad(x, z)) return;
-      data.trees.push(Math.round(x * 10), Math.round(z * 10), 17 + (i % 3) * 2, 4);
-      // whitewashed trunk base, as the old banyans along the walk have
-      const keepK = S.kind; S.kind = KIND.MASONRY;
-      S.cyl(x, z, gY(x, z), gY(x, z) + 1.3, 0.55, 0.5, 10, C.plinth);
-      S.kind = keepK;
+      data.trees.push(Math.round(x * 10), Math.round(z * 10), 17 + (i % 3) * 2, 5);
     });
     for (const [x, z] of pts) {
       if (inRing(x, z, DPT) || nearBld(x, z, 6.5) || onRoad(x, z)) continue;
@@ -339,36 +388,77 @@ function lampPost(S, x, z, y, ang, lampAt) {
   S.kind = keep;
 }
 
-// the taller pole (~9 m) with small bracket lamps up one side
+// the tall steel pole (~12.5 m, about as high as the palm crowns, sv-ndc-north) with small bracket lamps up both sides
 function tallPole(S, x, z, y, ang, lampAt) {
   const keep = S.kind;
   S.kind = KIND.PLAIN;
-  S.cyl(x, z, y, y + 9, 0.13, 0.08, 8, shade(C.disc, 0.85));
+  S.cyl(x, z, y, y + 0.5, 0.2, 0.18, 8, C.steel);
+  S.cyl(x, z, y + 0.5, y + 12.5, 0.15, 0.09, 8, C.steel, { cap: false });
+  S.cyl(x, z, y + 12.5, y + 12.7, 0.12, 0.04, 8, C.steel);
   const nx = -Math.sin(ang), nz = Math.cos(ang);
-  for (let k = 0; k < 7; k++) {
-    const yy = y + 3 + k * 0.9, side = k % 2 ? 1 : -1, ux = Math.cos(ang) * side, uz = Math.sin(ang) * side;
+  for (let k = 0; k < 12; k++) {
+    const yy = y + 4 + k * 0.72, side = k % 2 ? 1 : -1, ux = Math.cos(ang) * side, uz = Math.sin(ang) * side;
     S.beam([x, yy, z], [x + ux * 0.32 + nx * 0.05, yy + 0.08, z + uz * 0.32 + nz * 0.05], 0.05, 0.05, C.pole);
     if (k % 2 === 0) lampAt(x + ux * 0.34, yy + 0.05, z + uz * 0.34, [0.9, 0.95, 1]);
   }
   S.kind = keep;
 }
 
-// a tall palm: a slim ringed trunk with a slight lean and a crown of arching fronds
+// a tall palm: a ringed grey-brown trunk swelling a little at the foot, a green crownshaft, and a full crown of
+// long arching fronds (each a broad tapering blade in three bends), a few dead ones hanging under it
 function palm(S, x, z, y, h, k) {
   const keep = S.kind;
   S.kind = KIND.TIMBER;
   const la = k * 2.4, lx = Math.cos(la) * 0.35, lz = Math.sin(la) * 0.35;
-  S.cyl(x, z, y, y + h * 0.5, 0.2, 0.17, 6, C.trunk, { cap: false });
-  S.beam([x, y + h * 0.5, z], [x + lx, y + h, z + lz], 0.32, 0.28, C.trunk);
-  const top = [x + lx, y + h, z + lz];
+  const N = 6;
+  for (let i = 0; i < N; i++) { // ringed: alternate shades, tapering from 0.34 to 0.24 m
+    const t0 = i / N, t1 = (i + 1) / N, f = (t) => t * t;
+    S.cyl(x + lx * f(t0), z + lz * f(t0), y + h * 0.9 * t0, y + h * 0.9 * t1, 0.34 - 0.1 * t0, 0.34 - 0.1 * t1, 7, shade(C.trunk, i % 2 ? 0.92 : 1.05), { cap: false });
+  }
   S.kind = KIND.PLAIN;
-  for (let i = 0; i < 12; i++) {
-    const a = (i / 12) * Math.PI * 2 + k, dx = Math.cos(a), dz = Math.sin(a), up = i % 2 ? 0.2 : 0.55;
-    const mid = [top[0] + dx * 1.5, top[1] + up, top[2] + dz * 1.5], tip = [top[0] + dx * 2.9, top[1] - 1.3 + up, top[2] + dz * 2.9];
-    S.beam(top, mid, 0.5, 0.05, C.frond);
-    S.beam(mid, tip, 0.38, 0.04, shade(C.frond, 0.88));
+  const top = [x + lx, y + h, z + lz];
+  S.cyl(top[0], top[2], y + h * 0.9, top[1], 0.25, 0.2, 7, C.crownshaft);
+  const NF = 18;
+  for (let i = 0; i < NF; i++) {
+    const a = (i / NF) * Math.PI * 2 + k * 0.7, dx = Math.cos(a), dz = Math.sin(a), tier = i % 3;
+    const up = [0.9, 0.45, 0.0][tier], L = 3.1 + (tier === 1 ? 0.3 : 0);
+    const p1 = [top[0] + dx * L * 0.35, top[1] + up + 0.25, top[2] + dz * L * 0.35];
+    const p2 = [top[0] + dx * L * 0.7, top[1] + up * 0.6 - 0.35, top[2] + dz * L * 0.7];
+    const p3 = [top[0] + dx * L, top[1] - 0.6 - (2 - tier) * 0.35, top[2] + dz * L];
+    S.beam(top, p1, 0.75, 0.04, C.frond);
+    S.beam(p1, p2, 0.85, 0.04, shade(C.frond, 0.94));
+    S.beam(p2, p3, 0.5, 0.03, shade(C.frond, 0.86));
+  }
+  for (let i = 0; i < 3; i++) { // dead fronds hanging against the trunk
+    const a = (i / 3) * Math.PI * 2 + k, dx = Math.cos(a), dz = Math.sin(a);
+    S.beam([top[0] + dx * 0.2, top[1] - 0.2, top[2] + dz * 0.2], [top[0] + dx * 0.7, top[1] - 2.2, top[2] + dz * 0.7], 0.45, 0.03, C.dead);
   }
   S.kind = keep;
+}
+
+// the stone balustrade along a bank line a→b (its centreline): a plinth, square piers about every 3 m, turned
+// balusters between them and a flat coping rail (Street View)
+function balustrade(S, a, b) {
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L, ang = Math.atan2(uz, ux);
+  const at = (t) => [a[0] + ux * t, a[1] + uz * t];
+  for (let s = 0; s < L - 1e-6; s += 6) {
+    const e = Math.min(L, s + 6), c = at((s + e) / 2), y = gY(c[0], c[1]);
+    S.box(c[0], c[1], y - 0.3, y + 0.22, e - s - 0.02, EDGE, ang, C.granite, { top: C.graniteTop });
+  }
+  const n = Math.max(1, Math.round(L / 3)), step = L / n;
+  for (let k = 0; k <= n; k++) {
+    const [x, z] = at(k * step), y = gY(x, z);
+    S.box(x, z, y + 0.22, y + 1.02, 0.42, 0.42, ang, C.balus, { top: C.graniteTop });
+    S.box(x, z, y + 1.02, y + 1.1, 0.5, 0.5, ang, C.graniteTop);
+    if (k === n) break;
+    const c = at((k + 0.5) * step), yc = gY(c[0], c[1]);
+    S.box(c[0], c[1], yc + 0.84, yc + 0.94, step - 0.42, 0.34, ang, C.balus, { top: C.graniteTop });
+    for (let t = 0.45; t < step - 0.4; t += 0.32) {
+      const [bx, bz] = at(k * step + t), by = gY(bx, bz);
+      S.cyl(bx, bz, by + 0.22, by + 0.5, 0.05, 0.085, 6, C.balus, { cap: false });
+      S.cyl(bx, bz, by + 0.5, by + 0.84, 0.085, 0.045, 6, C.balus, { cap: false });
+    }
+  }
 }
 
 // a granite-legged bench with a timber seat and back; `ang` is the bench's length direction rotated so the back is
@@ -387,9 +477,11 @@ function bench(S, x, z, y, ang) {
 function parasol(S, x, z, y, ang, lampAt) {
   const keep = S.kind;
   S.kind = KIND.PLAIN;
-  S.cyl(x, z, y, y + 2.5, 0.05, 0.05, 6, C.wood);
-  S.hip(x, z, 3.0, 3.0, ang, y + 2.25, 0.55, C.canopy, { over: 0 });
-  S.cyl(x, z, y, y + 0.74, 0.35, 0.35, 10, shade(C.counter, 1.1));
+  S.cyl(x, z, y, y + 2.75, 0.05, 0.05, 6, C.wood);
+  S.hip(x, z, 3.2, 3.2, ang, y + 2.3, 0.6, C.canopy, { over: 0 });
+  const ox = Math.cos(ang) * 0.9, oz = Math.sin(ang) * 0.9; // a small café table beside the pole
+  S.cyl(x + ox, z + oz, y, y + 0.7, 0.04, 0.04, 6, C.pole, { cap: false });
+  S.cyl(x + ox, z + oz, y + 0.7, y + 0.74, 0.35, 0.35, 10, shade(C.counter, 1.1));
   lampAt(x, y + 2.1, z, [1, 0.78, 0.5]);
   S.kind = keep;
 }

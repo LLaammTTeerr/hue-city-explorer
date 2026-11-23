@@ -42,6 +42,18 @@ export function placeDeckEnds(data) {
   return out;
 }
 
+// A place that lights its own walk may also export lightAreas(data): rings ([[x, z], ...], metres) inside which the
+// generic riverside lamps (riverlights.js, data.riverLamps) are left out, so its own lamp design is the only one there.
+export function placeLightAreas(data) {
+  load();
+  const out = [];
+  for (const m of list) {
+    if (typeof m.lightAreas !== 'function') continue;
+    try { out.push(...m.lightAreas(data)); } catch (e) { console.warn(`light areas of ${m.id}:`, e); }
+  }
+  return out;
+}
+
 // onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
 export function buildPlaces(data, S, group, onEach = null) {
   load();

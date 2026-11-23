@@ -59,10 +59,18 @@ No drawing or survey was found, so these sizes and counts are guesses:
   - café parasols replace the kiosks
   - generated trees standing on the paving are emptied in place (scale 0, never removed, so the other trees keep their seeds)
   - `src/geo/foliage.js` gained kind 4 for these trees
+- Review fixes (2026):
+  - The generic riverside lamps (black posts with cream lanterns) are left out of this place: the place exports `lightAreas(data)`, and `riverlights.js` skips any lamp inside those rings (walk band, roundel, west path).
+  - The shade row is now banyans: kind 5 in `foliage.js`, with a whitewashed trunk foot, aerial roots and a wide low canopy reaching over half the walk.
+  - The palms are 11.5 to 14.3 m tall, with ringed tapering trunks, a crownshaft, 18 fronds in three tiers and hanging dead fronds. The multi-arm pole is 12.5 m of steel, so it rises to the crowns.
+  - The paving is a warmer cream with a darker band and a visible 1.2 m joint grid.
+  - A café terrace sits at s 138 to 168. It is paved up to the walk edge, with a low red-brown brick wall inland and at both ends, and parasols out on the walk edge.
+  - At the bridge end the paving runs as an apron along the bank to Trường Tiền's upstream abutment, with the balustrade continued and a three-step granite quay on the water side.
 
 ## Left to do
 - Confirm the real lamp, bench and kiosk designs and spacing from photos.
 - Identify the actual sculptures and where they stand.
 - Check whether the stalls are fixed kiosks or mobile carts set up each evening. The satellite shows none.
-- The shade trees are smaller than the real banyans, and their trunks are not whitewashed.
+- The palm fronds are still flat strips; a finer frond model would read better close up.
+- Under the dusk light the paving picks up a lilac cast from the sky.
 - The Điềm Phùng Thị garden (`diemphungthi`) is someone else's place and has no replica yet; its lawn is still the base ground.
