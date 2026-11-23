@@ -66,3 +66,18 @@ Place id `gate:Cửa Ngăn`, built by `src/landmarks/places/gate-cua-ngan.js`. T
 - Tower depth and the culvert count, which need a site photo from the side or a plan.
 - The lamp offset in life.js is a shared issue: lamps on narrow named bridges stand beside the deck. The bay is a
   local workaround.
+
+## Google imagery check (2026)
+
+Checked against Google satellite and Street View (visual reference only; nothing traced or copied).
+
+- Position and axis: the gate block sits within about 1.5 m of the satellite's, and the wall and bridge axes agree
+  to within a few degrees. No change to the anchor or the OSM outline.
+- Measured on the Street View looking up the bridge axis (scale from the 17.1 m block width): block top with its
+  parapet about 8.8 m, lower tower storey about 8.5 m wide with its brick top about 4 m over the block's top, finial
+  about 17 m. The lower storey was 8.2 m wide and 3.2 m tall; it is now 8.5 m and 3.8 m, so the finial stands at
+  about 17 m. The published figure ("cao chừng 16m", for all main gates) is approximate.
+- Brick tones darkened towards the weathered brown the current photographs show.
+- Not changed here: the rampart's inner side near the gate. Street View shows a low brick retaining wall (about 3.5 m)
+  along Ông Ích Khiêm with grey rendered piers, the rampart top set back behind a grass slope, so the vọng lâu shows
+  over it from the street. The shared rampart (`kinhthanh`) draws a full-height inner face at the road.
