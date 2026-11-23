@@ -98,6 +98,19 @@ export function placeOwnsWay(data) {
   return (r) => tests.some((t) => t(r));
 }
 
+// A place that lays its own ground flush with the land (a lawn, walks) may also export clearings(data): rings of
+// [x, z] in model metres where geo/city.js draws none of the city's footways (class 5) or green patches (the ones
+// whose middle lies inside) and plants no trees or houses. buildCity reads them before any model is built.
+export function placeClearings(data) {
+  load();
+  const out = [];
+  for (const m of list) {
+    if (typeof m.clearings !== 'function') continue;
+    try { for (const ring of m.clearings(data)) if (ring && ring.length >= 3) out.push(ring); } catch (e) { console.warn(`clearings of ${m.id}:`, e); }
+  }
+  return out;
+}
+
 // onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
 export function buildPlaces(data0, S, group, onEach = null) {
   load();
