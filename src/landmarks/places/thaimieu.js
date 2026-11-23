@@ -1,4 +1,4 @@
-import { KIND, hex, shade, inRing } from '../../geo/buf.js';
+import { KIND, hex, shade, inRing, hipShape } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
@@ -81,6 +81,7 @@ function hall(S, lamps) {
   const g = gy(Ph(0, V)), fl = g + H;
   // outer column lines: VF the verandah, VD the front doors, VJ the valley between the halls, VB the back wall
   const VF = 15.0, VD = 10.5, VJ = 5.8, VB = -7.5;
+  const yb = fl + 3.6; // the verandah's beam heads: the front roof's eave
   const spans = [2.9, ...Array(15).fill(4.2), 2.9];
   const W = spans.reduce((a, b) => a + b, 0); // 68.8
   const cols = [-W / 2];
@@ -99,10 +100,24 @@ function hall(S, lamps) {
   }
   for (const s of [-1, 1]) for (let k = 1; k <= 5; k++) hbox(S, s * (BW / 2 + 0.32 * k - 0.16), V, g - 0.3, fl - 0.2 * k, 0.32, 3.6, shade(STONE, 1.05), { topKind: KIND.ROAD });
 
-  // walls: lime-washed brick at the back and the two ends; a dark closed core under the roofs
+  // walls: lime-washed brick at the back and the two ends, carried up to the roofs' undersides; a dark closed core
+  // under the roofs. Buf.hip sets y0 at the overhang's edge and lifts the slope inward, so a wall standing 1.6 m in
+  // under the eave stops short of it unless it rises to the roof's height over its outer face (roofY).
+  const RM = 5.4, RF = 3.3; // rises: main ridge fl + 10.0 (11 m over the ground), front ridge fl + 6.9
+  const OVER = 1.6, FLM = 0.5, FLF = 0.45;
+  const roofY = (y0, h, d, flare, inU, inV) => {
+    const { hw, hd, rl, gamma } = hipShape(W + OVER * 2, d + OVER * 2, flare, true, RIDGE, 4);
+    const t = Math.min(1, inU / Math.max(1e-6, hw - rl), inV / hd);
+    return y0 + h * t ** gamma;
+  };
+  const topM = roofY(fl + 4.6, RM, VJ - VB, FLM, OVER + 0.3, OVER) - 0.05; // under the main roof, at the back corner
+  const topF = roofY(yb, RF, VF - VJ, FLF, OVER + 0.3, VF + OVER - VD) - 0.05; // under the front roof
   S.kind = KIND.MASONRY;
-  hbox(S, 0, VB + 0.3, fl, fl + 4.6, W, 0.6, WALL);
-  for (const s of [-1, 1]) hbox(S, s * (W / 2 - 0.3), (VB + VD) / 2, fl, fl + 4.4, 0.6, VD - VB, WALL);
+  hbox(S, 0, VB + 0.3, fl, topM, W, 0.6, WALL);
+  for (const s of [-1, 1]) {
+    hbox(S, s * (W / 2 - 0.3), (VB + VJ) / 2, fl, topM, 0.6, VJ - VB, WALL);
+    hbox(S, s * (W / 2 - 0.3), (VJ + VD) / 2, fl, topF, 0.6, VD - VJ, WALL);
+  }
   S.kind = KIND.TIMBER;
   hbox(S, 0, (VB + VD) / 2, fl, fl + 4.3, W - 1.2, VD - VB - 0.8, shade(LAC, 0.7), { top: shade(ROOF, 0.7) });
   // the front: 15 bays of lacquered door panels (bức bàn), the middle one darker, a gilt lattice transom over each;
@@ -118,7 +133,6 @@ function hall(S, lamps) {
     if (i >= 6 && i <= 10) hbox(S, um, VB - 0.04, fl, fl + 2.7, w - 0.8, 0.12, shade(LAC, 0.75));
   }
   // verandah: 18 red columns on stone bases with a gilt band, a beam along their heads, a dark ceiling over it
-  const yb = fl + 3.6;
   for (const u of cols) {
     const p = Ph(u, VF);
     S.cyl(p[0], p[1], fl, fl + 0.3, 0.44, 0.38, 6, shade(STONE, 0.95), { cap: false, rot: ANG });
@@ -132,10 +146,9 @@ function hall(S, lamps) {
   // roofs: the main hall's high hip behind, the front hall's lower one before it, joined at the valley
   S.kind = KIND.TIMBER;
   const eave = { fascia: 0.32, fasciaCol: shade(LAC, 0.7), hips: true, glazed: true, ridgeCol: RIDGE, segs: 4 };
-  const RM = 5.4, RF = 3.3; // rises: main ridge fl + 10.0 (11 m over the ground), front ridge fl + 6.9
   const mf = Ph(0, (VJ + VF) / 2), mb = Ph(0, (VB + VJ) / 2);
-  S.hip(mb[0], mb[1], W, VJ - VB, ANG, fl + 4.6, RM, ROOF, { flare: 0.5, over: 1.6, ...eave });
-  S.hip(mf[0], mf[1], W, VF - VJ, ANG, yb, RF, ROOF, { flare: 0.45, over: 1.6, ...eave });
+  S.hip(mb[0], mb[1], W, VJ - VB, ANG, fl + 4.6, RM, ROOF, { flare: FLM, over: OVER, ...eave });
+  S.hip(mf[0], mf[1], W, VF - VJ, ANG, yb, RF, ROOF, { flare: FLF, over: OVER, ...eave });
   // the bronze valley gutter between them, spouting at the two ends
   S.kind = KIND.PLAIN;
   { const a = hat(-W / 2 - 1.2, VJ, yb + 0.7), b = hat(W / 2 + 1.2, VJ, yb + 0.7); S.beam(a, b, 0.6, 0.35, BRONZE); }
