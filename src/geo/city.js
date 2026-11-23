@@ -15,6 +15,7 @@ import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
 import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
+import { ownRoads as daVienRoads } from '../landmarks/places/bachho.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
 import { junctionHoles, holeRects, markingGuard, inPoly, slivers, asphaltTest } from './junctions.js';
 
@@ -396,6 +397,7 @@ function buildRoads(data, group, structures) {
   for (const r of roads) {
     if (!r.bridge || ownDeck.has(r.flat)) continue;
     if (replaced('giahoi') && giaHoiRoads(data).has(r.flat)) continue; // cầu Gia Hội is modelled in landmarks/places/giahoi.js
+    if (replaced('bachho') && daVienRoads(data).has(r.flat)) continue; // cầu Dã Viên's north-channel deck: landmarks/places/bachho.js
     if (replaced('golim') && r.c === 5 && r.pts.some((p) => Math.hypot(p[0] + 72.9, p[1] - 281.6) < 1 || Math.hypot(p[0] + 298, p[1] - 500.2) < 1)) continue; // the lim walkway's OSM ways: landmarks/places/golim.js
     // The deck is as wide as the street's pavement (carriageway + footways) and carries its carriageway at the street's
     // own width (narrowed on a divided road's one-way twins), so the street runs onto it edge to edge. Left at the
@@ -445,7 +447,6 @@ function buildRoads(data, group, structures) {
         pavilion(structures, x, z, 3.4, 3.4, a, top, { wallH: 2.6, roof: hex('#8f4a36'), wall: hex('#c9b99a'), over: 0.9, rh: 1.5, ridge: hex('#d9c9a0') });
       }
     }
-    if (replaced('bachho') && r.c <= 1 && Math.hypot(mp[0] + 1896, mp[1] - 1019) < 40) continue; // places/bachho.js has the piers
     if (len > 42 && r.c <= 3 && !P.arches) {
       const n = Math.max(1, Math.round(len / 30) - 1);
       for (let i = 1; i <= n; i++) {
@@ -470,6 +471,7 @@ function buildRoads(data, group, structures) {
   const lp = [], lc = [];
   for (const r of roads) {
     if (r.c > 2 || !r.flat || r.unmarked) continue; // a slip road is lit by the roads it joins (a bridge way's street ends are lit as part of the way: life.js posts)
+    if (r.bridge && replaced('bachho') && daVienRoads(data).has(r.flat)) continue; // lit by its own parapet lamps (places/bachho.js)
     const len = pathLength(r.pts);
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {

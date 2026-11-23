@@ -6,6 +6,8 @@ import { LAND_Y, quality, ROAD_W, ROAD_MAX, roadWidth } from '../config.js';
 import { bridgeProfiles, resample } from '../geo/bridges.js';
 import { landTest } from './boats.js';
 import { TT_LENGTH } from './truongtien.js';
+import { replaced } from './places/index.js';
+import { ownRoads as daVienRoads } from './places/bachho.js';
 
 // Small living things that make the model feel inhabited. All illustrative.
 
@@ -449,8 +451,9 @@ function buildLampPosts(data, group, out = {}) {
   const kd = placeById(data).get('kydai') || [0, 0];
   const ARM = 0.9; // pole stands this far behind the lantern, away from the carriageway
   const spots = [];
+  const dv = replaced('bachho') ? daVienRoads(data) : null; // cầu Dã Viên's deck has its own parapet lamps (places/bachho.js)
   for (const r of roads) {
-    if (r.c > 2 || r.pts.length < 2) continue;
+    if (r.c > 2 || r.pts.length < 2 || (r.bridge && dv && dv.has(r.flat))) continue;
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < r.len; s += step, k++) {
       const { p, a } = along(r.pts, s);

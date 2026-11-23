@@ -18,7 +18,7 @@ import { inRing, pathLength, unflat } from './buf.js';
 //    a solid parapet with plastered coping and round medallions (the reference photo in issue #19). Its rise and
 //    vaults come from the `citadel` rule below and src/geo/citadel-bridge.js draws it.
 // Illustrative: the crown rises (no surveyed long sections were found), the number of vaults, the default rule.
-// Big modern river bridges keep a level deck: Dã Viên (and its approaches), any run over 150 m; Phú Xuân climbs (below).
+// Big modern river bridges keep a level deck: any run over 150 m; Phú Xuân and Dã Viên climb (below).
 // Trường Tiền and Nguyễn Hoàng are hand models elsewhere; the Bạch Hổ rail bridge is not a road.
 
 const NAMED = {
@@ -31,7 +31,9 @@ const NAMED = {
   'Cầu Cửa Ngăn': { rise: 1.0 }, // its own causeway with balustrades (landmarks/places/gate-cua-ngan.js)
   // 1971 girder bridge: the deck climbs off each bank within ~40 m, then crowns gently (landmarks/places/phuxuan.js)
   'Cầu Phú Xuân': { rise: 4.2, ramp: 0.1 },
-  'Cầu Dã Viên': { rise: 0 },
+  // 2012 girder bridge: its deck stands ~2 m above the 1908 rail deck beside it (Street View, the truss's top chord
+  // against the parapet; landmarks/places/bachho.js), climbing off each bank within ~30 m
+  'Cầu Dã Viên': { rise: 2.0, ramp: 0.12 },
   'Cầu Trường Tiền': { rise: 0 },
   'Cầu Nguyễn Hoàng': { rise: 0 },
 };
