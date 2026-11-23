@@ -34,8 +34,18 @@ tự standing on theirs. (In 2026 the main hall is a restored bare foundation an
 - Yellow glazed tiles and red lacquer with gilding (the phase 2 restoration brief, Báo Văn hóa 3 Aug 2026).
 - Outlines and positions of the walls, gates and side buildings (OSM); yellow glazed roofs.
 
+## Placed from the satellite (Google, 2026, z20 at 0.14 m/px; reference only, captures kept in scratch/)
+- The restored foundation is a stone platform about 74 x 28 m (with a 2 m rim at the back and ends), axis 53 deg
+  (as the mapped walls). In the model frame its outer edges are u -37.5 / +36.7, v -9.7 / +18.3: centred 2.8 m in
+  front of the mapped 1972 hall (OSM 172657566), which stood on the old base off centre. The hall was moved there.
+- Plinth rows on it: along the facade 4.2 m apart, bay lines from u -32.0 (15 bays centred on u -0.5); across it at
+  v 15.0, 10.5, 7.5, 4.1, -0.4, -4.0 and -7.5 (on the rim). Taken as the verandah (15.0), the front doors (10.5),
+  the valley (between 7.5 and 4.1, at 5.8) and the back wall (-7.5): 22.5 m from verandah to back wall.
+- The court before it: a stone apron along the base front (v 18.3-21.8) and a paved court the platform's width to
+  v about 36.5, lighter (weathered tan) than the old brick red.
+
 ## Estimated
-- Foundation height 1.0 m, its exact position (centred on the 1972 hall), 5 steps, three front flights plus end
+- Foundation height 1.0 m, 5 steps, three front flights plus end
   flights; column spacing (4.2 m bays, 2.9 m wing spans, 68.8 m between the outer columns).
 - The hall drawn in Thế Miếu's idiom, the same type and use and the one of the pair still standing (no pre-1947
   drawings or heights of Thái Miếu found): both halls the same width, the main hall's 13 + 2 taken as double wings
