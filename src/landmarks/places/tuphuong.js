@@ -6,15 +6,15 @@ import { OUTER, BAC_KHUYET_DAI, wallRun } from '../hoangthanh.js';
 // the middle of the Imperial City's north wall, just west of Cửa Hòa Bình. Sources and estimates: docs/places/tuphuong.md.
 //   - Bắc Khuyết Đài: a rectangular platform 64.6 × 28.5 m on top of the wall, jutting out past its line. This
 //     model owns the bastion's three outer sides of the Imperial City wall (hoangthanh.js; dainoi.js draws the rest
-//     of the ring and skips them), so the wall, its cap and the balustrade on it are one model's: the platform's
-//     fill stops at the wall's inner face. Also the paving, the two flights up from inside, the turtle-shaped
+//     of the ring and skips them), so the wall, its cap and the brick parapet on it are one model's: the platform's
+//     fill stops at the wall's inner face. Also the lawn and terracotta walks, the two flights up from inside, the turtle-shaped
 //     flower beds east and west of the pavilion and the frangipani (cây sứ) along the inner edge
 //   - the pavilion: brick and cement, two storeys on a 14 × 13 m (182 m²) plan, OSM way 172802373. Ground floor
 //     ringed by an arcaded verandah (hàng hiên) under a skirt roof; upper floor smaller, with a balcony all round
 //     (ban công vòng quanh); each face of each storey has one door and two windows; walls washed pale yellow,
-//     piers and arches cream, rails and joinery dark red-brown
-//   - roofs of yellow glazed tile; on the ridge a sun disc between two dragons (hồi long), dragons on the four
-//     corner ridges (bờ quyết)
+//     piers and arches cream, joinery dark red-brown, the upper balcony's balusters grey-blue
+//   - roofs: sources say yellow glazed tile, but Street View shows them uniformly dark and matte, and so are they
+//     drawn; on the ridge a sun disc between two dragons (hồi long), openwork dragons at all eight corners, dark
 // Geometry is hard-coded in the bastion's frame: u along its outer face (west → east), v inward (towards the
 // Imperial City's centre), metres from the middle of the outer face. Points from OSM (ways 531016856, 172802373).
 export const id = 'tuphuong';
@@ -26,12 +26,16 @@ const [J0, A, B, J1] = BAC_KHUYET_DAI;
 const WALL = hex('#e8cf92'); // pale yellow wash
 const PIER = hex('#f1e7cf'); // cream piers, arches and cornices
 const JOIN = hex('#5c2f22'); // dark red-brown doors, shutters and rails
-const ROOF = hex('#6b4a2c'); // weathered brown tile: the imagery reads dark brown, not yellow
-const RIDGE = hex('#b8935a');
+const ROOF = hex('#504640'); // weathered tile, matte: Street View reads the roofs uniformly dark, not yellow
+const RIDGE = shade(ROOF, 0.82); // ridges and hips a shade darker than the tile
+const ORN = hex('#2f2b29'); // the openwork dragons and ornaments: dark, as the panoramas show them
 const UPPER = hex('#4a3426'); // the upper storey's dark timber walls
-const PAVE = hex('#b8b0a0');
+const PAVE = hex('#b8b0a0'); // stone steps and plinth
+const LAWN = hex('#7f9a52'), TERRA = hex('#9c624e'), BED = hex('#5f7d3a'); // the platform's lawn, terracotta walks, planting
 const MASON = OUTER.body; // the Imperial City wall's weathered brick
-const BAL = hex('#aaa496'), PANEL = hex('#c39554'); // balustrade posts and their ochre panels
+const BAL = shade(MASON, 0.92); // the inner edge's dark stone rail and the stair copings
+const RELIEF = hex('#e3cf98'); // the arcade's openwork relief panels, washed like the walls
+const BALUS = hex('#7f8b93'); // the upper balcony's grey-blue balusters (visitor's photo sphere)
 const LEAF = hex('#5f7f3c'), BARK = hex('#7d7466');
 // the pavilion's centre in the bastion's frame (u, v), from the satellite (see the pavilion below)
 const PAV = [-0.6, 10.2];
@@ -58,7 +62,8 @@ export function build({ S }) {
   wallRun(S, A, B, OUTER, [1, 1]);
   wallRun(S, B, J1, OUTER, [1, 1]);
 
-  // ---- Bắc Khuyết Đài: the platform fill, paved on top, from the wall's inner faces inward ----
+  // ---- Bắc Khuyết Đài: the platform fill, from the wall's inner faces inward; lawn on top (the satellite shows it
+  // mostly grass under trees) ----
   S.kind = KIND.MASONRY;
   {
     const t = OUTER.t / 2, j0 = L(J0), j1 = L(J1), a = L(A), b = L(B);
@@ -66,31 +71,60 @@ export function build({ S }) {
     const side = (p, q, s) => { const du = q[0] - p[0], dv = q[1] - p[1], n = Math.hypot(du, dv); const o = [p[0] - s * dv / n * t, p[1] + s * du / n * t]; return (v) => [o[0] + (v - o[1]) * du / dv, v]; };
     const w = side(a, j0, -1), e = side(b, j1, 1);
     const ring = [w(t), e(t), e(D), w(D)].map(([u, v]) => P(u, v));
-    S.prism(ring, Y - 0.2, yPl, MASON, PAVE, { topKind: KIND.ROAD });
+    S.prism(ring, Y - 0.2, yPl, MASON, LAWN, { topKind: KIND.GROUND });
   }
-  // the inner face's plinth and a coping along its edge
+  // the inner face's plinth and a stone coping along its edge
   box(0, D + 0.05, Y - 0.2, Y + 0.5, 2 * H, 0.3, shade(MASON, 0.85));
-  box(0, D - 0.15, yPl - 0.05, yPl + 0.12, 2 * H, 0.5, shade(PAVE, 0.9));
-  // a paved walk round the pavilion, a shade lighter, kept clear of the outer balustrade
+  box(0, D - 0.15, yPl - 0.05, yPl + 0.12, 2 * H, 0.5, BAL);
+  // terracotta walks (the visitor's photo sphere by the pavilion): round the pavilion outside a planted strip against
+  // its plinth, along the inner side from one flight's head to the other, and up to each head
   S.kind = KIND.ROAD;
-  box(PAV[0], (1.2 + PAV[1] + 10) / 2, yPl, yPl + 0.03, 22, PAV[1] + 10 - 1.2, shade(PAVE, 1.07), { topKind: KIND.ROAD });
+  {
+    const yW = yPl + 0.03, pu = PAV[0], pv = PAV[1];
+    const ou = 7.0 + 0.9 + 3.0, ov = 6.5 + 0.9 + 3.0; // the ring's outer half sizes
+    const v0 = Math.max(1.4, pv - ov), v1 = pv + ov;
+    box(pu, (v0 + v1) / 2, yPl, yW, 2 * ou, v1 - v0, TERRA, { topKind: KIND.ROAD });
+    const vW0 = pv + 6.5 + 0.9, vW1 = vW0 + 3.6; // the walk along the inner side
+    box(0, (vW0 + vW1) / 2, yPl, yW, 2 * 25.6, vW1 - vW0, TERRA, { topKind: KIND.ROAD });
+    for (const s of [-1, 1]) box(s * 24.4, (vW1 + D - 0.4) / 2, yPl, yW, 2.6, D - 0.4 - vW1, TERRA, { topKind: KIND.ROAD });
+  }
+  // the planted strip against the plinth, open at the steps in the middle of each face
+  S.kind = KIND.PLAIN;
+  for (const [fu, fv] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+    const half = fu ? 6.5 + 0.9 : 7.0 + 0.9, off = (fu ? 7.0 : 6.5) + 0.45;
+    for (const s of [-1, 1]) {
+      const c = s * (1.35 + half) / 2, l = half - 1.35;
+      box(PAV[0] + (fu ? fu * off : c), PAV[1] + (fv ? fv * off : c), yPl + 0.03, yPl + 0.2, fu ? 0.9 : l, fu ? l : 0.9, BED, { top: shade(BED, 1.08) });
+    }
+  }
 
-  // ---- balustrade on the wall cap round the three outer sides, and along the inner edge ----
-  const rail = (a, b, y0) => { // posts every ~2.4 m, a low ochre-panelled infill and a coping rail
+  // ---- the parapet on the wall cap round the three outer sides: solid weathered brick in the wall's own colours,
+  // with a coping and low piers (both car panoramas and the photo sphere show no balustrade and no ochre) ----
+  const parapet = (a, b, y0, lapA, lapB) => {
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l < 0.5) return;
+    const a2 = Math.atan2(b[1] - a[1], b[0] - a[0]), dx = (b[0] - a[0]) / l, dz = (b[1] - a[1]) / l;
+    const th = 0.62, e0 = lapA ? th / 2 : 0, e1 = lapB ? th / 2 : 0, L2 = l + e0 + e1;
+    const mx = a[0] + dx * (L2 / 2 - e0), mz = a[1] + dz * (L2 / 2 - e0);
+    S.kind = KIND.MASONRY;
+    S.box(mx, mz, y0, y0 + 0.95, L2, th, a2, shade(MASON, 0.96), { top: OUTER.cap });
+    S.box(mx, mz, y0 + 0.95, y0 + 1.07, L2 + 0.04, th + 0.1, a2, OUTER.cap);
+    const n = Math.max(1, Math.round(l / 4.2));
+    for (let i = 0; i <= n; i++) { const x = a[0] + dx * l * i / n, z = a[1] + dz * l * i / n; S.box(x, z, y0, y0 + 1.2, 0.72, 0.72, a2, shade(MASON, 0.88), { top: OUTER.cap }); }
+  };
+  const cap = Y + OUTER.h + OUTER.capH;
+  const capEnd = OUTER.capW / 2, jl = Math.hypot(A[0] - J0[0], A[1] - J0[1]);
+  const J0in = [J0[0] + (A[0] - J0[0]) * capEnd / jl, J0[1] + (A[1] - J0[1]) * capEnd / jl]; // the cap's end at J0
+  parapet(J0in, A, cap, false, true); parapet(A, B, cap, true, true); parapet(B, J1, cap, true, false);
+  // ---- the inner edge: a low dark stone rail (posts and a solid infill), open at the head of each flight ----
+  const rail = (a, b, y0) => {
     const l = Math.hypot(b[0] - a[0], b[1] - a[1]); if (l < 0.5) return;
     const n = Math.max(1, Math.round(l / 2.4)), a2 = Math.atan2(b[1] - a[1], b[0] - a[0]);
     S.kind = KIND.MASONRY;
     for (let i = 0; i <= n; i++) { const x = a[0] + (b[0] - a[0]) * i / n, z = a[1] + (b[1] - a[1]) * i / n; S.box(x, z, y0, y0 + 0.92, 0.32, 0.32, a2, BAL, { top: shade(BAL, 1.1) }); }
     const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
-    S.box(mx, mz, y0, y0 + 0.16, l, 0.26, a2, BAL);
-    S.box(mx, mz, y0 + 0.16, y0 + 0.66, l, 0.12, a2, PANEL);
+    S.box(mx, mz, y0, y0 + 0.66, l, 0.16, a2, shade(MASON, 0.85));
     S.box(mx, mz, y0 + 0.66, y0 + 0.8, l, 0.24, a2, BAL);
   };
-  const cap = Y + OUTER.h + OUTER.capH;
-  const capEnd = OUTER.capW / 2, jl = Math.hypot(A[0] - J0[0], A[1] - J0[1]);
-  const J0in = [J0[0] + (A[0] - J0[0]) * capEnd / jl, J0[1] + (A[1] - J0[1]) * capEnd / jl]; // the cap's end at J0
-  rail(J0in, A, cap); rail(A, B, cap); rail(B, J1, cap);
-  // inner edge: open at the head of each flight
   const sx = 24.4; // where each flight comes up (|u|)
   rail(P(-H, D - 0.2), P(-sx - 1.6, D - 0.2), yPl);
   rail(P(-sx + 0.6, D - 0.2), P(sx - 0.6, D - 0.2), yPl);
@@ -166,6 +200,25 @@ export function build({ S }) {
   const yE2 = yPl + 7.15; // upper eave edge
   const rh = 3.1; // upper roof rise: ridge 10.25 m over the platform
   const WOOD = shade(JOIN, 1.15);
+  // an openwork dragon (the panoramas show dark, many-spined silhouettes at the ridge and all eight corners), drawn
+  // in the vertical plane through base along the plan direction dir (pavilion frame): the body leans out along dir
+  // and the head curls back over it; s scales it (s 1 ≈ 1.8 m tall)
+  const dragon = (base, dir, s) => {
+    const dx = dir[0] * ux - dir[1] * uz, dz = dir[0] * uz + dir[1] * ux;
+    const at = ([t, h]) => [base[0] + dx * t * s, base[1] + h * s, base[2] + dz * t * s];
+    const spine = [[0, 0], [0.3, 0.35], [0.55, 0.75], [0.5, 1.15], [0.28, 1.4], [0.02, 1.32], [0.08, 1.1]];
+    const fins = [[1, [0.65, 0.42]], [2, [0.92, 0.92]], [3, [0.85, 1.45]], [4, [0.35, 1.78]], [5, [-0.22, 1.6]], [0, [-0.3, 0.15]], [6, [0.3, 0.35]], [2, [0.3, 0.9]]];
+    const keepK = S.kind; S.kind = KIND.PLAIN;
+    for (let i = 1; i < spine.length; i++) S.beam(at(spine[i - 1]), at(spine[i]), (i < 4 ? 0.34 : 0.24) * s, (i < 4 ? 0.3 : 0.22) * s, ORN);
+    for (const [i, p] of fins) S.beam(at(spine[i]), at(p), 0.16 * s, 0.17 * s, ORN);
+    // the body's openwork filled in as a solid fan, faced both ways, so the silhouette reads full from afar
+    const hub = at([0.32, 0.92]), nrm = [-dz, 0, dx], back = [dz, 0, -dx];
+    for (let i = 1; i < spine.length - 1; i++) {
+      const p0 = at(spine[i]), p1 = at(spine[i + 1]);
+      S.tri(hub, p0, p1, ORN, nrm); S.tri(hub, p1, p0, ORN, back);
+    }
+    S.kind = keepK;
+  };
 
   // plinth with three steps at the middle of each face
   S.kind = KIND.MASONRY;
@@ -220,7 +273,7 @@ export function build({ S }) {
             const wk = r / 3, d = r - wk * (k + 0.5), yb = yS + Math.sqrt(Math.max(0, r * r - d * d));
             if (yFr - 0.28 - yb > 0.04) at(alongU, mid + s * d, fixed, yb, yFr - 0.28, wk, pw - 0.1, PIER);
           }
-          at(alongU, mid, fixed, yF, yF + 0.8, span, 0.2, PANEL);
+          at(alongU, mid, fixed, yF, yF + 0.8, span, 0.2, RELIEF);
           at(alongU, mid, fixed, yF + 0.8, yF + 0.9, span, 0.28, PIER);
         } else if (i !== 2) {
           // a wide bay: white balusters under a coping
@@ -238,7 +291,7 @@ export function build({ S }) {
   {
     const ov = 0.55, eu = hu + ov, ev = hv + ov, yL = yE1 + 0.1;
     const lo = [[-eu, -ev], [eu, -ev], [eu, ev], [-eu, ev]], hi = [[-bu, -bv], [bu, -bv], [bu, bv], [-bu, bv]];
-    S.kind = KIND.GLAZED;
+    S.kind = KIND.TILE;
     for (let i = 0; i < 4; i++) {
       const j = (i + 1) % 4, mu = (lo[i][0] + lo[j][0]) / 2, mv = (lo[i][1] + lo[j][1]) / 2;
       const n = Q(mu, mv), c = Q(0, 0);
@@ -247,17 +300,13 @@ export function build({ S }) {
       S.kind = KIND.PLAIN;
       S.beam(corner(lo[i], yL - 0.05), corner(lo[j], yL - 0.05), 0.18, 0.22, shade(ROOF, 0.6)); // fascia
       S.beam(corner(lo[i], yL + 0.1), corner(hi[i], yDk - 0.1), 0.22, 0.2, RIDGE); // hip ridge
-      S.kind = KIND.GLAZED;
+      S.kind = KIND.TILE;
     }
-    // curled ornaments at the four lower corners
-    S.kind = KIND.PLAIN;
-    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      S.beam(Q3(su * eu, yL + 0.15, sv * ev), Q3(su * (eu + 0.4), yL + 0.85, sv * (ev + 0.4)), 0.2, 0.2, RIDGE);
-      S.beam(Q3(su * (eu + 0.4), yL + 0.85, sv * (ev + 0.4)), Q3(su * (eu + 0.15), yL + 1.15, sv * (ev + 0.15)), 0.16, 0.16, RIDGE);
-    }
+    // openwork dragon ornaments at the four lower corners, rising off the hip ends
+    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) dragon(Q3(su * eu, yL + 0.1, sv * ev), [su * Math.SQRT1_2, sv * Math.SQRT1_2], 0.85);
   }
 
-  // upper floor: a gallery of four light pillars a face at the balcony's edge with a dark rail between them, round a
+  // upper floor: a gallery of four light pillars a face at the balcony's edge with a grey-blue baluster rail between them, round a
   // recessed wall with a door and two windows a side
   S.kind = KIND.PLAIN;
   qb(0, 0, yDk - 0.22, yDk, 2 * bu, 2 * bv, shade(PIER, 0.85), { bottom: true });
@@ -266,12 +315,12 @@ export function build({ S }) {
     const R = [[-gu, -gv], [gu, -gv], [gu, gv], [-gu, gv]];
     for (let i = 0; i < 4; i++) {
       const a = R[i], b = R[(i + 1) % 4], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      for (let p = 0; p < 3; p++) { // three bays a face, a rail of dark balusters in each
+      for (let p = 0; p < 3; p++) { // three bays a face, a rail of grey-blue balusters in each
         const t0 = p / 3, t1 = (p + 1) / 3, n = Math.round(l / 3 / 0.4);
-        for (let k = 1; k < n; k++) { const t = t0 + (t1 - t0) * k / n; qb(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, yDk, yDk + 0.9, 0.09, 0.09, JOIN); }
+        for (let k = 1; k < n; k++) { const t = t0 + (t1 - t0) * k / n; qb(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, yDk, yDk + 0.9, 0.09, 0.09, BALUS); }
       }
-      S.beam(Q3(a[0], yDk + 0.95, a[1]), Q3(b[0], yDk + 0.95, b[1]), 0.14, 0.12, JOIN);
-      S.beam(Q3(a[0], yDk + 0.08, a[1]), Q3(b[0], yDk + 0.08, b[1]), 0.12, 0.12, JOIN);
+      S.beam(Q3(a[0], yDk + 0.95, a[1]), Q3(b[0], yDk + 0.95, b[1]), 0.14, 0.12, shade(BALUS, 0.85));
+      S.beam(Q3(a[0], yDk + 0.08, a[1]), Q3(b[0], yDk + 0.08, b[1]), 0.12, 0.12, shade(BALUS, 0.85));
       for (const t of [0, 1 / 3, 2 / 3]) { // pillars: the corner one and the two between
         const pu = a[0] + (b[0] - a[0]) * t, pv = a[1] + (b[1] - a[1]) * t;
         qb(pu, pv, yDk, yE2 + 0.4, 0.4, 0.4, WALL);
@@ -288,41 +337,37 @@ export function build({ S }) {
   qb(0, 0, yDk, yE2 + 0.62, 2 * wu, 2 * wv, UPPER, { top: shade(ROOF, 0.6) });
   openings(wu, wv, yDk, 2.2, 1.2);
 
-  // upper roof: steep, hipped, yellow glazed tile, flared, with big curled ornaments at the corners
-  S.kind = KIND.GLAZED;
-  { const c = Q(0, 0); S.hip(c[0], c[1], 2 * bu, 2 * bv, ang, yE2, rh, ROOF, { flare: 0.5, over: 0.9, hips: true, glazed: true, segs: 3, fascia: 0.24, fasciaCol: shade(ROOF, 0.6), ridgeCol: RIDGE }); }
-  S.kind = KIND.PLAIN;
+  // upper roof: steep, hipped, matte weathered tile, flared, with openwork dragons at the corners
+  S.kind = KIND.TILE;
+  { const c = Q(0, 0); S.hip(c[0], c[1], 2 * bu, 2 * bv, ang, yE2, rh, ROOF, { flare: 0.5, over: 0.9, hips: true, glazed: false, segs: 3, fascia: 0.24, fasciaCol: shade(ROOF, 0.6), ridgeCol: RIDGE }); }
   {
     const eu = bu + 0.9, ev = bv + 0.9;
-    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-      const p0 = Q3(su * (eu - 0.3), yE2 + 0.6, sv * (ev - 0.3)), p1 = Q3(su * (eu + 0.35), yE2 + 1.5, sv * (ev + 0.35)), p2 = Q3(su * (eu - 0.05), yE2 + 1.95, sv * (ev - 0.05));
-      S.beam(p0, p1, 0.26, 0.26, RIDGE);
-      S.beam(p1, p2, 0.2, 0.2, RIDGE);
-    }
+    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) dragon(Q3(su * (eu - 0.3), yE2 + 0.55, sv * (ev - 0.3)), [su * Math.SQRT1_2, sv * Math.SQRT1_2], 1.15);
   }
-  // ridge ornament: a sun disc in the middle between two dragons rising from the ridge
+  // ridge ornament: a disc with a flame tip in the middle between two dragons facing it, all dark like the roof
   {
     const yR = yE2 + rh + 0.15, rd = 0.5, n = 12, c = Q3(0, yR + rd + 0.1, 0);
+    S.kind = KIND.PLAIN;
     for (const s of [-1, 1]) for (let k = 0; k < n; k++) {
       const a0 = (k / n) * Math.PI * 2, a1 = ((k + 1) / n) * Math.PI * 2;
-      const pA = Q3(Math.cos(a0) * rd, yR + rd + 0.1 + Math.sin(a0) * rd, s * 0.06), pB = Q3(Math.cos(a1) * rd, yR + rd + 0.1 + Math.sin(a1) * rd, s * 0.06);
+      const pA = Q3(Math.cos(a0) * rd, yR + rd + 0.1 + Math.sin(a0) * rd, s * 0.08), pB = Q3(Math.cos(a1) * rd, yR + rd + 0.1 + Math.sin(a1) * rd, s * 0.08);
       const nv = Q(0, s), c0 = Q(0, 0);
-      S.tri([c[0] + (nv[0] - c0[0]) * 0.06, c[1], c[2] + (nv[1] - c0[1]) * 0.06], pA, pB, hex('#e9b62f'), [nv[0] - c0[0], 0, nv[1] - c0[1]]);
+      S.tri([c[0] + (nv[0] - c0[0]) * 0.08, c[1], c[2] + (nv[1] - c0[1]) * 0.08], pA, pB, ORN, [nv[0] - c0[0], 0, nv[1] - c0[1]]);
     }
-    qb(0, 0, yR - 0.2, yR + 0.12, 0.4, 0.3, RIDGE);
-    for (const s of [-1, 1]) { // each dragon: a body arching from the ridge end toward the disc, head raised high
-      S.beam(Q3(s * 2.0, yR - 0.3, 0), Q3(s * 1.4, yR + 0.55, 0), 0.24, 0.24, RIDGE);
-      S.beam(Q3(s * 1.4, yR + 0.55, 0), Q3(s * 0.9, yR + 0.3, 0), 0.2, 0.2, RIDGE);
-      S.beam(Q3(s * 0.9, yR + 0.3, 0), Q3(s * 0.75, yR + 0.95, 0), 0.22, 0.22, RIDGE);
-    }
+    S.beam(Q3(0, yR + 2 * rd, 0), Q3(0, yR + 2 * rd + 0.55, 0), 0.16, 0.16, ORN); // the flame tip
+    qb(0, 0, yR - 0.2, yR + 0.12, 0.5, 0.36, ORN);
+    for (const s of [-1, 1]) dragon(Q3(s * 1.5, yR - 0.25, 0), [s, 0], 1.25);
   }
-  // café parasols on the platform round the pavilion, as in the imagery
+
+  // café parasols, grey, tall market umbrellas whose canopies show over the parapet: a row of six between the pavilion and the outer parapet (seen over it from Đặng Thái
+  // Thân) and a row along the inner edge east of the pavilion (the satellite)
   S.kind = KIND.PLAIN;
-  for (const [u, v] of [[-9.5, 5.2], [-7.2, 15.5], [-3.2, 16.8], [2.6, 16.8], [6.8, 15.8], [9.6, 5.6]]) {
-    const q = P(u + PAV[0], v);
-    S.cyl(q[0], q[1], yPl, yPl + 2.0, 0.04, 0.04, 5, hex('#6a6a66'), { cap: false });
-    S.cyl(q[0], q[1], yPl + 2.0, yPl + 2.35, 1.5, 0.1, 10, hex('#d9d6cc'), { rot: u });
-    S.cyl(q[0], q[1], yPl + 0.7, yPl + 0.74, 0.5, 0.5, 8, hex('#7a5a3a'));
+  const UMB = hex('#7a7975');
+  for (const [u, v] of [...[-10, -6.2, -2.2, 2.2, 6.2, 10].map((u) => [u + PAV[0], 2.4]), ...[-1, 2.8, 6.6, 13.75, 20.8].map((u) => [u, 24.4])]) {
+    const q = P(u, v);
+    S.cyl(q[0], q[1], yPl, yPl + 2.6, 0.05, 0.05, 5, hex('#4a4a48'), { cap: false });
+    S.cyl(q[0], q[1], yPl + 2.6, yPl + 3.05, 1.6, 0.1, 10, UMB, { rot: u });
+    S.cyl(q[0], q[1], yPl + 0.7, yPl + 0.74, 0.5, 0.5, 8, hex('#4f4740'));
   }
   S.kind = keep;
   return null;

@@ -45,13 +45,24 @@ Model: `src/landmarks/places/tuphuong.js`. The older one-line model in `src/land
 
 ## Left to do
 - Roof colour: the satellite reads tan-brown and Street View dark; photos and sources say yellow glazed tile. The
-  model keeps yellow (owner question).
-- The ref wall top stands about 0.5 m higher than the model's shared wall height (`OUTER` in hoangthanh.js).
-- The café parasols and furniture on the platform are not drawn.
-- Exact stair positions; the true hip-and-gable shape of the upper roof; the dragons' real silhouettes.
+  model draws it dark and matte to match the imagery (owner question).
+- The lower roof reads a few pixels lower and wider than the car panoramas.
+- Exact stair positions; the true hip-and-gable shape of the upper roof; the dragons are stylised solids, not openwork.
 - No night lighting.
 
 ## Polish
 Roofs now weathered brown and the upper storey dark timber, because Street View (mid and NW car panos) reads them
 that way, not yellow; café parasols added on the platform. Documented sources still say yellow glazed tile: owner
 to decide (kept as an open question).
+
+## Review fixes (2026-11)
+- Wall top: a solid dark brick parapet with piers and a coping replaces the ochre-panel balustrade. Its top now meets
+  the car panoramas within about a pixel.
+- Roofs matte (TILE, not glazed) in dark grey-brown, the ridge trim and ornaments near-black; corner and ridge dragons
+  drawn as fuller solid silhouettes (spine, fins, filled body) at all eight corners and on the ridge.
+- Platform: lawn with terracotta walks (a ring round the pavilion, a walk along the inner side, connectors) and a
+  planted strip along the plinth, as the satellite shows.
+- Parasols grey: a row of six along the outer parapet (car panoramas) and a row along the inner edge (satellite).
+- Balcony balusters grey-blue.
+- A generated willow stood on the moat-bridge landing south of the bastion. `scripts/build-data.mjs` now clears
+  generated trees off the Bắc Khuyết Đài lawn after planting (a filter, so every other tree keeps its seed); 2 trees dropped.

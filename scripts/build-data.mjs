@@ -1561,6 +1561,49 @@ if (TC) {
   }
   console.log('tree cover:', heritage.length, 'heritage rings,', trees.length / 4 - before, 'trees planted from WorldCover (', ring, 'in the rings )');
 }
+// Open lawns kept clear of the generated trees after planting (a filter, so the dice of every other tree are kept).
+// Bắc Khuyết Đài (src/landmarks/places/tuphuong.js) faces Đặng Thái Thân across an open lawn: the satellite and the
+// Street View panoramas from the moat bridge show grass and lamp posts between the bastion's outer face and the moat,
+// no trees. The band 24 m out from the outer face, 1 m past each corner: the face is the edge of the Imperial City
+// wall (way 531016856) nearest the pavilion (way 172802373), and out is away from the pavilion.
+{
+  const clear = [];
+  const w = get('way', 531016856), pav = get('way', 172802373);
+  if (w && w.geometry && pav && pav.geometry) {
+    const pts = w.geometry.map(proj), pp = pav.geometry.map(proj);
+    const c = pp.reduce((s, p) => [s[0] + p[0] / pp.length, s[1] + p[1] / pp.length], [0, 0]);
+    // the wall's straight runs: consecutive edges within 5° of each other are one run (OSM splits the face in two)
+    const runs = [];
+    for (let i = 1; i < pts.length; i++) {
+      const r = runs[runs.length - 1], p0 = pts[i - 1], p1 = pts[i];
+      const dir = (u, v) => Math.atan2(v[1] - u[1], v[0] - u[0]);
+      if (r && Math.abs(Math.atan2(Math.sin(dir(p0, p1) - dir(r[0], r[1])), Math.cos(dir(p0, p1) - dir(r[0], r[1])))) < 0.087) r[1] = p1;
+      else runs.push([p0, p1]);
+    }
+    let a = null, b = null, len = 0, bd = Infinity;
+    for (const [p0, p1] of runs) {
+      const dx = p1[0] - p0[0], dz = p1[1] - p0[1], l = Math.hypot(dx, dz);
+      if (l < 40) continue;
+      const t = Math.max(0, Math.min(1, ((c[0] - p0[0]) * dx + (c[1] - p0[1]) * dz) / (l * l)));
+      const d = Math.hypot(p0[0] + dx * t - c[0], p0[1] + dz * t - c[1]);
+      if (d < bd) { bd = d; a = p0; b = p1; len = l; }
+    }
+    const ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len;
+    let nx = -uz, nz = ux;
+    if ((c[0] - a[0]) * nx + (c[1] - a[1]) * nz > 0) { nx = -nx; nz = -nz; }
+    const pt = (u, v) => [a[0] + ux * u + nx * v, a[1] + uz * u + nz * v];
+    clear.push([[pt(-1, 0), pt(len + 1, 0), pt(len + 1, 24), pt(-1, 24)]]);
+  } else console.warn('Bắc Khuyết Đài (ways 531016856, 172802373) not found: its lawn is not kept clear');
+  let k = 0, dropped = 0;
+  for (let j = 0; j < trees.length; j += 4) {
+    const p = [trees[j] / 10, trees[j + 1] / 10];
+    if (clear.some((poly) => pipPoly(p, poly))) { dropped++; continue; }
+    for (let m = 0; m < 4; m++) trees[k + m] = trees[j + m];
+    k += 4;
+  }
+  trees.length = k;
+  if (dropped) console.log('trees kept off open lawns:', dropped);
+}
 console.log('trees', trees.length / 4);
 
 // =====================================================================
