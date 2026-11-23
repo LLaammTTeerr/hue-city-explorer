@@ -875,6 +875,26 @@ const sites = {};
     fillPoly([hull(pts)], TREE | NOBUILD);
   }
 }
+// Vincom Plaza's lot runs west of its building (way 749331141) to Kiệt 26 Hà Nội (way 39418018): the basement car-park
+// ramp, palms and an open forecourt, all unmapped (Street View on Hà Nội). No generated house or tree is kept on that
+// strip, from the Hà Nội pavement south to the first mapped house (way 732290038); src/landmarks/places/vincom.js draws
+// the ramp and palms. The houses and trees are still laid out and dropped only when written (see cleared()), so the
+// shared dice roll as before and the rest of the city is unchanged.
+const keepClear = [];
+{
+  const vc = get('way', 749331141), lane = get('way', 39418018);
+  if (vc && lane) {
+    const ring = openRing(vc.geometry.map(proj)), nw = ring.reduce((b, p) => (p[0] + p[1] < b[0] + b[1] ? p : b));
+    const zs = 643; // the north wall of way 732290038
+    const [a, b] = ring.filter((p) => p[0] < nw[0] + 4).sort((p, r) => p[1] - r[1]); // the building's west edge
+    const xAt = (z) => a[0] + ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]);
+    const lp = lane.geometry.map(proj);
+    const north = lp.find((p, i) => i > 0 && p[1] > lp[0][1] + 5)[1]; // where the lane meets the Hà Nội pavement
+    const ln = lp.filter((p) => p[1] >= north - 0.5 && p[1] < zs + 1).map((p) => [p[0] + 3, p[1]]); // 3 m: the lane's half width
+    keepClear.push(hull([...ln, [nw[0], north], nw, [xAt(zs), zs], [ln[ln.length - 1][0], zs]]));
+  }
+}
+const cleared = (x, z) => keepClear.some((r) => pip([x, z], r));
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
 
@@ -1485,7 +1505,7 @@ for (const road of roads) {
             const r2 = rnd();
             const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
             const m2 = houseH(bx, bz, w2, d2, ang, h2);
-            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2) | (roofAt(bx, bz) << 4) | (whiteWard([bx, bz]) ? 128 : 0)); // 2 = no street face; era in bits 2-3, roof family 4-6, white ward 7
+            if (!cleared(bx, bz)) infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2) | (roofAt(bx, bz) << 4) | (whiteWard([bx, bz]) ? 128 : 0)); // 2 = no street face; era in bits 2-3, roof family 4-6, white ward 7
             housePlace(o2);
           }
         }
@@ -1499,7 +1519,7 @@ for (const road of roads) {
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
           h = houseH(cx, cz, w, d, ang, h);
           if (era === 2) h = Math.min(h, 4.4); else if (era === 1) h = Math.min(Math.max(h, 7.2), 11.4);
-          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2) | (roofAt(cx, cz) << 4) | (whiteWard([cx, cz]) ? 128 : 0));
+          if (!cleared(cx, cz)) infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2) | (roofAt(cx, cz) << 4) | (whiteWard([cx, cz]) ? 128 : 0));
           housePlace(o1);
         }
         s += w + gap;
@@ -1527,7 +1547,7 @@ const TBLOCK = WATER | ROAD | BLD | TREE;
 const TRUNK = 0.6; // a trunk's reach: no tree stands closer than this to a carriageway's edge
 function plant(x, z, s, kind) {
   if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK) || inMedian(x, z, TRUNK)) return false;
-  trees.push(q(x), q(z), Math.round(s * 10), kind);
+  if (!cleared(x, z)) trees.push(q(x), q(z), Math.round(s * 10), kind);
   stamp(x, z, 3.2, TREE);
   return true;
 }
@@ -1560,7 +1580,7 @@ for (const road of roads) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
         // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
         // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
-        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) { const s0 = Math.round(rr(0.75, 1.15) * 10), k0 = treeKind(false); if (!cleared(x, z)) trees.push(q(x), q(z), s0, k0); stamp(x, z, 3, TREE); }
         s += rr(13, 20);
       }
       s -= len;
