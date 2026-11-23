@@ -115,41 +115,52 @@ export function build({ data, S, group }) {
       S.beam(V3(pu(f0), pv(f0), LAND_Y + T(pu(f0), pv(f0)) + 0.06), V3(pu(f1), pv(f1), LAND_Y + T(pu(f1), pv(f1)) + 0.06), 3.0, 0.14, shade(STONE, k % 2 ? 0.95 : 1.0));
     }
   }
-  // gate body: three arched openings, the middle one taller, dark weathered plaster with moss
-  const gH = 4.6;
-  box(gU, AX, gLo - 0.5, Yg, gW + 0.6, gD + 0.6, shade(GATE, 0.95)); // its plinth
+  // gate body: three arched openings in weathered grey-mossy masonry with red wooden double doors, carved pilasters,
+  // inscribed friezes and a two-tier curved mossy roof over the central bay (matching the 2024 reference photo)
+  const gH = 5.4;
+  box(gU, AX, gLo - 0.5, Yg, gW + 1.4, gD + 0.8, shade(GATE, 0.95)); // its plinth
   S.kind = KIND.MASONRY;
-  for (const [v, w] of [[-5.0, 1.0], [-2.2, 2.0], [2.2, 2.0], [5.0, 1.0]]) box(gU, AX + v, Yg, Yg + gH, w, gD, GATE, { top: shade(GATE, 0.8) });
-  // the three openings, round-headed: the middle 2.4 m wide and 3.4 m to its crown, the side ones 1.3 m and 2.6 m
-  const arches = [[-3.85, 1.3, 2.6], [3.85, 1.3, 2.6], [0, 2.4, 3.4]];
+  for (const [v, w] of [[-5.3, 1.3], [-2.2, 2.1], [2.2, 2.1], [5.3, 1.3]]) box(gU, AX + v, Yg, Yg + gH, w, gD, GATE, { top: shade(GATE, 0.8) });
+  // the three openings, round-headed: the middle 2.5 m wide and 3.8 m to its crown, the side ones 1.5 m and 3.0 m
+  const arches = [[-3.85, 1.5, 3.0], [3.85, 1.5, 3.0], [0, 2.5, 3.8]];
   for (const [v, w, h] of arches) {
     box(gU, AX + v, Yg + h, Yg + gH, w, gD, GATE2); // wall over the crown
     // the head: a semicircle of radius w/2 springing at h - w/2, filled in at its corners in thin bands
-    const r = w / 2, y0 = Yg + h - r, n = 6;
+    const r = w / 2, y0 = Yg + h - r, n = 8;
     for (let k = 0; k < n; k++) {
       const ya = y0 + (r * k) / n, yb = y0 + (r * (k + 1)) / n, open = r * Math.sqrt(Math.max(0, 1 - ((yb - y0) / r) ** 2));
       const side = r - open;
       if (side < 0.02) continue;
       for (const s of [-1, 1]) box(gU, AX + v + s * (r - side / 2), ya, yb, side, gD + 0.02, GATE2);
     }
-    // the leaves stand open, folded back against the jambs inside; a dark stone threshold
-    for (const s of [-1, 1]) box(gU - 0.2, AX + v + s * (r - 0.06), Yg, y0, 0.1, Math.min(w / 2, 1.2), shade(LAC, 0.7));
-    box(gU, AX + v, Yg, Yg + 0.12, w, 0.35, hex('#4a4842'));
+    // red-lacquered wooden doors with upper lattice bars (center & left doors closed/ajar as in photo)
+    S.kind = KIND.PLAIN;
+    if (v <= 0) {
+      box(gU, AX + v, Yg + 0.12, y0 + 0.15, w - 0.16, 0.14, shade(LAC, 0.78));
+      box(gU, AX + v, Yg + 0.12, y0 + 0.15, 0.08, 0.18, hex('#2e1a14')); // center seam
+    } else {
+      for (const s of [-1, 1]) box(gU - 0.2, AX + v + s * (r - 0.06), Yg, y0, 0.1, Math.min(w / 2, 1.1), shade(LAC, 0.75));
+    }
+    S.kind = KIND.MASONRY;
+    box(gU, AX + v, Yg, Yg + 0.14, w, 0.4, hex('#4a4842'));
   }
-  // pilasters and inscribed panels on the face
-  for (const v of [-5.5, -2.2, 2.2, 5.5]) box(gU + gD / 2 + 0.1, AX + v, Yg, Yg + gH + 0.4, 0.5, 0.25, shade(GATE, 1.15), { top: MOSS });
-  box(gU + gD / 2 + 0.06, AX, Yg + 3.6, Yg + 4.3, 2.6, 0.12, hex('#2e2d29'));
-  // parapet with curled ends over the side bays
-  box(gU, AX, Yg + gH, Yg + gH + 0.35, gW + 0.4, gD + 0.4, shade(GATE, 0.85), { top: MOSS });
+  // relief pilasters, cornice mouldings and inscribed panels on both faces
+  for (const sd of [-1, 1]) {
+    for (const v of [-5.5, -2.2, 2.2, 5.5]) box(gU + sd * (gD / 2 + 0.12), AX + v, Yg, Yg + gH + 0.35, 0.62, 0.28, shade(GATE, 1.14), { top: MOSS });
+    box(gU + sd * (gD / 2 + 0.08), AX, Yg + 4.1, Yg + 4.95, 2.8, 0.14, hex('#3d3d37'));
+    for (const v of [-3.85, 3.85]) box(gU + sd * (gD / 2 + 0.08), AX + v, Yg + 3.4, Yg + 4.3, 1.7, 0.12, hex('#474740'));
+  }
+  // stepped cornice and curled parapet ends over the side bays
+  box(gU, AX, Yg + gH, Yg + gH + 0.45, gW + 1.2, gD + 0.5, shade(GATE, 0.86), { top: MOSS });
   for (const s of [-1, 1]) {
-    const e = V3(gU + gD / 2 + 0.1, AX + s * 5.6, Yg + gH + 0.35);
-    S.beam(e, [e[0] + V[0] * s * 0.4, e[1] + 0.6, e[2] + V[1] * s * 0.4], 0.3, 0.3, shade(GATE, 0.9));
+    const e = V3(gU + gD / 2 + 0.1, AX + s * 6.0, Yg + gH + 0.45);
+    S.beam(e, [e[0] + V[0] * s * 0.55, e[1] + 0.75, e[2] + V[1] * s * 0.55], 0.32, 0.32, shade(GATE, 0.92));
   }
-  // the upper storey over the middle bay and its two-tier roof
-  box(gU, AX, Yg + gH + 0.35, Yg + gH + 1.4, 4.4, 2.4, GATE2);
-  const gr = { flare: 0.45, over: 0.6, fascia: 0.15, fasciaCol: shade(GATE, 0.7), ridgeCol: shade(GATE, 0.9), segs: 3 };
-  { const q = W(gU, AX); S.hip(q[0], q[1], 5.6, 3.4, ang, Yg + gH + 0.2, 0.6, hex('#6e5d4c'), gr); S.hip(q[0], q[1], 4.6, 2.4, ang, Yg + gH + 1.4, 1.3, hex('#6e5d4c'), gr); }
-  glow(gU + gD / 2 + 0.6, AX, Yg + 3.0);
+  // the upper storey over the middle bay and its two-tier curved mossy roof
+  box(gU, AX, Yg + gH + 0.45, Yg + gH + 1.7, 5.2, 2.7, GATE2);
+  const gr = { flare: 0.48, over: 0.65, fascia: 0.16, fasciaCol: shade(GATE, 0.72), ridgeCol: shade(GATE, 0.95), segs: 3 };
+  { const q = W(gU, AX); S.hip(q[0], q[1], 6.4, 3.6, ang, Yg + gH + 0.3, 0.75, hex('#685c4e'), gr); S.hip(q[0], q[1], 5.2, 2.7, ang, Yg + gH + 1.7, 1.5, hex('#685c4e'), gr); }
+  glow(gU + gD / 2 + 0.6, AX, Yg + 3.4);
 
   // ---- the forecourt: weathered terracotta tiles (pale tan from above) climbing from the gate to the terrace, following the hill ----
   const cV0 = 36.5, cV1 = 54.5, tU = 64; // satellite: the lower court is about 18 m wide, the step to the terrace at u 64

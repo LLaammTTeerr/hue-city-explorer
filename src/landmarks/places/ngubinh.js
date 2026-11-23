@@ -169,23 +169,24 @@ export function build({ data, S }) {
     }
   }
 
-  // ---- the pines on the cap: the data's own trees (OSM wood 588726451 is needleleaved), raised onto the new ground ----
-  S.kind = KIND.PLAIN;
-  const tr0 = data.trees || [];
-  for (let i = 0; i < tr0.length; i += 4) {
-    const x = tr0[i] / 10 - O[0], z = tr0[i + 1] / 10 - O[1], sc = tr0[i + 2] / 10;
-    if (x < gx0 - 10 || x > gx1 + 10 || z < gz0 - 10 || z > gz1 + 10) continue;
-    if (!treeGone(x, z, 2.2 * sc) || onPath.some((p) => Math.hypot(p[0] - x, p[1] - z) < 2.5)) continue;
-    const k = i / 4, r = 3.3 * sc * (0.75 + rand(k, 41) * 0.5), hg = r * 1.42 * (0.95 + rand(k, 42) * 0.45);
-    const X = O[0] + x, Z = O[1] + z, y = gY(x, z), a = rand(k, 43) * 6.28, col = PINE[Math.floor(rand(k, 49) * PINE.length)];
-    S.box(X, Z, y - 0.3, y + hg * 1.55, 0.35 * sc, 0.35 * sc, a, BARK, { taper: 0.6 }); // the tall bare trunk
-    S.box(X, Z, y + hg * 1.2, y + hg * 1.75, r * 1.15, r * 1.0, a, col, { taper: 0.7, top: shade(col, 1.1) }); // needle tiers
-    S.box(X, Z, y + hg * 1.75, y + hg * 2.15, r * 0.8, r * 0.7, a + 0.6, shade(col, 1.05), { taper: 0.5, top: shade(col, 1.15) });
+  // ---- register the flat-cap lift so foliage.js plants real instanced pines cleanly on the levelled summit ----
+  (S.stand = S.stand || []).push((X, Z) => {
+    const x = X - O[0], z = Z - O[1];
+    if (x < gx0 || x > gx1 || z < gz0 || z > gz1) return 0;
+    return Math.max(0, hTop(x, z) - r0(x, z));
+  });
+
+  // ---- summit viewing clearing: stone bench/stele marker at the top where the path crosses ----
+  {
+    const ys = gY(0, 0);
+    S.kind = KIND.MASONRY;
+    S.cyl(O[0], O[1], ys - 0.3, ys + 0.22, 4.2, 4.0, 12, STONE, { top: shade(STONE, 1.06), topKind: KIND.ROAD });
+    S.box(O[0] + 2.4, O[1] - 1.6, ys + 0.2, ys + 0.65, 1.2, 0.7, 0.4, STONE2);
+    S.box(O[0] + 2.4, O[1] - 1.6, ys + 0.65, ys + 2.05, 0.85, 0.24, 0.4, BIA);
+    S.kind = KIND.PLAIN;
   }
 
-  // ---- the closed wood: the satellite shows unbroken canopy over the hill outside the two glades, where the data's
-  // generic wood fill stands 8-15 m apart over bare ground. Pines fill its gaps inside OSM's wood ring, on a jittered
-  // 5 m lattice, kept clear of the data's own trees, the glades, the path and the graveyards ----
+  // ---- the closed pine wood: fill gaps inside OSM's wood ring with real instanced hill pines (kind 3) ----
   const woods = [], graves = [];
   for (const [k, rings] of data.green || []) {
     if (k !== 'wood' && k !== 'cemetery') continue;
@@ -202,19 +203,19 @@ export function build({ data, S }) {
     for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) for (const p of occ.get(`${i0 + di},${j0 + dj}`) || []) if (Math.hypot(p[0] - x, p[1] - z) < R) return true;
     return false;
   };
+  const tr0 = data.trees || [];
   for (let i = 0; i < tr0.length; i += 4) { const x = tr0[i] / 10 - O[0], z = tr0[i + 1] / 10 - O[1]; if (Math.hypot(x, z) < 420) occupy(x, z); }
-  const FS = 5;
-  for (let z = -260; z <= 260; z += FS) for (let x = -400; x <= 220; x += FS) {
-    const k = 900000 + Math.round(z / FS) * 1000 + Math.round(x / FS);
-    const px = x + (rand(k, 51) - 0.5) * 3, pz = z + (rand(k, 52) - 0.5) * 3;
-    if (!woods.some((r) => inRing(px, pz, r)) || graves.some((r) => inRing(px, pz, r)) || inOpen(px, pz)) continue;
-    if (taken(px, pz, 4) || onPath.some((p) => Math.hypot(p[0] - px, p[1] - pz) < 3.5)) continue;
-    occupy(px, pz);
-    const r = 3.0 + rand(k, 53) * 1.3, hg = r * 1.42 * (0.95 + rand(k, 54) * 0.45);
-    const X = O[0] + px, Z = O[1] + pz, y = gY(px, pz), a = rand(k, 55) * 6.28, col = PINE[Math.floor(rand(k, 56) * PINE.length)];
-    S.box(X, Z, y - 0.3, y + hg * 1.55, 0.35, 0.35, a, BARK, { taper: 0.6 });
-    S.box(X, Z, y + hg * 1.2, y + hg * 1.75, r * 1.45, r * 1.3, a, col, { taper: 0.7, top: shade(col, 1.1) });
-    S.box(X, Z, y + hg * 1.75, y + hg * 2.15, r * 1.0, r * 0.9, a + 0.6, shade(col, 1.05), { taper: 0.5, top: shade(col, 1.15) });
+  if (Array.isArray(data.trees)) {
+    const FS = 7.5;
+    for (let z = -250; z <= 250; z += FS) for (let x = -380; x <= 210; x += FS) {
+      const k = 900000 + Math.round(z / FS) * 1000 + Math.round(x / FS);
+      const px = x + (rand(k, 51) - 0.5) * 4, pz = z + (rand(k, 52) - 0.5) * 4;
+      if (!woods.some((r) => inRing(px, pz, r)) || graves.some((r) => inRing(px, pz, r)) || inOpen(px, pz)) continue;
+      if (taken(px, pz, 5.5) || onPath.some((p) => Math.hypot(p[0] - px, p[1] - pz) < 4.0) || Math.hypot(px, pz) < 6.5) continue;
+      occupy(px, pz);
+      const sc = 9 + Math.floor(rand(k, 53) * 5); // 0.9..1.3 scale instanced pine
+      data.trees.push(Math.round((O[0] + px) * 10), Math.round((O[1] + pz) * 10), sc, 3);
+    }
   }
 
   // ---- graves round the foot: the graveyards OSM maps on the slopes (data.green), thinned to what reads ----
