@@ -45,6 +45,39 @@ the gate of Trường Quốc Học across Lê Lợi. Model: `src/landmarks/place
 - Night lamps are this place's own glow points in `group` with `userData.landmark = 'biaquochoc'`; the lantern lights
   of the trụ biểu now sit at the openings instead of inside the solid lantern.
 
+## Google imagery check (2024 car panoramas, satellite)
+Compared with `scratch/tools/match.mjs` at the satellite's m/px and at the two car panoramas' positions. The Street
+View captures behave as a ~105° horizontal field (80° vertical): at FOV 105 the Lê Lợi road's vanishing point and the
+memorial's bearing from both panoramas line up with the model; at 80 they do not.
+- Position and axis: the satellite's walled terrace is centred within ~1.5 m of the OSM node, and its walls run at
+  bearing ~48.5° (facing ~138.5-139°), within 1° of the gate-normal facing the model already used. No data change.
+- Plan, rebuilt: an outer raised terrace ~31.4 × 18.3 m (1.2 m over the plaza) with the lan can along its edge and
+  stairs at the front middle and both ends (the end stairs show in the NE panorama); an inner platform ~19 × 7.5 m at
+  the back carrying the screen, whose face stands ~2.5 m behind the centre; the two trụ biểu on the plaza just outside
+  the terrace's front corners, ~36 m apart and ~10 m in front of the centre (triangulated from both panoramas, and
+  where the satellite shows their shadows). Before, the pillars stood at the ends of the screen 19 m apart and the
+  balustrade ran round a 9 × 23 m platform.
+- Screen: its overall width (~16 m across the side roofs) already matched; the top tier is narrower (3.2 m), the
+  plinth taller, side bays carry a blue glazed panel and a pierced lattice window, the central tablet is light stone.
+- Plaza: one light paving out to the sidewalk, as photographed; the invented kerbs and darker axis band are gone.
+- Not modelled: the two long dragon sculptures on lotus bases, the flowerbeds and lotus lamps in the forecourt (a
+  festival installation in the 2024 panoramas), and a dark temporary stage roof seen on the satellite.
+- Heights: kept at the sourced 10.95 m (crown over the plaza) and 9.85 m (pillars). Measured against the matched
+  width, the panorama reads ~15% taller (crown ~12.3 m over the plaza), which would fit 10.95 m counted from the
+  terrace top. Left for the owner.
+
 ## Left
-- No measured plan or elevation drawing found; the bay widths and roof profiles are estimates. A photo-based check of
-  the wing count (three sections assumed) and tile colour would help.
+- No measured plan or elevation drawing found; bay widths inside the matched overall width and the roof profiles are
+  estimates. Three sections are confirmed by the panoramas.
+
+## Review fixes (car panoramas sv-B, sv-C)
+- Colours: the 2024 car panoramas show the 2016-17 yellow weathered to ochre-brown, the glazed roofs aged dark, deep
+  blue ceramic panels, and a grey stone lan can with dark pierced panels. The model now follows the imagery rather
+  than the press description of "bright yellow".
+- Trụ biểu heads: four stacked, flaring tiers narrowing upward, then a lotus seat and bud, as seen in both panoramas
+  (the tier count is an estimate); the tip stays at the sourced 9.85 m.
+- Added a low kerb wall ~3.5 m behind the terrace, ~41 m long (satellite), and a pair of stone guardian beasts at the
+  foot of the front stairs (seen in sv-C; the species is not identifiable at that range, kỳ lân is an estimate).
+- Open: the height datum. At matched width the panorama reads the crown ~12.3 m and pillars ~11.3 m over the plaza,
+  which would fit the sourced 10.95 / 9.85 m counted from the terrace top (1.2 m). Kept from the plaza until the owner
+  decides. The lan can reads low against the screen for the same reason; its 1.3 m stays near the sourced ~1.4 m.
