@@ -487,7 +487,7 @@ function pediment(S, e, ang, sg, d, eave, rh, o, wall) {
   S.tri(W(-d / 2, yw, 0), W(d / 2, yw, 0), W(0, ya, 0), wall, hint);
   // the cornice at its foot and the raking cornices
   const f = W(0, 0, 0.12);
-  S.box(f[0], f[1], eave - 0.05, eave + 0.22, d + 0.5, 0.45, ang + Math.PI / 2, CREAM);
+  S.box(f[0], f[2], eave - 0.05, eave + 0.22, d + 0.5, 0.45, ang + Math.PI / 2, CREAM);
   for (const s of [-1, 1]) S.beam(W(s * (hd - 0.1), eave - 0.12, 0.16), W(0, eave + rh - 0.12, 0.16), 0.34, 0.32, CREAM);
   // the inner triangle: a cream band round a red field, and the lozenge
   const yb = eave + 0.65, hb = d / 2 * 0.62, yt = yb + hb * slope * 0.85;

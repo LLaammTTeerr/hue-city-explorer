@@ -785,13 +785,13 @@ function insertAt(pts, s) {
   }
   return pts;
 }
-for (const r of roads) stampLine(r.pts, r.c < 5 ? r.w / 2 + 1.2 : 1.2, ROAD);
+for (const r of roads) stampLine(r.pts, r.c < 5 || r.lanes ? r.w / 2 + 1.2 : 1.2, ROAD);
 // Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
 // lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
 function carriagewayTest(maxC) {
   const G = 20, grid = new Map();
   for (const r of roads) {
-    if (r.c > maxC) continue;
+    if (r.c > maxC && !(maxC >= 4 && r.lanes)) continue;
     const hw = r.w / 2;
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1], s = [a, b, hw], m = hw + 2;

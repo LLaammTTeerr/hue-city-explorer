@@ -305,8 +305,9 @@ function banyanGeometry(low) {
   const fork = [0.02, -0.82, 0.01];
   limb(S, [0, -1.79, 0], [0, -1.5, 0], 0.125, 0.118, 7, WHITEWASH, 0.62, 0.66);
   limb(S, [0, -1.5, 0], fork, 0.118, 0.085, 7);
-  for (let k = 0; k < (low ? 2 : 4); k++) {
-    const a = (k / 4) * Math.PI * 2 + 0.7, r = 0.1 + rnd() * 0.04;
+  const roots = low ? 2 : 4;
+  for (let k = 0; k < roots; k++) {
+    const a = (k / roots) * Math.PI * 2 + 0.7, r = 0.1 + rnd() * 0.04;
     limb(S, [Math.cos(a) * r, -1.79, Math.sin(a) * r], [Math.cos(a) * 0.05, -0.95, Math.sin(a) * 0.05], 0.022, 0.014, 3);
   }
   const O = [0, -0.02, 0], R = [1.1, 0.5, 1.1];
@@ -547,7 +548,7 @@ export function treePlanter(data, group, off = null, lift = null) {
       const j = start + Math.floor(k * stride), i = i0 + j, sc = a[j * 4 + 2] / 10, kind = a[j * 4 + 3];
       const r = rand(i, 61);
       const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
-      if (off && off(x, z, 2.2 * sc, 3.3 * sc * (0.75 + rand(i, 41) * 0.5))) continue; // a landmark model or the asphalt is here (crown radius as below)
+      if (off && off(x, z, 2.2 * sc, (kind === 5 ? 1.5 : 1) * 3.3 * sc * (0.75 + rand(i, 41) * 0.5))) continue; // a landmark model or the asphalt is here (crown radius as below)
       if (forecourts.some((inCourt) => inCourt(x, z))) continue; // the great halls stand in open courts
       // kinds from build-data (0 broadleaf, 1 dark, 2 flame tree, 3 hill pine); kind 4: a broad shade tree a landmark plants on purpose (a banyan by a river walk, a bàng on a lake bank, an old shade tree from the imagery): spreading, never a willow
       // kind 5: a banyan a landmark plants (wide, low, whitewashed foot)
