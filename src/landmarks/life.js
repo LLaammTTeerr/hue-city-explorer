@@ -454,6 +454,8 @@ function buildLampPosts(data, group, out = {}) {
   const dv = replaced('bachho') ? daVienRoads(data) : null; // cầu Dã Viên's deck has its own parapet lamps (places/bachho.js)
   for (const r of roads) {
     if (r.c > 2 || r.pts.length < 2 || (r.bridge && dv && dv.has(r.flat))) continue;
+    const PL = r.bridge && profiles.get(r.flat);
+    if (PL && PL.lamps && replaced(PL.lamps.own)) continue; // the bridge's own posts, drawn by its place file (bridges.js bridgeLamps)
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < r.len; s += step, k++) {
       const { p, a } = along(r.pts, s);
