@@ -81,3 +81,23 @@ Monuments Conservation Centre: walls, stairs and the cage pulley gear.
 
 ## Polish
 Walls toned to the darker grey-brown seen in sv-sw; pale grey-white iron handrails added up both stairs (seen at the stair head in sv-nw).
+
+## Review fixes (north front rebuilt from close car Street View)
+Two close car panos from the north yard (about 12 m and 20 m from the stand) and the satellite replace the earlier
+guesses made from the far north-west pano:
+- The stand: bearing -10.5 deg (satellite; Street View -10.4), 8.4 m wide, face 24.4 m from the centre. Its top is a
+  grey lime chequer-lattice parapet about 1 m high with lotus-capped posts at the corners and between, rising above
+  the ring's own parapet; a small framed plaque sits on the north face under the cornice. No iron railing.
+  The stand floor is just above the outer wall top, with a short flight up to a railed dais on the inner wall.
+- The east (left, the king's) flight climbs south along the stand's east flank: lime cheeks on both sides, capped
+  posts at its foot about 1 m north of the stand face (the satellite shows the strip against the flank; the
+  pano shows its treads climbing away from the yard). The west (right, the officials') flight runs tangentially
+  along the ring from -34 deg down to -52 deg: one sloping lime cheek over a solid brick side (seen side-on in the
+  12 m pano), matching the diagonal strip hugging the ring on the satellite.
+- The doorway: a dark opening between two grey lime pillars in the ring wall at -29.5 deg, between the stand and
+  the head of the west flight (both panos). It replaces the guessed WNW gate block at -66 deg.
+- Brick: weathered grey-brown drawn in small cells with ochre washes and dark streaks instead of the generic
+  masonry courses; stair treads grey-brown; the apron grey. The pale "handrails" were the lime cheeks and are gone.
+- Cages: spread over about 23 m of the south wall walk (offsets +-0.6 rad), as on the satellite.
+- Not changed: the real ground on the north rises toward the arena, so less wall shows from the yard than in the
+  model; that is terrain, not this file. The far rail behind the stand in Street View is read as the dais rail.
