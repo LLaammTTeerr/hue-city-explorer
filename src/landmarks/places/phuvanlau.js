@@ -13,7 +13,8 @@ import { lightMaterial, glowPoints } from '../../geo/materials.js';
 //     turned up only a little; ceramic crests on the ridges, dragons on the upper ridge
 //   - upper floor on the four inner columns, a wooden balcony rail round it on the lower roof; one wide window on the
 //     front and back under the gilt red-lacquered "Phu Văn Lâu" board, round windows on the two sides
-//   - 11.8 m to the top (docs/heights-reference.json; vinwonders gives 11.67 m)
+//   - about 11.2 m to the top of the pearl, 10.5 m to the crest (the car panoramas read 10-11 m;
+//     docs/heights-reference.json has 11.8 m, vinwonders 11.67 m, both within the check's tolerance)
 //   - in the yard: two small bronze cannons facing each other near the road, the two "khuynh cái hạ mã" stelae
 //     farther out on either flank, and Thiệu Trị's 1843 stele house for the poem Hương Giang hiểu phiếm in the lawn
 //     about 43 m to the right (south-west), on its own OSM footprint.
@@ -28,9 +29,13 @@ const LIME = hex('#e4d08f'); // the pale yellow balustrade
 const BALUSTER = hex('#efe6cc');
 const MARBLE = hex('#d9d3c6');
 const PLINTH = hex('#a39c8e'); // the platform's weathered grey stone face
-const YARD = hex('#9a9086'); // terracotta-grey pavers
-const ROOF = hex('#c9822a'); // 2016 tiles read burnt orange in the panoramas, duller than the shared imperial gold
+const YARD = hex('#ad8a70'); // warm brick pavers, tan from above, pinkish-brown at street level
+const BRICK = hex('#7a4a36'); // the planters' low brick walls
+const BED = hex('#6f8a45');
+const ROOF = hex('#e6a23a'); // yellow-orange glazed tube tiles (hoàng lưu ly), as in the car panoramas
 const RIDGE = hex('#ddd5c0'); // ceramic-clad ridges
+const POST = hex('#3d2b20'); // the stele house's dark timber
+const OLDTILE = hex('#9a5e36'), GREYRIDGE = hex('#8d887e');
 const GOLD = hex('#d8b04a');
 const GLASS = hex('#2c2a2c'); // the dark wide window
 const LATTICE = hex('#4a3524');
@@ -57,13 +62,105 @@ export function build({ data, S, group, place, THREE }) {
   const box = (u, v, y0, y1, su, sv, col, opt) => { const q = P(u, v); S.box(q[0], q[1], y0, y1, su, sv, ang, col, opt); };
   const gy = LAND_Y + rise(cx, cz);
 
+  // A hipped roof drawn here rather than with S.hip: the main ridge length is set (rl, half of it) instead of
+  // following from the plan, which on a square plan gives a near-pyramid; the faces are cut finer, so the gently
+  // curved slopes do not break into facets of different tilt; and the hip ridges are thin bands ending in a small
+  // kick at each corner (the shared S.hip ends them in horns sized to the roof, far too big here).
+  // F(u, y, v): the roof's own frame to the scene. w along u (the ridge), d along v; y0 the wall-top line.
+  const hipRoof = (F, w, d, y0, h, o) => {
+    const { over, flare = 0.2, rl, rows = 8, cols = 16, col, glazed = true, fascia = 0.25, fasciaCol, ridgeCol, rw = 0.16, kick = 0.35, tube = 0.32 } = o;
+    const hw = w / 2 + over, hd = d / 2 + over, gamma = 1 + Math.min(0.8, flare * 1.25);
+    const E = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]], R = [[-rl, 0], [rl, 0]], rOf = [0, 1, 1, 0];
+    const o0 = F(0, 0, 0);
+    const dir = (u, v, y) => { const p = F(u, y, v); return [p[0] - o0[0], p[1] - o0[1], p[2] - o0[2]]; };
+    const hint = [dir(0, -1, 0.9), dir(1, 0, 0.9), dir(0, 1, 0.9), dir(-1, 0, 0.9)];
+    const at = (i, s, t) => {
+      const j = (i + 1) % 4, ei = E[i], ej = E[j], ri = R[rOf[i]], rj = R[rOf[j]];
+      const eu = ei[0] + (ej[0] - ei[0]) * s, ev = ei[1] + (ej[1] - ei[1]) * s;
+      const ru = ri[0] + (rj[0] - ri[0]) * s, rv = ri[1] + (rj[1] - ri[1]) * s;
+      return F(eu + (ru - eu) * t, y0 + h * t ** gamma + flare * Math.abs(2 * s - 1) ** 2.2 * (1 - t) ** 2, ev + (rv - ev) * t);
+    };
+    if (S.roofs) { const c = F(0, 0, 0); S.roofs.push({ cx: c[0], cz: c[2], w, d, ang, y0, h, over }); }
+    const keep = S.kind;
+    S.kind = glazed ? KIND.GLAZED : KIND.TILE;
+    for (let i = 0; i < 4; i++) for (let k = 0; k < rows; k++) for (let c = 0; c < cols; c++) {
+      S.quad(at(i, c / cols, k / rows), at(i, (c + 1) / cols, k / rows), at(i, (c + 1) / cols, (k + 1) / rows), at(i, c / cols, (k + 1) / rows), col, hint[i]);
+    }
+    // the tube tiles: rows of round tiles straight down each slope, square to its eave, cut off where they meet a hip
+    // (a low ridged strip per row; the slope between them a shade darker)
+    if (tube) {
+      const tc = shade(col, 1.12);
+      const surf = (i, a, t) => { // side i, a metres across it from its middle, t from the eave up: a point, or null
+        const half = i % 2 === 0 ? hw * (1 - t) + rl * t : hd * (1 - t);
+        if (Math.abs(a) > half - 0.06) return null;
+        return at(i, i < 2 ? (a / half + 1) / 2 : (1 - a / half) / 2, t);
+      };
+      for (let i = 0; i < 4; i++) {
+        const span = i % 2 === 0 ? hw : hd, n = Math.floor((2 * span) / tube);
+        const c = i % 2 === 0 ? dir(1, 0, 0) : dir(0, 1, 0);
+        for (let m = 0; m < n; m++) {
+          const a = -span + (m + 0.5) * ((2 * span) / n);
+          let prev = surf(i, a, 0);
+          for (let k = 1; k <= rows * 2 && prev; k++) {
+            const q = surf(i, a, k / (rows * 2));
+            if (!q) break;
+            const hh = 0.06, ww = tube * 0.3;
+            const A = [prev[0], prev[1] + hh, prev[2]], B = [q[0], q[1] + hh, q[2]];
+            const L1 = [prev[0] - c[0] * ww, prev[1] + 0.005, prev[2] - c[2] * ww], L2 = [q[0] - c[0] * ww, q[1] + 0.005, q[2] - c[2] * ww];
+            const R1 = [prev[0] + c[0] * ww, prev[1] + 0.005, prev[2] + c[2] * ww], R2 = [q[0] + c[0] * ww, q[1] + 0.005, q[2] + c[2] * ww];
+            S.quad(L1, L2, B, A, tc, [-c[0], 1, -c[2]]);
+            S.quad(A, B, R2, R1, tc, [c[0], 1, c[2]]);
+            prev = q;
+          }
+        }
+      }
+    }
+    S.kind = KIND.PLAIN;
+    const I = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];
+    for (let i = 0; i < 4; i++) for (let c = 0; c < cols; c++) { // fascia, and the dark soffit back to the wall line
+      const j = (i + 1) % 4, s0 = c / cols, s1 = (c + 1) / cols, a = at(i, s0, 0), b = at(i, s1, 0);
+      const a2 = [a[0], a[1] - fascia, a[2]], b2 = [b[0], b[1] - fascia, b[2]];
+      S.quad(a2, b2, b, a, fasciaCol, hint[i]);
+      const wa = F(I[i][0] + (I[j][0] - I[i][0]) * s0, y0, I[i][1] + (I[j][1] - I[i][1]) * s0);
+      const wb = F(I[i][0] + (I[j][0] - I[i][0]) * s1, y0, I[i][1] + (I[j][1] - I[i][1]) * s1);
+      S.quad(a2, b2, wb, wa, shade(fasciaCol, 0.45), [0, -1, 0]);
+    }
+    for (let i = 0; i < 4; i++) { // hip ridges: thin pale bands down the curve, a small upturned kick at the corner
+      let prev = null;
+      for (let k = rows; k >= 0; k--) {
+        const p = at(i, 0, k / rows), q = [p[0], p[1] + rw * 0.45, p[2]];
+        if (prev) S.beam(prev, q, rw * 0.8, rw, ridgeCol);
+        prev = q;
+      }
+      const dx = prev[0] - o0[0], dz = prev[2] - o0[2], l = Math.hypot(dx, dz) || 1;
+      const tip = [prev[0] + (dx / l) * kick, prev[1] + kick * 0.8, prev[2] + (dz / l) * kick];
+      S.beam(prev, tip, rw * 0.75, rw * 0.85, ridgeCol);
+    }
+    if (rl > 0.05) S.beam(F(-rl, y0 + h + rw * 0.3, 0), F(rl, y0 + h + rw * 0.3, 0), rw * 1.2, rw * 1.5, ridgeCol);
+    S.kind = keep;
+  };
+
   const L = group && THREE ? new Buf(600) : null; // night: strips under the eaves
   const lamp = [], lampCol = [];
 
   // ---- the yard: paved from the moat path out to the footway along Lê Duẩn, past the stelae on either side ----
+  // (z20 satellite: about 60 m along Lê Duẩn, from the moat path to the footway; brick-walled planters on the flanks)
   S.kind = KIND.ROAD;
-  box(0, 0.4, gy - 0.3, gy + 0.05, 30, 22.8, YARD, { topKind: KIND.ROAD });
-  for (let i = -6; i <= 6; i++) box(i * 2.3, 0.4, gy + 0.05, gy + 0.06, 0.08, 22.8, shade(YARD, 0.9));
+  // its top 15 cm up: the lawns are overlays pulled toward the camera (polygon offset), which at the low angle of a
+  // street-level view win over a surface only a few cm above them
+  const YU = 30; // half the yard's length along the road
+  box(0, -1.85, gy - 0.3, gy + 0.15, YU * 2, 27.3, YARD, { topKind: KIND.ROAD });
+  for (let i = -13; i <= 13; i++) box(i * 2.3, -1.85, gy + 0.15, gy + 0.16, 0.08, 27.3, shade(YARD, 0.9));
+  // the two raised planters (plumeria in the panoramas) on the flanks, a low brick wall round a lawn
+  S.kind = KIND.MASONRY;
+  for (const su of [-1, 1]) {
+    const u0 = su * 24, v0 = -2.5, bu = 11, bv = 11.5;
+    for (const sv of [-1, 1]) box(u0, v0 + sv * (bv / 2 - 0.15), gy + 0.15, gy + 0.5, bu, 0.3, BRICK, { top: shade(BRICK, 1.15) });
+    for (const sw of [-1, 1]) box(u0 + sw * (bu / 2 - 0.15), v0, gy + 0.15, gy + 0.5, 0.3, bv - 0.6, BRICK, { top: shade(BRICK, 1.15) });
+    S.kind = KIND.GROUND;
+    box(u0, v0, gy + 0.15, gy + 0.42, bu - 0.6, bv - 0.6, BED, { topKind: KIND.GROUND });
+    S.kind = KIND.MASONRY;
+  }
 
   // ---- platform: about 1.2 m of grey stone under a marble floor ----
   const pH = 1.2, yP = gy + pH;
@@ -85,9 +182,10 @@ export function build({ data, S, group, place, THREE }) {
     for (const e of [-1, 1]) { // the cheeks: a sloping coping on a low wall
       const a = at(half - 0.1, e * (W / 2 + 0.18)), b = at(half + NS * tread + 0.15, e * (W / 2 + 0.18));
       const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], len = NS * tread + 0.25;
+      // weathered grey stone like the platform, the coping running down into a low scrolled foot (the dragon's tail)
       box(m[0], m[1], gy - 0.3, gy + 0.35, alongV ? 0.36 : len, alongV ? len : 0.36, PLINTH);
-      S.beam(P3(a[0], yP + 0.62, a[1]), P3(b[0], gy + 0.55, b[1]), 0.36, 0.3, shade(LIME, 0.92));
-      box(b[0], b[1], gy, gy + 0.75, 0.42, 0.42, LIME);
+      S.beam(P3(a[0], yP + 0.62, a[1]), P3(b[0], gy + 0.5, b[1]), 0.34, 0.26, shade(PLINTH, 1.06));
+      box(b[0], b[1], gy, gy + 0.55, 0.4, 0.4, shade(PLINTH, 0.96), { taper: 0.85 });
     }
   };
   stair(0, 4.0); stair(1, 4.0); stair(2, 2.4); stair(3, 2.4);
@@ -133,9 +231,8 @@ export function build({ data, S, group, place, THREE }) {
   for (const su of [-1, 1]) for (const sv of [-1, 1]) pier(su * BU, sv * BV);
 
   // ---- lower roof: the first tier of four slopes, its top hidden in the upper floor ----
-  const eave = { fascia: 0.28, fasciaCol: shade(RED, 0.8), hips: true, glazed: true, segs: 3, horns: false };
-  S.kind = KIND.TIMBER;
-  S.hip(cx, cz, 9.5, 9.0, ang, yE1, 3.0, ROOF, { flare: 0.2, over: 1.4, ...eave, ridgeCol: RIDGE });
+  const eave = { fascia: 0.28, fasciaCol: shade(RED, 0.8), col: ROOF, ridgeCol: RIDGE };
+  hipRoof(P3, 9.5, 9.0, yE1, 3.0, { over: 1.4, flare: 0.2, rl: 1.4, rw: 0.17, kick: 0.3, ...eave, col: shade(ROOF, 0.9) });
   const lowEave = { w: 9.5, d: 9.0, over: 1.4, y: yE1 };
 
   // ---- upper floor: balcony deck and rail, the walls on the inner columns, windows, the name board ----
@@ -178,32 +275,32 @@ export function build({ data, S, group, place, THREE }) {
   box(0, 2.06, yD + 1.7, yD + 2.12, 1.45, 0.05, GOLD);
   box(0, 2.1, yD + 1.74, yD + 2.08, 1.3, 0.04, hex('#a3241b'));
 
-  // ---- upper roof: the second tier, a ceramic crest along the top with a dragon at each end and a pearl between ----
-  S.kind = KIND.TIMBER;
-  const hU = 1.9, overU = 0.6;
-  S.hip(cx, cz, 4.2, 4.0, ang, yE2, hU, ROOF, { flare: 0.2, over: overU, ...eave, ridgeCol: RIDGE });
+  // ---- upper roof: the second tier, hipped on a long straight ridge (about two thirds of its width, as in the car
+  // panoramas and the satellite's oblong top) with a ceramic dragon at each end facing a flaming pearl in the middle ----
+  const hU = 1.8, overU = 0.6, rlU = 1.95;
+  hipRoof(P3, 4.2, 4.0, yE2, hU, { over: overU, flare: 0.18, rl: rlU, rows: 6, cols: 12, rw: 0.15, kick: 0.25, tube: 0.28, ...eave, col: shade(ROOF, 0.9) });
   const yTop = yE2 + hU;
   S.kind = KIND.PLAIN;
-  { // the crest stands on the slopes of the two side faces: its foot follows them down from the top
-    const hw = 2.1 + overU, n = 7, L2 = 1.3;
-    for (let k = 0; k < n; k++) {
-      const u0 = -L2 + (2 * L2 * (k + 0.5)) / n, foot = yTop - hU * (Math.abs(u0) / hw) * 1.25;
-      box(u0, 0, foot - 0.05, yTop + 0.32, (2 * L2) / n + 0.01, 0.16, RIDGE);
+  { // the crest: a low ceramic band along the ridge
+    const yr = yTop + 0.2;
+    box(0, 0, yr - 0.05, yr + 0.26, rlU * 2 - 0.3, 0.14, shade(RIDGE, 0.95));
+    box(0, 0, yr + 0.26, yr + 0.3, rlU * 2 - 0.2, 0.2, RIDGE);
+    for (const sg of [-1, 1]) { // the dragons: body low along the crest, head raised and turned in toward the pearl
+      const a = P3(sg * (rlU - 0.05), yr + 0.05, 0), b = P3(sg * (rlU - 0.1), yr + 0.5, 0), c = P3(sg * (rlU - 0.45), yr + 0.45, 0);
+      const t = P3(sg * (rlU - 0.75), yr + 0.22, 0);
+      S.beam(t, c, 0.12, 0.14, RIDGE); S.beam(a, b, 0.16, 0.2, RIDGE); S.beam(b, c, 0.13, 0.16, shade(RIDGE, 0.9));
     }
-    for (const sg of [-1, 1]) { // the dragons: a raised head curling in toward the middle
-      const a = P3(sg * L2, yTop + 0.1, 0), b = P3(sg * (L2 - 0.15), yTop + 0.7, 0), c = P3(sg * (L2 - 0.45), yTop + 0.62, 0);
-      S.beam(a, b, 0.2, 0.26, RIDGE); S.beam(b, c, 0.16, 0.2, shade(RIDGE, 0.9));
-    }
-    const q = P(0, 0); // the pearl (or sun) on a small stand, the top of the building
-    S.cyl(q[0], q[1], yTop + 0.3, yTop + 0.6, 0.12, 0.18, 8, RIDGE);
-    S.cyl(q[0], q[1], yTop + 0.6, gy + 11.8, 0.2, 0.06, 8, GOLD);
+    const q = P(0, 0); // the pearl in a ring of flames on a small stand: the top of the building
+    S.cyl(q[0], q[1], yr + 0.18, yr + 0.38, 0.1, 0.14, 8, RIDGE);
+    S.cyl(q[0], q[1], yr + 0.38, yr + 0.62, 0.2, 0.16, 8, shade(GOLD, 0.95));
+    S.cyl(q[0], q[1], yr + 0.62, yr + 0.85, 0.16, 0.03, 8, shade(GOLD, 0.95));
   }
 
   // ---- the yard: cannons near the road, the two dismount stelae ----
   for (const su of [-1, 1]) { // small bronze cannons on carved stone carriages, facing each other across the axis
     const u0 = su * 6.5, v0 = 10.9;
     S.kind = KIND.MASONRY;
-    box(u0, v0, gy + 0.05, gy + 0.45, 1.1, 0.5, shade(PAL.stone, 0.75));
+    box(u0, v0, gy + 0.15, gy + 0.5, 1.1, 0.5, shade(PAL.stone, 0.75));
     S.kind = KIND.PLAIN;
     S.beam(P3(u0 + su * 0.6, gy + 0.55, v0), P3(u0 - su * 1.0, gy + 0.68, v0), 0.24, 0.24, BRONZE);
   }
@@ -227,13 +324,15 @@ export function build({ data, S, group, place, THREE }) {
     const Q = (u, v) => [sc[0] + u * ux - v * uz, sc[1] + u * uz + v * ux];
     const bx = (u, v, y0, y1, su, sv, col, opt) => { const q = Q(u, v); S.box(q[0], q[1], y0, y1, su, sv, ang, col, opt); };
     S.kind = KIND.MASONRY;
-    bx(0, 0, g2 - 0.2, g2 + 0.18, 3.6, 3.6, shade(PAL.stone, 0.85), { topKind: KIND.ROAD });
-    bx(0, 0, g2 + 0.18, g2 + 0.36, 3.2, 3.2, PAL.stone, { topKind: KIND.ROAD });
+    bx(0, 0, g2 - 0.2, g2 + 0.18, 5.4, 5.4, shade(PAL.stone, 0.85), { topKind: KIND.ROAD });
+    bx(0, 0, g2 + 0.18, g2 + 0.36, 3.6, 3.6, PAL.stone, { topKind: KIND.ROAD });
     bx(0, 0, g2 + 0.36, g2 + 0.66, 1.2, 0.7, shade(PAL.stone, 0.9));
     bx(0, 0, g2 + 0.66, g2 + 2.1, 0.85, 0.2, shade(PAL.stone, 0.72));
     S.kind = KIND.TIMBER;
-    for (const du of [-1.2, 1.2]) for (const dv of [-1.2, 1.2]) { const q = Q(du, dv); S.cyl(q[0], q[1], g2 + 0.36, g2 + 2.75, 0.12, 0.11, 8, shade(RED, 0.8), { cap: false, rot: ang }); }
-    S.hip(sc[0], sc[1], 2.4, 2.4, ang, g2 + 2.75, 1.25, hex('#a2683c'), { flare: 0.3, over: 0.65, fascia: 0.18, fasciaCol: shade(RED, 0.7), hips: true, segs: 2, ridgeCol: RIDGE });
+    // dark timber posts; a weathered brown-orange tiled roof with grey ridges and small kicks at the corners
+    for (const du of [-1.2, 1.2]) for (const dv of [-1.2, 1.2]) { const q = Q(du, dv); S.cyl(q[0], q[1], g2 + 0.36, g2 + 2.75, 0.12, 0.11, 8, POST, { cap: false, rot: ang }); }
+    const Q3 = (u, y, v) => { const q = Q(u, v); return [q[0], y, q[1]]; };
+    hipRoof(Q3, 2.4, 2.4, g2 + 2.75, 1.25, { over: 0.65, flare: 0.25, rl: 0.5, rows: 5, cols: 6, tube: 0.3, col: OLDTILE, glazed: false, fascia: 0.18, fasciaCol: shade(POST, 1.2), ridgeCol: GREYRIDGE, rw: 0.13, kick: 0.25 });
   }
   S.kind = KIND.PLAIN;
 

@@ -49,9 +49,15 @@ z20 satellite frame) were compared with the model. The imagery was used only as 
 - upper floor 4.2 × 4.0 m; balcony 5.0 m
 - the eave heights (lower at 4.2 m, upper at 8.3 m above the yard)
 - the stelae's size
-- the stele house: 3.6 m base, four posts, a small hipped roof (form and colour estimated)
-- the yard extent (25 × 21 m, kept between the moat path and Lê Duẩn's footway)
+- the stele house: 5.4 m pale plinth (from the top view), 3.6 m inner base, dark timber posts, a weathered brown-orange hipped roof with grey ridges
+- the yard: 60 × 27 m of brick paving with grout lines, the long side across the axis, with an 11 × 11.5 m brick-edged planter on each flank
 - all colours
+
+## Roofs
+- both tiers are hipped on a long ridge (lower 2.8 m of 9.5 m, upper 3.9 m of 4.2 m) with rows of tube tiles in yellow-orange glaze
+- small upturned kicks at the corners only, no large horns
+- the upper ridge carries a crest band, two inward-facing dragons and a central pearl about 11.15 m above the yard (no spire)
+- stair cheeks are grey stone with a lighter coping
 
 ## Night
 - light strips under both eave tiers and along the column-head beam
@@ -59,7 +65,6 @@ z20 satellite frame) were compared with the model. The imagery was used only as 
 
 ## Left to do
 - check the bay widths, platform height and window shapes against a measured drawing or photos (one source swaps round and square windows)
-- the stele house's form and roof colour
 - the ornamental dragons on the ridges are simplified to a few beams
 - the shared Lê Duẩn footway runs ~3–4 m closer to the pavilion than in the imagery, so the cannons stand at ~11 m instead of ~15 m
 - Nghênh Lương Đình and the river steps are a separate place (`nghenhluong`) and were not touched
