@@ -1,6 +1,7 @@
 import { KIND, hex, shade, inRing, unflat, pathLength } from '../../geo/buf.js';
-import { PAL } from '../../config.js';
-import { rise, waterY } from '../../geo/terrain.js';
+import { PAL, LAND_Y } from '../../config.js';
+import { rise } from '../../geo/terrain.js';
+import { glowPoints } from '../../geo/materials.js';
 import { bridgeProfiles, onLand, ABUT } from '../../geo/bridges.js';
 
 // ---- Cầu Gia Hội: the road bridge over sông Đông Ba between Trần Hưng Đạo (the Đông Ba market side) and Chi Lăng
@@ -28,22 +29,31 @@ import { bridgeProfiles, onLand, ABUT } from '../../geo/bridges.js';
 // edge and flush. (The old model ran the deck to the ways' own ends: skewed 23 degrees by the stagger, so neither
 // approach road's square end lined up with it, and raised as a filled ramp across Huỳnh Thúc Kháng.)
 //
-// The vertical profile: a 2.0 m crown over the street at the abutments, a smooth hump (level where it meets the
-// street) over the ~46-49 m between them. No survey or elevation was found (searches of Vietnamese press and
-// travel pages, Nov 2026, turned up no clearance figure or usable side photo); the rise is an estimate:
-//  - it is visibly humped, more than the 1.1 m camber modelled before (local observation passed on by the user);
-//  - the streets on both banks lie ~1.3 m above the canal (POND_Y); a ~1 m girder deck leaves ~2.5-3 m of headroom
-//    under a 2 m crown, enough for the sampans and tour boats that use sông Đông Ba, and almost none at the banks;
-//  - 2 m over ~24 m to the crown is an 8 % average grade, steep but usual for the old city's short canal bridges.
+// The vertical profile: an almost level girder deck at street level with a 0.5 m crown over the ~43-49 m between the
+// abutments (geo/bridges.js). No survey or elevation figure was found (Vietnamese press and travel pages, Nov 2026).
+// Street View from Chi Lăng, Trịnh Công Sơn and Bạch Đằng (car panoramas, 2024-26) shows a long level deck line
+// carried on ~2.6 m quay walls over a dark open void, continuing level with the Chi Lăng / Bạch Đằng junction, with
+// only a slight crown. (A 2.0 m hump, from an earlier "visibly humped" impression, read from every bank as a low
+// arched footbridge and is replaced.) The canal is part of the river (y 0), so the deck stands ~2.6 m over the water
+// at the banks; under a 1.0 m girder depth that leaves ~1.6-2.1 m of clear headroom.
 //
-// NOT confirmed (no description or usable photo of today's bridge was found):
-//  - the structure: drawn as a low reinforced-concrete girder bridge of three ~15 m spans on two wall piers with
-//    rounded cutwaters, solid abutments at the banks;
-//  - the cross-section: 2 x 7 m carriageways, a 2 m raised median, 1.8 m footways, concrete balustrade (posts
-//    about 2.2 m apart, two rails, newel posts at the ends and over the abutments) painted off-white;
-//  - the deck rise (above); it lives in geo/bridges.js so traffic and lamp posts in life.js ride the same curve;
-//  - lamps: the generic street lamp posts life.js puts on these class-2 roads stand on the deck; no special
-//    bridge lighting is known, so none is added.
+// Seen in Google Street View (car panoramas on the deck, on Chi Lăng and on Bạch Đằng, 2024-25; visual reference
+// only, captures kept out of the repo) and checked against the satellite (deck outline and axis match, about 50 deg):
+//  - balustrade: pale grey openwork panels (vertical bars with interlocking rings) between capped square pilasters
+//    about 3 m apart; drawn as bays with a top and bottom rail, bars every 0.34 m and two rings per cell;
+//  - the NW parapet does not stop at the Chi Lăng end: it turns left onto the quay and runs on as the Bạch Đằng quay
+//    balustrade (turned balusters between square posts) with a red tiled footway behind it; 45 m of it are drawn
+//    here, following the quay edge;
+//  - ornamental bronze lamps with four globes on cross arms and one on top at the deck corners, the NE-NW one at the
+//    end of that curved wing parapet; tall twin-arm lights on the median; low concrete separator blocks along the NW
+//    carriageway;
+//  - under the deck: bents of square columns under a cap beam (not wall piers), a plain grey fascia and a large water
+//    main hung along the NW side.
+//  - a low segmental arch through the SW (market-side) abutment over the quay walk by the water; drawn as a dark
+//    opening on the abutment's outer faces. Not drawn: the sloping approach wall beside it.
+// The deck rise lives in geo/bridges.js so traffic and lamp posts in life.js ride the
+// same curve. The generic street lamps (life.js posts, city.js glows) keep clear of the deck (`lit` in geo/bridges.js);
+// the bridge's own lamps carry its night glows.
 
 export const id = 'giahoi';
 const NAME = 'Cầu Gia Hội';
@@ -68,7 +78,7 @@ export function ownRoads(data) {
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-export function build({ data, S }) {
+export function build({ data, S, group }) {
   const flats = [...ownRoads(data)];
   if (flats.length < 1) throw new Error('Gia Hội carriageways not found');
   const profiles = bridgeProfiles(data);
@@ -126,16 +136,19 @@ export function build({ data, S }) {
     for (let u = u0; u <= u1; u += 0.5) if (!isLand(u, vMid)) { if (first === null) first = u; last = u; }
     if (first !== null && last - first > 10) { bankE = Math.max(first, u0 + 1.2); bankW = last; }
   }
-  const water = waterY(...XZ((bankE + bankW) / 2, vMid));
+  // the canal is part of the river (cut out of data.land, not a pond): its surface is the river sheet at y 0, 2.6 m
+  // under the streets, as the quay walls in Street View are about that tall (terrain's waterY is for still water
+  // and would answer POND_Y here, 1.3 m too high)
+  const water = 0;
   const spanN = 3, spanL = (bankW - bankE) / spanN;
   const piers = []; for (let k = 1; k < spanN; k++) piers.push(bankE + spanL * k);
 
-  // colours (estimated): off-white balustrade, weathered concrete, the city's road surface on the carriageways
+  // colours: Street View (2024-25) shows a pale grey balustrade, a grey concrete fascia and columns, grey concrete
+  // footways; the city's road surface on the carriageways
   const asphalt = hex(PAL.road[2]);
-  const walk = hex('#cfc6b6'), kerb = hex('#bdb4a3');
-  const concrete = hex('#b4ac9d'), soffit = shade(hex('#a59c8b'), 0.8), pierCol = PAL.pier;
-  const rail = hex('#e7e2d6'), railD = shade(rail, 0.86), stone = hex('#9d9586');
-
+  const walk = hex('#c9c5bb'), kerb = hex('#b9b5ab');
+  const concrete = hex('#a3a49c'), soffit = shade(hex('#9a998f'), 0.55), pierCol = hex('#a7a69d');
+  const rail = hex('#dcddd8'), railD = shade(rail, 0.86), stone = hex('#9d9586');
   S.kind = KIND.PLAIN;
   S.base = 0;
   const NU = 48;
@@ -205,23 +218,38 @@ export function build({ data, S }) {
       const v = C + g;
       for (let u = ua; u < ub - 1e-6; u += step) {
         const u2 = Math.min(ub, u + step), [x0, z0] = XZ(u, v), [x1, z1] = XZ(u2, v);
-        S.beam([x0, yAt(u, v) - 1.15, z0], [x1, yAt(u2, v) - 1.15, z1], 0.5, 0.5, soffit);
+        S.beam([x0, yAt(u, v) - 0.86, z0], [x1, yAt(u2, v) - 0.86, z1], 0.28, 0.5, soffit); // flush with the fascia's foot
       }
     }
   }
 
-  // piers: a wall on a rounded cutwater at each end, under a cap beam, from below the water to the girders
+  // piers: bents of four square columns under a cap beam, from below the water to the girders (Street View from
+  // Bạch Đằng, 2024-25, shows open rows of square columns under a plain girder deck, not wall piers)
   const ang = Math.atan2(n[1], n[0]); // box local x across the bridge
   for (const u of piers) {
-    const [x, z] = XZ(u, C), top = Math.min(yAt(u, V0), yAt(u, V1)) - 1.4;
-    S.box(x, z, top, top + 0.42, HALF * 2 - 0.6, 1.5, ang, pierCol, { bottom: true });
-    S.box(x, z, water - 2.5, top, HALF * 2 - 3.6, 1.1, ang, pierCol);
-    for (const s of [-1, 1]) {
-      const [cx, cz] = XZ(u, C + s * (HALF - 1.8));
-      S.cyl(cx, cz, water - 2.5, top, 0.55, 0.55, 10, pierCol, { cap: false });
+    const [x, z] = XZ(u, C), top = Math.min(yAt(u, V0), yAt(u, V1)) - 1.42;
+    S.box(x, z, top, top + 0.42, HALF * 2 - 0.6, 1.1, ang, pierCol, { bottom: true });
+    for (const g of [-7.8, -2.6, 2.6, 7.8]) {
+      const [cx, cz] = XZ(u, C + g);
+      S.box(cx, cz, water - 2.5, top, 0.7, 0.7, ang, pierCol);
+      S.box(cx, cz, water - 0.1, water + 0.35, 0.76, 0.76, ang, shade(pierCol, 0.72)); // the tide mark
     }
-    // the tide mark on the piers
-    S.box(x, z, water - 0.1, water + 0.35, HALF * 2 - 3.5, 1.16, ang, shade(pierCol, 0.72));
+  }
+  // a water main slung under the north-west footway (Street View from Bạch Đằng shows a large pipe under the deck,
+  // dipping into the bank at the market end); octagonal, 0.8 m across, from abutment to abutment
+  {
+    const vP = V1 - 1.6, rP = 0.32, SEG = 8, uA = bankE - 1.0, uB = bankW + 1.0, NP = 32;
+    const pipeCol = hex('#8f918b');
+    const ring = (u) => { const [x, z] = XZ(u, vP), yc = yAt(u, vP) - 0.72 - rP - 0.04; return [...Array(SEG)].map((_, i) => { const a = (i / SEG) * Math.PI * 2, c = Math.cos(a) * rP, sn = Math.sin(a) * rP; return [x + n[0] * c, yc + sn, z + n[1] * c]; }); };
+    let prev = ring(uA);
+    for (let i = 1; i <= NP; i++) {
+      const cur = ring(uA + ((uB - uA) * i) / NP);
+      for (let k = 0; k < SEG; k++) {
+        const k2 = (k + 1) % SEG, a = (k + 0.5) / SEG * Math.PI * 2;
+        S.quad(prev[k], prev[k2], cur[k2], cur[k], pipeCol, [n[0] * Math.cos(a), Math.sin(a), n[1] * Math.cos(a)]);
+      }
+      prev = cur;
+    }
   }
   // abutments: stone-faced walls under each deck end (one under each half, should the halves end apart), reaching
   // ABUT under the deck and as far back under the street, which on a staggered way may begin over the water's edge;
@@ -230,30 +258,187 @@ export function build({ data, S }) {
     const vc = (va + vb) / 2, u0 = endAt(vc, k), [x, z] = XZ(u0, vc);
     const top = Math.min(yAt(u0 + inward * ABUT, va), yAt(u0 + inward * ABUT, vb)) - 0.72;
     S.box(x, z, water - 2.5, top, vb - va, ABUT * 2, ang, stone, { top: concrete });
+    // the market-side abutment is pierced by a low segmental arch over the quay walk along the water (Street View
+    // from Bạch Đằng): a dark opening on each outer face, from the walk just above the water to under the girders
+    if (k === 1) for (const [vf, sg] of [[V0 - 0.3, -1], [V1 + 0.3, 1]]) {
+      if (Math.abs(vf - vc) > (vb - va) / 2 + 0.01) continue;
+      const vo = vf + sg * 0.03, nv = [n[0] * sg, 0, n[1] * sg], hw = 1.45, yb = water + 0.35;
+      const crown = Math.min(water + 1.75, yAt(u0, vf) - 1.05), spring = crown - 0.45, NA = 10;
+      const pt = (du, y) => { const [px, pz] = XZ(u0 + du, vo); return [px, y, pz]; };
+      const arcY = (du) => spring + (crown - spring) * Math.sqrt(Math.max(0, 1 - (du / hw) ** 2));
+      for (let i = 0; i < NA; i++) {
+        const d0 = -hw + (2 * hw * i) / NA, d1 = -hw + (2 * hw * (i + 1)) / NA;
+        S.quad(pt(d0, yb), pt(d1, yb), pt(d1, arcY(d1)), pt(d0, arcY(d0)), hex('#26282a'), nv);
+      }
+    }
   }
 
-  // balustrade: square posts ~2.2 m apart, a moulded top rail and a lower rail, newel posts at the ends and over
-  // the abutments and piers
+  // balustrade (Street View, 2024-25): pale grey pierced panels, cast scrollwork between square pilasters with
+  // capped heads about 3 m apart, on the parapet plinth. The scrolls are drawn as a lattice of slender bars and small
+  // rings, double-faced so the openwork reads from both sides. A bay runs between two plinth-top points A and B.
+  const pilaster = ([x, y, z], w, a) => {
+    S.box(x, z, y, y + 1.0, w, w, a, rail);
+    S.box(x, z, y + 1.0, y + 1.08, w + 0.1, w + 0.1, a, railD);
+    S.box(x, z, y + 1.08, y + 1.2, w + 0.04, w + 0.04, a, rail, { taper: 0.55 });
+  };
+  const CELL = 0.25;
+  const bay = (A, B) => {
+    const ex = B[0] - A[0], ez = B[2] - A[2], L = Math.hypot(ex, ez), e = [ex / L, ez / L], slope = (B[1] - A[1]) / L;
+    const nv = [-e[1], 0, e[0]], nb = [e[1], 0, -e[0]];
+    const Q = (sv, h) => [A[0] + e[0] * sv, A[1] + slope * sv + h, A[2] + e[1] * sv];
+    const strip = (pts2, w) => {
+      for (let i = 0; i + 1 < pts2.length; i++) {
+        const [sa, ha] = pts2[i], [sb, hb] = pts2[i + 1], l2 = Math.hypot(sb - sa, hb - ha) || 1;
+        const os = (-(hb - ha) / l2) * (w / 2), oh = ((sb - sa) / l2) * (w / 2);
+        const q = [Q(sa - os, ha - oh), Q(sb - os, hb - oh), Q(sb + os, hb + oh), Q(sa + os, ha + oh)];
+        S.quad(...q, rail, nv); S.quad(...q, rail, nb);
+      }
+    };
+    const ring = (sc, hc, r) => [...Array(7)].map((_, i) => { const t = (i / 6) * Math.PI * 2 + Math.PI / 2; return [sc + Math.cos(t) * r * 0.8, hc + Math.sin(t) * r]; });
+    const a = Q(0, 0), b = Q(L, 0);
+    S.beam([a[0], a[1] + 0.9, a[2]], [b[0], b[1] + 0.9, b[2]], 0.24, 0.12, rail); // top rail
+    S.beam([a[0], a[1] + 0.08, a[2]], [b[0], b[1] + 0.08, b[2]], 0.12, 0.08, railD); // bottom rail
+    const p0 = 0.2, p1 = L - 0.2, nc = Math.max(1, Math.round((p1 - p0) / CELL)), cw = (p1 - p0) / nc;
+    for (let k = 0; k <= nc; k++) {
+      const sv = p0 + cw * k;
+      if (k % 2 === 0) strip([[sv, 0.12], [sv, 0.85]], 0.03);
+      if (k === nc) break;
+      // three rows of small rings plus a cross scroll between them: the cast panel reads dense, not barred
+      for (const hc of [0.27, 0.48, 0.69]) strip(ring(sv + cw / 2, hc, cw * 0.42), 0.022);
+      strip([[sv, 0.38], [sv + cw, 0.58]], 0.018);
+    }
+  };
+  const BAY = 3.0;
   for (const v of [V0 + 0.15, V1 - 0.15]) {
-    const u0 = endAt(v, 0) + 0.35, u1 = endAt(v, 1) - 0.35;
-    const nPost = Math.max(2, Math.round((u1 - u0) / 2.2));
-    const post = (u) => { const [x, z] = XZ(u, v); return [x, yAt(u, v) + 0.3, z]; };
-    const newels = [u0, u1, ...piers];
-    for (let i = 0; i <= nPost; i++) {
-      const u = u0 + ((u1 - u0) * i) / nPost, [x, y, z] = post(u);
-      if (newels.some((q) => Math.abs(q - u) < 1.0)) continue;
-      S.box(x, z, y, y + 0.78, 0.18, 0.18, ang, rail);
+    const u0 = endAt(v, 0) + 0.3, u1 = endAt(v, 1) - 0.3;
+    const nBay = Math.max(2, Math.round((u1 - u0) / BAY));
+    const at = (u) => { const [x, z] = XZ(u, v); return [x, yAt(u, v) + 0.3, z]; };
+    for (let i = 0; i <= nBay; i++) pilaster(at(u0 + ((u1 - u0) * i) / nBay), i === 0 || i === nBay ? 0.48 : 0.32, ang);
+    for (let i = 0; i < nBay; i++) bay(at(u0 + ((u1 - u0) * i) / nBay), at(u0 + ((u1 - u0) * (i + 1)) / nBay));
+  }
+  // at the Chi Lăng end the north-west parapet does not stop at the deck: it curves round the quay corner and runs on
+  // north along the water as the quay's railing (Street View on the deck, from Chi Lăng and from Bạch Đằng). The
+  // first 13 m, a quarter turn from the bridge's bearing to the quay's, keep the bridge's openwork panels; from there
+  // the Bạch Đằng quay balustrade of turned balusters between square posts carries on along the water, with the red
+  // tiled footway behind it. Held on the water's edge, on a low plinth at street level; drawn for QUAY m in all.
+  const landXZ = (x, z) => rise(x, z) > 0.05 || onLand(data, x, z);
+  const WING = 13, QUAY = 45, wing = [];
+  {
+    const vW = V1 - 0.15, uE = endAt(vW, 0) + 0.3;
+    let [x, z] = XZ(uE, vW), d = [-t[0], -t[1]];
+    const b0 = Math.atan2(d[0], -d[1]), b1 = b0 - (52 * Math.PI) / 180;
+    for (let sv = 0; sv <= QUAY + 0.01; sv += 0.5) {
+      if (sv > 0) {
+        const b = b0 + (b1 - b0) * Math.min(1, sv / 7.5);
+        d = [Math.sin(b), -Math.cos(b)];
+        x += d[0] * 0.5; z += d[1] * 0.5;
+        // hold the line on the quay edge: the water lies to the left (west) of the path
+        const lw = [d[1], -d[0]];
+        let best = null;
+        for (let k = -2.5; k <= 2.5; k += 0.25) if (landXZ(x + lw[0] * k, z + lw[1] * k) && !landXZ(x + lw[0] * (k + 0.25), z + lw[1] * (k + 0.25))) { if (best === null || Math.abs(k) < Math.abs(best)) best = k; }
+        if (best !== null) { x += lw[0] * (best - 0.2); z += lw[1] * (best - 0.2); }
+      }
+      wing.push([x, z]);
     }
-    for (const u of newels) {
-      const [x, y, z] = post(u);
-      S.box(x, z, y, y + 1.0, 0.42, 0.42, ang, rail);
-      S.box(x, z, y + 1.0, y + 1.12, 0.52, 0.52, ang, railD, { taper: 0.75 });
+  }
+  {
+    const yEnd = yAt(endAt(V1 - 0.15, 0) + 0.3, V1 - 0.15);
+    const gY = (x, z) => LAND_Y + rise(x, z) + 0.06;
+    const nW = WING / 0.5; // wing samples are 0.5 m apart
+    const pts = [];
+    for (let i = 0; i < nW; i += 5) pts.push(wing[i]);
+    pts.push(wing[nW]);
+    const P = pts.map(([x, z], i) => [x, Math.max(i ? gY(x, z) : yEnd, gY(x, z)) + 0.3, z]);
+    for (let i = 0; i + 1 < P.length; i++) {
+      const A = P[i], B = P[i + 1];
+      S.beam([A[0], A[1] - 0.15, A[2]], [B[0], B[1] - 0.15, B[2]], 0.34, 0.3, railD); // the plinth
+      bay(A, B);
     }
-    for (let i = 0; i < nPost; i++) {
-      const ua = u0 + ((u1 - u0) * i) / nPost, ub = u0 + ((u1 - u0) * (i + 1)) / nPost;
-      const a = post(ua), b = post(ub);
-      S.beam([a[0], a[1] + 0.84, a[2]], [b[0], b[1] + 0.84, b[2]], 0.24, 0.14, rail);
-      S.beam([a[0], a[1] + 0.36, a[2]], [b[0], b[1] + 0.36, b[2]], 0.12, 0.1, railD);
+    for (let i = 1; i < P.length; i++) { const A = P[i - 1], B = P[i]; pilaster(B, i === P.length - 1 ? 0.48 : 0.32, Math.atan2(B[2] - A[2], B[0] - A[0])); }
+    // the quay balustrade beyond: posts every 2.5 m, turned balusters about 0.3 m apart, a flat top rail
+    const Q = [];
+    for (let i = nW; i < wing.length; i += 5) Q.push(wing[i]);
+    if ((wing.length - 1 - nW) % 5) Q.push(wing[wing.length - 1]);
+    const QP = Q.map(([x, z]) => [x, gY(x, z) + 0.3, z]);
+    const baluster = (x, y, z) => {
+      S.cyl(x, z, y, y + 0.08, 0.07, 0.07, 6, rail, { cap: false });
+      S.cyl(x, z, y + 0.08, y + 0.32, 0.05, 0.085, 6, rail, { cap: false });
+      S.cyl(x, z, y + 0.32, y + 0.5, 0.085, 0.04, 6, rail, { cap: false });
+      S.cyl(x, z, y + 0.5, y + 0.62, 0.04, 0.06, 6, rail, { cap: false });
+      S.cyl(x, z, y + 0.62, y + 0.7, 0.06, 0.06, 6, rail);
+    };
+    for (let i = 0; i + 1 < QP.length; i++) {
+      const A = QP[i], B = QP[i + 1], l = Math.hypot(B[0] - A[0], B[2] - A[2]);
+      S.beam([A[0], A[1] - 0.15, A[2]], [B[0], B[1] - 0.15, B[2]], 0.34, 0.3, railD); // the plinth
+      S.beam([A[0], A[1] + 0.76, A[2]], [B[0], B[1] + 0.76, B[2]], 0.2, 0.12, rail); // the top rail
+      const nb = Math.max(1, Math.round(l / 0.3));
+      for (let k = 1; k < nb; k++) { const f = k / nb; baluster(A[0] + (B[0] - A[0]) * f, A[1] + (B[1] - A[1]) * f, A[2] + (B[2] - A[2]) * f); }
+      const a = Math.atan2(B[2] - A[2], B[0] - A[0]);
+      S.box(B[0], B[2], B[1], B[1] + 0.86, 0.3, 0.3, a, rail);
+      S.box(B[0], B[2], B[1] + 0.86, B[1] + 0.94, 0.38, 0.38, a, railD);
+    }
+    // the red tiled quay footway behind the railing: 2.6 m wide on the land side, from just past the deck's end round
+    // the wing and on along the quay (Street View from Chi Lăng and Bạch Đằng)
+    const tile = hex('#a8604c'), TP = [...pts.slice(1), ...Q.slice(1)];
+    for (let i = 0; i + 1 < TP.length; i++) {
+      const [ax, az] = TP[i], [bx, bz] = TP[i + 1], l = Math.hypot(bx - ax, bz - az) || 1;
+      const rx = -(bz - az) / l, rz = (bx - ax) / l; // right of the path: the land side (the water lies to its left)
+      const q = (x, z, o) => { const X = x + rx * o, Z = z + rz * o; return [X, gY(X, Z) + 0.1, Z]; };
+      S.quad(q(ax, az, 0.2), q(ax, az, 2.8), q(bx, bz, 2.8), q(bx, bz, 0.2), tile, [0, 1, 0]);
+    }
+  }
+
+  // ornamental lamp standards at the four corners of the deck: a dark bronze cast post with four globes on a cross
+  // arm and one on top (Street View from Chi Lăng, Bạch Đằng and the park); they stand on the footway at the parapet
+  const globe = hex('#f2f0e8'), bronze = hex('#5e4636');
+  const globeAt = (x, y, z, r) => { S.cyl(x, z, y - r, y, r * 0.55, r, 8, globe, { cap: false }); S.cyl(x, z, y, y + r, r, r * 0.25, 8, globe); };
+  // (the north-west one at the Chi Lăng end stands where the parapet's curve meets the quay, as Street View shows)
+  const lampAt = [[V0 + 0.75, 0], [V0 + 0.75, 1], [V1 - 0.75, 1]].map(([v, k]) => { const u = endAt(v, k) + (k ? -0.9 : 0.9); return [...XZ(u, v), yAt(u, v) + 0.18, u, v]; });
+  {
+    const i = Math.min(15, wing.length - 2), [ax, az] = wing[i - 1], [bx, bz] = wing[i + 1], l = Math.hypot(bx - ax, bz - az);
+    const x = wing[i][0] - ((bz - az) / l) * 0.7, z = wing[i][1] + ((bx - ax) / l) * 0.7;
+    lampAt.push([x, z, LAND_Y + rise(x, z) + 0.06, null, null]);
+  }
+  // the night glows: the bridge's own lamps light it (the generic street-lamp glows and posts skip this deck,
+  // geo/bridges.js `lit`)
+  const gp = [], gc = [];
+  for (const [x, z, y] of lampAt) {
+    S.box(x, z, y, y + 0.9, 0.42, 0.42, ang, bronze, { taper: 0.7 });
+    gp.push(x, y + 4.6, z); gc.push(1.0, 0.86, 0.66);
+    S.cyl(x, z, y + 0.9, y + 4.1, 0.1, 0.07, 8, bronze);
+    S.box(x, z, y + 4.05, y + 4.12, 1.15, 0.07, ang, bronze);
+    S.box(x, z, y + 4.05, y + 4.12, 0.07, 1.15, ang, bronze);
+    for (const [du, dv] of [[0.55, 0], [-0.55, 0], [0, 0.55], [0, -0.55]]) globeAt(x + t[0] * du + n[0] * dv, y + 4.42, z + t[1] * du + n[1] * dv, 0.2);
+    S.cyl(x, z, y + 4.1, y + 4.55, 0.06, 0.06, 6, bronze);
+    globeAt(x, y + 4.82, z, 0.22);
+  }
+  // tall twin-arm street lights on the median (Street View from Chi Lăng and the park)
+  const poleCol = hex('#9ea2a3');
+  for (const f of [0.18, 0.5, 0.82]) {
+    const u = uOf(f, C), [x, z] = XZ(u, C), y = yAt(u, C) + 0.18;
+    S.cyl(x, z, y, y + 9.0, 0.13, 0.07, 8, poleCol);
+    for (const s of [-1, 1]) {
+      const [ax, az] = XZ(u, C + s * 1.6), [bx, bz] = XZ(u, C + s * 2.3);
+      S.beam([x, y + 8.4, z], [ax, y + 9.1, az], 0.07, 0.07, poleCol);
+      S.beam([ax, y + 9.1, az], [bx, y + 9.15, bz], 0.07, 0.07, poleCol);
+      S.box(bx, bz, y + 8.98, y + 9.13, 0.75, 0.3, ang, poleCol);
+      gp.push(bx, y + 8.9, bz); gc.push(1.0, 0.8, 0.55);
+    }
+  }
+  if (group && gp.length) {
+    const pts = glowPoints(gp, gc, 7);
+    pts.material.uniforms.uBoost.value = 0.6;
+    pts.userData.glow = true;
+    pts.userData.landmark = id;
+    group.add(pts);
+  }
+  // concrete traffic separators on the north-west carriageway, a motorbike lane's width off the footway kerb
+  // (Street View on the deck and from Chi Lăng, 2025): 1.2 m blocks with gaps
+  {
+    const v = V1 - 2.1 - 1.9;
+    for (let u = uOf(0.04, v) + 0.6; u < uOf(0.96, v) - 0.6; u += 2.4) {
+      const [x, z] = XZ(u, v), y = yAt(u, v);
+      S.box(x, z, y, y + 0.5, 0.45, 1.2, ang, hex('#c7c5bd'), { taper: 0.6 });
     }
   }
   S.kind = KIND.PLAIN;

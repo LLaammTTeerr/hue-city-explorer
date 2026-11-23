@@ -3,9 +3,11 @@ import { Buf, hex, shade, unflat, inRing, pathLength } from '../geo/buf.js';
 import { cityMaterial, enc, glowPoints } from '../geo/materials.js';
 import { rise, pondY } from '../geo/terrain.js';
 import { LAND_Y, quality, ROAD_W, ROAD_MAX, roadWidth } from '../config.js';
-import { bridgeProfiles, resample } from '../geo/bridges.js';
+import { bridgeProfiles, resample, ownLit } from '../geo/bridges.js';
 import { landTest } from './boats.js';
 import { TT_LENGTH } from './truongtien.js';
+import { replaced, placeOwnsWay } from './places/index.js';
+import { ownRoads as daVienRoads } from './places/bachho.js';
 
 // Small living things that make the model feel inhabited. All illustrative.
 
@@ -15,12 +17,18 @@ function rng(seed) {
 }
 
 // Lotus on the still water: the moat and the lakes of the Citadel are full of it in summer.
+// Lakes the satellite shows lotus-covered edge to edge, by a point inside each: no open drifts, about three times the
+// leaves and larger ones, so that little water shows between them, and fewer blooms over so many leaves.
+// hồ Học Hải round Tàng Thư Lâu (landmarks/places/tangthulau.js).
+const FULL = [[-1306.8, -1328.3]];
 export function buildLotus(data, group) {
   const rnd = rng(20261119);
   const pads = [], blooms = [];
-  const MAX = quality.low ? 5000 : 14000;
+  // the leaf budget is shared by every lake in proportion to what it wants; first come, first served left the lakes
+  // late in data.ponds (hồ Học Hải among them) with none at all
+  const MAX = quality.low ? 8000 : 32000;
+  const lakes = [];
   (data.ponds || []).forEach((poly, pi) => {
-    const Y = pondY(data, pi);
     const rings = poly.map(unflat), outer = rings[0];
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, area = 0;
     for (let i = 0; i < outer.length; i++) {
@@ -30,22 +38,27 @@ export function buildLotus(data, group) {
     }
     area = Math.abs(area) / 2;
     if (area < 900) return;
-    const want = Math.min(1100, Math.round(area / 26));
+    const full = FULL.some(([x, z]) => inRing(x, z, outer));
+    lakes.push({ pi, rings, outer, x0, x1, z0, z1, full, want: full ? Math.min(4000, Math.round(area / 7)) : Math.min(1100, Math.round(area / 26)) });
+  });
+  const share = Math.min(1, MAX / Math.max(1, lakes.reduce((a, l) => a + l.want, 0)));
+  for (const { pi, rings, outer, x0, x1, z0, z1, full, want: w0 } of lakes) {
+    const Y = pondY(data, pi), want = Math.round(w0 * share);
     for (let k = 0, tries = 0; k < want && tries < want * 6 && pads.length < MAX; tries++) {
       const x = x0 + rnd() * (x1 - x0), z = z0 + rnd() * (z1 - z0);
       // lotus grows in drifts, thickest toward the banks
-      if (Math.sin(x * 0.045) * Math.cos(z * 0.052) + Math.sin((x + z) * 0.021) < 0.15 - rnd() * 0.5) continue;
+      if (!full && Math.sin(x * 0.045) * Math.cos(z * 0.052) + Math.sin((x + z) * 0.021) < 0.15 - rnd() * 0.5) continue;
       const wet = (px, pz) => inRing(px, pz, outer) && !rings.slice(1).some((h) => inRing(px, pz, h));
       if (!wet(x, z)) continue;
       // leaves are drawn about twice life size so the drifts read from the air; the whole leaf floats on the pond,
       // none of it reaching over the bank, where it would run under the ground (check-burial)
-      const r = 1.1 + rnd() * 1.2;
+      const r = (full ? 1.6 : 1.1) + rnd() * 1.2;
       if (![0, 1, 2, 3, 4, 5].every((j) => wet(x + r * Math.cos(j * 1.047), z + r * Math.sin(j * 1.047)))) continue;
       pads.push([x, z, r, rnd() * 6.28, Y]);
-      if (rnd() < 0.2) blooms.push([x + (rnd() - 0.5) * 1.2, z + (rnd() - 0.5) * 1.2, 1.3 + rnd() * 0.9, Y]);
+      if (rnd() < (full ? 0.07 : 0.2)) blooms.push([x + (rnd() - 0.5) * 1.2, z + (rnd() - 0.5) * 1.2, 1.3 + rnd() * 0.9, Y]);
       k++;
     }
-  });
+  }
   if (!pads.length) return;
   const mat = cityMaterial();
   const padGeo = new Buf(16);
@@ -65,7 +78,7 @@ export function buildLotus(data, group) {
   const greens = ['#5f9a58', '#6aa460', '#4f8a52', '#79a965', '#8fb06a'].map(hex), pinks = ['#f2a7bd', '#ee8fb0', '#f7c6d4', '#fbe9ec'].map(hex);
   const padMesh = new THREE.InstancedMesh(padGeo.geometry(), mat, pads.length);
   pads.forEach(([x, z, r, a, y], i) => {
-    q.setFromAxisAngle(up, a); p.set(x, y + 0.05, z); s.set(r, r, r);
+    q.setFromAxisAngle(up, a); p.set(x, y + 0.05 + (i % 5) * 0.012, z); s.set(r, r, r); // stepped heights: leaves that overlap do not flicker
     padMesh.setMatrixAt(i, m.compose(p, q, s));
     padMesh.setColorAt(i, enc(shade(greens[i % greens.length], 0.85 + ((i * 7) % 10) / 33), c));
   });
@@ -107,9 +120,9 @@ function along(pts, dist) {
 
 // The roads as objects, defensively: anything malformed is dropped.
 function readRoads(data) {
-  const out = [];
+  const out = [], owned = placeOwnsWay(data);
   for (const r of data.roads || []) {
-    if (!Array.isArray(r) || !Array.isArray(r[2]) || r[2].length < 4) continue;
+    if (!Array.isArray(r) || !Array.isArray(r[2]) || r[2].length < 4 || owned(r)) continue; // a model's own paths
     const pts = unflat(r[2]);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1]; }
@@ -449,13 +462,17 @@ function buildLampPosts(data, group, out = {}) {
   const kd = placeById(data).get('kydai') || [0, 0];
   const ARM = 0.9; // pole stands this far behind the lantern, away from the carriageway
   const spots = [];
+  const dv = replaced('bachho') ? daVienRoads(data) : null; // cầu Dã Viên's deck has its own parapet lamps (places/bachho.js)
   for (const r of roads) {
-    if (r.c > 2 || r.pts.length < 2) continue;
+    if (r.c > 2 || r.pts.length < 2 || (r.bridge && dv && dv.has(r.flat))) continue;
+    const PL = r.bridge && profiles.get(r.flat);
+    if (PL && PL.lamps && replaced(PL.lamps.own)) continue; // the bridge's own posts, drawn by its place file (bridges.js bridgeLamps)
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < r.len; s += step, k++) {
       const { p, a } = along(r.pts, s);
       const side = k % 2 ? 1 : -1, off = (r.w / 2 + 0.5) * side;
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
+      if (ownLit(data, lx, lz)) continue; // a bridge with its own lamps (geo/bridges.js `lit`): no post beside them
       const P = r.bridge && profiles.get(r.flat), up = P ? P.bump(s) : 0; // on a humped deck the post rides the curve
       const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 + up : 7.5);
       const baseY = r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) + up : LAND_Y + rise(lx, lz);

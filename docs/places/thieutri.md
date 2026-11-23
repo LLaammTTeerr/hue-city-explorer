@@ -45,10 +45,10 @@ Replica: `src/landmarks/places/thieutri.js` (id `thieutri`). The old model, `thi
   - Bronze gate pillar heights: 4.4 and 5.4 m.
   - Bridge lengths come from the OSM water edge.
   - Bửu Thành wall: 3 m high.
-  - Grave mound: about 4 m high, 11.5 m radius.
+  - Bửu Thành interior: one bare earth mound over the whole ring (r ≈ 40 m, crown about 2 m above the ground it drapes), as the satellite shows it; no separate grave or kerb.
 - **Temple axis**
   - Hall and roof heights: Biểu Đức measures about 10 m and the side halls about 6-7 m.
-  - Sizes: the screen, the marble gate, the tier levels and the temple wall line (5-7 m outside the mapped halls).
+  - Sizes: the screen, the marble gate and the tier levels. The temple wall sits 0.8 m outside the mapped halls on the sides and 2.8 m behind them, where the satellite shows it.
 - **Đức Hinh lâu** (owner's policy: lost buildings are drawn complete, as they stood). No source gives its form beyond "like Minh Lâu", so it is drawn on Minh Lâu's pattern: square, two storeys, two tiers of four-sloped glazed roofs.
   - Hill terrace (+0.3 m) and foundation (+1.1 m): estimated.
   - Ground storey: a 15 m colonnade of 6 × 6 bays at 3 m (fits the 18.5 m base with a 1.75 m margin), a closed lacquered core 10.2 m square with a door in each face, 4.0 m to the eave.
@@ -63,7 +63,33 @@ Replica: `src/landmarks/places/thieutri.js` (id `thieutri`). The old model, `thi
 - Đức Hinh lâu was first drawn as the bare base (column stones, wall stubs); it is now drawn complete, a two-storey lầu like Minh Lâu.
 - `docs/heights-reference.json`: the entry "Thiệu Trị, Đức Hinh lâu (ruin, foundation only)" (3.2 m) is out of date; its replacement ("Thiệu Trị, Đức Hinh lâu", 13-14.5 m) is waiting to be merged. Biểu Đức measures 10.2 m against 9.
 
+## Satellite and Street View alignment (2026-11)
+Measured against Google satellite and Street View (visual reference only, nothing traced into `data/`):
+- Temple axis 42° (the OSM centroids alone gave 40.2°); sân tế in three tiers from 57 m before Biểu Đức, reaching the lake wall (widened to 42 m in the review fixes below).
+- Tomb axis 33.5° (bridges and Đức Hinh lâu → Bửu Thành), 36° before.
+- Bridges sit on the three OSM footway bridges (bridge=yes) over Ngưng Thúy, about 21 m apart; Chánh Trung 3.8 m wide, the others 3.2 m.
+- Bửu Thành centre measured on the satellite about 15 m east of the old position; the satellite ring (r ≈ 39.5 m) agrees with the documented 260 m.
+- Tòng viện way 264285104 re-framed 2.4 m east, 1.2 m south to sit on its hall, symmetric with 264285109.
+- Side halls are dark brown-roofed and the gates ochre-plastered with grey roofs (Street View); Bát Tràng paving weathered.
+
+## Review fixes (2026-11)
+- Bi Đình moved onto the centre of the satellite restoration shelter, about 9 m from the old spot, and turned to face Đức Hinh lâu. The court, bronze gate and statues sit on the satellite's central strip, 3.6 m NE of the bridge axis, still at 33.5°. The walk bends about 14° at Bi Đình. Đức Hinh lâu and the bridges are unchanged.
+- The temple wall is pulled in to 0.8 m outside the side halls and 2.8 m behind the rear halls. It was 5-7 m out, about 7 m too large on the NE and SE.
+- The sân tế is a 3x3 grid about 42 m wide:
+  - a 14 m pale central column carrying the stone walk;
+  - darker flank terraces raised 0.8 m with corner steps;
+  - a 2.4 m lower path round them behind balustrades, with flights between the tiers.
+- Sân tế materials and details:
+  - Tier faces are grey stone slabs with rises of at least 1 m.
+  - The paving is grey-brown.
+  - There are post-and-baluster railings.
+  - The central flights have dragon cheeks: a sloping rail and panel, a rearing head at the foot and a post at the top.
+- The inner court is paved across the full width between the side halls (about 29 m).
+- The wall gates are ochre plaster with pilasters, a stepped arched opening and a tiled hip roof.
+- The Bửu Thành interior is one bare raised mound.
+
 ## What is left
+- A modern grey shed SW of Bi Đình is not modelled.
 - Hiển Quang các (the rest pavilion to the right) and the outer stele pavilions are not modelled.
 - The pháp lam panels are plain colour blocks.
 - The bridges are plain arched decks; they are not checked against photos.

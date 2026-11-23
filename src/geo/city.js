@@ -9,12 +9,14 @@ import { initTerrain, buildTerrainMesh, rise, baseUnder, drape } from './terrain
 import { treePlanter } from './foliage.js';
 import { lodAdd, lodUpdate } from './lod.js';
 import { pavilion } from '../landmarks/citadel.js';
-import { bridgeProfiles, resample, subPath, LAND_RAMP } from './bridges.js';
+import { bridgeProfiles, bridgeLamps, resample, subPath, LAND_RAMP, ownLit } from './bridges.js';
 import { bridgeJoints, handDeckJoints } from './joints.js';
 import { citadelBridge } from './citadel-bridge.js';
 import { thuyTienBridgeRoads } from '../landmarks/thuytien.js';
-import { replaced, placeDeckEnds } from '../landmarks/places/index.js';
+import { replaced, placeDeckEnds, placeOwns, placeOwnsWay, placeClearings } from '../landmarks/places/index.js';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.js';
+import { ownRoads as daVienRoads } from '../landmarks/places/bachho.js';
+import { ownRoads as minhMangRoads } from '../landmarks/places/minhmang.js';
 import { owns as dainoiOwns } from '../landmarks/places/dainoi.js';
 import { junctionHoles, holeRects, markingGuard, inPoly, slivers, asphaltTest } from './junctions.js';
 
@@ -72,7 +74,38 @@ function overlayMaterial(order) {
   return m;
 }
 
-function buildGreen(data, group) {
+// the replicas' clearings (places/index.js placeClearings): ground a model lays itself, flush with the land
+function inClearing(clear, x, z) {
+  for (const c of clear) if (x >= c.x0 && x <= c.x1 && z >= c.z0 && z <= c.z1 && inPoly(c.ring, x, z)) return true;
+  return false;
+}
+function clearingsOf(data) {
+  return placeClearings(data).map((ring) => {
+    const xs = ring.map((p) => p[0]), zs = ring.map((p) => p[1]);
+    return { ring, x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+  });
+}
+// a path with the stretches inside the clearings taken out (tested every half metre), as the runs left outside
+function outsideRuns(pts, clear) {
+  const runs = [];
+  let cur = [], prev = null; // prev: the last sample, if it lay outside
+  const end = () => { if (cur.length >= 2 && pathLength(cur) > 0.5) runs.push(cur); cur = []; };
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 0.5));
+    for (let k = i === 0 ? 0 : 1; k <= n; k++) {
+      const p = k === 0 ? a : k === n ? b : [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n];
+      const out = !inClearing(clear, p[0], p[1]);
+      // the path's own vertices, and the samples where it leaves or enters a clearing
+      if (out && (k === 0 || k === n || !prev)) cur.push(p);
+      else if (!out && prev) { if (cur[cur.length - 1] !== prev) cur.push(prev); end(); }
+      prev = out ? p : null;
+    }
+  }
+  end();
+  return runs;
+}
+
+function buildGreen(data, group, clear = []) {
   const B = new Buf(20000);
   B.kind = KIND.GROUND;
   const y = LAND_Y + 0.03;
@@ -80,6 +113,7 @@ function buildGreen(data, group) {
     const col = hex(PAL.green[k] || PAL.green.grass);
     B.kind = k === 'paved' ? KIND.ROAD : KIND.GROUND; // a paved yard is laid as paving, not planted ground
     const rings = poly.map(unflat);
+    if (clear.length) { const [cx, cz] = ringCentre(rings[0]); if (inClearing(clear, cx, cz)) continue; } // a model lays this ground
     const contour = rings[0].map((p) => new THREE.Vector2(p[0], p[1]));
     const holes = rings.slice(1).map((r) => r.map((p) => new THREE.Vector2(p[0], p[1])));
     let faces;
@@ -283,10 +317,13 @@ function medianShrubs(S, medians) {
   S.kind = k0;
 }
 
-function buildRoads(data, group, structures) {
+function buildRoads(data, group, structures, clear = []) {
   const B = new Buf(160000);
   B.kind = KIND.ROAD;
-  const roads = (data.roads || []).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
+  const owned = placeOwnsWay(data); // paths a replica draws itself (places/index.js)
+  let roads = (data.roads || []).filter((e) => !owned(e)).map((e) => ({ c: Math.max(0, Math.min(ROAD_MAX, e[0] | 0)), w: roadWidth(e), ...(e[4] ? { ws: e[4].map((v) => v / 10) } : {}), bridge: e[1], flat: e[2], pts: unflat(e[2]), ...(e[5] > 0 ? { lanes: e[5], unmarked: true } : {}) })); // lanes/unmarked: an unmarked road type (a slip road, issue #67): no dashes, no lamps // ws: one width per point where a carriageway tapers into a narrower one // class clamped as bridges.js does, so widths and deck profiles agree
+  // footways a model lays itself (its walks, inside its clearings) are left to it
+  if (clear.length) roads = roads.flatMap((r) => (r.c < 5 || r.bridge ? [r] : outsideRuns(r.pts, clear).map((pts) => ({ ...r, pts, flat: null }))));
   const profiles = bridgeProfiles(data);
   // a bridge way that runs on past its abutments (a profile with a span, geo/bridges.js) is street there: laid as an
   // ordinary carriageway, flush with the roads it joins, so the deck meets it end to end
@@ -396,6 +433,8 @@ function buildRoads(data, group, structures) {
   for (const r of roads) {
     if (!r.bridge || ownDeck.has(r.flat)) continue;
     if (replaced('giahoi') && giaHoiRoads(data).has(r.flat)) continue; // cầu Gia Hội is modelled in landmarks/places/giahoi.js
+    if (replaced('bachho') && daVienRoads(data).has(r.flat)) continue; // cầu Dã Viên's north-channel deck: landmarks/places/bachho.js
+    if (replaced('minhmang') && minhMangRoads(data).has(r.flat)) continue; // the stone bridges of lăng Minh Mạng: landmarks/places/minhmang.js
     if (replaced('golim') && r.c === 5 && r.pts.some((p) => Math.hypot(p[0] + 72.9, p[1] - 281.6) < 1 || Math.hypot(p[0] + 298, p[1] - 500.2) < 1)) continue; // the lim walkway's OSM ways: landmarks/places/golim.js
     // The deck is as wide as the street's pavement (carriageway + footways) and carries its carriageway at the street's
     // own width (narrowed on a divided road's one-way twins), so the street runs onto it edge to edge. Left at the
@@ -445,7 +484,6 @@ function buildRoads(data, group, structures) {
         pavilion(structures, x, z, 3.4, 3.4, a, top, { wallH: 2.6, roof: hex('#8f4a36'), wall: hex('#c9b99a'), over: 0.9, rh: 1.5, ridge: hex('#d9c9a0') });
       }
     }
-    if (replaced('bachho') && r.c <= 1 && Math.hypot(mp[0] + 1896, mp[1] - 1019) < 40) continue; // places/bachho.js has the piers
     if (len > 42 && r.c <= 3 && !P.arches) {
       const n = Math.max(1, Math.round(len / 30) - 1);
       for (let i = 1; i <= n; i++) {
@@ -470,12 +508,23 @@ function buildRoads(data, group, structures) {
   const lp = [], lc = [];
   for (const r of roads) {
     if (r.c > 2 || !r.flat || r.unmarked) continue; // a slip road is lit by the roads it joins (a bridge way's street ends are lit as part of the way: life.js posts)
+    if (r.bridge && replaced('bachho') && daVienRoads(data).has(r.flat)) continue; // lit by its own parapet lamps (places/bachho.js)
+    const PL = r.bridge && profiles.get(r.flat);
+    if (PL && PL.lamps && replaced(PL.lamps.own)) { // a bridge with its own posts (bridges.js bridgeLamps): glows in their lanterns
+      for (const { y, sides } of bridgeLamps(PL, r.pts)) for (const { head } of sides) {
+        lp.push(head[0], y + PL.lamps.h, head[1]);
+        const warm = 0.85 + rand(lp.length, r.c) * 0.3;
+        lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
+      }
+      continue;
+    }
     const len = pathLength(r.pts);
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < len; s += step, k++) {
       const { p, a } = along(r.pts, s);
       const off = ((r.ws ? widthAt(r.pts, r.ws, p) : r.w) / 2 + 0.5) * (k % 2 ? 1 : -1);
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
+      if (ownLit(data, lx, lz)) continue; // a bridge with its own lamps (geo/bridges.js `lit`) is lit by them
       lp.push(lx, LAND_Y + rise(lx, lz) + (r.bridge ? 8 + profiles.get(r.flat).bump(s) : 7.5), lz);
       const warm = 0.85 + rand(k, r.c) * 0.3;
       lc.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
@@ -612,6 +661,7 @@ function buildBuildings(data, group, off = null, roofOff = null) {
     const ring = unflat(b[0]);
     if (off && off(ring, ringCentre(ring))) return; // a landmark model already stands on this footprint
     if (b[2] === 2 && dainoiOwns(ring)) return; // a gallery or hall places/dainoi.js draws
+    if (placeOwns(ring)) return; // an outline a place model draws itself (its ownsMapped)
     const start = B.n;
     B.mark = b[4] & 256 ? KIND_FLOOD : 0; // faces the Hương: floodlit after dark (build-data.mjs); the roof is drawn later
     draw(b, i);
@@ -894,8 +944,10 @@ export function buildCity(data) {
   buildLand(data, group);
   const hills = buildTerrainMesh();
   if (hills) group.add(hills);
-  buildGreen(data, group);
-  const { lamps, marks } = buildRoads(data, group, structures);
+  const clear = clearingsOf(data);
+  structures.clearings = clear; // coverOf keeps trees and houses off them
+  buildGreen(data, group, clear);
+  const { lamps, marks } = buildRoads(data, group, structures, clear);
   const w0 = structures.n;
   buildWalls(data, structures);
   structures.wallRange = [w0, structures.n];
@@ -934,6 +986,9 @@ function coverOf(structures) {
   }
   // houses keep off all of it; trees only off roofs and tall platforms (a tree may stand on a low lawn terrace, as the
   // pines do on đàn Nam Giao)
+  // the replicas' clearings (ground a model lays itself, flush with the land) count as tall ground: nothing planted
+  const clear = structures.clearings || [];
+  if (clear.length) return { hit: (x, z) => cells.has(key(Math.floor(x), Math.floor(z))) || inClearing(clear, x, z), hitTall: (x, z) => tall.has(key(Math.floor(x), Math.floor(z))) || inClearing(clear, x, z) };
   return { hit: (x, z) => cells.has(key(Math.floor(x), Math.floor(z))), hitTall: (x, z) => tall.has(key(Math.floor(x), Math.floor(z))) };
 }
 
@@ -972,6 +1027,7 @@ function roofClash(roofs) {
 export function populate(world, data) {
   const cover = coverOf(world.structures);
   const R8 = [[1, 0], [0.7, 0.7], [0, 1], [-0.7, 0.7], [-1, 0], [-0.7, -0.7], [0, -1], [0.7, -0.7]];
+  const R16 = Array.from({ length: 16 }, (_, i) => [Math.cos((i * Math.PI) / 8), Math.sin((i * Math.PI) / 8)]), RINGS = [0.41, 0.71, 0.91];
   // a tree: its trunk and the reach of its lower branches
   // A tree stands off the asphalt too: carriageways, the junction patches painted between them and the paved slivers
   // (geo/junctions.js). The data keeps trees off the carriageways it knows, but the patches are only found here, once
@@ -980,9 +1036,11 @@ export function populate(world, data) {
   const asphalt = world.marks ? asphaltTest([...world.marks.cw, ...(world.marks.paved || [])], world.marks.holeCells) : () => false;
   const onRoad = (x, z, R) => {
     if (asphalt(x, z)) return true;
+    // 16 bearings on three rings, each the middle of a third of the crown's area: two rings of 8 missed a crown over
+    // carriageways on both sides of a narrow median (its edges falling between the samples), which check:trees caught
     let n = 0;
-    for (const [u, v] of R8) { if (asphalt(x + u * R * 0.5, z + v * R * 0.5)) n++; if (asphalt(x + u * R * 0.85, z + v * R * 0.85)) n++; }
-    return n > CROWN_ROAD * 16;
+    for (const [u, v] of R16) for (const f of RINGS) if (asphalt(x + u * R * f, z + v * R * f)) n++;
+    return n > CROWN_ROAD * R16.length * RINGS.length;
   };
   const treeOff = (x, z, r, crown = r * 1.5) => { if (cover.hitTall(x, z) || onRoad(x, z, crown)) return true; for (const [u, v] of R8) if (cover.hitTall(x + u * r, z + v * r) || cover.hitTall(x + u * r * 0.5, z + v * r * 0.5)) return true; return false; };
   // a house: its plan sampled every metre (the middle of each metre strip, and both edges), so a model's step or
@@ -1004,7 +1062,11 @@ export function populate(world, data) {
     return n >= ring.length * 0.7;
   };
   world.buildings = buildBuildings(data, world.group, buildingOff, roofClash(world.structures.roofs || []));
-  const plantInfill = infillPlanter(world.group, houseOff), plantTrees = treePlanter(data, world.group, treeOff);
+  // a tree standing on a model's terrace (structures.stand: functions a model adds, (x, z) => metres above the ground
+  // of the terrace top there, or 0) is lifted onto it, as the pines on đàn Nam Giao's tiers
+  const stand = world.structures.stand || [];
+  const lift = stand.length ? (x, z) => { for (const f of stand) { const y = f(x, z); if (y) return y; } return 0; } : null;
+  const plantInfill = infillPlanter(world.group, houseOff), plantTrees = treePlanter(data, world.group, treeOff, lift);
   world.infill = plantInfill(data.infill, data.meta?.counts?.infillNear, 0);
   world.trees = plantTrees(data.trees, data.meta?.counts?.treesNear, 0);
   // the trees and houses of a tile (public/data/tiles/, see build-data.mjs), after the first frame: planted by the same

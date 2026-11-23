@@ -18,23 +18,62 @@ import { inRing, pathLength, unflat } from './buf.js';
 //    a solid parapet with plastered coping and round medallions (the reference photo in issue #19). Its rise and
 //    vaults come from the `citadel` rule below and src/geo/citadel-bridge.js draws it.
 // Illustrative: the crown rises (no surveyed long sections were found), the number of vaults, the default rule.
-// Big modern river bridges keep a level deck: Dã Viên (and its approaches), any run over 150 m; Phú Xuân climbs (below).
+// Big modern river bridges keep a level deck: any run over 150 m; Phú Xuân is graded gently off its ends and Dã Viên
+// climbs (below).
 // Trường Tiền and Nguyễn Hoàng are hand models elsewhere; the Bạch Hổ rail bridge is not a road.
 
 const NAMED = {
   'Cầu Trung Đạo': { own: true },
   // one 8.4 m vault in a 71.7 m masonry dam, 8.05 m high; the deck crowns over the vault (landmarks/places/thuyquan.js)
   'Đông Thành Thủy Quan': { rise: 4.3, ramp: 0.45 },
-  // a humped girder bridge over sông Đông Ba that lands at grade on both banks (landmarks/places/giahoi.js has the
-  // sources and why 2 m): the crown stands over the water, the mapped ways run on at street level past the abutments
-  'Cầu Gia Hội': { rise: 2.0, water: true },
+  // a girder bridge over sông Đông Ba, carried at street level on the ~2.6 m quay walls with only a slight crown
+  // (Street View from Chi Lăng and Bạch Đằng: a long level deck line over a dark void); it lands at grade on both
+  // banks and the mapped ways run on as street past the abutments. It carries its own lamps (`lit`: drawn by
+  // landmarks/places/giahoi.js), so the generic posts and glows keep 5 m clear of it.
+  'Cầu Gia Hội': { rise: 0.5, water: true, lit: 5 },
   'Cầu Cửa Ngăn': { rise: 1.0 }, // its own causeway with balustrades (landmarks/places/gate-cua-ngan.js)
-  // 1971 girder bridge: the deck climbs off each bank within ~40 m, then crowns gently (landmarks/places/phuxuan.js)
-  'Cầu Phú Xuân': { rise: 4.2, ramp: 0.1 },
-  'Cầu Dã Viên': { rise: 0 },
+  // 1971 girder bridge (landmarks/places/phuxuan.js): a long, nearly level deck (Street View from the Lê Lợi end sees
+  // the whole deck and both lamp rows to the far bank). It lands at street level and climbs at a steady grade off each
+  // end (`ends`: [grade, metres], south and north end), then crowns gently to `rise` at mid-span. The south grade is
+  // the least that keeps ~2 m of headroom over the lim boardwalk that passes under the deck ~29 m off the Lê Lợi end
+  // (deck 1.2 m, places/golim.js; the end span over it is a shallow one, phuxuan.js). The model's bank is lower over
+  // the boardwalk than the real one, so the real deck can be level there; the north end has no such constraint.
+  // lamps (Street View): pale grey ~10 m posts on the railing line, `at` m off the axis, in pairs every `step` m, each
+  // with a curved arm carrying its lantern over the carriageway to `head` m off the axis, `h` m over the deck; drawn
+  // by the place file `own` (bridgeLamps below), the night glow in its lantern (geo/city.js)
+  'Cầu Phú Xuân': { rise: 2.1, ends: { south: [0.05, 30], north: [0.022, 50] }, lamps: { step: 30, at: 9.9, head: 7.4, h: 9.3, own: 'phuxuan' } },
+  // 2012 girder bridge: its deck stands ~2 m above the 1908 rail deck beside it (Street View, the truss's top chord
+  // against the parapet; landmarks/places/bachho.js), climbing off each bank within ~30 m
+  'Cầu Dã Viên': { rise: 2.0, ramp: 0.12 },
   'Cầu Trường Tiền': { rise: 0 },
   'Cầu Nguyễn Hoàng': { rise: 0 },
 };
+// Bridges that carry their own lamps (NAMED `lit`: m around the mapped outline): a generic street lamp (geo/city.js
+// glow, landmarks/life.js post, an embankment post of landmarks/riverlights.js) whose lantern would stand on the deck or within that distance of it is left out, so
+// it does not stand beside the bridge's own lamp standards. True at (x, z) for such a lantern.
+const litCache = new WeakMap();
+export function ownLit(data, x, z) {
+  let rings = litCache.get(data);
+  if (!rings) {
+    rings = (data.bridges || []).filter((q) => q.n && NAMED[q.n] && NAMED[q.n].lit).map((q) => ({ ring: unflat(q.ring), pad: NAMED[q.n].lit }));
+    litCache.set(data, rings);
+  }
+  for (const { ring, pad } of rings) {
+    if (inRing(x, z, ring)) return true;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
+      const t = l2 ? clamp(((x - a[0]) * dx + (z - a[1]) * dz) / l2, 0, 1) : 0;
+      if (Math.hypot(a[0] + dx * t - x, a[1] + dz * t - z) < pad) return true;
+    }
+  }
+  return false;
+}
+// Unnamed bridges, by a point on the way's middle (within 4 m): the deck rise their OSM structure calls for.
+const AT = [
+  // Tàng Thư Lâu's bridge (OSM 1431132265, bridge:structure=beam): a level deck on piers, as the satellite shows it,
+  // not the footbridge hump (landmarks/places/tangthulau.js)
+  { p: [-1347.6, -1299.9], rise: 0.15 },
+];
 const RUN_FLAT = 150; // a bridge run longer than this keeps its level deck
 // the street surface over the flat floor (geo/city.js lays carriageways at LAND_Y + 0.05 + 0.01) and the deck's
 // default top at the banks (BRIDGE_TOP in landmarks/life.js): a deck that lands at grade comes down by the difference
@@ -82,21 +121,22 @@ export function bridgeProfiles(data) {
     let named = null;
     for (const q of bridges) if (q.n && NAMED[q.n] && inRing(m[0], m[1], unflat(q.ring))) { named = q.n; break; }
     if (named && NAMED[named].own) return;
-    let r, arches = 0, ramp = 0, vaults = null;
-    if (named) ({ rise: r, arches = 0, ramp = 0 } = NAMED[named]);
+    let r, arches = 0, ramp = 0, vaults = null, ends = null;
+    if (named) ({ rise: r, arches = 0, ramp = 0, ends = null } = NAMED[named]);
+    else if (AT.some((q) => Math.hypot(q.p[0] - m[0], q.p[1] - m[1]) < 4)) r = AT.find((q) => Math.hypot(q.p[0] - m[0], q.p[1] - m[1]) < 4).rise;
     else if (b.citadel) ({ r, arches, vaults } = citadelRule(data, b));
     else if (runLen[runOf[i]] > RUN_FLAT || b.len > RUN_FLAT || runN[runOf[i]] > 1) r = 0; // (a run in pieces would hump twice)
     // footbridges and lanes over canals hump noticeably; road bridges over the moat and the canals get a camber
     else if (b.c >= 4) r = clamp(b.len / 14, 0.5, 1.5);
     else r = clamp(b.len * 0.02, 0.4, 1.1);
-    const t = { b, named, r, arches, ramp, span: null, vaults };
+    const t = { b, named, r, arches, ramp, span: null, vaults, shape: ends ? endGrades(b.pts, b.len, r, ends) : null };
     todo.push(t);
     if (named && NAMED[named].water) { if (!water.has(named)) water.set(named, []); water.get(named).push(t); }
   });
   for (const ways of water.values()) waterSpans(data, ways);
-  for (const { b, named, r, arches, ramp, span, vaults } of todo) {
-    const P = makeProfile(b.pts, b.len, b.c, r, arches, ramp, span, vaults);
-    map.set(b.flat, Object.assign(P, { name: named, citadel: !!vaults && !named }));
+  for (const { b, named, r, arches, ramp, span, vaults, shape } of todo) {
+    const P = makeProfile(b.pts, b.len, b.c, r, arches, ramp, span, vaults, shape);
+    map.set(b.flat, Object.assign(P, { name: named, citadel: !!vaults && !named }, named && NAMED[named].lamps && b.c <= 2 ? { lamps: NAMED[named].lamps } : {}));
   }
   cache = { data, map };
   return map;
@@ -220,7 +260,37 @@ function at(pts, s) {
   return { x: pts[0][0], z: pts[0][1] };
 }
 
-function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = null) {
+// A long deck's rise over its street ends, h(s) (0 at both ends, riseM at mid-span), from the grade off each end:
+// ends = { south: [grade, run], north: [grade, run] }, matched to the way's ends by which lies further south (+z), so
+// a reversed OSM way keeps its profile. Off each end the slope eases in over EASE m (a vertical curve where the deck
+// leaves the street), holds the grade for the run, eases over BLEND m to a lower one and falls off to level at
+// mid-span (a parabolic crown); that lower grade is solved so both halves reach riseM. Tabulated every 0.5 m.
+const EASE = 5, BLEND = 14;
+function endGrades(pts, len, riseM, ends) {
+  const M = len / 2, southFirst = pts[0][1] > pts[pts.length - 1][1];
+  const half = ([g, run]) => {
+    run = Math.min(run, M * 0.6);
+    const b = Math.min(BLEND, M - run), tail = M - run - b;
+    // rise of the fixed part, and of the blend + tail per unit of the lower grade g2
+    const fixed = (g * EASE) / 2 + g * (run - EASE) + (g * b) / 2, per = b / 2 + tail / 2;
+    const g2 = clamp((riseM - fixed) / (per || 1), 0, g);
+    const slope = (d) => (d < EASE ? (g * d) / EASE : d < run ? g : d < run + b ? g + ((g2 - g) * (d - run)) / b : g2 * Math.max(0, 1 - (d - run - b) / (tail || 1)));
+    const tab = [0];
+    for (let d = 0.5; d <= M + 0.5; d += 0.5) tab.push(tab[tab.length - 1] + 0.25 * (slope(d - 0.5) + slope(d)));
+    return (d) => { const i = clamp(d / 0.5, 0, tab.length - 1), k = Math.floor(i), f = i - k; return tab[k] + ((tab[Math.min(k + 1, tab.length - 1)] - tab[k]) * f); };
+  };
+  const hs = half(ends.south), hn = half(ends.north);
+  const h0 = southFirst ? hs : hn, h1 = southFirst ? hn : hs;
+  // the two halves meet at mid-span; any mismatch (a grade too steep for riseM) is spread over the whole length
+  const m0 = h0(M), m1 = h1(M);
+  return (s) => {
+    s = clamp(s, 0, len);
+    const h = s <= M ? h0(s) : h1(len - s), mismatch = s <= M ? m0 : m1;
+    return h + (riseM - mismatch) * (s <= M ? s / M : (len - s) / M);
+  };
+}
+
+function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = null, shape = null) {
   // the bank-to-bank deck: its two ends stand on the approach roads' ground (the same `rise` the street is laid on),
   // and between them it follows its own profile, level or climbing straight from one bank to the other. The ground
   // under the span (water, a ravine, a lake held at its level) is never read: on a 25 m grid it would bend the deck.
@@ -235,7 +305,8 @@ function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = 
   // span: the deck is structure only over [a, b] (the water and its abutments), where it humps by riseM over the
   // street from street level at each abutment; outside it the way is street, flush with the roads it joins
   const G = STREET - DECK;
-  const bump0 = span ? (s) => (s <= span[0] || s >= span[1] ? G : G + riseM * hump((s - span[0]) / (span[1] - span[0])))
+  // shape: a long deck graded off its ends (endGrades), from the street's surface at both ends
+  const bump0 = shape ? (s) => G + shape(s) : span ? (s) => (s <= span[0] || s >= span[1] ? G : G + riseM * hump((s - span[0]) / (span[1] - span[0])))
     : climb ? (s) => { const t = s / (len || 1); return riseM * ss(t / climb) * ss((1 - t) / climb) * (0.82 + 0.18 * hump(t)); } : (s) => riseM * hump(s / (len || 1));
   // A road deck lands on the street it joins: from DECK over the bank it comes down to the street's own surface
   // (STREET, and the 0.12 m a carriageway on raised ground is laid above it, geo/city.js ribbon) over the last
@@ -309,6 +380,22 @@ export function subPath(pts, s0, s1) {
       else { out.push(lerp(a, b, clamp((s1 - acc) / l, 0, 1))); break; }
     }
     acc += l;
+  }
+  return out;
+}
+
+// A named bridge's own lamp posts (NAMED lamps): for each pair, along the way's path at arc length s, its deck surface y
+// and per side (-1, 1) the pole's foot, the lantern's point and the outward unit normal. geo/city.js puts the night
+// glows in the lanterns and the place file (lamps.own) draws the posts; landmarks/life.js leaves this way to them.
+export function bridgeLamps(P, pts) {
+  const L = P && P.lamps;
+  if (!L) return [];
+  const out = [];
+  for (let s = L.step / 2; s <= P.len - L.step / 2 + 1; s += L.step) { // none at the very ends, where the streets take over
+    const a = at(pts, Math.max(0, s - 0.5)), b = at(pts, Math.min(P.len, s + 0.5)), c = at(pts, s);
+    const l = Math.hypot(b.x - a.x, b.z - a.z) || 1, n = [-(b.z - a.z) / l, (b.x - a.x) / l];
+    const y = Math.max(LAND_Y + DECK, P.base(s)) + P.bump(s);
+    out.push({ s, y, sides: [-1, 1].map((k) => ({ k, n: [n[0] * k, n[1] * k], foot: [c.x + n[0] * k * L.at, c.z + n[1] * k * L.at], head: [c.x + n[0] * k * L.head, c.z + n[1] * k * L.head] })) });
   }
   return out;
 }

@@ -18,23 +18,34 @@ Model: `src/landmarks/places/gate-cua-quang-duc.js`. The older gates loop in `sr
 
 ## Confirmed
 - Plan, centre and axis come from OSM. The rampart's faces on the axis come from data.wall: 6.3 m inside and 7.7 m outside the gate's centre.
-- Total height: the model measures 16.6 m against the reference's 16–17 m (`npm run check`).
+- Total height: inside the reference's 16–17 m with its tolerance (`npm run check`); the ridge is about 17.2 m, the pole tip 18 m.
 - Dates and history as listed above.
 
-## Estimated (from photographs and the other Kinh thành gates)
-- A single round arch, 4.2 m wide and 5.4 m to the crown (the shared CITADEL_PASSAGE). Open timber door leaves inside the outer mouth.
-- The gate block stands 1.6 m above the wall walk. It is weathered lime-rendered brick, with a dark damp plinth band, corner pilasters and pilasters framing the arch bay. The arch has a light moulded surround and keystone. A two-step cornice runs under a crenellated parapet.
-- The name plaque has a light frame and a dark panel, read right to left (廣德門). The characters are a small canvas texture, built in the browser only. Their colours are estimated.
-- The vọng lâu (the shared `pavilion()` from citadel.js) is 12 × 7.6 m. Its lower storey is colonnaded and its small upper storey closed. Both roofs are yellow glazed tile with red lacquered timber. The tile colour comes from photographs, not a written source.
+## Street-level and satellite check (November 2026)
+Google satellite and four Street View car panoramas (north and south on the axis, west along Đ. Ông Ích Khiêm, the bridge) were compared with matched model renders. The captures stay out of the repo.
+- Plan: the OSM gate building sits within about 1 m of the satellite image and its axis (about 150°/330°) within 2°, so it is used as it is.
+- The present vọng lâu is masonry, not timber. Its lower storey is rendered brick, about 8.4 × 6.8 m. The outer face has a large arched opening between two small ones. The inner face has an arched niche between two round medallions; each end has an arched opening. A skirt of weathered grey-brown tiles (only a hint of orange) runs round its top. On it stands a small storey, about 4.6 × 4 m, pierced front to back by an arch, under a steep little hip roof of the same tiles (about 1.5 m tall) with small pointed ridge and corner ornaments and a short pole.
+- Proportions, scaled from the 16.8 m block width in the panoramas:
+  - the passage about 3.8 m wide and 5.4 m to the crown;
+  - the block's flat roof 8.4 m up, behind a plain solid 1 m parapet with square corner posts (no crenellations);
+  - the tower's ridge at about 17.2 m, inside the 16–17 m (±15 %) reference.
+- Outer face: grey weathered render, the arch set in a raised rectangular frame, a small light plaque above it. Inner face: darker, with two short projecting piers either side of the arch bay, stopping near the arch's crown under bud-shaped caps, and no plaque.
+- Inner ramps: either side of the block a parapeted ramp climbs along the wall top from the wall walk to the gate's platform, so the inner silhouette tapers out from the tower; its face carries the block's frieze of light panels. Drawn here, 16 m long and 3.6 m wide each, its profile level at both ends.
+- Not visible in the imagery, so kept from the earlier estimate: the open timber door leaves, and the plaque's characters and colours.
 
-## Changed from the generic gate
-- The facade is lighter, weathered render instead of plain brick, with pilasters, cornice, damp band, keystone and open doors.
-- The plaque now carries readable characters.
-- The roofs are the imperial glazed yellow. The vọng lâu is centred on the block between the two wall faces.
-- The model's ground is marked paved, so trees and houses keep off it.
+## Earlier estimate (replaced)
+Before the imagery check, the vọng lâu was the shared timber `pavilion()`: 12 × 7.6 m, colonnaded, with yellow glazed roofs. The block had a crenellated parapet and plaques on both faces. That reading came from photographs of other Kinh thành gates and does not match this gate as it stands.
 
 ## Left as it is / not done
 - The bridge over the moat is drawn by the shared bridge code, from data.bridges. It is not redrawn here.
-- The wall, the moat, and the wall ramps and steps either side of the gate belong to kinhthanh.
+- The wall and the moat belong to kinhthanh. Its inner side is drawn as one sheer 6.6 m face; at Huế a low grass-topped terrace wall with capped piers stands in front of the rampart along Đ. Ông Ích Khiêm, so from that road the model hides the tower and the ramp that the real view shows. That is the shared rampart's to fix.
 - The five "thần công" cannons just inside the gate (OSM way 771244236) are outside this gate's scope.
 - No night lighting: there was no source for how the gate is lit.
+
+## Polish (2026)
+
+Against the north panorama: thinner tile skirt under the lower storey, a lower and flatter upper hip roof with smaller horns, larger medallions (also replacing the small side arches on the outer face), a slightly paler grey-green tower render.
+
+## Review fixes (2026)
+
+The outer face of the lower storey has its two small arched openings back (the polish had swapped them for medallions); medallions stay on the inner face only. The ends carry an arched opening each instead of a medallion. The inner ramps were added, the inner piers shortened to the arch crown with bud caps, the tiles toned to weathered grey-brown, and the upper roof made steeper (0.9 to 1.5 m) with the large horns replaced by small pointed ornaments.

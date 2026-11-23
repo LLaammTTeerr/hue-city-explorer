@@ -30,22 +30,35 @@ drop the walls with it.
   Source: vi.wikipedia.
 - Thổ Công Từ and Canh Y Điện stand symmetrically to the west and east; Canh Y Điện is now a ruin. Tả and Hữu Tùng
   Tự stand outside the wall. Source: vi.wikipedia.
-- Positions and orientation of every building and gate come from OSM. The hall faces south-east toward Hiển Lâm Các,
+- Positions and orientation of every building and gate come from OSM. Checked against Google satellite (Nov 2026):
+  the hall centre is within about 2 m and its axis within 1 degree (bearing 54 degrees); the court paving is the
+  hall's length wide (56 m), lawn and trees either side. The hall faces south-east toward Hiển Lâm Các,
   about 58 m away on the axis.
 
 ## Estimated
 - Heights. Main ridge 10.5 m above the floor (the existing `TRUE_H` value in build-data.mjs). Front-hall ridge
   6.9 m; eaves 3.6 m (front) and 4.6 m (main hall).
-- Each roof is drawn as a single-tier hip; the front/main hall split is placed at about 10/16 m of the depth.
+- The front hall is a single-tier hip; the main hall has double eaves: a tiled skirt round its back and both ends at
+  the front hall's eave height (3.6 m over the floor), a short lacquered clerestory, and the upper hip set in 3 m,
+  eave 6.0 m, ridge 10.5 m. The front/main hall split is at about 10/16 m of the depth. The skirt band on every side
+  is read from Google satellite imagery (Nov 2026 alignment pass); the heights are estimates.
 - Bay widths: 4.3 m for the bays, 2.65 m for the wing spans.
 - Front facade: red lacquered door panels with a gilt transom, a verandah of 14 red columns, and walled wing bays.
   Brick walls lime-washed a pale ochre.
 - Steps: three flights at the front and one at each end.
 - Positions of the 14 stools and the kỳ lân. The pine's place and size.
-- Thổ Công Từ and both Tùng Tự are drawn as small yellow-roofed halls with a verandah. Their tile colour is not
-  confirmed.
+- Thổ Công Từ is drawn as a small yellow-roofed hall with a verandah (faded yellow-brown on the satellite).
+- Tả and Hữu Tùng Tự: the satellite shows each under two parallel roofs, ridges along the court's axis (a front and
+  a rear house facing the axis), about 13 x 15 m over the eaves, in dark grey tile; drawn so. Whether the grey is
+  the permanent tile or a restoration cover is not confirmed.
 - Gates are drawn as small brick gates with a tiled hip roof; their form is not confirmed.
 - Canh Y Điện: a base with a few column bases. Its mirror position across the axis is assumed.
+- Ground: the compound is mapped as landuse=religious, which the city draws as bare sand. The satellite and the
+  photospheres show lawn under dense shade trees, with only the court before the hall paved, so the place lays a
+  lawn over Thế Miếu's side of the cross wall, narrow brick walks round the hall, along the court and out to the
+  side gates (their exact line is estimated), and extra shade trees on the lawn. Hưng Miếu's court is left to its
+  place.
+- Tả and Hữu Tùng Tự bodies are lacquered timber panels, not brick.
 
 ## Left
 - Wall height and colour are kept from `FENCE.imperial`.

@@ -15,6 +15,12 @@ import { LAND_Y, PAL } from '../../config.js';
 // Plan: the OSM outline (way 264099611), 14.0 m along the wall × 7.9 m through it. The block is drawn 14.3 m long so
 // it closes the 0.15 m that places/dainoi.js leaves between its wall ends and the gate's footprint.
 // Local frame: s along the wall (the outline's long axis), t through it, + out of the Imperial City (east-south-east).
+//
+// Checked against Google satellite and Street View (Nov 2026, scratch only): the OSM centre and axis sit within about
+// 1 m and 2° of the gate on the satellite, and its 14 m length matches, so they are kept. A Street View photosphere
+// on the outer face shows the face itself: weathered grey porcelain-encrusted masonry (not cream lime-wash), arches
+// ringed in blue and white bands, ochre-yellow passage reveals, red door leaves standing open inside, tall
+// pedestals and framed relief panels on the piers, and the upper storey's arched openings set over the side passages.
 export const id = 'hiennhon';
 
 const C = [-886.0, -206.3]; // centre of the OSM outline, metres in the model frame
@@ -28,15 +34,21 @@ const L = 14.3, D = 7.9; // the block
 const HB = 4.8; // block height to the cornice (estimate, ~1 m above the 3.75 m wall)
 // the three passages: middle for the emperor's party, the side two for mandarins (sizes estimated from photos)
 const OPEN = [{ s: 0, w: 3.0, h: 4.0 }, { s: -4.4, w: 2.0, h: 3.1 }, { s: 4.4, w: 2.0, h: 3.1 }];
-const UP1 = { w: 8.6, d: 5.2, h: 3.0 }; // tower, lower storey
-const UP2 = { w: 5.4, d: 3.2, h: 1.8 }; // tower, upper storey
+// The tower's lower storey runs nearly the block's length, its side openings over the side passages (Street View);
+// on the satellite the gate's lit top is a long narrow strip, the full 14 m long and about 5 m across.
+const UP1 = { w: 11.2, d: 4.8, h: 3.0 }; // tower, lower storey
+const UP2 = { w: 6.6, d: 2.8, h: 1.8 }; // tower, upper storey
 
-const BODY = hex('#cdbf9c'); // lime-washed brick, weathered cream-ochre
-const PLINTH = hex('#867c6d');
-const TRIM = hex('#e9e1cc');
-const FRAME = hex('#ddd3bb');
+const BODY = hex('#8f8e86'); // porcelain-encrusted masonry, weathered grey with dark lichen
+const PLINTH = hex('#7a756c');
+const TRIM = hex('#c4c1b5');
+const FRAME = hex('#3f5f8e'); // the blue band round each arch
+const WHITE = hex('#e4e0d4'); // the white band inside it
+const REVEAL = hex('#d0a645'); // ochre-yellow plaster in the passages
+const DOOR = hex('#8a2b22'); // red-lacquered door leaves
+const PANEL = hex('#6f4c40'); // red-brown fields of the relief panels on the piers
 const DARK = hex('#1f1a18');
-const TOWER = hex('#d6c7a1');
+const TOWER = hex('#8c8b84');
 const ROOF = PAL.imperialRoof;
 const RIDGE = hex('#f1d77a');
 const MOSAIC = [hex('#3d6e9e'), hex('#4f8f5e'), hex('#f0ece0'), hex('#b8452f'), hex('#d9a93a')];
@@ -45,7 +57,9 @@ const GOLD = hex('#d8b25a');
 
 export function build({ S }) {
   const Y = LAND_Y, keep = S.kind;
-  const box = (s, t, y0, y1, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, opts); };
+  // every box gets its underside: the cornice, frieze, caps and bands all overhang what they stand on, and an open
+  // bottom let a visitor looking up see through the overhang to the tower behind (thin dark slits under the cornice)
+  const box = (s, t, y0, y1, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, { bottom: true, ...opts }); };
 
   // ---- the plinth and the block, with the three passages driven through it -----------------------------------
   S.kind = KIND.MASONRY;
@@ -74,6 +88,19 @@ export function build({ S }) {
   }
   for (let k = 1; k < 5; k++) for (const sg of [-1, 1]) box(sg * (L / 2 - 0.15), -D / 2 + 0.15 + ((D - 0.3) * k) / 5, yb + 0.3, yb + 0.95, 0.3, 0.3, TRIM);
 
+  // cornice crests: a small scrolled finial over each pier on both faces and a taller one at each corner
+  S.kind = KIND.PLAIN;
+  for (const dt of [-1, 1]) {
+    for (const s of [-6.45, -2.45, 2.45, 6.45]) {
+      box(s, dt * (D / 2 - 0.1), yb + 0.82, yb + 1.1, 0.5, 0.2, TRIM);
+      box(s, dt * (D / 2 - 0.1), yb + 1.1, yb + 1.4, 0.2, 0.14, MOSAIC[4]);
+    }
+    for (const sg of [-1, 1]) {
+      box(sg * (L / 2 - 0.2), dt * (D / 2 - 0.2), yb + 0.82, yb + 1.3, 0.34, 0.34, TRIM);
+      box(sg * (L / 2 - 0.2), dt * (D / 2 - 0.2), yb + 1.3, yb + 1.75, 0.2, 0.2, GLAZE);
+    }
+  }
+
   // ---- mosaic pilasters on both faces, and on the ends where the Imperial City wall comes in -----------------
   const pil = (s, t, y0, y1, w, dt) => { // dt: the face's outward sign along t (0 for an end face: then s is the face)
     const along = dt !== 0;
@@ -87,14 +114,26 @@ export function build({ S }) {
     }
     box(ps, pt, y1 - 0.3, y1, along ? w + 0.2 : 0.26, along ? 0.26 : w + 0.2, shade(TRIM, 0.95)); // capital
   };
-  for (const dt of [-1, 1]) for (const s of [-6.55, -2.45, 2.45, 6.55]) pil(s, (dt * D) / 2, Y + 0.35, Y + HB, 0.6, dt);
+  // the piers on both faces: a tall pedestal with a blue mosaic panel, and above it a framed relief panel
+  const pier = (s, dt, w) => {
+    const t = (dt * D) / 2;
+    S.kind = KIND.PLAIN;
+    box(s, t + dt * 0.18, Y + 0.35, Y + 1.65, w + 0.3, 0.36, TRIM);
+    box(s, t + dt * 0.37, Y + 0.35, Y + 0.6, w + 0.36, 0.06, shade(TRIM, 0.85)); // Greek-key base band
+    box(s, t + dt * 0.37, Y + 0.85, Y + 1.35, w * 0.7, 0.04, MOSAIC[0]);
+    box(s, t + dt * 0.18, Y + 1.65, Y + 1.85, w + 0.36, 0.4, shade(TRIM, 0.95));
+    box(s, t + dt * 0.07, Y + 1.85, Y + HB - 0.55, w, 0.14, TRIM);
+    box(s, t + dt * 0.15, Y + 2.0, Y + HB - 0.7, w - 0.3, 0.04, PANEL);
+    box(s, t + dt * 0.17, Y + 2.5, Y + HB - 1.2, (w - 0.3) * 0.5, 0.03, hex('#a89f8c')); // the relief, pale on the dark field
+  };
+  for (const dt of [-1, 1]) for (const [s, w] of [[-6.45, 0.95], [-2.45, 0.95], [2.45, 0.95], [6.45, 0.95]]) pier(s, dt, w);
   for (const sg of [-1, 1]) for (const t of [-2.9, 2.9]) pil((sg * L) / 2, t, Y + 0.35, Y + HB, 0.7, 0);
 
   // ---- name plaque over the middle passage, both faces: dark field, three gilt characters -------------------
   S.kind = KIND.PLAIN;
   for (const dt of [-1, 1]) {
     const t = (dt * D) / 2;
-    box(0, t + dt * 0.08, Y + 4.12, Y + 4.72, 2.3, 0.14, FRAME);
+    box(0, t + dt * 0.08, Y + 4.12, Y + 4.72, 2.3, 0.14, TRIM);
     box(0, t + dt * 0.14, Y + 4.2, Y + 4.64, 2.0, 0.06, hex('#2d3b45'));
     for (const k of [-1, 0, 1]) box(k * 0.6, t + dt * 0.18, Y + 4.27, Y + 4.57, 0.32, 0.04, GOLD);
   }
@@ -107,8 +146,8 @@ export function build({ S }) {
   box(0, 0, y1f, y1f + UP1.h, UP1.w, UP1.d, TOWER, { top: shade(ROOF, 0.8) });
   S.kind = KIND.PLAIN;
   for (const dt of [-1, 1]) {
-    for (const [s, w, h] of [[0, 1.5, 2.3], [-2.75, 1.15, 1.95], [2.75, 1.15, 1.95]]) archPanel(S, s, (dt * UP1.d) / 2, dt, true, y1f, w, h);
-    for (const s of [-4.1, -1.4, 1.4, 4.1]) pil(s, (dt * UP1.d) / 2, y1f, y1f + UP1.h, 0.4, dt);
+    for (const [s, w, h] of [[0, 1.6, 2.3], [-4.4, 1.2, 1.95], [4.4, 1.2, 1.95]]) archPanel(S, s, (dt * UP1.d) / 2, dt, true, y1f, w, h);
+    for (const s of [-5.25, -2.3, 2.3, 5.25]) pil(s, (dt * UP1.d) / 2, y1f, y1f + UP1.h, 0.4, dt);
   }
   for (const sg of [-1, 1]) archPanel(S, (sg * UP1.w) / 2, 0, sg, false, y1f, 1.1, 1.9);
   // a band of mosaic under the eave
@@ -123,8 +162,8 @@ export function build({ S }) {
   box(0, 0, yr1 + 0.3, y2 + UP2.h, UP2.w, UP2.d, TOWER, { top: shade(ROOF, 0.8) });
   S.kind = KIND.PLAIN;
   for (const dt of [-1, 1]) {
-    for (const [s, w, h] of [[0, 0.9, 1.3], [-1.6, 0.7, 1.1], [1.6, 0.7, 1.1]]) archPanel(S, s, (dt * UP2.d) / 2, dt, true, y2 + 0.15, w, h);
-    for (const s of [-2.55, 2.55]) pil(s, (dt * UP2.d) / 2, y2 - 0.3, y2 + UP2.h, 0.3, dt);
+    for (const [s, w, h] of [[0, 0.9, 1.3], [-2.2, 0.7, 1.1], [2.2, 0.7, 1.1]]) archPanel(S, s, (dt * UP2.d) / 2, dt, true, y2 + 0.15, w, h);
+    for (const s of [-3.15, 3.15]) pil(s, (dt * UP2.d) / 2, y2 - 0.3, y2 + UP2.h, 0.3, dt);
   }
   box(0, 0, y2 + UP2.h - 0.3, y2 + UP2.h - 0.05, UP2.w + 0.08, UP2.d + 0.08, MOSAIC[1]);
   const yr2 = y2 + UP2.h, rh2 = 1.75;
@@ -155,7 +194,7 @@ export function build({ S }) {
 // stone surround on each mouth.
 function archPassage(S, o, y0, y1, depth) {
   const r = o.w / 2, fl = y0 + 0.35, crown = y0 + o.h, spring = crown - r, K = 8;
-  const box = (s, t, a, b, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], a, b, ss, st, A, col, opts); };
+  const box = (s, t, a, b, ss, st, col, opts) => { const p = P(s, t); S.box(p[0], p[1], a, b, ss, st, A, col, { bottom: true, ...opts }); };
   S.kind = KIND.MASONRY;
   box(o.s, 0, crown, y1, o.w + 0.02, depth, BODY, { top: TOWER });
   const arc = (k) => { const th = Math.PI - (Math.PI * k) / K; return [o.s + r * Math.cos(th), spring + r * Math.sin(th)]; };
@@ -167,14 +206,22 @@ function archPassage(S, o, y0, y1, depth) {
     }
   }
   S.kind = KIND.PLAIN;
-  const tin = depth / 2 - 0.45; // the lining starts this far in, so the reveals keep the wall's colour
+  const tin = depth / 2 - 0.01; // the yellow reveal runs right out to the face, as in the photo
   for (let k = 0; k < K; k++) { // vault
     const [sa, ya] = arc(k), [sb, yb] = arc(k + 1);
-    S.quad(V(sa, -depth / 2 + 0.01, ya), V(sb, -depth / 2 + 0.01, yb), V(sb, depth / 2 - 0.01, yb), V(sa, depth / 2 - 0.01, ya), shade(BODY, 0.45), N(o.s - (sa + sb) / 2, 0, spring - (ya + yb) / 2));
+    S.quad(V(sa, -depth / 2 + 0.01, ya), V(sb, -depth / 2 + 0.01, yb), V(sb, depth / 2 - 0.01, yb), V(sa, depth / 2 - 0.01, ya), shade(REVEAL, 0.62), N(o.s - (sa + sb) / 2, 0, spring - (ya + yb) / 2));
   }
-  for (const sg of [-1, 1]) { // dark lining on the pier faces inside
+  // the doors hang about a metre in from the outer face; each leaf stands open against its reveal, as tall as the
+  // vault allows there (its top follows the curve, so the leaf reaches above the springing without cutting the vault)
+  const hinge = depth / 2 - 1.0, off = 0.1, lw = 0.08;
+  const ds = r - off, ytop = spring + Math.sqrt(Math.max(0, r * r - ds * ds)) - 0.04;
+  for (const sg of [-1, 1]) { // yellow lining on the pier faces inside
     const s = o.s + sg * (r - 0.02);
-    S.quad(V(s, -tin, fl), V(s, tin, fl), V(s, tin, spring), V(s, -tin, spring), DARK, N(-sg, 0));
+    S.quad(V(s, -tin, fl), V(s, tin, fl), V(s, tin, spring), V(s, -tin, spring), REVEAL, N(-sg, 0));
+    const p = P(o.s + sg * (r - off - lw / 2), hinge - r / 2);
+    S.box(p[0], p[1], fl, ytop, lw, r, A, DOOR, { bottom: true });
+    const q = P(o.s + sg * (r - 0.06), hinge + 0.06); // the timber post of the door frame, against the reveal
+    S.box(q[0], q[1], fl, spring, 0.1, 0.12, A, shade(DOOR, 0.7));
   }
   S.kind = KIND.ROAD;
   S.quad(V(o.s - r, -depth / 2 - 0.2, fl + 0.01), V(o.s + r, -depth / 2 - 0.2, fl + 0.01), V(o.s + r, depth / 2 + 0.2, fl + 0.01), V(o.s - r, depth / 2 + 0.2, fl + 0.01), shade(PAL.stone, 0.7), [0, 1, 0]);
@@ -187,6 +234,11 @@ function archPassage(S, o, y0, y1, depth) {
       const th0 = Math.PI - (Math.PI * k) / K, th1 = Math.PI - (Math.PI * (k + 1)) / K, R2 = r + 0.18;
       S.beam(V(o.s + R2 * Math.cos(th0), t, spring + R2 * Math.sin(th0)), V(o.s + R2 * Math.cos(th1), t, spring + R2 * Math.sin(th1)), 0.12, 0.36, FRAME);
     }
+    for (let k = 0; k < K; k++) { // the white band inside the blue one
+      const th0 = Math.PI - (Math.PI * k) / K, th1 = Math.PI - (Math.PI * (k + 1)) / K, R1 = r + 0.03;
+      S.beam(V(o.s + R1 * Math.cos(th0), t + dt * 0.03, spring + R1 * Math.sin(th0)), V(o.s + R1 * Math.cos(th1), t + dt * 0.03, spring + R1 * Math.sin(th1)), 0.1, 0.1, WHITE);
+    }
+    for (const sg of [-1, 1]) box(o.s + sg * (r + 0.03), t + dt * 0.03, fl, spring, 0.1, 0.1, WHITE);
     // keystone in mosaic
     box(o.s, t + dt * 0.04, crown + 0.02, crown + 0.42, 0.36, 0.12, MOSAIC[3]);
   }

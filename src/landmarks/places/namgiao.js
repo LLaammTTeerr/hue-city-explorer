@@ -1,5 +1,5 @@
 import { KIND, hex, shade } from '../../geo/buf.js';
-import { LAND_Y, PAL } from '../../config.js';
+import { LAND_Y, PAL, roadWidth } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { pavilion } from '../citadel.js';
 
@@ -22,6 +22,10 @@ import { pavilion } from '../citadel.js';
 //    which give the 13° turn of the whole esplanade off the compass, its centre, and the walks across it), the
 //    pine wood that is the precinct (1174199415, with the Trai Cung notch at its south-west), Trai Cung's main hall
 //    (1174199428) and the guard house by the north gate (1473250838).
+//  - Satellite (Google, 2026) and Street View, as visual reference only: a closed wood of tall pines with a hedge of
+//    undergrowth at the verge; the Phương đàn's quarters, the ring round it and the band inside the red railing are
+//    pine groves on a dark needle floor; young pines in two rows flank the axial walks over the lowest tier; the walks
+//    are bare earth, about 5 m; a dark stone wall about 1.5 m along Lê Ngọ Cát (north) and a pale one on the west.
 // Estimated: stair widths, railing posts, the layout of the 28 tent-post stones and the incense blocks, Trai Cung's
 // building sizes other than the main hall, the screens' and Trai Cung gate's detail.
 
@@ -39,29 +43,32 @@ const A1 = 82.5, H1 = 0.84; // lowest tier: half side, height
 const A2 = 41.5, H2 = 1.1; // Phương đàn
 const R3 = 20.25, H3 = 2.8; // Viên đàn
 const LAWN_OUT = 75, LAWN_IN = 47, WALK_NS = 18.6, WALK_EW = 6.1; // the OSM lawns, made symmetric
+const WALK_W = 5; // the axial walks, bare earth
+const G = { n: -138, s: 252, e: 130, w: -130 }; // precinct edges (the wood, squared to 265 x 390 m)
+const UV = (x, z) => { const dx = x - C[0], dz = z - C[1]; return [dx * EU[0] + dz * EU[1], dx * EV[0] + dz * EV[1]]; };
 
-const LAWN = hex('#8ea35e'), LAWN2 = hex('#97ab66'), BANK = hex('#86985a');
+const LAWN = hex('#85955a'), LAWN2 = hex('#8d9d62'), BANK = hex('#7f8f55'); // olive, a little dry (satellite)
+const GROVE = hex('#4f4a38'), GROVE2 = hex('#544e3b'), HEDGE = hex('#34492e'); // needle floor under the pines; the verge's undergrowth
 const LATERITE = hex('#8a7663'), BRICK = hex('#7a6a5c'), STONE = hex('#bdb39e'), STEP = hex('#b0a690');
-const WALK = hex('#c2b49a'), THANH = hex('#9d9c92'), COPE = hex('#c9bfa9');
+const WALK = hex('#94796a'), THANH = hex('#9d9c92'), COPE = hex('#c9bfa9');
 const RED = hex('#9e3a2c'), YELLOW = hex('#d4ac45'), BLUE = hex('#3f6f9e');
 const TC_WALL = hex('#6e675c'), TC_COPE = hex('#4f5a50'), TC_ROOF = hex('#3d7d68'), TC_RIDGE = hex('#d9c88f');
 const COURT = hex('#b8ae96'), WOOD = hex('#8a4a30'), DARK = hex('#2b2422');
 
-export function build({ S }) {
+export function build({ data, S }) {
   const keep = S.kind;
   const box = (u, v, y0, y1, w, d, col, o) => { const p = P(u, v); S.box(p[0], p[1], y0, y1, w, d, ANG, col, o); };
   const span = (u0, u1, v0, v1, y0, y1, col, o) => box((u0 + u1) / 2, (v0 + v1) / 2, y0, y1, u1 - u0, v1 - v0, col, o);
   const ext = (u0, u1, v0, v1, f) => { let r = f === Math.max ? -Infinity : Infinity; for (let u = u0; u <= u1 + 0.01; u += (u1 - u0) / 12) for (let v = v0; v <= v1 + 0.01; v += (v1 - v0) / 12) r = f(r, gy(u, v)); return r; };
   const n0 = S.n;
 
-  // ---- levels: the lowest tier stands just clear of the highest ground under it; the knoll below falls away as a
-  // grassed bank (the DEM is a smoothed hill, 4 m lower on the west than under the altar)
+  // ---- levels: the esplanade is a terrace on level ground (scripts/build-data.mjs holds the precinct's terrain at
+  // one level), so the lowest tier rises its 0.84 m from the ground on every side
   const gMax = ext(-A1, A1, -A1, A1, Math.max), gMin = ext(-A1 - 15, A1 + 15, -A1 - 15, A1 + 15, Math.min);
-  const y1 = gMax + 0.3, y2 = y1 + H2, y3 = y2 + H3;
-  const yFoot = y1 - H1;
+  const yFoot = gMax, y1 = yFoot + H1, y2 = y1 + H2, y3 = y2 + H3;
   S.base = y1 - LAND_Y;
   S.kind = KIND.GROUND;
-  if (yFoot > gMin) {
+  if (yFoot > gMin + 0.15) { // only if the ground under it were ever to slope again
     // the bank is a skirt round the tier: from the plinth's foot it falls at 1 in 2.2 until it meets the ground
     // under each stretch of the wall, so it is wide on the low west and nothing where the knoll is high (one
     // frustum sized for the lowest ground would sink metres into the high side)
@@ -85,9 +92,15 @@ export function build({ S }) {
     }
   }
 
-  // ---- the lowest tier: laterite walls, a walk round the inside of the railing and across, four lawns ----
+  // ---- the lowest tier: laterite walls, four lawns, young pines along the walks, the rest a pine grove ----
+  // On the satellite the band inside the red railing and the ring between the lawns and the Phương đàn are pine
+  // groves on a dark needle floor, the lawns open, and the walks across bare earth between two rows of young pines
+  // each side, on grass. The tier's and the Phương đàn's bodies, their lawns and clearings are ground (S.noCover):
+  // the precinct's pines are planted explicitly (plant() below) and stand on the tops (S.stand); the walks, railings,
+  // stairs and young pines stay in the paved range, which keeps the pines' trunks and lower branches off them.
   S.kind = KIND.MASONRY;
-  span(-A1, A1, -A1, A1, yFoot - 0.2, y1, LATERITE, { top: WALK, topKind: KIND.ROAD });
+  const t0 = S.n;
+  span(-A1, A1, -A1, A1, yFoot - 0.2, y1, LATERITE, { top: GROVE, topKind: KIND.GROUND });
   span(-A1 - 0.25, A1 + 0.25, -A1 - 0.25, A1 + 0.25, yFoot - 0.25, yFoot + 0.12, shade(STONE, 0.9)); // plinth course
   S.kind = KIND.GROUND;
   for (const su of [-1, 1]) for (const sv of [-1, 1]) {
@@ -95,15 +108,30 @@ export function build({ S }) {
     span(...lu(LAWN_IN, LAWN_OUT), ...lv(WALK_EW, LAWN_OUT), y1, y1 + 0.05, LAWN);
     span(...lu(WALK_NS, LAWN_IN), ...lv(LAWN_IN, LAWN_OUT), y1, y1 + 0.05, LAWN);
   }
-
-  // ---- Phương đàn: brick walls, a lawn with walks across and a paved ring round the top tier ----
-  S.kind = KIND.MASONRY;
-  span(-A2, A2, -A2, A2, y1 - 0.1, y2, BRICK, { top: LAWN2, topKind: KIND.GROUND });
-  span(-A2 - 0.2, A2 + 0.2, -A2 - 0.2, A2 + 0.2, y1 - 0.1, y1 + 0.14, shade(STONE, 0.9));
+  // the grass the young pines stand on, in the gaps between the lawns, from the railing in to the grove ring
+  for (const s of [-1, 1]) {
+    span(-WALK_NS, WALK_NS, Math.min(s * LAWN_IN, s * (A1 - 0.4)), Math.max(s * LAWN_IN, s * (A1 - 0.4)), y1, y1 + 0.05, shade(LAWN, 0.96));
+    span(Math.min(s * LAWN_IN, s * (A1 - 0.4)), Math.max(s * LAWN_IN, s * (A1 - 0.4)), -WALK_EW, WALK_EW, y1, y1 + 0.05, shade(LAWN, 0.96));
+  }
+  (S.noCover = S.noCover || []).push([t0, S.n]);
+  // the walks across, bare earth
   S.kind = KIND.ROAD;
-  span(-A2 + 0.4, A2 - 0.4, -3.5, 3.5, y2, y2 + 0.04, WALK);
-  span(-3.5, 3.5, -A2 + 0.4, A2 - 0.4, y2, y2 + 0.04, WALK);
-  S.cyl(...P(0, 0), y2, y2 + 0.045, R3 + 3, R3 + 3, 40, WALK);
+  const hw = WALK_W / 2;
+  span(-hw, hw, -A1 + 0.4, -A2, y1, y1 + 0.07, WALK); span(-hw, hw, A2, A1 - 0.4, y1, y1 + 0.07, WALK);
+  span(-A1 + 0.4, -A2, -hw, hw, y1, y1 + 0.07, WALK); span(A2, A1 - 0.4, -hw, hw, y1, y1 + 0.07, WALK);
+
+  // ---- Phương đàn: brick walls; a pine grove in each quarter round a small grassed clearing, walks across ----
+  S.kind = KIND.MASONRY;
+  const t1 = S.n;
+  span(-A2, A2, -A2, A2, y1 - 0.1, y2, BRICK, { top: GROVE2, topKind: KIND.GROUND });
+  span(-A2 - 0.2, A2 + 0.2, -A2 - 0.2, A2 + 0.2, y1 - 0.1, y1 + 0.14, shade(STONE, 0.9));
+  // the clearing in each quarter's grove (satellite: about 18 m square); the pines come up to the round top's kerb
+  S.kind = KIND.GROUND;
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) span(Math.min(su * 17, su * 34), Math.max(su * 17, su * 34), Math.min(sv * 17, sv * 34), Math.max(sv * 17, sv * 34), y2, y2 + 0.03, LAWN2);
+  S.noCover.push([t1, S.n]);
+  S.kind = KIND.ROAD;
+  span(-A2 + 0.4, A2 - 0.4, -hw, hw, y2, y2 + 0.06, WALK);
+  span(-hw, hw, -A2 + 0.4, A2 - 0.4, y2, y2 + 0.06, WALK);
 
   // ---- Viên đàn: round, laterite and stone, paved with Thanh stone; 28 stones that held the posts of the blue tent
   S.kind = KIND.MASONRY;
@@ -213,8 +241,7 @@ export function build({ S }) {
   }
   (S.paved = S.paved || []).push([n0, S.n]); // the whole esplanade: no trees, no houses (geo/city.js coverOf)
 
-  // ---- walks from the lowest stairs to the precinct gates, laid on the ground in pieces ----
-  const G = { n: -138, s: 252, e: 130, w: -130 }; // precinct edges (the wood, squared to 265 x 390 m)
+  // ---- walks from the lowest stairs to the precinct gates, bare earth laid on the ground in pieces ----
   const walk = (u0, v0, u1, v1, w) => {
     const L = Math.hypot(u1 - u0, v1 - v0), n = Math.max(1, Math.ceil(L / 6));
     S.kind = KIND.ROAD;
@@ -226,9 +253,25 @@ export function build({ S }) {
   };
   const foot = A1 + 4 * 0.36 + 0.2;
   const w0 = S.n;
-  walk(0, foot, 0, G.s, 6); walk(0, -foot, 0, G.n, 6);
-  walk(foot, 0, G.e, 0, 4); walk(-foot, 0, G.w, 0, 4);
+  walk(0, foot, 0, G.s, WALK_W); walk(0, -foot, 0, G.n, WALK_W);
+  walk(foot, 0, G.e, 0, WALK_W); walk(-foot, 0, G.w, 0, WALK_W);
   (S.paved = S.paved || []).push([w0, S.n]);
+
+  // ---- young pines in two rows each side of the walks over the lowest tier (satellite: small dark conifers about
+  // 4.5 m apart, the rows about 8.6 and 13.6 m off the walk's middle, from the railing in to the grove ring) ----
+  {
+    S.kind = KIND.PLAIN;
+    const row = (u0, v0, u1, v1, off) => {
+      const L = Math.hypot(u1 - u0, v1 - v0), n = Math.floor(L / 4.5), nu = -(v1 - v0) / L, nv = (u1 - u0) / L;
+      for (const sd of [-1, 1]) for (let k = 0; k < n; k++) {
+        const f = (k + 0.5) / n, u = u0 + (u1 - u0) * f + nu * off * sd, v = v0 + (v1 - v0) * f + nv * off * sd;
+        const p = P(u, v), h = 4.5 + ((k * 7 + (sd > 0 ? 3 : 0) + (off > 10 ? 2 : 0)) % 5) * 0.5;
+        S.cyl(p[0], p[1], y1 + 0.05, y1 + h, 1.0, 0.08, 6, hex(k % 3 ? '#2f4a2c' : '#3a5530'), { cap: false });
+      }
+    };
+    const r0 = LAWN_IN + 1.5, r1 = A1 - 2;
+    for (const off of [8.6, 13.6]) for (const s of [-1, 1]) { row(0, s * r0, 0, s * r1, off); row(s * r0, 0, s * r1, 0, off); }
+  }
 
   // ---- the stone screens before the east, south and west gates (the north one is lost) ----
   const screen = (u, v, across) => {
@@ -246,6 +289,46 @@ export function build({ S }) {
   screen(G.e + 12, 0, false);
   screen(G.w - 12, 0, false);
 
+  // ---- the modern boundary: a dark stone wall along Lê Ngọ Cát, a pale one on the west, a hedge of undergrowth
+  // inside the verge all round (Street View; heights estimated) ----
+  {
+    const w1 = S.n;
+    const piece = (u0, v0, u1, v1, h, t, col, cope) => {
+      const L = Math.hypot(u1 - u0, v1 - v0), n = Math.max(1, Math.round(L / 6)), along = Math.abs(u1 - u0) > Math.abs(v1 - v0);
+      for (let k = 0; k < n; k++) {
+        const u = u0 + ((u1 - u0) * (k + 0.5)) / n, v = v0 + ((v1 - v0) * (k + 0.5)) / n, g = gy(u, v), l = L / n + 0.04;
+        S.kind = KIND.MASONRY;
+        box(u, v, g - 0.4, g + h, along ? l : t, along ? t : l, col, { top: cope });
+      }
+    };
+    const NW = hex('#4a4842'), WW = hex('#cfc8b6');
+    // north wall: the path inside Lê Ngọ Cát runs along it; open at the north gate, and short of the north-west
+    // corner where the path cuts across
+    piece(-125, G.n - 0.4, -4, G.n - 0.4, 1.5, 0.5, NW, shade(NW, 1.15)); piece(4, G.n - 0.4, 121, G.n - 0.4, 1.5, 0.5, NW, shade(NW, 1.15));
+    piece(G.w, -134, G.w, -4, 1.6, 0.4, WW, shade(WW, 0.92)); piece(G.w, 4, G.w, G.s - 1, 1.6, 0.4, WW, shade(WW, 0.92));
+    // the hedge: bushy undergrowth (juniper and scrub, Street View) in overlapping clumps 2.2-3.6 m high, thick
+    // enough to hide the esplanade from the streets; open at each gate
+    let k = 0;
+    const hedge = (u0, v0, u1, v1) => {
+      const L = Math.hypot(u1 - u0, v1 - v0), n = Math.max(1, Math.round(L / 1.9)), nu = -(v1 - v0) / L, nv = (u1 - u0) / L;
+      S.kind = KIND.PLAIN;
+      for (let j = 0; j < n; j++, k++) {
+        const f = (j + 0.5) / n, off = (((k * 7) % 5) - 2) * 0.3, u = u0 + (u1 - u0) * f + nu * off, v = v0 + (v1 - v0) * f + nv * off;
+        const p = P(u, v), g = gy(u, v), h = 2.2 + ((k * 3) % 8) * 0.2, r = 1.25 + ((k * 5) % 4) * 0.15;
+        const col = shade(HEDGE, 0.86 + ((k * 5) % 7) * 0.04);
+        S.cyl(p[0], p[1], g - 0.2, g + h * 0.4, r * 0.75, r, 10, col, { cap: false });
+        S.cyl(p[0], p[1], g + h * 0.4, g + h * 0.75, r, r * 0.8, 10, shade(col, 1.03), { cap: false });
+        S.cyl(p[0], p[1], g + h * 0.75, g + h, r * 0.8, r * 0.3, 10, shade(col, 1.07));
+      }
+    };
+    const E = 119.5, Sth = 250, Nh = G.n + 1.8, Wh = G.w + 1.8;
+    hedge(-124, Nh, -5, Nh); hedge(5, Nh, E, Nh);
+    hedge(Wh, -134, Wh, -5); hedge(Wh, 5, Wh, Sth);
+    hedge(E, -134, E, -5); hedge(E, 5, E, Sth);
+    hedge(Wh + 1.5, Sth, -5, Sth); hedge(5, Sth, E - 1.5, Sth);
+    (S.paved = S.paved || []).push([w1, S.n]);
+  }
+
   // ---- the guard house by the north gate (OSM 1473250838) ----
   {
     const ring = [[-719.7, 3341.1], [-708.0, 3337.9], [-705.6, 3346.3], [-717.4, 3349.5]];
@@ -261,24 +344,130 @@ export function build({ S }) {
   }
 
   trai(S, box, span);
+  plant(data, S, y1, y2);
   S.kind = keep;
   S.base = 0;
 }
 
+// ---- the pines: a closed wood over the precinct, groves on the tiers ----
+// The generic wood (build-data.mjs plants OSM woods at random) is taken out inside the precinct and the pines are
+// planted here on a jittered grid: tall old pines about 4.3 m apart through the wood (a closed canopy from above),
+// 3.3 m apart in the tiers' groves, a lower storey of young pines in the verge, all off the lawns, clearings, walks,
+// roads and the round top. Trees on the tiers stand on their tops (S.stand, read by geo/city.js populate).
+function plant(data, S, y1, y2) {
+  if (!Array.isArray(data.trees)) return;
+  const t = data.trees, near = data.meta?.counts?.treesNear;
+  for (let i = t.length / 4 - 1; i >= 0; i--) {
+    const [u, v] = UV(t[i * 4] / 10, t[i * 4 + 1] / 10);
+    if (u < G.w - 1 || u > G.e + 1 || v < G.n - 1 || v > G.s + 1) continue;
+    t.splice(i * 4, 4);
+    if (near != null && i < near) data.meta.counts.treesNear--;
+  }
+  // carriageways and the paths through the wood (not the OSM paths drawn over the esplanade)
+  const segs = [], mm = []; // mm: the carriageways west of the precinct (Minh Mạng), the far side of its pine screen
+  for (const r of data.roads || []) {
+    const a = r[2], hw = roadWidth(r) / 2 + 1.5;
+    for (let i = 0; i + 3 < a.length; i += 2) {
+      const [u0, v0] = UV(a[i] / 10, a[i + 1] / 10), [u1, v1] = UV(a[i + 2] / 10, a[i + 3] / 10);
+      if ((r[0] | 0) === 0 && Math.max(u0, u1) < G.w - 15 && Math.min(u0, u1) > G.w - 130 && Math.max(v0, v1) > G.n && Math.min(v0, v1) < G.s) mm.push([u0, v0, u1, v1, hw]);
+      if (Math.max(u0, u1) < G.w - 130 || Math.min(u0, u1) > G.e + 15 || Math.max(v0, v1) < G.n - 15 || Math.min(v0, v1) > G.s + 15) continue;
+      if ((r[0] | 0) >= 5 && Math.max(Math.abs(u0), Math.abs(v0), Math.abs(u1), Math.abs(v1)) < A1 + 5) continue;
+      segs.push([u0, v0, u1, v1, hw]);
+    }
+  }
+  const onRoad = (u, v) => segs.some(([u0, v0, u1, v1, hw]) => {
+    const du = u1 - u0, dv = v1 - v0, L2 = du * du + dv * dv, f = L2 ? Math.max(0, Math.min(1, ((u - u0) * du + (v - v0) * dv) / L2)) : 0;
+    return Math.hypot(u - u0 - f * du, v - v0 - f * dv) < hw;
+  });
+  const hash = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const inBox = (au, av, u0, u1, v0, v1, m) => au > u0 - m && au < u1 + m && av > v0 - m && av < v1 + m;
+  const lawn = (au, av, m) => inBox(au, av, LAWN_IN, LAWN_OUT, WALK_EW, LAWN_OUT, m) || inBox(au, av, WALK_NS, LAWN_IN, LAWN_IN, LAWN_OUT, m)
+    || inBox(au, av, 0, WALK_NS, LAWN_IN, A1, m) || inBox(au, av, LAWN_IN, A1, 0, WALK_EW, m); // the lawns and the young pines' grass
+  let seq = 0;
+  const seqStart = t.length; // our pines go after this
+  const put = (u, v, sc) => { const p = P(u, v); t.push(Math.round(p[0] * 10), Math.round(p[1] * 10), Math.round(sc * 10), 3); seq++; };
+  const grid = (sp, test, sc0, sc1, salt) => {
+    for (let gu = Math.floor(G.w / sp); gu <= Math.ceil(G.e / sp); gu++) for (let gv = Math.floor(G.n / sp); gv <= Math.ceil(G.s / sp); gv++) {
+      const u = gu * sp + (hash(gu, gv + salt) - 0.5) * sp * 0.7, v = gv * sp + (hash(gv - salt, gu) - 0.5) * sp * 0.7;
+      if (test(u, v)) put(u, v, sc0 + (sc1 - sc0) * hash(gu + salt, gv * 3));
+    }
+  };
+  // the wood, and its lower storey of young pines near the verge
+  const hw0 = WALK_W / 2 + 2.2;
+  const wood = (u, v) => {
+    const au = Math.abs(u), av = Math.abs(v);
+    if (u < G.w + 3.5 || u > G.e - 3.5 || v < G.n + 4 || v > G.s - 3) return false;
+    if (Math.max(au, av) < A1 + 4) return false; // the esplanade and its stair feet
+    if ((au < hw0 && av > A1) || (av < hw0 && au > A1)) return false; // the walks to the gates
+    return !onRoad(u, v);
+  };
+  grid(4.3, wood, 1.15, 1.65, 0);
+  grid(4.6, (u, v) => wood(u, v) && Math.min(u - G.w, G.e - u, v - G.n, G.s - v) < 14, 0.55, 0.8, 17);
+  grid(9, wood, 0.6, 0.85, 29);
+  // the lowest tier's groves: the band inside the red railing and the ring round the Phương đàn
+  grid(3.3, (u, v) => {
+    const au = Math.abs(u), av = Math.abs(v), m = Math.max(au, av);
+    if (m > A1 - 1.8 || m < A2 + 1.8 || lawn(au, av, 0.2)) return false;
+    return au > WALK_W / 2 + 3 && av > WALK_W / 2 + 3; // the walks and the Phương đàn's stairs
+  }, 1.0, 1.4, 41);
+  // the Phương đàn's groves round their clearings, up to the round top's kerb
+  grid(3.3, (u, v) => {
+    const au = Math.abs(u), av = Math.abs(v);
+    if (Math.max(au, av) > A2 - 1.8 || Math.hypot(u, v) < R3 + 2.2 || inBox(au, av, 17, 34, 17, 34, 0.3)) return false;
+    return au > WALK_W / 2 + 2.6 && av > WALK_W / 2 + 2.6 && !(v > 0 && au < 7 && v < R3 + 6.5); // the walks; the south flight
+  }, 1.0, 1.35, 53);
+  // the pine screen between Minh Mạng and the west wall (Street View on Minh Mạng: a pine wood in front of the wall),
+  // clear of the carriageway and of Trai Cung's compound; it replaces the generic trees drawn there
+  const mmU = (v) => { let b = -Infinity; for (const [u0, v0, u1, v1, hw] of mm) { if ((v - v0) * (v - v1) > 0 || v0 === v1) continue; b = Math.max(b, u0 + (u1 - u0) * (v - v0) / (v1 - v0) + hw); } return b; };
+  const inTrai = (u, v) => u > -212 && u < -136 && v > 157 && v < 254;
+  const west = (u, v) => u < G.w - 1.5 && v > G.n && v < G.s && u > mmU(v) + 8 && !inTrai(u, v);
+  for (let i = seqStart / 4 - 1; i >= 0; i--) {
+    const [u, v] = UV(t[i * 4] / 10, t[i * 4 + 1] / 10);
+    if (!west(u, v)) continue;
+    t.splice(i * 4, 4);
+    if (near != null && i < near) data.meta.counts.treesNear--;
+  }
+  for (let gu = Math.floor((G.w - 130) / 4.3); gu < Math.ceil(G.w / 4.3); gu++) for (let gv = Math.floor(G.n / 4.3); gv <= Math.ceil(G.s / 4.3); gv++) {
+    const u = gu * 4.3 + (hash(gu, gv + 61) - 0.5) * 3, v = gv * 4.3 + (hash(gv - 61, gu) - 0.5) * 3;
+    if (west(u, v) && !onRoad(u, v)) put(u, v, 1.1 + 0.5 * hash(gu + 61, gv * 3));
+  }
+  // trees on the tiers stand on their tops
+  (S.stand = S.stand || []).push((x, z) => {
+    const [u, v] = UV(x, z), m = Math.max(Math.abs(u), Math.abs(v));
+    if (m > A1 + 0.3) return 0;
+    const g = LAND_Y + rise(x, z);
+    return Math.max(0, (m < A2 + 0.2 ? y2 : y1) - g);
+  });
+  return seq;
+}
+
 // ---- Trai Cung: the fasting palace at the south-west, facing south, in a brick wall of 85 x 65 m ----
-// The main hall is OSM's footprint (15 m across, 25.6 m deep: a front and a rear hall under joined roofs); the
-// compound is set round it to fill the notch the pine wood leaves at the precinct's south-west corner.
+// The source's 85 x 65 m is the depth by the width: on the satellite (Google, 2026 capture) the wall runs 64 m east
+// to west and 83 m north to south, on the esplanade's 13° turn. Every building below is placed and sized from that
+// image (roof outlines, in the frame's u, v): the main hall's hip roof 13.7 x 22 m on the axis; behind it a stone-paved
+// court 28 x 29 m ringed with column bases (the ground of the lost rear buildings); Tả and Hữu Túc, long halls
+// 25.5 x 9 m either side of the south court; two square halls (Thượng Trà, Thượng Thiện) in the north corners; a small
+// house in the south-east corner and a smaller one west of the main hall. The OSM main hall (15 x 25.6 m) sits about
+// 3.5 m south of the roof seen from above, so the image is followed.
 function trai(S, box, span) {
-  const U = -173.9, V0 = 182, V1 = 247, HW = 42.5; // axis, north and south walls, half width
+  const U = -173.9, V0 = 164, V1 = 247, HW = 32; // axis, north and south walls, half width
   const n0 = S.n;
   let cy = -Infinity, cmin = Infinity;
   for (let u = U - HW; u <= U + HW; u += 8.5) for (let v = V0; v <= V1; v += 6.5) { const g = gy(u, v); cy = Math.max(cy, g); cmin = Math.min(cmin, g); }
   cy += 0.12;
   S.base = cy - LAND_Y;
-  S.kind = KIND.ROAD;
+  S.kind = KIND.ROAD; // the court is bare sandy ground and paving throughout (no lawns on the satellite)
   span(U - HW + 0.4, U + HW - 0.4, V0 + 0.4, V1 - 0.4, cmin - 0.4, cy, COURT, { top: COURT });
-  S.kind = KIND.GROUND; // lawns either side of the paved axis
-  for (const s of [-1, 1]) span(Math.min(U + s * 4, U + s * 38), Math.max(U + s * 4, U + s * 38), 221, 242, cy, cy + 0.04, LAWN2);
+  { // the stone-paved court behind the main hall, a low platform ringed with the stone bases of lost columns
+    const u0 = U - 14.15, u1 = U + 14.15, v0 = 171.1, v1 = 200.2;
+    S.kind = KIND.MASONRY;
+    span(u0, u1, v0, v1, cy - 0.2, cy + 0.3, shade(STONE, 0.92), { top: hex('#a59c88'), topKind: KIND.ROAD });
+    S.kind = KIND.PLAIN;
+    for (const [a, b, c, d] of [[u0 + 1.6, u1 - 1.6, v0 + 1.6, v0 + 1.6], [u0 + 1.6, u1 - 1.6, v1 - 9, v1 - 9], [u0 + 1.6, u0 + 1.6, v0 + 1.6, v1 - 9], [u1 - 1.6, u1 - 1.6, v0 + 1.6, v1 - 9]]) {
+      const n = Math.max(1, Math.round(Math.hypot(b - a, d - c) / 4.2));
+      for (let k = 0; k <= n; k++) box(a + ((b - a) * k) / n, c + ((d - c) * k) / n, cy + 0.3, cy + 0.42, 0.75, 0.75, shade(STONE, 0.78));
+    }
+  }
 
   // the wall, gạch vồ brick under a tiled coping, in pieces that follow the ground outside it
   const wallH = 2.6, gate = 7;
@@ -323,19 +512,22 @@ function trai(S, box, span) {
 
   // halls: green-blue glazed roofs, red-lacquered timber
   const hall = (u, v, w, d, faceSouth, o) => { const p = P(u, v); return pavilion(S, p[0], p[1], w, d, faceSouth ? ANG : ANG + Math.PI / 2, cy, { tiers: 1, roof: TC_ROOF, ridge: TC_RIDGE, ...o }); };
-  // chính điện: rear hall (12.6 m deep) and front hall (11 m), on one platform
+  // chính điện: rear and front hall under joined roofs, on one platform; roofs together 13.7 x 22 m (v 191.6-213.6)
   {
-    const p = P(U, 206.1);
+    const p = P(U, 202.6);
     S.kind = KIND.MASONRY;
-    S.box(p[0], p[1], cy - 0.2, cy + 0.75, 17.4, 28, ANG, STONE, { topKind: KIND.ROAD });
-    for (let k = 1; k <= 4; k++) box(U, 220.1 + k * 0.34, cy - 0.2, cy + 0.75 - k * 0.17, 5, 0.34, shade(STONE, 1.05), { topKind: KIND.ROAD });
+    S.box(p[0], p[1], cy - 0.2, cy + 0.75, 13.4, 21.2, ANG, STONE, { topKind: KIND.ROAD });
+    for (let k = 1; k <= 4; k++) box(U, 213.2 + k * 0.34, cy - 0.2, cy + 0.75 - k * 0.17, 5, 0.34, shade(STONE, 1.05), { topKind: KIND.ROAD });
   }
-  hall(U, 199.6, 14.4, 11.6, true, { wallH: 4.0, wall: PAL.lacquer, over: 1.3, rh: 3.6, platform: 0.75, steps: false, colonnade: true });
-  hall(U, 212.4, 14.4, 10.6, true, { wallH: 3.6, wall: PAL.lacquer, over: 1.3, rh: 3.1, platform: 0.75, steps: false, colonnade: true });
-  // Tả Túc and Hữu Túc either side of the court, facing it; Thượng Trà and Thượng Thiện behind them
-  for (const s of [-1, 1]) {
-    hall(U + s * 25, 229, 17, 7, false, { wallH: 3.1, wall: WOOD, over: 0.9, rh: 2.3, platform: 0.45 });
-    hall(U + s * 28, 196, 11, 6.5, true, { wallH: 2.9, wall: WOOD, over: 0.8, rh: 2.1, platform: 0.35 });
-  }
+  hall(U, 197.5, 11.9, 9.4, true, { wallH: 4.0, wall: PAL.lacquer, over: 0.9, rh: 3.4, platform: 0.75, steps: false, colonnade: true });
+  hall(U, 207.7, 11.9, 9.4, true, { wallH: 3.6, wall: PAL.lacquer, over: 0.9, rh: 3.0, platform: 0.75, steps: false, colonnade: true });
+  // Tả Túc and Hữu Túc either side of the south court, long sides facing it
+  for (const u of [-196.8, -151.1]) hall(u, 229.2, 23.8, 7.3, false, { wallH: 3.1, wall: WOOD, over: 0.85, rh: 2.4, platform: 0.45 });
+  // Thượng Trà and Thượng Thiện in the north-west and north-east corners, nearly square
+  hall(-195.4, 175.9, 10.2, 9.4, true, { wallH: 2.9, wall: WOOD, over: 0.8, rh: 2.3, platform: 0.35 });
+  hall(-150.2, 176.1, 8.2, 9.2, true, { wallH: 2.9, wall: WOOD, over: 0.8, rh: 2.3, platform: 0.35 });
+  // the small house in the south-east corner, and the smaller one west of the main hall
+  hall(-161.6, 240.6, 9.2, 7.1, true, { wallH: 2.7, wall: WOOD, over: 0.8, rh: 1.9, platform: 0.3 });
+  hall(-193.4, 201, 6.4, 4.6, false, { wallH: 2.5, wall: hex('#cfc4ad'), roof: hex('#8d8a82'), over: 0.6, rh: 1.6, platform: 0.2 });
   (S.paved = S.paved || []).push([n0, S.n]);
 }

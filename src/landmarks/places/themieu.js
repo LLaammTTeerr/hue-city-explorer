@@ -1,4 +1,5 @@
-import { KIND, hex, shade } from '../../geo/buf.js';
+import polygonClipping from 'polygon-clipping';
+import { KIND, hex, shade, rand, inRing, unflat } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
@@ -33,6 +34,7 @@ const P = (u, v) => [C[0] + u * UX - v * UZ, C[1] + u * UZ + v * UX];
 const OUTER = [[-1246.8, 263.2], [-1292.4, 297.1], [-1312.7, 270.1], [-1354.6, 214.3], [-1386.8, 171.6], [-1356.9, 149.4], [-1316.0, 119.1], [-1287.5, 97.9], [-1255.3, 140.7], [-1213.7, 196.0], [-1193.4, 223.0], [-1238.4, 256.4]];
 const DIVIDE = [[-1335.2, 199.9], [-1325.1, 192.3], [-1283.5, 161.5], [-1272.8, 153.6]];
 
+const TUNG = hex('#5f5d58'); // the two Tùng tự: dark grey tile on the satellite
 const ROOF = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, GOLD = hex('#d9a93a');
 const WALL = hex('#d8c48e'); // lime-washed brick of the end and back walls
 const STONE = PAL.stone, BRICK = hex('#9c7a64'), BRONZE = hex('#4f5446');
@@ -70,13 +72,14 @@ function hall(S, group, lamps) {
   }
   for (const s of [-1, 1]) for (let k = 1; k <= 4; k++) fbox(S, s * (27.95 + 0.32 * k - 0.16), 0, g - 0.3, fl - 0.2 * k, 0.32, 3.4, shade(STONE, 1.05), { topKind: KIND.ROAD });
 
-  // walls: brick at the back and the two ends, the front a row of lacquered door panels behind the verandah
+  // walls: brick at the back and the two ends, the front a row of lacquered door panels behind the verandah; all
+  // stop under the lower eave, which runs round the whole hall at one height (satellite: an unbroken skirt band)
   S.kind = KIND.MASONRY;
-  fbox(S, 0, VB + 0.3, fl, fl + 4.6, W, 0.6, WALL);
-  for (const s of [-1, 1]) fbox(S, s * (W / 2 - 0.3), (VB + 10.8) / 2, fl, fl + 4.4, 0.6, 10.8 - VB, WALL);
+  fbox(S, 0, VB + 0.3, fl, fl + 3.6, W, 0.6, WALL);
+  for (const s of [-1, 1]) fbox(S, s * (W / 2 - 0.3), (VB + 10.8) / 2, fl, fl + 3.6, 0.6, 10.8 - VB, WALL);
   // the dark interior seen through nothing: a closed core so the roofs have something under them
   S.kind = KIND.TIMBER;
-  fbox(S, 0, (VB + 10.8) / 2, fl, fl + 4.3, W - 1.2, 10.8 - VB - 0.8, shade(LAC, 0.7), { top: shade(ROOF, 0.7) });
+  fbox(S, 0, (VB + 10.8) / 2, fl, fl + 3.5, W - 1.2, 10.8 - VB - 0.8, shade(LAC, 0.7), { top: shade(ROOF, 0.7) });
   // the front: 11 bays of doors (bức bàn) in the front hall, a gilt frieze over them, the wing bays walled
   const spans = [2.65, ...Array(11).fill(4.3), 2.65];
   const cols = [-W / 2];
@@ -98,21 +101,29 @@ function hall(S, group, lamps) {
   fbox(S, 0, VF, yb - 0.4, yb, W + 0.4, 0.34, shade(LAC, 0.75));
   fbox(S, 0, (VF + 10.8) / 2, yb - 0.05, yb, W, VF - 10.8, shade(LAC, 0.45), { bottom: true });
 
-  // roofs: the front hall's lower roof and the main hall's higher one behind it, both hipped with curved eaves
+  // roofs: the front hall's single hip, and the main hall behind it under double eaves (as Điện Thái Hòa): a skirt
+  // of tiles round its back and both ends at the front hall's eave height, a short lacquered clerestory, and the
+  // upper hip set in 3 m from the skirt's column line. The satellite shows the skirt band on all sides with the
+  // upper roofs inside it (refs in scratch, docs/places/themieu.md); heights stay the documented estimates.
   S.kind = KIND.TIMBER;
   const eave = { fascia: 0.32, fasciaCol: shade(LAC, 0.7), hips: true, glazed: true, ridgeCol: RIDGE, segs: 4 };
-  const mf = P(0, (VJ + VF) / 2), mb = P(0, (VB + VJ) / 2);
-  S.hip(mb[0], mb[1], W, VJ - VB, ANG, fl + 4.6, 5.9, ROOF, { flare: 0.5, over: 1.7, ...eave }); // ridge 10.5 m over the floor
+  const IN = 3.0, W2 = W - 2 * IN, UB = VB + IN, UF = VJ + 1.0, YU = fl + 6.0; // the upper roof's plan and eave
+  const mf = P(0, (VJ + VF) / 2), mb = P(0, (UB + UF) / 2), ms = P(0, (VB + VJ) / 2);
+  S.hip(ms[0], ms[1], W, VJ - VB, ANG, yb, 4.3, ROOF, { flare: 0.5, over: 1.7, ...eave, ridgeCol: null }); // the skirt
+  S.kind = KIND.PLAIN;
+  fbox(S, 0, (UB + UF) / 2, fl + 4.9, YU, W2, UF - UB, shade(LAC, 0.8));
+  S.kind = KIND.TIMBER;
+  S.hip(mb[0], mb[1], W2, UF - UB, ANG, YU, 4.5, ROOF, { flare: 0.5, over: 1.4, ...eave }); // ridge 10.5 m over the floor
   S.hip(mf[0], mf[1], W, VF - VJ, ANG, yb, 3.3, ROOF, { flare: 0.45, over: 1.6, ...eave });
   // ridge ornament: on each ridge a pháp lam disc (mặt nhật) on a flame-shaped base, and enamel panels along it
   S.kind = KIND.PLAIN;
-  for (const [m, top, dz] of [[mb, fl + 10.5, VJ - VB], [mf, yb + 3.3, VF - VJ]]) {
+  for (const [m, top, dz, wr] of [[mb, fl + 10.5, UF - UB, W2], [mf, yb + 3.3, VF - VJ, W]]) {
     const t = Math.max(0.3, Math.min(0.6, (dz + 3.3) * 0.035)), y = top + t * 1.6;
     const big = m === mb ? 1 : 0.75;
     S.box(m[0], m[1], y - 0.2, y + 0.5 * big, 1.4 * big, 0.35, ANG, ENAMEL[0]);
     S.cyl(m[0], m[1], y + 0.5 * big, y + 1.0 * big, 0.55 * big, 0.25 * big, 8, ENAMEL[2]);
     S.cyl(m[0], m[1], y + 1.0 * big, y + 1.5 * big, 0.25 * big, 0.04, 6, ENAMEL[1]);
-    const rl = W / 2 + 1.6 - (dz + 3.4) / 2 * 0.92;
+    const rl = wr / 2 + 1.6 - (dz + 3.4) / 2 * 0.92;
     for (let k = -3; k <= 3; k++) {
       if (!k) continue;
       const q = [m[0] + UX * (k * rl) / 3.6, m[1] + UZ * (k * rl) / 3.6];
@@ -128,7 +139,8 @@ function court(S) {
   S.base = g - LAND_Y;
   // Bát Tràng brick from the hall to the cross wall of Hiển Lâm Các, and a stone walk on the axis
   S.kind = KIND.ROAD;
-  fbox(S, 0, 32.5, g - 0.2, g + 0.06, 68, 36, BRICK);
+  // the paving ends in line with the hall's ends (satellite: lawn and trees either side), 56 m wide
+  fbox(S, 0, 32.5, g - 0.2, g + 0.06, 56, 36, BRICK);
   fbox(S, 0, 32.5, g + 0.06, g + 0.1, 4.3, 36, shade(STONE, 1.08));
   // the 14 stone stools (đôn) in a row before the hall, each carrying a pot with a clipped tree
   for (let i = 0; i < 14; i++) {
@@ -161,11 +173,27 @@ function sides(S) {
   S.box(cy[0], cy[1], y - 0.3, y + 0.5, 12.4, 11.4, ANG, shade(STONE, 0.85), { taper: 0.98, topKind: KIND.ROAD });
   S.kind = KIND.PLAIN;
   for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { if (i % 3 && j % 3) continue; const q = P(50.7 - 4.5 + i * 3, -1.7 - 4.5 + j * 3); S.cyl(q[0], q[1], y + 0.5, y + 0.72, 0.38, 0.32, 6, shade(STONE, 0.75)); }
-  // Tả and Hữu Tùng tự, outside the cross wall, facing each other across the yard before Hiển Lâm Các
+  // Tả and Hữu Tùng tự, outside the cross wall, facing each other across the yard before Hiển Lâm Các. The
+  // satellite shows each under two parallel roofs with their ridges along v (a front and a rear house, the front
+  // toward the axis), about 13 x 15 m over the eaves, in dark grey tile, not yellow
   for (const [u, v] of [[43.7, 67.0], [-45.0, 69.2]]) {
-    const q = P(u, v), yq = gy(q);
+    const q = P(u, v), yq = gy(q), f = -Math.sign(u); // f: toward the axis
     S.base = yq - LAND_Y;
-    pavilion(S, q[0], q[1], 9.0, 13.0, ANG, yq, { wallH: 3.0, roof: ROOF, wall: LAC, over: 1.2, rh: 2.2, platform: 0.5, colonnade: true, segs: 3 });
+    S.kind = KIND.MASONRY;
+    fbox(S, u, v, yq - 0.3, yq + 0.5, 12.6, 14.4, shade(STONE, 0.95), { taper: 0.98, topKind: KIND.ROAD });
+    S.kind = KIND.TIMBER; // a lacquered timber-panelled body, not brick
+    fbox(S, u, v, yq + 0.5, yq + 3.4, 10.4, 12.4, LAC);
+    // a door of three leaves and a short stair on the side toward the axis, a gilt lintel over it
+    S.kind = KIND.PLAIN;
+    fbox(S, u + f * 5.25, v, yq + 0.5, yq + 2.7, 0.14, 4.2, shade(LAC, 0.62));
+    fbox(S, u + f * 5.27, v, yq + 2.7, yq + 3.2, 0.14, 4.6, GOLD);
+    S.kind = KIND.MASONRY;
+    for (let k = 1; k <= 3; k++) fbox(S, u + f * (6.3 + 0.3 * k - 0.15), v, yq - 0.3, yq + 0.5 - 0.17 * k, 0.3, 4.6, shade(STONE, 1.05), { topKind: KIND.ROAD });
+    S.kind = KIND.TIMBER;
+    for (const [du, w, rh] of [[f * 2.9, 5.6, 2.2], [-f * 2.9, 5.6, 2.4]]) {
+      const r = P(u + du, v);
+      S.hip(r[0], r[1], 13.0, w, ANG + Math.PI / 2, yq + 3.4, rh, TUNG, { flare: 0.45, over: 1.0, fascia: 0.25, fasciaCol: shade(LAC, 0.7), hips: true, ridgeCol: shade(TUNG, 1.25), segs: 3 });
+    }
   }
 }
 
@@ -184,8 +212,64 @@ function walls(S, data) {
   for (const q of [P(41.8, -18.6), P(-40.8, -18.4)]) gate(S, q, ANG, 5.2, 1.6, gy(q));
 }
 
+// The ground inside the walls: lawn under trees, not bare sand (satellite: only the court before the hall is paved),
+// with narrow brick walks round the hall, along the court and out to the side gates. The compound is mapped as
+// landuse=religious, which the city draws as sand; this lays the lawn over it on Thế Miếu's side of the cross wall
+// (Hưng Miếu's court behind it is that place's), leaving out the hall and court and the mapped paved yards
+// (the forecourt of Hiển Lâm Các). Extra shade trees join data.trees on the lawn; populate plants them.
+const LAWN = hex('#8a9a5a');
+const SAFE = [[-50.7, -1.7, 10], [50.7, -1.7, 9.5], [43.7, 67.0, 10], [-45.0, 69.2, 10], [0, 58.2, 14]]; // buildings (u, v, r) the trees keep off
+
+function grounds(S, data) {
+  const g = gy(C), close = (r) => [...r, r[0]], quad = (u0, u1, v0, v1) => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
+  const block = [P(-29.6, -15.2), P(29.6, -15.2), P(29.6, 14.5), P(28.2, 14.5), P(28.2, 50.6), P(-28.2, 50.6), P(-28.2, 14.5), P(-29.6, 14.5)];
+  const paved = (data.green || []).filter(([k]) => k === 'paved').map(([, poly]) => unflat(poly[0]))
+    .filter((r) => r.some((q) => inRing(q[0], q[1], OUTER)));
+  let lawn = [];
+  try {
+    const side = polygonClipping.intersection([close(OUTER)], [close(quad(-200, 200, -17.6, 200))]);
+    lawn = polygonClipping.difference(side, [close(block)], ...paved.map((r) => [close(r)])).map((pg) => pg.map((r) => r.slice(0, -1)));
+  } catch { lawn = []; }
+  // 14 cm thick: the city's ground overlay is drawn with a polygon offset that beats a thinner lawn at grazing angles
+  S.base = g - LAND_Y;
+  S.kind = KIND.GROUND;
+  for (const [ring, ...holes] of lawn) if (ring.length > 2) S.prism(ring, g - 0.1, g + 0.14, LAWN, LAWN, { holes, topKind: KIND.GROUND });
+  // brick walks, a little proud of the lawn
+  S.kind = KIND.ROAD;
+  const walk = (r) => S.prism(r, g - 0.05, g + 0.17, BRICK, BRICK, { topKind: KIND.ROAD });
+  walk(quad(-31.1, 31.1, -16.7, -15.2)); // behind the hall
+  for (const s of [-1, 1]) {
+    walk(quad(s > 0 ? 29.6 : -31.1, s > 0 ? 31.1 : -29.6, -15.2, 14.5)); // along each end
+    walk(quad(s > 0 ? 31.1 : -61.0, s > 0 ? 61.0 : -31.1, 10.6, 12.2)); // out to the side gate
+    walk(quad(s > 0 ? 28.2 : -29.7, s > 0 ? 29.7 : -28.2, 14.5, 50.6)); // along the court's side
+  }
+  // shade trees on the lawn, kept off the buildings, walks and walls and apart from the mapped ones
+  if (!Array.isArray(data.trees)) return;
+  const t = data.trees, have = [];
+  for (let k = 0; k < t.length; k += 4) { const x = t[k] / 10, z = t[k + 1] / 10; if (inRing(x, z, OUTER)) have.push([x, z]); }
+  const walls = [OUTER.map((q, i) => [q, OUTER[(i + 1) % OUTER.length]]), DIVIDE.slice(1).map((q, i) => [DIVIDE[i], q])].flat();
+  const dSeg = (x, z, a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz || 1, k = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L));
+    return Math.hypot(x - a[0] - dx * k, z - a[1] - dz * k);
+  };
+  let i = 0;
+  for (let u = -90; u <= 90; u += 7.5) for (let v = -16; v <= 110; v += 7.5) {
+    i++;
+    const uu = u + (rand(i, 31) - 0.5) * 5, vv = v + (rand(i, 32) - 0.5) * 5, [x, z] = P(uu, vv);
+    if (rand(i, 33) > 0.5) continue;
+    if (!lawn.some(([ring, ...holes]) => inRing(x, z, ring) && !holes.some((h) => inRing(x, z, h)))) continue;
+    if (Math.abs(uu) < 34 && vv > -20 && vv < 54) continue; // the hall, its walks and the court
+    if (Math.abs(vv - 11.4) < 3.5 || SAFE.some(([a, b, r]) => Math.hypot(uu - a, vv - b) < r)) continue;
+    if (walls.some(([a, b]) => dSeg(x, z, a, b) < 3)) continue;
+    if (have.some((q) => Math.hypot(q[0] - x, q[1] - z) < 5.5)) continue;
+    t.push(Math.round(x * 10), Math.round(z * 10), Math.round((0.85 + 0.4 * rand(i, 34)) * 10), 0);
+    have.push([x, z]);
+  }
+}
+
 export function build({ data, S, group }) {
   const lamps = [];
+  grounds(S, data);
   hall(S, group, lamps);
   court(S);
   sides(S);

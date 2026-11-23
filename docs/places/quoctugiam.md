@@ -45,11 +45,31 @@ footprints, so `populate` drops the generic versions, and no guard in an older b
   - the upper storey's size (10.4 m square) and the colours of the mosaic panels
   - the plain-tile faces, drawn as a darker yellow
 - Tam quan: form, size, colour and roof. Model: three doors, a raised middle roof, ochre lime, yellow tiles. Its position on the axis at the front wall is also estimated.
-- Wall: height (2.4 m) and colour. It is drawn 2.5 m inside the OSM precinct line. The two side gates are left out because their positions are unknown.
+- Boundary: drawn 2.5 m inside the OSM precinct line. The two side gates are left out because their positions are unknown. The south-east and north-east sides are hidden by trees in every street view, so they are drawn bare like the south-west.
 - Side halls: terracotta roofs, verandah columns on the Học halls' court side, and which outbuilding is which. The rear north-east pair is taken as the Giám sinh halls.
 - Paving: the brick apron and the axial walk. The rest of the court is left as lawn with the generated trees.
+
+## Checked against Google imagery (2026)
+- Satellite (z19, z20): Di Luân Đường, under scaffolding, sits within about 1 m of the model's centre. The green-roofed
+  Học hữu (west hall) runs on the same 143° axis as the model. Its roof is about 14 × 45 m against OSM's 12.2 × 42.4 m
+  and sits about 2 m further north-west. The green sheet is read as a temporary restoration shelter, wider than the
+  hall, so the OSM footprint is kept. The rest of the halls line up with the OSM outlines to within about 2 m.
+- Street View (car panos on Lê Trực, Đoàn Thị Điểm, Đinh Tiên Hoàng and 23 Tháng 8):
+  - The boundary is a low cement balustrade, not a solid wall. It is about 1.1 m high, grey-ochre, with a row of oval
+    piercings between a plinth and a coping, and capped piers every few metres.
+  - On Lê Trực, an iron railing about 1 m high stands on the balustrade, with a round medallion in each bay. The
+    Đoàn Thị Điểm side has the balustrade alone.
+  - The side halls seen from the street have plain hip ends, with no upturned corner horns.
+  - The model now draws all three.
+- Not visible from any pano: Di Luân Đường itself (trees and scaffolding), the tam quan and the court. Those keep the
+  documented choices above.
+- Satellite only: a small white-roofed block north-west of Di Luân Đường, likely a site office for the restoration,
+  is not modelled.
 
 ## Left to do
 - The model shows the buildings whole, in the form the restoration rebuilds. In 2026 the site is partly dismantled behind site fencing, and that state is not modelled.
 - The 32 tiến sĩ steles are at Văn Miếu, not here, so they are not part of this place.
 - Photos would settle the tam quan, the side halls' roofs and the wall.
+
+## Polish
+Balustrade recoloured to weathered grey cement and drawn with seven bottle balusters per bay (swelling mid-height) so the piercings read oval, as on Le Truc and Doan Thi Diem.

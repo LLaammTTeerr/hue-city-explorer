@@ -1,7 +1,8 @@
 import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
-import { fence, offStreets } from '../enclosure.js';
+import { offStreets } from '../enclosure.js';
+import { flag } from '../anim.js';
 
 // ---- Quốc Tử Giám, the Nguyễn imperial academy, inside the Citadel (moved here in 1908) ----
 //
@@ -20,8 +21,10 @@ import { fence, offStreets } from '../enclosure.js';
 //    Thanh stele in front of Di Luân Đường; court > 4,153 m².
 //  - OpenStreetMap: precinct (way 531031518), Di Luân Đường (239445966), the Học halls (617523830, 239448810), the
 //    other halls (239448809/11/12, 239448806, 239448804/05/07/08). The city survey reads the hall at 9.5 m.
-// Estimated: the split between front and main house, eave and storey heights, the tam quan's form, the side halls'
-// roofs and verandahs, which outbuilding is which, the wall's height. The site is being restored (2025-2029, parts
+// Street View (car panos, 2024-25) settled the front gate: an open post-and-lintel gate of four cream square pillars,
+// the inner pair taller, joined by thin beams, a flag on the west inner pillar, nothing solid between them (the stele
+// shelter and the hall are seen through it from đường 23 Tháng 8). Estimated: the split between front and main
+// house, eave and storey heights, the gate's exact spacing and heights, the side halls' roofs and verandahs, which outbuilding is which, the wall's height. The site is being restored (2025-2029, parts
 // taken down in 2026); the model shows the buildings whole, as the restoration rebuilds them.
 
 // Di Luân Đường's frame: centre, u across the front (north-east), v toward the front (south-east)
@@ -38,19 +41,32 @@ const OTHER = [
 ];
 // the L-shaped hall behind the west Học hall (way 239448812), as two rectangles
 const ELL = [[-49.5, -24.2, -21.7, -9.9], [-48.0, -40.3, -10.0, -2.0]];
+// not in OSM, placed from the satellite (sat-z19/z20): a red-tiled house on the Lê Trực side north of the Giám sinh
+// hall and a pale-roofed hall north-west of Di Luân Đường, both against the Lê Trực balustrade. The pale hall's east
+// end is set by the car pano on Lê Trực (sv-lt-nw: lawn up to u -15; the satellite's roof reads 5 m further east)
+const UNMAPPED = [[10.0, 23.5, -30.5, -20.5], [-26.0, -15.0, -31.5, -22.0]];
+// and the row of low old houses, tile and sheet roofs, standing a metre behind the Đoàn Thị Điểm balustrade north of
+// the corner hall (sv-dtd-n): [u0, u1, v0, v1, eave, roof colour]
+const ROW = [[-84.2, -78.4, -33.0, -24.6, 2.0, hex('#5d5f5c')], [-84.2, -77.8, -24.4, -17.4, 2.3, hex('#523c32')], [-84.2, -78.6, -17.2, -10.6, 2.1, hex('#686a66')]];
 // the precinct (way 531031518), drawn 2.5 m inside the mapped line so the wall keeps off the pavements
 const PARK = [[-631.4, -272.4], [-583.9, -205.7], [-661.1, -151.9], [-727.9, -103.9], [-776.5, -170.4]];
 const GATE_V = 46.0;
 
 const TILE = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
 const STONE = PAL.stone, BRICK = hex('#a46e58'), DARK = hex('#3a2420');
-const TERRA = hex('#9a5a3e'), LIME = hex('#f1ead8'), YLIME = hex('#ecd38c'), WOOD = hex('#5e3b26');
-const WALL = { h: 2.4, plinth: 2.4, rail: false, t: 0.45, every: 5.0, postW: 0.7, postUp: 0.25, wall: hex('#d9bb72'), cap: hex('#b3712f'), iron: null, pierW: 1.1, pierUp: 1.2 };
+const TERRA = hex('#5e4a40'), LIME = hex('#f1ead8'), YLIME = hex('#ecd38c'), WOOD = hex('#5e3b26');
+// the boundary (Street View, 2024-25): a low cement balustrade, a row of oval piercings between a plinth and a coping,
+// piers with caps every few metres, all grey and dark-stained; on Lê Trực a scrolled iron railing stands on it with an
+// open round thọ (壽) roundel in each bay. Plain cement (KIND.PLAIN): the masonry shader's brick courses and green-
+// yellow moss turned the grey tan under the scene's warm light.
+const BAL = { h: 1.1, every: 3.4, pierW: 0.42, pierUp: 0.22, col: hex('#8f9aa0'), cap: hex('#78828a'), foot: hex('#687176'), hole: hex('#363c40') };
+const IRON = { h: 1.05, col: hex('#23262a') };
+const GATE = hex('#ebe3cc'); // the cream lime of the gate pillars
 const gY = (x, z) => LAND_Y + rise(x, z);
 
 export const id = 'quoctugiam';
 
-export function build({ data, S }) {
+export function build({ data, S, group }) {
   const y0 = gY(C[0], C[1]);
   const box = (u, v, ya, yb, w, d, col, o) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ANG, col, o); };
   // (the ridge runs along the longer side: a deep plan is handed over turned a quarter)
@@ -58,7 +74,7 @@ export function build({ data, S }) {
   const cyl = (u, v, ya, yb, r0, r1, n, col, o) => { const q = P(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, { rot: ANG, ...o }); };
   S.base = y0 - LAND_Y;
 
-  // ---- court: brick apron round the hall, a brick walk on the axis to the tam quan ----
+  // ---- court: brick apron round the hall, a brick walk on the axis to the gate ----
   S.kind = KIND.MASONRY;
   const paved0 = S.n;
   box(0, 0, y0 - 0.2, y0 + 0.22, 26, 33, shade(BRICK, 0.92), { topKind: KIND.ROAD });
@@ -89,49 +105,55 @@ export function build({ data, S }) {
   S.kind = KIND.CIVIC;
   for (const r of HOC) hall(S, r, LIME, TERRA, 4.3, 2.6, true);
   for (const r of GIAMSINH) hall(S, r, YLIME, TERRA, 3.8, 2.3, false);
-  for (const r of OTHER) hall(S, r, YLIME, TERRA, 3.4, 2.0, false);
+  // the halls along Đoàn Thị Điểm end in gables (sv-dtd-sw); the rest have plain hips
+  for (const r of OTHER) hall(S, r, YLIME, TERRA, 3.4, 2.0, false, r[1] < -74);
   for (const r of ELL) hall(S, r, YLIME, TERRA, 3.4, 2.0, false);
+  hall(S, UNMAPPED[0], YLIME, hex('#7a4634'), 3.3, 2.0, false, true);
+  hall(S, UNMAPPED[1], LIME, hex('#a7a59c'), 3.6, 1.9, false);
+  for (const [u0, u1, v0, v1, eave, roof] of ROW) hall(S, [u0, u1, v0, v1], shade(YLIME, 0.8), roof, eave, 1.0, false, true);
 
-  // ---- the tam quan on the axis at the foot of the court ----
+  // ---- the gate at the foot of the court: four cream pillars and thin lintels, open between them ----
+  // (sv-hmb-s, from đường 23 Tháng 8 on the axis: the inner pair about 3.6 m, the outer pair lower, an open drive
+  // between the inner pillars, a low see-through iron railing in the side bays, a flag on the west inner pillar)
   {
     const yg = gY(...P(0, GATE_V));
     S.base = yg - LAND_Y;
-    const OCH = hex('#e2c271');
+    const IN = 1.6, OUT = 4.4, hIn = 3.6, hOut = 2.7, wIn = 0.46, wOut = 0.4;
     S.kind = KIND.MASONRY;
-    box(0, GATE_V, yg - 0.3, yg + 0.25, 13.0, 4.2, STONE, { topKind: KIND.ROAD });
-    const yb = yg + 0.25;
-    for (const s of [-1, 1]) {
-      S.kind = KIND.MASONRY;
-      box(s * 4.3, GATE_V, yb, yb + 3.4, 3.6, 2.4, OCH, { top: shade(TILE, 0.8) });
-      S.kind = KIND.PLAIN;
-      box(s * 4.3, GATE_V, yb, yb + 2.3, 1.4, 2.48, DARK);
-      hip(s * 4.3, GATE_V, 3.6, 2.4, yb + 3.4, 0.9, TILE, { over: 0.5, flare: 0.3, ridgeCol: RIDGE, segs: 3 });
-      // a pillar at each end, a lantern finial on top
-      S.kind = KIND.MASONRY;
-      box(s * 6.4, GATE_V, yb, yb + 5.2, 0.8, 0.8, OCH, { top: GOLD });
-      cyl(s * 6.4, GATE_V, yb + 5.2, yb + 5.8, 0.35, 0.15, 6, shade(OCH, 0.9));
-    }
-    S.kind = KIND.MASONRY;
-    box(0, GATE_V, yb, yb + 4.6, 5.0, 2.6, OCH, { top: shade(TILE, 0.8) });
+    box(0, GATE_V, yg - 0.2, yg + 0.12, 2 * OUT + 0.8, 1.2, STONE, { topKind: KIND.ROAD }); // the threshold
+    const yb = yg + 0.12;
     S.kind = KIND.PLAIN;
-    box(0, GATE_V, yb, yb + 3.0, 2.2, 2.68, DARK);
-    box(0, GATE_V, yb + 3.3, yb + 4.0, 2.4, 2.7, GOLD); // name board 國子監
-    S.kind = KIND.MASONRY;
-    box(0, GATE_V, yb + 4.6, yb + 5.2, 3.4, 1.9, OCH);
-    hip(0, GATE_V, 3.4, 1.9, yb + 5.2, 1.2, TILE, { over: 0.6, ridgeCol: RIDGE, segs: 3 });
-    hip(0, GATE_V, 5.0, 2.6, yb + 4.6, 0.6, TILE, { over: 0.6, flare: 0.3, segs: 3 });
+    for (const s of [-1, 1]) {
+      for (const [o, h, w] of [[IN, hIn, wIn], [OUT, hOut, wOut]]) {
+        box(s * o, GATE_V, yb, yb + 0.35, w + 0.14, w + 0.14, shade(GATE, 0.82)); // base
+        box(s * o, GATE_V, yb + 0.35, yb + h, w, w, GATE);
+        box(s * o, GATE_V, yb + h, yb + h + 0.12, w + 0.16, w + 0.16, shade(GATE, 0.88)); // cap
+        box(s * o, GATE_V, yb + h + 0.12, yb + h + 0.42, w * 0.55, w * 0.55, shade(GATE, 0.9), { taper: 0.4 }); // finial
+      }
+      // the side bays: a thin beam near the outer pillar's top, a low open iron railing below it
+      const mu = s * (IN + OUT) / 2, bw = OUT - IN - (wIn + wOut) / 2;
+      box(mu, GATE_V, yb + hOut - 0.32, yb + hOut - 0.12, bw, 0.18, shade(GATE, 0.9));
+      box(mu, GATE_V, yb + 1.05, yb + 1.1, bw, 0.05, IRON.col);
+      box(mu, GATE_V, yb + 0.12, yb + 0.17, bw, 0.05, IRON.col);
+      for (let j = 1; j < 12; j++) box(mu - bw / 2 + (j * bw) / 12, GATE_V, yb, yb + 1.1, 0.035, 0.035, IRON.col);
+    }
+    // the lintels over the drive: two thin beams between the inner pillars
+    for (const y of [hIn - 0.3, hIn - 0.85]) box(0, GATE_V, yb + y - 0.2, yb + y, 2 * IN - wIn, 0.2, shade(GATE, 0.92));
+    // the flag on its pole over the west inner pillar
+    const q = P(-IN, GATE_V);
+    S.cyl(q[0], q[1], yb + hIn + 0.42, yb + hIn + 2.6, 0.035, 0.03, 5, hex('#cfcfc8'), { cap: false });
+    flag(group, { at: [q[0], yb + hIn + 2.5, q[1]], w: 0.9, h: 0.6, look: 'vn', landmark: id }); // waves down-wind (anim.js)
   }
 
-  // ---- the precinct wall, open at the tam quan ----
+  // ---- the precinct boundary, open at the gate ----
   S.base = 0;
   const ring = offStreets(data, inset(PARK, 2.5)); // and off the street OSM draws along its east side
-  const g = P(0, GATE_V);
-  fence(S, ring, WALL, { closed: true, openings: [[g[0], g[1], 7.0]] });
+  balustrade(S, ring, P(0, GATE_V), 2 * 4.4 + 0.4); // the gap butts on the gate's outer pillars
   S.kind = KIND.PLAIN;
   S.base = 0;
 
   // ---- side halls: lime walls, timber doors along the court side, a tiled hip roof ----
-  function hall(S, [u0, u1, v0, v1], wall, roof, wh, rh, verandah) {
+  function hall(S, [u0, u1, v0, v1], wall, roof, wh, rh, verandah, gabled = false) {
     const u = (u0 + u1) / 2, v = (v0 + v1) / 2, w = u1 - u0, d = v1 - v0;
     const yg = gY(...P(u, v));
     S.base = yg - LAND_Y;
@@ -160,8 +182,30 @@ export function build({ data, S }) {
       for (let k = 0; k <= n; k++) cyl(vu, v - bd / 2 + (k * bd) / n, yp, yp + wh, 0.16, 0.16, 6, LIME, { cap: false });
     }
     S.kind = KIND.TILE;
-    hip(u, v, w - 0.2, d - 0.2, yp + wh, rh, roof, { flare: 0.15, over: 0.3, fascia: 0.22, fasciaCol: shade(wall, 0.8), ridgeCol: shade(roof, 1.15), glazed: false, segs: 3 });
+    if (gabled) gable(u, v, w - 0.2, d - 0.2, yp + wh, rh, roof, wall);
+    // straight colonial hips of dark weathered tile: no flare, no hip ridges, so no upturned corners
+    else hip(u, v, w - 0.2, d - 0.2, yp + wh, rh, roof, { flare: 0, over: 0.35, fascia: 0.22, fasciaCol: shade(wall, 0.8), ridgeCol: shade(roof, 1.12), hips: false, glazed: false, segs: 1 });
     S.kind = kind;
+  }
+
+  // a straight gable roof along the longer side, verges 0.4 m past the end walls, the gable triangles in the wall colour
+  function gable(u, v, w, d, ya, h, col, wall) {
+    const t = d > w, L = (t ? d : w) / 2, B = (t ? w : d) / 2, o = 0.4;
+    // (a, b): a along the ridge, b across it, in the hall frame
+    const Q = (a, b, y) => { const [uu, vv] = t ? [u + b, v + a] : [u + a, v + b]; const q = P(uu, vv); return [q[0], y, q[1]]; };
+    const ax = t ? [-U[1], U[0]] : U, bx = t ? U : [-U[1], U[0]];
+    for (const s of [-1, 1]) {
+      S.kind = KIND.TILE;
+      S.quad(Q(-L - o, s * (B + o), ya - 0.15), Q(L + o, s * (B + o), ya - 0.15), Q(L + o, 0, ya + h), Q(-L - o, 0, ya + h), col, [bx[0] * s, 1, bx[1] * s]);
+      S.kind = KIND.PLAIN;
+      S.quad(Q(-L - o, s * (B + o), ya - 0.15), Q(L + o, s * (B + o), ya - 0.15), Q(L + o, s * (B + o), ya - 0.35), Q(-L - o, s * (B + o), ya - 0.35), shade(col, 0.6), [bx[0] * s, 0, bx[1] * s]);
+      S.quad(Q(-L - o, s * (B + o), ya - 0.35), Q(L + o, s * (B + o), ya - 0.35), Q(L + o, 0, ya - 0.35), Q(-L - o, 0, ya - 0.35), shade(col, 0.45), [0, -1, 0]);
+      // the gable end wall up to the roof
+      S.kind = KIND.CIVIC;
+      S.tri(Q(s * (L - 0.8), -(B - 0.8), ya), Q(s * (L - 0.8), B - 0.8, ya), Q(s * (L - 0.8), 0, ya + h - 0.05), wall, [ax[0] * s, 0, ax[1] * s]);
+    }
+    S.kind = KIND.PLAIN;
+    S.beam(Q(-L - o, 0, ya + h + 0.08), Q(L + o, 0, ya + h + 0.08), 0.3, 0.22, shade(col, 1.1));
   }
 }
 
@@ -199,22 +243,28 @@ function diLuanDuong(S, box, hip, cyl, y0) {
     flight(ue, 7.5, 2.0, s, 0, false);
   }
 
-  // lower storey: the rear main house (3 gian 2 chái) and the 1-gian front house, under one deep plan
+  // lower storey: the rear main house (3 gian 2 chái) and the 1-gian front house, under one deep plan. The main
+  // house's walls stand well inside its roof: an open verandah of dark timber columns runs round its back and sides
+  // (sv-lt-nw, from Lê Trực), 2.3-2.6 m deep under the skirt roof's soffit.
   const yE = yp + 3.4; // lower eave
+  const TIMB = hex('#4a2a20'), WALL = shade(LAC, 0.48);
   S.kind = KIND.TIMBER;
-  box(0, -2.8, yp, yE, 16.6, 15.6, shade(LAC, 0.86), { top: shade(TILE, 0.8) });
-  box(0, 8.0, yp, yE - 0.3, 14.0, 6.0, shade(LAC, 0.86), { top: shade(TILE, 0.8) });
-  // the verandah columns all round the main house
-  const bay = 16.6 / 5;
-  for (let i = 0; i <= 5; i++) for (const v of [-11.6, 5.6]) cyl(-8.3 + i * bay + (i === 0 ? 0.6 : i === 5 ? -0.6 : 0), v, yp, yE, 0.2, 0.18, 7, LAC, { cap: false });
+  box(0, -2.4, yp, yE, 12.0, 11.6, WALL, { top: shade(TILE, 0.8) }); // u ±6.0, v -8.2 .. 3.4
+  box(0, 7.2, yp, yE - 0.3, 14.0, 7.6, WALL, { top: shade(TILE, 0.8) }); // the front house, v 3.4 .. 11.0
+  // the verandah columns: a row along the back and one down each side, under the skirt roof's eave
+  for (let i = 0; i <= 5; i++) cyl(-8.6 + i * 3.44, -11.4, yp, yE, 0.18, 0.16, 7, TIMB, { cap: false });
+  for (const s of [-1, 1]) for (let j = 1; j <= 5; j++) cyl(s * 8.6, -11.4 + j * 3.2, yp, yE, 0.18, 0.16, 7, TIMB, { cap: false });
+  // a tie beam over each row of columns
+  box(0, -11.4, yE - 0.4, yE - 0.1, 17.6, 0.24, TIMB);
+  for (const s of [-1, 1]) box(s * 8.6, -3.4, yE - 0.4, yE - 0.1, 0.24, 16.0, TIMB);
   // doors: five bays on the front house's face, gilt transoms
   S.kind = KIND.PLAIN;
   for (let i = -2; i <= 2; i++) {
-    box(i * 2.7, 11.03, yp, yp + 2.3, 2.2, 0.08, shade(LAC, 0.6));
+    box(i * 2.7, 11.03, yp, yp + 2.3, 2.2, 0.08, shade(LAC, 0.4));
     box(i * 2.7, 11.04, yp + 2.35, yp + 2.75, 2.3, 0.08, GOLD);
   }
-  for (let i = -2; i <= 2; i++) box(i * 3.2, -10.63, yp, yp + 2.3, 2.6, 0.08, shade(LAC, 0.6));
-  for (const s of [-1, 1]) for (let j = -2; j <= 2; j++) box(s * 8.33, -2.8 + j * 3.0, yp, yp + 2.3, 0.08, 2.4, shade(LAC, 0.6));
+  for (let i = -1; i <= 1; i++) box(i * 3.4, -8.23, yp, yp + 2.3, 2.6, 0.08, shade(LAC, 0.4));
+  for (const s of [-1, 1]) for (let j = -1; j <= 1; j++) box(s * 6.03, -2.4 + j * 3.4, yp, yp + 2.3, 0.08, 2.6, shade(LAC, 0.4));
 
   // lower roofs: the skirt over the main house (plain tiles on the east and west faces in the record; drawn in the
   // same yellow, a shade darker) and the front house's own roof
@@ -238,7 +288,7 @@ function diLuanDuong(S, box, hip, cyl, y0) {
   }
   // upper storey: square, one bay and four chái, windows on every face
   S.kind = KIND.TIMBER;
-  box(0, -2.8, yU, yU2, 10.4, 10.4, shade(LAC, 0.86), { top: shade(TILE, 0.8) });
+  box(0, -2.8, yU, yU2, 10.4, 10.4, shade(LAC, 0.52), { top: shade(TILE, 0.8) });
   S.kind = KIND.PLAIN;
   for (let i = -1; i <= 1; i++) {
     box(i * 3.0, -2.8 + 5.22, yU + 0.3, yU2 - 0.35, 2.2, 0.06, shade(LAC, 0.58));
@@ -252,6 +302,78 @@ function diLuanDuong(S, box, hip, cyl, y0) {
   hip(0, -2.8, 10.4, 10.4, yU2, top - yU2, TILE, { over: 1.5, ridgeCol: RIDGE });
   // ridge ornament: a gourd on the peak
   cyl(0, -2.8, top - 0.1, top + 0.5, 0.3, 0.12, 8, RIDGE);
+}
+
+// The precinct balustrade round a closed ring, with a gap of width gw at gate point g. The Lê Trực (north-west)
+// side carries the iron railing seen from the street; the Đoàn Thị Điểm side is bare balustrade; the south-east and
+// north-east sides are hidden behind trees in every view and drawn bare like the south-west.
+function balustrade(S, ring, g, gw) {
+  const keepKind = S.kind, keepBase = S.base;
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    const a = ring[i], b = ring[(i + 1) % n];
+    const ex = b[0] - a[0], ez = b[1] - a[1], len = Math.hypot(ex, ez);
+    if (len < 0.6) continue;
+    const ang = Math.atan2(ez, ex), at = (f) => [a[0] + ex * f, a[1] + ez * f];
+    // which side: the mid point in the hall frame (v < 0 behind the hall; a run along u is the north-west side)
+    const m = at(0.5), du = (m[0] - C[0]) * U[0] + (m[1] - C[1]) * U[1], dv = -(m[0] - C[0]) * U[1] + (m[1] - C[1]) * U[0];
+    const along = Math.abs(ex * U[0] + ez * U[1]) > Math.abs(-ex * U[1] + ez * U[0]);
+    const rail = along && dv < 0 && Math.abs(du) < 120;
+    // the gate gap
+    const t = ((g[0] - a[0]) * ex + (g[1] - a[1]) * ez) / (len * len);
+    const off = Math.abs((g[0] - a[0]) * ez - (g[1] - a[1]) * ex) / len;
+    const runs = off < 3 && t > -0.1 && t < 1.1 ? [[0, t - gw / 2 / len], [t + gw / 2 / len, 1]] : [[0, 1]];
+    for (const [r0, r1] of runs) {
+      const rl = (r1 - r0) * len;
+      if (rl < 0.6) continue;
+      const nb = Math.max(1, Math.round(rl / BAL.every)), bl = rl / nb;
+      for (let k = 0; k < nb; k++) {
+        const p = at(r0 + ((r1 - r0) * k) / nb), q = at(r0 + ((r1 - r0) * (k + 1)) / nb);
+        const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, y = Math.min(gY(...p), gY(...q));
+        const w = bl - BAL.pierW;
+        S.base = y - LAND_Y;
+        S.kind = KIND.PLAIN;
+        S.box(mx, mz, y - 0.3, y + 0.32, w + 0.02, 0.3, ang, BAL.foot, { top: BAL.cap }); // plinth, the darkest stain
+        S.box(mx, mz, y + 0.32, y + BAL.h - 0.14, w, 0.12, ang, BAL.hole); // the pierced band, read as its shadow
+        // the solid bits between piercings: three posts in each bay
+        for (const f of [-0.42, -0.28, -0.14, 0, 0.14, 0.28, 0.42]) {
+          const bx = mx + Math.cos(ang) * f * w, bz = mz + Math.sin(ang) * f * w;
+          S.box(bx, bz, y + 0.32, y + BAL.h - 0.14, 0.08, 0.2, ang, BAL.col);
+          S.box(bx, bz, y + 0.5, y + BAL.h - 0.32, 0.15, 0.2, ang, BAL.col); // the swell of a bottle baluster: oval piercings between
+        }
+        S.box(mx, mz, y + BAL.h - 0.14, y + BAL.h, w + 0.02, 0.32, ang, BAL.cap); // coping
+        if (rail) {
+          // see-through: a bottom and a top rail, upright bars every ~0.3 m, one open round thọ roundel mid-bay
+          S.kind = KIND.PLAIN;
+          const ca = Math.cos(ang), sa = Math.sin(ang), yb = y + BAL.h, yt = yb + IRON.h;
+          S.box(mx, mz, yb + 0.08, yb + 0.14, w, 0.05, ang, IRON.col);
+          S.box(mx, mz, yt - 0.07, yt, w, 0.07, ang, shade(IRON.col, 1.3));
+          const nbar = Math.max(2, Math.round(w / 0.3));
+          for (let j = 1; j < nbar; j++) {
+            const f = -w / 2 + (j * w) / nbar;
+            if (Math.abs(f) < 0.3) continue; // the roundel's place
+            S.box(mx + ca * f, mz + sa * f, yb, yt - 0.04, 0.035, 0.035, ang, IRON.col);
+          }
+          // the roundel: an iron ring 0.5 m across, the stylised 壽 inside it as three bars and a stem, open between
+          const R = 0.25, yc = yb + 0.52, pt = (a) => [mx + ca * R * Math.cos(a), yc + R * Math.sin(a), mz + sa * R * Math.cos(a)];
+          for (let j = 0; j < 12; j++) S.beam(pt((j * Math.PI) / 6), pt(((j + 1) * Math.PI) / 6), 0.035, 0.04, IRON.col);
+          for (const [dy, hw] of [[0.12, 0.17], [0, 0.24], [-0.12, 0.17]]) S.box(mx, mz, yc + dy - 0.017, yc + dy + 0.017, 2 * hw, 0.035, ang, IRON.col);
+          S.box(mx, mz, yc - R, yc + R, 0.035, 0.035, ang, IRON.col);
+        }
+        // a pier at the start of each bay and at the end of the run
+        for (const o of k === nb - 1 ? [p, q] : [p]) {
+          const yo = gY(...o), top = yo + (rail ? BAL.h + IRON.h + 0.1 : BAL.h + BAL.pierUp);
+          S.base = yo - LAND_Y;
+          S.kind = KIND.PLAIN;
+          S.box(o[0], o[1], yo - 0.3, top, BAL.pierW, BAL.pierW, ang, BAL.col, { top: BAL.cap });
+          S.box(o[0], o[1], top, top + 0.12, BAL.pierW + 0.1, BAL.pierW + 0.1, ang, BAL.cap);
+          S.box(o[0], o[1], top + 0.12, top + 0.32, BAL.pierW * 0.6, BAL.pierW * 0.6, ang, BAL.cap, { taper: 0.4 });
+        }
+      }
+    }
+  }
+  S.kind = keepKind;
+  S.base = keepBase;
 }
 
 // shrink a convex ring by d metres (edges moved in, corners re-intersected)

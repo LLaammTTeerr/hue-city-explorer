@@ -2,6 +2,8 @@ import { KIND, hex } from '../geo/buf.js';
 import { glowPoints } from '../geo/materials.js';
 import { LAND_Y } from '../config.js';
 import { rise } from '../geo/terrain.js';
+import { ownLit } from '../geo/bridges.js';
+import { placeLightAreas } from './places/index.js';
 
 // Riverside lights along the Hương (issue #21). Where they stand comes from the data (data.riverLamps, built in
 // scripts/build-data.mjs from the river's own bank and the OSM footways along it):
@@ -19,8 +21,19 @@ export function buildRiverLights(data, S, group) {
   const post = { p: [], c: [] }, low = { p: [], c: [] };
   const keepKind = S.kind;
   S.kind = KIND.PLAIN;
+  // walks a place model lights with its own lamps (lightAreas in places/index.js)
+  const own = placeLightAreas(data);
+  const inside = (x, z, r) => {
+    let c = false;
+    for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+      if ((r[i][1] > z) !== (r[j][1] > z) && x < ((r[j][0] - r[i][0]) * (z - r[i][1])) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
+    }
+    return c;
+  };
   for (let i = 0; i + 2 < a.length; i += 3) {
     const x = a[i] / 10, z = a[i + 1] / 10, type = a[i + 2];
+    if (type === 0 && ownLit(data, x, z)) continue; // beside a bridge's own lamp standards (geo/bridges.js `lit`)
+    if (own.some((r) => inside(x, z, r))) continue; // inside a place's own lit walk (lightAreas)
     const y = LAND_Y + rise(x, z);
     const f = 0.92 + 0.08 * (((i / 3) * 7) % 5) / 4; // bulbs never quite alike
     if (type === 0) {

@@ -41,6 +41,27 @@ Model: `src/landmarks/places/baoquoc.js`. It covers the pagoda precinct on Hàm 
 - Generated filler houses inside the OSM precinct are removed, as quochoc.js does. Trees are left.
 - The forecourt, terrace, hall platform and inner court are marked paved.
 
+## Satellite alignment (2026-11)
+Checked against Google satellite (visual reference only, nothing traced):
+- The OSM halls sit about 5.8 m south and 1.3 m east of the satellite's halls; the long range, the inner garden and the hall front agree on that shift. The precinct outline and the streets line up, so only the halls' frame moved (A in the place file); the axis stays at 50° (satellite 48-50°).
+- The paved court ends at u 89 with a structure on the axis just beyond, so the gate moved from u 116 to u 92.5. A stone path now runs from the stair's foot to the wall opening where the service road arrives (the gate's old place).
+- The court is about 18 m wide; the step up to the terrace is at u 64, not 72; the terrace is about 28 m wide, not 38.
+- The nhà hậu tổ moved 5.7 m south-east to the lighter orange-roofed block the satellite shows behind the 口.
+- The mapped OSM halls are removed from the building data inside the precinct, since the model no longer covers their offset outlines.
+- No Street View panorama shows the pagoda: trees and houses hide it from every street.
+
+## Review fixes (2026-11)
+Measured on Google satellite z20, rotated into the place frame (u toward the front, v across; visual reference only, nothing traced):
+- **Long range:** one range with one ridge, roof u 44.9-94.4 and eaves about 7.1-7.5 m wide. It is now a single gabled roof over u 45-93.8, with eaves 7.4 m across and gable ends in the wall colour. It replaces the three hipped roofs.
+- **Main hall:** a narrow front roof at u 42-46 with hipped ends, valleys at u 39.1 and 41.9, and the main roof back to u 23.5. It is about 19 m across (v 35.9-55). The model is a front hall (trùng thiềm, as described by mia.vn) with its ridge across the axis, eaves u 42-46. A short middle roof joins it to a two-tier main roof, eaves u 23.6-38.8 and v 35.2-55.2. The tiles are weathered tan-brown (#9a8676), matching the satellite's #816b64-#8e7569, not fresh terracotta. The reviewer read the front edge at u 42-43. I read the strip out to u 46 as the front hall's roof and kept it.
+- **Small hall (nhà hậu tổ):** roof u 44.5-55.7, v 6-13.1. It is modelled as 6.5 × 10.6 m walls (about 7 × 11 m with eaves), moved about 3.5 m south-east.
+- **Courts:** they read pale tan from above (#a7 94 87). The paving is now weathered terracotta tile, #b6a08a.
+- **Canopy:** the precinct sits in closed forest. The place file plants a jittered 5.6 m grid of spreading and dark trees inside the precinct ring. It keeps clear of the buildings, courts, path, pond, stupas and roads.
+- **Pond:** a round pond, about 3.3 m in radius, before the precinct wall at u 27.5, v 75, with a white statue on a rock.
+- **Gate:** the three openings are round-headed arches with their leaves standing open. The red closing panels are gone.
+
+Still estimated, with no source in hand: the gate's exact form and heights, the stupa garden layout, and the main hall's roof heights.
+
 ## Left to do
 - The Hàm Long well (north, at the foot of the hill), the bell tower and the Buddhist school buildings are not modelled.
 - Interior and mosaic (mảnh sành) detail, and the exact ridge ornaments, are left out.

@@ -15,6 +15,8 @@ import { inCitadel, inHills } from './districts.js';
 //   willow     — liễu rủ along the river, the moat and the tomb lakes: a leaning trunk and hanging curtains
 //   pine       — thông on the southern hills and at the tombs: a tall bare trunk and flat needle tiers
 //   palm       — cây cau in the garden houses: a slender curved trunk and arched fronds
+//   banyan     — the old đa along a river walk (kind 5, planted by a landmark): a thick whitewashed foot, a low wide
+//                umbrella of clumps on many limbs, a few aerial roots
 // All illustrative (OSM maps almost no individual trees here). Local units: ground at y ≈ −1.7, crown radius ≈ 1.
 
 
@@ -293,6 +295,36 @@ function spreadingGeometry(low) {
   return S.geometry();
 }
 
+// Đa (banyan): a short thick trunk whose foot is whitewashed (as Huế paints its old street trees), aerial roots down
+// to the ground, and a wide low crown on six limbs.
+const WHITEWASH = [1.45, 1.43, 1.36];
+function banyanGeometry(low) {
+  const S = new Soup();
+  let s = 71;
+  const rnd = () => { s = (s * 16807) % 2147483647; return s / 2147483647; };
+  const fork = [0.02, -0.82, 0.01];
+  limb(S, [0, -1.79, 0], [0, -1.5, 0], 0.125, 0.118, 7, WHITEWASH, 0.62, 0.66);
+  limb(S, [0, -1.5, 0], fork, 0.118, 0.085, 7);
+  const roots = low ? 2 : 4;
+  for (let k = 0; k < roots; k++) {
+    const a = (k / roots) * Math.PI * 2 + 0.7, r = 0.1 + rnd() * 0.04;
+    limb(S, [Math.cos(a) * r, -1.79, Math.sin(a) * r], [Math.cos(a) * 0.05, -0.95, Math.sin(a) * 0.05], 0.022, 0.014, 3);
+  }
+  const O = [0, -0.02, 0], R = [1.1, 0.5, 1.1];
+  const cl = [];
+  const n = low ? 5 : 6;
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2 + (rnd() - 0.5) * 0.4, r = 0.6 + rnd() * 0.16;
+    const K = [Math.cos(a) * r, -0.12 + rnd() * 0.16, Math.sin(a) * r];
+    limb(S, fork, [K[0] * 0.75, K[1] - 0.18, K[2] * 0.75], 0.05, 0.026, 3);
+    cl.push([K, 0.42 + rnd() * 0.08]);
+  }
+  cl.push([[0.12, 0.26, -0.08], 0.46], [[-0.2, 0.2, 0.18], 0.42]);
+  core(S, [0, -0.02, 0], 0.66, 0.28, 0.66);
+  for (const [K, rc] of cl) clump(S, rnd, K, rc, low ? 2 : 3, UV.broad, crownLight(O, R, K), { squash: 0.85 });
+  return S.geometry();
+}
+
 function uprightGeometry(low) {
   const S = new Soup();
   let s = 29;
@@ -459,11 +491,12 @@ function waterNear(data) {
   };
 }
 
-const TYPES = ['spreading', 'upright', 'flamboyant', 'willow', 'pine', 'palm'];
+const TYPES = ['spreading', 'upright', 'flamboyant', 'willow', 'pine', 'palm', 'banyan'];
 
 // Returns plant(records, nearCount, i0): plants one batch of trees (hue.json's own, then each tile's) with the shared
 // geometry and materials and returns its meshes; i0 is the batch's first index in the whole model (dice seeds).
-export function treePlanter(data, group, off = null) {
+// off(x, z, reach) keeps a tree off a model; lift(x, z), when given, raises one onto a model's terrace (metres).
+export function treePlanter(data, group, off = null, lift = null) {
   const tex = leafAtlas();
   const mat = cityMaterial({ foliage: true, map: tex, alphaTest: 0.42, side: THREE.DoubleSide });
   mat.alphaToCoverage = true;
@@ -487,10 +520,14 @@ export function treePlanter(data, group, off = null) {
   mat.customProgramCacheKey = () => 'hue-foliage-cards-3';
   const depthMat = foliageDepthMaterial({ map: tex, alphaTest: 0.4, side: THREE.DoubleSide }); // shadows sway with the crowns
   const low = quality.low;
-  const geos = { spreading: spreadingGeometry(low), upright: uprightGeometry(low), flamboyant: flamboyantGeometry(low), willow: willowGeometry(low), pine: pineGeometry(low), palm: palmGeometry(low) };
+  const geos = { spreading: spreadingGeometry(low), upright: uprightGeometry(low), flamboyant: flamboyantGeometry(low), willow: willowGeometry(low), pine: pineGeometry(low), palm: palmGeometry(low), banyan: banyanGeometry(low) };
   const nearWater = waterNear(data);
   // illustrative planting must not stand between the visitor and the monuments of the central axis
-  const forecourts = (data.places || []).filter((p) => ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'].includes(p.id)).map((p) => [p.x / 10, p.z / 10]);
+  // a place model may give its own open court as a test (data.courts[id](x, z), set by its build) in place of the
+  // 46 m circle, where the real monument stands framed by trees (Nghênh Lương Đình)
+  const courts = data.courts || {};
+  const forecourts = (data.places || []).filter((p) => ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'].includes(p.id))
+    .map((p) => courts[p.id] || ((x, z) => (x - p.x / 10) ** 2 + (z - p.z / 10) ** 2 < 46 * 46));
 
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const c = new THREE.Color();
@@ -511,11 +548,13 @@ export function treePlanter(data, group, off = null) {
       const j = start + Math.floor(k * stride), i = i0 + j, sc = a[j * 4 + 2] / 10, kind = a[j * 4 + 3];
       const r = rand(i, 61);
       const x = a[j * 4] / 10, z = a[j * 4 + 1] / 10;
-      if (off && off(x, z, 2.2 * sc, 3.3 * sc * (0.75 + rand(i, 41) * 0.5))) continue; // a landmark model or the asphalt is here (crown radius as below)
-      if (forecourts.some((c) => (x - c[0]) ** 2 + (z - c[1]) ** 2 < 46 * 46)) continue; // the great halls stand in open courts
-      let type = kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
+      if (off && off(x, z, 2.2 * sc, (kind === 5 ? 1.5 : 1) * 3.3 * sc * (0.75 + rand(i, 41) * 0.5))) continue; // a landmark model or the asphalt is here (crown radius as below)
+      if (forecourts.some((inCourt) => inCourt(x, z))) continue; // the great halls stand in open courts
+      // kinds from build-data (0 broadleaf, 1 dark, 2 flame tree, 3 hill pine); kind 4: a broad shade tree a landmark plants on purpose (a banyan by a river walk, a bàng on a lake bank, an old shade tree from the imagery): spreading, never a willow
+      // kind 5: a banyan a landmark plants (wide, low, whitewashed foot)
+      let type = kind === 5 ? 'banyan' : kind === 4 ? 'spreading' : kind === 3 ? 'pine' : kind === 2 ? 'flamboyant' : r < 0.085 && sc < 1.25 ? 'palm' : r < 0.42 ? 'upright' : 'spreading';
       let lean = null;
-      if (type === 'spreading' || type === 'upright') {
+      if ((type === 'spreading' || type === 'upright') && kind !== 4) {
         const w = rand(i, 71) < 0.5 ? nearWater(x, z) : null;
         if (w !== null) { type = 'willow'; lean = w; }
       }
@@ -528,17 +567,17 @@ export function treePlanter(data, group, off = null) {
         const mesh = new THREE.InstancedMesh(geos[type], mat, sub.length);
         sub.forEach(({ i, x, z, sc, kind, lean }, k) => {
           const r = 3.3 * sc * (0.75 + rand(i, 41) * 0.5);
-          const hgt = r * (0.95 + rand(i, 42) * 0.45) * (type === 'palm' ? 1.45 : type === 'pine' ? 1.42 : type === 'flamboyant' ? 0.82 : type === 'willow' ? 1.05 : 1);
-          const rr = type === 'palm' ? r * 0.85 : type === 'flamboyant' ? r * 1.12 : r;
+          const hgt = r * (0.95 + rand(i, 42) * 0.45) * (type === 'palm' ? 1.45 : type === 'pine' ? 1.42 : type === 'flamboyant' ? 0.82 : type === 'willow' ? 1.05 : type === 'banyan' ? 0.85 : 1);
+          const rr = type === 'palm' ? r * 0.85 : type === 'flamboyant' ? r * 1.12 : type === 'banyan' ? r * 1.5 : r;
           // willows lean out toward the water (local +x is the lean); everything else turns at random
           const yaw = lean !== null ? -lean + (rand(i, 72) - 0.5) * 0.7 : rand(i, 43) * 6.28;
           q.setFromAxisAngle(up, yaw);
-          p.set(x, LAND_Y + rise(x, z) + hgt * 1.7, z);
+          p.set(x, LAND_Y + rise(x, z) + (lift ? lift(x, z) : 0) + hgt * 1.7, z);
           const ax = 0.88 + rand(i, 73) * 0.24; // not every crown round in plan
           s.set(rr * ax, hgt, rr / ax);
           mesh.setMatrixAt(k, m.compose(p, q, s));
-          let col = type === 'pine' ? pick(pineC, i, 49) : type === 'palm' ? pick(palmC, i, 48) : type === 'flamboyant' ? pick(flameBase, i, 44) : type === 'willow' ? pick(willowC, i, 50) : kind === 1 ? pick(dark, i, 45) : pick(greens, i, 46);
-          if (type === 'spreading' || type === 'upright') {
+          let col = type === 'pine' ? pick(pineC, i, 49) : type === 'palm' ? pick(palmC, i, 48) : type === 'flamboyant' ? pick(flameBase, i, 44) : type === 'willow' ? pick(willowC, i, 50) : kind === 1 || kind === 4 ? pick(dark, i, 45) : pick(greens, i, 46);
+          if ((type === 'spreading' || type === 'upright') && kind !== 4) { // kind 4 is a placed bàng: no blossom
             const bl = rand(i, 67);
             if (bl < 0.035 && !inHills(x, z)) col = pick(lilac, i, 68);
             else if (bl < 0.065 && inCitadel(x, z)) col = pick(mai, i, 69);

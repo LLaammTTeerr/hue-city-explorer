@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { KIND } from '../../geo/buf.js';
+import polygonClipping from 'polygon-clipping';
+import { KIND, unflat } from '../../geo/buf.js';
 
 // Replica models, one file per place: src/landmarks/places/<slug>.js, picked up here without being listed.
 //
@@ -29,6 +30,13 @@ function load() {
 
 export const replaced = (id) => { load(); return ids.has(String(id).normalize('NFC')); };
 
+// A place may also export ownsMapped(ring): true for a mapped building outline (data.bld, scene metres) that the
+// place's model draws itself, so geo/city.js leaves it out even where the model's roofs do not cover it.
+export function placeOwns(ring) {
+  load();
+  return list.some((m) => typeof m.ownsMapped === 'function' && m.ownsMapped(ring));
+}
+
 // A place that models a bridge deck may also export deckEnds(data): its end lines, [{ p, u, hw, reach }] (p on the
 // deck's axis at the end, u the unit vector out of the deck, hw the half width, reach how far past the end a street
 // may start and still be an approach). geo/city.js cuts the approach streets on those lines; check-joints tests them.
@@ -42,9 +50,71 @@ export function placeDeckEnds(data) {
   return out;
 }
 
-// onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
-export function buildPlaces(data, S, group, onEach = null) {
+// A place may also export rampartCuts(data): rings ([[x, z], ...], metres) to leave out of the Citadel's rampart band
+// (data.wall[0]), for a court sunk into a bastion beside a monument that stands on it (Kỳ Đài). They are cut before
+// any place is built, so the rampart (kinhthanh.js) and the gates that find its faces all see the same band. A cut
+// that would split the band in two is refused.
+function withRampartCuts(data) {
+  const band = (data.wall || [])[0], cuts = [];
+  for (const m of list) {
+    if (typeof m.rampartCuts !== 'function') continue;
+    try { cuts.push(...m.rampartCuts(data)); } catch (e) { console.warn(`rampart cuts of ${m.id}:`, e); }
+  }
+  if (!band || !cuts.length) return data;
+  const close = (r) => [...r, r[0]];
+  try {
+    const out = polygonClipping.difference(band.map((f) => close(unflat(f))), ...cuts.map((r) => [close(r)]));
+    if (out.length !== 1) throw new Error(`the band would fall into ${out.length} pieces`);
+    const flat = out[0].map((r) => r.slice(0, -1).flatMap(([x, z]) => [x * 10, z * 10]));
+    return { ...data, wall: [flat, ...data.wall.slice(1)] };
+  } catch (e) {
+    console.warn('rampart cuts not applied:', e);
+    return data;
+  }
+}
+
+// A place that lights its own walk may also export lightAreas(data): rings ([[x, z], ...], metres) inside which the
+// generic riverside lamps (riverlights.js, data.riverLamps) are left out, so its own lamp design is the only one there.
+export function placeLightAreas(data) {
   load();
+  const out = [];
+  for (const m of list) {
+    if (typeof m.lightAreas !== 'function') continue;
+    try { out.push(...m.lightAreas(data)); } catch (e) { console.warn(`light areas of ${m.id}:`, e); }
+  }
+  return out;
+}
+
+// A place that models paths OSM maps as ways (a gallery round a building, its steps) may export ownWays(data): a
+// test on a data.roads record ([class, bridge, flat, ...]) that is true for the ways it draws itself. geo/city.js and
+// landmarks/life.js leave those out of the street network, so no footway is laid at grade where the model stands.
+export function placeOwnsWay(data) {
+  load();
+  const tests = [];
+  for (const m of list) {
+    if (typeof m.ownWays !== 'function') continue;
+    try { tests.push(m.ownWays(data)); } catch (e) { console.warn(`own ways of ${m.id}:`, e); }
+  }
+  return (r) => tests.some((t) => t(r));
+}
+
+// A place that lays its own ground flush with the land (a lawn, walks) may also export clearings(data): rings of
+// [x, z] in model metres where geo/city.js draws none of the city's footways (class 5) or green patches (the ones
+// whose middle lies inside) and plants no trees or houses. buildCity reads them before any model is built.
+export function placeClearings(data) {
+  load();
+  const out = [];
+  for (const m of list) {
+    if (typeof m.clearings !== 'function') continue;
+    try { for (const ring of m.clearings(data)) if (ring && ring.length >= 3) out.push(ring); } catch (e) { console.warn(`clearings of ${m.id}:`, e); }
+  }
+  return out;
+}
+
+// onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
+export function buildPlaces(data0, S, group, onEach = null) {
+  load();
+  const data = withRampartCuts(data0);
   const live = [];
   for (const m of list) {
     const id = String(m.id).normalize('NFC');

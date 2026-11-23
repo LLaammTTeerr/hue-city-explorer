@@ -28,6 +28,8 @@ returns early when `replaced('namgiao')` is true. The new file also draws the si
 - Stairs on all four sides of every tier, the widest flight on the south.
 - The esplanade faces south and sits rotated about 13° from north (OSM).
 - Trai Cung: a walled compound south-west of the altar, about 85 × 65 m, with a front and a rear hall on one platform.
+  The 85 m is the north-south depth: the satellite shows the walled court about 64 m east-west by 83 m north-south on
+  the 13° turn.
 - The precinct wall has been mostly demolished. The grounds are pine woods.
 
 ## Estimated
@@ -49,7 +51,38 @@ returns early when `replaced('namgiao')` is true. The new file also draws the si
   the precinct gates, three bình phong screens, and the guard house. The esplanade and the Trai Cung court are marked
   paved, so the generic trees (176 pines in the precinct) stay off them.
 
+## Rebuild against the satellite (2026-11)
+- The esplanade already matched the satellite to about 1 m and well under 1°; nothing moved.
+- The Trai Cung was 85 m wide instead of 64 m and its north wall stood about 18 m too far south. It is now placed and
+  sized from the satellite (a visual reference only, nothing traced into `data/`): the walled court, the main hall
+  pair on its platform, the two long side halls, the two north-corner halls, the small south-east house, the west
+  outbuilding and a stone-paved court with column-base stones behind the hall. The OSM main-hall way sits about 3.5 m
+  south of the roof seen from above, so the hall follows the roof.
+- The tier bodies and plinth courses are now in `S.noCover`, with only the walks as paved slabs, so the precinct's
+  generic pines grow on the lowest tier and the Phương đàn as the photos show (26 in the tile density). The
+  satellite canopy is denser than that.
+
+## Review fixes (2026-11)
+- Ground: `scripts/build-data.mjs` holds the precinct's terrain nodes at the median of the ring 0–40 m outside
+  (17.29 m), so the esplanade no longer needs a bank on the west and nothing stands sunk in a slope.
+- Trees: `plant()` replaces the generic trees inside the precinct with pines of its own: a closed wood (4.3 m grid)
+  with a lower storey near the verge and an understory, dense groves on the band inside the railing and on the
+  Phương đàn round its four clearings, up to the round top's kerb (the 3 m collar is gone). The tiers' tops under the
+  groves are a dark grove floor; only the OSM lawns stay grass. A pine screen also fills the strip between Minh Mạng
+  and the west wall, clear of the carriageway and the Trai Cung.
+- Trees on a tier stand on its top: a landmark can push a `stand(x, z)` lift into `S.stand`; `populate` hands it to
+  `treePlanter`.
+- Walks are earth-brown and 5 m wide; the pale perimeter band and the wide N/S aprons are gone. The young pine rows
+  stand on the lowest tier, flanking the axial walks.
+- Boundary (low confidence, from Street View only): a dark stone wall 1.5 m high along Lê Ngọ Cát; a pale wall on the
+  west behind the pine screen; a clipped hedge of clumps 2.2–3.6 m high inside the edges, which hides the tier from
+  Tam Thai.
+
 ## Left
-- The precinct wall is not drawn, since it has been demolished.
+- The old precinct wall is not drawn, since it has been demolished; the low modern walls above stand in its place.
+- The rail fence along Minh Mạng is not drawn.
 - The Thần khố and Thần trù (storehouse and kitchen for the rite) are lost and not drawn.
 - No north screen. No sourced overall height has been added to `docs/heights-reference.json`.
+- Roof colours: the satellite shows an orange main-hall roof and grey side halls; the written source says glazed
+  green-blue tiles. The model keeps green-blue until the owner decides.
+- The NW ruin seen on the satellite is not drawn (it waits on the owner, with the roof colours).
