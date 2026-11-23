@@ -141,7 +141,7 @@ function gapsOf(a, b, len, roads, openings) {
 }
 
 // Styles. h: height of the fence above ground; plinth: solid wall under a railing (rail: true) or the whole wall
-// (rail: false); posts every `every` metres, `postW` square, standing `postUp` above the fence; gate piers `pierW`, `pierUp`.
+// (rail: false); posts every `every` metres, `postW` square (0 for none), standing `postUp` above the fence; gate piers `pierW`, `pierUp`.
 export const FENCE = {
   // Quốc Học: low dark-red wall, dark iron railing, red piers with cream caps
   quochoc: { h: 2.0, plinth: 0.65, rail: true, t: 0.34, every: 3.4, postW: 0.48, postUp: 0.2, wall: hex('#9a2f27'), cap: hex('#efe2c4'), iron: hex('#24302b'), pierW: 1.0, pierUp: 1.2 },
@@ -238,7 +238,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
           S.box(mx, mz, hi + st.h - 0.18, hi + st.h, bl + 0.05, st.t + 0.24, ang, st.cap, { taper: 0.55 });
         }
         // a post at the start of each bay, and at the end of the run
-        const posts = k === nb - 1 ? [p, q] : [p];
+        const posts = !st.postW ? [] : k === nb - 1 ? [p, q] : [p]; // postW 0: a plain wall with no posts
         for (const o of posts) {
           const y = gY(o[0], o[1]);
           S.kind = KIND.MASONRY;

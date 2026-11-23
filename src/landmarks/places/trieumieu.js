@@ -2,7 +2,6 @@ import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
-import { pavilion } from '../citadel.js';
 import { fence, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
 
 // Triệu Miếu (Triệu Tổ miếu), the temple of Nguyễn Kim, father of lord Nguyễn Hoàng: built 1804 (the first building of
@@ -12,8 +11,9 @@ import { fence, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
 // The hall is a trùng thiềm điệp ốc like Hưng Miếu's: a front hall (tiền điện) of 5 bays and 2 single wings joined
 // under a valley to the main hall (chính điện) of 3 bays and 2 wings, about 540 m² (vi.wikipedia), yellow glazed
 // tiles (hoàng lưu ly), ridges and gable ends inlaid with porcelain, columns lacquered red and the ornament gilt. Before
-// it a court of about 300 m² of Bát Tràng brick. The precinct (0.541 ha) is closed on its four sides by low walls,
-// about 1.2 m, with the gates where OSM maps them; Thần Khố stands to the east, Thần Trù to the west.
+// it a court of about 300 m² of Bát Tràng brick. The precinct (0.541 ha) is closed on its four sides by walls (vi.wikipedia
+// says about 1.2 m; the street photo at the west corner shows a plain plastered wall of about 3 m, which the model
+// follows), with the gates where OSM maps them; Thần Khố stands to the east, Thần Trù to the west.
 //
 // Frame: the mapped hall (OSM way 172657570, 24.05 x 23.6 m with its base) at C0, u along the facade (toward the
 // north-east end), v out of the front (south-east, toward Thái Miếu). The roof on the satellite (24.2 x 22.5 m, its
@@ -37,10 +37,13 @@ const GATES = [[-967.5, -140.1, 0], [-923.1, -171.2, 0], [-952.3, -98.4, 1]];
 
 const ROOF = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = hex('#b0291c'), GOLD = hex('#e0b03c');
 const WALL = hex('#d8c48e'), WOOD = hex('#7a4a2c');
-const STONE = PAL.stone, BRICK = hex('#a37a62');
+const STONE = PAL.stone, BRICK = hex('#a89c8a'); // the court's worn brick reads pale grey-brown from the air
 const CLAY = hex('#8a5a48'), LIME = hex('#ddd6c6'); // Thần Trù's unglazed tiles and lime-pointed ridges
 const MOSAIC = [hex('#2f7d8c'), hex('#3f8f4f'), hex('#e8e2d0')]; // sành sứ inlay: blues, greens and white
-const LOW = { ...FENCE.imperial, h: 1.3, plinth: 1.3, t: 0.45, every: 4.5, postW: 0.6, postUp: 0.2, wall: hex('#c9a46a'), pierW: 0.9, pierUp: 0.9 };
+// the precinct wall as the west-corner street photo shows it: about 3 m (six times the bench before it) of plain,
+// weathered grey-ochre lime plaster under a dark unglazed tile coping, no piers
+const LOW = { ...FENCE.imperial, h: 3.0, plinth: 3.0, t: 0.5, every: 6.0, postW: 0, wall: hex('#968f7c'), cap: hex('#4a433d'), pierW: 0.8, pierUp: 0.3 };
+const GABLE = hex('#d9cfb4'); // Thần Trù's cream lime-plastered walls and gable ends
 
 const gy = (p) => LAND_Y + rise(p[0], p[1]);
 function fbox(S, u, v, y0, y1, su, sv, col, opts) { const p = P(u, v); S.box(p[0], p[1], y0, y1, su, sv, ANG, col, opts); }
@@ -142,37 +145,56 @@ function court(S) {
 
 function sides(S) {
   // Thần Trù (west, OSM 695810748, 10.3 x 18.7 m): a long hall facing the axis under a hipped roof of brown clay tiles
-  // with lime-white ridges and hips, as the satellite shows it (not glazed yellow)
-  // (turned a quarter so the ridge runs along its length, north-west to south-east, and the doors face the axis)
+  // with lime-white ridges, as the satellite shows it (not glazed yellow)
   const tc = [-976.6, -107.0], ty = gy(tc);
   S.base = ty - LAND_Y;
-  pavilion(S, tc[0], tc[1], 15.6, 8.4, ANG + Math.PI / 2, ty, { wallH: 3.0, roof: CLAY, ridge: LIME, wall: LAC, over: 1.0, rh: 2.4, platform: 0.35, steps: false, colonnade: true, segs: 3 });
+  // the street photo from the west corner shows its north-west end as a cream gable wall under the brown roof: a
+  // plain plastered hall under a gable roof (not a hip), the ridge along its length, doors on the side to the axis
+  const L = 15.6, Wd = 8.4, wallH = 2.6, rh = 2.5, fl = ty + 0.35;
+  const ra = ANG + Math.PI / 2, rx = Math.cos(ra), rz = Math.sin(ra); // along the ridge
+  const Q = (a, b, y) => [tc[0] + a * rx + b * UX, y, tc[1] + a * rz + b * UZ]; // b across, toward the hall (+u)
+  S.kind = KIND.MASONRY;
+  S.box(tc[0], tc[1], ty - 0.3, fl, L + 1.2, Wd + 1.2, ra, STONE, { taper: 0.98, topKind: KIND.ROAD });
+  S.box(tc[0], tc[1], fl, fl + wallH, L, Wd, ra, GABLE, { top: shade(CLAY, 0.8) });
+  S.kind = KIND.PLAIN;
+  for (const a of [-4.5, -1.5, 1.5, 4.5]) { const q = Q(a, Wd / 2 + 0.04, 0); S.box(q[0], q[2], fl, fl + 2.3, 1.4, 0.08, ra, WOOD); }
+  // the gable roof: two slopes with 0.8 m eaves and 0.4 m over the gable ends, the ends closed in plaster
+  const y0 = fl + wallH, oe = 0.8, hl = L / 2 + 0.4, hw = Wd / 2 + oe, ye = y0 - (rh * oe) / (Wd / 2);
+  S.kind = KIND.TILE;
+  S.quad(Q(-hl, -hw, ye), Q(hl, -hw, ye), Q(hl, 0, y0 + rh), Q(-hl, 0, y0 + rh), CLAY, [-UX, 0.9, -UZ]);
+  S.quad(Q(-hl, hw, ye), Q(hl, hw, ye), Q(hl, 0, y0 + rh), Q(-hl, 0, y0 + rh), CLAY, [UX, 0.9, UZ]);
+  S.kind = KIND.MASONRY;
+  for (const s of [-1, 1]) S.tri(Q(s * L / 2, -Wd / 2, y0), Q(s * L / 2, Wd / 2, y0), Q(s * L / 2, 0, y0 + rh), GABLE, [s * rx, 0, s * rz]);
+  S.kind = KIND.PLAIN;
+  S.beam(Q(-hl, 0, y0 + rh + 0.08), Q(hl, 0, y0 + rh + 0.08), 0.4, 0.3, LIME);
+  for (const s of [-1, 1]) for (const b of [-1, 1]) S.beam(Q(s * hl, 0, y0 + rh + 0.05), Q(s * hl, b * hw, ye + 0.05), 0.28, 0.2, LIME); // lime-pointed verges
 
   // Thần Khố (east, OSM 619851654, 12.6 x 17.2 m) is a ruin on the satellite: a bare brick-floored platform with a grid
   // of white column bases, a flight up its long side toward the hall, and a low kerb round it on the lawn
-  const kc = [-888.0, -171.3], ky = gy(kc), kt = ky + 0.45;
+  // re-measured on the z20 satellite: about 13.4 x 18.8 m, centred 2.4 m west and 1.9 m south of the OSM centre
+  const kc = [-890.4, -169.4], ky = gy(kc), kt = ky + 0.45, KW = 13.4, KL = 18.8;
   const K = (u, v) => [kc[0] + u * UX - v * UZ, kc[1] + u * UZ + v * UX];
   S.base = ky - LAND_Y;
   S.kind = KIND.MASONRY;
-  for (const [u, v, su, sv] of [[0, -10.3, 16.0, 0.3], [0, 10.3, 16.0, 0.3], [-7.85, 0, 0.3, 20.3], [7.85, 0, 0.3, 20.3]]) {
+  for (const [u, v, su, sv] of [[0, -KL / 2 - 0.6, KW + 1.5, 0.3], [0, KL / 2 + 0.6, KW + 1.5, 0.3], [-KW / 2 - 0.6, 0, 0.3, KL + 1.5], [KW / 2 + 0.6, 0, 0.3, KL + 1.5]]) {
     const q = K(u, v);
     S.box(q[0], q[1], ky - 0.2, ky + 0.15, su, sv, ANG, shade(STONE, 0.95));
   }
-  S.box(kc[0], kc[1], ky - 0.3, kt, 12.6, 17.2, ANG, shade(STONE, 0.9), { taper: 0.98, topKind: KIND.ROAD, top: hex('#8c7c6c') });
+  S.box(kc[0], kc[1], ky - 0.3, kt, KW, KL, ANG, shade(STONE, 0.9), { taper: 0.98, topKind: KIND.ROAD, top: hex('#8c7c6c') });
   for (let k = 1; k <= 2; k++) {
-    const q = K(-6.3 - 0.32 * k + 0.16, 0);
+    const q = K(-KW / 2 - 0.32 * k + 0.16, 0);
     S.box(q[0], q[1], ky - 0.3, kt - 0.15 * k, 0.32, 4.0, ANG, shade(STONE, 1.05), { topKind: KIND.ROAD });
   }
   S.kind = KIND.PLAIN;
-  for (const u of [-4.2, -1.4, 1.4, 4.2]) for (const v of [-6.6, -3.96, -1.32, 1.32, 3.96, 6.6]) {
+  for (const u of [-4.5, -1.5, 1.5, 4.5]) for (const v of [-7.2, -4.32, -1.44, 1.44, 4.32, 7.2]) {
     const q = K(u, v);
     S.cyl(q[0], q[1], kt, kt + 0.22, 0.32, 0.28, 6, hex('#e4ddcc'), { rot: ANG });
   }
 }
 
-// a small brick gate in the low wall: two piers, a lintel and a tiled hip roof; `big` for the gate to Thái Miếu
+// a small gate in the wall, a little taller than it: two piers, a lintel and a tiled hip roof; `big` for the gate to Thái Miếu
 function gate(S, q, a, big) {
-  const len = big ? 4.2 : 3.4, thick = big ? 1.6 : 1.3, y = gy(q), h = big ? 2.8 : 2.4;
+  const len = big ? 4.2 : 3.4, thick = big ? 1.6 : 1.3, y = gy(q), h = LOW.h + (big ? 0.8 : 0.5);
   const ux = Math.cos(a), uz = Math.sin(a);
   S.base = y - LAND_Y;
   S.kind = KIND.MASONRY;
@@ -201,6 +223,40 @@ function walls(S, data) {
   }
 }
 
+// the grounds as the z20 satellite shows them: large old trees over the precinct's west half and the garden outside
+// its back wall, and hedged beds north-east of the hall (positions read off the satellite, in metres)
+const TREES = [[-964.3, -138.4, 16], [-957.2, -131.9, 14], [-969.4, -129.0, 15], [-974.4, -121.2, 13], [-962.9, -122.6, 12],
+  [-955.7, -175.6, 18], [-942.9, -177.7, 17], [-967.2, -167.0, 16], [-980.1, -161.3, 15]];
+function garden(S, data) {
+  const roads = roadsNear(data, C, 120);
+  const nearPath = (x, z, pad) => roads.some(([ax, az, bx, bz, w]) => {
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz, t = l2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / l2)) : 0;
+    return Math.hypot(ax + dx * t - x, az + dz * t - z) < w / 2 + pad;
+  });
+  let k = 0;
+  for (const [x, z, sc] of TREES) {
+    if (nearPath(x, z, 2.5)) continue;
+    data.trees.push(Math.round(x * 10), Math.round(z * 10), sc, 1); // kind 1: dark broadleaf canopy
+    k++;
+  }
+  // two hedged beds: clipped borders 0.5 m wide and 0.8 m high round a planted bed
+  const HEDGE = hex('#3d5a2c'), BED = hex('#4f6b38');
+  S.kind = KIND.PLAIN;
+  for (const [u0, v0] of [[17.5, 23.0], [21.5, 16.5]]) { // beside the court, as the satellite shows them
+    const bw = 5.0, bd = 5.8;
+    if (nearPath(...P(u0, v0), 3)) continue;
+    const g = gy(P(u0, v0));
+    S.base = g - LAND_Y;
+    fbox(S, u0, v0, g - 0.1, g + 0.25, bw - 1, bd - 1, BED);
+    for (const [du, dv, su, sv] of [[0, -bd / 2, bw, 0.5], [0, bd / 2, bw, 0.5], [-bw / 2, 0, 0.5, bd], [bw / 2, 0, 0.5, bd]]) {
+      const q = P(u0 + du, v0 + dv);
+      if (nearPath(q[0], q[1], 0.8)) continue;
+      fbox(S, u0 + du, v0 + dv, g - 0.1, g + 0.8, su, sv, HEDGE);
+    }
+  }
+  return k;
+}
+
 export function build({ data, S, group }) {
   const lamps = [];
   hall(S, lamps);
@@ -209,6 +265,7 @@ export function build({ data, S, group }) {
   (S.paved = S.paved || []).push([paved0, S.n]); // brick court: no trees, no houses (src/geo/city.js coverOf)
   sides(S);
   walls(S, data);
+  garden(S, data);
   S.kind = KIND.PLAIN;
   S.base = 0;
   if (lamps.length) {
