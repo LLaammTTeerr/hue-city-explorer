@@ -601,6 +601,161 @@ function buildTangThuLauHero() {
   return scene;
 }
 
+// Build Hưng Miếu hero accent .glb (temple of Gia Long's parents behind Thế Miếu)
+function buildHungMieuHero() {
+  const parts = [];
+  const zm = -4.0, ym = 7.3, eaveU = 5.3, eaveL = 4.02;
+  const pearl = new THREE.SphereGeometry(0.36, 12, 8);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ym + 0.54, zm);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, ym + 0.02, zm, 0.38, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ym, zm, 1, 3.2, 0.85));
+  parts.push(...sculptedDragon(0, ym, zm, -1, 3.2, 0.85));
+  for (const s of [-1, 1]) parts.push(latheGourd(s * 3.8, ym - 0.05, zm, 0.72, 0xe8c45e));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 7.3, eaveU, zm + sv * 3.8, su * 0.72, sv * 0.72, 0.88));
+    parts.push(cornerScroll(su * 9.8, eaveL, zm + sv * 5.9, su * 0.72, sv * 0.72, 0.95));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'hungmieu_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Bảo tàng Cổ vật Cung đình (Điện Long An) hero accent .glb
+function buildBaoTangCoVatHero() {
+  const parts = [];
+  const zm = -5.9, ym = 9.04, zf = 8.25, yf = 6.44;
+  const pearl = new THREE.SphereGeometry(0.42, 14, 10);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ym + 0.62, zm);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, ym + 0.02, zm, 0.44, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ym, zm, 1, 4.4, 1.0));
+  parts.push(...sculptedDragon(0, ym, zm, -1, 4.4, 1.0));
+  for (const s of [-1, 1]) parts.push(latheGourd(s * 9.5, ym - 0.06, zm, 0.82, 0xe8c45e));
+  parts.push(latheGourd(0, yf + 0.02, zf, 0.92, 0xe8c45e));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 14.1, 6.4, zm + sv * 6.05, su * 0.72, sv * 0.72, 1.02));
+    parts.push(cornerScroll(su * 19.6, 4.45, zf + sv * 6.8, su * 0.72, sv * 0.72, 0.96));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'baotangcovat_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Quốc Tử Giám (Di Luân Đường) hero accent .glb
+function buildQuocTuGiamHero() {
+  const parts = [];
+  const zm = -2.8;
+  parts.push(latheGourd(0, 9.02, zm, 1.35, 0xe8c45e));
+  parts.push(latheGourd(0, 5.4, 8.2, 0.82, 0xe8c45e));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 6.7, 7.25, zm + sv * 6.7, su * 0.72, sv * 0.72, 0.96));
+    parts.push(cornerScroll(su * 9.9, 4.15, zm + sv * 9.4, su * 0.72, sv * 0.72, 1.02));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'quoctugiam_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Lầu Tứ Phương Vô Sự hero accent .glb (Bắc Khuyết Đài north bastion pavilion)
+function buildTuPhuongHero() {
+  const parts = [];
+  const ry = 14.05, eaveU = 10.95, eaveL = 7.35;
+  const pearl = new THREE.SphereGeometry(0.38, 12, 8);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ry + 0.56, 0);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.42, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 2.4, 0.82));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 2.4, 0.82));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 6.1, eaveU, sv * 5.6, su * 0.72, sv * 0.72, 0.92));
+    parts.push(cornerScroll(su * 7.55, eaveL, sv * 7.05, su * 0.72, sv * 0.72, 0.92));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'tuphuong_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Bia Quốc Học hero accent .glb (1920 riverside memorial screen)
+function buildBiaQuocHocHero() {
+  const parts = [];
+  const ry = 9.65;
+  parts.push(latheGourd(0, ry + 0.02, 0, 1.15, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 1.8, 0.72));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 1.8, 0.72));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 2.2, 8.45, sv * 1.1, su * 0.72, sv * 0.72, 0.7));
+    parts.push(cornerScroll(su * 3.7, 6.15, sv * 1.4, su * 0.72, sv * 0.72, 0.78));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'biaquochoc_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Thương Bạc Đình hero accent .glb (octagonal riverside pavilion)
+function buildThuongBacHero() {
+  const parts = [];
+  const ry = 7.58;
+  const pearl = new THREE.SphereGeometry(0.32, 12, 8);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ry + 0.48, 0);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.35, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 1.6, 0.7));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 1.6, 0.7));
+  // 8 octagonal lower eave corner scrolls + 4 upper corner scrolls
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2 + Math.PI / 8;
+    parts.push(cornerScroll(Math.cos(a) * 5.0, 4.42, Math.sin(a) * 5.0, Math.cos(a) * 0.6, Math.sin(a) * 0.6, 0.72));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'thuongbac_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Chùa Từ Đàm hero accent .glb (Chánh điện main ridge dragons & gilded dharma spire)
+function buildTuDamHero() {
+  const parts = [];
+  const ry = 16.18;
+  const pearl = new THREE.SphereGeometry(0.44, 14, 10);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ry + 0.65, 0);
+  parts.push(paint(pearl, 0xe8b83a));
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.45, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 4.4, 1.05));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 4.4, 1.05));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 9.5, 12.8, sv * 4.5, su * 0.72, sv * 0.72, 0.95));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'tudam_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
@@ -621,6 +776,13 @@ for (const [name, buildFn] of [
   ['trieumieu-hero.glb', buildTrieuMieuHero],
   ['truongsanh-hero.glb', buildTruongSanhHero],
   ['tangthulau-hero.glb', buildTangThuLauHero],
+  ['hungmieu-hero.glb', buildHungMieuHero],
+  ['baotangcovat-hero.glb', buildBaoTangCoVatHero],
+  ['quoctugiam-hero.glb', buildQuocTuGiamHero],
+  ['tuphuong-hero.glb', buildTuPhuongHero],
+  ['biaquochoc-hero.glb', buildBiaQuocHocHero],
+  ['thuongbac-hero.glb', buildThuongBacHero],
+  ['tudam-hero.glb', buildTuDamHero],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
