@@ -22,6 +22,10 @@ import { lightMaterial, glowPoints } from '../../geo/materials.js';
 // docs/places/phuvanlau.md). The OSM outline (way 531031520, 13.6 × 13.1 m) gives the axis; it lies about 1.6 m
 // east and 0.8 m north of the building on the satellite and the car panoramas, so the centre is moved by that much.
 export const id = 'phuvanlau';
+// Thiệu Trị's 1843 stele house (~43 m SW of Phu Văn Lâu) is drawn here on its own OSM footprint
+export function ownsMapped(ring) {
+  return ring.every(([x, z]) => Math.hypot(x + 883, z - 403) < 9);
+}
 
 const RED = hex('#8a2a1e'); // dark-red lacquered columns and timber
 const CREAM = hex('#eadfc0'); // the upper floor's pale panels

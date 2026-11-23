@@ -267,7 +267,7 @@ export function slivers(roads) {
       if (L < 1e-6) continue;
       const s = { id, a, b, L, tx: (b[0] - a[0]) / L, tz: (b[1] - a[1]) / L };
       segs.push(s);
-      const r0 = r.w / 2 + 8;
+      const r0 = r.w / 2 + 10;
       for (let x = Math.floor((Math.min(a[0], b[0]) - r0) / G); x <= Math.floor((Math.max(a[0], b[0]) + r0) / G); x++)
         for (let z = Math.floor((Math.min(a[1], b[1]) - r0) / G); z <= Math.floor((Math.max(a[1], b[1]) + r0) / G); z++) {
           const k = x + ',' + z;

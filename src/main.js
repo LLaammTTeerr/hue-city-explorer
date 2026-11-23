@@ -63,15 +63,16 @@ async function main() {
 
   let rig, mood, labels, data, sharing;
   const live = (f) => (...a) => (rig ? f(...a) : undefined); // controls that need the 3D scene
+  const syncCard = (id = null) => { labels?.setActive?.(id); labels?.invalidateLayout?.(); };
   ui = createUI(index, {
     pick: (id, fly, from) => pick(id, fly, from),
-    overview: () => { ui.hideCard(); if (!rig) { fallback && fallback.home(); return; } const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
+    overview: () => { ui.hideCard(); syncCard(null); if (!rig) { fallback && fallback.home(); return; } const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
     lang: () => { if (labels) labels.remeasure(); if (fallback) fallback.relabel(); },
     labels: live(() => toggleLabels()),
     osmOnly: live((on) => { world.infill.forEach((m) => { m.visible = !on; }); }),
-    home: () => { ui.hideCard(); if (rig) rig.goHome(); else if (fallback) fallback.home(); },
+    home: () => { ui.hideCard(); syncCard(null); if (rig) rig.goHome(); else if (fallback) fallback.home(); },
     zoom: (k) => { if (rig) rig.zoomBy(k); else if (fallback) fallback.zoom(k); },
-    cardClosed: () => {},
+    cardClosed: () => syncCard(null),
     rain: live(() => mood.setRain(!mood.state.rainTarget)),
     time: live((i) => mood.setTime(i)),
     look: live(() => setLook(!look, true)),
@@ -172,12 +173,13 @@ async function main() {
     ui.showCard(id, from);
     if (!rig) { if (fallback) fallback.show(id); return; } // still loading, or the 2D map: the card alone
     labels.markVisited(id);
+    syncCard(id);
     if (fly) {
       const v = VIEWS[id] || VIEWS.default;
-      const target = new THREE.Vector3(p.x / 10 + v.look[0], LAND_Y, p.z / 10 + v.look[1]);
+      const tx = p.x / 10 + v.look[0], tz = p.z / 10 + v.look[1];
+      const target = new THREE.Vector3(tx, LAND_Y + rise(tx, tz), tz);
       const k = (innerWidth / innerHeight < 1 ? 1.35 : 1) * 1.2;
       const gy = LAND_Y + rise(p.x / 10, p.z / 10);
-      target.y = LAND_Y;
       rig.flyTo(new THREE.Vector3(p.x / 10 + v.off[0] * k, gy + v.off[1] * k, p.z / 10 + v.off[2] * k), target, { duration: 2.6 });
     }
   }
@@ -213,16 +215,19 @@ async function main() {
       if (dist < reach && dist < bd) { bd = dist; best = p; }
     }
     if (best) pick(best.id, false);
-    else if (ui.cardId) ui.hideCard();
+    else if (ui.cardId) { ui.hideCard(); syncCard(null); }
   };
-  canvas.addEventListener('pointerup', up);
-  canvas.addEventListener('pointercancel', up);
+  addEventListener('pointerup', up);
+  addEventListener('pointercancel', up);
+  const clearDowns = () => { downs.clear(); canvas.classList.remove('dragging'); };
+  addEventListener('blur', clearDowns);
+  document.addEventListener('visibilitychange', clearDowns);
   canvas.addEventListener('dblclick', (e) => {
     const g = rig.groundAt(e.clientX, e.clientY);
     if (!g) return;
     const off = camera.position.clone().sub(controls.target).multiplyScalar(0.45);
     if (off.length() < 60) off.setLength(60);
-    g.y = LAND_Y;
+    g.y = LAND_Y + rise(g.x, g.z);
     rig.flyTo(g.clone().add(off), g, { duration: 1.1, arc: false });
   });
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -230,8 +235,8 @@ async function main() {
   addEventListener('keydown', (e) => {
     if (fromForm(e) || e.metaKey || e.ctrlKey || document.getElementById('about').open) return;
     const k = e.key.toLowerCase();
-    if (k === 'escape') ui.hideCard();
-    else if (k === 'h' || k === 'home') { rig.goHome(); ui.hideCard(); }
+    if (k === 'escape') { ui.hideCard(); syncCard(null); }
+    else if (k === 'h' || k === 'home') { rig.goHome(); ui.hideCard(); syncCard(null); }
     else if (k === 'r') mood.setRain(!mood.state.rainTarget);
     else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (k === 'l') toggleLabels();
@@ -292,6 +297,7 @@ async function main() {
     console.warn('[hue] WebGL context restored');
     if (ibl) ibl.invalidate();
     shadows.invalidate();
+    water.mesh.userData.invalidate?.();
     pendingSize = Math.max(pendingSize, 1);
   });
 
@@ -303,6 +309,7 @@ async function main() {
     // keep the shadow map centred where the eye is resting, sized to the view
     const dist = camera.position.distanceTo(controls.target);
     focus.copy(controls.target);
+    focus.y = LAND_Y + rise(focus.x, focus.z);
     const ext = Math.max(260, Math.min(2600, dist * 0.8));
     shadows.update(focus, mood.sunDir, ext);
   }
@@ -336,6 +343,8 @@ async function main() {
     time += dt;
     rig.update(dt);
     mood.update(dt, time);
+    const hgt = Math.max(0, camera.position.y - LAND_Y);
+    if (scene.fog && hgt > 1000) scene.fog.density *= 1 - 0.78 * THREE.MathUtils.smoothstep(hgt, 1000, 3500);
     bridge.update(time, mood.cur.glow, mood.state.rain);
     floating.update(time);
     replicas.update(time, mood.cur.glow, mood.state.rain);
@@ -344,9 +353,9 @@ async function main() {
     lanterns.update(dt, time);
     traffic.update(dt);
     street.update(dt, time);
+    updateDetail(camera, quality.low ? 900 : 1500);
     updateShadow();
     sky.mesh.scale.setScalar(camera.far * 0.9);
-    updateDetail(camera, quality.low ? 900 : 1500);
     const pxScale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
     world.lamps.material.uniforms.uScale.value = pxScale;
     bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
@@ -376,9 +385,7 @@ async function main() {
   // a shared view (?v=1…, src/ui/share.js) replaces the opening: atmosphere, camera and card are set before the first draw
   sharing = createShare({ data, rig, mood, setLook, pick, ui, bounds: { minX: b[0] + 250, minZ: b[1] + 250, maxX: b[2] - 250, maxZ: b[3] - 250 } });
   const sharedView = sharing.apply();
-  mood.update(0, 0);
-  updateShadow();
-  draw(); // compile shaders before the curtain lifts
+  step(0); // update mood, detail, lights, shadows and compile shaders before the curtain lifts
   console.debug(`[hue] ready in ${Math.round(performance.now() - t0)} ms`);
   ui.loaderProgress(1);
   await frame();

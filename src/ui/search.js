@@ -1,4 +1,5 @@
 import { NOTES, PLACE_GROUPS } from './content.js';
+import { fromForm } from '../camera/controls.js';
 
 // The search box: a map-style bar whose panel lists the places of the model. Nothing is looked up online: the
 // index is the place list in hue.json plus the titles, kinds and summaries of stories.json and the short notes.
@@ -194,11 +195,14 @@ export function createSearch(ctx) {
       e.preventDefault();
       if (!open) { setOpen(true); return; }
       choose(rows[active] || (queryText() ? rows[0] : null));
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setOpen(false);
-      input.blur();
     }
+  });
+  box.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!open && document.activeElement !== input) return;
+    e.preventDefault();
+    setOpen(false);
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
   // a press inside the panel must not take the focus from the box (the panel would close before the click lands)
   panel.addEventListener('mousedown', (e) => e.preventDefault());
@@ -216,7 +220,7 @@ export function createSearch(ctx) {
   box.addEventListener('focusout', (e) => { if (e.relatedTarget && !box.contains(e.relatedTarget)) setOpen(false); });
   addEventListener('keydown', (e) => {
     if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (e.target instanceof HTMLInputElement || document.getElementById('about').open) return;
+    if (fromForm(e) || document.getElementById('about').open) return;
     e.preventDefault();
     input.focus();
   });

@@ -76,15 +76,17 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl =
 
   const listeners = new Set();
   const emit = () => listeners.forEach((f) => f(state));
+  let simTime = 0;
 
   return {
     state, cur, sunDir,
     onChange: (f) => listeners.add(f),
     setTime(i) { state.timeTarget = Math.max(0, Math.min(2, i)); emit(); },
     // A shower passes on its own unless the visitor ends it first.
-    setRain(on, seconds = 55) { state.rainTarget = on ? 1 : 0; state.showerEnds = on ? performance.now() + seconds * 1000 : 0; emit(); },
+    setRain(on, seconds = 55) { state.rainTarget = on ? 1 : 0; state.showerEnds = on ? simTime + seconds : 0; emit(); },
     update(dt, time) {
-      if (state.rainTarget && state.showerEnds && performance.now() > state.showerEnds) { state.rainTarget = 0; state.showerEnds = 0; emit(); }
+      simTime = time;
+      if (state.rainTarget && state.showerEnds && time > state.showerEnds) { state.rainTarget = 0; state.showerEnds = 0; emit(); }
       const step = (v, t, rate) => (Math.abs(t - v) < 0.002 ? t : v + (t - v) * Math.min(1, dt * rate));
       state.time = step(state.time, state.timeTarget, 1.3);
       state.rain = step(state.rain, state.rainTarget, state.rainTarget ? 0.9 : 0.5);

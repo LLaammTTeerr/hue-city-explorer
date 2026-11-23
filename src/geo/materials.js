@@ -295,7 +295,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   hueLit = mix( 0.02 + 0.045 * hood, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
   hueRough = modern ? 0.8 : 0.9;
   // plaster is never flat; openings sit back from the wall face
-  hueHgt = ( 0.006 * hueNoise( uv * vec2( 31.0, 37.0 ) ) + 0.012 * hueNoise( uv * vec2( 5.0, 7.0 ) ) ) * detail - 0.07 * hueGlass;
+  hueHgt += ( 0.006 * hueNoise( uv * vec2( 31.0, 37.0 ) ) + 0.012 * hueNoise( uv * vec2( 5.0, 7.0 ) ) ) * detail - 0.07 * hueGlass;
   float roomK = hueGlass * ( 1.0 - smoothstep( 0.04, 0.22, fw ) ) * ( 1.0 - uLook );
   if ( roomK > 0.01 ) {
     vec3 rv = normalize( vWPos - cameraPosition );
@@ -426,16 +426,23 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   vec3 hr1 = cross( hdy, hueN ), hr2 = cross( hueN, hdx );
   float hdet = dot( hdx, hr1 );
   vec3 hgrad = sign( hdet ) * ( dFdx( hueHgt ) * hr1 + dFdy( hueHgt ) * hr2 );
-  hgrad *= min( 1.0, 1.4 * abs( hdet ) / ( length( hgrad ) + 1e-9 ) );
-  hueNp = normalize( abs( hdet ) * hueNp - hgrad + 1e-9 * hueN );
+  hgrad *= min( 1.0, 1.4 * abs( hdet ) / ( length( hgrad ) + 1e-6 ) );
+  hueNp = normalize( abs( hdet ) * hueNp - hgrad + 1e-6 * hueN );
 }
 #endif
 // rain darkens what it soaks: ground and roofs most, walls a little
 diffuseColor.rgb *= 1.0 - uWet * mix( 0.26, 0.1, hueWall );
-// and leaves a film that mirrors the sky, most where the water pools
+// and leaves a film that mirrors the sky on hard surfaces (paving, stone, roofs); grass and parks stay damp, never mirror-bright
 float huePuddle = smoothstep( 0.35, 0.72, hueNoise( vWPos.xz * 0.18 ) * 0.65 + hueNoise( vWPos.xz * 0.85 ) * 0.35 );
 float hueWetSurf = smoothstep( 0.25, 0.85, hueN.y ) * mix( 0.35, 1.0, huePuddle );
-hueRough = mix( hueRough, 0.1, hueWetSurf * uWet * 0.85 );
+float hueHard = 1.0;
+#ifdef HUE_FOLIAGE
+hueHard = 0.0;
+#else
+if ( vKind > 4.5 && vKind < 5.5 ) hueHard = 0.0;
+#endif
+hueRough = mix( hueRough, mix( 0.42, 0.14, hueHard ), hueWetSurf * uWet * mix( 0.55, 0.8, hueHard ) );
+if ( hueHard < 0.5 ) hueRough = max( hueRough, 0.38 );
 if ( uLook > 0.5 ) { hueRough = 1.0; hueMetal = 0.0; hueNp = hueN; }
 `;
 
@@ -528,12 +535,12 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
             // negative 1 - ndv is NaN, which the post chain spread over the whole canvas (see post.js)
             float ndv = clamp( dot( hueN, hueV ), 0.0, 1.0 );
             float fres = pow( 1.0 - ndv, 3.5 );
-            float puddles = huePuddle, wetSurf = hueWetSurf;
+            float puddles = huePuddle, wetSurf = hueWetSurf * mix( 0.25, 1.0, hueHard );
             #ifndef USE_ENVMAP
             vec3 skyTint = mix( vec3( 0.52, 0.58, 0.66 ), vec3( 0.32, 0.28, 0.52 ), uGlow );
-            totalEmissiveRadiance += skyTint * fres * wetSurf * uWet * 0.42;
+            totalEmissiveRadiance += skyTint * fres * wetSurf * uWet * 0.24;
             #endif
-            totalEmissiveRadiance += vec3( 1.0, 0.72, 0.38 ) * fres * wetSurf * uWet * uGlow * puddles * 0.22;
+            totalEmissiveRadiance += vec3( 1.0, 0.72, 0.38 ) * fres * wetSurf * uWet * uGlow * puddles * 0.16;
           }
         }
         // riverside facade lighting (issue #21): warm uplighters at the foot of the walls, one every 5 m, each throwing
@@ -546,7 +553,9 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
           float hueCone = exp( -hueDx * hueDx / ( hueW * hueW ) ) * exp( -hueUp / 11.0 ) * 1.4;
           float hueWash = 0.34 * exp( -hueUp / 24.0 );
           float hueFace = hueWall * step( -0.2, hueH );
-          totalEmissiveRadiance += diffuseColor.rgb * vec3( 1.0, 0.64, 0.3 ) * ( hueCone + hueWash ) * hueFace * uGlow * 1.35;
+          float fl = ( hueCone + hueWash ) * 0.62;
+          fl = fl / ( 1.0 + fl * 0.6 );
+          totalEmissiveRadiance += diffuseColor.rgb * vec3( 1.0, 0.64, 0.3 ) * fl * hueFace * uGlow;
         }
         #else
         {
@@ -638,7 +647,7 @@ export function landMaterial(color, turf = false, bank = false) {
         diffuseColor.rgb *= 1.0 - uWet * 0.26;
         float lpud = smoothstep( 0.35, 0.72, lNoise( vWPos.xz * 0.18 ) * 0.65 + lNoise( vWPos.xz * 0.85 ) * 0.35 );`,
       )
-      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = uLook > 0.5 ? 1.0 : mix( roughnessFactor, 0.1, lpud * uWet * 0.85 );')
+      .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = uLook > 0.5 ? 1.0 : max( 0.38, mix( roughnessFactor, 0.42, lpud * uWet * 0.65 ) );')
       // drawn look: the ground's top (the slab and the hills) marks itself in the alpha channel (GROUND_A)
       .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_TURF\nif ( uLook > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
       .replace(
@@ -648,7 +657,7 @@ export function landMaterial(color, turf = false, bank = false) {
         if ( uWet > 0.01 ) {
           #ifndef USE_ENVMAP
           float lndv = min( abs( dot( normal, normalize( vViewPosition ) ) ), 1.0 ); // pow() of a negative is NaN
-          totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.36;
+          totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.16;
           #endif
         }`,
       ).src;
@@ -689,7 +698,11 @@ export function lightMaterial(color = 0xffffff, boost = 1.6) {
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
   });
@@ -723,7 +736,11 @@ export function glowPoints(positions, colors, size = 9) {
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
   });

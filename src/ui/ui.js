@@ -61,16 +61,26 @@ export function createUI(data, handlers) {
   });
 
   // ---- text ----
+  function refreshQuick() {
+    listButtons.forEach((b, id) => {
+      const p = placeById.get(id), st = stories && stories[id];
+      const title = lang === 'en' && st && txl(st.title);
+      b.textContent = (title && title[0]) || p.n;
+    });
+  }
   function applyText() {
     T = STR[lang];
     document.documentElement.lang = lang;
+    document.title = `Huế · ${T.tagline}`;
     document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
     list.setAttribute('aria-label', T.places);
+    refreshQuick();
     search.refresh(current);
-    $('btn-rain').querySelector('span').textContent = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
+    const rainTip = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
+    $('btn-rain').querySelector('span').textContent = rainTip;
     $('seg-lang').setAttribute('aria-label', T.langGroup);
     document.querySelectorAll('#seg-lang button').forEach((b) => b.setAttribute('aria-checked', b.dataset.lang === lang));
-    const tips = { 'btn-share': T.share, 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': T.rain };
+    const tips = { 'btn-share': T.share, 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': rainTip };
     document.querySelectorAll('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
     for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
     $('attrib').textContent = T.attrib;
@@ -93,20 +103,22 @@ export function createUI(data, handlers) {
   function loadStories() {
     if (stories || storiesAsked) return;
     storiesAsked = true;
-    fetch('data/stories.json')
+    fetch(`${import.meta.env.BASE_URL}data/stories.json`)
       .then((r) => { if (!r.ok) throw new Error('stories.json: HTTP ' + r.status); return r.json(); })
-      .then((j) => { stories = j || {}; if (current) fillCard(current); search.refresh(current); })
+      .then((j) => { stories = j || {}; refreshQuick(); if (current) fillCard(current); search.refresh(current); })
       .catch((e) => { console.warn(e); storiesAsked = false; });
   }
   const show = (id, on) => { $(id).hidden = !on; };
-  function fillMedia(st) {
+  let mediaGen = 0;
+  function fillMedia(st, tried = 0) {
+    const gen = ++mediaGen;
     const imgs = (st && st.images) || [];
     const im = imgs.length ? imgs[shot % imgs.length] : null, thumb = im && webUrl(im.thumb);
-    if (!thumb) { show('card-media', false); return; }
     const img = $('card-img'), next = $('card-shot');
-    img.onerror = () => show('card-media', false);
+    img.onload = null; img.onerror = null;
+    show('card-media', false);
+    if (!thumb) { img.removeAttribute('src'); return; }
     img.style.aspectRatio = im.width && im.height ? `${im.width} / ${Math.min(im.height, im.width * 0.72)}` : '';
-    img.src = thumb.href;
     img.alt = (im.caption && im.caption[lang]) || '';
     // the picture is a button that shows the next one; with a single picture there is nothing to press
     const tip = imgs.length > 1 ? `${T.nextPhoto} (${(shot % imgs.length) + 1}/${imgs.length})` : '';
@@ -118,9 +130,16 @@ export function createUI(data, handlers) {
     credit.textContent = '';
     const page = webUrl(im.page), a = document.createElement(page ? 'a' : 'span');
     if (page) { a.href = page.href; a.target = '_blank'; a.rel = 'noopener'; }
-    a.textContent = `${T.photoBy}: ${(im.author || 'Wikimedia Commons').slice(0, 60)} · ${im.license || ''}`;
+    a.textContent = [`${T.photoBy}: ${(im.author || 'Wikimedia Commons').slice(0, 60)}`, im.license].filter(Boolean).join(' · ');
     credit.append(a);
-    show('card-media', true);
+    img.onload = () => { if (gen === mediaGen) show('card-media', true); };
+    img.onerror = () => {
+      if (gen !== mediaGen) return;
+      if (tried + 1 < imgs.length) { shot++; fillMedia(st, tried + 1); }
+      else show('card-media', false);
+    };
+    img.removeAttribute('src');
+    img.src = thumb.href;
   }
   // text in the interface language, or the other one when it is missing: [text, language of that text]
   const txl = (o) => (!o ? ['', lang] : o[lang] ? [o[lang], lang] : o.vi ? [o.vi, 'vi'] : o.en ? [o.en, 'en'] : ['', lang]);
@@ -204,7 +223,7 @@ export function createUI(data, handlers) {
   // ---- wiring ----
   document.querySelectorAll('#seg-lang button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== lang) pickLang(b.dataset.lang); }));
   // On phones the compass stacks under the tool column; publish its real height so the CSS never guesses it.
-  new ResizeObserver(([e]) => document.documentElement.style.setProperty('--tools-h', `${Math.ceil(e.borderBoxSize[0].blockSize)}px`)).observe($('tools'));
+  new ResizeObserver(([e]) => document.documentElement.style.setProperty('--tools-h', `${Math.ceil(e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height)}px`)).observe($('tools'));
   function pickLang(l) { lang = l; store.set('hue-lang', lang); applyText(); handlers.lang(lang); } // applyText refills an open card
   $('btn-labels').addEventListener('click', () => handlers.labels());
   $('btn-look').addEventListener('click', () => handlers.look());
@@ -255,8 +274,13 @@ export function createUI(data, handlers) {
     setLook(ink) { $('btn-look').classList.toggle('on', !!ink); $('btn-look').setAttribute('aria-pressed', !!ink); },
     setMood({ rain, time }) {
       document.body.dataset.time = time; // the sheets turn to dark lacquer once the lights are on (style.css)
+      const theme = document.querySelector('meta[name="theme-color"]');
+      if (theme) theme.content = time === 2 ? '#1d1727' : '#f5efe2';
+      const rainTip = rain ? T.rainOn : T.rain;
       $('btn-rain').setAttribute('aria-pressed', !!rain);
-      $('btn-rain').querySelector('span').textContent = rain ? T.rainOn : T.rain;
+      $('btn-rain').querySelector('span').textContent = rainTip;
+      $('btn-rain').title = rainTip;
+      $('btn-rain').setAttribute('aria-label', rainTip);
       timeIdx = time;
       timeButtons.forEach((b) => { const on = +b.dataset.time === time; b.setAttribute('aria-checked', on); b.tabIndex = on ? 0 : -1; });
     },

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Buf, hex, shade, unflat, inRing, pathLength } from '../geo/buf.js';
-import { cityMaterial, enc, glowPoints } from '../geo/materials.js';
+import { cityMaterial, enc } from '../geo/materials.js';
 import { rise, pondY } from '../geo/terrain.js';
 import { LAND_Y, quality, ROAD_W, ROAD_MAX, roadWidth } from '../config.js';
 import { bridgeProfiles, resample, ownLit } from '../geo/bridges.js';
@@ -118,6 +118,18 @@ function along(pts, dist) {
   return { p: b, a: Math.atan2(b[1] - a[1], b[0] - a[0]) };
 }
 
+// Same as `widthAt` in geo/city.js, for tapering carriageways (r.ws).
+function widthAt(pts, ws, p) {
+  let best = Infinity, w = ws[0];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+    const t = L2 ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / L2)) : 0;
+    const d = Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dz);
+    if (d < best) { best = d; w = ws[i] + (ws[i + 1] - ws[i]) * t; }
+  }
+  return w;
+}
+
 // The roads as objects, defensively: anything malformed is dropped.
 function readRoads(data) {
   const out = [], owned = placeOwnsWay(data);
@@ -126,7 +138,7 @@ function readRoads(data) {
     const pts = unflat(r[2]);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const p of pts) { if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0]; if (p[1] < z0) z0 = p[1]; if (p[1] > z1) z1 = p[1]; }
-    out.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), w: roadWidth(r), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), x0, x1, z0, z1 });
+    out.push({ c: Math.max(0, Math.min(ROAD_MAX, r[0] | 0)), w: roadWidth(r), ...(r[4] ? { ws: r[4].map((v) => v / 10) } : {}), bridge: !!r[1], flat: r[2], pts, len: pathLength(pts), ...(r[5] > 0 ? { unmarked: true } : {}), x0, x1, z0, z1 });
   }
   return out;
 }
@@ -221,24 +233,34 @@ function chain(lines, tol, canJoin) {
       }
       if (pass === 0) seq = seq.reverse().map((s) => ({ i: s.i, rev: !s.rev }));
     }
-    const pts = [], hs = [];
+    // segment i runs from height ya[i] to yb[i] and has half-width hw[i]; preserve each bridge line's own start
+    // height when its first vertex merges into the preceding ground road so the first (or only) bridge segment stays on deck
+    const pts = [], ya = [], yb = [], hw = [];
     for (const s of seq) {
-      const Q = lines[s.i].pts, n = Q.length;
+      const L = lines[s.i], Q = L.pts, n = Q.length;
+      const hAt = (k) => (L.hs ? L.hs[s.rev ? n - 1 - k : k] : L.h);
+      const wSeg = L.w ? L.w / 2 : 0;
+      let lastH = hAt(0);
       for (let k = 0; k < n; k++) {
-        const p = s.rev ? Q[n - 1 - k] : Q[k];
+        const p = s.rev ? Q[n - 1 - k] : Q[k], h = hAt(k);
         if (pts.length) {
           const l = pts[pts.length - 1];
-          if (Math.hypot(p[0] - l[0], p[1] - l[1]) < (k === 0 ? tol + 0.01 : 0.05)) continue;
+          if (Math.hypot(p[0] - l[0], p[1] - l[1]) < (k === 0 ? tol + 0.01 : 0.05)) {
+            if (k === 0) lastH = h;
+            continue;
+          }
         }
+        const ok = k > 0 && lastH === lastH && h === h;
         pts.push(p);
-        hs.push(lines[s.i].hs ? lines[s.i].hs[s.rev ? n - 1 - k : k] : lines[s.i].h);
+        ya.push(ok ? lastH : NaN);
+        yb.push(ok ? h : NaN);
+        hw.push(wSeg);
+        lastH = h;
       }
     }
     if (pts.length < 2) continue;
-    // segment i runs from height ya[i] to yb[i]; across a humped deck that follows its curve, while the segments
-    // entering and leaving a bridge from the road keep to the ground (NaN), so neither rides at deck height
-    const yb = Float32Array.from(hs), ya = Float32Array.from(hs, (h, i) => (i && h === h && hs[i - 1] === hs[i - 1] ? hs[i - 1] : NaN));
-    const path = mkPath(pts, ya, yb);
+    const path = mkPath(pts, Float32Array.from(ya), Float32Array.from(yb));
+    path.hw = Float32Array.from(hw);
     path.c = lines[i0].c;
     out.push(path);
   }
@@ -304,12 +326,12 @@ export function buildTraffic(data, group) {
   const profiles = bridgeProfiles(data);
   const lines = roads.filter((r) => r.c <= 2 && r.len > 1).map((r) => {
     const P = r.bridge && profiles.get(r.flat);
-    if (!P) return { pts: r.pts, len: r.len, c: r.c, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN };
+    if (!P) return { pts: r.pts, len: r.len, c: r.c, w: r.w, h: r.bridge ? BRIDGE_TOP + 0.02 : NaN };
     // a humped deck: points close enough together to ride its curve; a flat one keeps its vertices, where
     // geo/city.js lays the deck at the profile's height (which may sit above BRIDGE_TOP, or climb between banks)
     let acc = 0;
     const R = P.rise > 0 ? resample(r.pts, 2) : { pts: r.pts, s: r.pts.map((q, i) => (acc += i ? Math.hypot(q[0] - r.pts[i - 1][0], q[1] - r.pts[i - 1][1]) : 0)) };
-    return { pts: R.pts, len: r.len, c: r.c, h: BRIDGE_TOP + 0.02, hs: R.s.map((s) => Math.max(BRIDGE_TOP, P.base(s)) + P.bump(s) + 0.02) };
+    return { pts: R.pts, len: r.len, c: r.c, w: r.w, h: BRIDGE_TOP + 0.02, hs: R.s.map((s) => Math.max(BRIDGE_TOP, P.base(s)) + P.bump(s) + 0.02) };
   });
   const paths = chain(lines, 1.5, (a, b) => Math.abs(a.c - b.c) <= 1).filter((p) => p.len > 160);
   const tt = truongTienFrame(data);
@@ -328,10 +350,13 @@ export function buildTraffic(data, group) {
     for (const p of list) { t += w(p); cum.push(t); }
     return () => { const r = rnd() * t; let lo = 0, hi = cum.length - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < r) lo = mid + 1; else hi = mid; } return list[lo]; };
   };
+  const HALF_W = { bike: 0.23, car: 0.875, bus: 1.225, cyclo: 0.475 };
   const V = [];
   const add = (kind, path, s0, s1, speed, lane, T, k = null) => {
     const dir = rnd() < 0.5 ? 1 : -1;
-    V.push({ kind, path, s0, s1, s: s0 + rnd() * (s1 - s0), dir, speed, lane, off: dir * lane, turn: 0, T, seg: 1, k, mesh: null, i: 0 });
+    const s = s0 + rnd() * (s1 - s0), seg = seek(path, s, 1), hw = HALF_W[kind] || 0.5;
+    const eff = path.hw ? Math.min(lane, Math.max(0.5, path.hw[seg] - hw - 0.3)) : lane;
+    V.push({ kind, path, s0, s1, s, dir, speed, lane, hw, off: dir * eff, turn: 0, T, seg, k, mesh: null, i: 0 });
   };
   if (paths.length) {
     const pick = picker(paths, weightOf);
@@ -416,10 +441,11 @@ export function buildTraffic(data, group) {
         v.s += v.dir * v.speed * dt;
         if (v.s > v.s1) { v.s = v.s1; v.dir = -1; v.turn = v.T; } else if (v.s < v.s0) { v.s = v.s0; v.dir = 1; v.turn = v.T; }
       }
-      // drift across to the right-hand lane for the current direction
-      const want = v.dir * v.lane - v.off, mx = 2.5 * dt;
-      v.off += want > mx ? mx : want < -mx ? -mx : want;
       v.seg = seek(v.path, v.s, v.seg);
+      const lane = v.path.hw ? Math.min(v.lane, Math.max(0.5, v.path.hw[v.seg] - v.hw - 0.3)) : v.lane;
+      // drift across to the right-hand lane for the current direction
+      const want = v.dir * lane - v.off, mx = 2.5 * dt;
+      v.off += want > mx ? mx : want < -mx ? -mx : want;
       place(v.path, v.s, v.seg, v.off, tmp);
       const yaw = Math.atan2(-tmp.dz * v.dir, tmp.dx * v.dir) + (v.turn > 0 ? (Math.PI * v.turn) / v.T : 0);
       q.setFromAxisAngle(up, yaw);
@@ -436,19 +462,17 @@ export function buildTraffic(data, group) {
 // ---------- street lamps, pedestrians, the train ----------
 
 export function buildStreetLife(data, group) {
-  const updates = [], out = {};
+  const updates = [];
   const parts = [buildLampPosts, buildPedestrians, buildTrain];
   for (const build of parts) {
     try {
-      const u = build(data, group, out);
+      const u = build(data, group);
       if (u) updates.push(u);
     } catch (e) {
       console.warn('street life: skipped', build.name, e); // one missing data field should not take the city down
     }
   }
-  // lampGlows1935: the glows of the 1935 lamp posts only (hidden; main.js shows it in 1935 at night instead of the
-  // full world.lamps set, and feeds its uScale like the other glow points)
-  return { update(dt, time) { dt = Math.min(dt, 0.1); for (const u of updates) u(dt, time); }, lampGlows1935: out.lampGlows1935 || null };
+  return { update(dt, time) { dt = Math.min(dt, 0.1); for (const u of updates) u(dt, time); } };
 }
 
 // Lamp posts. Real: each stands where geo/city.js puts a night-time glow (every 30–36 m along OSM class 0–2
@@ -456,7 +480,7 @@ export function buildStreetLife(data, group) {
 // To stay inside the triangle budget only the posts nearest the centre and the Citadel are built
 // (LAMP_MAX); glows further out keep shining without a post.
 const LAMP_MAX = () => (quality.low ? 800 : 3000);
-function buildLampPosts(data, group, out = {}) {
+function buildLampPosts(data, group) {
   const roads = readRoads(data);
   const profiles = bridgeProfiles(data);
   const kd = placeById(data).get('kydai') || [0, 0];
@@ -464,18 +488,17 @@ function buildLampPosts(data, group, out = {}) {
   const spots = [];
   const dv = replaced('bachho') ? daVienRoads(data) : null; // cầu Dã Viên's deck has its own parapet lamps (places/bachho.js)
   for (const r of roads) {
-    if (r.c > 2 || r.pts.length < 2 || (r.bridge && dv && dv.has(r.flat))) continue;
+    if (r.c > 2 || r.unmarked || r.pts.length < 2 || (r.bridge && dv && dv.has(r.flat))) continue;
     const PL = r.bridge && profiles.get(r.flat);
     if (PL && PL.lamps && replaced(PL.lamps.own)) continue; // the bridge's own posts, drawn by its place file (bridges.js bridgeLamps)
     const step = r.c === 0 ? 30 : 36;
     for (let s = step / 2, k = 0; s < r.len; s += step, k++) {
       const { p, a } = along(r.pts, s);
-      const side = k % 2 ? 1 : -1, off = (r.w / 2 + 0.5) * side;
+      const side = k % 2 ? 1 : -1, off = ((r.ws ? widthAt(r.pts, r.ws, p) : r.w) / 2 + 0.5) * side;
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
       if (ownLit(data, lx, lz)) continue; // a bridge with its own lamps (geo/bridges.js `lit`): no post beside them
-      const P = r.bridge && profiles.get(r.flat), up = P ? P.bump(s) : 0; // on a humped deck the post rides the curve
-      const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 + up : 7.5);
-      const baseY = r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) + up : LAND_Y + rise(lx, lz);
+      const baseY = PL ? PL.y(s) : r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) : LAND_Y + rise(lx, lz);
+      const glowY = PL ? PL.y(s) + 7.58 : LAND_Y + rise(lx, lz) + (r.bridge ? 8 : 7.5);
       const ox = -Math.sin(a) * side, oz = Math.cos(a) * side; // outward, away from the road
       const far = Math.min(Math.hypot(lx, lz), Math.hypot(lx - kd[0], lz - kd[1]));
       spots.push([lx, lz, baseY, (glowY - baseY) / 7.5, Math.atan2(-oz, ox), far]);
@@ -766,11 +789,14 @@ function buildTrain(data, group) {
   const st = { front: sst > 0 ? sst + LT / 2 : LT + 40, dir: 1, wait: sst > 0 ? 6 : 0, served: sst > 0 };
   const segA = new Int32Array(UNITS.length).fill(1), segB = new Int32Array(UNITS.length).fill(1);
   const A = { x: 0, y: 0, z: 0, dx: 1, dz: 0 }, B = { x: 0, y: 0, z: 0, dx: 1, dz: 0 };
-  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YZX'), sc = new THREE.Vector3(), p = new THREE.Vector3();
   const VMAX = 10;
+  let placed = false;
   const update = (dt) => {
-    if (st.wait > 0) st.wait -= dt;
-    else {
+    if (st.wait > 0) {
+      st.wait -= dt;
+      if (placed) return;
+    } else {
       const mid = st.front - LT / 2;
       const v = sst > 0 ? VMAX * Math.max(0.12, Math.min(1, Math.abs(mid - sst) / 260)) : VMAX;
       const before = (sst - mid) * st.dir;
@@ -781,12 +807,14 @@ function buildTrain(data, group) {
       // at the ends of the line it reverses (push-pull), after a pause
       if (st.front > track.len) { st.front = track.len; st.dir = -1; st.wait = 10; } else if (st.front - LT < 0) { st.front = LT; st.dir = 1; st.wait = 10; }
     }
+    placed = true;
     for (let k = 0; k < UNITS.length; k++) {
       const cs = st.front - offs[k], h = UNITS[k] * 0.36; // bogie centres
       segA[k] = seek(track, cs - h, segA[k]); segB[k] = seek(track, cs + h, segB[k]);
       place(track, cs - h, segA[k], 0, A); place(track, cs + h, segB[k], 0, B);
       const dx = B.x - A.x, dz = B.z - A.z;
-      q.setFromAxisAngle(up, Math.atan2(-dz, dx));
+      e.set(0, Math.atan2(-dz, dx), Math.atan2(B.y - A.y, Math.hypot(dx, dz)));
+      q.setFromEuler(e);
       p.set((A.x + B.x) / 2, (A.y + B.y) / 2, (A.z + B.z) / 2);
       sc.set(UNITS[k], 1, 1);
       mesh.setMatrixAt(k, m.compose(p, q, sc));

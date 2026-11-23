@@ -20,23 +20,25 @@ export function createLabels(root, data, camera, onPick) {
   const anchorY = (p) => (p.a != null ? p.a / 10 + CLEAR : LAND_Y + rise(p.x / 10, p.z / 10) + (p.h || 10));
   const add = (p, water = false) => {
     const el = document.createElement(water ? 'div' : 'button');
-    el.className = 'label ' + (water ? 'label-water' : 'label-place t' + p.t);
+    el.className = 'label ' + (water ? 'label-water' : 'label-place t' + p.t + (p.k === 'area' ? ' area' : ''));
     // built node by node: the names come from OSM, so none of them is ever parsed as markup
     if (!water) el.append(document.createElement('i'));
     const name = document.createElement('span'); name.textContent = p.n; el.append(name);
     el.setAttribute('aria-hidden', 'true'); // hidden until shown (with visibility, style.css), so off-screen tags are not tabbed through
     if (!water) {
       el.type = 'button';
+      el.tabIndex = -1;
       el.addEventListener('click', (e) => { e.stopPropagation(); onPick(p.id); });
     }
     root.appendChild(el);
-    items.push({ p, el, water, pos: new THREE.Vector3(p.x / 10, water ? 1 : anchorY(p), p.z / 10), w: 0, h: 0, shown: false, pri: (water ? 3.5 : p.t) });
+    const px = p.x / 10, pz = p.z / 10;
+    items.push({ p, el, water, gy: water ? 0 : LAND_Y + rise(px, pz), pos: new THREE.Vector3(px, water ? 1 : anchorY(p), pz), w: 0, h: 0, shown: false, pri: (water ? 3.5 : p.t) });
   };
   data.places.forEach((p) => add(p));
   data.waterLabels.forEach((p) => add(p, true));
   items.sort((a, b) => a.pri - b.pri);
 
-  let enabled = true, frame = 0, blocked = [];
+  let enabled = true, frame = 0, blocked = [], activeId = null;
   const visited = new Set();
   let measured = false;
   // widths taken with a fallback font are wrong once the web fonts (and their Vietnamese subsets) arrive
@@ -51,6 +53,8 @@ export function createLabels(root, data, camera, onPick) {
 
   return {
     setEnabled(on) { enabled = on; root.classList.toggle('off', !on); },
+    setActive(id) { activeId = id || null; },
+    invalidateLayout() { frame = 0; },
     markVisited(id) { visited.add(id); const it = items.find((i) => i.p.id === id); if (it) it.el.classList.add('seen'); },
     remeasure() { measured = false; },
     get visited() { return visited; },
@@ -75,10 +79,12 @@ export function createLabels(root, data, camera, onPick) {
         let x = 0, y = 0, onScreen = false;
         if (show) {
           const dist = camera.position.distanceTo(it.pos);
-          const far = TIER_DIST[it.p.t], ceil = TIER_CEIL[it.p.t], hgt = camera.position.y - LAND_Y;
-          show = dist < far && dist > 40 && (it.water || !(hgt > ceil));
+          const isActive = !it.water && it.p.id === activeId;
+          const far = TIER_DIST[it.p.t], ceil = isActive ? 0 : TIER_CEIL[it.p.t], hgt = camera.position.y - it.gy;
+          show = dist < far && dist > 40 && (it.water || !ceil || !(hgt > ceil));
           // fade with distance (and, for lesser places, with height) instead of popping at the cut-off
           fade = Math.min(1, (far - dist) / (far * FADE), (dist - 40) / 20, it.water || !ceil ? 1 : (ceil - hgt) / (ceil * FADE));
+          if (fade < 0.25) show = false;
           v.copy(it.pos).project(camera);
           onScreen = v.z < 1 && v.z > -1;
           x = (v.x * 0.5 + 0.5) * width; y = (-v.y * 0.5 + 0.5) * height;
@@ -96,7 +102,12 @@ export function createLabels(root, data, camera, onPick) {
         // city turns under it is the ghost the orbit used to leave behind.
         if (onScreen) it.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
         if (show) it.el.style.setProperty('--fade', Math.max(0, fade).toFixed(2));
-        if (show !== it.shown) { it.shown = show; it.el.classList.toggle('show', show); it.el.setAttribute('aria-hidden', !show); }
+        if (show !== it.shown) {
+          it.shown = show;
+          it.el.classList.toggle('show', show);
+          it.el.setAttribute('aria-hidden', !show);
+          if (!it.water) it.el.tabIndex = show ? 0 : -1;
+        }
       }
     },
   };

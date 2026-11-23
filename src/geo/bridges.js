@@ -315,15 +315,19 @@ function makeProfile(pts, len, c, riseM, arches, climb = 0, span = null, zone = 
   // at DECK their ends stood 0.37 m over the street they join, a brick step across the carriageway; their vaults are
   // sized under the landed deck below. Named arched bridges keep their masonry.
   let bump = bump0;
+  const breaks = span ? [...span] : [];
   if (c <= 3 && !span && (!arches || zone)) {
     const R = Math.min(LAND_RAMP, len * 0.2);
     const street = (p) => LAND_Y + STREET + rise(p[0], p[1]) + (rise(p[0], p[1]) > 0 ? 0.12 : 0);
     const d0 = street(p0) - base(0) - bump0(0), d1 = street(pn) - base(len) - bump0(len);
     const k0 = Math.abs(d0) < 0.8 ? d0 : 0, k1 = Math.abs(d1) < 0.8 ? d1 : 0;
-    if (k0 || k1) bump = (s) => bump0(s) + k0 * (1 - ss(s / R)) + k1 * (1 - ss((len - s) / R));
+    if (k0 || k1) {
+      bump = (s) => bump0(s) + k0 * (1 - ss(s / R)) + k1 * (1 - ss((len - s) / R));
+      for (const s of [R * 0.5, R, len - R, len - R * 0.5]) if (s > 0 && s < len) breaks.push(s);
+    }
   }
   const thick = zone ? CIT_DECK : c <= 2 ? 1.3 : 0.7;
-  const prof = { len, c, rise: riseM, arches, top, lift, thick, base, bump, y: (s) => base(s) + bump(s), breaks: span ? [...span] : [], span };
+  const prof = { len, c, rise: riseM, arches, top, lift, thick, base, bump, y: (s) => base(s) + bump(s), breaks, span };
   if (arches) {
     // vaults springing just above the water, between solid abutments; each as high as the deck above lets it be
     const spring = waterY(mp[0], mp[1]) + 0.15;

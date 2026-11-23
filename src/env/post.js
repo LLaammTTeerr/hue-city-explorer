@@ -42,7 +42,9 @@ class OcclusionPass extends Pass {
           vec3 Pd = viewPos( vUv - vec2( 0.0, px.y ), viewZ( vUv - vec2( 0.0, px.y ) ) );
           vec3 dx = abs( Pr.z - P.z ) < abs( P.z - Pl.z ) ? Pr - P : P - Pl;
           vec3 dy = abs( Pu.z - P.z ) < abs( P.z - Pd.z ) ? Pu - P : P - Pd;
-          vec3 N = normalize( cross( dx, dy ) );
+          vec3 cr = cross( dx, dy );
+          float cl = length( cr );
+          vec3 N = cl > 1e-6 ? cr / cl : vec3( 0.0, 0.0, 1.0 );
           float dist = -z;
           // world radius grows with distance: door-step shadows up close, street-canyon shading from the air
           float R = clamp( dist * 0.022, 1.6, 34.0 );
@@ -108,9 +110,6 @@ class OcclusionPass extends Pass {
         vec3 inkN( vec3 a, vec3 b ) { vec3 n = cross( a, b ); float l = length( n ); return l > 1e-12 ? n / l : vec3( 0.0, 0.0, 1.0 ); }
         void main() {
           vec3 col = texture2D( tDiffuse, vUv ).rgb;
-          // one NaN or infinite pixel from the scene would be smeared over the whole frame by the focus blur and the
-          // bloom mips, and its NaN alpha leaves the canvas transparent; a comparison fails for NaN, so it is caught too
-          if ( !all( lessThan( abs( col ), vec3( 6.0e4 ) ) ) ) col = vec3( 0.0 );
           float ao = texture2D( tAO, vUv ).r;
           col *= mix( uTint, vec3( 1.0 ), ao );
           // river mist: thin haze that pools low over the water and the banks, drifting in soft patches
@@ -125,7 +124,7 @@ class OcclusionPass extends Pass {
             inkDist = dist;
             // how much of the sight line runs inside the low mist layer: almost none looking straight down, a lot along the river
             const float TOP = 30.0;
-            float inLayer = uCamPos.y > TOP ? ( TOP - min( wp.y, TOP ) ) / max( -ray.y / dist, 0.02 ) : dist * clamp( ( TOP - min( wp.y, uCamPos.y ) ) / TOP, 0.0, 1.0 );
+            float inLayer = uCamPos.y > TOP ? ( TOP - min( wp.y, TOP ) ) / max( -ray.y / max( dist, 1e-4 ), 0.02 ) : dist * clamp( ( TOP - min( wp.y, uCamPos.y ) ) / TOP, 0.0, 1.0 );
             inLayer = min( inLayer, dist );
             float drift = 0.55 + 0.45 * mNoise( wp.xz * 0.0019 + vec2( uTime * 0.008, uTime * 0.003 ) );
             float m = ( 1.0 - exp( -inLayer * 0.0021 ) ) * drift * uMist;
@@ -161,6 +160,7 @@ class OcclusionPass extends Pass {
             float dl = texture2D( tDepth, vUv - vec2( uPx.x, 0.0 ) ).x, dr = texture2D( tDepth, vUv + vec2( uPx.x, 0.0 ) ).x;
             float dd = texture2D( tDepth, vUv - vec2( 0.0, uPx.y ) ).x, du = texture2D( tDepth, vUv + vec2( 0.0, uPx.y ) ).x;
             float nearest = min( d0, min( min( dl, dr ), min( dd, du ) ) );
+            if ( d0 >= 0.999995 && nearest < 0.999995 ) inkDist = length( inkPos( vUv, nearest ) );
             float edge = ( abs( dl + dr - 2.0 * d0 ) + abs( dd + du - 2.0 * d0 ) ) / max( 1.0 - nearest, 1e-7 );
             // ...but a fold is drawn only where it is a real one. Ground, roads and yards are a heightfield and draped
             // strips whose triangles meet at a degree or two; seen low along a street, that tiny bend still steps the
@@ -205,6 +205,9 @@ class OcclusionPass extends Pass {
             col = mix( col, inked, uInk );
           }
           col *= 1.0 - uVignette * ( 1.0 - 0.6 * uInk ) * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );
+          // one NaN or infinite pixel from the scene or grading would be smeared over the whole frame by the focus blur
+          // and the bloom mips, and its NaN alpha leaves the canvas transparent; a comparison fails for NaN, so it is caught too
+          if ( !all( lessThan( abs( col ), vec3( 6.0e4 ) ) ) ) col = vec3( 0.0 );
           gl_FragColor = vec4( col, 1.0 );
         }`,
     });
@@ -323,7 +326,7 @@ export function createPost(renderer, scene, camera) {
   return {
     occlusion, bloom,
     render: () => composer.render(),
-    resize() { renderer.getDrawingBufferSize(size); composer.setPixelRatio(1); composer.setSize(Math.max(2, size.x), Math.max(2, size.y)); },
+    resize() { renderer.getDrawingBufferSize(size); composer.setSize(Math.max(2, size.x), Math.max(2, size.y)); },
     // night and rain want gentler occlusion and a touch more glow; mist takes the mood's haze colour
     setMood(glow, rain, mistColor, mist, time) {
       occlusion.strength = (1 - 0.35 * Math.max(glow * 0.6, rain)) * (1 - 0.3 * occlusion.compMat.uniforms.uInk.value);

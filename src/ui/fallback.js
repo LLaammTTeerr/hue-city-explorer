@@ -13,7 +13,7 @@ const SVG = 'http://www.w3.org/2000/svg';
 
 export function createFallback({ ui = null, index = null, tryRenderer = null, onPick = null } = {}) {
   const lang = () => (ui ? ui.lang : (navigator.language || 'vi').slice(0, 2) === 'vi' ? 'vi' : 'en');
-  let flat = false, map = null, resolveRenderer = null, bar = null;
+  let flat = false, map = null, resolveRenderer = null, bar = null, mode = 'gl';
 
   // ---------- recovery screen (in the loader) ----------
   function label(btn, key) {
@@ -24,6 +24,7 @@ export function createFallback({ ui = null, index = null, tryRenderer = null, on
     btn.append(a, b);
   }
   function screen(gl) {
+    mode = gl ? 'gl' : 'load';
     const l = lang(), o = l === 'vi' ? 'en' : 'vi', A = STR[l], B = STR[o];
     const [tk, bk] = gl ? ['noGlTitle', 'noGlBody'] : ['loadFailTitle', 'loadFailBody'];
     $('loader').classList.remove('done');
@@ -99,7 +100,7 @@ export function createFallback({ ui = null, index = null, tryRenderer = null, on
     const btn = document.createElement('button'); btn.type = 'button'; btn.className = 'tog';
     const t = document.createElement('span'); t.dataset.t = 'retry3d';
     btn.append(t);
-    btn.addEventListener('click', retry);
+    btn.addEventListener('click', () => (mode === 'gl' ? retry() : location.reload()));
     el.append(note, btn);
     $('actions').after(el);
     return el;
@@ -180,7 +181,7 @@ export function createFallback({ ui = null, index = null, tryRenderer = null, on
       const x0 = Math.min(...xs), x1 = Math.max(...xs), z0 = Math.min(...zs), z1 = Math.max(...zs);
       cx = (x0 + x1) / 2; cz = (z0 + z1) / 2;
       const W = svg.clientWidth || innerWidth, H = svg.clientHeight || innerHeight;
-      upp = Math.max((x1 - x0) / (W - 80), (z1 - z0) / (H - 200));
+      upp = Math.max((x1 - x0) / Math.max(100, W - 80), (z1 - z0) / Math.max(100, H - 200));
       apply();
     }
     function focusOn(id) {
@@ -217,7 +218,7 @@ export function createFallback({ ui = null, index = null, tryRenderer = null, on
       if (ptrs.size === 2) {
         moved = true;
         const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y);
-        if (pinch) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, pinch / d);
+        if (pinch > 0 && d > 0) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, pinch / d);
         pinch = d;
         return;
       }

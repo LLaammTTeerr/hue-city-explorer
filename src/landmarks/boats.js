@@ -271,7 +271,7 @@ function makeWake(group, time, { bow = 9.8, stern = 20.5, len = 110 } = {}) {
   const last = new THREE.Vector3(), cur = new THREE.Vector3();
   let has = false, spd = 0;
   // follow a boat: its heading, its speed measured from how far it moved (works for boats moved elsewhere too)
-  return (boat, dt) => {
+  return (boat, dt, fade = 1) => {
     if (!boat.visible) { mesh.visible = false; has = false; return; }
     cur.copy(boat.position);
     if (has && dt > 1e-4) {
@@ -279,14 +279,14 @@ function makeWake(group, time, { bow = 9.8, stern = 20.5, len = 110 } = {}) {
       if (v < 40) spd += (v - spd) * Math.min(1, dt * 2.5); // a jump (a teleport) is not speed
     } else spd = 0;
     last.copy(cur); has = true;
-    const amt = Math.min(1, Math.max(0, (spd - 0.4) / 4.0));
+    const amt = Math.min(1, Math.max(0, (spd - 0.4) / 4.0)) * fade;
     mesh.visible = amt > 0.01;
     if (!mesh.visible) return;
     mesh.position.set(cur.x, 0.05, cur.z);
     mesh.rotation.set(0, boat.rotation.y, 0);
     uniforms.uAmt.value = amt;
     uniforms.uSpd.value = Math.min(spd, 9);
-    uniforms.uLen.value = len * Math.min(1.3, 0.45 + spd / 8);
+    uniforms.uLen.value = len * Math.min(1.0, 0.45 + spd / 8);
     uniforms.uRun.value += spd * dt;
     if (uniforms.uRun.value > 4096) uniforms.uRun.value -= 4096;
   };
@@ -302,7 +302,7 @@ function makeWake(group, time, { bow = 9.8, stern = 20.5, len = 110 } = {}) {
 // route(want) → { lane, lo, hi }: the lane within ±LANE_SLIDE m of want with the longest clear stretch, and that
 // stretch's two ends as arc lengths on the track.
 const LANE_SLIDE = 4, ROUTE_STEP = 3, MIN_RUN = 300;
-function fleetRouter(track, structures, lo, hi) {
+function fleetRouter(track, structures, lo, hi, isLand = null) {
   const whole = (want) => ({ lane: want, lo: 5, hi: track.total - 5 });
   if (!structures || !structures.pos || !(track.total > MIN_RUN)) return whole;
   // the faces near the water the fleet could reach: 10 m cells within the widest lane, a turn and a hull of the line
@@ -322,7 +322,14 @@ function fleetRouter(track, structures, lo, hi) {
   // a pose: arc length s, lateral offset lat (+ to the left of the track's direction), heading (hx, hz)
   const clear = (s, lat, hx, hz) => {
     track.at(s, p);
-    return !obs.hits(p.x - p.tz * lat, p.z + p.tx * lat, Math.atan2(-hz, hx), lo, hi, 1, true).length;
+    const cx = p.x - p.tz * lat, cz = p.z + p.tx * lat, yaw = Math.atan2(-hz, hx);
+    if (isLand) {
+      const c = Math.cos(yaw), sn = Math.sin(yaw);
+      for (const lx of [lo[0], hi[0]]) for (const lz of [lo[2], hi[2]]) {
+        if (isLand(cx + c * lx + sn * lz, cz - sn * lx + c * lz)) return false;
+      }
+    }
+    return !obs.hits(cx, cz, yaw, lo, hi, 1, true).length;
   };
   // the turn at one end, as update draws it: the boat leaves lane dir * L at e − dir * R and comes back on the other
   // (its R, ahead, is the lane: update's min(lane, half the stretch − 6) on any stretch longer than MIN_RUN)
@@ -402,7 +409,7 @@ export function buildBoats(data, group, structures = null) {
   if (track) {
     const n = 5;
     geo.computeBoundingBox();
-    const route = fleetRouter(track, structures, geo.boundingBox.min.toArray(), geo.boundingBox.max.toArray());
+    const route = fleetRouter(track, structures, geo.boundingBox.min.toArray(), geo.boundingBox.max.toArray(), landTest(data));
     for (let i = 0; i < n; i++) {
       // three lanes a side, all inside one span of Phú Xuân (its piers leave 26-42 m off the centre line clear)
       const { lane, lo, hi } = route(26 + (i % 3) * 8);
@@ -413,7 +420,7 @@ export function buildBoats(data, group, structures = null) {
   // wakes: one per boat
   const wakeTime = { value: 0 }, pt = { x: 0, z: 0, tx: 1, tz: 0 };
   let wakes = [];
-  try { wakes = fleet.map((b) => [b.mesh, makeWake(group, wakeTime)]); } catch (e) { wakes = []; }
+  try { wakes = fleet.map((b) => [b, makeWake(group, wakeTime)]); } catch (e) { wakes = []; }
 
   return {
     update(dt, time) {
@@ -444,7 +451,7 @@ export function buildBoats(data, group, structures = null) {
       }
       wakeTime.value = Number.isFinite(time) ? time : 0;
       const d = Number.isFinite(dt) ? Math.min(0.25, Math.max(0, dt)) : 0;
-      for (const [m, follow] of wakes) follow(m, d);
+      for (const [b, follow] of wakes) follow(b.mesh, d, b.turn >= 0 ? 1 - 0.75 * Math.sin(Math.PI * b.turn) : 1);
     },
   };
 }
