@@ -1,4 +1,5 @@
-import { KIND, hex, shade } from '../../geo/buf.js';
+import polygonClipping from 'polygon-clipping';
+import { KIND, hex, shade, rand, inRing, unflat } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints } from '../../geo/materials.js';
@@ -180,6 +181,7 @@ function sides(S) {
     S.base = yq - LAND_Y;
     S.kind = KIND.MASONRY;
     fbox(S, u, v, yq - 0.3, yq + 0.5, 12.6, 14.4, shade(STONE, 0.95), { taper: 0.98, topKind: KIND.ROAD });
+    S.kind = KIND.TIMBER; // a lacquered timber-panelled body, not brick
     fbox(S, u, v, yq + 0.5, yq + 3.4, 10.4, 12.4, LAC);
     // a door of three leaves and a short stair on the side toward the axis, a gilt lintel over it
     S.kind = KIND.PLAIN;
@@ -210,8 +212,64 @@ function walls(S, data) {
   for (const q of [P(41.8, -18.6), P(-40.8, -18.4)]) gate(S, q, ANG, 5.2, 1.6, gy(q));
 }
 
+// The ground inside the walls: lawn under trees, not bare sand (satellite: only the court before the hall is paved),
+// with narrow brick walks round the hall, along the court and out to the side gates. The compound is mapped as
+// landuse=religious, which the city draws as sand; this lays the lawn over it on Thế Miếu's side of the cross wall
+// (Hưng Miếu's court behind it is that place's), leaving out the hall and court and the mapped paved yards
+// (the forecourt of Hiển Lâm Các). Extra shade trees join data.trees on the lawn; populate plants them.
+const LAWN = hex('#8a9a5a');
+const SAFE = [[-50.7, -1.7, 10], [50.7, -1.7, 9.5], [43.7, 67.0, 10], [-45.0, 69.2, 10], [0, 58.2, 14]]; // buildings (u, v, r) the trees keep off
+
+function grounds(S, data) {
+  const g = gy(C), close = (r) => [...r, r[0]], quad = (u0, u1, v0, v1) => [P(u0, v0), P(u1, v0), P(u1, v1), P(u0, v1)];
+  const block = [P(-29.6, -15.2), P(29.6, -15.2), P(29.6, 14.5), P(28.2, 14.5), P(28.2, 50.6), P(-28.2, 50.6), P(-28.2, 14.5), P(-29.6, 14.5)];
+  const paved = (data.green || []).filter(([k]) => k === 'paved').map(([, poly]) => unflat(poly[0]))
+    .filter((r) => r.some((q) => inRing(q[0], q[1], OUTER)));
+  let lawn = [];
+  try {
+    const side = polygonClipping.intersection([close(OUTER)], [close(quad(-200, 200, -17.6, 200))]);
+    lawn = polygonClipping.difference(side, [close(block)], ...paved.map((r) => [close(r)])).map((pg) => pg.map((r) => r.slice(0, -1)));
+  } catch { lawn = []; }
+  // 14 cm thick: the city's ground overlay is drawn with a polygon offset that beats a thinner lawn at grazing angles
+  S.base = g - LAND_Y;
+  S.kind = KIND.GROUND;
+  for (const [ring, ...holes] of lawn) if (ring.length > 2) S.prism(ring, g - 0.1, g + 0.14, LAWN, LAWN, { holes, topKind: KIND.GROUND });
+  // brick walks, a little proud of the lawn
+  S.kind = KIND.ROAD;
+  const walk = (r) => S.prism(r, g - 0.05, g + 0.17, BRICK, BRICK, { topKind: KIND.ROAD });
+  walk(quad(-31.1, 31.1, -16.7, -15.2)); // behind the hall
+  for (const s of [-1, 1]) {
+    walk(quad(s > 0 ? 29.6 : -31.1, s > 0 ? 31.1 : -29.6, -15.2, 14.5)); // along each end
+    walk(quad(s > 0 ? 31.1 : -61.0, s > 0 ? 61.0 : -31.1, 10.6, 12.2)); // out to the side gate
+    walk(quad(s > 0 ? 28.2 : -29.7, s > 0 ? 29.7 : -28.2, 14.5, 50.6)); // along the court's side
+  }
+  // shade trees on the lawn, kept off the buildings, walks and walls and apart from the mapped ones
+  if (!Array.isArray(data.trees)) return;
+  const t = data.trees, have = [];
+  for (let k = 0; k < t.length; k += 4) { const x = t[k] / 10, z = t[k + 1] / 10; if (inRing(x, z, OUTER)) have.push([x, z]); }
+  const walls = [OUTER.map((q, i) => [q, OUTER[(i + 1) % OUTER.length]]), DIVIDE.slice(1).map((q, i) => [DIVIDE[i], q])].flat();
+  const dSeg = (x, z, a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz || 1, k = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L));
+    return Math.hypot(x - a[0] - dx * k, z - a[1] - dz * k);
+  };
+  let i = 0;
+  for (let u = -90; u <= 90; u += 7.5) for (let v = -16; v <= 110; v += 7.5) {
+    i++;
+    const uu = u + (rand(i, 31) - 0.5) * 5, vv = v + (rand(i, 32) - 0.5) * 5, [x, z] = P(uu, vv);
+    if (rand(i, 33) > 0.5) continue;
+    if (!lawn.some(([ring, ...holes]) => inRing(x, z, ring) && !holes.some((h) => inRing(x, z, h)))) continue;
+    if (Math.abs(uu) < 34 && vv > -20 && vv < 54) continue; // the hall, its walks and the court
+    if (Math.abs(vv - 11.4) < 3.5 || SAFE.some(([a, b, r]) => Math.hypot(uu - a, vv - b) < r)) continue;
+    if (walls.some(([a, b]) => dSeg(x, z, a, b) < 3)) continue;
+    if (have.some((q) => Math.hypot(q[0] - x, q[1] - z) < 5.5)) continue;
+    t.push(Math.round(x * 10), Math.round(z * 10), Math.round((0.85 + 0.4 * rand(i, 34)) * 10), 0);
+    have.push([x, z]);
+  }
+}
+
 export function build({ data, S, group }) {
   const lamps = [];
+  grounds(S, data);
   hall(S, group, lamps);
   court(S);
   sides(S);

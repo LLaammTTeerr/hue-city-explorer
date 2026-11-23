@@ -53,6 +53,12 @@ drop the walls with it.
   the permanent tile or a restoration cover is not confirmed.
 - Gates are drawn as small brick gates with a tiled hip roof; their form is not confirmed.
 - Canh Y Điện: a base with a few column bases. Its mirror position across the axis is assumed.
+- Ground: the compound is mapped as landuse=religious, which the city draws as bare sand. The satellite and the
+  photospheres show lawn under dense shade trees, with only the court before the hall paved, so the place lays a
+  lawn over Thế Miếu's side of the cross wall, narrow brick walks round the hall, along the court and out to the
+  side gates (their exact line is estimated), and extra shade trees on the lawn. Hưng Miếu's court is left to its
+  place.
+- Tả and Hữu Tùng Tự bodies are lacquered timber panels, not brick.
 
 ## Left
 - Wall height and colour are kept from `FENCE.imperial`.
