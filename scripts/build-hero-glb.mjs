@@ -291,6 +291,151 @@ function buildMinhMangHero() {
   return scene;
 }
 
+// Build Hiển Lâm Các hero accent .glb (3-tier memorial pavilion in front of Thế Miếu)
+// Matches hienlam.js: anchor [-1260.15, 238.25], rotY = 0.6498;
+// Tier 1 eave y = 4.95, Tier 2 eave y = 9.45, Tier 3 eave y = 12.65, apex y = 15.35 above ground.
+function buildHienLamHero() {
+  const parts = [];
+  // Sculpted golden pháp lam lotus-gourd spire crowning the 3rd tier apex
+  parts.push(latheGourd(0, 15.35, 0, 1.45, 0xe8c45e));
+  // Curved golden đao mái corner scrolls across all 3 roof tiers (12 corners total)
+  const tiers = [
+    [4.95, 11.4, 6.5, 1.05],
+    [9.45, 7.5, 4.5, 0.95],
+    [12.65, 3.9, 3.6, 0.85],
+  ];
+  for (const [ty, eu, ev, sc] of tiers) {
+    for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+      parts.push(cornerScroll(su * eu, ty + 0.1, sv * ev, su * 0.72, sv * 0.72, sc));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'hienlam_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Thế Miếu hero accent .glb (55 m dynastic temple behind Hiển Lâm Các)
+// Matches themieu.js: anchor [-1293.6, 191.8], rotY = 0.6335;
+// Main rear hall v = -3.1, eave y = 7.0, ridge y = 11.5; Front hall v = +7.8, eave y = 4.6, ridge y = 7.9.
+function buildTheMieuHero() {
+  const parts = [];
+  // Main rear roof: Lưỡng Long Chầu Nhật + flaming sun pearl + turned end gourds + corner scrolls
+  const zm = -3.1, ym = 11.54;
+  const pearlM = new THREE.SphereGeometry(0.46, 14, 10);
+  pearlM.scale(1, 1.15, 0.45);
+  pearlM.translate(0, ym + 0.68, zm);
+  parts.push(paint(pearlM, 0xea6434));
+  parts.push(latheGourd(0, ym + 0.02, zm, 0.48, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ym, zm, 1, 5.4, 1.15));
+  parts.push(...sculptedDragon(0, ym, zm, -1, 5.4, 1.15));
+  for (const s of [-1, 1]) parts.push(latheGourd(s * 16.5, ym - 0.06, zm, 0.9, 0xe8c45e));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 24.7, 7.1, zm + sv * 8.2, su * 0.72, sv * 0.72, 1.2));
+  }
+  // Front hall roof: sculpted dragons + pearl + corner scrolls
+  const zf = 7.8, yf = 7.94;
+  const pearlF = new THREE.SphereGeometry(0.38, 12, 8);
+  pearlF.scale(1, 1.15, 0.45);
+  pearlF.translate(0, yf + 0.58, zf);
+  parts.push(paint(pearlF, 0xea6434));
+  parts.push(...sculptedDragon(0, yf, zf, 1, 4.4, 0.95));
+  parts.push(...sculptedDragon(0, yf, zf, -1, 4.4, 0.95));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 27.9, 4.7, zf + sv * 6.7, su * 0.72, sv * 0.72, 1.05));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'themieu_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Phu Văn Lâu hero accent .glb (2-storey royal edict pavilion on the Citadel axis)
+// Matches phuvanlau.js: anchor [-851.75, 375.95], rotY = 0.6125;
+// Lower eave y = 4.2, upper eave y = 8.3, upper ridge y = 10.12.
+function buildPhuVanLauHero() {
+  const parts = [];
+  const ry = 10.14;
+  const pearl = new THREE.SphereGeometry(0.34, 12, 8);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ry + 0.52, 0);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.36, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 2.2, 0.8));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 2.2, 0.8));
+  // 4 upper + 4 lower golden đao mái corner scrolls
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 2.7, 8.35, sv * 2.6, su * 0.72, sv * 0.72, 0.85));
+    parts.push(cornerScroll(su * 6.15, 4.25, sv * 5.9, su * 0.72, sv * 0.72, 0.95));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'phuvanlau_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Nghênh Lương Đình hero accent .glb (royal river pavilion on the Perfume River)
+// Matches nghenhluong.js: anchor [-794.62, 452.46], rotY = -2.5376;
+// Lower eave y = 4.1, upper eave y = 5.5, upper ridge y = 7.12.
+function buildNghenhLuongHero() {
+  const parts = [];
+  const ry = 7.14;
+  const pearl = new THREE.SphereGeometry(0.34, 12, 8);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ry + 0.52, 0);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, ry + 0.02, 0, 0.36, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ry, 0, 1, 2.1, 0.78));
+  parts.push(...sculptedDragon(0, ry, 0, -1, 2.1, 0.78));
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 2.85, 5.55, sv * 2.55, su * 0.72, sv * 0.72, 0.82));
+    parts.push(cornerScroll(su * 5.15, 4.15, sv * 5.15, su * 0.72, sv * 0.72, 0.9));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'nghenhluong_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Cung An Định hero accent .glb (Khải Tường Lâu palace + Đình Trung Lập octagonal pavilion)
+// Matches andinh.js: anchor [1008.95, 1355.83], rotY = 0.4527;
+// Twin towers at u = ±9.1, v = 4.8, crown top y = 16.95; center ridge at v = -4.05, y = 13.4;
+// Đình Trung Lập octagonal pavilion at u = -0.3, v = 17.7, roof cap y = 9.0, eave y = 5.8.
+function buildAnDinhHero() {
+  const parts = [];
+  // Turned neoclassical gilded finials on Khải Tường Lâu's twin front towers & center frontispiece
+  for (const su of [-1, 1]) {
+    parts.push(latheGourd(su * 9.1, 16.95, 4.8, 1.05, 0xe8c45e));
+    for (const [du, dv] of [[-1.8, -1.8], [1.8, -1.8], [-1.8, 1.8], [1.8, 1.8]]) {
+      parts.push(latheGourd(su * 9.1 + du, 15.0, 4.8 + dv, 0.65, 0xf1ead8));
+    }
+  }
+  // Center frontispiece & main ridge gilded urn finials
+  parts.push(latheGourd(0, 13.45, 2.75, 0.95, 0xe8c45e));
+  for (const su of [-3.8, 0, 3.8]) parts.push(latheGourd(su, 13.4, -4.05, 0.78, 0xe8c45e));
+  // Đình Trung Lập octagonal pavilion: sculpted golden spire + 8 curved đao mái dragon scrolls
+  const px = -0.3, pz = 17.7;
+  parts.push(latheGourd(px, 9.0, pz, 1.15, 0xe8c45e));
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2 + Math.PI / 8;
+    parts.push(cornerScroll(px + Math.cos(a) * 4.4, 5.8, pz + Math.sin(a) * 4.4, Math.cos(a) * 0.65, Math.sin(a) * 0.65, 0.8));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'andinh_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
@@ -299,6 +444,11 @@ for (const [name, buildFn] of [
   ['khaidinh-hero.glb', buildKhaiDinhHero],
   ['tuduc-hero.glb', buildTuDucHero],
   ['minhmang-hero.glb', buildMinhMangHero],
+  ['hienlam-hero.glb', buildHienLamHero],
+  ['themieu-hero.glb', buildTheMieuHero],
+  ['phuvanlau-hero.glb', buildPhuVanLauHero],
+  ['nghenhluong-hero.glb', buildNghenhLuongHero],
+  ['andinh-hero.glb', buildAnDinhHero],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
