@@ -20,11 +20,11 @@ The ironwood walkway on the south bank of the Hương, from the Nguyễn Đình 
 - **Piles:** a bent every 4.5 m, made of two 0.35 m square piles under a headstock.
 - **Ends:** ramps up to the promenade over the last 16 m of each end.
 - **Gangways:** a stepped timber gangway, 2.4 m wide, at each link.
+- **Deck:** 15 cm lim boards laid across the walk, in 3 m panels with staggered end joints (from the photosphere on the deck).
 - **Railing:**
-  - Top rail 1.05 m high.
-  - Bars 0.21 m apart, so that both sides come to about 4,100 bars.
-  - Posts every 6 m.
-- **Lighting:** lamp posts on the river side every ~30 m, with low railing lights in between. The lamp style is a guess.
+  - Flat bronze slats, 7 cm face, 1.05 m high, 0.21 m apart, so that both sides come to about 4,100 bars.
+  - One thin rail at 0.92 m, on the deck side, below the free slat tops. No cap rail and no posts (none show in the photosphere).
+- **Lighting:** low lights in the railing every 6 m. The reported lamp posts are not put on the deck: the photosphere shows over 100 m of river-side railing with none.
 - **Ends on land:** the model's mapped bank lies wider than the real embankment at the downstream end. There the first ~40 m of the OSM line falls on model land and is drawn at promenade level.
 - **Stand-off:** over the water the deck is pushed out (smoothly, up to a few metres) so that its bank-side edge clears the mapped bank by 0.4 m.
 
@@ -33,6 +33,21 @@ The ironwood walkway on the south bank of the Hương, from the Nguyễn Đình 
 - **`geo/city.js`:** a one-line guard skips the OSM boardwalk footways (class 5 bridge ways touching the two OSM end nodes). Before, they were drawn as a pale generic slab on top of the deck.
 - **Triangles:** about 36k.
 
+## Google check (2026-11-22)
+- **Position and axis:** the model's deck was laid over Google satellite captures at z19 and z20. Its river edge falls within about 1 m of the deck edge in the imagery along the middle 300 m, and the axis agrees to within half a degree. The NE end on the Trường Tiền quay and the SW gangway by cầu Phú Xuân fall within a few metres of the imagery. The OSM line was kept unchanged.
+- **Appearance:** a user photosphere taken on the deck itself (exact pose estimated from the image) shows these details:
+  - The lim has weathered to grey-brown, which the satellite also shows.
+  - The bronze railing has dulled to a dark brown-grey. It is gold-toned in the 2018 reports.
+  - The bars are flat slats with the broad face along the railing.
+  - No railing post stands out.
+- **Model changes from this check:**
+  - Deck and railing colours now follow the photosphere.
+  - Bars are 50 mm wide, a 50 x 4 mm flat. This is derived from 7 t of bronze over 4,100 bars.
+  - Posts are slimmer, in the bar colour.
+
+## Review fixes (2026-11-22)
+- Deck seams turned from lengthwise to transverse boards with panel joints; railing redrawn as cap-less slats over one low rail, posts removed; deck lamp posts removed; railing lightened to a pale grey-brown, deck a cooler grey.
+
 ## Left to do
-- **Unconfirmed details:** real pile spacing, stair and ramp forms, lamp-post design, and the rail profile. Photos would settle them.
+- **Unconfirmed details:** real pile spacing, stair and ramp forms, where the reported lamp posts stand, and the exact slat section. Photos would settle them.
 - **Roads:** the land-side link footways are still drawn as flat road ribbons by `city.js`, and they reach a little over the water at the links.
