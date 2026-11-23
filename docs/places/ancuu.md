@@ -19,23 +19,44 @@ height 11.5 m) from `data.bld`, so the city builder no longer draws it. No older
     (puts it on the An Cựu river bank, at the corner of Phan Đình Phùng and Hùng Vương).
 
 ## Confirmed
-- The outline of the lot, about 2,300 m², and the streets around it (OSM).
+- The outline of the lot, about 2,300 m², and the streets around it (OSM). Checked against satellite imagery:
+  the outline sits within about 2 m, and its north edge runs at a bearing of about 77°.
 - The overall height (survey) and how height is spread over the block (Open Buildings).
 
-## Estimated
-No public description or usable photo was found. Wikipedia vi has no article and Commons has no photo, so
-everything below is an estimate:
-- **Front block.** Two storeys on Hùng Vương, 11 x 25 m, 8.4 m to the parapet, in cream render. The gate is in the
-  middle, between yellow piers, under a raised panel reading "CHỢ AN CỰU" in red on cream.
-- **Main hall.** 29 x 36 m. Cream walls 6.2 m high, a grey corrugated-steel hip roof, and a louvred lantern on the
-  ridge reaching about 12 m.
-- **Kiosk rows.** Single-storey, with roller shutters and sheet awnings. They line the north lane, the corner on
-  Hùng Vương - Đặng Văn Ngữ, the south edge and the south half of the east lane.
-- **East shed.** An open stall shed on steel posts along the north half of the east lane.
-- **Umbrella stalls.** In the north-east yard and in the lane behind the front block.
-- **Colours.** Cream walls, grey and rust sheet roofs (the usual roofing for a Huế market).
-- **Night lights.** Tube lights under the front canopy and the gate, and lamps over the yard and the east shed.
+## Seen in imagery (satellite and street-level views, 2025; used as a visual reference only, nothing traced)
+- **Perimeter block.** Two storeys of white render wrap the Hùng Vương front, the cut corner, the Đặng Văn Ngữ
+  front and the first ten metres of the east lane, about 7 m deep. The ground floor is shop bays: jewellers
+  (Duy Tấn, Hoàng Ngọc, Phương Nam) with red-and-gold counters, blue-and-white striped awnings, and a sign band
+  up to about 5 m. The upper floor has breeze-block lattice panels between white piers, from about 5 to 9.3 m.
+  A deep cantilevered roof slab, about 1.4 m out, sits at about 9.3-10.3 m, with a large billboard on the south roof.
+- **The corner.** Where the cut front meets Đặng Văn Ngữ the corner is open: the walls are cut across behind it,
+  and three thin curved slabs sweep round it, cantilevered out further at the nose than along the fronts. The
+  top slab is the roof slab, with a curved parapet. The frame for the red letters "CHỢ AN CỰU" stands on the roof
+  over the cut front, facing the junction, and is seen edge-on above the corner from Đặng Văn Ngữ. The car pano on
+  Đặng Văn Ngữ (looking north) and the satellite both put this corner about 3 m west of the OSM vertex. The model
+  draws it there, on the line of the south front; the rest of the OSM outline is kept.
+- **The cut front.** The upper floor is plain white wall with a row of small windows high up and white banners
+  below them. It has no lattice.
+- **The south-east corner.** A broad grey ledge with a deep fascia projects about 1.5 m at first-floor level and
+  runs on north over the lower east wing. The upper floor above it is a periwinkle-blue box, set back on the ledge,
+  for about 12 m along the south front and 10 m up the east side. Its windows have projecting blue hoods, with A/C
+  units beside some of them. The east wing further north is lower: shops and a gallery, about 6 m.
+- **The north end of the Hùng Vương front.** The user photosphere on Hùng Vương, looking north-east, shows a second
+  blue upper-floor block at the north end of the front, about 11 m long and flush with the wall. It has two windows
+  and a mural.
+- **The hoarding.** A large hoarding, about 10 x 5 m, stands on the roof of the south front just east of the curved
+  corner. It is tilted back on a steel frame, with a row of lamps on arms over its top edge.
+- **Shopfronts.** The awnings are deep striped canvas, sloping 3-4 m out over the walk, with green and teal tarps
+  hung below their edges.
+- **Inside the lot (satellite).** A square pyramid-roofed hall of about 14 x 14 m. Two or three concentric bands of
+  long pale-cream sheet sheds, 18-20 m deep in all with the perimeter block, follow the west, cut and south fronts. A flat block east of the hall. An open yard in the north-east behind a curved wall.
+  All the roofs are pale grey; none are rust.
 
-## Left to do
-- Check the front, the gate, the sign and the roof colours against a real photo or street view.
-- The inner layout (one hall or several) is a guess from the height rasters.
+## Estimated
+- The exact radius of the curved slabs (5 m on the wall line) and their reach, and the hoarding's artwork.
+- The passages through the west and south fronts, the kiosk row along the north lane, the louvres on the hall,
+  the umbrella stalls in the north-east yard, and the night lights.
+
+## Disagreements
+- Open Buildings gives 4-6 m along the south edge, but street-level views show the two-storey block there at
+  about 10 m. The model follows the street-level views.
