@@ -61,6 +61,32 @@ export function build({ S }) {
   const y0 = LAND_Y - 0.4, footA = SA / BATTER, footB = SB / BATTER;
   const n0 = S.n;
 
+  // ---- Nam Minh bastion terreplein: fill the hollow interior of the OSM rampart ring up to the bastion's
+  // terreplein (LAND_Y + 3.6 m, so the 5.9 m observatory platform stands on solid earth rather than a sunken pit),
+  // with a paved stone perimeter walkway and low brick retaining wall along the inner gorge facing Tôn Thất Thiệp ----
+  {
+    const TERRE = LAND_Y + 4.8;
+    // keep the gorge edge cleanly south of Tôn Thất Thiệp (ramp foot at -1917.2, 698.0) so no masonry touches the road
+    const BASTION_IN = [[-1955.0, 706.0], [-1962.7, 709.7], [-1937.6, 761.4], [-1887.6, 737.1], [-1890.0, 715.0], [-1919.5, 707.5]];
+    S.kind = KIND.MASONRY;
+    S.prism(BASTION_IN, LAND_Y - 0.5, TERRE, shade(BRICK, 1.05), PAL.moss, { topKind: KIND.GROUND });
+    // stepped stone walkways crossing the terreplein around the observatory, as seen in the satellite & photo
+    S.kind = KIND.ROAD;
+    for (const s of [-1, 1]) {
+      const q = cAt(0, s * (SB / 2 + 5.0));
+      S.box(q[0], q[1], TERRE - 0.1, TERRE + 0.08, SA + 14, 2.2, fa, STONE, { topKind: KIND.ROAD });
+    }
+    const qOut = cAt(SA / 2 + 5.5, 0);
+    S.box(qOut[0], qOut[1], TERRE - 0.1, TERRE + 0.08, 2.4, SB + 12, fa, STONE, { topKind: KIND.ROAD });
+    // low stone curb/parapet flanking the bastion's outer terreplein edges (keep the gorge open at the ramp)
+    S.kind = KIND.MASONRY;
+    for (let i = 0; i < 4; i++) {
+      const a = BASTION_IN[i], b = BASTION_IN[i + 1];
+      const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+      S.box((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, TERRE, TERRE + 0.45, len, 0.5, Math.atan2(dz, dx), shade(STONE, 0.88), { top: RAILTOP });
+    }
+  }
+
   // ---- the platform: a truncated pyramid of brick, a damp foot, render patches, a stone cornice under the deck ----
   S.kind = KIND.MASONRY;
   S.box(C[0], C[1], y0, DECK - 0.35, footA, footB, fa, BRICK, { taper: BATTER * (1 - 0.1 / SB), top: FLOOR });

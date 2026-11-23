@@ -314,30 +314,31 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   // turns into NaN; post's focus blur and bloom then spread that one pixel over the whole canvas (see post.js)
   vec3 e = abs( hueN.y ) > 0.985 ? vec3( 1.0, 0.0, 0.0 ) : normalize( cross( hueN, vec3( 0.0, 1.0, 0.0 ) ) );
   vec3 s = cross( e, hueN );
-  vec2 uv = vec2( dot( vWPos, e ) / 1.15, dot( vWPos, s ) / 1.5 );
+  vec2 uv = vec2( dot( vWPos, e ) / 0.52, dot( vWPos, s ) / 0.72 );
   float fw = fwidth( uv.x ) + fwidth( uv.y );
   float detail = 1.0 - smoothstep( 0.35, 1.2, fw );
-  float ridge = pow( abs( sin( 3.14159 * uv.x ) ), 0.6 );
-  float course = smoothstep( 0.0, 0.16, fract( uv.y ) );
+  float ridge = pow( abs( sin( 3.14159 * uv.x ) ), 0.55 );
+  float course = smoothstep( 0.0, 0.14, fract( uv.y ) );
   float jit = hueHash( floor( uv ) );
-  float shade = ( 0.5 + 0.62 * ridge ) * ( 0.66 + 0.34 * course ) * ( 0.88 + 0.24 * jit );
+  float shade = ( 0.74 + 0.32 * ridge ) * ( 0.84 + 0.16 * course ) * ( 0.96 + 0.08 * jit );
   // drawn: a flat wash hatched down the slope, the pen lifting here and there
   float hatch = ( 1.0 - smoothstep( 0.0, 0.2, abs( sin( 3.14159 * uv.x ) ) ) ) * step( 0.2, hueHash( floor( vec2( uv.x, uv.y * 0.4 ) ) ) );
-  shade = mix( shade, 1.08 - 0.48 * hatch, uLook );
+  shade = mix( shade, 1.06 - 0.36 * hatch, uLook );
   // age: darker patches, lighter where rain has washed the ridges
-  hueRib = normalize( hueN + e * cos( 3.14159 * uv.x ) * 0.55 * detail );
+  hueRib = normalize( hueN + e * cos( 3.14159 * uv.x ) * 0.45 * detail );
   // each course laps the one below: the lip tips the tile a little down the slope
-  hueNp = normalize( hueRib - s * ( 1.0 - course ) * 0.5 * detail );
+  hueNp = normalize( hueRib - s * ( 1.0 - course ) * 0.35 * detail );
   hueGlaze = vKind > 8.5 ? 1.0 : 0.1;
-  float age = hueNoise( vWPos.xz * 0.45 ) * 0.6 + hueNoise( vWPos.xz * 1.7 ) * 0.4;
-  diffuseColor.rgb *= mix( 0.9, shade, detail ) * ( 0.78 + 0.36 * age );
-  // lichen and soot where tiles stay damp
+  float age = hueNoise( vWPos.xz * 0.35 ) * 0.6 + hueNoise( vWPos.xz * 1.4 ) * 0.4;
+  diffuseColor.rgb *= mix( 0.94, shade, detail ) * ( 0.88 + 0.22 * age );
+  // lichen and soot where unglazed tiles stay damp; glazed ceramic tiles shed most moss
   float moss = hueNoise( vWPos.xz * 0.23 + 31.0 ) * 0.65 + hueNoise( vWPos.xz * 1.1 + 7.0 ) * 0.35;
-  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.56, 0.66, 0.5 ), smoothstep( 0.42, 0.78, moss ) * 0.6 );
+  float mossK = vKind > 8.5 ? 0.16 : 0.4;
+  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.7, 0.55 ), smoothstep( 0.45, 0.82, moss ) * mossK );
   // soot-dark courses near the eaves, where old tiles hold water longest
-  diffuseColor.rgb *= 1.0 - 0.18 * smoothstep( 0.6, 0.95, hueNoise( vWPos.xz * 2.7 ) );
+  diffuseColor.rgb *= 1.0 - ( vKind > 8.5 ? 0.07 : 0.12 ) * smoothstep( 0.6, 0.95, hueNoise( vWPos.xz * 2.4 ) );
   // glazed imperial tile keeps a ceramic sheen where moss has not taken it; clay tile is matt
-  hueRough = vKind > 8.5 ? mix( 0.27, 0.6, smoothstep( 0.42, 0.78, moss ) ) : mix( 0.66, 0.9, age );
+  hueRough = vKind > 8.5 ? mix( 0.26, 0.5, smoothstep( 0.45, 0.82, moss ) ) : mix( 0.68, 0.9, age );
   hueMetal = vKind > 8.5 ? 0.04 : 0.0;
 } else if ( vKind > 3.5 && vKind < 4.5 ) {
   // ---------------- brick and stone ----------------

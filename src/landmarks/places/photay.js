@@ -917,8 +917,7 @@ export function build({ data, S, group, place }) {
           S.cyl(ex, ez, y + 0.42, y + 0.5, 0.4, 0.3, 8, C.pole);
           gp.push(ex, y + 0.27, ez); gc.push(1, 0.92, 0.75);
         }
-        if (k !== 'cva') continue;
-        const seg = 8, Y = (s0) => yTop[0] + (yTop[1] - yTop[0]) * s0 - 0.5 * 4 * s0 * (1 - s0);
+        const seg = 8, Y = (s0) => yTop[0] + (yTop[1] - yTop[0]) * s0 - 0.55 * 4 * s0 * (1 - s0);
         const W = (s0) => [ends[0][0] + (ends[1][0] - ends[0][0]) * s0, ends[0][1] + (ends[1][1] - ends[0][1]) * s0];
         for (let j = 0; j < seg; j++) {
           const p0 = W(j / seg), p1 = W((j + 1) / seg);
@@ -927,11 +926,29 @@ export function build({ data, S, group, place }) {
         const nb = Math.round((2 * HALF + 0.7) / 0.85);
         for (let j = 1; j < nb; j++) {
           const s0 = j / nb, p = W(s0), y = Y(s0) - 0.1;
-          S.box(p[0], p[1], y - 0.36, y, 0.24, 0.24, Math.atan2(t[1], t[0]), C.paper);
-          gp.push(p[0], y - 0.17, p[1]); gc.push(...BULBS[(j + i) % BULBS.length]);
+          const col = k === 'cva' ? C.paper : k === 'vts' ? ((j + i) % 2 ? C.lantern : C.lanternY) : ((j + i) % 3 === 0 ? C.lantern : (j + i) % 3 === 1 ? C.lanternY : C.paper);
+          S.box(p[0], p[1], y - 0.38, y, 0.28, 0.28, Math.atan2(t[1], t[0]), col);
+          gp.push(p[0], y - 0.18, p[1]);
+          gc.push(...(k === 'vts' && (j + i) % 2 ? [1, 0.35, 0.2] : BULBS[(j + i) % BULBS.length]));
         }
       }
     }
+  }
+  // pedestrian walking-street welcome arches over Võ Thị Sáu and Phạm Ngũ Lão (clear of carriageway, on the kerbs)
+  for (const [k, sAt] of [['vts', 165], ['pnl', 22]]) {
+    const c = LN[k].at(sAt, 0), a2 = LN[k].at(sAt + 1, 0);
+    const tx = a2[0] - c[0], tz = a2[1] - c[1], tl = Math.hypot(tx, tz) || 1;
+    const ux = tx / tl, uz = tz / tl, nx = -uz, nz = ux, ang = Math.atan2(nz, nx);
+    const span = HALF + 0.55, y0 = ground(c[0], c[1]);
+    S.kind = KIND.PLAIN;
+    for (const sg of [-1, 1]) {
+      const px = c[0] + nx * sg * span, pz = c[1] + nz * sg * span;
+      S.box(px, pz, y0, y0 + 5.6, 0.42, 0.42, ang, hex('#9e2e24'));
+      S.box(px, pz, y0, y0 + 0.7, 0.62, 0.62, ang, hex('#c9a248'));
+    }
+    S.box(c[0], c[1], y0 + 5.2, y0 + 5.85, span * 2 + 0.8, 0.42, ang, hex('#9e2e24'));
+    S.box(c[0], c[1], y0 + 5.42, y0 + 5.66, span * 1.4, 0.48, ang, hex('#e5be4c'));
+    L.sign[2].push([c[0], c[1], y0 + 5.4, y0 + 5.68, span * 1.35, 0.52, ang]);
   }
   // pavements: slabs in two tones of each street's stone, from the kerb back to the house fronts
   S.kind = KIND.GROUND;

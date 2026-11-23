@@ -52,9 +52,9 @@ const ROW = [[-84.2, -78.4, -33.0, -24.6, 2.0, hex('#5d5f5c')], [-84.2, -77.8, -
 const PARK = [[-631.4, -272.4], [-583.9, -205.7], [-661.1, -151.9], [-727.9, -103.9], [-776.5, -170.4]];
 const GATE_V = 46.0;
 
-const TILE = PAL.imperialRoof, RIDGE = hex('#f1d77a'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
-const STONE = PAL.stone, BRICK = hex('#a46e58'), DARK = hex('#3a2420');
-const TERRA = hex('#5e4a40'), LIME = hex('#f1ead8'), YLIME = hex('#ecd38c'), WOOD = hex('#5e3b26');
+const TILE = hex('#a85b3e'), RIDGE = hex('#dfd2b4'), LAC = PAL.lacquer, GOLD = hex('#d9b04a');
+const STONE = PAL.stone, BRICK = hex('#b26c52'), DARK = hex('#3a2420');
+const TERRA = hex('#6e4e40'), LIME = hex('#f1ead8'), YLIME = hex('#ecd38c'), WOOD = hex('#5e3b26');
 // the boundary (Street View, 2024-25): a low cement balustrade, a row of oval piercings between a plinth and a coping,
 // piers with caps every few metres, all grey and dark-stained; on Lê Trực a scrolled iron railing stands on it with an
 // open round thọ (壽) roundel in each bay. Plain cement (KIND.PLAIN): the masonry shader's brick courses and green-
@@ -70,16 +70,23 @@ export function build({ data, S, group }) {
   const y0 = gY(C[0], C[1]);
   const box = (u, v, ya, yb, w, d, col, o) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ANG, col, o); };
   // (the ridge runs along the longer side: a deep plan is handed over turned a quarter)
-  const hip = (u, v, w, d, ya, h, col, o) => { const q = P(u, v), t = d > w; S.hip(q[0], q[1], t ? d : w, t ? w : d, t ? ANG + Math.PI / 2 : ANG, ya, h, col, { flare: 0.5, fascia: 0.26, fasciaCol: shade(LAC, 0.7), hips: true, glazed: true, segs: 4, ...o }); };
+  const hip = (u, v, w, d, ya, h, col, o) => { const q = P(u, v), t = d > w; S.hip(q[0], q[1], t ? d : w, t ? w : d, t ? ANG + Math.PI / 2 : ANG, ya, h, col, { flare: 0.5, fascia: 0.26, fasciaCol: shade(LAC, 0.7), hips: true, glazed: false, segs: 4, ...o }); };
   const cyl = (u, v, ya, yb, r0, r1, n, col, o) => { const q = P(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, { rot: ANG, ...o }); };
   S.base = y0 - LAND_Y;
 
-  // ---- court: brick apron round the hall, a brick walk on the axis to the gate ----
+  // ---- court: wide Bát Tràng brick apron round the hall and broad red-brick approach to the gate (as in the photo) ----
   S.kind = KIND.MASONRY;
   const paved0 = S.n;
-  box(0, 0, y0 - 0.2, y0 + 0.22, 26, 33, shade(BRICK, 0.92), { topKind: KIND.ROAD });
-  box(0, (16.5 + GATE_V) / 2, y0 - 0.2, y0 + 0.25, 5.0, GATE_V - 16.5, BRICK, { topKind: KIND.ROAD });
+  box(0, 0, y0 - 0.2, y0 + 0.22, 32, 36, shade(BRICK, 0.94), { topKind: KIND.ROAD });
+  box(0, (18.0 + GATE_V) / 2, y0 - 0.2, y0 + 0.25, 11.0, GATE_V - 18.0, BRICK, { topKind: KIND.ROAD });
   (S.paved = S.paved || []).push([paved0, S.n]); // brick paving: no trees, no houses (src/geo/city.js coverOf)
+  // shady courtyard trees flanking the broad brick walk, framing Di Luân Đường as in the reference photo
+  if (Array.isArray(data.trees)) {
+    for (const [u, v, sc] of [[-12, 26, 12], [12, 26, 12], [-13, 35, 13], [13, 35, 13], [-24, 18, 12], [24, 18, 12], [-24, 34, 11], [24, 34, 11], [-22, -16, 12], [22, -16, 12]]) {
+      const q = P(u, v);
+      data.trees.push(Math.round(q[0] * 10), Math.round(q[1] * 10), sc, 4);
+    }
+  }
   box(-38.2 + 3.0, 20, y0 - 0.2, y0 + 0.08, 1.6, 40, shade(BRICK, 0.95)); // walks along the side halls' fronts
   box(38.4 - 3.0, 20, y0 - 0.2, y0 + 0.08, 1.6, 40, shade(BRICK, 0.95));
   box(0, 39.5, y0 - 0.2, y0 + 0.08, 72, 1.6, shade(BRICK, 0.95));

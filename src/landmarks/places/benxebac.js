@@ -135,6 +135,46 @@ export function build({ S, group }) {
     box(cu, b0 - 0.06, y0 + 1.2, y0 + 2.6, lu - 3, 0.12, C.glass);
   }
 
+  // ---------------- concrete bus yard, teal boarding shelter & parked intercity buses (matching satellite) ----------------
+  {
+    const yard0 = S.n;
+    S.kind = KIND.ROAD;
+    // concrete yard west and north of the terminal hall
+    box(-10, -28, y0 - 0.2, y0 + 0.08, 66, 36, hex('#b8b4aa'), { topKind: KIND.ROAD });
+    (S.paved = S.paved || []).push([yard0, S.n]);
+    // teal-green pitched boarding shelter along the north-east edge of the yard (prominent on satellite)
+    S.kind = KIND.PLAIN;
+    const shU = 12, shW = -34, shL = 32, shD = 8.5, shY = y0 + 4.8;
+    box(shU, shW, shY, shY + 0.45, shL, shD, hex('#3a756c'), { top: hex('#43847a'), topKind: KIND.FLAT, bottom: true });
+    for (let k = 0; k <= 5; k++) {
+      const u = shU - shL / 2 + 0.8 + (k * (shL - 1.6)) / 5;
+      for (const dw of [-shD / 2 + 0.6, shD / 2 - 0.6]) box(u, shW + dw, y0, shY, 0.42, 0.42, C.white);
+      if (k < 5) lit(LB, u + (shL - 1.6) / 10, shW, shY - 0.08, shY - 0.02, 1.4, 0.3);
+    }
+    // parked sleeper buses and minibuses in neat bays across the yard
+    const busCols = [hex('#e66824'), hex('#2c62a8'), hex('#d9382a'), hex('#eceae2'), hex('#3d7a5a'), hex('#e66824')];
+    const bus = (u, w, angOff, col, len = 11.2, wid = 2.5, h = 3.45) => {
+      const p = P(u, w), ba = A + angOff;
+      S.kind = KIND.PLAIN;
+      S.box(p[0], p[1], y0 + 0.35, y0 + h, len, wid, ba, col, { top: C.white });
+      S.box(p[0], p[1], y0 + 1.6, y0 + h - 0.45, len - 0.3, wid + 0.04, ba, C.glass);
+      S.box(p[0], p[1], y0 + h, y0 + h + 0.3, len * 0.4, wid * 0.6, ba, C.white);
+      for (const s of [-len * 0.3, len * 0.3]) {
+        S.box(p[0] + Math.cos(ba) * s, p[1] + Math.sin(ba) * s, y0 + 0.08, y0 + 0.8, 0.85, wid + 0.06, ba, hex('#232527'));
+      }
+    };
+    for (let k = 0; k < 5; k++) bus(-31 + k * 5.6, 3.0, Math.PI / 2, busCols[k % busCols.length], 8.6, 2.3, 3.0);
+    for (let k = 0; k < 6; k++) bus(-32 + k * 6.0, -24.5, Math.PI / 2 + 0.15, busCols[(k + 1) % busCols.length]);
+    for (let k = 0; k < 5; k++) bus(0 + k * 5.6, -24.5, Math.PI / 2, busCols[(k + 3) % busCols.length]);
+    // yard floodlight masts
+    for (const [u, w] of [[-38, -14], [-38, -40], [20, -40]]) {
+      const p = P(u, w);
+      S.cyl(p[0], p[1], y0, y0 + 11.0, 0.16, 0.1, 6, hex('#6c7175'));
+      S.box(p[0], p[1], y0 + 10.9, y0 + 11.25, 1.3, 0.4, A, hex('#d8dce0'));
+      lit(LB, u, w, y0 + 10.7, y0 + 10.9, 1.1, 0.35);
+    }
+  }
+
   for (const [B, col, boost] of [[LB, 0xf2f6ff, 1.2], [WB, 0xffd9a0, 0.9], [BB, 0xe8f0ff, 1.3], [RB, 0xff3040, 1.6]]) {
     if (!B.n) continue;
     const m = new THREE.Mesh(B.geometry(), lightMaterial(col, boost));

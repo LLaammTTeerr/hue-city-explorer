@@ -165,6 +165,44 @@ export function build({ data, S, group }) {
     box(uc + 8.3, vc - W / 2 - 0.2, CY - 1.3, CY - 0.4, 1.6, 0.1, C.red);
   }
 
+  // ---------------- concrete bus yard, parked intercity sleeper buses & yard floodlight poles (matching satellite) ----------------
+  {
+    const yard0 = S.n;
+    S.kind = KIND.ROAD;
+    // paved concrete apron behind the terminal (north/yard side)
+    box(2, -D / 2 - 36, y0 - 0.2, y0 + 0.08, L + 26, 56, hex('#b6b2a9'), { topKind: KIND.ROAD });
+    (S.paved = S.paved || []).push([yard0, S.n]);
+    // parked intercity sleeper buses (orange/red Phương Trang, blue/white, cream/red) in neat angled bays
+    const busCols = [hex('#e66824'), hex('#d9382a'), hex('#2c62a8'), hex('#e8e4da'), hex('#2d8a68'), hex('#e66824')];
+    const bus = (u, v, angOff, col, len = 11.4, wid = 2.55, h = 3.5) => {
+      const p = P(u, v), ba = a + angOff;
+      S.kind = KIND.PLAIN;
+      S.box(p[0], p[1], y0 + 0.35, y0 + h, len, wid, ba, col, { top: C.white });
+      // dark tinted passenger window ribbon & front windshield
+      S.box(p[0], p[1], y0 + 1.65, y0 + h - 0.45, len - 0.3, wid + 0.04, ba, C.glass);
+      // rooftop AC pod
+      S.box(p[0], p[1], y0 + h, y0 + h + 0.32, len * 0.42, wid * 0.62, ba, C.white);
+      // wheels
+      for (const s of [-len * 0.3, len * 0.3]) {
+        const wx = p[0] + Math.cos(ba) * s, wz = p[1] + Math.sin(ba) * s;
+        S.box(wx, wz, y0 + 0.08, y0 + 0.85, 0.9, wid + 0.06, ba, hex('#232527'));
+      }
+    };
+    // row 1: boarding coaches along the pick-up canopy
+    for (let k = 0; k < 6; k++) bus(-14 + k * 5.6, -D / 2 - 14.5, Math.PI / 2 + 0.22, busCols[k % busCols.length]);
+    // row 2 & 3: parked sleeper buses in the main yard
+    for (let k = 0; k < 7; k++) bus(-16 + k * 5.2, -D / 2 - 33, Math.PI / 2 + 0.22, busCols[(k + 2) % busCols.length]);
+    for (let k = 0; k < 5; k++) bus(-12 + k * 5.6, -D / 2 - 51, Math.PI / 2, busCols[(k + 4) % busCols.length], 9.2, 2.35, 3.1);
+    // yard floodlight masts
+    S.kind = KIND.PLAIN;
+    for (const [u, v] of [[-24, -D / 2 - 24], [26, -D / 2 - 24], [-24, -D / 2 - 54], [26, -D / 2 - 54]]) {
+      const p = P(u, v);
+      S.cyl(p[0], p[1], y0, y0 + 11.5, 0.16, 0.1, 6, hex('#6c7175'));
+      S.box(p[0], p[1], y0 + 11.4, y0 + 11.75, 1.4, 0.45, a, hex('#d8dce0'));
+      lit(LB, u, v, y0 + 11.2, y0 + 11.4, 1.2, 0.4);
+    }
+  }
+
   for (const [B, col, boost] of [[LB, 0xf2f6ff, 1.2], [WB, 0xffd9a0, 0.9], [BB, 0xe8f0ff, 1.3]]) {
     if (!B.n) continue;
     const m = new THREE.Mesh(B.geometry(), lightMaterial(col, boost));

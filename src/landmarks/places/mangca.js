@@ -192,24 +192,39 @@ export function build({ S, data }) {
     // the old building on top, abandoned: stained lime wash, empty window and door openings, a cement-tile roof. The
     // satellite shows one long grey roof over the whole gate block, about 36 x 10 m with square-cut ends and a ridge
     // down its length: a pitched roof closed by gables, no hips. No source shows its ornament, so none is drawn.
-    const bw = 34.4, bd = 8.4, bh = 3.1, ang = Math.atan2(GT[1], GT[0]);
+    const bw = 34.4, bd = 8.4, bh = 3.5, ang = Math.atan2(GT[1], GT[0]);
     const bx = GATE_C[0], bz = GATE_C[1];
-    const wash = hex('#9c9179'), roof = hex('#6f6c66'), streak = mix(wash, hex('#5e5848'), 0.45);
-    S.box(bx, bz, gTop, gTop + bh, bw, bd, ang, wash, { top: shade(wash, 0.8) });
-    S.box(bx, bz, gTop, gTop + 0.9, bw + 0.05, bd + 0.05, ang, shade(wash, 0.66)); // damp up the foot of the walls
-    const NW = 11; // empty openings, about 3 m apart; a door in the middle of each long side
+    const wash = hex('#cdc3ab'), roof = hex('#7a5948'), streak = mix(wash, hex('#78705e'), 0.4);
+    S.kind = KIND.COLONIAL;
+    S.box(bx, bz, gTop, gTop + bh, bw, bd, ang, wash, { top: shade(wash, 0.85) });
+    S.kind = KIND.PLAIN;
+    S.box(bx, bz, gTop, gTop + 0.7, bw + 0.08, bd + 0.08, ang, shade(wash, 0.72)); // weathered plinth
+    S.box(bx, bz, gTop + bh - 0.25, gTop + bh, bw + 0.24, bd + 0.24, ang, shade(wash, 1.06)); // cornice band
+    const NW = 11; // tall colonial window/door bays with pale frames
     for (const sd of [-1, 1]) for (let j = 0; j < NW; j++) {
       const s = -bw / 2 + 1.5 + j * ((bw - 3) / (NW - 1)), door = j === (NW - 1) / 2;
       const ox = bx + GT[0] * s + GN[0] * sd * (bd / 2 + 0.03), oz = bz + GT[1] * s + GN[1] * sd * (bd / 2 + 0.03);
-      S.box(ox, oz, gTop + (door ? 0.05 : 0.9), gTop + (door ? 2.4 : 2.3), door ? 1.2 : 1.0, 0.06, ang, hex('#26231f'));
+      S.box(ox, oz, gTop + (door ? 0.05 : 0.85), gTop + (door ? 2.65 : 2.55), door ? 1.4 : 1.15, 0.08, ang, hex('#2a2622'));
+      S.box(ox + GN[0] * sd * 0.02, oz + GN[1] * sd * 0.02, gTop + (door ? 2.65 : 2.55), gTop + (door ? 2.85 : 2.72), door ? 1.65 : 1.35, 0.08, ang, shade(wash, 1.08));
       // rain streaks from the eaves down the wash between the openings
-      if (j < NW - 1 && rand(j * 3 + sd, 41) < 0.6) {
-        const s2 = s + (bw - 3) / (NW - 1) / 2 + (rand(j, 42) - 0.5), w = 0.25 + rand(j + sd, 43) * 0.45, y1 = gTop + bh - 0.02, y0 = y1 - 0.6 - rand(j, 44) * 1.2;
+      if (j < NW - 1 && rand(j * 3 + sd, 41) < 0.45) {
+        const s2 = s + (bw - 3) / (NW - 1) / 2 + (rand(j, 42) - 0.5), w = 0.22 + rand(j + sd, 43) * 0.35, y1 = gTop + bh - 0.25, y0 = y1 - 0.5 - rand(j, 44) * 1.0;
         const px = bx + GT[0] * s2 + GN[0] * sd * (bd / 2 + 0.04), pz = bz + GT[1] * s2 + GN[1] * sd * (bd / 2 + 0.04);
         S.quad([px - GT[0] * w / 2, y0, pz - GT[1] * w / 2], [px + GT[0] * w / 2, y0, pz + GT[1] * w / 2], [px + GT[0] * w / 2, y1, pz + GT[1] * w / 2], [px - GT[0] * w / 2, y1, pz - GT[1] * w / 2], streak, [GN[0] * sd, 0, GN[1] * sd]);
       }
     }
-    gable(S, [bx, bz], bw, bd, ang, gTop + bh, 2.0, roof, wash, 0.7);
+    gable(S, [bx, bz], bw, bd, ang, gTop + bh, 2.3, roof, wash, 0.75);
+
+    // lush trees flanking Trấn Bình Môn and inside the fort compound (matching Google Satellite canopy)
+    if (Array.isArray(data.trees)) {
+      const tPts = [
+        [-1474, -2206, 12], [-1486, -2190, 11], [-1442, -2154, 12], [-1430, -2142, 13],
+        [-1420, -2130, 11], [-1492, -2220, 12], [-1412, -2215, 13], [-1395, -2245, 12],
+        [-1365, -2280, 14], [-1320, -2315, 13], [-1270, -2340, 12], [-1220, -2355, 13],
+        [-1180, -2310, 12], [-1155, -2260, 13], [-1245, -2245, 12], [-1310, -2225, 11],
+      ];
+      for (const [tx, tz, sc] of tPts) data.trees.push(Math.round(tx * 10), Math.round(tz * 10), sc, 1);
+    }
 
     // overgrowth: shrubs along the gate's top and creepers down its city face
     S.kind = KIND.PLAIN;

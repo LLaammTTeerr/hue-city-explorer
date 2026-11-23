@@ -135,50 +135,31 @@ export function build({ data, S, group }) {
       S.cyl(p[0], p[1], h + 0.75, h + 1.55, 0.6, 0.15, 6, leaf);
     }
   }
-  // the grove: from the air (Google satellite) old trees close over the whole precinct, the hall and the back ranges
-  // the only gaps; from every street their crowns stand over the wall. A jittered 7 m grid of broad crowns (high
-  // enough to clear the walk, the bonsai and the wall), kept off the roofs; under them, along the inside of the wall,
-  // shrubs and young trees that show over it; a banyan on the Bạch Đằng verge
-  {
+  // the grove: from the air (Google satellite) old trees frame the precinct while keeping the main hall, gate,
+  // bell/drum towers and central walk legible; planted via data.trees so foliage.js renders real instanced leafy
+  // crowns instead of static low-poly blobs.
+  if (Array.isArray(data.trees)) {
     const rnd = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
-    const G = 6;
-    for (let i = 0; A0 + 2 + i * G < 123; i++) for (let j = 0; B0 + 2 + j * G < B1; j++) {
-      const a = A0 + 2.6 + i * G + (rnd(i, j, 1) - 0.5) * 4;
-      const b = B0 + 2.6 + j * G + (rnd(i, j, 2) - 0.5) * 4;
-      let r = 4.4 + rnd(i, j, 3) * 2.2;
-      const h = 11 + rnd(i, j, 4) * 6;
-      if (!inside(a, b, 1.6) || (a < 60 && Math.abs(b) < 4.2)) continue;
-      while (r > 2.6 && !clearOf(a, b, r)) r -= 0.4; // smaller trees in the gaps between the roofs
-      if (!clearOf(a, b, r)) continue;
-      // near the wall the crowns come down to just over it, so the street sees leaves, not trunks
-      tree(S, W(a, b), r, r < 4 ? h * 0.75 : h, ringD(a, b) < r + 2.5 ? 3.0 : null);
-    }
-    // the old trees either side of the walk, their crowns meeting over it
-    for (let a = 15; a <= 52; a += 6.5) for (const sb of [-1, 1]) {
-      const b = sb * (5.4 + rnd(a, sb, 6) * 1.2);
-      let r = 5.2;
+    const plant = (c, sc, kind = 1) => { data.trees.push(Math.round(c[0] * 10), Math.round(c[1] * 10), Math.max(7, Math.min(16, Math.round(sc * 10))), kind); };
+    const G = 9.5;
+    for (let i = 0; A0 + 3 + i * G < 121; i++) for (let j = 0; B0 + 3 + j * G < B1 - 2; j++) {
+      const a = A0 + 3.5 + i * G + (rnd(i, j, 1) - 0.5) * 4.5;
+      const b = B0 + 3.5 + j * G + (rnd(i, j, 2) - 0.5) * 4.5;
+      // keep the front gate forecourt and central walk open so Phượng Môn and Đại Giác Hall read clearly
+      if (!inside(a, b, 3.0) || (a < 62 && Math.abs(b) < 7.0) || (a < 14 && Math.abs(b) < 16)) continue;
+      let r = 3.8 + rnd(i, j, 3) * 1.4;
       while (r > 2.6 && !clearOf(a, b, r)) r -= 0.4;
-      if (clearOf(a, b, r)) tree(S, W(a, b), r, 12 + rnd(a, sb, 7) * 4);
+      if (!clearOf(a, b, r)) continue;
+      const sc = 0.85 + rnd(i, j, 4) * 0.4;
+      plant(W(a, b), sc, rnd(i, j, 5) < 0.55 ? 1 : 0);
     }
-    // the understorey along the wall
-    const edge = [[A0, B0], ...BACKLINE, [117, B1], [A0, B1], [A0, B0]];
-    let k = 0;
-    for (let i = 0; i + 1 < edge.length; i++) {
-      const [p, q] = [edge[i], edge[i + 1]], len = Math.hypot(q[0] - p[0], q[1] - p[1]);
-      for (let s = 1.6; s < len - 1.6; s += 2.8, k++) for (const row of [0, 3.6]) {
-        const t = s / len, r = 1.3 + rnd(k, row, 1) * 0.8, h = 3.4 + rnd(k, row, 2) * 1.8;
-        // step in toward the middle of the block, clear of the wall; a second row behind
-        const am = p[0] + (q[0] - p[0]) * t, bm = p[1] + (q[1] - p[1]) * t;
-        const da = 60 - am, db = 0 - bm, dl = Math.hypot(da, db), nb = [-(q[1] - p[1]) / len, (q[0] - p[0]) / len];
-        const sgn = nb[0] * da + nb[1] * db > 0 ? 1 : -1, a = am + sgn * nb[0] * (r + 1.0 + row), b = bm + sgn * nb[1] * (r + 1.0 + row);
-        if (!dl || rnd(k, row, 3) < 0.1 || !inside(a, b, r + 0.6) || !clearOf(a, b, r + 0.3) || (a < 6 && Math.abs(b) < 10)) continue;
-        shrub(S, W(a, b), r, h);
-      }
+    // avenue shade trees flanking the central walk
+    for (let a = 18; a <= 48; a += 10) for (const sb of [-1, 1]) {
+      const b = sb * (7.2 + rnd(a, sb, 6) * 1.2);
+      if (clearOf(a, b, 3.2)) plant(W(a, b), 1.0 + rnd(a, sb, 7) * 0.25, 4);
     }
-    // young trees close behind the wall either side of the second entrance and before the towers, low-crowned,
-    // that hide the court from Bạch Đằng
-    for (const [a, b] of [[4.6, -19.5], [4.4, -31.5], [4.6, 19.5], [4.4, 30]]) if (clearOf(a, b, 3.3)) tree(S, W(a, b), 3.3, 10, 3.0);
-    banyan(S, W(-1.7, -16.5), 6.6, 15);
+    // banyan on the Bạch Đằng verge north-west of the gate
+    plant(W(-1.7, -16.5), 1.35, 5);
   }
   S.kind = KIND.PLAIN;
   S.base = 0;

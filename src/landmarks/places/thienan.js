@@ -470,9 +470,10 @@ export function build({ data, S, group }) {
     rbox(-44.5, -28.9, 20.5, 26, lo - 0.6, Math.min(yE, yC) - 0.05, pave, { topKind: KIND.ROAD });
   }
   // the garden court, open to the west-south-west: three lawn terraces stepping down the slope, gravel walks,
-  // a white statue on the middle one (planted with trees and flowers, sources say; the terraces are estimated)
+  // a white statue on the middle one, shaded by real instanced trees lifted onto the terraces via S.stand
   {
     const steps = [[-2.9, 10], [10, 23], [23, 35.8]];
+    const terraceLifts = [];
     let yPrev = null;
     for (const [u0, u1] of steps) {
       const [lo, hi] = hiG(u0, u1, -14, 24.2), y = Math.min(yPrev ?? 1e9, hi + 0.15);
@@ -480,18 +481,28 @@ export function build({ data, S, group }) {
       S.kind = KIND.MASONRY;
       rbox(u0, u1, -14, 24.2, lo - 0.6, y, base, { top: lawn, topKind: KIND.GROUND });
       S.kind = KIND.PLAIN;
-      // a closed, irregular canopy over the terraces (the satellite sees the court under one mass of crowns), the
-      // trees jittered off any grid, of mixed size, up to the walls of the range and the crypt terrace
-      for (let k = 0; k < 16; k++) {
-        const h1 = Math.sin((u0 + 7) * 3.1 + k * 17.23) * 9973.1, h2 = Math.sin((u0 + 3) * 5.7 + k * 29.71) * 7919.3;
-        const fu = h1 - Math.floor(h1), fv = h2 - Math.floor(h2);
-        const uu = u0 + 1.6 + fu * (u1 - u0 - 3.2), vv = -12.4 + fv * 35;
-        if (u0 === 10 && Math.hypot(uu - 16.5, vv - 5.2) < 3.5) continue;
-        shadeTree(W(uu, vv), y, 2.6 + fu * 2.2, 7 + fv * 5, u0 * 31 + k);
+      terraceLifts.push([u0, u1, -14, 24.2, y]);
+      if (Array.isArray(data.trees)) {
+        for (let k = 0; k < 12; k++) {
+          const h1 = Math.sin((u0 + 7) * 3.1 + k * 17.23) * 9973.1, h2 = Math.sin((u0 + 3) * 5.7 + k * 29.71) * 7919.3;
+          const fu = h1 - Math.floor(h1), fv = h2 - Math.floor(h2);
+          const uu = u0 + 2.0 + fu * (u1 - u0 - 4.0), vv = -12.0 + fv * 34;
+          if (u0 === 10 && Math.hypot(uu - 16.5, vv - 5.2) < 4.0) continue;
+          const q = W(uu, vv);
+          const sc = 9 + Math.floor(fu * 4);
+          data.trees.push(Math.round(q[0] * 10), Math.round(q[1] * 10), sc, k % 3 === 0 ? 3 : 1);
+        }
       }
       if (u0 === 10) { const q = W(16.5, 5.2); S.kind = KIND.MASONRY; S.cyl(q[0], q[1], y, y + 1.4, 0.8, 0.7, 8, base); S.kind = KIND.PLAIN; S.cyl(q[0], q[1], y + 1.4, y + 3.1, 0.38, 0.3, 8, white); S.cyl(q[0], q[1], y + 3.1, y + 3.5, 0.24, 0.12, 6, white); }
       yPrev = y - 0.9;
     }
+    (S.stand = S.stand || []).push((x, z) => {
+      const dx = x - O[0], dz = z - O[1], u = dx * U[0] + dz * U[1], v = dx * V[0] + dz * V[1];
+      for (const [u0, u1, v0, v1, y] of terraceLifts) {
+        if (u >= u0 && u <= u1 && v >= v0 && v <= v1) return Math.max(0, y - gY(x, z));
+      }
+      return 0;
+    });
   }
   (S.paved = S.paved || []).push([paved0, S.n]);
 
