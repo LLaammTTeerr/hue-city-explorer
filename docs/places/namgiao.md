@@ -62,10 +62,27 @@ returns early when `replaced('namgiao')` is true. The new file also draws the si
   generic pines grow on the lowest tier and the Phương đàn as the photos show (26 in the tile density). The
   satellite canopy is denser than that.
 
+## Review fixes (2026-11)
+- Ground: `scripts/build-data.mjs` holds the precinct's terrain nodes at the median of the ring 0–40 m outside
+  (17.29 m), so the esplanade no longer needs a bank on the west and nothing stands sunk in a slope.
+- Trees: `plant()` replaces the generic trees inside the precinct with pines of its own: a closed wood (4.3 m grid)
+  with a lower storey near the verge and an understory, dense groves on the band inside the railing and on the
+  Phương đàn round its four clearings, up to the round top's kerb (the 3 m collar is gone). The tiers' tops under the
+  groves are a dark grove floor; only the OSM lawns stay grass. A pine screen also fills the strip between Minh Mạng
+  and the west wall, clear of the carriageway and the Trai Cung.
+- Trees on a tier stand on its top: a landmark can push a `stand(x, z)` lift into `S.stand`; `populate` hands it to
+  `treePlanter`.
+- Walks are earth-brown and 5 m wide; the pale perimeter band and the wide N/S aprons are gone. The young pine rows
+  stand on the lowest tier, flanking the axial walks.
+- Boundary (low confidence, from Street View only): a dark stone wall 1.5 m high along Lê Ngọ Cát; a pale wall on the
+  west behind the pine screen; a clipped hedge of clumps 2.2–3.6 m high inside the edges, which hides the tier from
+  Tam Thai.
+
 ## Left
-- The precinct wall is not drawn, since it has been demolished.
+- The old precinct wall is not drawn, since it has been demolished; the low modern walls above stand in its place.
+- The rail fence along Minh Mạng is not drawn.
 - The Thần khố and Thần trù (storehouse and kitchen for the rite) are lost and not drawn.
 - No north screen. No sourced overall height has been added to `docs/heights-reference.json`.
 - Roof colours: the satellite shows an orange main-hall roof and grey side halls; the written source says glazed
   green-blue tiles. The model keeps green-blue until the owner decides.
-- Trees on the tiers are planted at ground level, so on the raised west side they sink 2 to 4.5 m into the tier.
+- The NW ruin seen on the satellite is not drawn (it waits on the owner, with the roof colours).

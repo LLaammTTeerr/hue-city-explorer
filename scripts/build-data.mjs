@@ -2405,6 +2405,31 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       for (const r of rails) if (r.bridge) for (const e of [r.pts[0], r.pts[r.pts.length - 1]]) near(e[0], e[1], RAIL_END, (k) => { if (h[k] > 0 && lock[k] !== 2) { h[k] = 0; railNodes++; } });
       console.log('landmark pads on the plain:', pads, 'places,', padNodes, 'nodes held level | road bridge landings:', landings, 'nodes | rail bridge landings:', railNodes, 'nodes at the floor');
     }
+    // Walled precincts laid out on one level (#73's rule, for a place too wide or too high for a 60 m pad). Đàn Nam
+    // Giao stands on the brow of a low rise, but the esplanade and its wood are a terrace levelled in 1806: the
+    // lowest tier is 0.84 m above near-level ground on every side, and the raster's smoothed knoll under it (4 m
+    // higher under the altar than on the west, the pine canopy read as ground on the north) put a grassed bank round
+    // the tier and sank the trees. So the nodes inside the precinct, squared to its frame (centre, turn off the
+    // compass, u east-north-east, v south-south-east, in metres; src/landmarks/places/<id>.js), are held at the
+    // median of the ring of nodes just outside it, and the ground meets the streets round it where it did before.
+    {
+      const PRECINCTS = [{ id: 'namgiao', c: [-676.2, 3455.6], turn: 13.1, u: [-136, 136], v: [-142, 257], ring: 40 }];
+      for (const pr of PRECINCTS) {
+        const t = (pr.turn * Math.PI) / 180, cs = Math.cos(t), sn = Math.sin(t);
+        const inside = [], ring = [];
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+          const dx = GX0 + i * STEP - pr.c[0], dz = GZ0 + j * STEP - pr.c[1];
+          const u = dx * cs - dz * sn, v = dx * sn + dz * cs;
+          const out = Math.max(pr.u[0] - u, u - pr.u[1], pr.v[0] - v, v - pr.v[1]);
+          if (out <= 0) inside.push(j * nx + i); else if (out <= pr.ring) ring.push(j * nx + i);
+        }
+        const free = inside.filter((k) => !lock[k]), vals = ring.map((k) => h[k]).sort((a, b) => a - b);
+        if (!free.length || !vals.length) continue;
+        const lv = vals[vals.length >> 1], was = free.map((k) => h[k]);
+        for (const k of free) h[k] = lv;
+        console.log('precinct', pr.id, 'held at', lv.toFixed(2), 'm:', free.length, 'nodes (they read', Math.min(...was).toFixed(1), '…', Math.max(...was).toFixed(1), '; the ring', vals[0].toFixed(1), '…', vals[vals.length - 1].toFixed(1) + ')');
+      }
+    }
     // the drawn ground (city floor + grid, on the client's triangles) against the laser, the same bins as above
     if (lidar) {
       const drawn = (x, z) => {
