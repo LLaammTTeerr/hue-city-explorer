@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import { KIND } from '../../geo/buf.js';
+import polygonClipping from 'polygon-clipping';
+import { KIND, unflat } from '../../geo/buf.js';
 
 // Replica models, one file per place: src/landmarks/places/<slug>.js, picked up here without being listed.
 //
@@ -42,9 +43,33 @@ export function placeDeckEnds(data) {
   return out;
 }
 
+// A place may also export rampartCuts(data): rings ([[x, z], ...], metres) to leave out of the Citadel's rampart band
+// (data.wall[0]), for a court sunk into a bastion beside a monument that stands on it (Kỳ Đài). They are cut before
+// any place is built, so the rampart (kinhthanh.js) and the gates that find its faces all see the same band. A cut
+// that would split the band in two is refused.
+function withRampartCuts(data) {
+  const band = (data.wall || [])[0], cuts = [];
+  for (const m of list) {
+    if (typeof m.rampartCuts !== 'function') continue;
+    try { cuts.push(...m.rampartCuts(data)); } catch (e) { console.warn(`rampart cuts of ${m.id}:`, e); }
+  }
+  if (!band || !cuts.length) return data;
+  const close = (r) => [...r, r[0]];
+  try {
+    const out = polygonClipping.difference(band.map((f) => close(unflat(f))), ...cuts.map((r) => [close(r)]));
+    if (out.length !== 1) throw new Error(`the band would fall into ${out.length} pieces`);
+    const flat = out[0].map((r) => r.slice(0, -1).flatMap(([x, z]) => [x * 10, z * 10]));
+    return { ...data, wall: [flat, ...data.wall.slice(1)] };
+  } catch (e) {
+    console.warn('rampart cuts not applied:', e);
+    return data;
+  }
+}
+
 // onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
-export function buildPlaces(data, S, group, onEach = null) {
+export function buildPlaces(data0, S, group, onEach = null) {
   load();
+  const data = withRampartCuts(data0);
   const live = [];
   for (const m of list) {
     const id = String(m.id).normalize('NFC');
