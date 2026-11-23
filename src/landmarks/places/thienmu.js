@@ -1,4 +1,4 @@
-import { Buf, KIND, hex, shade, obb, unflat, signedArea } from '../../geo/buf.js';
+import { Buf, KIND, hex, shade, mix, obb, unflat, signedArea, inRing, rand } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
@@ -26,6 +26,8 @@ import { streetTest, offStreets } from '../enclosure.js';
 // which hexagon holds the bell (east, "tả chung hữu cổ"), the stair's riser count in the model's 9.9 m drop.
 
 export const id = 'thienmu';
+// how far from the place point this builder reads data.trees (build-data.mjs keeps those records in hue.json)
+export const dataReach = 120;
 
 const C = [-4678.5, 1824.9]; // tower centre (OSM)
 const ANG = -0.237; // the compound's across direction (Tam Quan's long side); +v runs out to the river
@@ -51,11 +53,14 @@ const HALLS = [
   [[-4777.9, 1668.0], [-4767.2, 1665.4], [-4757.6, 1704.9], [-4768.1, 1707.2]],
 ];
 const STUPA = [-4738.6, 1583.5];
-const SIDE_GATES = [[-4663.9, 1750.5], [-4738.6, 1767.1]]; // drawn by citadel.js (data.gates); the wall leaves a way through
+const SIDE_GATES = [[-4663.9, 1750.5], [-4738.6, 1767.1]]; // OSM's two unnamed gates (data.gates): the cross path's line
 // the small gate in the east wall onto the lane, seen in Google Street View from the lane (car panorama at 16.452823,
-// 107.545376, looking 214 deg): bearing about 202 deg from it, where that line meets the wall. Not mapped in OSM.
-const EAST_GATE = [-4648.1, 1790.0];
-
+// 107.545376, looking 214 deg): bearing about 202 deg from it, where that line meets the court's edge. Not mapped in OSM.
+const SVB = { at: [-4641.8, 1777.2], bearing: 202 };
+// the brow on the west: the court is level east of this line (local u, v); west of it the hill falls to Văn Thánh road
+// (5-9.7 m below the court on the elevation data). Drawn clear of the west hexagonal house, the west stele house, the
+// west guardian hall and the halls behind, and through the west side gate's line.
+const WEST_BROW = [[-48, -75], [-20, 13]];
 const STONE = PAL.stone, BRICK = hex('#b8897a'), EAVE = hex('#5b5352'), TRIM = hex('#e9dfcd'), DARK = hex('#2b2422');
 // ROOF: weathered grey-brown tile, as the halls read from above (Google satellite) and in a courtyard photo, rather than
 // the city's new terracotta
@@ -64,7 +69,10 @@ const LIME = hex('#d9d2c2'), GREY = hex('#8d8a84'), BRONZE = hex('#5d5a43'), PAV
 const LANTERN = [1.0, 0.72, 0.34];
 // the outer wall and the terrace face under it: rough grey-brown rubble under a flat stone coping (Street View, east
 // lane); the red of the gate's doors and plaque
-const RUBBLE = hex('#8d8576'), COPING = hex('#a19d92'), DOOR = hex('#8e2f25');
+const RUBBLE = hex('#8d8576'), COPING = hex('#a19d92');
+// the halls: cream-ochre render under the grey-brown tiles, dark timber doors (a courtyard photosphere in Google Maps
+// and the photo notes), not the city's red lacquer
+const HALL = hex('#d3bd8c');
 
 // clip a ring (local u,v) to the half plane a*u + b*v <= c
 function clip(ring, a, b, c) {
@@ -91,132 +99,314 @@ export function build({ data, S, group, THREE }) {
   const lamp = (u, v, y) => { const q = P(u, v); lanPos.push(q[0], y, q[1]); lanCol.push(...LANTERN); };
   const LT = new Buf(1200); // light strips under the tower's eaves
 
-  // ---- the terrace: Hà Khê's walled top, stone-faced, cut at the front for the stair ----
-  const SW = 4.2, NV = 13.0; // the stair's half width and where it leaves the terrace
+  // ---- the ground: the walled court one level on the hill top, and planted banks where the hill falls away ----
+  // Google car Street View (captured 2026) shows no retaining wall on the hill: on Văn Thánh road (west, svA) a wooded
+  // earth bank rises from a low rubble wall at the road; at the front-east corner (svD) a low stone embankment at the
+  // road shoulder and a tree-covered slope; on the east lane (svB) a grass bank with the precinct wall standing on top
+  // of it, about 2 m high and level. The elevation data puts the court 9.7 m above the riverside road, so the court is
+  // one level only inside a brow line, and from there the ground slopes (0.9 in 1) down to the roads: inside the
+  // mapped precinct on the west and the front, where the road runs at its edge, and on the strip between the wall and
+  // the lane on the east, where there is room. The precinct wall stands on the brow and on the mapped east side.
+  const SW = 4.2, NV = 13.0; // the stair's half width and where it leaves the court
+  const SLOPE = 0.9;
   const loc = hkRing.map((p) => L(p[0], p[1]));
-  const pieces = [clip(loc, 0, 1, NV), clip(clip(loc, 0, -1, -NV), 1, 0, -SW), clip(clip(loc, 0, -1, -NV), -1, 0, -SW)];
+  // a half plane a*u + b*v <= c (local), the line through p and q, the side holding s; a, b a unit normal
+  const half = (p, q, s) => {
+    const l = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    let a = -(q[1] - p[1]) / l, b = (q[0] - p[0]) / l, c = a * p[0] + b * p[1];
+    if (a * s[0] + b * s[1] > c) { a = -a; b = -b; c = -c; }
+    return [a, b, c];
+  };
+  const neg = ([a, b, c]) => [-a, -b, -c];
+  const HW = half(...WEST_BROW, [0, 0]), HF = [0, 1, NV];
+  const fOut = (h, u, v) => h[0] * u + h[1] * v - h[2]; // metres outside a brow line
+  const level = clip(clip(loc, ...HW), ...HF);
+  const segDist = (u, v, a, b) => {
+    const ex = b[0] - a[0], ev = b[1] - a[1], l2 = ex * ex + ev * ev || 1;
+    const t = Math.max(0, Math.min(1, ((u - a[0]) * ex + (v - a[1]) * ev) / l2));
+    return Math.hypot(a[0] + ex * t - u, a[1] + ev * t - v);
+  };
+  const dLevel = (u, v) => { let d = Infinity; for (let i = 0; i < level.length; i++) d = Math.min(d, segDist(u, v, level[i], level[(i + 1) % level.length])); return d; };
+  const ground = (u, v) => LAND_Y + rise(...P(u, v));
+  const bankY = (u, v) => Math.max(Y - SLOPE * dLevel(u, v), ground(u, v) + 0.15);
+  const onStreet = streetTest(data, P(0, -60), 260);
+  const ccwRing = signedArea(hkRing) > 0;
+  const outN = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return ccwRing ? [dz / l, -dx / l] : [-dz / l, dx / l]; }; // world, outward
+
+  // the east strip: the mapped ring's edges along the lane (u > 12, from the front corner to the side gate's end) with
+  // the strip of hill between them and the lane, as far as the lane's kerb or until the bank meets the ground
+  const apron = [];
+  {
+    const isE = (i) => { const a = loc[i], b = loc[(i + 1) % loc.length], mu = (a[0] + b[0]) / 2, mv = (a[1] + b[1]) / 2; return mu > 12 && mv > -80 && mv < 22; };
+    let i0 = -1;
+    for (let i = 0; i < loc.length; i++) if (isE(i) && !isE((i - 1 + loc.length) % loc.length)) { i0 = i; break; }
+    if (i0 >= 0) {
+      const chain = [];
+      for (let i = i0; isE(i % loc.length) && chain.length < loc.length; i++) chain.push(i % loc.length);
+      const vs = [...chain, (chain[chain.length - 1] + 1) % loc.length];
+      const out = [];
+      vs.forEach((vi, k) => {
+        const p = hkRing[vi];
+        if (k === 0 || k === vs.length - 1) { out.push(p); return; } // tapered to nothing at both ends
+        const n1 = outN(hkRing[vs[k - 1]], p), n2 = outN(p, hkRing[vs[k + 1]]);
+        let nx = n1[0] + n2[0], nz = n1[1] + n2[1];
+        const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
+        let w = 0;
+        for (let t = 0.5; t <= 14; t += 0.5) {
+          const x = p[0] + nx * t, z = p[1] + nz * t;
+          if (onStreet(x, z, 0.6)) break;
+          w = t;
+          if (Y - SLOPE * t < LAND_Y + rise(x, z) + 0.15) break; // the bank has met the ground
+        }
+        out.push([p[0] + nx * w, p[1] + nz * w]);
+      });
+      apron.push({ ring: vs.map((vi) => loc[vi]), outer: out.map((p) => L(...p)), edges: new Set(chain) });
+    }
+  }
+  const apronRing = apron.length ? [...apron[0].ring, ...apron[0].outer.slice().reverse()] : [];
+
+  // the court: one level, its faces hidden behind the banks or the wall
   S.base = Y - LAND_Y;
-  for (const pc of pieces) {
-    if (pc.length < 3) continue;
+  {
     const n0 = S.n;
-    S.kind = KIND.MASONRY;
-    S.prism(pc.map(([u, v]) => P(u, v)), LAND_Y - 0.6, Y, RUBBLE, hex(PAL.green.sacred || '#c9bc93'), { topKind: KIND.GROUND });
+    S.kind = KIND.PLAIN;
+    S.prism(level.map(([u, v]) => P(u, v)), LAND_Y - 0.6, Y, shade(RUBBLE, 0.8), hex(PAL.green.sacred), { topKind: KIND.GROUND });
     (S.noCover = S.noCover || []).push([n0, S.n]); // ground: the garden trees stand on it
   }
-
-  // ---- the precinct wall on the outline; a low balustrade along the front brow ----
-  // Street View along the east lane (Google car panoramas, captured 2026): the outer wall is rough grey-brown rubble
-  // stone under a flat stone coping, about 2.8-3 m above the lane where the lane runs at its foot (north) and about
-  // 2.5 m above a grass bank further south, where a small masonry gate with red doors opens on the lane. The model's
-  // walled ground is one level (Y) while the lane falls away along the wall, so each stretch of wall is sized from the
-  // ground outside it: its top 2.9 m above that ground, but never less than 0.9 m nor more than 2.3 m above the court.
-  // The terrace face below it is the same rubble (see RUBBLE above), so face and wall read as the one wall they are.
+  // the banks: a height field on a 2 m grid, each cell cut to the piece it lies in
+  const pieces = [clip(loc, ...neg(HW))];
+  { const fr = clip(clip(loc, ...HW), ...neg(HF)); pieces.push(clip(fr, 1, 0, -SW - 0.6), clip(fr, -1, 0, -SW - 0.6)); }
+  if (apronRing.length) pieces.push(apronRing);
+  const inPiece = (u, v) => pieces.some((pc) => pc.length > 2 && inRing(u, v, pc));
   {
-    const ccw = signedArea(hkRing) > 0;
+    const n0 = S.n, grass = hex(PAL.green.grass), CELL = 2;
+    S.kind = KIND.GROUND;
+    for (const pc of pieces) {
+      if (pc.length < 3) continue;
+      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+      for (const [u, v] of pc) { u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+      for (let cu = Math.floor(u0 / CELL) * CELL; cu < u1; cu += CELL) for (let cv = Math.floor(v0 / CELL) * CELL; cv < v1; cv += CELL) {
+        let poly = clip(clip(clip(clip(pc, 1, 0, cu + CELL), -1, 0, -cu), 0, 1, cv + CELL), 0, -1, -cv);
+        poly = poly.filter((p, i) => { const q = poly[(i + 1) % poly.length]; return Math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-3; });
+        if (poly.length < 3 || Math.abs(signedArea(poly)) < 0.01) continue;
+        const hs = poly.map(([u, v]) => bankY(u, v));
+        S.base = hs.reduce((s, h) => s + h, 0) / hs.length - LAND_Y;
+        const tone = 0.86 + 0.12 * rand(Math.round(cu * 7 + cv * 131) & 0xffff, 7);
+        const faces = THREE.ShapeUtils.triangulateShape(poly.map(([u, v]) => new THREE.Vector2(u, v)), []);
+        const W = poly.map(([u, v], i) => { const q = P(u, v); return [q[0], hs[i], q[1]]; });
+        for (const f of faces) S.tri(W[f[0]], W[f[1]], W[f[2]], shade(grass, tone), [0, 1, 0]);
+      }
+    }
+    S.noCover.push([n0, S.n]);
+  }
+
+  // random rubble: small irregular stones, each its own tone, the upper courses greener with moss, laid on a wall face
+  // from (s0, y0) to (s1, y1) along a line in world coordinates (a: start, t: along, n: outward normal)
+  const MOSS = hex('#6f7358');
+  let stoneSeed = 1;
+  const rubble = (a, t, n, s0, s1, y0, y1) => {
+    S.kind = KIND.PLAIN;
+    const seed = (stoneSeed += 977);
+    for (let y = y0, row = 0; y < y1 - 0.06; row++) {
+      const h = Math.min(y1 - y, 0.2 + 0.2 * rand(seed + row, 1));
+      for (let s = s0 - 0.3 * rand(seed + row, 2), k = 0; s < s1; k++) {
+        const r = seed + row * 61 + k, w = 0.28 + 0.45 * rand(r, 3);
+        const p0 = Math.max(s0, s + 0.03), p1 = Math.min(s1, s + w - 0.03);
+        if (p1 - p0 > 0.06) {
+          const off = 0.015 + 0.025 * rand(r, 4), ya = y + 0.03 + 0.03 * rand(r, 5), yb = y + h - 0.03 - 0.04 * rand(r, 6);
+          const up = Math.max(0, Math.min(1, (yb - y0) / Math.max(0.5, y1 - y0)));
+          const col = mix(shade(RUBBLE, 0.72 + 0.45 * rand(r, 8)), shade(MOSS, 0.8 + 0.3 * rand(r, 9)), up * up * 0.7 * rand(r, 10));
+          const q = (s, yy) => [a[0] + t[0] * s + n[0] * off, yy, a[1] + t[1] * s + n[1] * off];
+          S.quad(q(p0, ya), q(p1, ya), q(p1, yb), q(p0, yb), col, [n[0], 0, n[1]]);
+        }
+        s += w;
+      }
+      y += h;
+    }
+  };
+  // a rough coping of uneven slabs, damp and mossy
+  const coping = (a, t, n, s0, s1, inset, th, top) => {
+    S.kind = KIND.PLAIN;
+    const ang = Math.atan2(t[1], t[0]);
+    for (let s = s0, k = 0; s < s1 - 0.05; k++) {
+      const r = (stoneSeed += 13), w = Math.min(s1 - s, 0.6 + 0.6 * rand(r, 1)), m = s + w / 2;
+      const x = a[0] + t[0] * m - n[0] * inset, z = a[1] + t[1] * m - n[1] * inset;
+      S.box(x, z, top, top + 0.1 + 0.1 * rand(r, 2), w + 0.02, th + 0.12 + 0.06 * rand(r, 3), ang, mix(shade(COPING, 0.8 + 0.25 * rand(r, 4)), MOSS, 0.45 * rand(r, 5)));
+      s += w;
+    }
+  };
+  // one stretch of rubble wall: body, stones on the outer face (down to the ground outside) and a coping
+  const wall = (a, t, n, s0, s1, foot, base, top, th) => {
+    const m = (s0 + s1) / 2, inset = th / 2 + 0.02, ang = Math.atan2(t[1], t[0]);
+    S.kind = KIND.PLAIN;
+    S.box(a[0] + t[0] * m - n[0] * inset, a[1] + t[1] * m - n[1] * inset, base, top, s1 - s0, th, ang, shade(RUBBLE, 0.78));
+    rubble(a, t, n, s0, s1, foot, top);
+    coping(a, t, n, s0, s1, inset, th, top);
+  };
+
+  // the gates: a low, wide block of weathered render, one round arch closed by a timber lattice, couplet panels on the
+  // pilasters, a plaque frieze over the arch and a flat cornice (svB, the east gate; the side gates drawn the same way:
+  // no photograph shows them)
+  const RENDER = hex('#a9a395'), GRILLE = hex('#3b2d23');
+  const GATE_W = 3.6;
+  const gateAt = (g, t, n) => { // g: centre on the wall's outer line (world), t along, n outward
+    const ang = Math.atan2(t[1], t[0]), D = 0.9, H = 3.1, ow = 1.8, r = ow / 2, spring = Y + 1.7;
+    const at = (s, o) => [g[0] + t[0] * s - n[0] * (D / 2 + 0.02 - o), g[1] + t[1] * s - n[1] * (D / 2 + 0.02 - o)];
+    const bx = (s, o, ya, yb, w, d, col) => { const q = at(s, o); S.box(q[0], q[1], ya, yb, w, d, ang, col); };
+    const pw = (GATE_W - ow) / 2;
+    S.kind = KIND.PLAIN;
+    for (const sg of [-1, 1]) bx(sg * (ow / 2 + pw / 2), 0, Y - 0.3, Y + H, pw, D, RENDER);
+    const halfAt = (y) => (y <= spring ? r : Math.sqrt(Math.max(0, r * r - (y - spring) ** 2)));
+    for (let k = 0; k < 6; k++) {
+      const ya = spring + (r * k) / 6, yb = spring + (r * (k + 1)) / 6, hw = halfAt((ya + yb) / 2);
+      for (const sg of [-1, 1]) bx(sg * (hw + (r - hw) / 2), 0, ya, yb, r - hw + 0.01, D, RENDER);
+      bx(0, 0, ya, yb, hw * 2, 0.06, GRILLE);
+    }
+    bx(0, 0, spring + r, Y + H, ow, D, RENDER);
+    bx(0, 0, Y, spring, ow, 0.06, GRILLE);
+    // the lattice: thin bars proud of the panel on both faces
+    const BAR = shade(GRILLE, 1.7);
+    for (const u of [-0.6, -0.3, 0, 0.3, 0.6]) bx(u, 0, Y + 0.05, spring + Math.sqrt(r * r - u * u) - 0.04, 0.05, 0.12, BAR);
+    for (let y = Y + 0.3; y < spring + r - 0.1; y += 0.34) bx(0, 0, y, y + 0.05, halfAt(y + 0.025) * 2 - 0.04, 0.12, BAR);
+    // couplet panels, the plaque frieze, the cornice
+    for (const o of [-1, 1]) {
+      for (const sg of [-1, 1]) bx(sg * (ow / 2 + pw / 2), o * (D / 2 + 0.012), Y + 0.45, Y + 2.15, 0.4, 0.03, shade(RENDER, 0.78));
+      bx(0, o * (D / 2 + 0.012), spring + r + 0.08, Y + H - 0.08, 1.5, 0.03, shade(RENDER, 0.7));
+    }
+    bx(0, 0, Y + H, Y + H + 0.12, GATE_W + 0.3, D + 0.3, shade(RENDER, 0.92));
+    bx(0, 0, Y + H + 0.12, Y + H + 0.22, GATE_W + 0.1, D + 0.12, shade(RENDER, 0.84));
+  };
+
+  // ---- the precinct wall on the court's edge; a low balustrade along the front brow ----
+  // East lane (svF, svB): random rubble of small stones under a rough mossy coping. Where the lane runs at the wall's
+  // foot (north of the side gate) the wall is sized from the ground outside it, as before: its top 2.9 m above that
+  // ground, kept between 0.9 and 2.3 m above the court. On the brow and over the east bank it stands 2 m, level.
+  const gatePts = [];
+  {
+    const ccw = signedArea(level.map(([u, v]) => P(u, v))) > 0;
     const gl = [L(...SIDE_GATES[0]), L(...SIDE_GATES[1])];
     const gd = [gl[1][0] - gl[0][0], gl[1][1] - gl[0][1]];
     const topAt = (x, z) => Math.min(Y + 2.3, Math.max(Y + 0.9, LAND_Y + rise(x, z) + 2.9));
-    let eastGate = null;
-    for (let i = 0; i < hkRing.length; i++) {
-      const a = hkRing[i], b = hkRing[(i + 1) % hkRing.length];
+    const onApron = (la, lb) => apron.length && apron[0].ring.some((p, i, r) => i + 1 < r.length && segDist((la[0] + lb[0]) / 2, (la[1] + lb[1]) / 2, p, r[i + 1]) < 0.05);
+    // the east gate: where the car panorama's sight line (SVB) first meets the court's edge
+    const sv = L(...SVB.at), sd = [Math.sin(SVB.bearing * Math.PI / 180), -Math.cos(SVB.bearing * Math.PI / 180)];
+    const sdl = [sd[0] * UX + sd[1] * UZ, -sd[0] * UZ + sd[1] * UX];
+    let east = null;
+    level.forEach((la, i) => {
+      const lb = level[(i + 1) % level.length], ex = lb[0] - la[0], ev = lb[1] - la[1];
+      const den = sdl[0] * ev - sdl[1] * ex;
+      if (Math.abs(den) < 1e-9) return;
+      const wx = la[0] - sv[0], wv = la[1] - sv[1];
+      const tt = (wx * ev - wv * ex) / den, ss = (wx * sdl[1] - wv * sdl[0]) / den;
+      if (tt > 0 && ss > 0 && ss < 1 && (!east || tt < east.tt)) east = { i, tt, ss };
+    });
+    for (let i = 0; i < level.length; i++) {
+      const la = level[i], lb = level[(i + 1) % level.length];
+      const a = P(...la), b = P(...lb);
       const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
-      if (len < 0.5) continue;
-      const tx = dx / len, tz = dz / len, nx = ccw ? -tz : tz, nz = ccw ? tx : -tx; // inward normal
-      const la = L(a[0], a[1]), lb = L(b[0], b[1]);
-      const front = la[1] > 14 && lb[1] > 14;
-      // gaps: the stair, the east gate, and where the cross path through the two side gates meets the wall
-      // intersection of this edge with the cross line
-      const ex = lb[0] - la[0], ev = lb[1] - la[1], den = ex * gd[1] - ev * gd[0];
-      let gapAt = null;
-      if (Math.abs(den) > 1e-6) {
-        const t = ((gl[0][0] - la[0]) * gd[1] - (gl[0][1] - la[1]) * gd[0]) / den;
-        if (t > 0 && t < 1) gapAt = t * len;
-      }
+      if (len < 0.3) continue;
+      const t = [dx / len, dz / len], n = ccw ? [t[1], -t[0]] : [-t[1], t[0]]; // outward
+      const front = Math.abs(la[1] - NV) < 0.05 && Math.abs(lb[1] - NV) < 0.05;
+      const brow = Math.abs(fOut(HW, ...la)) < 0.05 && Math.abs(fOut(HW, ...lb)) < 0.05;
+      const level2 = brow || onApron(la, lb);
       const segs = [[0, len]];
       const cut = (s0, s1) => { for (let k = segs.length - 1; k >= 0; k--) { const [p0, p1] = segs[k]; if (s1 <= p0 || s0 >= p1) continue; segs.splice(k, 1, ...[[p0, s0], [s1, p1]].filter(([q0, q1]) => q1 - q0 > 0.2)); } };
-      if (front && Math.abs(lb[0] - la[0]) > 1e-6) {
-        const t0 = (-SW - la[0]) / (lb[0] - la[0]), t1 = (SW - la[0]) / (lb[0] - la[0]);
-        const s0 = Math.max(0, Math.min(t0, t1)) * len, s1 = Math.min(1, Math.max(t0, t1)) * len;
-        if (s1 > s0) cut(s0, s1);
+      const gates = [];
+      if (front) {
+        // the stair, and the four pillars at its head
+        const s = (u) => ((u - la[0]) / (lb[0] - la[0])) * len;
+        cut(Math.min(s(-SW), s(SW)), Math.max(s(-SW), s(SW)));
+        for (const u of [-7.4, 7.4]) cut(s(u) - 0.8, s(u) + 0.8);
+      } else {
+        const ex = lb[0] - la[0], ev = lb[1] - la[1], den = ex * gd[1] - ev * gd[0];
+        if (Math.abs(den) > 1e-6) {
+          const tt = ((gl[0][0] - la[0]) * gd[1] - (gl[0][1] - la[1]) * gd[0]) / den;
+          if (tt > 0 && tt < 1) gates.push(tt * len);
+        }
+        if (east && east.i === i) gates.push(east.ss * len);
+        for (const s of gates) cut(s - GATE_W / 2 + 0.05, s + GATE_W / 2 - 0.05);
       }
-      if (gapAt !== null) cut(gapAt - 2.2, gapAt + 2.2);
-      if (!front && !eastGate) {
-        const s = (EAST_GATE[0] - a[0]) * tx + (EAST_GATE[1] - a[1]) * tz;
-        const off = Math.abs((EAST_GATE[0] - a[0]) * nx + (EAST_GATE[1] - a[1]) * nz);
-        if (s > 2.2 && s < len - 2.2 && off < 3) { eastGate = { s, a, tx, tz, nx, nz }; cut(s - 1.75, s + 1.75); }
-      }
-      const th = front ? 0.35 : 0.55;
       for (const [s0, s1] of segs) {
         if (front) {
-          const h = 0.95, m = (s0 + s1) / 2, l = s1 - s0;
-          const x = a[0] + tx * m + nx * (th / 2 + 0.2), z = a[1] + tz * m + nz * (th / 2 + 0.2), ang = Math.atan2(tz, tx);
+          const h = 0.95, th = 0.35, m = (s0 + s1) / 2, l = s1 - s0, ang = Math.atan2(t[1], t[0]);
+          const x = a[0] + t[0] * m - n[0] * th / 2, z = a[1] + t[1] * m - n[1] * th / 2;
           S.kind = KIND.MASONRY;
           S.box(x, z, Y - 0.3, Y + h, l, th, ang, LIME);
           S.kind = KIND.PLAIN;
           S.box(x, z, Y + h, Y + h + 0.14, l, th + 0.2, ang, GREY);
-          for (let s = s0 + 2.4; s < s1 - 0.6; s += 2.4) S.box(a[0] + tx * s + nx * (th / 2 + 0.2), a[1] + tz * s + nz * (th / 2 + 0.2), Y, Y + h + 0.3, 0.45, 0.45, ang, LIME);
+          for (let s = s0 + 2.4; s < s1 - 0.6; s += 2.4) S.box(a[0] + t[0] * s - n[0] * th / 2, a[1] + t[1] * s - n[1] * th / 2, Y, Y + h + 0.3, 0.45, 0.45, ang, LIME);
           continue;
         }
-        // rubble wall in stretches of at most 8 m, each as high as the ground outside it asks
-        const n = Math.max(1, Math.ceil((s1 - s0) / 8));
-        for (let k = 0; k < n; k++) {
-          const p0 = s0 + ((s1 - s0) * k) / n, p1 = s0 + ((s1 - s0) * (k + 1)) / n;
-          const m = (p0 + p1) / 2, l = p1 - p0 + (k === 0 ? 0.2 : 0) + (k === n - 1 ? 0.2 : 0);
-          const mm = m + (k === 0 ? -0.1 : 0) + (k === n - 1 ? 0.1 : 0);
-          const x = a[0] + tx * mm + nx * (th / 2 + 0.02), z = a[1] + tz * mm + nz * (th / 2 + 0.02), ang = Math.atan2(tz, tx);
-          const top = topAt(a[0] + tx * m - nx * 2, a[1] + tz * m - nz * 2);
-          S.kind = KIND.MASONRY;
-          // each stretch a little different, as laid by hand; the top damp and mossy under the coping
-          const v = 0.88 + 0.2 * Math.abs(Math.sin(p0 * 12.9898 + a[0] * 0.37)), top2 = top - 0.22;
-          S.box(x, z, Y - 0.3, top2, l, th, ang, shade(RUBBLE, v));
-          S.box(x, z, top2, top, l, th, ang, shade(hex('#6f7358'), 0.9 + 0.15 * v));
-          S.kind = KIND.PLAIN;
-          S.box(x, z, top, top + 0.16, l, th + 0.16, ang, COPING);
+        // in stretches of at most 8 m, each as high as the ground outside it asks
+        const k8 = Math.max(1, Math.ceil((s1 - s0) / 8));
+        for (let k = 0; k < k8; k++) {
+          const p0 = s0 + ((s1 - s0) * k) / k8, p1 = s0 + ((s1 - s0) * (k + 1)) / k8, m = (p0 + p1) / 2;
+          const ox = a[0] + t[0] * m + n[0] * 2, oz = a[1] + t[1] * m + n[1] * 2;
+          const top = level2 ? Y + 2.0 : topAt(ox, oz);
+          const foot = level2 ? Y - 0.3 : Math.min(Y - 0.3, LAND_Y + rise(ox, oz) - 0.3);
+          wall(a, t, n, p0 - (k === 0 ? 0.1 : 0), p1 + (k === k8 - 1 ? 0.1 : 0), foot, Y - 0.3, top, 0.55);
         }
       }
-      if (gapAt !== null && !front) {
-        // a small gateway in the wall: two rubble piers with stone caps
-        for (const sg of [-1, 1]) {
-          const s = gapAt + sg * 2.4, x = a[0] + tx * s + nx * 0.48, z = a[1] + tz * s + nz * 0.48;
-          const top = topAt(a[0] + tx * s - nx * 2, a[1] + tz * s - nz * 2) + 0.5;
-          S.kind = KIND.MASONRY;
-          S.box(x, z, Y - 0.3, top, 0.8, 0.8, Math.atan2(tz, tx), RUBBLE);
-          S.kind = KIND.PLAIN;
-          S.box(x, z, top, top + 0.22, 1.0, 1.0, Math.atan2(tz, tx), COPING);
-        }
+      for (const s of gates) {
+        const g = [a[0] + t[0] * s, a[1] + t[1] * s];
+        gateAt(g, t, n);
+        gatePts.push(L(...g));
       }
     }
-    if (eastGate) {
-      // the east gate (svB): a masonry block a little taller than the wall, an arched opening with red doors, a red
-      // plaque above, a short tiled canopy; a few steps down the bank to the lane
-      const { s, a, tx, tz, nx, nz } = eastGate, ang = Math.atan2(tz, tx);
-      const gx = a[0] + tx * s, gz = a[1] + tz * s;
-      const at = (along, inn) => [gx + tx * along + nx * inn, gz + tz * along + nz * inn];
-      const ground = LAND_Y + rise(gx - nx * 2, gz - nz * 2);
-      const top = Math.max(topAt(gx - nx * 2, gz - nz * 2) + 0.9, Y + 3.35), mid = at(0, 0.48);
-      S.kind = KIND.MASONRY;
-      for (const sg of [-1, 1]) { const q = at(sg * 1.25, 0.48); S.box(q[0], q[1], Y - 0.3, top, 1.1, 1.1, ang, shade(RUBBLE, 0.95)); }
-      S.box(mid[0], mid[1], Y + 2.45, top, 1.42, 1.1, ang, shade(RUBBLE, 0.95));
-      S.kind = KIND.PLAIN;
-      S.box(mid[0], mid[1], Y + 2.05, Y + 2.45, 1.42, 1.1, ang, shade(RUBBLE, 0.95)); // the arch's spandrels, simplified
-      // the arch: the opening narrows in two steps to its crown
-      S.box(mid[0], mid[1], Y + 2.05, Y + 2.25, 1.1, 1.12, ang, DARK);
-      S.box(mid[0], mid[1], Y + 2.25, Y + 2.38, 0.7, 1.12, ang, DARK);
-      for (const sg of [-1, 1]) { const q = at(sg * 0.52, -0.11); S.box(q[0], q[1], Y, Y + 2.05, 0.36, 0.08, ang, DOOR); } // the red doors, folded open
-      { const q = at(0, -0.1); S.box(q[0], q[1], Y + 2.62, Y + 3.0, 1.0, 0.06, ang, DOOR); } // the plaque
-      S.box(mid[0], mid[1], top, top + 0.14, 3.9, 1.6, ang, shade(ROOF, 0.85));
-      S.box(mid[0], mid[1], top + 0.14, top + 0.42, 3.3, 0.9, ang, ROOF);
-      S.box(mid[0], mid[1], top + 0.42, top + 0.56, 3.5, 0.22, ang, shade(ROOF, 0.7));
-      // steps down the bank to the lane outside, if it is lower
-      const drop = Y - ground;
-      if (drop > 0.4) {
-        const n = Math.min(12, Math.ceil(drop / 0.17)), rise1 = drop / n, run = Math.min(0.32, 4.5 / n);
-        S.kind = KIND.ROAD;
-        for (let k = 0; k < n; k++) {
-          const q = at(0, -0.05 - run * (k + 0.5));
-          S.box(q[0], q[1], ground - 0.4, Y - rise1 * (k + 1) + 0.02, 1.8, run + 0.01, ang, shade(COPING, 0.9), { topKind: KIND.ROAD });
-        }
+  }
+
+  // ---- the low walls at the roads: along the mapped edge where a bank runs down to it, and along the east strip ----
+  {
+    const roadWall = (pa, pb, out, kerb = false) => { // local points; out: outward normal sign check done by the caller (world n)
+      const a = P(...pa), b = P(...pb), dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
+      if (len < 0.3) return;
+      const t = [dx / len, dz / len], n = out(a, b);
+      const k3 = Math.max(1, Math.ceil(len / 3));
+      for (let k = 0; k < k3; k++) {
+        const s0 = (len * k) / k3, s1 = (len * (k + 1)) / k3, m = (s0 + s1) / 2;
+        const lm = [pa[0] + (pb[0] - pa[0]) * (m / len), pa[1] + (pb[1] - pa[1]) * (m / len)];
+        const g = LAND_Y + rise(a[0] + t[0] * m + n[0] * 1.5, a[1] + t[1] * m + n[1] * 1.5);
+        const top = kerb ? Math.max(bankY(...lm) + 0.05, g + 0.25) : Math.max(bankY(...lm) + 0.45, g + 0.8);
+        wall(a, t, n, s0 - (k === 0 ? 0.05 : 0), s1 + (k === k3 - 1 ? 0.05 : 0), g - 0.3, g - 0.3, top, 0.5);
       }
+    };
+    const ringOut = (a, b) => outN(a, b);
+    for (let i = 0; i < loc.length; i++) {
+      if (apron.length && apron[0].edges.has(i)) continue;
+      const la = loc[i], lb = loc[(i + 1) % loc.length];
+      // the part of this edge outside the court: outside the brow line or in front of the front brow
+      const iv = [];
+      for (const h of [HW, HF]) {
+        const fa = fOut(h, ...la), fb = fOut(h, ...lb);
+        if (fa <= 0 && fb <= 0) continue;
+        if (fa > 0 && fb > 0) { iv.push([0, 1]); continue; }
+        const tc = fa / (fa - fb);
+        iv.push(fa > 0 ? [0, tc] : [tc, 1]);
+      }
+      if (!iv.length) continue;
+      iv.sort((p, q) => p[0] - q[0]);
+      const merged = [iv[0].slice()];
+      for (const [p0, p1] of iv.slice(1)) { const lst = merged[merged.length - 1]; if (p0 <= lst[1]) lst[1] = Math.max(lst[1], p1); else merged.push([p0, p1]); }
+      const at = (tt) => [la[0] + (lb[0] - la[0]) * tt, la[1] + (lb[1] - la[1]) * tt];
+      for (const [p0, p1] of merged) {
+        // not across the stair
+        const A = at(p0), B = at(p1);
+        if (A[1] > NV - 0.1 && B[1] > NV - 0.1 && Math.max(A[0], B[0]) > -SW - 0.6 && Math.min(A[0], B[0]) < SW + 0.6) {
+          const sAt = (u) => (u - A[0]) / (B[0] - A[0]);
+          const c0 = Math.max(0, Math.min(1, Math.min(sAt(-SW - 0.6), sAt(SW + 0.6)))), c1 = Math.max(0, Math.min(1, Math.max(sAt(-SW - 0.6), sAt(SW + 0.6))));
+          const lerp = (s) => [A[0] + (B[0] - A[0]) * s, A[1] + (B[1] - A[1]) * s];
+          if (c0 > 0.01) roadWall(A, lerp(c0), ringOut);
+          if (c1 < 0.99) roadWall(lerp(c1), B, ringOut);
+          continue;
+        }
+        roadWall(A, B, ringOut);
+      }
+    }
+    if (apron.length) {
+      const o = apron[0].outer;
+      // the strip's outer edge runs the same way round as the ring, so the ring's rule gives its outward side; svB shows
+      // the grass running down to a stone kerb at the road, not a parapet, so it is only as high as the bank's foot
+      for (let k = 0; k + 1 < o.length; k++) roadWall(o[k], o[k + 1], (a, b) => outN(a, b), true);
     }
   }
 
@@ -380,8 +570,9 @@ export function build({ data, S, group, THREE }) {
     S.kind = KIND.ROAD;
     box(0, -4, Y, Y + 0.04, 26, 32, PAVE, { topKind: KIND.ROAD });
     box(0, -48.5, Y, Y + 0.04, 3.2, 47, PAVE, { topKind: KIND.ROAD }); // the axis path from the gate to Đại Hùng
-    { // the cross path through the side gates
-      const a = L(...SIDE_GATES[0]), b = L(...SIDE_GATES[1]);
+    { // the cross path through the side gates, from gate to gate (the two the wall loop found on the cross line)
+      const side = gatePts.filter((g) => Math.abs(g[1] - (L(...SIDE_GATES[0])[1] + L(...SIDE_GATES[1])[1]) / 2) < 15);
+      const [a, b] = side.length === 2 ? side : [L(...SIDE_GATES[0]), L(...SIDE_GATES[1])];
       const pa = P(...a), pb = P(...b);
       S.base = Y - LAND_Y;
       S.box((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, Y, Y + 0.04, Math.hypot(pb[0] - pa[0], pb[1] - pa[1]), 2.6, Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), PAVE, { topKind: KIND.ROAD });
@@ -448,7 +639,7 @@ export function build({ data, S, group, THREE }) {
     box(lc[0], lc[1], y1 + 0.3, y1 + 2.2, 0.75, 0.16, hex('#5f5a52'));
     const q = P(lc[0], lc[1]);
     S.kind = KIND.TILE;
-    S.hip(q[0], q[1], w, w, ANG, y1 + wh, 1.7, ROOF, { flare: 0.45, over: 0.7, fascia: 0.22, fasciaCol: shade(LAC, 0.7), hips: true, segs: 3, ridgeCol: RIDGE });
+    S.hip(q[0], q[1], w, w, ANG, y1 + wh, 1.7, ROOF, { flare: 0.45, over: 0.7, fascia: 0.22, fasciaCol: shade(ROOF, 0.7), hips: true, segs: 3, ridgeCol: RIDGE });
     S.kind = KIND.PLAIN;
     S.cyl(q[0], q[1], y1 + wh + 1.7, y1 + wh + 2.3, 0.22, 0.05, 5, GOLD);
     S.base = 0;
@@ -538,7 +729,7 @@ export function build({ data, S, group, THREE }) {
     // the lower roof all round, the upper storey and its roof
     S.kind = KIND.TILE;
     const q = P(0, v);
-    S.hip(q[0], q[1], gw, gd, ANG, y1 + wh, 1.6, ROOF, { flare: 0.5, over: 0.9, fascia: 0.26, fasciaCol: shade(LAC, 0.7), hips: true, segs: 3 });
+    S.hip(q[0], q[1], gw, gd, ANG, y1 + wh, 1.6, ROOF, { flare: 0.5, over: 0.9, fascia: 0.26, fasciaCol: shade(ROOF, 0.7), hips: true, segs: 3 });
     S.kind = KIND.TIMBER;
     const y2 = y1 + wh + 0.6, uh = 2.5;
     box(0, v, y2, y2 + uh, 7.0, 3.4, shade(WALL, 0.96), { top: shade(ROOF, 0.8) });
@@ -548,7 +739,7 @@ export function build({ data, S, group, THREE }) {
       box(0, v + sg * 1.74, y2 + 2.0, y2 + 2.4, 3.0, 0.06, hex('#3a3a3a')); // the board under the eave
     }
     S.kind = KIND.TILE;
-    S.hip(q[0], q[1], 7.0, 3.4, ANG, y2 + uh, 2.0, ROOF, { flare: 0.55, over: 1.0, fascia: 0.26, fasciaCol: shade(LAC, 0.7), hips: true, segs: 3, ridgeCol: RIDGE });
+    S.hip(q[0], q[1], 7.0, 3.4, ANG, y2 + uh, 2.0, ROOF, { flare: 0.55, over: 1.0, fascia: 0.26, fasciaCol: shade(ROOF, 0.7), hips: true, segs: 3, ridgeCol: RIDGE });
     S.kind = KIND.PLAIN;
     // the ridge's centre ornament: a pearl between dragons, read as a small disc on a plinth
     box(0, v, y2 + uh + 2.1, y2 + uh + 2.4, 0.9, 0.3, RIDGE);
@@ -578,8 +769,8 @@ export function build({ data, S, group, THREE }) {
     for (let s = 0; s < 4; s++) box(lc[0], vF + 0.5 + 0.34 * (s + 0.5), Y - 0.2, Y + 0.7 - (s + 1) * 0.175, 8, 0.35, shade(STONE, 1.03), { topKind: KIND.ROAD });
     const y1 = Y + 0.7;
     const pf = P(lc[0], vF - 1.4 - front / 2), pm = P(lc[0], vF - 1.4 - front - main / 2);
-    pavilion(S, pm[0], pm[1], w - 1, main, ANG, y1, { tiers: 2, wallH: 4.4, roof: ROOF, wall: LAC, over: 1.3, rh: 3.8, ridge: RIDGE, colonnade: true, segs: 4 });
-    pavilion(S, pf[0], pf[1], w, front, ANG, y1, { tiers: 1, wallH: 3.6, roof: ROOF, wall: LAC, over: 1.2, rh: 2.6, ridge: RIDGE, colonnade: true, segs: 4 });
+    pavilion(S, pm[0], pm[1], w - 1, main, ANG, y1, { tiers: 2, wallH: 4.4, roof: ROOF, wall: HALL, over: 1.3, rh: 3.8, ridge: RIDGE, colonnade: true, segs: 4 });
+    pavilion(S, pf[0], pf[1], w, front, ANG, y1, { tiers: 1, wallH: 3.6, roof: ROOF, wall: HALL, over: 1.2, rh: 2.6, ridge: RIDGE, colonnade: true, segs: 4 });
     // the ridge ornaments: dragons either side of a dharma wheel on the front roof
     S.kind = KIND.PLAIN;
     const ry = y1 + 3.6 + 2.6 + 0.4;
@@ -598,7 +789,7 @@ export function build({ data, S, group, THREE }) {
     const o = obb(rg);
     const d = Math.min(o.d, 14), w = o.w;
     S.base = Y - LAND_Y;
-    pavilion(S, o.c[0], o.c[1], w, d, o.a, Y, { tiers: 1, wallH: 3.2, roof: ROOF, wall: d > 9 ? LAC : WALL, over: 1.0, rh: Math.min(3.4, d * 0.28), platform: 0.45, ridge: RIDGE, colonnade: d >= 6, steps: false, segs: 3 });
+    pavilion(S, o.c[0], o.c[1], w, d, o.a, Y, { tiers: 1, wallH: 3.2, roof: ROOF, wall: d > 9 ? HALL : WALL, over: 1.0, rh: Math.min(3.4, d * 0.28), platform: 0.45, ridge: RIDGE, colonnade: d >= 6, steps: false, segs: 3 });
     S.base = 0;
   }
 
@@ -621,6 +812,39 @@ export function build({ data, S, group, THREE }) {
     S.kind = KIND.PLAIN;
     S.cyl(x, z, y, y + 1.4, 0.4, 0.05, 8, GOLD);
     S.base = 0;
+  }
+
+  // ---- the trees: a canopy over the banks and round the halls, as the satellite and every street view show it ----
+  // Off the lawn court, the forecourt, the stair and the cross path; populate() keeps them off the roofs and the paving.
+  // Trees stand on the city's ground (rise), so only where the model's ground is within a metre (court) or three (bank).
+  if (Array.isArray(data.trees)) {
+    const t = data.trees, near = data.meta?.counts?.treesNear;
+    // a generated tree on the riverside road's verge, in front of the tower's corner (svD shows none there)
+    const verge = streetTest(data, P(20, 30), 40);
+    for (let i = t.length / 4 - 1; i >= 0; i--) {
+      const x = t[i * 4] / 10, z = t[i * 4 + 1] / 10, [u, v] = L(x, z);
+      if (v < 18 || v > 40 || u < 8 || u > 45 || !verge(x, z, 'pavement')) continue;
+      t.splice(i * 4, 4);
+      if (near != null && i < near) data.meta.counts.treesNear--;
+    }
+    const cl = [L(...SIDE_GATES[0]), L(...SIDE_GATES[1])];
+    const crossD = (u, v) => { const ex = cl[1][0] - cl[0][0], ev = cl[1][1] - cl[0][1]; return Math.abs((u - cl[0][0]) * ev - (v - cl[0][1]) * ex) / Math.hypot(ex, ev); };
+    const clear = [[-27, 29, -101, -19], [-15, 15, -21, 13]]; // the lawn court with Đại Hùng; the tower's forecourt
+    let k = 0;
+    for (let gu = -76; gu <= 62; gu += 5.2) for (let gv = -292; gv <= 34; gv += 5.2) {
+      const r = (k++) * 7 + 3;
+      const u = gu + (rand(r, 1) - 0.5) * 3.8, v = gv + (rand(r, 2) - 0.5) * 3.8;
+      const [x, z] = P(u, v), g = LAND_Y + rise(x, z);
+      if (clear.some(([u0, u1, v0, v1]) => u > u0 && u < u1 && v > v0 && v < v1)) continue;
+      if (Math.abs(u) < SW + 2 && v > NV - 2) continue;
+      if (crossD(u, v) < 3) continue;
+      let ok = false;
+      if (inRing(u, v, level)) ok = Y - g < 1.0;
+      else if (inPiece(u, v)) ok = bankY(u, v) - g < 3.0; // a bank tree's foot under the grass reads as a shorter trunk
+      if (!ok || onStreet(x, z, 1.5)) continue;
+      const pine = v < -185;
+      t.push(Math.round(x * 10), Math.round(z * 10), 10 + Math.floor(rand(r, 3) * 6), pine ? 3 : rand(r, 4) < 0.35 ? 1 : 0);
+    }
   }
 
   S.kind = keep;

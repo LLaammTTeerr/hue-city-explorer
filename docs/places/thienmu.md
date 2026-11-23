@@ -90,3 +90,25 @@ precinct (captures kept in scratch/, not in the repo).
 - **Not matched:** on the river and west sides, the real hill is a steep wooded bank with a low stone wall at the road.
   The model keeps its one-level court on a vertical rubble face, 5-9 m high there. This comes from the elevation data
   (the court 9.7 m above the riverside road at the stair), not from this file.
+
+## Review fixes (2026)
+A second pass against the same car panoramas replaced several choices above (the east gate and the "Not matched"
+note no longer hold).
+- **Ground:** the court is level only inside the brow (west brow line and the front at v 13 in the local frame). Outside
+  it, grass banks fall at about 1:1.1 from the court to the city's ground: a west bank inside the ring, the front banks
+  either side of the stair, and on the east an apron outside the mapped ring, grown outward until it meets the lane or
+  the ground (at most 14 m). Banks are heightfields on a 2 m grid, so they follow the terrain.
+- **Walls:** random rubble (per-stone quads, mossier toward the top) under an uneven mossy coping, not ashlar coursing.
+  The precinct wall stands about 2 m above the bank top on the brow and on the east; at the road, a low rubble wall
+  (0.8 m above the road, 0.45 m above the bank foot) on the west and river sides, and only a stone kerb at the foot of
+  the east apron, where svB shows the grass running down to the lane.
+- **East gate:** a low rendered block about 3.6 m wide, one round arch with a timber lattice grille, couplet panels, a
+  plaque frieze and a flat cornice; no canopy, no stair. Placed where svB's sight line meets the wall (about 14 m from
+  the car, as in the panorama). The two side gates use the same builder.
+- **Citadel side gates:** the generic cream gate blocks with teal roofs from `citadel.js` are skipped inside the
+  precinct ring when this file is loaded.
+- **Colours:** halls and Đại Hùng have ochre-cream walls (`#d3bd8c`), dark doors and the weathered brown-grey tile;
+  pavilion fascias follow the roof instead of red lacquer. Columns stay lacquered.
+- **Trees:** a jittered 5.2 m grid of trees over the banks and round the halls (pines on the north end), clear of the
+  lawn court, the forecourt, the stair and the cross path. The generated flame tree on the riverside verge in front
+  of the tower's east corner (svD) is removed. `dataReach = 120` keeps the data trees near the place in `hue.json`.
