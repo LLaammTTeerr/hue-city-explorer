@@ -46,3 +46,13 @@ Read from satellite imagery and Street View (visual reference only; nothing trac
 - The garden court is under tree canopy.
 - One OSM outbuilding is drawn 6 m south of the roof seen in the imagery. It is shifted in the builder.
 - A square house on the satellite, west of the forecourt, has no OSM outline. It is added in the builder.
+
+## Review fixes (2026-11)
+- Forecourt: the chapel no longer floors at the hilltop it shared with the long range. The forecourt level `yF` is taken from the ground just in front of the façade. The chapel floor `yCh` is 1.5 m above it, cut into the slope. A broad 9-riser stair runs the full width between low cheeks, with small dark arches in the terrace base and balustrades. The paved court out to the road follows the falling ground, and both façade photospheres are taken standing on it. The old mound, retaining walls, ramp and tall cheek walls are gone.
+- Front: there is a glazed tiled eave across the portico and a second, narrower one under the gable. The gable has glazed verges and a rose oculus. The end pavilions have oculi and glazed hipped roofs with fascia. The upper storey has a white statue niche between pink panels and a balustraded balcony. The ground-floor windows are white-framed arches with red shutters. Each eave has a fascia and an under-side, so it reads as a roof from below.
+- Bell tower: the plinth is 6.4 m in radius. There are seven tiers 4.4 m down to 3.3 m tall, with r 4.4 shrinking 0.22 per tier. Each tier has a deep glazed skirt (fascia, soffit, cone, upturned corners) and a balustrade. The cap is a tall glazed cone with a cross. The position is unchanged. The size is estimated from the two user photospheres, scaled against the façade width.
+- Chapel roof: the nave (v 32.6–49.2) now takes most of the 22 m width under one roof. The inner aisle (flat grey, v 28.8–32.6) and the outer lean-to (v 25.5–28.8) are narrower, as on the satellite.
+- Ranges: the walls are cream plaster on a stone base. The east wing is two storeys. The duplicate parallel range south of the cross wing has been replaced by what the satellite shows there: a small hipped block, a flat grey terrace block, then the separate south block. The south-west arm is now a narrow arm plus a separate end block.
+- West garden: the regular grid and straight path have been replaced by jittered trees of mixed size, each with several irregular crown masses. Together they close into a canopy.
+- Label top recomputed (`a` 713 in `public/data/places.json`).
+- Still estimated: every height. No car pano shows the buildings, and both façade views are user photospheres whose poses were estimated from the image.
