@@ -22,13 +22,24 @@ The riverside walking street on the south bank of the Hương. It runs upstream 
 - Paved in stone or brick, closed to motorbikes, lit at night, with food and souvenir stalls. Opening hours are given as 16:00–22:00, all day on Sunday; a 2015 report gives 17:00–23:00.
 - Benches face the river and there are "genre" sculptures. Some listings mention colour-changing LED lighting; these come from search summaries of travel listings, not full articles.
 
+## Seen on the Google satellite and Street View (2026 rebuild)
+Used as visual reference only; nothing was traced, and the captures stay in `scratch/`.
+- The OSM bank edge lies on the satellite water line within about 1–2 m, and the walk axis within about 1°. No data or anchor change was needed.
+- The walk is wide, light grey stone slabs (no darker central strip). It is about 12 m to the inland kerb in the downstream third and about 14 m upstream.
+- The river edge has a low stone balustrade with turned balusters and square piers, not a sitting edge.
+- A row of palms stands in small grass squares along the bank side. Large broad shade trees (banyan-like) stand along the inland edge.
+- Grey poles carry disc (UFO-shaped) lamps; taller poles with several bracket arms stand among them.
+- Café parasols stand on the lawn in the upstream half. No fixed kiosks show on the satellite, so the stalls are taken to be evening carts.
+
 ## Estimates
 No drawing or survey was found, so these sizes and counts are guesses:
-- The walk is 8 m wide, with 0.6 m bands every 6 m and a granite sitting edge on the bank (0.42 m high).
-- Lamp posts with twin lanterns, 4.5 m high, every 18 m, with a bench between each pair.
-- Ten stall kiosks in the upstream half.
+- Widths 12.0 m / 13.8 m, with the change at about 66 m from the bridge end. Joint bands 0.3 m every 6 m.
+- The balustrade is about 1.1 m high, with piers every ~3 m.
+- Disc lamps 5.7 m high every 18 m along the bank, plus an inland row; a 9 m multi-arm pole beside every third.
+- Palms 10.5–13.3 m high, every 9 m.
+- Shade trees every 12 m along the inland kerb; they use foliage kind 4 (spreading, never turned into a willow).
+- Eight parasols in two rows.
 - Three figure sculptures: two on plinths and one in the inner roundel.
-- Shade trees on the lawn, mixing phượng and other species.
 - The LED line along the bank edge cycles its hue.
 
 ## What changed
@@ -40,9 +51,26 @@ No drawing or survey was found, so these sizes and counts are guesses:
 - Shade trees are pushed into `data.trees`. They keep clear of buildings, roads, the inner roundel and the Điềm Phùng Thị garden.
 - Night lighting: lamp and kiosk glows, plus the animated LED line.
 - No older builder drew this place, so no `replaced()` guard was needed.
+- 2026 rebuild from the satellite and Street View:
+  - the walk widened and paved in light slabs
+  - a stone balustrade replaces the granite edge
+  - disc lamps and multi-arm poles replace the twin-lantern posts
+  - a palm row and an inland shade-tree row were added
+  - café parasols replace the kiosks
+  - generated trees standing on the paving are emptied in place (scale 0, never removed, so the other trees keep their seeds)
+  - `src/geo/foliage.js` gained kind 4 for these trees
+- Review fixes (2026):
+  - The generic riverside lamps (black posts with cream lanterns) are left out of this place: the place exports `lightAreas(data)`, and `riverlights.js` skips any lamp inside those rings (walk band, roundel, west path).
+  - The shade row is now banyans: kind 5 in `foliage.js`, with a whitewashed trunk foot, aerial roots and a wide low canopy reaching over half the walk.
+  - The palms are 11.5 to 14.3 m tall, with ringed tapering trunks, a crownshaft, 18 fronds in three tiers and hanging dead fronds. The multi-arm pole is 12.5 m of steel, so it rises to the crowns.
+  - The paving is a warmer cream with a darker band and a visible 1.2 m joint grid.
+  - A café terrace sits at s 138 to 168. It is paved up to the walk edge, with a low red-brown brick wall inland and at both ends, and parasols out on the walk edge.
+  - At the bridge end the paving runs as an apron along the bank to Trường Tiền's upstream abutment, with the balustrade continued and a three-step granite quay on the water side.
 
 ## Left to do
 - Confirm the real lamp, bench and kiosk designs and spacing from photos.
 - Identify the actual sculptures and where they stand.
-- Check whether the stalls are fixed kiosks or mobile carts set up each evening.
+- Check whether the stalls are fixed kiosks or mobile carts set up each evening. The satellite shows none.
+- The palm fronds are still flat strips; a finer frond model would read better close up.
+- Under the dusk light the paving picks up a lilac cast from the sky.
 - The Điềm Phùng Thị garden (`diemphungthi`) is someone else's place and has no replica yet; its lawn is still the base ground.
