@@ -98,3 +98,18 @@ in the repository. Changes:
   - the hội trường's south-west end, which the satellite suggests is a gable with a pediment (the model has a hip);
   - the pediment on the north-west gable of 695775626;
   - the tennis and basketball courts.
+
+## Review fixes (2026-11)
+
+- Gable ends with pediments (Street View: Phan Bội Châu, Nguyễn Trường Tộ, Ngô Quyền; satellite for the hội trường's
+  SW end): 695775626 NW end, 695770487 SE end, 695775628 the end facing the pitch, 695775639 SW end. The roof runs
+  out to the gable wall; the pediment has a cream foot and raking cornices, a cream inner triangle and a lozenge.
+- Two storeys: the walls are plain render with the windows drawn per storey (arcade and shuttered arched windows on
+  the 1915 blocks, framed rectangles on the later ones). The shared façade shaders' 3.4 m floors read as three.
+- The small pavilion west of the pitch (about x −602, z 1077): 6.5 m square, two storeys of 3.6 m, red with cream
+  bands and a flat ornamental parapet. Height estimated from Street View (no published figure).
+- Grandstand 695775623: grey concrete tiers facing the track, not a building.
+- Tennis court (satellite, east of the pitch) and basketball court (SW end of the pitch), sizes from the satellite.
+- The drive and the circle's ring follow the ground in short draped strips (the old single quads stepped).
+- The street railing is thin iron bars (`barW`, `railW`, `railH` in enclosure.js); more trees in the grounds.
+- Dãy A and the laboratory block's SE ends were left at the OSM outline: the longer look in the imagery is roof lean.
