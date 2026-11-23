@@ -1,5 +1,5 @@
 import { KIND, hex, shade, mix, unflat, obb, inRing } from '../geo/buf.js';
-import { LAND_Y } from '../config.js';
+import { LAND_Y, roadWidth } from '../config.js';
 import { rise, waterY } from '../geo/terrain.js';
 import { glowPoints } from '../geo/materials.js';
 
@@ -9,7 +9,10 @@ import { glowPoints } from '../geo/materials.js';
 // of the lakeside amphitheatre and its show pool, the slide pools and the slide tower, the two entrance plazas and
 // their sculptures, the entrance, the lake itself.
 // Drawn by hand, from what stands there: the aquarium as a saucer-rimmed drum under a dome, the dragon coiled
-// round the dome with its head reared to the north over the lake (the top floor opens into its mouth), three slides;
+// round the dome with its head reared to the north over the lake (the top floor opens into its mouth), on the paved
+// island the data build leaves round it; the aqua park as pools with blue-tiled rims and a pale apron, the lazy river
+// round the big pool with its timber footbridge, brick paths, royal palms over fan palms, and the slide tower (trunk
+// columns, terracotta deck, corrugated roof) with its one green tube;
 // the amphitheatre's grandstand and show pool as the sandy clearing the 2026 satellite shows where they stood. (The pines are planted by the data build, as trees.)
 
 const dark = hex('#2b2422');
@@ -89,6 +92,105 @@ function railing(S, cx, cz, r, y, h, seg, col, gaps) {
     S.beam([p0[0], y, p0[2]], p0, 0.12, 0.12, col);
   }
 }
+// ring helpers: corner-cut smoothing, signed area, an offset (d > 0 outward) with mitred corners
+const chaikin = (r, n = 2) => {
+  let o = r;
+  for (let k = 0; k < n; k++) {
+    const q = [];
+    for (let i = 0; i < o.length; i++) { const a = o[i], b = o[(i + 1) % o.length]; q.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25], [a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]); }
+    o = q;
+  }
+  return o;
+};
+const areaOf = (r) => { let A = 0; for (let i = 0, n = r.length; i < n; i++) { const a = r[i], b = r[(i + 1) % n]; A += a[0] * b[1] - b[0] * a[1]; } return A / 2; };
+function offsetRing(r, d) {
+  const n = r.length, sg = areaOf(r) > 0 ? 1 : -1;
+  const out = (a, b) => { const l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; return [sg * t[1], -sg * t[0]]; };
+  return r.map((p, i) => {
+    const n1 = out(r[(i - 1 + n) % n], p), n2 = out(p, r[(i + 1) % n]);
+    const m = [n1[0] + n2[0], n1[1] + n2[1]], l = Math.hypot(m[0], m[1]) || 1, k = d / Math.max(0.6, (m[0] * n1[0] + m[1] * n1[1]) / l);
+    return [p[0] + (m[0] / l) * k, p[1] + (m[1] / l) * k];
+  });
+}
+// distance from a point to a polyline of [x, z] points
+function distLine(x, z, pts) {
+  let best = Infinity;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1], dx = b[0] - a[0], dz = b[1] - a[1], L = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L));
+    best = Math.min(best, Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t));
+  }
+  return best;
+}
+// a dense polyline through [x, z] control points (the first and last only steer the ends)
+const curve = (ctrl, step = 1) => catmull(ctrl.map((p) => [p[0], 0, p[1]]), step).map((p) => [p[0], p[2]]);
+// unit tangent and left normal of a polyline at i
+const frameAt = (pts, i) => {
+  const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, t = [(b[0] - a[0]) / l, (b[1] - a[1]) / l];
+  return { t, n: [-t[1], t[0]] };
+};
+// a strip laid over the ground along a polyline (paths), w wide, lift above the ground
+function ribbon(S, pts, w, lift, col) {
+  S.kind = KIND.ROAD;
+  const side = pts.map((p, i) => { const { n } = frameAt(pts, i); return [[p[0] + n[0] * w / 2, p[1] + n[1] * w / 2], [p[0] - n[0] * w / 2, p[1] - n[1] * w / 2]]; });
+  const P = (q) => [q[0], gy(q[0], q[1]) + lift, q[1]];
+  for (let i = 0; i + 1 < pts.length; i++) S.quad(P(side[i][1]), P(side[i][0]), P(side[i + 1][0]), P(side[i + 1][1]), shade(col, i % 2 ? 0.96 : 1.03), [0, 1, 0]);
+  S.kind = KIND.PLAIN;
+}
+
+// ------------------------------------------------------------------ palms and garden trees
+// The aqua park and the shore by the amphitheatre are planted with royal palms in dense rows: tall grey trunks ringed
+// pale where old leaf bases fell, a green crownshaft, a loose crown of arching fronds (2026 satellite: star-shaped
+// crowns, Street View: grey ringed trunks over fan-palm undergrowth).
+function royalPalm(S, x, z, h, seed) {
+  const g = gy(x, z), trunk = hex('#9b988e'), ringC = hex('#bdb8aa'), shaft = hex('#6c8748');
+  const leaf = [hex('#4f7c38'), hex('#5d8b40'), hex('#43692f')];
+  S.kind = KIND.PLAIN;
+  S.cyl(x, z, g - 0.3, g + 0.9, 0.52, 0.36, 6, shade(trunk, 0.9), { cap: false });
+  S.cyl(x, z, g + 0.9, g + h - 1.7, 0.36, 0.26, 6, trunk, { cap: false });
+  for (let y = g + 2.0; y < g + h - 2.4; y += 1.9) { const r = 0.36 - 0.1 * ((y - g) / h) + 0.035; S.cyl(x, z, y, y + 0.16, r, r, 6, ringC, { cap: false }); }
+  S.cyl(x, z, g + h - 1.7, g + h, 0.33, 0.2, 6, shaft);
+  const T = [x, g + h - 0.1, z], nf = 9;
+  for (let k = 0; k < nf; k++) {
+    const a = hash(seed) * 6.28 + (k / nf) * Math.PI * 2 + (hash(seed + k) - 0.5) * 0.4, dr = 0.3 + 0.7 * hash(seed * 3 + k);
+    const d = [Math.cos(a), 0, Math.sin(a)], s = [-Math.sin(a), 0, Math.cos(a)];
+    const m = lin([T, 1], [d, 2.0], [[0, 1, 0], 0.9 - dr * 0.5]), tip = lin([T, 1], [d, 3.9 - dr * 0.5], [[0, 1, 0], -0.6 - dr * 1.3]);
+    const col = leaf[k % 3];
+    fin(S, add(T, scl(s, 0.14)), add(m, scl(s, 0.62)), add(m, scl(s, -0.62)), col);
+    fin(S, add(m, scl(s, 0.62)), tip, add(m, scl(s, -0.62)), shade(col, 0.92));
+  }
+  fin(S, add(T, [0.12, 0, 0]), add(T, [-0.12, 0, 0]), add(T, [0, 1.6, 0]), leaf[1]); // the spear leaf
+}
+// fan palms under the royal palms: a short stem and a ring of stiff fans
+function fanPalm(S, x, z, seed) {
+  const g = gy(x, z), col = [hex('#55803c'), hex('#4a7236'), hex('#678f45')][Math.floor(hash(seed + 1) * 3)];
+  S.kind = KIND.PLAIN;
+  // a clump of two or three stems, each with a crown of stiff fans on stalks that rise and spread
+  const n = 2 + Math.floor(hash(seed + 7) * 2);
+  for (let j = 0; j < n; j++) {
+    const ja = hash(seed + j * 3) * 6.28, jr = j ? 0.35 + 0.3 * hash(seed + j) : 0, h = 0.8 + hash(seed + j * 5) * 1.4;
+    const bx = x + Math.cos(ja) * jr, bz = z + Math.sin(ja) * jr;
+    S.cyl(bx, bz, g - 0.2, g + h, 0.13, 0.1, 5, hex('#6c5e47'), { cap: false });
+    const T = [bx, g + h, bz];
+    for (let k = 0; k < 6; k++) {
+      const a = ja + (k / 6) * Math.PI * 2 + hash(seed * 3 + k), d = [Math.cos(a), 0, Math.sin(a)], s = [-Math.sin(a), 0, Math.cos(a)];
+      const r = 0.9 + 0.5 * hash(seed + k + j), stalk = lin([T, 1], [d, r * 0.6], [[0, 1, 0], 0.5 + 0.3 * hash(k + seed)]);
+      const tip = lin([stalk, 1], [d, r * 0.75], [[0, 1, 0], 0.15]);
+      S.beam(T, stalk, 0.04, 0.04, hex('#6f7a43'));
+      const c = shade(col, 0.88 + 0.18 * hash(seed * 5 + k + j));
+      fin(S, stalk, add(tip, scl(s, 0.55)), add(tip, scl(s, -0.55)), c);
+      fin(S, add(tip, scl(s, 0.55)), add(tip, scl(s, -0.55)), lin([tip, 1], [d, 0.25], [[0, 1, 0], -0.2]), shade(c, 0.9));
+    }
+  }
+}
+// a broadleaf tree for the plaza's island and grass ring
+function gardenTree(S, x, z, seed) {
+  const g = gy(x, z), h = 4.6 + hash(seed) * 1.8, r = 1.8 + hash(seed + 3) * 0.8, col = shade(hex('#4f6f3a'), 0.9 + 0.2 * hash(seed + 7));
+  S.kind = KIND.PLAIN;
+  S.cyl(x, z, g - 0.2, g + h * 0.5, 0.18, 0.14, 5, hex('#5d4a37'), { cap: false });
+  S.cyl(x, z, g + h * 0.38, g + h * 0.7, r * 0.7, r, 7, shade(col, 0.9), { cap: false });
+  S.cyl(x, z, g + h * 0.7, g + h, r, r * 0.3, 7, col);
+}
 
 // ------------------------------------------------------------------ the aquarium and its dragon
 function dragon(S, C, Rd, hd, bridgeAngles) {
@@ -134,23 +236,26 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
 
   // ---- the dragon: a turn and a bit round the upper floor and dome from a tail hanging over the saucer, then a reared neck
   const R = 2.15;
-  const hAng = Math.atan2(hd[1], hd[0]), th1 = hAng + Math.PI, turns = 1.3, coilN = 200;
+  // the tail starts between the east and south footbridges and lies over the saucer's rim, its tip no further out
+  // than the rim (it used to swing ~8 m out past the landing, over the east footbridge at head height)
+  const hAng = Math.atan2(hd[1], hd[0]), th1 = hAng + Math.PI, turns = 1.15, coilN = 200;
   const yStart = yp + 5.6 + R * 0.8, yEnd = yD + hD * 0.85;
   const pts = [], rad = [], dors = [];
   for (let i = 0; i <= coilN; i++) {
     const t = i / coilN, th = th1 - turns * Math.PI * 2 * (1 - t);
-    const k = t < 0.14 ? (0.14 - t) / 0.14 : 0;
-    const y = yStart + (yEnd - yStart) * Math.pow(t, 1.12) - k * k * 5.6; // the tail dips to the water
-    const rr = surf(y - R * 0.2) + R * 0.8 + k * k * 11;
+    const k = t < 0.1 ? (0.1 - t) / 0.1 : 0;
+    const r = R * Math.min(1, 0.07 + t / 0.2) * (0.95 + 0.05 * Math.sin(t * 11));
+    const y = Math.max(yp + 5.5 + r, yStart + (yEnd - yStart) * Math.pow(t, 1.12) - k * k * 1.6); // the tail droops onto the rim
+    const rr = Math.min(rS + 0.5, surf(y - R * 0.2) + R * 0.8 + k * k * 2.4);
     pts.push([C[0] + Math.cos(th) * rr, y, C[1] + Math.sin(th) * rr]);
-    rad.push(R * Math.min(1, 0.07 + t / 0.2) * (0.95 + 0.05 * Math.sin(t * 11)));
+    rad.push(r);
     dors.push(nrm([Math.cos(th) * 0.7, 1, Math.sin(th) * 0.7]));
   }
   const yT = yD + hD, E = pts[pts.length - 1];
   const W = (a, y, side = 0) => [C[0] + hd[0] * a - hd[1] * side, y, C[1] + hd[1] * a + hd[0] * side];
-  // the neck rears to put the crown of the head ~20 m over the water and the head ~23 m out from the axis, where the
-  // 2026 satellite shows it (snout ~28 m), so the dragon spans ~50 m tail to snout (VnExpress 2024: 20 m tall, 50 m long)
-  const neck = catmull([pts[pts.length - 8], E, W(-4.4, yT + 1.4, 1.6), W(-5.0, yT + 3.6, 0.8), W(-2.2, yT + 5.6, 0), W(4.6, yT + 6.4, 0), W(11.4, yT + 5.6, 0), W(17.6, yT + 4.6, 0)], 0.85).slice(1);
+  // the neck rears to put the crown of the head ~20 m over the water and the round head ~23 m out from the axis, where the
+  // 2026 satellite shows it over its round deck (snout ~31 m), so the dragon spans ~50 m tail to snout (VnExpress 2024: 20 m tall, 50 m long)
+  const neck = catmull([pts[pts.length - 8], E, W(-4.4, yT + 1.4, 1.6), W(-5.0, yT + 3.6, 0.8), W(-2.2, yT + 5.6, 0), W(5.6, yT + 6.6, 0), W(15.2, yT + 6.0, 0), W(24.6, yT + 4.8, 0), W(31.0, yT + 3.6, 0)], 0.85).slice(1);
   neck.forEach((p, i) => {
     const t = i / Math.max(1, neck.length - 1);
     pts.push(p); rad.push(R * (1 - 0.2 * t));
@@ -170,7 +275,7 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
     fin(S, add(base, scl(T, -0.8)), add(base, scl(T, 0.6)), add(base, add(scl(N, h), scl(T, -1.3))), shade(gold, 0.8 + 0.2 * hash(i)));
   }
   // tail fan
-  { const { T, N, B } = rings[1]; for (const sd of [-1, 0, 1]) fin(S, add(pts[0], scl(N, 0.35)), add(pts[0], scl(N, -0.35)), add(pts[0], add(scl(T, -3.4), add(scl(N, sd * 1.5), scl(B, sd * 0.6)))), gold); }
+  { const { T, N, B } = rings[1]; for (const sd of [-1, 0, 1]) fin(S, add(pts[0], scl(N, 0.35)), add(pts[0], scl(N, -0.35)), add(pts[0], add(scl(T, -2.2), add(scl(N, sd * 1.1), scl(B, sd * 0.5)))), gold); }
   // four legs clawing the dome
   for (const t of [0.34, 0.46, 0.74, 0.86]) {
     const i = Math.round(t * coilN), p = pts[i], { T } = rings[i];
@@ -240,6 +345,21 @@ function dragon(S, C, Rd, hd, bridgeAngles) {
     const b = add(H(-2.6, 0.5, 0), scl(d, 2.3));
     fin(S, add(b, scl(f, -0.8)), add(b, scl(f, 0.8)), add(H(-4.9, 0.5, 0), scl(d, 4.8)), shade(gold, 0.9));
   }
+  // the ruff: a ring of gold fins spread round the head, so that from above it reads as the round ~10 m head with a
+  // radiating mane the 2026 satellite shows over its round deck (the jaws reach out of it to the north)
+  const hc = H(-1.6, 0.6, 0), fwd = Math.atan2(hd[1], hd[0]);
+  for (let k = 0; k < 16; k++) {
+    const a = fwd + Math.PI / 8 + (k / 16) * (Math.PI * 2 - Math.PI / 4) * (16 / 15);
+    if (Math.abs(Math.atan2(Math.sin(a - fwd), Math.cos(a - fwd))) < 0.45) continue;
+    const d = [Math.cos(a), 0, Math.sin(a)], tg = [-Math.sin(a), 0, Math.cos(a)], dy = -0.25 + 0.5 * hash(k + 9);
+    const b = add(hc, scl(d, 2.4));
+    fin(S, add(b, scl(tg, 0.95)), add(b, scl(tg, -0.95)), add(hc, [d[0] * 6.0, dy - 0.6, d[2] * 6.0]), shade(gold, 0.82 + 0.16 * hash(k)));
+    fin(S, add(b, [0, 0.5, 0]), add(b, [0, -0.5, 0]), add(hc, [d[0] * 5.4, dy - 0.3, d[2] * 5.4]), shade(gold, 0.75));
+  }
+  S.kind = KIND.TILE;
+  S.cyl(hc[0], hc[2], hc[1] - 2.2, hc[1] + 1.4, 2.7, 2.9, 10, headC, { cap: false });
+  S.cyl(hc[0], hc[2], hc[1] + 1.4, hc[1] + 2.6, 2.9, 1.2, 10, shade(headC, 0.95));
+  S.kind = KIND.PLAIN;
   for (const sd of [-1, 0, 1]) {
     const b = lin([pv, 1], [fL, 2.5 + Math.abs(sd)], [uL, -1.2], [s, sd * 1.0]);
     fin(S, add(b, scl(fL, -0.8)), add(b, scl(fL, 0.8)), lin([b, 1], [u, -2.5], [f, -1.4]), shade(gold, 0.85));
@@ -290,22 +410,67 @@ function footbridge(S, from, to) {
 // ------------------------------------------------------------------ the amphitheatre
 // Tiers on the mapped grandstand outline, rising away from the show pool; blocks of blue and yellow seats.
 // ------------------------------------------------------------------ pools, plazas, sculptures, the gate
-function pool(S, ring) {
-  const c = centroid(ring);
+// The slide pools: free-form basins (the mapped outlines are coarse polygons, smoothed here) with a blue-tiled rim,
+// the water low and green; round the big pool a pale paved apron (2026 satellite), narrower where the lazy river
+// runs close (apronW(x, z): the apron's width at that point of the rim).
+function pool(S, ring0, apronW = null) {
+  const ring = chaikin(ring0, 2);
   let g = -Infinity, lo = Infinity;
   for (const p of ring) { g = Math.max(g, gy(p[0], p[1])); lo = Math.min(lo, gy(p[0], p[1])); }
   S.base = 0;
   S.kind = KIND.PLAIN;
   g = Math.min(g, lo + 1.0);
-  S.prism(ring, lo - 0.4, g + 0.45, hex('#b7c3c2'), hex('#c6cfcc'), { holes: [scaled(ring, c, 0.9).reverse()] });
-  S.prism(scaled(ring, c, 0.9), lo - 0.4, g + 0.2, hex('#5d7558'), hex('#4f6a52')); // what is left of the water
+  const inner = offsetRing(ring, -0.6);
+  S.prism(ring, lo - 0.4, g + 0.45, hex('#4f93b0'), hex('#8cc3d2'), { holes: [inner.slice().reverse()] }); // tiled coping
+  S.prism(inner, lo - 0.4, g + 0.2, hex('#3f7f8c'), hex('#4f8f84')); // the water, gone green
+  if (!apronW) return ring;
+  const wide = ring.map((p) => apronW(p[0], p[1])), out = ring.map((p, i) => offsetRing(ring, wide[i])[i]);
+  const sand = hex('#cdc2a2'), P = (q) => [q[0], gy(q[0], q[1]) + 0.32, q[1]];
+  S.kind = KIND.ROAD;
+  for (let i = 0; i < ring.length; i++) { const j = (i + 1) % ring.length; S.quad(P(ring[i]), P(out[i]), P(out[j]), P(ring[j]), shade(sand, i % 2 ? 0.97 : 1.02), [0, 1, 0]); }
+  S.kind = KIND.PLAIN;
+  return out;
 }
 // The round plaza east of the entrance (OSM 493380761) is three concentric paved rings with grass between them on
 // the 2026 satellite, not a solid disc.
 const RINGED = new Set(['493380761']);
+// The entrance plaza (OSM 493380762), from the 2026 satellite and the 2025 photosphere: a paved centre of weathered
+// terracotta with a planted tree island in the middle, a broad grass ring with trees, and a ~6 m ring road round it,
+// short timber bollards along the edge of the paving. Laid as a fine polar mesh over the slope, so that it rides
+// over the ground (and the mapped footway loops under it) everywhere instead of dipping under in long fan triangles.
+const ENTRY_BANDS = [0, 0.08, 0.14, 0.26, 0.38, 0.5, 0.62, 0.71, 0.8, 0.9, 1];
+function entrancePlaza(S, ring) {
+  const c = centroid(ring), lift = 0.3, sub = 3;
+  const B = [];
+  for (let i = 0; i < ring.length; i++) { const a = ring[i], b = ring[(i + 1) % ring.length]; for (let k = 0; k < sub; k++) B.push([a[0] + (b[0] - a[0]) * (k / sub), a[1] + (b[1] - a[1]) * (k / sub)]); }
+  const V = (i, f) => { const p = B[i % B.length], x = c[0] + (p[0] - c[0]) * f, z = c[1] + (p[1] - c[1]) * f; return [x, gy(x, z) + lift, z]; };
+  const terra = hex('#a58f7e'), grass = hex('#76894f'), road = hex('#7f7d74');
+  for (let i = 0; i < B.length; i++) {
+    for (let b = 0; b + 1 < ENTRY_BANDS.length; b++) {
+      const f0 = ENTRY_BANDS[b], f1 = ENTRY_BANDS[b + 1], m = (f0 + f1) / 2;
+      const [col, kind] = m < 0.14 ? [grass, KIND.GROUND] : m < 0.62 ? [shade(terra, (i + b) % 2 ? 0.95 : 1.03), KIND.ROAD] : m < 0.8 ? [shade(grass, i % 2 ? 1 : 0.95), KIND.GROUND] : [shade(road, i % 2 ? 0.98 : 1.02), KIND.ROAD];
+      S.kind = kind;
+      if (f0 === 0) S.tri(V(i, 0), V(i, f1), V(i + 1, f1), col, [0, 1, 0]);
+      else S.quad(V(i, f0), V(i, f1), V(i + 1, f1), V(i + 1, f0), col, [0, 1, 0]);
+    }
+    const p = B[i], q = B[(i + 1) % B.length];
+    S.kind = KIND.ROAD;
+    S.quad([p[0], gy(p[0], p[1]) - 0.3, p[1]], [q[0], gy(q[0], q[1]) - 0.3, q[1]], V(i + 1, 1), V(i, 1), hex('#9c998c'), [p[0] - c[0], 0.2, p[1] - c[1]]);
+  }
+  // the tree island: a low kerbed planter
+  const g = gy(c[0], c[1]);
+  S.kind = KIND.MASONRY;
+  S.prism(scaled(B, c, 0.14), g - 0.3, g + lift + 0.35, hex('#a8a598'), hex('#6c8550'));
+  S.kind = KIND.PLAIN;
+  for (let k = 0; k < 3; k++) { const a = k * 2.1 + 0.4, r = 1.6; gardenTree(S, c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r, 40 + k); }
+  // trees in the grass ring, timber bollards along the paving's edge
+  for (let i = 0; i < B.length; i += 6) { const v = V(i + 3, 0.71); gardenTree(S, v[0], v[2], 50 + i); }
+  const timber = hex('#5f4631');
+  for (let i = 0; i < B.length; i += 2) { const v = V(i, 0.6); S.box(v[0], v[2], v[1] - 0.4, v[1] + 0.75, 0.2, 0.2, 0, timber, { top: shade(timber, 0.8) }); }
+}
 function plaza(S, ring, ringed = false) {
-  // paving laid over the slope as it falls, with a planted roundel in the middle; the entrance plaza's pavers are a
-  // weathered terracotta (Street View, 2025 photosphere), the ringed plaza's grey concrete (satellite)
+  if (!ringed) { entrancePlaza(S, ring); return; }
+  // paving laid over the slope as it falls; the ringed plaza's grey concrete (satellite)
   const c = centroid(ring), lift = 0.24, mid = scaled(ring, c, 0.5), col = hex(ringed ? '#bdb8a8' : '#a28c82'), grass = hex('#7d8d5c');
   const P = (p) => [p[0], gy(p[0], p[1]) + lift, p[1]];
   // ringed: paving from the rim inward in bands (fractions of the radius), grass between
@@ -354,65 +519,176 @@ function cleared(S, ring) {
   }
   S.kind = KIND.PLAIN;
 }
+// the plaza's art: low stone pieces on low plinths, none above ~2 m (2025 photosphere), not pillars
 function sculpture(S, x, z, seed) {
-  const g = gy(x, z), stone = hex('#cbc6b8'), a = hash(seed) * 3;
+  const g = gy(x, z), stone = hex('#c9c3b2'), a = hash(seed) * 3;
   S.kind = KIND.MASONRY;
-  S.box(x, z, g - 0.2, g + 0.9, 1.6, 1.6, a, hex('#a9a69a'));
+  S.box(x, z, g - 0.2, g + 0.45, 1.9, 1.9, a, hex('#a9a69a'));
   S.kind = KIND.PLAIN;
-  const kind = Math.floor(hash(seed + 5) * 3);
-  if (kind === 0) for (let k = 0; k < 4; k++) S.box(x, z, g + 0.9 + k * 0.8, g + 1.7 + k * 0.8, 1.2 - k * 0.2, 0.7, a + k * 0.5, shade(stone, 1 - k * 0.04)); // a twisting stack
-  else if (kind === 1) { S.cyl(x, z, g + 0.9, g + 3.4, 0.55, 0.3, 6, stone); S.cyl(x, z, g + 3.4, g + 4.2, 0.7, 0.2, 6, shade(stone, 0.92)); } // a figure
-  else { S.beam([x - 0.9, g + 0.9, z], [x, g + 3.6, z + 0.3], 0.5, 0.5, stone); S.beam([x + 0.9, g + 0.9, z], [x, g + 3.6, z + 0.3], 0.5, 0.5, shade(stone, 0.93)); } // an arch
+  const kind = Math.floor(hash(seed + 5) * 3), y0 = g + 0.45;
+  if (kind === 0) { S.cyl(x, z, y0, y0 + 0.8, 0.7, 0.85, 8, stone, { cap: false }); S.cyl(x, z, y0 + 0.8, y0 + 1.5, 0.85, 0.3, 8, shade(stone, 0.95)); } // a smooth boulder
+  else if (kind === 1) S.beam([x - Math.cos(a) * 0.75, y0 + 0.3, z - Math.sin(a) * 0.75], [x + Math.cos(a) * 0.65, y0 + 1.3, z + Math.sin(a) * 0.65], 1.0, 0.36, stone); // a leaning slab
+  else { S.cyl(x - 0.35, z, y0, y0 + 1.1, 0.5, 0.32, 7, stone); S.cyl(x + 0.45, z + 0.2, y0, y0 + 0.7, 0.42, 0.28, 7, shade(stone, 0.93)); } // two worn stones
 }
 
-// ------------------------------------------------------------------ the slides
-// Mapped: the tower building, the two pools, the point OSM calls "water tubes". The three runs are illustrative:
-// a yellow open flume, a blue-and-white twin racer, a closed tube.
-function slides(S, tower, pools) {
-  const o = obb(tower), g = gy(o.c[0], o.c[1]), yTop = g + 12.5;
-  const concD = hex('#8b8d83');
+// ------------------------------------------------------------------ the slide tower and the aqua park
+// Mapped: the tower building, the two pools, the point OSM calls "water tubes". From the 2026 satellite and Street
+// View: the tower is a terracotta-tiled deck under a pitched corrugated roof on timber trusses, carried on concrete
+// columns cast as tree trunks, timber railings, a blue-tiled start basin with a round tub on the deck. One dark green
+// enclosed tube leaves the deck, winds down beside the tower and runs west under the trees to a small landing house
+// at the big pool's east edge. (The long open flumes drawn here before are not there.)
+function slides(S, tower, bigRing) {
+  const o = obb(tower), c = o.c;
+  let g = Infinity;
+  for (const p of tower) g = Math.min(g, gy(p[0], p[1]));
+  const ux = Math.cos(o.a), uz = Math.sin(o.a);
+  const L = (u, v) => [c[0] + ux * u - uz * v, c[1] + uz * u + ux * v];
+  const hw = Math.max(o.w, 7) / 2, hd = Math.max(o.d, 5.5) / 2, yD = g + 9.6;
+  const bark = hex('#7a6651'), timber = hex('#6e4e33'), terra = hex('#b0603f'), conc = hex('#9d978a'), tile = hex('#3f8fa0');
   S.base = g - LAND_Y;
+  // which side faces the big pool: the tube leaves there
+  const cb = centroid(bigRing), toP = [cb[0] - c[0], cb[1] - c[1]];
+  const sides = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const face = sides.map(([su, sv]) => [su, sv, (ux * su - uz * sv) * toP[0] + (uz * su + ux * sv) * toP[1]]).sort((a, b) => b[2] - a[2])[0];
+  const fu = face[0], fv = face[1];
+  // the changing rooms under the deck
   S.kind = KIND.MASONRY;
-  S.box(o.c[0], o.c[1], g - 0.5, g + 3.4, Math.max(o.w, 8), Math.max(o.d, 6), o.a, hex('#a5a69b'), { top: hex('#7d8274'), topKind: KIND.FLAT }); // changing rooms
+  S.box(c[0], c[1], g - 0.4, g + 3.0, hw * 1.3, hd * 1.2, o.a, hex('#c3bba6'), { top: hex('#8a8574'), topKind: KIND.FLAT });
   S.kind = KIND.PLAIN;
-  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) S.cyl(o.c[0] + dx * 2.2, o.c[1] + dz * 2.2, g + 3.4, yTop, 0.22, 0.22, 5, concD, { cap: false });
-  for (const y of [g + 6.4, g + 9.4, yTop]) S.box(o.c[0], o.c[1], y - 0.25, y, 5.4, 5.4, 0, hex('#9a9b90'), { bottom: true });
-  S.box(o.c[0], o.c[1], yTop + 2.6, yTop + 2.85, 6.4, 6.4, 0, hex('#6f8a94'), { bottom: true }); // canopy
-  for (const [dx, dz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) S.cyl(o.c[0] + dx * 2.6, o.c[1] + dz * 2.6, yTop, yTop + 2.6, 0.1, 0.1, 4, concD, { cap: false });
-  for (let k = 0; k < 12; k++) { const y0 = g + 3.4 + (k / 12) * (yTop - g - 3.4); S.box(o.c[0] + 3.3, o.c[1] - 2.2 + (k % 6) * 0.88, y0, y0 + 0.2, 1.2, 0.9, 0, hex('#8f9086')); } // stairs
-  const trough = (path, col, hw = 0.8) => {
-    for (let k = 0; k + 1 < path.length; k++) {
-      const a = path[k], b = path[k + 1], T = nrm(sub(b, a)), sd = nrm(crs(T, [0, 1, 0])), dep = 0.6;
-      const L = (p, w, h) => add(p, add(scl(sd, w), [0, h, 0]));
-      S.quad(L(a, -hw * 0.6, 0), L(a, hw * 0.6, 0), L(b, hw * 0.6, 0), L(b, -hw * 0.6, 0), col, [0, 1, 0]);
-      for (const sg of [-1, 1]) {
-        S.quad(L(a, sg * hw * 0.6, 0), L(b, sg * hw * 0.6, 0), L(b, sg * hw, dep), L(a, sg * hw, dep), shade(col, 0.9), add(scl(sd, -sg), [0, 0.6, 0]));
-        S.quad(L(a, sg * hw * 0.6, -0.12), L(b, sg * hw * 0.6, -0.12), L(b, sg * hw, dep), L(a, sg * hw, dep), shade(col, 0.72), scl(sd, sg));
-      }
-      if (k % 4 === 2 && a[1] - gy(a[0], a[2]) > 1) S.cyl(a[0], a[2], gy(a[0], a[2]) - 0.3, a[1] - 0.1, 0.16, 0.16, 4, concD, { cap: false });
+  // columns cast as tree trunks, flaring at the root, two branch stubs reaching up under the deck
+  for (const u of [-hw + 0.6, 0, hw - 0.6]) for (const v of [-hd + 0.6, hd - 0.6]) {
+    const [x, z] = L(u, v);
+    S.cyl(x, z, g - 0.3, g + 0.7, 0.85, 0.5, 8, shade(bark, 0.9), { cap: false });
+    S.cyl(x, z, g + 0.7, yD - 0.35, 0.5, 0.38, 8, bark, { cap: false });
+    for (const k of [-1, 1]) { const [bx, bz] = L(u + k * 1.1, v + (v > 0 ? -0.5 : 0.5)); S.beam([x, yD - 2.6, z], [bx, yD - 0.3, bz], 0.32, 0.32, shade(bark, 0.95)); }
+  }
+  // the deck: concrete slab, terracotta tiles on top
+  S.box(c[0], c[1], yD - 0.4, yD, hw * 2 + 1.2, hd * 2 + 1.2, o.a, conc, { top: terra, topKind: KIND.ROAD, bottom: true });
+  // timber railing round the deck, open where the tube leaves
+  const eu = hw + 0.5, ev = hd + 0.5, corners = [[-eu, -ev], [eu, -ev], [eu, ev], [-eu, ev]];
+  for (let k = 0; k < 4; k++) {
+    const a = corners[k], b = corners[(k + 1) % 4], mid = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    const isFace = (fu && Math.sign(mid[0]) === fu && Math.abs(mid[0]) > eu - 0.1) || (fv && Math.sign(mid[1]) === fv && Math.abs(mid[1]) > ev - 0.1);
+    const n = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 1.4));
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n;
+      if (isFace && t0 > 0.3 && t1 < 0.71) continue;
+      const p0 = L(a[0] + (b[0] - a[0]) * t0, a[1] + (b[1] - a[1]) * t0), p1 = L(a[0] + (b[0] - a[0]) * t1, a[1] + (b[1] - a[1]) * t1);
+      S.beam([p0[0], yD + 1.05, p0[1]], [p1[0], yD + 1.05, p1[1]], 0.12, 0.1, timber);
+      S.beam([p0[0], yD + 0.5, p0[1]], [p1[0], yD + 0.5, p1[1]], 0.08, 0.08, timber);
+      S.beam([p0[0], yD, p0[1]], [p0[0], yD + 1.1, p0[1]], 0.12, 0.12, shade(timber, 0.9));
+    }
+  }
+  // the roof: corrugated sheet on a hip, on timber posts and trusses
+  const yE = yD + 2.7, yR = yD + 4.3, ru = hw + 1.0, rv = hd + 1.0, along = ru >= rv;
+  const rl = along ? ru - rv : 0, rw = along ? 0 : rv - ru; // half-length of the ridge along u (or v)
+  for (const [u, v] of [[-hw - 0.3, -hd - 0.3], [hw + 0.3, -hd - 0.3], [hw + 0.3, hd + 0.3], [-hw - 0.3, hd + 0.3], [0, -hd - 0.3], [0, hd + 0.3]]) { const [x, z] = L(u, v); S.beam([x, yD, z], [x, yE, z], 0.2, 0.2, timber); }
+  for (const u of [-hw - 0.3, 0, hw + 0.3]) {
+    const a = L(u, -rv + 0.2), b = L(u, rv - 0.2), r = L(Math.max(-rl, Math.min(rl, u)), 0);
+    S.beam([a[0], yE - 0.1, a[1]], [b[0], yE - 0.1, b[1]], 0.18, 0.22, timber); // tie beam
+    S.beam([a[0], yE - 0.1, a[1]], [r[0], yR - 0.15, r[1]], 0.14, 0.18, timber); S.beam([b[0], yE - 0.1, b[1]], [r[0], yR - 0.15, r[1]], 0.14, 0.18, timber); // rafters
+    S.beam([r[0], yE - 0.1, r[1]], [r[0], yR - 0.15, r[1]], 0.14, 0.14, timber); // king post
+  }
+  const R3 = (u, v, y) => { const [x, z] = L(u, v); return [x, y, z]; };
+  const sheet = hex('#8d9590'), rust = hex('#8a6a52');
+  const slope = (a, b, cc, d, n, hint) => { // quad a-b along the eave, c-d along the ridge, in n corrugation strips
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n, P = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+      const col = shade(mix(sheet, rust, 0.15 + 0.25 * hash(i * 3 + n)), i % 2 ? 0.9 : 1.04);
+      S.quad(P(a, b, t0), P(a, b, t1), P(d, cc, t1), P(d, cc, t0), col, hint);
+      S.quad(P(a, b, t0), P(a, b, t1), P(d, cc, t1), P(d, cc, t0), shade(col, 0.6), scl(hint, -1));
     }
   };
-  const run = (tgt, n, lat, yFrom = yTop) => {
-    const dx = tgt[0] - o.c[0], dz = tgt[1] - o.c[1], len = Math.hypot(dx, dz) || 1, dir = [dx / len, dz / len], side = [-dir[1], dir[0]], path = [];
-    for (let k = 0; k <= n; k++) {
-      const t = k / n, [l, extra] = lat(t), along = 2.6 + t * (len - 2.6) + extra;
-      const x = o.c[0] + dir[0] * along + side[0] * l, z = o.c[1] + dir[1] * along + side[1] * l;
-      const yEnd = gy(tgt[0], tgt[1]) + 0.7;
-      path.push([x, Math.max(gy(x, z) + 0.5, yFrom + (yEnd - yFrom) * Math.pow(t, 0.85)), z]);
-    }
-    return path;
-  };
-  const big = pools[0], small = pools[1] || pools[0];
-  if (!big) return;
-  const cb = centroid(big), cs = centroid(small);
   S.kind = KIND.PLAIN;
-  const weather = (c) => mix(c, hex('#6f7a58'), 0.22); // twenty years of sun, rust and creeper (Saigoneer: "rusted")
-  trough(run(cb, 44, (t) => [3.5 + Math.sin(t * Math.PI * 3.2) * 5.5 * Math.sin(t * Math.PI), 0]), weather(hex('#4f93a6')));
-  for (const [off, col] of [[-3.4, hex('#4a8fa8')], [-5.2, hex('#bcd3d0')]]) trough(run(cb, 26, (t) => [off, 0], yTop - 3), weather(col), 0.75);
-  // the closed tube: a dark green corkscrew down to the smaller pool
-  const tube = run(cs, 60, (t) => [Math.sin(t * Math.PI * 5) * 4.2 * (1 - t * 0.4), Math.cos(t * Math.PI * 5) * 4.2 * (1 - t * 0.4) - 4.2]);
-  sweep(S, tube, tube.map(() => 0.85), tube.map(() => [0, 1, 0]), 8, (i) => [i % 6 < 3 ? hex('#4c6f5b') : hex('#3f5f4f'), KIND.PLAIN]);
-  for (let k = 3; k < tube.length; k += 6) { const a = tube[k]; if (a[1] - gy(a[0], a[2]) > 1.6) S.cyl(a[0], a[2], gy(a[0], a[2]) - 0.3, a[1] - 0.8, 0.18, 0.18, 4, concD, { cap: false }); }
+  const E = [R3(-ru, -rv, yE), R3(ru, -rv, yE), R3(ru, rv, yE), R3(-ru, rv, yE)];
+  const Rr = [R3(-rl, -rw, yR), R3(rl, -rw, yR), R3(rl, rw, yR), R3(-rl, rw, yR)]; // ridge ends (two coincide when the ridge is a line)
+  const up = (dir) => { const [x, z] = [ux * dir[0] - uz * dir[1], uz * dir[0] + ux * dir[1]]; return [x, 1.4, z]; };
+  slope(E[0], E[1], Rr[1], Rr[0], 14, up([0, -1]));
+  slope(E[2], E[3], Rr[3], Rr[2], 14, up([0, 1]));
+  slope(E[1], E[2], Rr[2], Rr[1], 8, up([1, 0]));
+  slope(E[3], E[0], Rr[0], Rr[3], 8, up([-1, 0]));
+  // the start basin, blue and teal tiles, and its round tub, on the deck by the tube's mouth
+  const [bx, bz] = L(fu * (hw - 1.6), fv * (hd - 1.6));
+  S.box(bx, bz, yD, yD + 0.7, 3.0, 2.4, o.a, tile, { top: hex('#5fb3c2') });
+  const [tx, tz] = L(fu * (hw - 1.6) - (fv ? 2.2 : 0), fv * (hd - 1.6) - (fu ? 2.0 : 0));
+  S.cyl(tx, tz, yD, yD + 0.9, 1.2, 1.2, 12, hex('#4a9fb4'), { cap: false });
+  S.cyl(tx, tz, yD + 0.7, yD + 0.72, 1.12, 1.12, 12, hex('#6cc0cc'));
+  // a switchback stair up the side away from the pool
+  const sDir = fu ? [0, 1] : [1, 0], sOut = fu ? [-fu, 0] : [0, -fv];
+  const LL = (a, o) => L(sDir[0] * a + sOut[0] * o, sDir[1] * a + sOut[1] * o);
+  const wd = [ux * sDir[0] - uz * sDir[1], uz * sDir[0] + ux * sDir[1]], sAng = Math.atan2(wd[1], wd[0]);
+  const offBase = (fu ? eu : ev) + 0.8, run = (fu ? hd : hw) - 0.3;
+  for (let f = 0; f < 2; f++) {
+    const off = offBase + f * 1.4, y0 = g + (f * (yD - g)) / 2, y1 = g + ((f + 1) * (yD - g)) / 2, a0 = f ? run : -run, a1 = -a0;
+    for (let k = 0; k < 14; k++) { const t = (k + 0.5) / 14, [x, z] = LL(a0 + (a1 - a0) * t, off), y = y0 + (y1 - y0) * t; S.box(x, z, y - 0.18, y, 0.45, 1.2, sAng, hex('#8f8a7e')); }
+    for (const o2 of [off - 0.65, off + 0.65]) { const p0 = LL(a0, o2), p1 = LL(a1, o2); S.beam([p0[0], y0 + 1.0, p0[1]], [p1[0], y1 + 1.0, p1[1]], 0.08, 0.08, timber); }
+    const [px, pz] = LL(a1, off);
+    S.cyl(px, pz, g - 0.2, y1, 0.2, 0.2, 6, conc, { cap: false });
+  }
+  // the tube: from the deck's open side, down a helix beside the tower, then west under the trees to the pool
+  let ex = -Infinity, eRing = null;
+  for (const p of bigRing) { const k = (p[0] - cb[0]) * (c[0] - cb[0]) + (p[1] - cb[1]) * (c[1] - cb[1]); if (k > ex) { ex = k; eRing = p; } }
+  const outD = [ux * fu - uz * fv, uz * fu + ux * fv], rH = 3.4;
+  const m0 = L(fu * eu, fv * ev), Hc = [m0[0] + outD[0] * rH, m0[1] + outD[1] * rH];
+  const dl = Math.hypot(eRing[0] - c[0], eRing[1] - c[1]) || 1, toPool = [(eRing[0] - c[0]) / dl, (eRing[1] - c[1]) / dl];
+  const T = [eRing[0] + toPool[0] * -2.2, eRing[1] + toPool[1] * -2.2]; // the landing house, on the apron
+  const th0 = Math.atan2(m0[1] - Hc[1], m0[0] - Hc[0]), dir = 1;
+  const thE0 = Math.atan2(toPool[1], toPool[0]) - dir * Math.PI / 2;
+  let sweepA = (((thE0 - th0) * dir) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2) + Math.PI * 2;
+  const tube = [], yH = g + 3.6, nH = Math.round(sweepA / 0.18);
+  for (let k = 0; k <= nH; k++) { const t = k / nH, th = th0 + dir * sweepA * t; tube.push([Hc[0] + Math.cos(th) * rH, yD + 0.35 + (yH - yD - 0.35) * t, Hc[1] + Math.sin(th) * rH]); }
+  const he = tube[tube.length - 1], dist = Math.hypot(T[0] - he[0], T[1] - he[2]), yT = gy(T[0], T[1]) + 1.1;
+  for (let s = 1; s <= dist; s += 1) { const t = s / dist; tube.push([he[0] + (T[0] - he[0]) * t, yH + (yT - yH) * t, he[2] + (T[1] - he[2]) * t]); }
+  sweep(S, tube, tube.map(() => 0.62), tube.map(() => [0, 1, 0]), 8, (i) => [i % 6 < 3 ? hex('#3f6a4f') : hex('#355d44'), KIND.PLAIN]);
+  for (let k = 4; k < tube.length; k += 5) { const a = tube[k]; if (a[1] - gy(a[0], a[2]) > 1.4) S.cyl(a[0], a[2], gy(a[0], a[2]) - 0.3, a[1] - 0.55, 0.16, 0.16, 5, hex('#8b8d83'), { cap: false }); }
+  S.cyl(Hc[0], Hc[1], gy(Hc[0], Hc[1]) - 0.3, yD + 0.2, 0.3, 0.3, 6, conc, { cap: false }); // the helix's mast
+  // the landing house at the pool's edge
+  const gT = gy(T[0], T[1]), aT = Math.atan2(toPool[1], toPool[0]);
+  S.kind = KIND.MASONRY;
+  S.box(T[0], T[1], gT - 0.3, gT + 2.4, 3.0, 2.6, aT, hex('#c7c0ab'), { top: hex('#5f7d64'), topKind: KIND.FLAT });
+  S.kind = KIND.PLAIN;
+  S.box(T[0] - toPool[0] * 1.52, T[1] - toPool[1] * 1.52, gT + 0.3, gT + 1.9, 0.08, 1.4, aT, dark);
+  S.base = 0;
+}
+
+// ------------------------------------------------------------------ the lazy river and its palm garden
+// The lazy river: a curved channel with pale walls and blue tiles wrapping the west and north sides of the big pool
+// (2026 satellite, z20), crossed by a railed timber footbridge, terracotta brick paths beside it, royal palms in
+// rows over fan palms. Centre line in scene metres, the ends only steering.
+const RIVER = [[-1404.4, 6640], [-1404.2, 6634], [-1403.4, 6615], [-1402.5, 6602.5], [-1399.4, 6595.6], [-1391.5, 6590.3], [-1381, 6587.3], [-1372.5, 6589], [-1367, 6592]];
+const RIVER_HW = 1.6, RIVER_WALL = 0.3;
+function lazyRiver(S, pts) {
+  const blue = hex('#4b97b5'), pale = hex('#d6d0bf'), water = hex('#4f9fa4');
+  const fr = pts.map((p, i) => ({ p, n: frameAt(pts, i).n, g: gy(p[0], p[1]) }));
+  const at = (i, o, h) => { const { p, n, g } = fr[i]; return [p[0] + n[0] * o, g + h, p[1] + n[1] * o]; };
+  const wo = RIVER_HW + RIVER_WALL;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const j = i + 1;
+    S.kind = KIND.PLAIN;
+    S.quad(at(i, -RIVER_HW, 0.35), at(i, RIVER_HW, 0.35), at(j, RIVER_HW, 0.35), at(j, -RIVER_HW, 0.35), shade(water, i % 2 ? 0.97 : 1.02), [0, 1, 0]);
+    for (const s of [-1, 1]) {
+      const hint = [fr[i].n[0] * -s, 0, fr[i].n[1] * -s];
+      S.quad(at(i, s * RIVER_HW, 0.3), at(j, s * RIVER_HW, 0.3), at(j, s * RIVER_HW, 0.78), at(i, s * RIVER_HW, 0.78), blue, hint);
+      S.kind = KIND.MASONRY;
+      S.quad(at(i, s * RIVER_HW, 0.78), at(j, s * RIVER_HW, 0.78), at(j, s * wo, 0.78), at(i, s * wo, 0.78), pale, [0, 1, 0]);
+      S.quad(at(i, s * wo, -0.25), at(j, s * wo, -0.25), at(j, s * wo, 0.78), at(i, s * wo, 0.78), shade(pale, 0.88), scl(hint, -1));
+    }
+  }
+  for (const i of [0, pts.length - 1]) { S.kind = KIND.MASONRY; const t = frameAt(pts, i).t, k = i ? 1 : -1; S.quad(at(i, -wo, -0.25), at(i, wo, -0.25), at(i, wo, 0.78), at(i, -wo, 0.78), pale, [t[0] * k, 0, t[1] * k]); }
+  S.kind = KIND.PLAIN;
+}
+// the railed timber footbridge over the channel, a low arch
+function riverBridge(S, pts, i) {
+  const { p, n } = { p: pts[i], n: frameAt(pts, i).n }, t = frameAt(pts, i).t, span = 3.8, timber = hex('#7b5a3a'), g = gy(p[0], p[1]);
+  const Q = (s, o, h) => { const x = p[0] + n[0] * s + t[0] * o, z = p[1] + n[1] * s + t[1] * o; return [x, Math.max(gy(x, z), g) + 0.38 + 0.75 * Math.cos((s / span) * Math.PI / 2) + h, z]; };
+  S.kind = KIND.PLAIN;
+  const N = 8;
+  for (let k = 0; k < N; k++) {
+    const s0 = -span + (2 * span * k) / N, s1 = -span + (2 * span * (k + 1)) / N;
+    S.beam(Q(s0, 0, 0), Q(s1, 0, 0), 1.9, 0.14, k % 2 ? timber : shade(timber, 1.06));
+    for (const o of [-0.9, 0.9]) { S.beam(Q(s0, o, 0.95), Q(s1, o, 0.95), 0.1, 0.1, shade(timber, 0.85)); S.beam(Q(s0, o, 0), Q(s0, o, 0.95), 0.1, 0.1, shade(timber, 0.8)); }
+  }
+  for (const o of [-0.9, 0.9]) S.beam(Q(span, o, 0), Q(span, o, 0.95), 0.1, 0.1, shade(timber, 0.8));
 }
 
 const aquariumOf = (items) => items.find((it) => it.k === 'b' && /dragon|aquarium/i.test(it.n || ''));
@@ -481,8 +757,122 @@ export function buildThuyTien(data, S, group) {
     for (const r of [it.pts, ...pools]) cleared(S, r);
     (S.paved = S.paved || []).push([n0, S.n]);
   });
+  // the island under the dragon: what the data build leaves of the pond's hole round the aquarium (the landing, the
+  // terrace lobe to the NE, the round deck under the head), paved, a step below the landing
+  if (aq) part(() => {
+    const { C } = aquariumDisc(aq), yp = waterY(C[0], C[1]) - 0.08 + 0.46;
+    for (const poly of data.ponds || []) for (let j = 1; j < poly.length; j++) {
+      const hole = unflat(poly[j]);
+      if (hole.length < 3 || !inRing(C[0], C[1], hole)) continue;
+      let lo = Infinity, hi = -Infinity;
+      for (const p of hole) { lo = Math.min(lo, gy(p[0], p[1])); hi = Math.max(hi, gy(p[0], p[1])); }
+      S.base = 0;
+      S.kind = KIND.MASONRY;
+      S.prism(hole, Math.min(lo, yp) - 1.2, Math.max(yp - 0.12, hi + 0.08), hex('#8f8d82'), hex('#a9a69a'), { topKind: KIND.ROAD });
+    }
+  });
+
+  // the aqua park: pools, the lazy river round the big one, its timber bridge, brick paths, the palm garden
   const poolRings = items.filter((i) => i.k === 'p').map((i) => i.pts).sort((a, b) => b.length - a.length);
-  for (const p of poolRings) part(() => { pool(S, p); scrubAlong(S, p, wet, p.length * 13); });
+  const big = poolRings[0];
+  const river = curve(RIVER, 1);
+  const riverD = (x, z) => distLine(x, z, river);
+  // the roads through the park and along the amphitheatre's shore, to keep planting and paths off them
+  const grand = items.find((i) => i.k === 's'), gc = grand ? centroid(grand.pts) : null;
+  const nearPark = (p) => (Math.abs(p[0] + 1384) < 70 && Math.abs(p[1] - 6612) < 70) || (gc && Math.hypot(p[0] - gc[0], p[1] - gc[1]) < 110);
+  const roadSegs = (data.roads || []).filter((e) => Array.isArray(e) && Array.isArray(e[2])).map((e) => ({ pts: unflat(e[2]), w: roadWidth(e) })).filter((r) => r.pts.some(nearPark));
+  const onRoad = (x, z, m) => roadSegs.some((r) => distLine(x, z, r.pts) < r.w / 2 + m);
+  let bigOut = null;
+  for (const p of poolRings) part(() => {
+    const out = pool(S, p, p === big ? (x, z) => Math.max(0.4, Math.min(3.2, riverD(x, z) - RIVER_HW - RIVER_WALL - 0.4)) : null);
+    if (p === big) bigOut = out;
+  });
+  const smallKeep = poolRings.slice(1).map((r) => offsetRing(chaikin(r, 2), 0.4));
+  const bigKeep = bigOut ? offsetRing(bigOut, 0.2) : big ? offsetRing(chaikin(big, 2), 0.6) : null;
+  // which side of the river is away from the pool
+  const cb = big ? centroid(big) : RIVER[4], mi = river.length >> 1, mf = frameAt(river, mi);
+  const sg = (river[mi][0] + mf.n[0] - cb[0]) ** 2 + (river[mi][1] + mf.n[1] - cb[1]) ** 2 > (river[mi][0] - cb[0]) ** 2 + (river[mi][1] - cb[1]) ** 2 ? 1 : -1;
+  const pathOut = river.map((p, i) => { const { n } = frameAt(river, i); return [p[0] + n[0] * sg * 3.6, p[1] + n[1] * sg * 3.6]; });
+  const pathS = curve([[-1408, 6643], [-1404.5, 6639.6], [-1390, 6637.8], [-1377, 6637.6], [-1372, 6641], [-1371.6, 6650], [-1371.6, 6656]], 1);
+  const paths = [pathOut, pathS];
+  if (big) part(() => {
+    lazyRiver(S, river);
+    let bi = 0, bd = Infinity;
+    river.forEach((p, i) => { const d = Math.abs(p[1] - 6612); if (d < bd) { bd = d; bi = i; } });
+    riverBridge(S, river, bi);
+    const terra = hex('#a5664e');
+    ribbon(S, pathOut, 2.0, 0.36, terra);
+    ribbon(S, pathS, 2.0, 0.36, terra);
+  });
+  const zone = (x, z) => x > -1418 && x < -1350 && z > 6574 && z < 6652;
+  const clearOf = (x, z, m) => !wet(x, z) && !onRoad(x, z, m) && riverD(x, z) > RIVER_HW + RIVER_WALL + m && !(bigKeep && inRing(x, z, bigKeep)) && !smallKeep.some((r) => inRing(x, z, r)) && !paths.some((p) => distLine(x, z, p) < 1.0 + m);
+  // the garden's ground: grass and bare earth between the palms, laid over the slope and kept clear of the generic
+  // pines (registered as paved)
+  if (big) part(() => {
+    const n0 = S.n, st2 = 2, grass = hex('#6f8148'), earth = hex('#9a8964');
+    S.kind = KIND.GROUND;
+    const P = (a, b) => [a, gy(a, b) + 0.28, b];
+    // only the garden itself: round the river, the pools and the south path, not out to the zone's square edge
+    const bigNear = bigOut ? offsetRing(bigOut, 8) : null, smallNear = smallKeep.map((r) => offsetRing(r, 6));
+    const inGarden = (x, z) => riverD(x, z) < 12 || distLine(x, z, pathS) < 6 || (bigNear && inRing(x, z, bigNear)) || smallNear.some((r) => inRing(x, z, r));
+    for (let x = -1418; x < -1350; x += st2) for (let z = 6574; z < 6652; z += st2) {
+      const cx = x + st2 / 2, cz = z + st2 / 2;
+      if (!inGarden(cx, cz) || !clearOf(cx, cz, 0.2) || [[x, z], [x + st2, z], [x, z + st2], [x + st2, z + st2]].some(([a, b]) => wet(a, b))) continue;
+      const h = 0.5 + 0.28 * Math.sin(cx * 0.19 + cz * 0.04) + 0.22 * Math.sin(cz * 0.15 - cx * 0.07), col = shade(mix(grass, earth, 0.08 + 0.3 * h * h), 0.98 + 0.04 * hash(cx + cz * 3));
+      S.quad(P(x, z), P(x + st2, z), P(x + st2, z + st2), P(x, z + st2), col, [0, 1, 0]);
+    }
+    S.kind = KIND.PLAIN;
+    (S.paved = S.paved || []).push([n0, S.n]);
+  });
+  // royal palms in rows: both sides of the river path, between the river and the pool, round the pools, along the
+  // south path and the shore; fan palms under them
+  if (big) part(() => {
+    let seed = 11;
+    const planted = [];
+    const plant = (x, z, m = 0.7) => {
+      if (!zone(x, z) || !clearOf(x, z, m) || planted.some((q) => Math.hypot(q[0] - x, q[1] - z) < 2.6)) return;
+      planted.push([x, z]);
+      royalPalm(S, x, z, 14 + hash(seed) * 4, seed++);
+    };
+    river.forEach((p, i) => {
+      if (i % 5) return;
+      const { n } = frameAt(river, i);
+      for (const o of [5.6, 8.8, -2.9]) { const j = (hash(i + o) - 0.5) * 0.8; plant(p[0] + n[0] * sg * o + j, p[1] + n[1] * sg * o - j, o < 0 ? 0.3 : 0.7); }
+    });
+    const walk = (ring, step, off, fn) => {
+      let carry = 0;
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        for (let s = carry; s < len; s += step) { fn(a[0] + ((b[0] - a[0]) * s) / len, a[1] + ((b[1] - a[1]) * s) / len); carry = s + step - len; }
+        if (carry >= len) carry -= len;
+      }
+      void off;
+    };
+    if (bigOut) walk(offsetRing(bigOut, 1.4), 5.2, 0, (x, z) => plant(x, z));
+    for (const r of smallKeep) walk(offsetRing(r, 1.6), 5, 0, (x, z) => plant(x, z));
+    pathS.forEach((p, i) => { if (i % 6) return; const { n } = frameAt(pathS, i); for (const o of [-2.3, 2.3]) plant(p[0] + n[0] * o, p[1] + n[1] * o); });
+    const lake = waters.slice().sort((a, b) => b.length - a.length)[0];
+    if (lake) alongShore(lake, 6, wet, zone, (x, z, o) => { plant(x + o[0] * 2.6, z + o[1] * 2.6); plant(x + o[0] * 6.4, z + o[1] * 6.4); });
+    for (let x = -1417; x < -1351; x += 3) for (let z = 6575; z < 6651; z += 3) {
+      const h = hash(x * 3.7 + z * 1.3);
+      if (h > 0.42) continue;
+      const fx = x + h * 4, fz = z + hash(h * 99) * 2.5;
+      if (!clearOf(fx, fz, 0.4) || planted.some((q) => Math.hypot(q[0] - fx, q[1] - fz) < 1.0)) continue;
+      fanPalm(S, fx, fz, Math.floor(h * 1000));
+    }
+  });
+  // the shore by the amphitheatre: two rows of royal palms along the water (2026 satellite)
+  if (gc) part(() => {
+    const lake = waters.slice().sort((a, b) => b.length - a.length)[0];
+    if (!lake) return;
+    let seed = 301;
+    const planted = [];
+    const ok = (x, z) => !wet(x, z) && !onRoad(x, z, 0.8) && !planted.some((q) => Math.hypot(q[0] - x, q[1] - z) < 2.6);
+    alongShore(lake, 6.5, wet, (x, z) => Math.hypot(x - gc[0], z - gc[1]) < 80, (x, z, o) => {
+      for (const d of [2.8, 7.2]) { const px = x + o[0] * d, pz = z + o[1] * d; if (ok(px, pz)) { planted.push([px, pz]); royalPalm(S, px, pz, 13 + hash(seed) * 4, seed++); } }
+    });
+  });
+
   for (const it of items.filter((i) => i.k === 'q')) part(() => { const n0 = S.n; plaza(S, it.pts, RINGED.has(String(it.id))); (S.paved = S.paved || []).push([n0, S.n]); });
   (st.points || []).forEach((p, i) => part(() => {
     const x = p.x / 10, z = p.z / 10;
@@ -491,12 +881,12 @@ export function buildThuyTien(data, S, group) {
 
   // the slides: the building nearest the mapped slide point is the tower
   const sp = (st.points || []).find((p) => p.k === 'slide');
-  if (sp && poolRings.length) part(() => {
+  if (sp && big) part(() => {
     const q = [sp.x / 10, sp.z / 10];
     const tower = items.filter((i) => i.k === 'b' && !used.has(i.id)).map((i) => { const c = centroid(i.pts); return { i, d: Math.hypot(c[0] - q[0], c[1] - q[1]) }; }).sort((a, b) => a.d - b.d)[0];
     if (!tower || tower.d > 60) return;
     used.add(tower.i.id);
-    slides(S, tower.i.pts, poolRings);
+    slides(S, tower.i.pts, chaikin(big, 2));
   });
 
   // the "Space Simulator": a small domed shell
@@ -531,7 +921,8 @@ export function buildThuyTien(data, S, group) {
   // the lakeside walk relaid in 2024-25 (2 km of granite, 82 LED lamp posts: báo Văn Hóa, 16 Apr 2025)
   const lake = waters.slice().sort((a, b) => b.length - a.length)[0];
   if (lake && group) part(() => {
-    const L = lakeLamps(S, lake, wet);
+    const plz = items.filter((i) => i.k === 'q').map((i) => { const c = centroid(i.pts); return i.pts.map((p) => [c[0] + (p[0] - c[0]) * 1.15, c[1] + (p[1] - c[1]) * 1.15]); });
+    const L = lakeLamps(S, lake, wet, (x, z) => plz.some((r) => inRing(x, z, r)));
     if (!L.length) return;
     const pts = glowPoints(L, L.map((_, k) => [0.86, 0.93, 1][k % 3]), 4);
     pts.userData.glow = true;
@@ -540,51 +931,40 @@ export function buildThuyTien(data, S, group) {
   });
 }
 
-// LED lamp posts round the lake, a few metres up the bank from the water's edge, one every ~26 m (2 km and 82 lamps would be ~24 m; the mapped shore is longer, ~2.4 km); returns the lamp
-// heads as a flat [x, y, z, ...] list for the night glow.
-function lakeLamps(S, ring, wet) {
+// walk a shore ring every `step` metres; fn(x, z, o) gets the shore point and the unit normal pointing inland (the
+// side that stays dry 3.5 and 5.5 m out), for points where keep(x, z) holds
+function alongShore(ring, step, wet, keep, fn) {
   let A = 0;
   for (let i = 0, n = ring.length; i < n; i++) { const a = ring[i], b = ring[(i + 1) % n]; A += a[0] * b[1] - b[0] * a[1]; }
-  const out = [], post = hex('#5d6466'), head = hex('#d9dcd8'), step = 26;
   let carry = step / 2;
   for (let i = 0, n = ring.length; i < n; i++) {
     const a = ring[i], b = ring[(i + 1) % n], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     if (len < 0.01) continue;
-    const d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len], o = A > 0 ? [-d[1], d[0]] : [d[1], -d[0]]; // outward, away from the water
+    const d = [(b[0] - a[0]) / len, (b[1] - a[1]) / len], o = A > 0 ? [-d[1], d[0]] : [d[1], -d[0]];
     for (let s = carry; s < len; s += step) {
       carry = s + step - len;
       const bx = a[0] + d[0] * s, bz = a[1] + d[1] * s;
+      if (!keep(bx, bz)) continue;
       const side = [1, -1].find((k) => !wet(bx + o[0] * k * 3.5, bz + o[1] * k * 3.5) && !wet(bx + o[0] * k * 5.5, bz + o[1] * k * 5.5));
-      if (!side) continue;
-      const x = bx + o[0] * side * 3.5, z = bz + o[1] * side * 3.5;
-      const g = gy(x, z);
-      S.kind = KIND.PLAIN;
-      S.cyl(x, z, g - 0.2, g + 4.2, 0.09, 0.07, 5, post, { cap: false });
-      S.box(x, z, g + 4.2, g + 4.45, 0.5, 0.5, Math.atan2(d[1], d[0]), head);
-      out.push(x, g + 4.1, z);
+      if (side) fn(bx, bz, [o[0] * side, o[1] * side], d);
     }
     if (carry >= len) carry -= len;
   }
-  return out;
 }
-// scrub, saplings and creeper coming up round a ruin: low clumps every few metres along its outline, outside it
-function scrubAlong(S, ring, wet, seed) {
-  const c = centroid(ring), greens = [hex('#4f6b3a'), hex('#5f7a43'), hex('#3f5a35'), hex('#6d7f4a')];
-  let k = 0;
-  for (let i = 0, n = ring.length; i < n; i++) {
-    const a = ring[i], b = ring[(i + 1) % n], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    for (let s = 0; s < len; s += 4.5) {
-      const h = hash(seed * 31 + k++);
-      if (h < 0.35) continue;
-      const px = a[0] + (b[0] - a[0]) * (s / len), pz = a[1] + (b[1] - a[1]) * (s / len);
-      const dl = Math.hypot(px - c[0], pz - c[1]) || 1, out = 1.2 + h * 1.6;
-      const x = px + ((px - c[0]) / dl) * out, z = pz + ((pz - c[1]) / dl) * out;
-      if (wet(x, z)) continue;
-      const g = gy(x, z), r = 0.7 + h * 1.1, col = greens[Math.floor(h * 97) % greens.length];
-      S.kind = KIND.PLAIN;
-      S.cyl(x, z, g - 0.2, g + r * 0.45, r * 0.8, r, 7, shade(col, 0.9), { cap: false });
-      S.cyl(x, z, g + r * 0.45, g + r * (0.9 + h * 0.5), r, r * 0.15, 7, col);
-      if (h > 0.7) S.cyl(x + r * 0.7, z - r * 0.5, g - 0.2, g + r * 1.6, r * 0.55, r * 0.1, 5, shade(col, 0.85)); // a sapling
-    }
-  }
+
+// LED lamp posts round the lake, a few metres up the bank from the water's edge, one every ~26 m (2 km and 82 lamps
+// would be ~24 m; the mapped shore is longer, ~2.4 km), none on the entrance plazas; returns the lamp heads as a flat
+// [x, y, z, ...] list for the night glow.
+function lakeLamps(S, ring, wet, skip) {
+  const out = [], post = hex('#5d6466'), head = hex('#d9dcd8');
+  alongShore(ring, 26, wet, () => true, (bx, bz, o, d) => {
+    const x = bx + o[0] * 3.5, z = bz + o[1] * 3.5;
+    if (skip(x, z)) return;
+    const g = gy(x, z);
+    S.kind = KIND.PLAIN;
+    S.cyl(x, z, g - 0.2, g + 4.2, 0.09, 0.07, 5, post, { cap: false });
+    S.box(x, z, g + 4.2, g + 4.45, 0.5, 0.5, Math.atan2(d[1], d[0]), head);
+    out.push(x, g + 4.1, z);
+  });
+  return out;
 }

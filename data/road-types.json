@@ -1,4 +1,10 @@
 {
   "_": "Road types by OSM way id (issue #67), read by scripts/build-data.mjs. unmarked-1, unmarked-2, unmarked-3: a carriageway of that many lanes (3.5 m each, plus 0.5 m), drawn without lane dashes or lamps, for the slip roads of junctions and roundabouts. Every highway=*_link way is already laid as unmarked-<its lanes tag> (1 one-way, 2 two-way when untagged); list a way here to give a slip road mapped as an ordinary street a type, or `marked` to keep a link at its class width with its dashes.",
-  "ways": {}
+  "ways": {
+    "239984154": "unmarked-2",
+    "493379018": "unmarked-2",
+    "493380572": "unmarked-2",
+    "1125138614": "unmarked-2"
+  },
+  "_thuytien": "Hồ Thủy Tiên: the peninsula road (1125138614) and the lakeside roads on the west (493380572) and east (493379018, 239984154) shores are mapped as footways but are 6-7 m concrete roads on the 2026 satellite."
 }

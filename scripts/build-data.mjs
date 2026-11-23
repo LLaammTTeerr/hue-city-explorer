@@ -275,12 +275,37 @@ const inBox = (p, m = 0) => p[0] >= MINX - m && p[0] <= MAXX + m && p[1] >= MINZ
 // 1. Water → land
 // =====================================================================
 const waterPolys = [];
+// Water OSM still maps that has gone dry: the show pool of hồ Thủy Tiên's amphitheatre (1453753909) is bare sand on
+// the 2026 satellite, the grandstand round it cleared (landmarks/thuytien.js lays the clearing).
+const DRY_WATER = new Set([1453753909]);
 for (const e of els) {
   const t = e.tags || {};
   if (t.natural !== 'water' && t.waterway !== 'riverbank' && t.landuse !== 'basin' && t.landuse !== 'reservoir') continue;
+  if (DRY_WATER.has(e.id)) continue;
   const rings = elementRings(e);
   if (!rings.length) { if (e.type === 'relation') console.warn('unclosed water relation', e.id, t.name); continue; }
   for (const poly of evenOdd(rings)) waterPolys.push(poly);
+}
+// Hồ Thủy Tiên's island: OSM leaves a hole in the lake round the dragon aquarium (239985079) wider than what stands.
+// On the 2026 satellite the lake comes right up to the aquarium's round landing all round, except a paved terrace
+// lobe to the NE and the round deck under the dragon's head to the N, joined to the landing by a short neck. Give the
+// rest of the hole back to the lake; landmarks/thuytien.js paves what is left of the island (the pond's hole).
+{
+  const aq = els.find((e) => e.id === 239985079 && e.type === 'way');
+  const ring = aq && elementRings(aq)[0];
+  if (ring) {
+    let cx = 0, cz = 0;
+    const pts = openRing(ring);
+    for (const p of pts) { cx += p[0] / pts.length; cz += p[1] / pts.length; }
+    const Rd = Math.max(9, pts.reduce((s, p) => s + Math.hypot(p[0] - cx, p[1] - cz), 0) / pts.length);
+    const disc = (x, z, r) => { const o = []; for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; o.push([x + Math.cos(a) * r, z + Math.sin(a) * r]); } o.push(o[0]); return [o]; };
+    // from the satellite (z20, 0.14 m/px), metres from the aquarium's centre: x east, z south
+    const lobe = [[-1.4, -15.8], [2.2, -19.3], [6.4, -21.1], [10.3, -19.8], [13.3, -16.0], [15.0, -11.7], [13.9, -7.9], [8.6, -10.0]];
+    const neck = [[-5.4, -21.4], [-0.4, -21.4], [0.6, -13.0], [-6.0, -13.0]];
+    const poly = (r) => { const o = r.map(([x, z]) => [cx + x, cz + z]); o.push(o[0]); return [o]; };
+    const land = pc.union(disc(cx, cz, Rd + 3.6), poly(lobe), poly(neck), disc(cx - 2.9, cz - 22.9, 4.8));
+    for (const p of pc.difference(disc(cx, cz, 34), land)) waterPolys.push(p);
+  }
 }
 // Hộ Thành Hào along the citadel's west face, from Tây Thành Đài (the west corner) past cửa Chánh Tây to Tây Thành
 // Thủy Quan (where the Ngự Hà enters), is not mapped as water in OSM: the moat on the other faces is, this stretch
