@@ -285,6 +285,55 @@ export const HERO_MODELS = [
     rotY: -2.6526,
     radius: 380,
   },
+  {
+    id: 'truongtien',
+    file: 'truongtien-hero.glb',
+    pos: [-7.6, 0, -6.0],
+    rotY: -0.7505,
+    radius: 420,
+  },
+  {
+    id: 'dongba',
+    file: 'dongba-hero.glb',
+    pos: [-19.75, 0, -402.83],
+    rotY: 1.0976,
+    radius: 340,
+  },
+  {
+    id: 'tinhtam',
+    file: 'tinhtam-hero.glb',
+    pos: [-1291.2, 0, -1001.6],
+    rotY: 2.6092,
+    radius: 320,
+  },
+  {
+    id: 'quantuong',
+    file: 'quantuong-hero.glb',
+    pos: [-1932.06, 0, 741.84],
+    rotY: -1.9071,
+    radius: 300,
+  },
+  {
+    id: 'thuytien',
+    file: 'thuytien-hero.glb',
+    pos: [-1099.13, 0, 6738.36],
+    rotY: 0,
+    radius: 420,
+  },
+  {
+    id: 'baotanghcm',
+    file: 'baotanghcm-hero.glb',
+    pos: [-827.3, 0, 1025.15],
+    rotY: -0.8552,
+    radius: 320,
+  },
+  {
+    id: 'diemphungthi',
+    file: 'diemphungthi-hero.glb',
+    pos: [76.7, 0, 208.35],
+    rotY: -0.7156,
+    radius: 280,
+  },
 ];
 
 // Convert a loaded glTF Mesh to Hue's shared cityMaterial convention (sqrt-encoded linear vertex colors, aKind, aBase).
