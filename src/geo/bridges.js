@@ -35,6 +35,12 @@ const NAMED = {
   'Cầu Trường Tiền': { rise: 0 },
   'Cầu Nguyễn Hoàng': { rise: 0 },
 };
+// Unnamed bridges, by a point on the way's middle (within 4 m): the deck rise their OSM structure calls for.
+const AT = [
+  // Tàng Thư Lâu's bridge (OSM 1431132265, bridge:structure=beam): a level deck on piers, as the satellite shows it,
+  // not the footbridge hump (landmarks/places/tangthulau.js)
+  { p: [-1347.6, -1299.9], rise: 0.15 },
+];
 const RUN_FLAT = 150; // a bridge run longer than this keeps its level deck
 // the street surface over the flat floor (geo/city.js lays carriageways at LAND_Y + 0.05 + 0.01) and the deck's
 // default top at the banks (BRIDGE_TOP in landmarks/life.js): a deck that lands at grade comes down by the difference
@@ -84,6 +90,7 @@ export function bridgeProfiles(data) {
     if (named && NAMED[named].own) return;
     let r, arches = 0, ramp = 0, vaults = null;
     if (named) ({ rise: r, arches = 0, ramp = 0 } = NAMED[named]);
+    else if (AT.some((q) => Math.hypot(q.p[0] - m[0], q.p[1] - m[1]) < 4)) r = AT.find((q) => Math.hypot(q.p[0] - m[0], q.p[1] - m[1]) < 4).rise;
     else if (b.citadel) ({ r, arches, vaults } = citadelRule(data, b));
     else if (runLen[runOf[i]] > RUN_FLAT || b.len > RUN_FLAT || runN[runOf[i]] > 1) r = 0; // (a run in pieces would hump twice)
     // footbridges and lanes over canals hump noticeably; road bridges over the moat and the canals get a camber

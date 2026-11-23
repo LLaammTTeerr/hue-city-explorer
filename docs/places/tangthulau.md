@@ -39,10 +39,17 @@ stele). Before, the archive was only the mapped OSM footprint drawn as a generic
 - Base height 0.6 m.
 - Lower storey 4.2 m. Upper walls 3.0 m to the eave.
 - Upper body 31.8 x 8.8 m with a 0.8 m eave (roof 33.4 x 10.4 m, from the satellite); the gallery round it is an
-  open terrace about 3.5 m wide with its railing at the edge, no columns. Roof flare and ridge ornament.
+  open terrace about 3.5 m wide with its railing at the edge, no columns. Roof flare and ridge ornament; the hip
+  ends turn up only a little (no đầu đao horns), as on the satellite.
 - Door and window shapes. The 3 bays on each short end.
-- Colours of the joinery (dark lacquer) and the tiles (weathered terracotta).
-- The bridge: 6 spans on masonry piers, solid plastered parapets, end posts.
+- Colours of the joinery (dark lacquer) and the tiles (dark weathered brown, as the satellite shows them).
+- The bridge: 6 spans on masonry piers, solid plastered parapets, end posts. Its deck is flat (OSM
+  `bridge:structure=beam`; `AT` in `src/geo/bridges.js`), not the hump the city gives other footbridges.
+- The shed (OSM 1346839070) on the north-west side: a low tiled store, walls 2.6 m, hip roof 1.5 m.
+- The court round the archive is paved earth-brown, not lawn. Twelve trees: larger ones along the north-west side
+  and the north tip, smaller ones on the south-east court and the bridge landing (crowns moved south-east of where
+  the leaning image shows them).
+- Hồ Học Hải is lotus-covered edge to edge (`FULL` in `src/landmarks/life.js`), as on the satellite.
 - The stone revetment round the island and the lake shore.
 - The memorial node is drawn as a plain stone stele.
 
@@ -53,12 +60,11 @@ stele). Before, the archive was only the mapped OSM footprint drawn as a generic
 - The image leans: the ridge lies ~1.5 m north-west of the middle of the eaves (~0.44 m per metre of height). Allowing
   for that, the base stands ~2.2 m north-west and ~1.1 m north-east of the OSM outline, with its axis ~2.3° nearer
   east-west (bearing ~58°). The island, the bridge and the lake streets match OSM, so only the building is re-framed
-  (`REFRAME` in the place file). The OSM gallery ring and steps (drawn by the city as footways) were left as mapped.
+  (`REFRAME` in the place file). The OSM gallery ring and steps on the island are owned by the place file
+  (`ownWays`), so the city no longer draws them as footways off the model's centre.
 - No Street View pano shows the archive: houses and trees hide the island from every road.
 
 ## Left
-- The two small mapped buildings on the island (the shrine at the south tip and an 8.8 × 4.4 m block) are still
-  generic city buildings. The block takes the survey's 8 m and reads as a two-storey house. What it is today could
-  not be confirmed.
+- The shrine at the south tip is still a generic city building.
 - I found no photo caption or drawing for the true door pattern or the eave detail.
 - Lights: lanterns in the upper gallery at night.

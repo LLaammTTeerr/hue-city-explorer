@@ -42,6 +42,19 @@ export function placeDeckEnds(data) {
   return out;
 }
 
+// A place that models paths OSM maps as ways (a gallery round a building, its steps) may export ownWays(data): a
+// test on a data.roads record ([class, bridge, flat, ...]) that is true for the ways it draws itself. geo/city.js and
+// landmarks/life.js leave those out of the street network, so no footway is laid at grade where the model stands.
+export function placeOwnsWay(data) {
+  load();
+  const tests = [];
+  for (const m of list) {
+    if (typeof m.ownWays !== 'function') continue;
+    try { tests.push(m.ownWays(data)); } catch (e) { console.warn(`own ways of ${m.id}:`, e); }
+  }
+  return (r) => tests.some((t) => t(r));
+}
+
 // onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
 export function buildPlaces(data, S, group, onEach = null) {
   load();

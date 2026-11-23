@@ -34,6 +34,17 @@ const REFRAME = { dx: -0.4, dz: -2.4, rot: -2.3 * Math.PI / 180 };
 const OUTLINE = [[-1326.1, -1324.5], [-1323.2, -1326.4], [-1292.9, -1346.6], [-1288.8, -1340.6], [-1284.4, -1334.1], [-1314.7, -1313.9], [-1317.6, -1311.9]];
 const BRIDGE = [[-1364.3, -1288], [-1331, -1311.8]]; // OSM way 372295922, shore (west) → island
 const STELE = [-1318.5, -1301]; // OSM node 12458493990 (historic=memorial)
+// OSM way 1346839070 (building, 9.8 x 4.3 m) by the archive's north-west side: the satellite shows a low tiled shed under
+// the trees there, so it is drawn single-storey here (the city's survey height of 8 m made it a white two-storey block)
+const SHED = [[-1315, -1346.5], [-1312.5, -1343], [-1320.6, -1337.5], [-1323.1, -1341.1]];
+// The island's trees, in the archive's own frame (u along it toward the stairs, v toward the south-east; metres from
+// its middle) and crown scale: the large shade trees along the north-west side and at the north tip, smaller ones on
+// the south-east court and by the bridge landing, read off the satellite (z19/z20, its ~0.44 m/m lean taken out).
+const TREES = [
+  [-28, -14.5, 1.5], [-18, -15, 1.4], [0, -13.5, 1.3], [9, -14, 1.5], [18, -13, 1.4], [26, -12, 1.6], // north-west side, north tip
+  [-30, -6, 0.9], [29, 4, 0.9], [27, 15, 1.1], [17, 15, 0.8], // west end, east corner and the south-east court
+  [-26, 17, 1.3], [-14, 19, 1.0], [-29, 7, 0.8], // by the bridge landing
+];
 
 const C = {
   wall: hex('#e9c87c'), // golden-yellow lime wash (OSM building:colour #ffe0a0, weathered)
@@ -42,14 +53,15 @@ const C = {
   door: hex('#6b2f22'), // lacquered jackfruit-wood leaves
   doorDark: hex('#3e1f18'),
   lac: hex('#8e3424'),
-  roof: hex('#9a4f3a'), // terracotta tiles
-  roofDark: hex('#6f3a2c'),
+  roof: hex('#6f4a3b'), // weathered terracotta: dark brown on the satellite, not new orange tile
+  roofDark: hex('#4c3229'),
   ridge: hex('#ddd2b8'),
   stone: PAL.stone,
   face: hex('#7f7a6d'), // weathered revetment stone
   moss: hex('#5a5e48'),
   coping: hex('#b4ab98'),
   plaster: hex('#cfc6b2'), // bridge parapets, grey lime plaster
+  court: hex('#a39278'), // the island court: packed earth and worn brick
   brick: hex('#8a6f5c'),
 };
 
@@ -171,7 +183,9 @@ function archive(S, lamps) {
   // ---- roof: one hipped roof over the upper body only (the gallery is an open terrace), terracotta tiles ----
   S.kind = KIND.TIMBER;
   const over = 0.8;
-  S.hip(o.c[0], o.c[1], UW, UD, ang, eave, ridgeTop - 0.35 - eave, C.roof, { flare: 0.35, over, ridgeCol: C.ridge, fascia: 0.25, fasciaCol: C.roofDark, hips: true, segs: 4 });
+  // The satellite shows straight hips and plain corners: a slight flare, and the hip ridges end in a short upturn, not
+  // the palace horn (đầu đao)
+  S.hip(o.c[0], o.c[1], UW, UD, ang, eave, ridgeTop - 0.35 - eave, C.roof, { flare: 0.18, over, ridgeCol: C.ridge, fascia: 0.25, fasciaCol: C.roofDark, hips: true, horns: false, segs: 4 });
   // ridge ornament: a low gourd at the middle and raised ends
   S.kind = KIND.PLAIN;
   const rl = Math.max(0, (UW + 2 * over) / 2 - ((UD + 2 * over) / 2) * 0.92);
@@ -214,6 +228,61 @@ function archive(S, lamps) {
   // night: lanterns hung in the gallery
   for (const s of [-1, 1]) for (let i = 1; i < 9; i += 2) { const p = P(cols[i], s * (UD / 2 + 0.5)); lamps.push([p[0], eave - 0.6, p[1]]); }
   return { P, ang, g };
+}
+
+// The island's paths the model draws itself: the OSM gallery ring and steps (1346839069, 1346839061, 1346839062) and
+// the stubs joining them, all footways on the island; the island court (build) is their ground.
+const islandOf = (data) => {
+  const c = [-1306.8, -1328.3];
+  const poly = (data.ponds || []).find((pl) => pl.length > 1 && pl.slice(1).some((h) => inRing(c[0], c[1], unflat(h))));
+  return poly && poly.map(unflat).find((r, i) => i > 0 && inRing(c[0], c[1], r));
+};
+export function ownWays(data) {
+  const island = islandOf(data);
+  if (!island) return () => false;
+  return (r) => !r[1] && (r[0] | 0) >= 4 && unflat(r[2]).every((p) => inRing(p[0], p[1], island));
+}
+
+function shed(S) {
+  const o = obb(SHED);
+  let g = Infinity;
+  for (const [x, z] of SHED) g = Math.min(g, LAND_Y + rise(x, z));
+  S.base = g - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(o.c[0], o.c[1], g - 0.2, g + 0.3, o.w, o.d, o.a, shade(C.stone, 0.9));
+  S.box(o.c[0], o.c[1], g + 0.3, g + 2.6, o.w - 0.4, o.d - 0.4, o.a, shade(C.wall, 0.92), { top: C.roofDark });
+  const ux = Math.cos(o.a), uz = Math.sin(o.a);
+  S.kind = KIND.PLAIN;
+  for (const s of [-1, 1]) for (const u of [-2.6, 0, 2.6]) { // doors and windows on the long sides
+    const x = o.c[0] + u * ux - s * (o.d / 2 - 0.17) * uz, z = o.c[1] + u * uz + s * (o.d / 2 - 0.17) * ux;
+    S.box(x, z, g + (u === 0 ? 0.35 : 1.1), g + 2.2, u === 0 ? 1.0 : 0.9, 0.06, o.a, C.door);
+  }
+  S.kind = KIND.TIMBER;
+  S.hip(o.c[0], o.c[1], o.w - 0.4, o.d - 0.4, o.a, g + 2.6, 1.5, C.roof, { over: 0.5, ridgeCol: C.ridge });
+  S.base = 0;
+}
+
+// the island court: packed earth and brick paving round the archive, as the satellite shows it, in place of lawn
+function court(S, island) {
+  let lo = Infinity, hi = -Infinity;
+  for (const [x, z] of island) { const g = LAND_Y + rise(x, z); lo = Math.min(lo, g); hi = Math.max(hi, g); }
+  const c = island.reduce((a, p) => [a[0] + p[0] / island.length, a[1] + p[1] / island.length], [0, 0]);
+  const ring = island.map(([x, z]) => { const d = Math.hypot(x - c[0], z - c[1]) || 1, k = Math.max(0, d - 0.6) / d; return [c[0] + (x - c[0]) * k, c[1] + (z - c[1]) * k]; });
+  S.base = lo - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.prism(ring, lo - 0.1, hi + 0.06, C.coping, C.court, { topKind: KIND.ROAD });
+  S.base = 0;
+}
+
+// the island's trees join data.trees, so populate plants them with the city's (and off the archive's ground)
+function plant(data, island, P) {
+  if (!Array.isArray(data.trees)) return;
+  const dShore = (x, z) => Math.min(...island.map((a, k) => distSeg(x, z, a, island[(k + 1) % island.length])));
+  TREES.forEach(([u, v, sc], k) => {
+    const [x, z] = P(u, v);
+    if (!inRing(x, z, island) || dShore(x, z) < 1.8) return;
+    data.trees.push(Math.round(x * 10), Math.round(z * 10), Math.round(sc * 10), k % 3 === 1 ? 1 : 0);
+  });
 }
 
 export function build({ data, S, group }) {
@@ -306,8 +375,11 @@ export function build({ data, S, group }) {
     }
   }
 
-  // ---------------- the archive ----------------
-  archive(S, lamps);
+  // ---------------- the island court, the archive, the shed, the trees ----------------
+  court(S, island);
+  const { P } = archive(S, lamps);
+  shed(S);
+  plant(data, island, P);
 
   // ---------------- the stele on the north tip of the island ----------------
   {
