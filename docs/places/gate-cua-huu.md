@@ -36,7 +36,7 @@ gates loop of `citadel.js` skips the old model.
 ## Estimates
 - Sizes are scaled from the photo by the block's length (19.7 m, OSM):
   - The block is 8.3 m to the cornice and 9.5 m to the balustrade.
-  - The passage is 4.4 × 5.4 m.
+  - The passage was 4.4 × 5.4 m; since the Google Street View check it is 3.8 × 4.8 m (see below).
   - The lower storey of the tower is 9.0 m wide and 3.4 m high; the upper storey is 4.6 m wide and 2.2 m high.
 - Not seen in any source:
   - The tower's depth (lower storey 6.6 m, upper 3.4 m).
@@ -46,6 +46,41 @@ gates loop of `citadel.js` skips the old model.
   the rampart is 16.0 m thick here in `data.wall`). OSM gives 14.2 m, but the passage must close the slot that
   `kinhthanh.js` cuts.
 - Colours are taken from the photo and toned down a little towards the grey rampart that `kinhthanh.js` draws.
+
+## Google satellite and Street View check (2026-11)
+Captures (satellite z17-z20, five car Street View panos) are kept outside the repo. Findings:
+- Axis: the wall runs about 144° and the passage about 54°/234°, as modelled.
+- Position: the outline's outer face (t +7.1 m from the OSM centre) matches the satellite. The moat bridge and Yết
+  Kiêu meet the face about 1.8 m north-west of the outline's centre; the car panos on the bridge and in Yết Kiêu put
+  the passage 1-2 m that way too. The block is moved 0.8 m north-west, as far as the 5.6 m slot that `city.js` cuts at
+  the outline's centre allows with the narrower passage.
+- Passage: from the bridge pano, scaled by the riders in it, the opening is about 3.5-3.8 m wide with its crown about
+  4.5-4.8 m up, under a deep (about 0.75 m) brick ring with the stone moulding sitting right on it and the tablet
+  above. The model now has 3.8 × 4.8 m, a 0.75 m ring, the moulding on the ring and the frame closer in.
+- Inner face (Yết Kiêu pano): above the moulding the face is lime-rendered grey with a raised horizontal panel; drawn.
+- The rampart in `data.wall` stands about 1.8 m proud of the real outer face, so the block still runs out to t +9.4
+  to close it; from the bridge the face is about 2 m nearer than in the pano. Not fixed here (the rampart is shared).
+- Tower position: the satellite shows the tower roof 5-7 m north-west of the passage, and the Yết Kiêu pano agrees in
+  bearing; the pano from the Tôn Thất Thiệp junction shows it straight behind the passage. The tower stays centred.
+
+## Review fixes (2026-11)
+Measured again from the same car panos and satellite (estimates; captures stay outside the repo):
+- Height: the inner face's top is about 1.4 × the arch crown, so the block is now 6.9 m to the cornice (was 8.3 m).
+  With the tower the ridge is about 14 m above the ground. The text source's "cao chừng 16m" disagrees; the panos
+  measure 12-14 m. Which to follow is a question for the owner; the model follows the panos for now.
+- Tower: in both car panos and on the satellite roof it is about 0.6-0.66 × what scaling the Commons photo gave, so
+  the lower storey is now 7.0 × 5.6 × 3.0 m and the upper 3.6 × 2.8 × 2.0 m. It stands over the passage axis
+  (within about 0.7 m to the south-east) and a little to the city side of the outline's centre (t -0.2). In the
+  Yết Kiêu pano the whole scene is off by about 13° in heading, but the tower keeps its place against the gate's
+  corner; the satellite's 5 m north-west roof offset is read as parallax from the oblique view.
+- Outer face: two-stepped, a 4.8 × 5.1 m arch in a 0.4 m recess before the 3.8 × 4.8 m passage. The recess is only as
+  deep as the block stands proud of the rampart band in `data.wall`.
+- Inner face: the lime-rendered band runs the face's whole length; the pier on the south-east side projects 1.1 m
+  under a stepped stone cap.
+- Arch rings: smooth 24-segment annuli flush with the jambs.
+- Colour: brick desaturated towards the photos, the flat top darker, damp-foot, streaks and relaid patches on the
+  outer face.
+- Block length stays 19.8 m. The bridge pano suggests about 15 m, but the review accepted 19.8 m (OSM 19.7).
 
 ## What changed
 - Replaces the generic Kinh thành gate on this site: a grey block with crenellations, under a red-and-gold wooden
