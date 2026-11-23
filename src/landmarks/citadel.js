@@ -458,7 +458,8 @@ function citadel(data, S, group) {
   for (const g of data.gates || []) {
     if (String(g.n || '').normalize('NFC') === 'Cửa Hiển Nhơn'.normalize('NFC') && replaced('hiennhon')) continue; // drawn by places/hiennhon.js
     if (replaced('mangca') && String(g.n || '').normalize('NFC') === 'Trấn Bình Môn'.normalize('NFC')) continue; // drawn by places/mangca.js
-    if (replaced('gate:' + String(g.n || ''))) continue; // any 'gate:<name>' replica (places/gate-cua-*.js) draws that gate itself
+    if (replaced('gate:' + String(g.n || ''))) continue;
+    if (replaced('thienmu') && data.hakhe && inRing(g.c[0] / 10, g.c[1] / 10, unflat(data.hakhe.ring))) continue; // Thiên Mụ's side gates: places/thienmu.js // any 'gate:<name>' replica (places/gate-cua-*.js) draws that gate itself
     const lit =LIT_GATES.includes(String(g.n || '').normalize('NFC'));
     const eaves = lit ? [] : null;
     const gi = gate(S, g, g.k === 'citadel' ? cityCentre : impCentre, eaves, coverAt);

@@ -71,3 +71,44 @@ The model is in `src/landmarks/places/thienmu.js`. The old `buildThienMu` in `sr
   - The Austin car shrine
   - The other abbots' stupas in the pine garden (only the one mapped stupa is drawn)
 - **Toilets and shelter:** OSM ways 1205452748 and 1205452750 are not modelled.
+
+## Google reference pass (2026)
+Compared against Google satellite (z17-z20) and four Google car Street View panoramas from the lanes around the
+precinct (captures kept in scratch/, not in the repo).
+- **Position and axis:** the tower (C) and the compound axis (ANG, about 346°/166°) match the satellite to within
+  about 2 m and 3°. The Đại Hùng roof and the court's lawns sit where the satellite shows them. Nothing was moved.
+- **Outer wall:** Street View along the east lane shows rough grey-brown rubble stone under a flat stone coping,
+  about 2.8-3 m above the lane where the lane runs at its foot and about 2.5 m above a grass bank further south. The
+  model had an ochre rendered wall with a tiled coping on an ashlar terrace face, 4-5 m above the lane. Now the wall
+  and the terrace face are rubble with a flat coping, and each stretch of wall is sized from the ground outside it
+  (top 2.9 m above it, between 0.9 and 2.3 m above the court).
+- **East gate:** Street View shows a small masonry gate in the east wall, about 3.5 m wide, with an arched opening, red
+  doors, a red plaque and a short tiled canopy. It is not in OSM. It is placed where the panorama's sight line meets
+  the mapped wall (about 16.45283 N, 107.54536 E). Steps lead down the bank to the lane.
+- **Roof colour:** from above, and in a courtyard photo, the halls' tiles read weathered grey-brown, not new
+  terracotta. The place now uses its own weathered tile colour.
+- **Not matched:** on the river and west sides, the real hill is a steep wooded bank with a low stone wall at the road.
+  The model keeps its one-level court on a vertical rubble face, 5-9 m high there. This comes from the elevation data
+  (the court 9.7 m above the riverside road at the stair), not from this file.
+
+## Review fixes (2026)
+A second pass against the same car panoramas replaced several choices above (the east gate and the "Not matched"
+note no longer hold).
+- **Ground:** the court is level only inside the brow (west brow line and the front at v 13 in the local frame). Outside
+  it, grass banks fall at about 1:1.1 from the court to the city's ground: a west bank inside the ring, the front banks
+  either side of the stair, and on the east an apron outside the mapped ring, grown outward until it meets the lane or
+  the ground (at most 14 m). Banks are heightfields on a 2 m grid, so they follow the terrain.
+- **Walls:** random rubble (per-stone quads, mossier toward the top) under an uneven mossy coping, not ashlar coursing.
+  The precinct wall stands about 2 m above the bank top on the brow and on the east; at the road, a low rubble wall
+  (0.8 m above the road, 0.45 m above the bank foot) on the west and river sides, and only a stone kerb at the foot of
+  the east apron, where svB shows the grass running down to the lane.
+- **East gate:** a low rendered block about 3.6 m wide, one round arch with a timber lattice grille, couplet panels, a
+  plaque frieze and a flat cornice; no canopy, no stair. Placed where svB's sight line meets the wall (about 14 m from
+  the car, as in the panorama). The two side gates use the same builder.
+- **Citadel side gates:** the generic cream gate blocks with teal roofs from `citadel.js` are skipped inside the
+  precinct ring when this file is loaded.
+- **Colours:** halls and Đại Hùng have ochre-cream walls (`#d3bd8c`), dark doors and the weathered brown-grey tile;
+  pavilion fascias follow the roof instead of red lacquer. Columns stay lacquered.
+- **Trees:** a jittered 5.2 m grid of trees over the banks and round the halls (pines on the north end), clear of the
+  lawn court, the forecourt, the stair and the cross path. The generated flame tree on the riverside verge in front
+  of the tower's east corner (svD) is removed. `dataReach = 120` keeps the data trees near the place in `hue.json`.
