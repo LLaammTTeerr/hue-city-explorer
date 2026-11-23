@@ -7,8 +7,10 @@
   captures, match.mjs renders the model with matched cameras, mkwt.sh one worktree per place under scratch/wt/).
   Google captures stay in scratch/ as visual reference only. Pilot (dcct, phucam) done: both rebuilt and fixed after a Fable fail. Lesson: most
   Street View panos are user photospheres whose GPS is 10-30 m off; gmaps.mjs now tags source car/user and agents
-  align from the satellite and car panos only. Full run (74 places + corrected re-review of the pilot) running as
-  workflow wf_cde4a74c-9e3; next: merge rebuild/* branches (worktrees scratch/wt/<slug>), check, build, PR.
+  align from the satellite and car panos only. Done 2026-11-23: all 76 places rebuilt and merged into this branch
+  (16 passed Fable review, 60 got one fix round without re-review); data regenerated; check:trees fixed by denser
+  crown sampling (16 → 48 points). check and build pass; branch pushed. Before/after in scratch/compare/; owner
+  questions from 53 places in scratch/owner-questions.md. Next: PR (awaiting owner's go-ahead).
 - Finished buildings, not building sites (2026-11-21, branch `claude/rebuild-mode-concerns-fcf0b6`): owner decision —
   a hall that is lost, being rebuilt or only a foundation is drawn complete, as it stood before its loss, instead of
   as it stands today. First four: Điện Cần Chánh (was a bare lim frame), Đại Cung Môn (foundation), Thái Miếu's main
