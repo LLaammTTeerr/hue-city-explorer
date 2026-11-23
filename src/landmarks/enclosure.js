@@ -142,9 +142,15 @@ function gapsOf(a, b, len, roads, openings) {
 
 // Styles. h: height of the fence above ground; plinth: solid wall under a railing (rail: true) or the whole wall
 // (rail: false); posts every `every` metres, `postW` square (0 for none), standing `postUp` above the fence; gate piers `pierW`, `pierUp`.
+// lattice (optional, rail: true): a band of pierced panels set in the plinth, [from, to] above ground, colour `screen`;
+// bars (optional): draw the railing as single uprights this far apart instead of a dark band; barW their thickness
+// (default 0.035), with a low rail just over the plinth unless midRail: false; railW × railH the top rail (default
+// 0.09 × 0.12).
 export const FENCE = {
   // Quốc Học: low dark-red wall, dark iron railing, red piers with cream caps
-  quochoc: { h: 2.0, plinth: 0.65, rail: true, t: 0.34, every: 3.4, postW: 0.48, postUp: 0.2, wall: hex('#9a2f27'), cap: hex('#efe2c4'), iron: hex('#24302b'), pierW: 1.0, pierUp: 1.2 },
+  // (Street View 2024: a red wall to about 1.75 m with a band of white square lattice panels framed in red, a cream
+  // coping, a low iron railing over it, and taller capped piers about every 7 m)
+  quochoc: { h: 2.25, plinth: 1.75, rail: true, t: 0.36, every: 7.2, postW: 0.62, postUp: 0.3, wall: hex('#8e3a31'), cap: hex('#e6d8b8'), iron: hex('#3a403c'), pierW: 1.0, pierUp: 1.2, lattice: [0.95, 1.55], screen: hex('#dcd8cf'), bars: 0.3, barW: 0.016, midRail: false, railW: 0.03, railH: 0.035 },
   // churches: cream rendered wall, iron railing, grey piers
   church: { h: 1.9, plinth: 0.7, rail: true, t: 0.32, every: 3.2, postW: 0.45, postUp: 0.18, wall: hex('#e4ddcd'), cap: hex('#b9b5ab'), iron: hex('#2a2d30'), pierW: 1.0, pierUp: 1.5 },
   // An Định: ochre wall with cream-capped piers and railing panels
@@ -229,17 +235,31 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
         if (st.rail) {
           S.box(mx, mz, lo, hi + st.plinth, bl, st.t, ang, st.wall, { top: st.cap });
           S.kind = KIND.PLAIN;
+          if (st.lattice) {
+            // the pierced panels, a little proud of both faces, with the red frame showing between them
+            const np = Math.max(1, Math.round((bl - st.postW) / 0.85)), pw = (bl - st.postW) / np;
+            for (let j = 0; j < np; j++) {
+              const f0 = (st.postW / 2 + (j + 0.5) * pw) / bl, c = [p[0] + (q[0] - p[0]) * f0, p[1] + (q[1] - p[1]) * f0];
+              const l0 = hi + st.lattice[0], l1 = hi + st.lattice[1];
+              S.box(c[0], c[1], l0, l1, pw - 0.16, st.t + 0.04, ang, st.screen);
+              // the fret: a darker inset with a pale cross, so the panel reads as pierced from a few metres
+              S.box(c[0], c[1], l0 + 0.1, l1 - 0.1, pw - 0.4, st.t + 0.06, ang, shade(st.screen, 0.62));
+              S.box(c[0], c[1], l0 + 0.14, l1 - 0.14, 0.09, st.t + 0.08, ang, st.screen);
+              S.box(c[0], c[1], (l0 + l1) / 2 - 0.045, (l0 + l1) / 2 + 0.045, pw - 0.46, st.t + 0.08, ang, st.screen);
+            }
+          }
           // the railing: a see-through screen of bars reads, from the street and the air, as a dark band under a rail;
-          // a style with `bars` (spacing, m) draws the open railing as separate uprights instead
+          // a style with `bars` (spacing, m) draws the open railing as separate uprights instead, so the yard shows through
+          const railH = st.railH ?? 0.12;
           if (st.bars) {
-            const nbar = Math.max(1, Math.round((bl - st.postW) / st.bars)), ca = Math.cos(ang), sa = Math.sin(ang);
+            const nbar = Math.max(1, Math.round((bl - st.postW) / st.bars)), ca = Math.cos(ang), sa = Math.sin(ang), bw = st.barW ?? 0.035;
             for (let j = 1; j < nbar; j++) {
               const o = -bl / 2 + st.postW / 2 + ((bl - st.postW) * j) / nbar;
-              S.box(mx + ca * o, mz + sa * o, hi + st.plinth, hi + st.h - 0.08, 0.035, 0.035, ang, st.iron);
+              S.box(mx + ca * o, mz + sa * o, hi + st.plinth, hi + st.h - Math.max(0.02, railH - 0.04), bw, bw, ang, st.iron);
             }
-            S.box(mx, mz, hi + st.plinth + 0.12, hi + st.plinth + 0.18, bl - st.postW, 0.05, ang, st.iron);
+            if (st.midRail !== false) S.box(mx, mz, hi + st.plinth + 0.12, hi + st.plinth + 0.18, bl - st.postW, 0.05, ang, st.iron);
           } else S.box(mx, mz, hi + st.plinth, hi + st.h - 0.08, bl - st.postW, 0.05, ang, st.iron);
-          S.box(mx, mz, hi + st.h - 0.12, hi + st.h, bl, 0.09, ang, shade(st.iron, 1.2));
+          S.box(mx, mz, hi + st.h - railH, hi + st.h, bl, st.railW ?? 0.09, ang, shade(st.iron, 1.2));
         } else {
           S.box(mx, mz, lo, hi + st.h - 0.18, bl + 0.02, st.t, ang, st.wall, { top: st.cap });
           S.kind = KIND.TILE;

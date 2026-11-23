@@ -75,3 +75,41 @@ now return early when this place is built (`replaced('quochoc')`). Out of scope:
 - The renovation of 2025–26 may have changed colours or details. Not checked.
 - The gate's chữ thọ balustrade, its timber detail and the dragons on the ridge are simplified.
 - The buildings have no interiors. The shader windows are generic colonial ones, with green louvres.
+
+## Rebuild against the satellite and Street View (2026-11)
+The model was checked against Google satellite tiles (z18–z20) and car panoramas on Nguyễn Trường Tộ, Phan Bội
+Châu and Ngô Quyền, plus one user panorama at the gate. These were used as visual reference only and are not stored
+in the repository. Changes:
+- **Lê Lợi frontage.** The wall and gate now stand 3.4 m further back from the street, square to Lê Lợi. The OSM
+  wall line runs along the kerb side of the pavement and the planted verge. The satellite places the gate roof
+  within about 1 m of the new position. The side walls keep their OSM line.
+- **Wall.** A red wall about 1.75 m high, with a band of white square lattice panels framed in red. It has a cream
+  coping, a low iron railing of single bars, and capped piers about every 7 m. This matches all three car panoramas.
+- **Old hall (OSM relation 9669095).** The relation was drawn as one roofed mass with its courtyards covered over.
+  It is now three hipped single-storey blocks across the width, joined along both long sides by low covered
+  corridors, with the two courts paved, as the satellite shows. The block height (ridge about 6 m) is an estimate.
+- **Hội trường.** The model had three separate hips. It now has one main roof, centred about 5 m north-west of the
+  OSM outline's middle, which is where the satellite shows it. It keeps the 13 m survey height. A low veranda runs
+  along the south-east side and there is a cream balustraded terrace at the north-east end.
+- **Block 695775626.** Its walls are now 1915-style, with arched upper windows (Street View, Phan Bội Châu).
+- **Sports ground.** Added from the satellite: the swimming pool (basin about 23 × 13.7 m, on a deck), the
+  football pitch (about 76 × 39 m), and the red running track along its north-west side.
+- Still not modelled:
+  - the hội trường's south-west end, which the satellite suggests is a gable with a pediment (the model has a hip);
+  - the pediment on the north-west gable of 695775626;
+  - the tennis and basketball courts.
+
+## Review fixes (2026-11)
+
+- Gable ends with pediments (Street View: Phan Bội Châu, Nguyễn Trường Tộ, Ngô Quyền; satellite for the hội trường's
+  SW end): 695775626 NW end, 695770487 SE end, 695775628 the end facing the pitch, 695775639 SW end. The roof runs
+  out to the gable wall; the pediment has a cream foot and raking cornices, a cream inner triangle and a lozenge.
+- Two storeys: the walls are plain render with the windows drawn per storey (arcade and shuttered arched windows on
+  the 1915 blocks, framed rectangles on the later ones). The shared façade shaders' 3.4 m floors read as three.
+- The small pavilion west of the pitch (about x −602, z 1077): 6.5 m square, two storeys of 3.6 m, red with cream
+  bands and a flat ornamental parapet. Height estimated from Street View (no published figure).
+- Grandstand 695775623: grey concrete tiers facing the track, not a building.
+- Tennis court (satellite, east of the pitch) and basketball court (SW end of the pitch), sizes from the satellite.
+- The drive and the circle's ring follow the ground in short draped strips (the old single quads stepped).
+- The street railing is thin iron bars (`barW`, `railW`, `railH` in enclosure.js); more trees in the grounds.
+- Dãy A and the laboratory block's SE ends were left at the OSM outline: the longer look in the imagery is roof lean.
