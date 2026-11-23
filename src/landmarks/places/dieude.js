@@ -189,10 +189,26 @@ function gate(S, box, lamps, L) {
     box(a + s * (D / 2 + 0.01), b, y1, y1 + h, 0.06, w, dark);
     box(a + s * (D / 2 + 0.02), b, y1 + h, y1 + h + 0.25, 0.06, w + 0.4, trim);
   }
-  // lacquered columns standing proud of the front, and the name board "Diệu Đế Quốc Tự" over the middle opening
+  // lacquered columns standing proud of the front, polychrome khảm sành sứ frieze panels, and the gold name board "Diệu Đế Quốc Tự"
   for (const b of [-6.6, -3.0, 3.0, 6.6]) { box(a - D / 2 - 0.25, b, y1, y1 + 4.1, 0.42, 0.42, lacq); }
+  for (const s of [-1, 1]) {
+    for (const b of [-4.8, 4.8]) box(a + s * (D / 2 + 0.05), b, y1 + 3.25, y1 + 3.85, 0.06, 2.2, mosaic);
+    box(a + s * (D / 2 + 0.05), 0, y1 + 4.18, y1 + 4.42, 0.06, Wd - 1.2, hex('#2e6f78'));
+  }
   box(a - D / 2 - 0.06, 0, y1 + 3.75, y1 + 4.1, 0.08, 2.6, hex('#3a2a1c'));
   box(a - D / 2 - 0.08, 0, y1 + 3.8, y1 + 4.05, 0.06, 2.2, hex('#d8b14a'));
+  // twin carved trụ biểu lotus pillars flanking the Bạch Đằng entrance forecourt
+  for (const s of [-1, 1]) {
+    const pq = W(a - 3.0, s * 8.6), pg = gY(...pq);
+    S.kind = KIND.MASONRY;
+    S.box(pq[0], pq[1], pg - 0.2, pg + 0.6, 1.05, 1.05, ANG, stone, { top: stoneL });
+    S.box(pq[0], pq[1], pg + 0.6, pg + 4.5, 0.68, 0.68, ANG, yellow, { top: trim });
+    S.kind = KIND.PLAIN;
+    S.box(pq[0], pq[1], pg + 1.2, pg + 3.9, 0.72, 0.36, ANG, mosaic);
+    S.box(pq[0], pq[1], pg + 4.5, pg + 4.78, 0.88, 0.88, ANG, trim);
+    S.cyl(pq[0], pq[1], pg + 4.78, pg + 5.18, 0.32, 0.42, 8, hex('#e5c158'));
+    S.cyl(pq[0], pq[1], pg + 5.18, pg + 5.65, 0.38, 0.06, 8, hex('#e5c158'));
+  }
   // small roofs over the side openings
   for (const s of [-1, 1]) {
     const q = W(a, s * 5.0);

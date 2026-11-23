@@ -79,13 +79,31 @@ export function build({ data, S, group, place }) {
       const dP = P(-14, -15.35);
       S.box(dP[0], dP[1], y0 + 0.35, y0 + 2.9, 7.2, 0.12, ANG, C.wood);
       S.box(dP[0], dP[1], y0 + 3.05, y0 + 3.55, 2.6, 0.14, ANG, C.gold);
-      // courtyard incense urn & flanking bronze bells
+      // courtyard monumental bronze cauldron (đỉnh đồng) + open timber bell-frame pavilions holding Đại Hồng Chung bells
       const uP = P(-14, -12.6);
-      bronzeUrn(uP[0], uP[1], y0 + 0.35, 1.25);
+      bronzeUrn(uP[0], uP[1], y0 + 0.35, 1.35);
       for (const s of [-1, 1]) {
-        const bP = P(-14 + s * 4.2, -12.6);
-        bronzeBell(bP[0], bP[1], y0 + 0.35, 1.15);
+        const bP = P(-14 + s * 4.4, -12.6);
+        bronzeBell(bP[0], bP[1], y0 + 0.35, 1.25);
+        // carved timber A-frame bell gantry over each bronze bell
+        for (const ds of [-0.9, 0.9]) {
+          const post = P(-14 + s * 4.4 + ds, -12.6);
+          S.cyl(post[0], post[1], y0 + 0.35, y0 + 2.85, 0.11, 0.09, 6, C.wood, { cap: false });
+        }
+        S.box(bP[0], bP[1], y0 + 2.7, y0 + 2.95, 2.1, 0.22, ANG, C.wood);
+        S.hip(bP[0], bP[1], 2.4, 1.5, ANG, y0 + 2.95, 0.65, C.tile, { over: 0.35, flare: 0.25, ridgeCol: hex('#d9cbb0'), segs: 2 });
       }
+      // village craft entrance gate (Cổng làng đúc đồng Phường Đúc) on the street edge of the hall courtyard
+      for (const s of [-1, 1]) {
+        const gp0 = P(-14 + s * 2.5, -10.8);
+        S.kind = KIND.MASONRY;
+        S.box(gp0[0], gp0[1], y0 - 0.1, y0 + 3.4, 0.72, 0.72, ANG, C.wall2, { top: C.gold });
+      }
+      const gm = P(-14, -10.8);
+      S.kind = KIND.PLAIN;
+      S.box(gm[0], gm[1], y0 + 2.65, y0 + 3.35, 5.2, 0.52, ANG, C.brick);
+      S.box(gm[0], gm[1], y0 + 2.8, y0 + 3.2, 3.0, 0.58, ANG, C.gold);
+      S.hip(gm[0], gm[1], 6.0, 1.8, ANG, y0 + 3.35, 1.0, C.tile, { over: 0.4, flare: 0.3, ridgeCol: hex('#d9cbb0'), segs: 2 });
       gp.push(dP[0], y0 + 3.1, dP[1]);
       gc.push(1, 0.8, 0.42);
     }

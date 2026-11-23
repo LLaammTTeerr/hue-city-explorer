@@ -156,10 +156,32 @@ export function build({ data, S, group }) {
     const e = V3(gU + gD / 2 + 0.1, AX + s * 6.0, Yg + gH + 0.45);
     S.beam(e, [e[0] + V[0] * s * 0.55, e[1] + 0.75, e[2] + V[1] * s * 0.55], 0.32, 0.32, shade(GATE, 0.92));
   }
-  // the upper storey over the middle bay and its two-tier curved mossy roof
+  // the upper storey over the middle bay and its two-tier curved mossy roof + carved ridge dragons & dharma finial
   box(gU, AX, Yg + gH + 0.45, Yg + gH + 1.7, 5.2, 2.7, GATE2);
   const gr = { flare: 0.48, over: 0.65, fascia: 0.16, fasciaCol: shade(GATE, 0.72), ridgeCol: shade(GATE, 0.95), segs: 3 };
   { const q = W(gU, AX); S.hip(q[0], q[1], 6.4, 3.6, ang, Yg + gH + 0.3, 0.75, hex('#685c4e'), gr); S.hip(q[0], q[1], 5.2, 2.7, ang, Yg + gH + 1.7, 1.5, hex('#685c4e'), gr); }
+  S.kind = KIND.PLAIN;
+  {
+    const ryG = Yg + gH + 3.2;
+    box(gU, AX, ryG, ryG + 0.72, 0.7, 0.16, hex('#d4b45c'));
+    for (const s of [-1, 1]) {
+      const a0 = V3(gU, AX + s * 1.4, ryG + 0.08), a1 = V3(gU, AX + s * 0.9, ryG + 0.55), a2 = V3(gU, AX + s * 0.45, ryG + 0.32);
+      S.beam(a0, a1, 0.18, 0.22, hex('#5f8a78'));
+      S.beam(a1, a2, 0.16, 0.18, hex('#5f8a78'));
+    }
+    // flanking stone trụ biểu lotus pillars at the stair head
+    for (const s of [-1, 1]) {
+      const pv = AX + s * 6.8;
+      S.kind = KIND.MASONRY;
+      box(gU + 1.2, pv, gLo - 0.3, Yg + 0.6, 1.15, 1.15, shade(GATE, 1.05));
+      box(gU + 1.2, pv, Yg + 0.6, Yg + 4.4, 0.65, 0.65, shade(GATE2, 1.08), { top: MOSS });
+      S.kind = KIND.PLAIN;
+      box(gU + 1.2, pv, Yg + 4.4, Yg + 4.68, 0.88, 0.88, STONE);
+      cyl(gU + 1.2, pv, Yg + 4.68, Yg + 5.15, 0.32, 0.42, 8, hex('#d8be74'));
+      cyl(gU + 1.2, pv, Yg + 5.15, Yg + 5.65, 0.36, 0.05, 8, hex('#d8be74'));
+      glow(gU + 1.2, pv, Yg + 4.95);
+    }
+  }
   glow(gU + gD / 2 + 0.6, AX, Yg + 3.4);
 
   // ---- the forecourt: weathered terracotta tiles (pale tan from above) climbing from the gate to the terrace, following the hill ----

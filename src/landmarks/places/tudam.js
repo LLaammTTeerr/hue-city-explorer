@@ -194,13 +194,19 @@ export function build({ data, S, group, THREE }) {
     }
   }
   (S.stand = S.stand || []).push((x, z) => (inRing(x, z, site) ? Math.max(0, yAt(x, z) - (LAND_Y + rise(x, z))) : 0));
-  // slender Ashoka trees in ring planters along the east hall (yard panorama)
-  for (const v of [8, 16, 24, 32]) ashoka(S, ...P(17.6, v), Y, 7.5);
-  // Ashoka trees ringing the stupa
+  // slender Ashoka trees in ring planters along the east hall & ringing the stupa (real instanced upright evergreens)
+  for (const v of [8, 16, 24, 32]) {
+    const q = P(17.6, v);
+    S.kind = KIND.PLAIN;
+    S.cyl(q[0], q[1], Y, Y + 0.3, 1.1, 1.1, 10, C.granite);
+    S.cyl(q[0], q[1], Y + 0.3, Y + 0.45, 1.0, 0.95, 10, C.leafDark);
+    if (Array.isArray(data.trees)) data.trees.push(Math.round(q[0] * 10), Math.round(q[1] * 10), 8, 1);
+  }
   for (let k = 0; k < 8; k++) {
     const a = (k / 8) * Math.PI * 2 + 0.3;
     if (Math.abs(Math.sin(a - ANG) - 1) < 0.3) continue; // leave the path from the yard open
-    ashoka(S, STUPA[0] + Math.cos(a) * 7.2, STUPA[1] + Math.sin(a) * 7.2, Y, 9, false);
+    const tx = STUPA[0] + Math.cos(a) * 7.2, tz = STUPA[1] + Math.sin(a) * 7.2;
+    if (Array.isArray(data.trees)) data.trees.push(Math.round(tx * 10), Math.round(tz * 10), 9, 1);
   }
   // potted bonsai along the foot of the stair, and the bronze incense urn on the axis
   S.kind = KIND.PLAIN;

@@ -212,11 +212,93 @@ function buildThienMuHero() {
   return scene;
 }
 
+// Build Lăng Khải Định (Cung Thiên Định) hero accent .glb
+// Matches khaidinh.js: anchor at Khải Thành center [189.86, 7693.36], rotY = -0.7599,
+// upper roof ridge y = 14.88, upper eave y = 12.88, lower main eave y = 9.98 above ground.
+function buildKhaiDinhHero() {
+  const parts = [];
+  const ridgeY = 14.92, eaveY = 12.92, lowEaveY = 10.02;
+  // Sculpted khảm sành sứ flaming sun & twin dragons on Cung Thiên Định's Khải Thành crest
+  const pearl = new THREE.SphereGeometry(0.44, 14, 10);
+  pearl.scale(1, 1.18, 0.45);
+  pearl.translate(0, ridgeY + 0.65, 0);
+  parts.push(paint(pearl, 0xe86834));
+  parts.push(latheGourd(0, ridgeY + 0.02, 0, 0.46, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ridgeY, 0, 1, 3.6, 1.05));
+  parts.push(...sculptedDragon(0, ridgeY, 0, -1, 3.6, 1.05));
+  for (const s of [-1, 1]) parts.push(latheGourd(s * 4.4, ridgeY - 0.06, 0, 0.8, 0xd9c9a8));
+  // 4 upper corner scrolls on Khải Thành + 4 lower corner scrolls on Cung Thiên Định
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 9.8, eaveY, sv * 9.4, su * 0.72, sv * 0.72, 1.1));
+    parts.push(cornerScroll(su * 17.6, lowEaveY, sv * 11.8, su * 0.75, sv * 0.75, 1.2));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'khaidinh_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Lăng Tự Đức (Điện Hòa Khiêm) hero accent .glb
+// Matches tuduc.js: anchor at Hòa Khiêm center [-2450.9, 4024.8], rotY = -1.5011,
+// main rear ridge at z = +4.83, y = 7.52; front hall ridge at z = -7.25, y = 6.72.
+function buildTuDucHero() {
+  const parts = [];
+  const zMain = 4.83, zFront = -7.25, rMain = 7.52, rFront = 6.72, eaveY = 4.9;
+  const pearl = new THREE.SphereGeometry(0.42, 14, 10);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, rMain + 0.62, zMain);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, rMain + 0.02, zMain, 0.45, 0xe8c45e));
+  parts.push(...sculptedDragon(0, rMain, zMain, 1, 4.6, 1.05));
+  parts.push(...sculptedDragon(0, rMain, zMain, -1, 4.6, 1.05));
+  for (const s of [-1, 1]) {
+    parts.push(latheGourd(s * 8.2, rMain - 0.06, zMain, 0.85, 0xe8c45e));
+    parts.push(latheGourd(s * 9.6, rFront - 0.06, zFront, 0.75, 0xe8c45e));
+  }
+  parts.push(latheGourd(0, rFront + 0.02, zFront, 0.9, 0xe8c45e));
+  // 4 corner scrolls on main roof + 4 on front roof
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 16.0, eaveY, zMain + sv * 8.0, su * 0.72, sv * 0.72, 1.05));
+    parts.push(cornerScroll(su * 16.0, eaveY - 0.15, zFront + sv * 5.6, su * 0.72, sv * 0.72, 0.95));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'tuduc_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Lăng Minh Mạng (Minh Lâu) hero accent .glb
+// Matches minhmang.js: anchor at Minh Lâu center [-2196.59, 8971.75], rotY = 1.4515,
+// two-storey square pavilion rising to ridge y = 13.5 above ground.
+function buildMinhMangHero() {
+  const parts = [];
+  // Tall golden pháp lam lotus-gourd finial at Minh Lâu's apex
+  parts.push(latheGourd(0, 13.45, 0, 1.55, 0xe8c45e));
+  // 4 sweeping corner scrolls on the upper square roof + 4 on the lower square roof
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 4.5, 11.1, sv * 4.5, su * 0.72, sv * 0.72, 1.1));
+    parts.push(cornerScroll(su * 6.5, 8.45, sv * 6.5, su * 0.75, sv * 0.75, 1.15));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'minhmang_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
   ['thaihoa-hero.glb', buildThaiHoaHero],
   ['thienmu-hero.glb', buildThienMuHero],
+  ['khaidinh-hero.glb', buildKhaiDinhHero],
+  ['tuduc-hero.glb', buildTuDucHero],
+  ['minhmang-hero.glb', buildMinhMangHero],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
