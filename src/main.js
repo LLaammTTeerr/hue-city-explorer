@@ -8,6 +8,7 @@ import './ui/style.css';
 import * as THREE from 'three';
 import { LAND_Y, quality } from './config.js';
 import { buildCity, updateDetail } from './geo/city.js';
+import { createHeroLoader } from './geo/hero-gltf.js';
 import { buildLandmarks } from './landmarks/build.js';
 import { shared } from './geo/materials.js';
 import { buildSky } from './env/sky.js';
@@ -106,6 +107,10 @@ async function main() {
   const dynamic = new THREE.Group();
   // every landmark, populate and the moving things, in the sequence the geometry checks build too (src/landmarks/build.js)
   const { bridge, citadel, extraGlows, floating, replicas, boats, lanterns, traffic, street } = buildLandmarks(data, world, dynamic);
+  const heroes = createHeroLoader(dynamic, () => {
+    if (shadows?.invalidate) shadows.invalidate();
+    else if (sun?.shadow) sun.shadow.needsUpdate = true;
+  });
   scene.add(world.group, dynamic);
   const lanternGlows = []; // lanternGlows: glow points that landmarks flagged for the per-frame update
   dynamic.traverse((o) => { if (o.userData.glow) lanternGlows.push(o); });
@@ -172,6 +177,7 @@ async function main() {
     if (!p) return;
     ui.showCard(id, from);
     if (!rig) { if (fallback) fallback.show(id); return; } // still loading, or the 2D map: the card alone
+    heroes.prefetch(id);
     labels.markVisited(id);
     syncCard(id);
     if (fly) {
@@ -353,6 +359,7 @@ async function main() {
     lanterns.update(dt, time);
     traffic.update(dt);
     street.update(dt, time);
+    heroes.update(camera.position);
     updateDetail(camera, quality.low ? 900 : 1500);
     updateShadow();
     sky.mesh.scale.setScalar(camera.far * 0.9);
@@ -424,7 +431,7 @@ async function main() {
   })();
 
   // handle for debugging and automated checks (tiles: resolves once every tile is in the scene)
-  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing, tiles };
+  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing, tiles, heroes };
 }
 
 main().catch((err) => {
