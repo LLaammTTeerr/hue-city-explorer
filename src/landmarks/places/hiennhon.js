@@ -39,21 +39,21 @@ const OPEN = [{ s: 0, w: 3.0, h: 4.0 }, { s: -4.4, w: 2.0, h: 3.1 }, { s: 4.4, w
 const UP1 = { w: 11.2, d: 4.8, h: 3.0 }; // tower, lower storey
 const UP2 = { w: 6.6, d: 2.8, h: 1.8 }; // tower, upper storey
 
-const BODY = hex('#8f8e86'); // porcelain-encrusted masonry, weathered grey with dark lichen
-const PLINTH = hex('#7a756c');
-const TRIM = hex('#c4c1b5');
-const FRAME = hex('#3f5f8e'); // the blue band round each arch
-const WHITE = hex('#e4e0d4'); // the white band inside it
-const REVEAL = hex('#d0a645'); // ochre-yellow plaster in the passages
-const DOOR = hex('#8a2b22'); // red-lacquered door leaves
-const PANEL = hex('#6f4c40'); // red-brown fields of the relief panels on the piers
+const BODY = hex('#b8b6ac'); // bright porcelain-mosaic masonry (khảm sành sứ)
+const PLINTH = hex('#888379');
+const TRIM = hex('#e0dcd0');
+const FRAME = hex('#2c66a8'); // rich cobalt ceramic band round each arch
+const WHITE = hex('#f2eee4'); // crisp porcelain white band inside it
+const REVEAL = hex('#daa942'); // warm ochre-yellow plaster in the passages
+const DOOR = hex('#9a2c22'); // red-lacquered door leaves
+const PANEL = hex('#3a7a68'); // turquoise-jade porcelain mosaic fields on the piers
 const DARK = hex('#1f1a18');
-const TOWER = hex('#8c8b84');
-const ROOF = PAL.imperialRoof;
+const TOWER = hex('#b2b0a6');
+const ROOF = hex('#c9943c');
 const RIDGE = hex('#f1d77a');
-const MOSAIC = [hex('#3d6e9e'), hex('#4f8f5e'), hex('#f0ece0'), hex('#b8452f'), hex('#d9a93a')];
-const GLAZE = hex('#5d8a6a'); // green glazed openwork tiles in the balustrades
-const GOLD = hex('#d8b25a');
+const MOSAIC = [hex('#2d72b5'), hex('#3d9a72'), hex('#f2eee2'), hex('#c8452f'), hex('#e5b43c')];
+const GLAZE = hex('#3d8f6e'); // vivid jade-green glazed openwork tiles in the balustrades
+const GOLD = hex('#e0b64e');
 
 export function build({ S }) {
   const Y = LAND_Y, keep = S.kind;

@@ -166,9 +166,61 @@ function buildNgoMonHero() {
   return scene;
 }
 
+// Build Điện Thái Hòa hero accent .glb (local frame: u along +X, v along +Z toward Ngọ Môn, y above ground)
+function buildThaiHoaHero() {
+  const parts = [];
+  // Matches thaihoa.js: FL = 2.35, yd1 = 2.35 + 6.4 = 8.75, upH = 2.95, ridgeY = 11.78, iVc = -9.6
+  const vc = -9.6, ridgeY = 2.35 + 6.4 + 2.95 + 0.08, eaveY = 2.35 + 6.4;
+  const pearl = new THREE.SphereGeometry(0.46, 14, 10);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, ridgeY + 0.68, vc);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, ridgeY + 0.02, vc, 0.48, 0xe8c45e));
+  parts.push(...sculptedDragon(0, ridgeY, vc, 1, 5.2, 1.15));
+  parts.push(...sculptedDragon(0, ridgeY, vc, -1, 5.2, 1.15));
+  for (const s of [-1, 1]) parts.push(latheGourd(s * 11.8, ridgeY - 0.08, vc, 0.85, 0xe8c45e));
+  // 4 curved đao mái corner scrolls on the upper hip roof
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    parts.push(cornerScroll(su * 17.3, eaveY + 0.14, vc + sv * 7.8, su * 0.72, sv * 0.72, 1.2));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'thaihoa_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Chùa Thiên Mụ (Phước Duyên Tower) hero accent .glb (local frame centered on tower C, y above tower base)
+function buildThienMuHero() {
+  const parts = [];
+  // Matches thienmu.js: 7 octagonal tiers rising ~18.6 m above platform + golden spire to ~21 m
+  parts.push(latheGourd(0, 18.8, 0, 1.65, 0xe8c45e));
+  // Curved golden đao mái corner scrolls on the top 3 octagonal tiers
+  const tierTops = [[13.2, 3.3], [15.8, 2.9], [18.3, 2.5]];
+  for (const [ty, tr] of tierTops) {
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2 + Math.PI / 8;
+      parts.push(cornerScroll(Math.cos(a) * tr, ty, Math.sin(a) * tr, Math.cos(a) * 0.6, Math.sin(a) * 0.6, 0.75));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'thienmu_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
-const scene = buildNgoMonHero();
-const glb = await exporter.parseAsync(scene, { binary: true });
-const outPath = path.join(OUT_DIR, 'ngomon-hero.glb');
-fs.writeFileSync(outPath, Buffer.from(glb));
-console.log(`wrote ${outPath} (${(fs.statSync(outPath).size / 1024).toFixed(1)} KB, ${scene.children[0].geometry.attributes.position.count / 3} tris)`);
+for (const [name, buildFn] of [
+  ['ngomon-hero.glb', buildNgoMonHero],
+  ['thaihoa-hero.glb', buildThaiHoaHero],
+  ['thienmu-hero.glb', buildThienMuHero],
+]) {
+  const scene = buildFn();
+  const glb = await exporter.parseAsync(scene, { binary: true });
+  const outPath = path.join(OUT_DIR, name);
+  fs.writeFileSync(outPath, Buffer.from(glb));
+  console.log(`wrote ${outPath} (${(fs.statSync(outPath).size / 1024).toFixed(1)} KB, ${scene.children[0].geometry.attributes.position.count / 3} tris)`);
+}

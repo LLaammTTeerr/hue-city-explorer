@@ -24,17 +24,17 @@ export const id = 'chuongduc';
 // OSM way 531016858, metres in the model frame (scripts/frame.json)
 const RING = [[-1406.29, 170.68], [-1404.67, 169.47], [-1401.99, 167.45], [-1394.33, 177.62], [-1396.38, 179.22], [-1398.52, 180.79]];
 
-const WALL = hex('#c9c3b2'); // weathered grey-cream lime render, as both Street View panos show it
-const RING_COL = hex('#c4ab78'); // soft ochre arch surrounds and jambs
-const TRIM = hex('#dcd6c4'); // pale mouldings and cornices
-const PIER = hex('#c3bba6');
-const RELIEF = hex('#b8b1a0'); // the frieze's relief panels, in shadow
-const ROOF = shade(PAL.imperialRoof, 0.66); // old glaze, weathered brown-ochre as Street View shows it
-const TILE_END = hex('#a88f5c'); // the row of round tile ends along the eave: weathered ochre, not a painted band
-const STAIN = hex('#a9a28f'); // damp skirting
-const RIDGE = hex('#c9ad6a');
-// glass and porcelain sherds, blue, green, red, white: weathered and fine-grained, they read pale grey from the road
-const MOSAIC = [hex('#a8b0ad'), hex('#aab09e'), hex('#bba497'), hex('#d8d3c4')];
+const WALL = hex('#d4cebe'); // cream-grey porcelain-clad render
+const RING_COL = hex('#d6b25e'); // warm golden-ochre arch surrounds
+const TRIM = hex('#e8e2d2'); // crisp porcelain mouldings and cornices
+const PIER = hex('#cbc3ae');
+const RELIEF = hex('#3c789c'); // cobalt-blue porcelain mosaic frieze panels
+const ROOF = hex('#c28e3c'); // warm weathered hoàng lưu ly yellow glaze
+const TILE_END = hex('#b89a56');
+const STAIN = hex('#a9a28f');
+const RIDGE = hex('#dfc474');
+// polychrome glass and porcelain mosaic (khảm sành sứ): cobalt, jade, vermilion, porcelain white
+const MOSAIC = [hex('#3476a8'), hex('#3e8f6e'), hex('#c24c38'), hex('#eae4d6')];
 const DOOR = hex('#80301f');
 const PLAQUE = hex('#5a4a3c'), GOLD = hex('#b99a58');
 const PAVE = hex('#bdb5a4');

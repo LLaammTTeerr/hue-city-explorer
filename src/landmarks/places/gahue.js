@@ -37,6 +37,11 @@ export function ownsMapped(ring) {
   return x >= -1196 && x <= -1104 && z >= 1366 && z <= 1384;
 }
 
+// Keep generic infill houses and stray trees out of Ga Huế's open asphalt forecourt & parking lot.
+export function clearings() {
+  return [[[-1196, 1337], [-1112, 1337], [-1112, 1366], [-1196, 1366]]];
+}
+
 // Nov 2026 rebuild against Google satellite (z18-z20) and a car Street View pano on the forecourt
 // (scratch/rebuild/gahue, not in the repo). The OSM outline's total span (west pavilion to east annex) matches the
 // satellite, but its division does not: the two-storey block's roof measures about 19 m by 11 m between its parapet
