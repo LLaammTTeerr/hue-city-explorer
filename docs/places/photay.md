@@ -26,23 +26,47 @@ Võ Thị Sáu, Phạm Ngũ Lão and Chu Văn An. Model: `src/landmarks/places/p
 ## Estimated
 - Sign colours, awning stripes, plastic-stool colours (red / blue / yellow), lantern and bulb colours: typical of
   Vietnamese street bars, not sourced front by front.
-- Pavement terrazzo (red and grey squares, 2 m from the kerb): the usual Huế pavement tile, not sourced for these
-  streets specifically.
-- Share of bars per street (Võ Thị Sáu 60 %, Phạm Ngũ Lão 65 %, Chu Văn An 45 %); bulb strings every 16 m between
-  kerbside poles at about 6 m.
+- Share of bars per street (Võ Thị Sáu 60 %, Phạm Ngũ Lão 65 %, Chu Văn An 45 %); lantern strings every 16 m between
+  the kerbside lamp posts (Street View shows lantern strings on Chu Văn An, not their spacing).
+- The new tube houses: widths 4-5.6 m, depths 6-14 m (as deep as the free ground allows), 2-5 storeys, colours and
+  roofs drawn from the dice, not house by house.
 - Reach: 165 m from the place's centre (the hue.json record has no radius).
 
+## Google check (2026-11, scratch/rebuild/photay)
+- Satellite z18/z19 against matched top renders: the three OSM centrelines, Lê Lợi and Nguyễn Thái Học lie on the
+  imagery within about 1.5 m, axes within 1-2°. No data change needed.
+- Street View (car panos on Võ Thị Sáu, both ends of Chu Văn An, the paved lane; user photospheres on Phạm Ngũ Lão and
+  Chu Văn An): every street is built up wall to wall with tube houses of two to six storeys right at the back of the
+  pavement, with a few taller hotels behind (Jasmine Hotel, Asia Hotel). Pavements are grey stone slabs; the kerb has
+  grey lamp posts with flat dome heads; Chu Văn An has strings of white paper lanterns across the street.
+- The user photosphere filed as "vts-s" (GPS on Võ Thị Sáu) shows the north end of Chu Văn An by Lê Lợi, the same
+  scene as the car pano there; its recorded position is about 80 m off.
+
 ## What the model draws
-- On every generic infill house and mapped-building edge facing one of the three streets (53 fronts): an open
-  ground floor (warm glow at night), a sign board with a lettering band (lit at night on bars), blade signs on
-  houses of 7.2 m and more, and a striped awning where city.js gave none (the same `rand` dice as city.js, so no
-  double awnings and no clash with its balconies).
-- Bars: pavement tables with plastic stools, silk lanterns and a bulb line along the awning.
-- Street: terrazzo pavements, the 3 m paved lane, poles with coloured bulb strings across the carriageway.
-- All of it is in `S.noCover`, so the city's houses and trees are not pushed off. About 24k triangles.
+- Blocks wall to wall: along Phạm Ngũ Lão, Võ Thị Sáu and Chu Văn An, tube houses fill every gap between the city's
+  houses, a house on each corner of every road meeting them fronts both streets, and the side-road mouths and the
+  Phạm Ngũ Lão south end are closed up to the kerb.
+- Each street keeps its own dressing (`STYLE`): house types, wall colours, sign palettes, awning canvas and stripe,
+  pavement tone, and where bars put out lanterns and stools, so the three streets read apart.
+- Landmarks taken from the Street View audit (2024 captures, visual reference only):
+  - Võ Thị Sáu north: the cream two-storey colonial corner with arched windows and a balustrade (replacing the mapped
+    block on that corner), and the dark timber-and-steel bar with planters across the road.
+  - Chu Văn An north-west: the salmon six-storey balconied hotel with the Burger Ngon fascia, blade sign and
+    umbrellas in its ground floor; opposite, the red-brown timber café under creeper, the gated villa behind a white
+    fence, a white café box and a tree in the street.
+  - Chu Văn An south-east: the black-glass front with grey panels, the single-storey tiled corner shop with a green
+    sign before a white block, and the Jasmine tower (30.6 m) with its roof sign closing the view.
+  - Phạm Ngũ Lão north-east: the pink two-storey balconied corner, and the orange restaurant under a cream four-storey
+    house; no grass verges.
+  - The lane: the hotel under a creeper and the yellow colonial house on the east, a grey picket fence on granite
+    pillars, an iron gate and a white villa in its garden on the west, leaning trees whose crowns meet overhead, the
+    cream arched hotel (13.6 m) closing the end, and light concrete slabs a metre square with dark joints, laid 0.3 m
+    up so the city's road overlay (drawn with a polygon offset) does not cover them at a grazing angle.
+- Street: slab pavements in each street's stone, lamp posts set on the pavement clear of road mouths, paper lantern
+  strings on Chu Văn An.
+- Mapped buildings are matched by a point inside their ring (the runtime building order differs from `hue.json`).
+  The dressing is in `S.noCover`, so the city's houses and trees are not pushed off.
 
 ## Left
-- The generic infill here is sparse Indochine-era villas set well back; the real quarter is continuous shophouses.
-  Per the brief the houses were not rebuilt, so the frontage is thinner than the real street.
-- Named venues (Tà Vẹt and others) are not placed one by one: the repo extract has no POI nodes here and Overpass
-  could not be reached from this sandbox.
+- Named venues are placed only where the Street View audit shows them; the repo extract has no POI nodes here.
+- Interiors, signage lettering and exact shop widths are not modelled.

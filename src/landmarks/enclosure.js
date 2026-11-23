@@ -141,10 +141,17 @@ function gapsOf(a, b, len, roads, openings) {
 }
 
 // Styles. h: height of the fence above ground; plinth: solid wall under a railing (rail: true) or the whole wall
-// (rail: false); posts every `every` metres, `postW` square, standing `postUp` above the fence; gate piers `pierW`, `pierUp`.
+// (rail: false); posts every `every` metres, `postW` square (0 for none), standing `postUp` above the fence; gate piers `pierW`, `pierUp`.
+// lattice (optional, rail: true): a band of pierced panels set in the plinth, [from, to] above ground, colour `screen`;
+// bars (optional): draw the railing as single uprights this far apart instead of a dark band; barW their thickness
+// (default 0.035), with a low rail just over the plinth unless midRail: false; railW × railH the top rail (default
+// 0.09 × 0.12).
+// optional `kind`, the surface of the wall body, posts and piers (default KIND.MASONRY, brick coursing).
 export const FENCE = {
   // Quốc Học: low dark-red wall, dark iron railing, red piers with cream caps
-  quochoc: { h: 2.0, plinth: 0.65, rail: true, t: 0.34, every: 3.4, postW: 0.48, postUp: 0.2, wall: hex('#9a2f27'), cap: hex('#efe2c4'), iron: hex('#24302b'), pierW: 1.0, pierUp: 1.2 },
+  // (Street View 2024: a red wall to about 1.75 m with a band of white square lattice panels framed in red, a cream
+  // coping, a low iron railing over it, and taller capped piers about every 7 m)
+  quochoc: { h: 2.25, plinth: 1.75, rail: true, t: 0.36, every: 7.2, postW: 0.62, postUp: 0.3, wall: hex('#8e3a31'), cap: hex('#e6d8b8'), iron: hex('#3a403c'), pierW: 1.0, pierUp: 1.2, lattice: [0.95, 1.55], screen: hex('#dcd8cf'), bars: 0.3, barW: 0.016, midRail: false, railW: 0.03, railH: 0.035 },
   // churches: cream rendered wall, iron railing, grey piers
   church: { h: 1.9, plinth: 0.7, rail: true, t: 0.32, every: 3.2, postW: 0.45, postUp: 0.18, wall: hex('#e4ddcd'), cap: hex('#b9b5ab'), iron: hex('#2a2d30'), pierW: 1.0, pierUp: 1.5 },
   // An Định: ochre wall with cream-capped piers and railing panels
@@ -202,6 +209,7 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
   const piers = [];
   const n = pts.length, m = closed ? n : n - 1;
   const keepKind = S.kind, keepBase = S.base;
+  const wallKind = st.kind ?? KIND.MASONRY; // st.kind: KIND.PLAIN for a plastered wall (no brick coursing)
   let sinceLamp = 0;
   for (let i = 0; i < m; i++) {
     const a = pts[i], b = pts[(i + 1) % n];
@@ -225,24 +233,46 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
         const yp = gY(p[0], p[1]), yq = gY(q[0], q[1]), lo = Math.min(yp, yq) - 0.4, hi = Math.max(yp, yq);
         const mx = (p[0] + q[0]) / 2, mz = (p[1] + q[1]) / 2, bl = rl / nb;
         S.base = lo + 0.4 - LAND_Y;
-        S.kind = KIND.MASONRY;
+        S.kind = wallKind;
         if (st.rail) {
           S.box(mx, mz, lo, hi + st.plinth, bl, st.t, ang, st.wall, { top: st.cap });
           S.kind = KIND.PLAIN;
-          // the railing: a see-through screen of bars reads, from the street and the air, as a dark band under a rail
-          S.box(mx, mz, hi + st.plinth, hi + st.h - 0.08, bl - st.postW, 0.05, ang, st.iron);
-          S.box(mx, mz, hi + st.h - 0.12, hi + st.h, bl, 0.09, ang, shade(st.iron, 1.2));
+          if (st.lattice) {
+            // the pierced panels, a little proud of both faces, with the red frame showing between them
+            const np = Math.max(1, Math.round((bl - st.postW) / 0.85)), pw = (bl - st.postW) / np;
+            for (let j = 0; j < np; j++) {
+              const f0 = (st.postW / 2 + (j + 0.5) * pw) / bl, c = [p[0] + (q[0] - p[0]) * f0, p[1] + (q[1] - p[1]) * f0];
+              const l0 = hi + st.lattice[0], l1 = hi + st.lattice[1];
+              S.box(c[0], c[1], l0, l1, pw - 0.16, st.t + 0.04, ang, st.screen);
+              // the fret: a darker inset with a pale cross, so the panel reads as pierced from a few metres
+              S.box(c[0], c[1], l0 + 0.1, l1 - 0.1, pw - 0.4, st.t + 0.06, ang, shade(st.screen, 0.62));
+              S.box(c[0], c[1], l0 + 0.14, l1 - 0.14, 0.09, st.t + 0.08, ang, st.screen);
+              S.box(c[0], c[1], (l0 + l1) / 2 - 0.045, (l0 + l1) / 2 + 0.045, pw - 0.46, st.t + 0.08, ang, st.screen);
+            }
+          }
+          // the railing: a see-through screen of bars reads, from the street and the air, as a dark band under a rail;
+          // a style with `bars` (spacing, m) draws the open railing as separate uprights instead, so the yard shows through
+          const railH = st.railH ?? 0.12;
+          if (st.bars) {
+            const nbar = Math.max(1, Math.round((bl - st.postW) / st.bars)), ca = Math.cos(ang), sa = Math.sin(ang), bw = st.barW ?? 0.035;
+            for (let j = 1; j < nbar; j++) {
+              const o = -bl / 2 + st.postW / 2 + ((bl - st.postW) * j) / nbar;
+              S.box(mx + ca * o, mz + sa * o, hi + st.plinth, hi + st.h - Math.max(0.02, railH - 0.04), bw, bw, ang, st.iron);
+            }
+            if (st.midRail !== false) S.box(mx, mz, hi + st.plinth + 0.12, hi + st.plinth + 0.18, bl - st.postW, 0.05, ang, st.iron);
+          } else S.box(mx, mz, hi + st.plinth, hi + st.h - 0.08, bl - st.postW, 0.05, ang, st.iron);
+          S.box(mx, mz, hi + st.h - railH, hi + st.h, bl, st.railW ?? 0.09, ang, shade(st.iron, 1.2));
         } else {
           S.box(mx, mz, lo, hi + st.h - 0.18, bl + 0.02, st.t, ang, st.wall, { top: st.cap });
           S.kind = KIND.TILE;
           S.box(mx, mz, hi + st.h - 0.18, hi + st.h, bl + 0.05, st.t + 0.24, ang, st.cap, { taper: 0.55 });
         }
         // a post at the start of each bay, and at the end of the run
-        const posts = k === nb - 1 ? [p, q] : [p];
+        const posts = !st.postW ? [] : k === nb - 1 ? [p, q] : [p]; // postW 0: a plain wall with no posts
         for (const o of posts) {
           const y = gY(o[0], o[1]);
-          S.kind = KIND.MASONRY;
-          S.box(o[0], o[1], y - 0.4, y + st.h + st.postUp, st.postW, st.postW, ang, st.wall, { top: st.cap });
+          S.kind = wallKind;
+          S.box(o[0], o[1], y - 0.4, y + st.h + st.postUp, st.postW, st.postW, ang, st.postCol || st.wall, { top: st.cap }); // st.postCol: posts and piers in their own colour (optional)
           if (k % 2 === 0) { S.kind = KIND.PLAIN; S.box(o[0], o[1], y + st.h + st.postUp, y + st.h + st.postUp + 0.12, st.postW + 0.12, st.postW + 0.12, ang, st.cap); } // a cap on every other post (keeps the count down)
           sinceLamp += 1;
           if (lampEvery && sinceLamp % lampEvery === 0) lamp(o[0], y + st.h + st.postUp + 0.35, o[1], lampCol, 3);
@@ -255,8 +285,8 @@ export function fence(S, pts, st, { closed = true, roads = [], openings = [], so
       const p = at(fp), y = gY(p[0], p[1]), top = y + st.h + st.pierUp;
       if (solid.some((r) => inRing(p[0], p[1], r))) continue; // a gatehouse frames the opening itself
       S.base = y - LAND_Y;
-      S.kind = KIND.MASONRY;
-      S.box(p[0], p[1], y - 0.4, top, st.pierW, st.pierW, ang, st.wall, { top: st.cap });
+      S.kind = wallKind;
+      S.box(p[0], p[1], y - 0.4, top, st.pierW, st.pierW, ang, st.postCol || st.wall, { top: st.cap });
       S.kind = KIND.PLAIN;
       S.box(p[0], p[1], top, top + 0.18, st.pierW + 0.2, st.pierW + 0.2, ang, st.cap);
       S.box(p[0], p[1], top + 0.18, top + 0.5, st.pierW * 0.55, st.pierW * 0.55, ang, st.cap, { taper: 0.5 });

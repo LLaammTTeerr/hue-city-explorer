@@ -32,11 +32,31 @@ bridge". That is not what the sources say. Two structures stand side by side:
 - Rail bridges: white steel Warren through-trusses, with five spans on Bạch Hổ.
   The bridge lines follow the OSM ways.
 
+## Satellite and Street View alignment (Nov 2026)
+Checked against Google satellite (z18-z20) and two Google-car Street View panos on the deck
+(captures in scratch/, not in the repo).
+- The road deck, the Bạch Hổ truss line and its ends already matched the satellite to about 1 m
+  and 1 degree; the Dã Viên trusses stand about 10 m further north-west along their line than the
+  OSM bridge way (north portal on the islet, south end at the bank), so the trusses were moved
+  and a short plate girder carries the track over the rest of the way.
+- The six pavilions are three facing pairs: two pairs over the north channel near its ends
+  (55 m and 237 m from the north abutment) and the third where the deck leaves the islet for the
+  south channel. None stands in mid-channel. Each sits on a balcony of about 6.4 m square against
+  the deck edge, centre about 15.8 m off the bridge axis, which is about 1.8 m east of the line
+  between the two OSM carriageways. Both car panos show the far pair at the same bearings as the
+  model (within about 1 degree).
+- Street View shows the pavilion roofs as dark red-brown/terracotta with ochre ridges; the 2013
+  and 2018 Commons photos read as yellow glazed tiles. The model keeps yellow (owner question).
+- Street View shows one undivided four-lane deck (double yellow line, no median), raised
+  pavements, a white concrete balustrade and white twin-lantern lamp standards along both
+  parapets. The model's deck is the generic pair of OSM one-way carriageways (median parapets,
+  dark lamps in the middle, about 22 m wide instead of 24.5 m): not changed here.
+
 ## Estimates
-- 8 north-channel road spans (about 34.6 m each), counted from piers in photos.
-  The press gives 5, which conflicts with the pier count.
-- Pavilion size (4.4 m square, two-tier hip roof) and placement: three a side,
-  opposite each other at piers 2/4/6.
+- North-channel road piers: one under each pavilion pair (from the satellite), five equal
+  spans of about 36.4 m between them (the press "five spans"), plus one near the north bank
+  (left out where the mapped bank reaches over it).
+- Pavilion size (4.4 m square, two-tier hip roof).
 - Truss height 6 m, panels about 6 m. Dã Viên rail bridge: 2 truss spans plus a short girder span.
 - Motorbike lane width (about 2 m) and its side (west, from the 2018 photo).
 - Deck height above the water follows the model's compressed vertical scale.
@@ -52,3 +72,24 @@ bridge". That is not what the sources say. Two structures stand side by side:
 - The islet and south-channel road sections still use the generic piers.
 - Road railings and lamp posts are still generic.
 - Exact span lengths and pavilion dimensions are unconfirmed (no drawings found).
+
+## Polish
+Pavilion balconies now carry a white concrete balustrade (capped rail, solid base, posts every ~1.2 m) and a projecting white fascia, matching the deck parapet in Street View; the pavilion base has a second plinth step. Roof stays yellow (owner question open).
+
+## Review fixes (Nov 2026)
+
+- **One deck, drawn by the place.** The north-channel carriageways (the two OSM ways named Cầu Dã Viên) are no longer
+  drawn as generic slabs with a median and 0.9 m parapets: `ownRoads(data)` in `places/bachho.js` names them, and
+  `geo/city.js` (slabs, lamp glow) and `landmarks/life.js` (median lamp posts) skip them while the place is built, as
+  they do for Gia Hội. Traffic still rides the same profile. The deck is one 24.5 m slab on the real axis
+  (`PAV_AXIS`): a 15.5 m four-lane carriageway (double yellow centre line, dashed lanes, edge lines), raised
+  pavements, a white edge beam and a balustrade of square posts and balusters on both edges, open at the balconies.
+  The haunched girders are inset 0.6 m under it, so the old saw-tooth edge is gone.
+- **Level.** Street View shows the truss's top chord just above the road parapet: the road runs ~2 m above the
+  1908 rail deck (LAND_Y + 0.5, which the trains are fixed to). `geo/bridges.js` gives Cầu Dã Viên a 2.0 m rise
+  climbing over the first and last 12 % of each way, so the road lifts, not the rail.
+- **Lamps.** Double-armed lamp posts every ~30 m along both kerbs, staggered off the pavilions (Street View).
+- **Trusses.** Heavier cream-grey members: built-up laced diagonals and end posts, a vertical at every panel point,
+  deeper chords.
+- **Still open:** the pavilion roof colour (yellow in 2013–2018 photos, dark red-brown in 2025 imagery) waits for
+  the owner.

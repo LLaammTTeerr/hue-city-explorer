@@ -7,7 +7,8 @@ buildings being rebuilt are drawn as the finished historic building, not the bui
 
 ## Sources
 - OSM way 285990343 (historic=ruins, "Điện Cần Chánh"): the platform outline, 44.5 × 35.3 m. OSM steps
-  619851677, 619851679 and 619851678 are the three front flights, at u ≈ -15.9, -0.4 and +14.0 m. The court lies
+  619851677, 619851679 and 619851678 are the three front flights, at u ≈ -15.8, -0.5 and +14.0 m (measured from
+  `data/raw/hue-osm.json` in the hall frame); the model places the flights there. The court lies
   between Tả Vu (way 172657574) and Hữu Vu (way 172657572).
 - vi.wikipedia.org/wiki/Điện_Cần_Chánh_(Hoàng_thành_Huế): built 1804. Platform nearly 1 m high, faced with gạch vồ
   and Thanh stone. Front hall 7 gian 2 chái đơn, main hall 5 gian 2 chái kép, 80 lim columns, carved beams, rafters
@@ -36,8 +37,8 @@ buildings being rebuilt are drawn as the finished historic building, not the bui
   mái lưa row 1.6 m inside the back edge, its columns 2.95 m tall.
 - **Heights:** floor 1.15 m above the ground, 0.93 m above the court. Outer columns, skirt and front roof and the
   cổ diêm copied from Thái Hòa. The upper roof is 3.2 m high (Thái Hòa 2.85) for the 9.4 m main columns: ridge
-  11.15 m above the ground, ridge disc top 12.2 m. Proposed entry: `scratch/heights-canchanh.json` (not yet merged
-  into `docs/heights-reference.json`).
+  11.15 m above the ground, ridge disc top 12.2 m. Held by the `Điện Cần Chánh (restored, finished)` entry in
+  `docs/heights-reference.json` (12.2 m, estimated).
 - **Roofs:** front hall and main-hall skirt as hip roofs over the full span (valley gutter from `S.joined`); upper
   hip roof over the tall columns; the mái lưa a hipped lean-to tucked under the skirt's back eave.
 - **Ridge ornament:** a gilt flaming disc between two dragons (lưỡng long chầu nhật) on the main ridge, and a row of
@@ -45,9 +46,24 @@ buildings being rebuilt are drawn as the finished historic building, not the bui
   read; photos on the site's fence panels were not checked.
 - **Walls and doors:** the 7 middle front bays are door leaves with glazed upper panels and gilt transoms; the end
   chái and the gables are red-lacquered board walls with gilt rails; the 5 middle back bays are doors.
-- **Steps:** 5 steps each, about 2 m run. The OSM ways are 2.1 m long.
-- **Court:** stone paving raised 0.22 m, with a central ngự đạo and kerbs on the open sides, up to Đại Cung Môn's
-  foundation at v ≈ 46 m.
+- **Steps:** 5 steps each, about 2 m run (the OSM ways are 1.4-2.1 m long). Widths are estimated: 4.2 m for the
+  middle flight, 3.2 m for the side ones (OSM maps them as lines).
+- **Court:** paving raised 0.22 m, with a central ngự đạo and kerbs on the open sides, up to Đại Cung Môn's
+  foundation at v ≈ 46 m. Warm red-brown brick (#7e5f4a) with a pale blue-grey stone ngự đạo, as a 2026 Street View user photosphere
+  from the platform's front edge shows the court today. That photo suggests a ngự đạo about 3 m wide (scaled from a
+  walker; rough); the model draws it 3.3 m wide, on the hall's axis (u = 0).
 - **Not drawn:** the galleries to Văn Minh, Võ Hiển and the Vu halls (their extent is unmapped); back and side steps
   (not mapped); the interior (throne, paintings).
-- The place label in `hue.json` is still "Nền điện Cần Chánh" (foundation); it comes from the data build, not this file.
+- The place label in `hue.json` reads "Điện Cần Chánh" (it comes from the data build, not this file).
+
+## Google alignment check (Nov 2026)
+- Satellite (z19, z20, north up) with the model rendered at the same centre and m/px: the OSM platform outline sits on
+  the pale concrete slab of today's foundation to within about 1 m at all four corners, and its axis matches to within
+  about 1°. The galleries, Tả Vu, Hữu Vu and Thái Hòa line up as well. No change to the anchor or frame.
+- No Google car imagery inside Tử Cấm Thành; all Street View there is user photospheres, which show the site under
+  restoration (no hall), so the hall's massing is unchanged from the documented sources above.
+
+## Polish (Nov 2026)
+Court brick darkened to #74625a and the ngự đạo made blue-grey (#a3a9a8) and 3.3 m wide, following sv-center-s.
+Review fix: #74625a rendered mauve under the scene light, so the brick is now a warmer #7e5f4a, which renders
+red-brown as in the photosphere and the satellite; the front flights moved to the OSM steps' positions. The hall itself has no photographic reference (site under restoration) and is unchanged.

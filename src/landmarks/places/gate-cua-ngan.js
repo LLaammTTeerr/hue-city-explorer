@@ -1,5 +1,5 @@
-import { KIND, Buf, hex, shade, unflat, rand } from '../../geo/buf.js';
-import { gateAxis } from '../../geo/gates.js';
+import { KIND, Buf, hex, shade, mix, unflat, rand } from '../../geo/buf.js';
+import { gateAxis, CITADEL_PASSAGE } from '../../geo/gates.js';
 import { bridgeProfiles, resample } from '../../geo/bridges.js';
 import { LAND_Y, WALL_H, PAL, ROAD_W, POND_Y } from '../../config.js';
 import { lightMaterial } from '../../geo/materials.js';
@@ -24,11 +24,17 @@ export const id = 'gate:Cửa Ngăn';
 const NAME = 'Cửa Ngăn';
 
 const OPEN_W = 3.8, OPEN_H = 4.6; // inside the 5.6 m slot city.js and kinhthanh.js cut through the rampart
-const TOP = 1.2; // cornice top over the wall walk (photo: ~7.8 m over the road, the walk at 6.6 m)
-const BRICK = hex('#8a5444'), BRICK_D = hex('#5e3d33'), RENDER = hex('#8f8e86'), RENDER_D = hex('#6c6b64');
-const FRAME = hex('#9a6250'), DARK = hex('#1f1a18'), PANEL = hex('#b8b2a2'), PANEL_IN = hex('#4a4540');
-const TOWER = hex('#9c5a44'), UPPER = hex('#a7a296'), TILE = hex('#c97a35'), RIDGE = hex('#cfc7b5');
-const WHITE = hex('#e9e7df'), CAUSE = hex('#858577'), CAUSE_D = hex('#4f5446');
+const TOP = 1.4; // cornice top over the wall walk: with the 0.8 m parapet the block stands ~8.8 m (Street View, 2026)
+// The block's brick is the rampart's (kinhthanh.js: shade(PAL.brick, 0.86)) with a little of the old red left in it:
+// weathered near-black brown with grey streaks, the same brick as the wall beside it (Street View, 2026)
+const RAMPART = shade(PAL.brick, 0.86);
+const BRICK = mix(RAMPART, hex('#6e4a3c'), 0.3), BRICK_D = hex('#3a3833'), RENDER = hex('#7b7a72'), RENDER_D = hex('#5c5b55');
+const FRAME = shade(BRICK, 0.9), DARK = hex('#1f1a18'), PANEL = hex('#b8b2a2'), PANEL_IN = hex('#4a4540');
+const TOWER = mix(RAMPART, hex('#6e4a3c'), 0.25), UPPER = hex('#6f6c64'), TILE = hex('#4f4740'), RIDGE = hex('#6a665e');
+const STREAK = [hex('#46443e'), hex('#4a4d3e'), hex('#3c3a35')]; // soot and lichen from the cornice down (kinhthanh.js)
+const WHITE = hex('#a9a79e'), CAUSE = hex('#858577'), CAUSE_D = hex('#4f5446'), PAVE = hex('#8a857a'), RUBBLE = hex('#6a665b');
+const BW = 5.9; // the causeway over the moat (OSM man_made=bridge way 1431132256)
+const DEPTH = 13.0; // the masonry block across the wall (satellite 12-14 m; OSM 12.0 m): the passage runs on through the earth rampart
 
 export function build({ data, S, group, place, THREE }) {
   const norm = (s) => String(s || '').normalize('NFC');
@@ -46,20 +52,26 @@ export function build({ data, S, group, place, THREE }) {
   const N = (nu, nv, ny = 0) => [nu * ux + nv * ox, ny, nu * uz + nv * oz];
   const box = (u, v, y0, y1, su, sv, col, opts) => { const p = P(u, v); S.box(p[0], p[1], y0, y1, su, sv, AU, col, opts); };
 
-  // where the rampart's faces cross the axis: the block reaches a hand's breadth past both
-  let vIn = -6.4, vOut = 6.4;
-  {
-    const hits = [];
-    for (const poly of data.wall || []) for (const r of poly.map(unflat)) for (let i = 0; i < r.length; i++) {
-      const a = r[i], b = r[(i + 1) % r.length], ex = b[0] - a[0], ez = b[1] - a[1], den = ox * ez - oz * ex;
+  // rays in the gate's own (u, v) frame against mapped edges: the rampart band (data.wall) and the land's edge (the moat)
+  const edges = (polys) => { const out = []; for (const poly of polys || []) for (const r of poly.map(unflat)) for (let i = 0; i < r.length; i++) out.push([r[i], r[(i + 1) % r.length]]); return out; };
+  const bandE = edges(data.wall), landE = edges(data.land);
+  const hitsOn = (E, u0, v0, du, dv, far = 40) => {
+    const p = P(u0, v0), dx = du * ux + dv * ox, dz = du * uz + dv * oz, out = [];
+    for (const [a, b] of E) {
+      const ex = b[0] - a[0], ez = b[1] - a[1], den = dx * ez - dz * ex;
       if (Math.abs(den) < 1e-9) continue;
-      const qx = a[0] - cx, qz = a[1] - cz, t = (qx * ez - qz * ex) / den, s = (qx * oz - qz * ox) / den;
-      if (s >= 0 && s <= 1 && Math.abs(t) < 20) hits.push(t);
+      const qx = a[0] - p[0], qz = a[1] - p[1], t = (qx * ez - qz * ex) / den, s = (qx * dz - qz * dx) / den;
+      if (s >= 0 && s <= 1 && Math.abs(t) < far) out.push(t);
     }
-    const ins = hits.filter((t) => t < 0), outs = hits.filter((t) => t > 0);
-    if (ins.length) vIn = Math.max(...ins) - 0.4; // the nearest inner face (the notch the passage opens into)
-    if (outs.length) vOut = Math.min(...outs) + 0.8; // the block stands a little proud of the outer face
-  }
+    return out;
+  };
+  const near = (E, u0, v0, du, dv, dflt) => { const h = hitsOn(E, u0, v0, du, dv).filter((t) => t > 0.05); return h.length ? Math.min(...h) : dflt; };
+  // where the rampart's faces cross the axis: the notch the passage opens into, and the outer face
+  const vNotch = -near(bandE, 0, 0, 0, -1, 6.0), vOut = near(bandE, 0, 0, 0, 1, 5.6) + 0.8; // the block stands a little proud of the outer face
+  const vIn = Math.max(vNotch - 0.4, vOut - DEPTH); // its inner face; behind it the passage runs on, open, through the rampart
+  const uL = -near(bandE, 0, vNotch - 1, -1, 0, 3.7), uR = near(bandE, 0, vNotch - 1, 1, 0, 4.7); // the notch's sides
+  const vFace = -near(bandE, uR + 1.5, 0, 0, -1, 11.4); // the rampart's inner face along Ông Ích Khiêm
+  const vBank = near(landE, 0, vOut, 0, 1, 8.4) + vOut; // the moat's edge
   const W = 17.1; // along the wall (OSM)
   const y0 = LAND_Y - 0.5, yT = LAND_Y + WALL_H + TOP, fl = LAND_Y + 0.02;
   const r = OPEN_W / 2, crown = LAND_Y + OPEN_H, spring = crown - r, K = 10;
@@ -105,12 +117,18 @@ export function build({ data, S, group, place, THREE }) {
     const pb = LAND_Y + 6.25, ph = 1.05;
     box(0, t + sg * 0.06, pb, pb + ph, 2.6, 0.16, RENDER);
     box(0, t + sg * 0.1, pb + 0.12, pb + ph - 0.12, 2.3, 0.08, PANEL);
-    // what is left of the lime render: patches over the brick, most near the top and the corners (fixed pattern)
-    for (let i = 0; i < 9; i++) {
-      const su = 1.2 + rand(i, 7 + sg) * 2.2, sh = 0.8 + rand(i, 11 + sg) * 2.0;
-      const side = i % 2 ? 1 : -1, u = side * (3.3 + rand(i, 3 + sg) * (W / 2 - 4.9 - su / 2) + su / 2) * 1;
-      const yb = LAND_Y + 0.8 + rand(i, 5 + sg) * (yT - LAND_Y - 1.6 - sh);
-      box(Math.max(-W / 2 + 1.3 + su / 2, Math.min(W / 2 - 1.3 - su / 2, u)), t + sg * 0.01, yb, yb + sh, su, 0.12, i % 3 ? RENDER : RENDER_D);
+    // the weathering: soot and lichen streaks running down from the cornice over the brick and the pilasters, as on the
+    // rampart beside it (no rectangular render patches: the render is left on the pilasters and the cornice band). Each
+    // streak is a single quad laid on its face at its own small offset, and no two on one face overlap.
+    const fq = (u0, u1, ya, yb, off, col) => S.quad(V(u0, v + sg * off, ya), V(u1, v + sg * off, ya), V(u1, v + sg * off, yb), V(u0, v + sg * off, yb), col, N(0, sg));
+    for (const s of [-1, 1]) {
+      for (let j = 0; j < 3; j++) { // three slots between the arch's brick panel (|u| 3.0) and the pilaster (|u| 7.3)
+        const k = rand(j, 21 + sg + s), w = 0.3 + k * 0.45, uc = 3.4 + j * 1.3 + (0.6 - w / 2) * rand(j, 23 + sg + s);
+        const ya = LAND_Y + 1.2 + rand(j, 25 + sg + s) * 3.4;
+        fq(s * uc, s * (uc + w), ya, yT - 1.5, 0.04, mix(BRICK, STREAK[(j + (s > 0 ? 1 : 0)) % 3], 0.45));
+      }
+      const up = s * (W / 2 - 0.6); // a dark streak down each pilaster, just proud of its rendered face (front at 0.3)
+      fq(up - 0.35, up + 0.1, LAND_Y + 2.2 + rand(s, 27 + sg) * 2, yT - 0.6, 0.34, mix(RENDER, RENDER_D, 0.6));
     }
     box(0, t + sg * 0.01, yT - 1.5, yT - 0.6, W - 2.6, 0.12, RENDER_D); // the frieze under the cornice
     box(0, t + sg * 0.1, yT - 0.6, yT - 0.2, W + 0.5, 0.4, RENDER);
@@ -128,8 +146,8 @@ export function build({ data, S, group, place, THREE }) {
     box(u, v, yT + PH + 0.45, yT + PH + 0.6, 0.4, 0.4, RENDER_D);
   }
 
-  // ---- the vọng lâu: two masonry storeys under orange-yellow glazed tile ----
-  const TW = 8.2, TD = 7.0, H1 = 3.2; // lower storey (front width from photos; depth estimated)
+  // ---- the vọng lâu: two masonry storeys under glazed tile, weathered dark, the eaves near straight with short tips ----
+  const TW = 8.5, TD = 7.0, H1 = 3.8; // lower storey (front width and height measured on the bridge-axis Street View, 2026; depth estimated)
   const tv = vm, y1 = yT + H1;
   S.kind = KIND.MASONRY;
   box(0, tv, yT, y1, TW, TD, TOWER);
@@ -159,7 +177,7 @@ export function build({ data, S, group, place, THREE }) {
     else opening(f, 0, 1.5, yT + PH, yT + 2.5, shade(TOWER, 1.15));
   }
   // first roof: a tiled skirt round the tower, its top a small parapeted terrace round the upper storey
-  S.hip(...P(0, tv), TW, TD, AU, y1, 1.05, TILE, { flare: 0.32, over: 0.6, ridgeCol: RIDGE, hips: true, glazed: true, segs: 3, fascia: 0.14, fasciaCol: shade(TILE, 0.6) });
+  S.hip(...P(0, tv), TW, TD, AU, y1, 1.05, TILE, { flare: 0.12, over: 0.6, ridgeCol: RIDGE, hips: true, horns: false, glazed: true, segs: 3, fascia: 0.14, fasciaCol: shade(TILE, 0.6) });
   const terr = y1 + 0.95;
   box(0, tv, terr - 0.5, terr, 5.6, 5.0, RENDER, { top: shade(PAL.stone, 0.8) });
   for (const [len, alongU, off] of [[5.6, true, tv - 2.35], [5.6, true, tv + 2.35], [5.0, false, -2.65], [5.0, false, 2.65]]) {
@@ -173,13 +191,60 @@ export function build({ data, S, group, place, THREE }) {
   box(0, tv, y2 - 0.28, y2, UW + 0.2, UD + 0.2, RENDER);
   for (const f of faces(UW, UD, tv)) opening(f, 0, 1.15, terr + 0.35, terr + 1.65, shade(UPPER, 0.85));
   const RH = 1.15;
-  S.hip(...P(0, tv), UW, UD, AU, y2, RH, TILE, { flare: 0.35, over: 0.5, ridgeCol: RIDGE, hips: true, glazed: true, segs: 3, fascia: 0.12, fasciaCol: shade(TILE, 0.6) });
+  S.hip(...P(0, tv), UW, UD, AU, y2, RH, TILE, { flare: 0.12, over: 0.5, ridgeCol: RIDGE, hips: true, horns: false, glazed: true, segs: 3, fascia: 0.12, fasciaCol: shade(TILE, 0.6) });
   // ridge ornaments: the curled ends (rồng chầu, read at this scale as raised scrolls) and the finial: a gourd and a spike
   const yR = y2 + RH, rl = Math.max(0.3, (UW + 1.0) / 2 - ((UD + 1.0) / 2) * 0.92);
   for (const s of [-1, 1]) { box(s * rl, tv, yR - 0.05, yR + 0.42, 0.22, 0.22, RIDGE); box(s * (rl - 0.18), tv, yR + 0.3, yR + 0.45, 0.42, 0.18, RIDGE); }
   box(0, tv, yR - 0.05, yR + 0.3, 0.42, 0.42, RIDGE);
   box(0, tv, yR + 0.3, yR + 0.62, 0.3, 0.3, RIDGE, { taper: 0.5 });
   box(0, tv, yR + 0.62, yR + 1.45, 0.06, 0.06, hex('#4a4744'));
+  // ---- behind the block: the passage runs on, open, through the earth rampart to Ông Ích Khiêm ----
+  // kinhthanh.js cuts the slot (CITADEL_PASSAGE.slot) and leaves its sides to the gate model; at its city end the slot
+  // opens into the mapped notch, and the notch's mouth is framed by two rendered piers with stepped caps (Street View)
+  const hs = CITADEL_PASSAGE.slot / 2, yW = LAND_Y + WALL_H;
+  if (vNotch < vIn - 0.2) {
+    S.kind = KIND.MASONRY;
+    for (const sg of [-1, 1]) { const u = sg * hs; S.quad(V(u, vNotch, y0), V(u, vIn, y0), V(u, vIn, yW), V(u, vNotch, yW), BRICK, N(-sg, 0)); }
+    S.kind = KIND.PLAIN;
+    for (const sg of [-1, 1]) box(sg * (hs + 0.3), (vNotch + vIn) / 2, yW, yW + 0.5, 0.6, vIn - vNotch, RENDER_D, { top: shade(RENDER, 1.1) }); // the cutting's coping
+  }
+  for (const u of [uL, uR]) {
+    const uc = u + Math.sign(u) * 0.1, vc = vFace + 0.1;
+    box(uc, vc, y0, LAND_Y + 4.6, 1.6, 1.6, RENDER);
+    box(uc, vc, LAND_Y + 4.6, LAND_Y + 4.85, 1.9, 1.9, shade(RENDER, 1.06));
+    box(uc, vc, LAND_Y + 4.85, LAND_Y + 5.45, 1.25, 1.25, RENDER, { taper: 0.7 });
+    box(uc, vc, LAND_Y + 5.45, LAND_Y + 5.75, 0.5, 0.5, RENDER_D);
+    const vf = vc - 0.8 - 0.03, ua = uc - 0.5, ub = uc + 0.2; // a soot streak down the face it shows the street
+    S.quad(V(ua, vf, LAND_Y + 1.0), V(ub, vf, LAND_Y + 1.0), V(ub, vf, LAND_Y + 4.55), V(ua, vf, LAND_Y + 4.55), mix(RENDER, RENDER_D, 0.25), N(0, -1));
+    box(uc, vc, y0, LAND_Y + 0.5, 1.7, 1.7, BRICK_D); // its damp foot
+  }
+  // a paved apron on the wall walk round the block, where the walk meets the gate (sandy strips on the satellite)
+  S.kind = KIND.ROAD;
+  for (const sg of [-1, 1]) {
+    const u0 = sg * (W / 2), u1 = sg * (W / 2 + 4), va = vFace + 0.4, vb = vOut - 0.8 - 1.6, y = yW + 0.04;
+    S.quad(V(u0, va, y), V(u1, va, y), V(u1, vb, y), V(u0, vb, y), shade(PAL.stone, 0.7), [0, 1, 0]);
+  }
+  S.kind = KIND.PLAIN;
+
+  // ---- the forecourt: a paved terrace at the gate's foot, low balustrades along the moat edge over a rubble revetment ----
+  const TU = W / 2 + 3.5, bh = BW / 2, yb = LAND_Y + 0.08;
+  S.kind = KIND.ROAD;
+  for (const sg of [-1, 1]) { const u0 = sg * (OPEN_W / 2 + 0.6), u1 = sg * TU; S.quad(V(u0, vOut + 0.3, yb), V(u1, vOut + 0.3, yb), V(u1, vBank - 0.1, yb), V(u0, vBank - 0.1, yb), PAVE, [0, 1, 0]); }
+  S.kind = KIND.MASONRY;
+  { const vr = vBank + 0.06, ua = -TU - 6, ub = TU + 6; S.quad(V(ua, vr, POND_Y - 0.8), V(ub, vr, POND_Y - 0.8), V(ub, vr, LAND_Y + 0.05), V(ua, vr, LAND_Y + 0.05), RUBBLE, N(0, 1)); }
+  S.kind = KIND.PLAIN;
+  for (const sg of [-1, 1]) {
+    const u0 = sg * (bh + 0.3), u1 = sg * TU, um = (u0 + u1) / 2, len = Math.abs(u1 - u0), vb = vBank - 0.25;
+    box(um, vb, yb - 0.05, yb + 0.28, len, 0.36, WHITE, { top: shade(WHITE, 0.96) }); // plinth
+    box(um, vb, yb + 0.8, yb + 0.92, len, 0.3, WHITE, { top: shade(WHITE, 1.04) }); // hand-rail
+    for (let x = 0.5; x < len - 0.3; x += 0.42) box(u0 + sg * x, vb, yb + 0.28, yb + 0.8, 0.14, 0.14, shade(WHITE, 0.9)); // vase balusters
+    for (let x = 0; x <= len + 0.01; x += len / Math.max(1, Math.round(len / 2.4))) { // posts, a heavier one at each end
+      const end = x < 0.01 || x > len - 0.01, sz = end ? 0.5 : 0.34;
+      box(u0 + sg * x, vb, yb - 0.05, yb + (end ? 1.15 : 1.0), sz, sz, WHITE);
+      box(u0 + sg * x, vb, yb + (end ? 1.15 : 1.0), yb + (end ? 1.27 : 1.1), sz + 0.1, sz + 0.1, shade(WHITE, 0.9));
+    }
+  }
+
   // the tiled roofs drop on the terrace: a lime-grey cap where the first roof's ridges meet the terrace
   (S.paved = S.paved || []).push([n0, S.n]);
 
@@ -190,7 +255,7 @@ export function build({ data, S, group, place, THREE }) {
   for (const rr of data.roads || []) { const pr = Array.isArray(rr) && rr[1] && prof.get(rr[2]); if (pr && pr.name === 'Cầu Cửa Ngăn') { road = rr; Pr = pr; break; } }
   if (road) {
     const R = resample(unflat(road[2]), 1.5);
-    const pts = R.pts, ss = R.s, BW = 5.9, wet = POND_Y - 0.8;
+    const pts = R.pts, ss = R.s, wet = POND_Y - 0.8;
     const side = (i) => { // unit vector to the left of the road at point i
       const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
       return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l];
@@ -226,7 +291,8 @@ export function build({ data, S, group, place, THREE }) {
         const p = at(i, o, 0), s = end ? 0.55 : 0.32, top = dy(i) + (end ? 1.2 : 0.98);
         S.box(p[0], p[2], dy(i) - 0.1, top, s, s, a, WHITE);
         S.box(p[0], p[2], top, top + 0.12, s + 0.12, s + 0.12, a, shade(WHITE, 0.92));
-        if (end) { // the wing along the bank
+        const gateEnd = end && Math.hypot(pts[i][0] - cx, pts[i][1] - cz) < 20; // there the forecourt's balustrade takes over
+        if (end && !gateEnd) { // the wing along the bank
           const out = Math.sign(o), q0 = at(i, o, 0), dir = [n[0] * out, n[1] * out], wl = i === pts.length - 1 ? 5.5 : 3.0;
           const q1 = [q0[0] + dir[0] * wl, q0[2] + dir[1] * wl], gy = LAND_Y + 0.05;
           S.box((q0[0] + q1[0]) / 2, (q0[2] + q1[1]) / 2, gy - 0.3, gy + 0.85, wl, 0.3, a, WHITE, { top: shade(WHITE, 0.96) });

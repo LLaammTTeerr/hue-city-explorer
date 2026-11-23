@@ -34,6 +34,19 @@ Replica in `src/landmarks/places/hungmieu.js`. It covers the temple north-west o
 - Also new: the four small gates, the two side walls (`FENCE.imperial`), and Thần Khố and Thần Trù.
 - The outer and dividing walls are left to civic.js and the Thế Miếu replica, so they are not drawn twice. No `replaced()` guard was needed.
 
+## Satellite and Street View check (2026)
+- On the satellite (Google, zoom 19 and 20, kept in scratch only) the hall's roof has OSM's size and axis (bearing about 54°) but both eaves lie about 2 m further back (north-north-west) than the OSM outline. The hall, platform and court are now framed from the outline moved back 2 m (`HALL_BACK`); the Miếu Môn keeps its mapped distance, so the court is 2 m longer. Gates, walls and service halls stay on OSM.
+- Street View near the hall is all user photospheres: the hall's interior (red lacquer, gilding, encaustic-tile floor), walls, and ornate arched gates whose identity is uncertain. The hall's exterior is not visible, so its heights and roofs are unchanged.
+- Gates: every gate of the precinct seen in the photospheres is a masonry arched gate (red-plastered round arch between yellow piers with relief panels, a stepped mock roof of two or three tiers with blue-and-white porcelain and dragon finials, about twice the wall's height). None is a hip-roofed gatehouse. All four small gates and the Miếu Môn are now drawn in that type by the shared builder `src/landmarks/archgate.js`. The Miếu Môn is in no photo, so its three openings (taller centre) are an estimate. Thế Miếu's replica can use the same builder.
+
+## Review fixes (2026)
+- Side walls: weathered dark grey-brown lime plaster under a dark coping (FENCE.imperial's proportions with new colours), with a band of pierced tile panels on the two west walls toward the garden, as in the photospheres. The front and rear walls belong to civic.js and are unchanged.
+- Court and apron: pale grey paving, as on the satellite, not red brick.
+- Hall tiles: weathered brown ochre (#b98a4c), as on the satellite, instead of the shared bright imperial tile.
+- Front: four lattice-topped door leaves per bay between lacquered posts, as in the interior photosphere.
+- An unmapped hall outside the east side wall (satellite roof about 12 x 7 m, long side across the axis, 33 m across and 16 m forward of the hall's centre): a plain hall under a weathered hip roof. Its use and elevation are estimates.
+- Canopy: 23 shade trees added to data.trees round the hall, court and gates, and clipped shrubs along the court's sides.
+
 ## Left to do
 - Two data trees still stand in the court. Low paving does not keep trees off.
 - There are no night lights.

@@ -67,6 +67,21 @@ The queen mothers' residence in the north-west of the Imperial City. The model i
   - The green-tiled corridors and the brick courts.
   - Both screens and all four gates.
   - The precinct wall and the inner walls.
+- Google satellite and Street View check (2026-11): the hall, Thọ Ninh, the tạ, Tả Trà, Tịnh Minh Lâu and Thọ Chỉ
+  sit on the satellite within about 2 m, and the hall's axis matches within 1-2°, so the OSM frame stays. What the
+  imagery changed (all Street View panos there are user photospheres, so they were used for form and colour only):
+  - The precinct and inner walls are dark, moss-stained brick with a plain coping (was ochre with posts).
+  - Tả Trà wears dark brown unglazed tiles on the satellite; Khương Ninh Các and its back hall wear grey tiles
+    with dark ridges (was yellow glazed).
+  - Khương Ninh Các: dark brown timber leaves on the ground storey, a red-and-green gallery railing over the pent
+    roof, red upper walls with glazed windows.
+  - Thọ Chỉ: one painted masonry front (ochre, red arch frames) with three round-headed openings, the middle one
+    larger, blue-and-gold mosaic panels and frieze, a tiled eave over the side bays and a raised panelled middle
+    storey under the top roof (was a gatehouse with square openings and a timber upper storey).
+  - Thiện Khánh, Địch Tường and Diễn Trạch: a painted masonry frontispiece taller than the wall, round-headed
+    opening, small grey tiled cap.
+- Not changed, sources disagree: the wiki gives green glazed tiles for the corridors and the tạ; on the satellite
+  they read dark grey-brown (weathering or a different tile). The model keeps green.
 - The mapped buildings drop out on their own, because the model covers them. No `replaced()` guard was needed: no older builder drew this place.
 
 ## Left to do
@@ -74,3 +89,27 @@ The queen mothers' residence in the north-west of the Imperial City. The model i
 - The four wells are not modelled.
 - A few data trees stand in the paved courts, because low paving does not keep trees off.
 - Phoenix finials on the hip ends are not drawn.
+
+## Polish (Street View detail pass)
+- Khương Ninh Các: ground-storey leaves now have joints, a lattice band, bottom rails and dark posts; gallery railing has
+  balusters; upper windows are dark panes with a cream grid; pale bracket fringe under the pent eave.
+- Thọ Chỉ: stepped stone plinth, grey string course, frieze split into separate red/blue panels, cream mosaic grounds
+  with blue patterns and low red panels, five-panel upper storey. Side gates got pier finials.
+
+## Review fixes
+- A generic house no longer stands on Tiền Bình Phong. The place now exports `ownsMapped(ring)`, which
+  `places/index.js` (`placeOwns`) passes to `geo/city.js`. Every mapped outline inside the precinct wall is drawn by
+  this file: the 17 records are the halls, the screen, Diễn Trạch, Thọ Chỉ, the corridors and the kiosks.
+- The gates have real round-headed passages: a vault, reveals and paving, with the court visible through them. The
+  middle arch of Thọ Chỉ has red leaves folded back inside, and its side doors are shut with panelled leaves. The side
+  gates have panelled piers, a red arch field, a projecting cornice, a stepped attic with framed panels and a low
+  grey cap.
+- Thọ Chỉ: the side eaves have no hip ridges or horns, the mosaic panels have cream grounds in grey frames over red
+  panels, the frieze is made of framed panels, and the ridge carries dragons and a centre ornament.
+- Khương Ninh Các: the red verandah columns are gone. It now has dark posts in the wall plane, a grey pent roof with
+  pale rafter ends, and an open railing on a full-width gallery. The upper storey is 9.2 x 15.2 m and the main roof
+  is straight, with no hips or horns. Its kiosks have grey tiles.
+- The corridors and Trường Du Tạ now use a weathered dark grey-green (the satellite colour). The west corridors are
+  narrow and run round a small court with a tree. The hall tiles are a weathered ochre.
+- The half-moon lawn has its stone kerb. Trees from the satellite canopy are added in the rear court, the gardens
+  and along the front wall.

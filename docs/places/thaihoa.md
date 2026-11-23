@@ -48,7 +48,7 @@ It is modelled as it stands in 2026, after the 2021–2024 restoration (reopened
 - New replica:
   - The front hall's verandah of free-standing red columns, with gilt bands and stone bases.
   - Door leaves across the front and back, ochre gable walls with the round Thọ windows.
-  - Separate roofs joined by a bronze valley gutter.
+  - Separate roofs joined in a valley (the shared S.joined gutter, sunk between the tiles), spouting through two bronze dragon mouths at the gables.
   - The main hall's skirt, enamelled cổ diêm band, and upper roof with lưỡng long chầu nhật.
 - The esplanade:
   - Its two terraces are now at true positions along the axis, with three flights each and dragon balustrades on the middle flights.
@@ -62,7 +62,31 @@ It is modelled as it stands in 2026, after the 2021–2024 restoration (reopened
   - Without it, the 0.6 m Long Trì terrace had trees on it.
 - About 11.2k triangles.
 
+## Satellite and Street View alignment (2026-11)
+- Checked against Google satellite (z17, z19, z20) and four user photospheres from the south-east. These are visual reference only; nothing was traced into `data/`.
+- Position and axis were already right: within about 2 m and 2° at z19. The bridge and sân line up within about 1 m. At z20 the roof sat about 2-3 m north-west; the review fixes below moved the hall back 2.5 m.
+- The plan was too wide. The OSM outline (44.8 × 32.1 m) had been read as the column line, so the eaves reached about 49 m. The satellite roof is about 44 × 31 m. The outer column line is now at ±20.1 m across (`HU`), and the depth line runs from 13.7 m to −13.7 m.
+- The front was too tall and too uniform. The south-east pano shows three bands: a low front roof, the enamelled cổ diêm band, then the upper roof. Changes:
+  - Verandah columns are 3.9 m (was 4.3).
+  - The front roof rises 1.6 m (`FRH`).
+  - The upper hip is 31.4 m wide. The skirt runs from floor +5.6 m to +6.4 m.
+  - Corner flare is 0.3 (was 0.55).
+  - The ridge stays at floor +9.65 m, so the sourced 11.8 m holds.
+- All four panos are user photospheres, so the camera pose is estimated. They look pre-restoration (faded tiles, pale columns). The model keeps the restored 2024 colours.
+
 ## Left to do
 - The bridge is drawn on piers. Its 5 brick vaults are not modelled.
 - No interior: no throne, no inner columns' lacquer detail beyond bands.
 - The exact rank-stone spacing, the cauldrons, and the nghi môn design are unverified against photos.
+
+## Review fixes (2026-11)
+- Position: the hall (platform, columns, roofs, throne, cranes, kỳ lân) now stands 2.5 m further back along the axis (`HV`), behind a deeper Đan Bệ. Google satellite z20 put the roof centre 2.8 m behind the OSM outline's, and z19 about 2 m; the brick base round the hall showed the same shift, so it is not image lean. The sân and the bridge still match OSM within 1 m and were not moved.
+- The lower base is the brick-paved court the satellite shows round the hall: u −29.6 to 28.4 m, back edge 22.8 m behind the origin (was ±26.75 and 20 m). Its sides are stone, its top brick.
+- Brick aprons, 0.25 m high, now run either side of the stone esplanade out to the court's low walls, from the foot of Đan Bệ to the end of Long Trì.
+- Đan Bệ's stone runs back to the foot of the hall's platform, as the satellite shows grey stone up to the front eave.
+- Rank stones are about knee high (0.55 m, was 1.05 m), as they read in Street View from the esplanade.
+- The extra bronze beam over the valley is gone: it drew a bold dark stripe in the top view where the satellite shows only a faint line. The shared joined-roof gutter remains.
+- The gable walls run out to the front column line, closing the verandah ends; a Thọ window is in each verandah end as well as in each front-hall gable.
+- The two kỳ lân entries in `docs/heights-reference.json` follow the statues' new spots.
+- Still open: colours (restored 2024 vs the pre-restoration pano) and the 11.8 m height datum, both owner questions.
+

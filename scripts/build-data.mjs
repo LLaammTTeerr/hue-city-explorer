@@ -275,12 +275,55 @@ const inBox = (p, m = 0) => p[0] >= MINX - m && p[0] <= MAXX + m && p[1] >= MINZ
 // 1. Water → land
 // =====================================================================
 const waterPolys = [];
+// Water OSM still maps that has gone dry: the show pool of hồ Thủy Tiên's amphitheatre (1453753909) is bare sand on
+// the 2026 satellite, the grandstand round it cleared (landmarks/thuytien.js lays the clearing).
+const DRY_WATER = new Set([1453753909]);
 for (const e of els) {
   const t = e.tags || {};
   if (t.natural !== 'water' && t.waterway !== 'riverbank' && t.landuse !== 'basin' && t.landuse !== 'reservoir') continue;
+  if (DRY_WATER.has(e.id)) continue;
   const rings = elementRings(e);
   if (!rings.length) { if (e.type === 'relation') console.warn('unclosed water relation', e.id, t.name); continue; }
   for (const poly of evenOdd(rings)) waterPolys.push(poly);
+}
+// Trấn Bình Đài (Mang Cá), the outwork at the Citadel's north-east corner: its wall pieces are the rings of the Citadel
+// wall relation that lie wholly outside the main rampart's ring, and the fort is the hull of them. A closed military
+// ground: open grass and fish ponds on the satellite (2026-11), no houses, few trees. OSM maps its ponds as plain
+// natural=wetland; three of them are open water on the satellite (the fish-pond strips in the north-west, the round
+// pond in the east and the rectangular one beside it, under floating plants) and are laid as still water. The large
+// oval one (way 174095172) is reed and grass and stays a wetland.
+const FORT_PONDS = new Set([1568327489, 174100376, 174099525]);
+const fortRing = (() => {
+  const rings = stitch(get('relation', 8541343).members.filter((m) => m.type === 'way').map((m) => m.geometry));
+  const main = rings.reduce((a, r) => (Math.abs(ringArea(r)) > Math.abs(ringArea(a)) ? r : a));
+  const fort = rings.filter((r) => r !== main && r.every((p) => !pip(p, main)));
+  return fort.length ? hull(fort.flat()) : null;
+})();
+const inFort = (p) => !!fortRing && pip(p, fortRing);
+for (const e of els) {
+  if (e.type !== 'way' || !FORT_PONDS.has(e.id) || (e.tags || {}).natural !== 'wetland') continue;
+  for (const poly of evenOdd(elementRings(e))) if (poly[0].every(inFort)) waterPolys.push(poly);
+}
+// Hồ Thủy Tiên's island: OSM leaves a hole in the lake round the dragon aquarium (239985079) wider than what stands.
+// On the 2026 satellite the lake comes right up to the aquarium's round landing all round, except a paved terrace
+// lobe to the NE and the round deck under the dragon's head to the N, joined to the landing by a short neck. Give the
+// rest of the hole back to the lake; landmarks/thuytien.js paves what is left of the island (the pond's hole).
+{
+  const aq = els.find((e) => e.id === 239985079 && e.type === 'way');
+  const ring = aq && elementRings(aq)[0];
+  if (ring) {
+    let cx = 0, cz = 0;
+    const pts = openRing(ring);
+    for (const p of pts) { cx += p[0] / pts.length; cz += p[1] / pts.length; }
+    const Rd = Math.max(9, pts.reduce((s, p) => s + Math.hypot(p[0] - cx, p[1] - cz), 0) / pts.length);
+    const disc = (x, z, r) => { const o = []; for (let i = 0; i < 48; i++) { const a = (i / 48) * Math.PI * 2; o.push([x + Math.cos(a) * r, z + Math.sin(a) * r]); } o.push(o[0]); return [o]; };
+    // from the satellite (z20, 0.14 m/px), metres from the aquarium's centre: x east, z south
+    const lobe = [[-1.4, -15.8], [2.2, -19.3], [6.4, -21.1], [10.3, -19.8], [13.3, -16.0], [15.0, -11.7], [13.9, -7.9], [8.6, -10.0]];
+    const neck = [[-5.4, -21.4], [-0.4, -21.4], [0.6, -13.0], [-6.0, -13.0]];
+    const poly = (r) => { const o = r.map(([x, z]) => [cx + x, cz + z]); o.push(o[0]); return [o]; };
+    const land = pc.union(disc(cx, cz, Rd + 3.6), poly(lobe), poly(neck), disc(cx - 2.9, cz - 22.9, 4.8));
+    for (const p of pc.difference(disc(cx, cz, 34), land)) waterPolys.push(p);
+  }
 }
 // Hộ Thành Hào along the citadel's west face, from Tây Thành Đài (the west corner) past cửa Chánh Tây to Tây Thành
 // Thủy Quan (where the Ngự Hà enters), is not mapped as water in OSM: the moat on the other faces is, this stretch
@@ -401,6 +444,16 @@ for (const poly of wall) fillPoly(poly, NOBUILD);
 for (const poly of wall) for (const r of poly) stampLine(r.concat([r[0]]), 30, NOBUILD);
 fillPoly([imperialRing], NOBUILD);
 { const tm = get('way', 205794912); if (tm) fillPoly([openRing(tm.geometry.map(proj))], NOBUILD); } // no generated houses inside chùa Thiên Mụ
+// Cồn Dã Viên is a park round the 1953 water plant, with no houses (satellite and Street View); its one service road
+// would otherwise be lined with generated ones. The island is the land ring holding the water tower (way 1189213110).
+{
+  const wt = get('way', 1189213110);
+  const c = wt && areaCentroid(openRing(wt.geometry.map(proj)));
+  const dv = c && land.find((p) => Math.abs(ringArea(p[0])) < 5e5 && pip(c, p[0]));
+  if (dv) fillPoly(dv, NOBUILD); else console.warn('Cồn Dã Viên: island ring not found, generated houses may stand on it');
+}
+// no generated houses inside Trấn Bình Đài (Mang Cá), see FORT_PONDS
+if (fortRing) fillPoly([fortRing], NOBUILD);
 
 // =====================================================================
 // 3. Green / open land
@@ -412,6 +465,7 @@ for (const e of els) {
   const k = GREEN_KINDS[t.leisure] || GREEN_KINDS[t.landuse] || GREEN_KINDS[t.natural];
   if (!k || e.type === 'node') continue;
   if (t.building) continue;
+  if (FORT_PONDS.has(e.id)) continue; // laid as water
   let polys = evenOdd(elementRings(e));
   if (!polys.length) continue;
   try { polys = pc.intersection(polys.map((p) => p), [slabRect]); } catch { continue; }
@@ -450,7 +504,10 @@ const ROAD_W = [15, 12, 9.5, 6.5, 4, 2.2];
 // (a slip road mapped as an ordinary street), or `marked` to keep a link at its class width with its dashes.
 const LANE_W = 3.5, UNMARKED_PAD = 0.5; // m per lane; a little shoulder
 const ROAD_TYPES = JSON.parse(fs.readFileSync('data/road-types.json', 'utf8')).ways;
-const UNMARKED = { 'unmarked-1': 1, 'unmarked-2': 2, 'unmarked-3': 3 };
+const UNMARKED = { 'unmarked-1': 1, 'unmarked-2': 2, 'unmarked-3': 3, lane: 1 };
+// `lane`: a village kiệt (Cồn Hến's): a 3.2 m concrete lane with no pavement, no kerb stones, no dashes and no lamps,
+// laid as class 4 (service) so city.js draws it plain. OSM maps these as highway=residential.
+const KIET_W = 3.2;
 for (const [id, k] of Object.entries(ROAD_TYPES)) if (!(k in UNMARKED) && k !== 'marked') throw new Error(`data/road-types.json: way ${id} has unknown type ${k}`);
 // lanes of the unmarked type way e is laid as, or 0 (an ordinary, marked road of its class)
 function unmarkedLanes(e) {
@@ -461,6 +518,16 @@ function unmarkedLanes(e) {
   return n > 0 ? Math.min(3, n) : t.oneway === 'yes' ? 1 : 2;
 }
 const TT_WAY = 174759688; // the truss spans; modelled by hand
+// Ways a place file draws itself, at the alignment and width the satellite shows. Laid here too, each one showed
+// twice, the generic pale ribbon 5-15 m off the place's own walk (đồi Vọng Cảnh: OSM's older winding trails 1075018788
+// and the top of 1473264466 under the redrawn stairs, the court's rings under its paved court). They are left out of
+// the roads and the mask; the place file keeps its own walks clear of trees. Vọng Cảnh: src/landmarks/places/vongcanh.js
+const HAND_WAYS = new Set([
+  1075018785, 1075018786, 1075018787, 1075018788, 1075018789, 1075018790, 1075018791,
+  1200924922, 1200924923, 1200924924, 1200924925, 1200924926, 1200924927, 1200924928, 1200924929, 1200924930,
+  1200924931, 1200924932, 1200924933,
+  1473264464, 1473264465, 1473264466, 1473264467, 1473264468,
+]);
 const roads = [];
 let nDryBridges = 0, nSidewalkBridges = 0;
 function overWater(pts) {
@@ -477,7 +544,24 @@ function overWater(pts) {
 // carriageway clears the outline by CLEAR_PAD; its course round the arena is kept.
 const CLEAR_OF = [19381147];
 const CLEAR_PAD = 0.3;
-const clearRings = CLEAR_OF.map((id) => { const e = get('relation', id); const rs = e ? elementRings(e) : []; return rs.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; }) // the outer ring.filter(Boolean);
+// Parts of a monument that stand out beyond its mapped outline, as sectors [relation, radius, from, to] (metres from
+// the outline's centre; bearings in radians, 0 = north, clockwise): at Hổ Quyền the king's stand and its two stairs
+// reach 28 m out on the north arc (src/landmarks/places/hoquyen.js, placed from the satellite), where the same way
+// passed 26 m out.
+const CLEAR_SECTORS = [[19381147, 28.5, -0.6, 0.32]];
+const outerRing = (id) => { const e = get('relation', id); const rs = e ? elementRings(e) : []; return rs.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; };
+const clearRings = [
+  ...CLEAR_OF.map(outerRing),
+  ...CLEAR_SECTORS.map(([id, r, a0, a1]) => {
+    const ring = outerRing(id);
+    if (!ring) return null;
+    const cx = ring.reduce((s, p) => s + p[0], 0) / ring.length, cz = ring.reduce((s, p) => s + p[1], 0) / ring.length;
+    const n = Math.max(2, Math.ceil(((a1 - a0) * r) / 2)), pts = [[cx, cz]];
+    for (let k = 0; k <= n; k++) { const a = a0 + ((a1 - a0) * k) / n; pts.push([cx + Math.sin(a) * r, cz - Math.cos(a) * r]); }
+    pts.push([cx, cz]);
+    return pts;
+  }),
+].filter(Boolean);
 function clearMonuments(pts, c) {
   if (c > 3 || !clearRings.length) return pts;
   const need = ROAD_W[c] / 2 + CLEAR_PAD;
@@ -519,9 +603,12 @@ let nCleared = 0;
 for (const e of els) {
   const t = e.tags || {};
   if (e.type !== 'way' || !(t.highway in ROAD_CLASS) || t.area === 'yes' || !e.geometry) continue;
-  if (e.id === TT_WAY) continue;
-  const c = ROAD_CLASS[t.highway];
+  if (e.id === TT_WAY || HAND_WAYS.has(e.id)) continue;
+  const kiet = ROAD_TYPES[e.id] === 'lane';
   const tagged = t.bridge && t.bridge !== 'no' ? 1 : 0;
+  // a closed road (access=no: the dirt track into Trấn Bình Đài, and its way on through Trấn Bình Môn's 2 m passage)
+  // is laid at the service width, without kerbs; its bridge keeps its class
+  const c = kiet ? 4 : t.highway === 'unclassified' && t.access === 'no' && !tagged ? ROAD_CLASS.service : ROAD_CLASS[t.highway];
   for (const line of clipLine(e.geometry.map(proj))) {
     const pts = clearMonuments(line, c);
     if (pts !== line) nCleared++;
@@ -538,7 +625,7 @@ for (const e of els) {
     const bridge = tagged && overWater(pts) ? 1 : 0;
     if (tagged && !bridge) nDryBridges++;
     const lanes = unmarkedLanes(e);
-    roads.push({ c, bridge, name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
+    roads.push({ c, bridge, ...(tagged && !bridge ? { dry: 1 } : {}), name: t.name || '', ow: t.oneway === 'yes' && t.junction !== 'roundabout', w: kiet ? KIET_W : lanes ? lanes * LANE_W + UNMARKED_PAD : ROAD_W[c], pts, id: e.id, ...(lanes ? { lanes } : {}) });
   }
 }
 console.log('bridge ways over dry land laid as road:', nDryBridges, '; bridge sidewalks left to their carriageway:', nSidewalkBridges, '| streets moved off monument walls:', nCleared);
@@ -698,13 +785,13 @@ function insertAt(pts, s) {
   }
   return pts;
 }
-for (const r of roads) stampLine(r.pts, r.c < 5 ? r.w / 2 + 1.2 : 1.2, ROAD);
+for (const r of roads) stampLine(r.pts, r.c < 5 || r.lanes ? r.w / 2 + 1.2 : 1.2, ROAD);
 // Is (x, z) on a carriageway (any road up to service class, bridges included), widened by pad? Exact against the road
 // lines, not the 2 m mask: the avenue trees stand just off their own kerb, closer than a mask cell can tell apart.
 function carriagewayTest(maxC) {
   const G = 20, grid = new Map();
   for (const r of roads) {
-    if (r.c > maxC) continue;
+    if (r.c > maxC && !(maxC >= 4 && r.lanes)) continue;
     const hw = r.w / 2;
     for (let i = 0; i + 1 < r.pts.length; i++) {
       const a = r.pts[i], b = r.pts[i + 1], s = [a, b, hw], m = hw + 2;
@@ -854,6 +941,26 @@ const sites = {};
     fillPoly([hull(pts)], TREE | NOBUILD);
   }
 }
+// Vincom Plaza's lot runs west of its building (way 749331141) to Kiệt 26 Hà Nội (way 39418018): the basement car-park
+// ramp, palms and an open forecourt, all unmapped (Street View on Hà Nội). No generated house or tree is kept on that
+// strip, from the Hà Nội pavement south to the first mapped house (way 732290038); src/landmarks/places/vincom.js draws
+// the ramp and palms. The houses and trees are still laid out and dropped only when written (see cleared()), so the
+// shared dice roll as before and the rest of the city is unchanged.
+const keepClear = [];
+{
+  const vc = get('way', 749331141), lane = get('way', 39418018);
+  if (vc && lane) {
+    const ring = openRing(vc.geometry.map(proj)), nw = ring.reduce((b, p) => (p[0] + p[1] < b[0] + b[1] ? p : b));
+    const zs = 643; // the north wall of way 732290038
+    const [a, b] = ring.filter((p) => p[0] < nw[0] + 4).sort((p, r) => p[1] - r[1]); // the building's west edge
+    const xAt = (z) => a[0] + ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]);
+    const lp = lane.geometry.map(proj);
+    const north = lp.find((p, i) => i > 0 && p[1] > lp[0][1] + 5)[1]; // where the lane meets the Hà Nội pavement
+    const ln = lp.filter((p) => p[1] >= north - 0.5 && p[1] < zs + 1).map((p) => [p[0] + 3, p[1]]); // 3 m: the lane's half width
+    keepClear.push(hull([...ln, [nw[0], north], nw, [xAt(zs), zs], [ln[ln.length - 1][0], zs]]));
+  }
+}
+const cleared = (x, z) => keepClear.some((r) => pip([x, z], r));
 for (const [id, n, x, z, r] of SITE_DEFS) sites[id] = { n, c: [q(x), q(z)], r, items: [] };
 const siteOf = (c) => { for (const [id, , x, z, r] of SITE_DEFS) if (Math.hypot(c[0] - x, c[1] - z) < r) return sites[id]; return null; };
 
@@ -1060,6 +1167,20 @@ let nMeasured = 0, nSurvey = 0, nHouseMeasured = 0;
 const PERIOD_CAP = { 1: 13, 2: 5.2 }, PERIOD_SLACK = 1.2; // tallest Indochine building / Nguyễn-period house, m
 const periodKept = { 1: 0, 2: 0 }; // surveyed buildings too tall for their district's period
 const gates = [];
+// OSM gate buildings drawn away from where the satellite shows the gate, while the road, bridge and moat beside them
+// are right: [east, south] in metres added to the footprint. Cửa Đông Ba (way 695810694) is mapped about 7.4 m inside
+// the wall and 3 m south-east along it; on Google's z19/z20 imagery the block's outer face is on the wall's outer face,
+// and Street View puts its arch on the axis of the road and bridge (docs/places/gate-cua-dong-ba.md).
+// `reach` [east, south]: where the mapped rampart (data.wall) runs further into the city than the real one, the record
+// is lengthened that far inward so the slot the walls cut for the passage (gateAxis plen) comes out on the city side;
+// the gate model keeps its own block depth from the outer face and lines the cut behind it. With a `notch` the record
+// reaches on to the gateposts on the city street (the passage the carriageway narrows to runs that far).
+// `notch` { half, back }: the mapped band's city side cut back to `back` m inside the gate's outer face over `half` m
+// either side of the passage. At Cửa Đông Ba the band runs on as a 7 m vertical face to the street, with a leftover
+// notch where OSM put the gate building; Street View from Xuân 68 and Mai Thúc Loan shows instead a brick retaining
+// wall about 4 m high with capped gateposts at the passage, the bank rising behind it, and the gate block and tower
+// standing clear above. The gate model draws that wall and bank in the notch.
+const GATE_FIX = { 695810694: { shift: [4.2, -6.8], reach: [-6.31, 4.59], notch: { half: 18, back: 12.5 } } };
 const buildings = [];
 const smeared = new Set(), surveyed = new Set(); // buildings whose height is the satellite prediction / the city survey's reading
 const hash = (id) => { let h = (id * 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13; return (h >>> 0) / 4294967296; };
@@ -1086,7 +1207,27 @@ for (const e of els) {
   // the small pavilions and gate standing with tháp Phước Duyên on its terrace are modelled with the tower
   if (towerC && Math.hypot(c[0] - towerC[0], c[1] - towerC[1]) < 27) { thienMuSmall.push(flat(ring)); fillPoly([ring], BLD); continue; }
   if (t.historic === 'city_gate') {
+    const fix = GATE_FIX[e.id];
+    if (fix) for (const p of ring) { p[0] += fix.shift[0]; p[1] += fix.shift[1]; }
     const o = obb(ring);
+    if (fix?.reach) {
+      const [rx, rz] = fix.reach, len = Math.hypot(rx, rz);
+      if (Math.abs(rx * Math.cos(o.a) + rz * Math.sin(o.a)) / len > 0.707) o.w += len; else o.d += len;
+      o.c = [o.c[0] + rx / 2, o.c[1] + rz / 2];
+    }
+    if (fix?.notch && fix.reach) {
+      const [rx, rz] = fix.reach, len = Math.hypot(rx, rz), ix = rx / len, iz = rz / len; // into the city
+      const along = Math.abs(ix * Math.cos(o.a) + iz * Math.sin(o.a)) > 0.707 ? o.w : o.d;
+      const ox = o.c[0] - (ix * along) / 2, oz = o.c[1] - (iz * along) / 2; // the outer face, on the axis
+      const { half, back } = fix.notch;
+      const R = (s, u) => [ox + ix * s - iz * u, oz + iz * s + ix * u];
+      const probe = R(back + 2, half + 3); // in the band just past the notch's end
+      const k = wall.findIndex((poly) => pipPoly(probe, poly));
+      if (k >= 0) {
+        const cut = pc.difference(wall[k], [[R(back, -half), R(back, half), R(back + 40, half), R(back + 40, -half), R(back, -half)]]);
+        if (cut.length === 1) wall[k] = cut[0]; else console.warn('gate notch split the wall band; left whole');
+      }
+    }
     const onCitadel = wallBandTest(c);
     gates.push({ n: t.name || (e.id === 1568259450 ? 'Cửa Kẻ Trài' : ''), c: [q(o.c[0]), q(o.c[1])], w: q(o.w), d: q(o.d), a: Math.round(o.a * 1000), k: onCitadel ? 'citadel' : 'imperial' });
     fillPoly([ring], BLD);
@@ -1430,7 +1571,7 @@ for (const road of roads) {
             const r2 = rnd();
             const h2 = cit ? (r2 < 0.7 ? rr(3.8, 4.8) : rr(7.2, 8.2)) : r2 < 0.5 ? rr(3.8, 4.8) : r2 < 0.9 ? rr(7.2, 8.2) : rr(10.6, 11.6);
             const m2 = houseH(bx, bz, w2, d2, ang, h2);
-            infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2) | (roofAt(bx, bz) << 4) | (whiteWard([bx, bz]) ? 128 : 0)); // 2 = no street face; era in bits 2-3, roof family 4-6, white ward 7
+            if (!cleared(bx, bz)) infill.push(q(bx), q(bz), q(w2), q(d2), Math.round(ang * 1000), q(era2 === 2 ? Math.min(m2, 4.4) : m2), 0, 2 | (era2 << 2) | (roofAt(bx, bz) << 4) | (whiteWard([bx, bz]) ? 128 : 0)); // 2 = no street face; era in bits 2-3, roof family 4-6, white ward 7
             housePlace(o2);
           }
         }
@@ -1444,7 +1585,7 @@ for (const road of roads) {
           else h = r < 0.42 ? rr(3.8, 4.8) : r < 0.86 ? rr(7.2, 8.2) : rr(10.6, 11.6);
           h = houseH(cx, cz, w, d, ang, h);
           if (era === 2) h = Math.min(h, 4.4); else if (era === 1) h = Math.min(Math.max(h, 7.2), 11.4);
-          infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2) | (roofAt(cx, cz) << 4) | (whiteWard([cx, cz]) ? 128 : 0));
+          if (!cleared(cx, cz)) infill.push(q(cx), q(cz), q(w), q(d), Math.round(ang * 1000), q(h), main ? 1 : 0, (side > 0 ? 1 : 0) | (era << 2) | (roofAt(cx, cz) << 4) | (whiteWard([cx, cz]) ? 128 : 0));
           housePlace(o1);
         }
         s += w + gap;
@@ -1452,6 +1593,15 @@ for (const road of roads) {
       carry = s - len;
     }
   }
+}
+// Lăng Đồng Khánh's grounds, from the temple and the planted lawn east of its wall out to the west kerb of Đoàn Như Hài,
+// south past the half-moon pond and west over the tomb: no generated houses (the satellite and Street View show only
+// trees and grass there). Dropped after placing, so the rest of the city's houses and trees come out as before.
+{
+  const DK = [[-2215, 4200], [-2003, 4200], [-1982, 4292], [-1979, 4306], [-1972, 4331], [-1958, 4371], [-1960, 4395], [-2215, 4410]];
+  let w = 0;
+  for (let i = 0; i < infill.length; i += 8) if (!pip([infill[i] / 10, infill[i + 1] / 10], DK)) for (let k = 0; k < 8; k++) infill[w++] = infill[i + k];
+  infill.length = w;
 }
 console.log('infill houses', infill.length / 8);
 
@@ -1463,17 +1613,18 @@ const TBLOCK = WATER | ROAD | BLD | TREE;
 const TRUNK = 0.6; // a trunk's reach: no tree stands closer than this to a carriageway's edge
 function plant(x, z, s, kind) {
   if (!inBox([x, z], -4) || at(x, z) & TBLOCK || onCarriageway(x, z, TRUNK) || inMedian(x, z, TRUNK)) return false;
-  trees.push(q(x), q(z), Math.round(s * 10), kind);
+  if (!cleared(x, z)) trees.push(q(x), q(z), Math.round(s * 10), kind);
   stamp(x, z, 3.2, TREE);
   return true;
 }
-// tree kinds: 0 broadleaf, 1 dark broadleaf, 2 flame tree, 3 hill pine
+// tree kinds: 0 broadleaf, 1 dark broadleaf, 2 flame tree, 3 hill pine (4, a dark broadleaf never drawn as a willow, is only placed by landmark files)
 const hillKind = () => (rnd() < 0.72 ? 3 : rnd() < 0.3 ? 1 : 0);
 const treeKind = (riverish) => { const r = rnd(); return r < (riverish ? 0.09 : 0.035) ? 2 : r < 0.3 ? 1 : 0; };
 for (const g of green) {
   const far = inHills(g.p[0][0]);
   const spacing = g.k === 'wood' ? (far ? 19 : 9) : g.k === 'park' ? 13 : g.k === 'cemetery' ? 22 : g.k === 'sacred' ? 16 : g.k === 'grass' ? 24 : 0;
   if (!spacing) continue;
+  if (g.k === 'grass' && inFort(g.p[0][0])) continue; // the fort's open ground
   let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
   for (const p of g.p[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
   const n = Math.min(far ? 900 : 2500, Math.round(((x1 - x0) * (z1 - z0)) / (spacing * spacing)));
@@ -1496,7 +1647,12 @@ for (const road of roads) {
         const x = a[0] + tx * s - tz * side * half, z = a[1] + tz * s + tx * side * half;
         // each carriageway of a dual road is its own way, so one side's avenue lands on the other carriageway, and
         // at junctions and the bridge heads on the crossing roads: keep the trunk off every carriageway
-        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) { trees.push(q(x), q(z), Math.round(rr(0.75, 1.15) * 10), treeKind(false)); stamp(x, z, 3, TREE); }
+        // no avenue on a bridge way laid at grade (road.dry): it stands for a deck (cầu Dã Viên over its islet runs ~9 m
+        // up), and nothing lines a deck; the stride is still drawn so the random stream, and every tree after, is unchanged
+        if (!(at(x, z) & (WATER | BLD | TREE)) && !onCarriageway(x, z, TRUNK) && !inMedian(x, z, TRUNK)) {
+          const sc = Math.round(rr(0.75, 1.15) * 10), kind = treeKind(false);
+          if (!road.dry) { if (!cleared(x, z)) trees.push(q(x), q(z), sc, kind); stamp(x, z, 3, TREE); }
+        }
         s += rr(13, 20);
       }
       s -= len;
@@ -1512,7 +1668,7 @@ for (const road of roads) {
     if (m & (TBLOCK | GREEN)) continue;
     const cit = inCitadel(p);
     const imp = cit && inImperial(p);
-    if (m & NOBUILD && !imp && !cit) continue;
+    if (m & NOBUILD && !imp && (!cit || inFort(p))) continue; // the Citadel's hull takes in Trấn Bình Đài: open ground
     if (rnd() > (imp ? 0.75 : cit ? 0.7 : inHills(p) ? 0.06 : inVillages(p) ? 0.2 : 0.26)) continue;
     plant(p[0], p[1], rr(0.7, 1.35), inHills(p) && rnd() < 0.5 ? 3 : treeKind(false));
   }
@@ -1568,6 +1724,49 @@ if (TC) {
     if (plant(px, pz, rr(0.85, 1.5), inHills([px, pz]) ? hillKind() : treeKind(false)) && near) ring++;
   }
   console.log('tree cover:', heritage.length, 'heritage rings,', trees.length / 4 - before, 'trees planted from WorldCover (', ring, 'in the rings )');
+}
+// Open lawns kept clear of the generated trees after planting (a filter, so the dice of every other tree are kept).
+// Bắc Khuyết Đài (src/landmarks/places/tuphuong.js) faces Đặng Thái Thân across an open lawn: the satellite and the
+// Street View panoramas from the moat bridge show grass and lamp posts between the bastion's outer face and the moat,
+// no trees. The band 24 m out from the outer face, 1 m past each corner: the face is the edge of the Imperial City
+// wall (way 531016856) nearest the pavilion (way 172802373), and out is away from the pavilion.
+{
+  const clear = [];
+  const w = get('way', 531016856), pav = get('way', 172802373);
+  if (w && w.geometry && pav && pav.geometry) {
+    const pts = w.geometry.map(proj), pp = pav.geometry.map(proj);
+    const c = pp.reduce((s, p) => [s[0] + p[0] / pp.length, s[1] + p[1] / pp.length], [0, 0]);
+    // the wall's straight runs: consecutive edges within 5° of each other are one run (OSM splits the face in two)
+    const runs = [];
+    for (let i = 1; i < pts.length; i++) {
+      const r = runs[runs.length - 1], p0 = pts[i - 1], p1 = pts[i];
+      const dir = (u, v) => Math.atan2(v[1] - u[1], v[0] - u[0]);
+      if (r && Math.abs(Math.atan2(Math.sin(dir(p0, p1) - dir(r[0], r[1])), Math.cos(dir(p0, p1) - dir(r[0], r[1])))) < 0.087) r[1] = p1;
+      else runs.push([p0, p1]);
+    }
+    let a = null, b = null, len = 0, bd = Infinity;
+    for (const [p0, p1] of runs) {
+      const dx = p1[0] - p0[0], dz = p1[1] - p0[1], l = Math.hypot(dx, dz);
+      if (l < 40) continue;
+      const t = Math.max(0, Math.min(1, ((c[0] - p0[0]) * dx + (c[1] - p0[1]) * dz) / (l * l)));
+      const d = Math.hypot(p0[0] + dx * t - c[0], p0[1] + dz * t - c[1]);
+      if (d < bd) { bd = d; a = p0; b = p1; len = l; }
+    }
+    const ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len;
+    let nx = -uz, nz = ux;
+    if ((c[0] - a[0]) * nx + (c[1] - a[1]) * nz > 0) { nx = -nx; nz = -nz; }
+    const pt = (u, v) => [a[0] + ux * u + nx * v, a[1] + uz * u + nz * v];
+    clear.push([[pt(-1, 0), pt(len + 1, 0), pt(len + 1, 24), pt(-1, 24)]]);
+  } else console.warn('Bắc Khuyết Đài (ways 531016856, 172802373) not found: its lawn is not kept clear');
+  let k = 0, dropped = 0;
+  for (let j = 0; j < trees.length; j += 4) {
+    const p = [trees[j] / 10, trees[j + 1] / 10];
+    if (clear.some((poly) => pipPoly(p, poly))) { dropped++; continue; }
+    for (let m = 0; m < 4; m++) trees[k + m] = trees[j + m];
+    k += 4;
+  }
+  trees.length = k;
+  if (dropped) console.log('trees kept off open lawns:', dropped);
 }
 console.log('trees', trees.length / 4);
 
@@ -1694,7 +1893,9 @@ const EXTRA = [
 ];
 for (const [id, n, type, osm, tier, kind, h] of EXTRA) addPlace(id, n, wayCentre(osm, type), tier, kind, h);
 for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, id === 'thuytien' ? 'water' : 'monument', h);
-addPlace('vongcanh', 'Đồi Vọng Cảnh', [-2784, 5161], 3, 'place', 12); // the 43 m hill standing straight over the river bend; moved onto its top in §9
+// Đồi Vọng Cảnh stands on the right bank, north of the bend; its tag starts from OSM's viewpoint node 4603986390 on the
+// brow (the old seed, [-2784, 5161], was điện Hòn Chén's hill across the river) and moves onto the highest ground in §9
+{ const m = get('node', 4603986390); addPlace('vongcanh', 'Đồi Vọng Cảnh', m ? proj(m) : [-2641.6, 4524.1], 3, 'place', 12); }
 addPlace('ngubinh', 'Núi Ngự Bình', [770, 2990], 2, 'place', 20); // the summit (16.4419 N, 107.5961 E); moved onto the highest ground in §9
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; special.biaquochoc = { c: [q(c[0]), q(c[1])], ring: [], name: 'Bia Quốc Học' }; addPlace('biaquochoc', 'Bia Quốc Học', c, 2, 'monument', 14); }
 addPlace('golim', 'Cầu gỗ lim', [-168.5, 374.8], 3, 'bridge', 5); // the ironwood walkway (midpoint from src/landmarks/boardwalk.js)
@@ -2253,6 +2454,41 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       if (top > 1.5) { for (const k of inside) nodeLv[k] = Math.max(nodeLv[k], top); hakhe = { ring: flat(thienMu), top: q(top) }; }
       console.log('Hà Khê plateau', top.toFixed(1), 'm above the city floor |', inside.length, 'nodes');
     }
+    // Phước Quả hill: nhà thờ Phủ Cam and its forecourt stand on one levelled terrace. Street View shows the yard
+    // running on level to the gardens either side of it and dropping only along its north edge, to the lower garden
+    // and the gate; the 30 m elevation model reads the hill as an even slope, which left the yard (laid level with the
+    // church doors) standing 3 m clear of its own ground on three sides. The nodes near the cathedral's outline and on
+    // its side of every street are held at the level of the ground under the church.
+    {
+      const pc = ringOf(118792054), REACH = 32, streets = carriagewayTest(3);
+      const segDist = (x, z) => {
+        let best = Infinity, at0 = null;
+        for (let a = 0; a < pc.length; a++) {
+          const p = pc[a], b = pc[(a + 1) % pc.length], dx = b[0] - p[0], dz = b[1] - p[1];
+          const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (z - p[1]) * dz) / (dx * dx + dz * dz || 1)));
+          const d = Math.hypot(x - p[0] - t * dx, z - p[1] - t * dz);
+          if (d < best) { best = d; at0 = [p[0] + t * dx, p[1] + t * dz]; }
+        }
+        return pip([x, z], pc) ? [0, [x, z]] : [best, at0];
+      };
+      const terrace = [], under = [];
+      if (pc) for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+        const x = GX0 + i * STEP, z = GZ0 + j * STEP;
+        if (Math.abs(x - pc[0][0]) > 120 || Math.abs(z - pc[0][1]) > 120) continue;
+        const [d, q0] = segDist(x, z);
+        if (d > REACH) continue;
+        let crosses = false; // a street between the node and the church: the node is the neighbour's ground
+        for (let s = 0, n = Math.ceil(d / 2); s <= n && !crosses; s++) crosses = streets(x + ((q0[0] - x) * s) / (n || 1), z + ((q0[1] - z) * s) / (n || 1));
+        if (crosses) continue;
+        const k = j * nx + i;
+        terrace.push(k);
+        if (d < 10) under.push(Math.max(0, fine[k] - floor) * gateOf(broad[k] - floor));
+      }
+      under.sort((a, b) => a - b);
+      const lv = under.length ? under[under.length >> 1] : 0;
+      if (lv > 1.5) for (const k of terrace) nodeLv[k] = Math.max(nodeLv[k], lv);
+      console.log('Phủ Cam terrace', lv.toFixed(1), 'm above the city floor |', terrace.length, 'nodes');
+    }
     const nearWet = (x, z) => { for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (at(x + dx * STEP, z + dz * STEP) & WATER) return true; return false; };
     const lock = new Uint8Array(nx * nz);
     h = new Float32Array(nx * nz);
@@ -2412,6 +2648,31 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       for (const r of roads) if (r.bridge) for (const e of [r.pts[0], r.pts[r.pts.length - 1]]) { const ks = []; near(e[0], e[1], LANDING, (k) => ks.push(k)); landings += level(ks); }
       for (const r of rails) if (r.bridge) for (const e of [r.pts[0], r.pts[r.pts.length - 1]]) near(e[0], e[1], RAIL_END, (k) => { if (h[k] > 0 && lock[k] !== 2) { h[k] = 0; railNodes++; } });
       console.log('landmark pads on the plain:', pads, 'places,', padNodes, 'nodes held level | road bridge landings:', landings, 'nodes | rail bridge landings:', railNodes, 'nodes at the floor');
+    }
+    // Walled precincts laid out on one level (#73's rule, for a place too wide or too high for a 60 m pad). Đàn Nam
+    // Giao stands on the brow of a low rise, but the esplanade and its wood are a terrace levelled in 1806: the
+    // lowest tier is 0.84 m above near-level ground on every side, and the raster's smoothed knoll under it (4 m
+    // higher under the altar than on the west, the pine canopy read as ground on the north) put a grassed bank round
+    // the tier and sank the trees. So the nodes inside the precinct, squared to its frame (centre, turn off the
+    // compass, u east-north-east, v south-south-east, in metres; src/landmarks/places/<id>.js), are held at the
+    // median of the ring of nodes just outside it, and the ground meets the streets round it where it did before.
+    {
+      const PRECINCTS = [{ id: 'namgiao', c: [-676.2, 3455.6], turn: 13.1, u: [-136, 136], v: [-142, 257], ring: 40 }];
+      for (const pr of PRECINCTS) {
+        const t = (pr.turn * Math.PI) / 180, cs = Math.cos(t), sn = Math.sin(t);
+        const inside = [], ring = [];
+        for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+          const dx = GX0 + i * STEP - pr.c[0], dz = GZ0 + j * STEP - pr.c[1];
+          const u = dx * cs - dz * sn, v = dx * sn + dz * cs;
+          const out = Math.max(pr.u[0] - u, u - pr.u[1], pr.v[0] - v, v - pr.v[1]);
+          if (out <= 0) inside.push(j * nx + i); else if (out <= pr.ring) ring.push(j * nx + i);
+        }
+        const free = inside.filter((k) => !lock[k]), vals = ring.map((k) => h[k]).sort((a, b) => a - b);
+        if (!free.length || !vals.length) continue;
+        const lv = vals[vals.length >> 1], was = free.map((k) => h[k]);
+        for (const k of free) h[k] = lv;
+        console.log('precinct', pr.id, 'held at', lv.toFixed(2), 'm:', free.length, 'nodes (they read', Math.min(...was).toFixed(1), '…', Math.max(...was).toFixed(1), '; the ring', vals[0].toFixed(1), '…', vals[vals.length - 1].toFixed(1) + ')');
+      }
     }
     // the drawn ground (city floor + grid, on the client's triangles) against the laser, the same bins as above
     if (lidar) {

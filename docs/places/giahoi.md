@@ -45,3 +45,21 @@ Model: `src/landmarks/places/giahoi.js` (new). Guard: `src/geo/city.js` `buildRo
 - Check against a photo of today's bridge: the span count, pier form, railing pattern and colour, and whether it has decorative lamps.
 - On the west approach a tree from `populate` stands on the deck. That deck is under 0.7 m above the ground, so the cover test there does not keep trees off. This happened before this change too.
 - The balustrade runs about 20 m over land on the west side, because the OSM bridge ways extend that far.
+
+## Street View rebuild (Nov 2026)
+Reference: Google satellite and Street View car panoramas (on the deck, Chi Lăng, Bạch Đằng), visual reference only.
+- Alignment: deck outline and axis match the satellite (axis about 49-50°); no data change needed.
+- Balustrade now openwork panels between capped pilasters about 3 m apart (was two rails on posts 2.2 m apart).
+- NW parapet continues as a curved wing onto the Chi Lăng quay; five-globe bronze lamps at the deck corners, one at the wing's end.
+- Twin-arm median lights; concrete separator blocks on the NW carriageway.
+- Piers are bents of square columns under a cap beam (were wall piers with cutwaters); a water main hangs along the NW side.
+- Not modelled: the segmental arch through the SW abutment over the quay walk and the sloping approach wall (needs a deck profile change in `geo/bridges.js`). The real water is lower with reed banks, so the real deck shows more clearance.
+
+## Review fixes (Nov 2026)
+- Deck profile: `'Cầu Gia Hội'` in `geo/bridges.js` goes from a 2.0 m hump to a 0.5 m crown, so the deck reads as the long level girder line seen from Chi Lăng, Trịnh Công Sơn and Bạch Đằng. The earlier "visibly humped" note is superseded by the car panoramas.
+- Water under the deck: the canal is part of the river sheet (y 0), not a pond. The abutments, bents and soffit now go down to y 0 instead of `waterY` (POND_Y, 1.3 m too high). The deck stands about 2.6 m over the water at the banks, and the columns read as full-height bents over a dark void.
+- Under-deck: the edge beams sit flush with the fascia's foot, and the water main is smaller and tucked under it, so neither reads as a separate arch rib. The soffit is darker.
+- SW abutment: the segmental arch over the quay walk is drawn as a dark opening on the abutment's outer faces. The sloping approach wall is still not drawn.
+- Lamps: a new `lit` field in `geo/bridges.js` (`ownLit`) keeps generic lamps and glows 5 m clear of a bridge that has its own lamps. This covers `life.js` posts, `city.js` glows and `riverlights.js` embankment posts. Gia Hội's bronze lamps and median lights now carry their own night glows.
+- Chi Lăng corner: the NW wing runs on for 45 m. The first 13 m use the bridge's openwork panels; the rest is the Bạch Đằng quay balustrade (turned balusters between square posts), with a red-tiled footway behind it.
+- Remaining: the real quay walls look closer to 3 m than 2.6 m (`LAND_Y` is city-wide); the panel scrollwork is simplified; the corner trees and the SE-bank kiosk are generic or missing.

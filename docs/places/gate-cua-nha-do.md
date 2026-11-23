@@ -27,25 +27,48 @@ generic `replaced('gate:' + name)` guard.
   - elsewhere the wall is 20 m thick.
 
 ## Model
-- A brick block the full depth of the rampart: 14.7 m through the wall × 17.7 m along it.
-- One round-arched passage, 4.2 × 5.4 m. It uses `CITADEL_PASSAGE`, so it matches the slot that `kinhthanh.js` cuts.
-- A lime-plaster surround and keystone on each mouth.
-- A framed name panel with three characters on each face.
-- Weathering as on the rampart: a damp foot, streaks and relaid patches.
-- A terrace 0.8 m above the walk, with a cornice and a crenellated parapet.
-- A vọng lâu built with the shared `pavilion()`:
-  - two storeys, with an open colonnade lacquered red;
-  - two tiers of yellow-glazed roof;
-  - a fire pearl with curls at the ends of the ridge.
-- The ridge stands about 16.4 m above the ground.
+- Rebuilt from street-level photographs taken from the causeway (matched views; Google Street View used only as a
+  visual reference, nothing copied). Plan, centre and axis checked against the satellite: within about 2 m and 1°,
+  so the OSM outline is kept.
+- A bare red-brown brick block the full depth of the rampart: 14.7 m through the wall × 17.7 m along it, with shallow
+  corner pilasters under lime capitals.
+- One round-arched passage, 4.0 m wide with its crown at 4.8 m (the photographs show it narrower and lower than the
+  shared `CITADEL_PASSAGE`, 4.2 × 5.4 m; the rampart slot is unchanged). Brick voussoirs, no plaster surround,
+  inside a raised brick frame (6.4 × 6.2 m, 0.35 m proud, its piers running from the ground) under a grey lime lintel.
+- The name tablet between the frame and the cornice, on each face: grey stone set flush in the brick with a thin pale
+  border, three dark characters drawn as strokes.
+- Weathering: a damp foot, grey streaks, relaid patches.
+- A dark grey weathered-lime cornice at 8.0 m and a low panelled balustrade (0.6 m, posts 0.74 m) with recessed panels
+  and capped posts, not crenellations.
+- The brick takes the rampart's own colour (`kinhthanh.js`): in the photographs the block and the wall either side are
+  the same weathered red-brown brick.
+- The vọng lâu is masonry, lime-plastered:
+  - lower storey 9.6 × 7.0 m, 4.2 m high, three brick-ringed arches front and back (2.3 m central, 1.5 m sides),
+    one on each end;
+  - a shallow tiled skirt (0.7 m rise, 0.3 m overhang) round a flat deck with a balustrade;
+  - an upper storey 4.6 × 3.6 m with one arch on each long face;
+  - a small shallow tiled hip roof, and a flagstaff; ridge about 17 m over the ground;
+  - both roofs are straight hips of pale yellow-grey tiles with a thin light eave and no dark soffit, white hip ridges
+    and only a small curled end at each corner (drawn in the place file, not `hip()`'s đầu đao horns, which are much
+    larger than the real ones).
 
 ## Estimates
-- These have no measured drawings and follow the sibling gates and the gate convention in `citadel.js`:
-  - the vọng lâu footprint (11.2 × 7.4 m);
-  - the roof colour;
-  - the terrace and parapet heights;
-  - the size of the name panel.
+- All heights and the tower's size are photogrammetric estimates from the matched causeway photographs (scaled from
+  the 17.7 m OSM width); the tower's depth is not visible from the street and is estimated.
+- The sibling gates' documented "about 16 m in all" (`docs/heights-reference.json`) is a little lower than this
+  gate's estimated 17 m ridge; no height is recorded for this gate.
 - I found no source on how closely the post-1953 rebuild follows the original.
+
+## Known differences (shared code, not this file)
+- The rampart either side reads as high as the block's cornice from the causeway. Measured on the near car pano
+  (scale from the 4.0 m passage): real wall top about 6.1 m over the ground, cornice 8.2 m. The model's wall is
+  `WALL_H` 6.6 m plus `kinhthanh.js`'s estimated 1.1 m outer parapet = 7.7 m, against the block's 8.0 m cornice.
+- The Nguyễn Trãi bridge is about 16 m wide in the model against about 4.3 m (one lane between stone parapets), and its
+  paving runs to the gate where the real approach crosses a grass berm.
+- From Ông Ích Khiêm the rampart's inner face is one sheer brick wall at the kerb; the photographs show a low retaining
+  wall with the rampart stepping back in grassed tiers, and short wing walls with capped piers at the passage.
+- The model sits about 2.3 m west-south-west of the gate along the wall in both car panos (inside tolerance). The OSM
+  outline, the gate node, the road and the bridge all agree with each other, so the block is not moved on its own.
 
 ## Left out
 - The bridge stays with the generic bridge code (`bridges.js`, 'Cầu Nhà Đồ' rise 1.0); it is a modern road bridge.

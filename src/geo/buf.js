@@ -164,6 +164,7 @@ export class Buf {
   // With flare the roof is the curved Huế form: each slope is a concave profile (steep at the ridge, shallow at the
   // eave), the eave line sags in the middle of each side and lifts toward the four corners (mái đao), and with hips
   // the corner ridges end in upturned horns (đầu đao) and the main ridge in raised ends (kìm nóc).
+  // tip: scale of the plain corner stub drawn when there are no horns (1 default, 0 none, 0.4 a small ornament).
   // segs: rows from eave to ridge. Default 1 without flare (the plain pyramid-hip), 2 with flare (about the old
   // cost; mapped houses use this), 3 for decorated palace roofs (flare + hips). Landmarks ask for 4.
   // clip: { u0, u1, v0, v1 }, any of them, in metres from the centre along w (u) and d (v): the roof is cut back to
@@ -203,14 +204,14 @@ export class Buf {
     }
     // a model's roofs, for the mapped buildings to keep clear of (city.js populate)
     if (this.roofs) this.roofs.push({ cx, cz, w, d, ang, y0, h, over: opts.over || 0 });
-    let { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false, segs = null, horns = null, clip = null } = opts;
+    let { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false, segs = null, horns = null, tip = 1, clip = null, ridge = null } = opts;
     const wallW = w, wallD = d;
     w += over * 2; d += over * 2;
     const keep = this.kind;
     this.kind = glazed ? KIND.GLAZED : KIND.TILE;
     const ux = Math.cos(ang), uz = Math.sin(ang);
     const P = (u, v, y) => [cx + u * ux - v * uz, y, cz + u * uz + v * ux];
-    const { hw, hd, rl, rows, cols, gamma, pow } = hipShape(w, d, flare, hips, ridgeCol, segs);
+    const { hw, hd, rl, rows, cols, gamma, pow } = hipShape(w, d, flare, hips, ridgeCol, segs, ridge);
     // the cut: half-planes a·(u, v) <= k in the roof's own plan
     const planes = [];
     if (clip) {
@@ -331,8 +332,8 @@ export class Buf {
           const tip = [m[0] + dx * t * 1.1, m[1] + t * 1.9, m[2] + dz * t * 1.1];
           this.beam(e, m, t * 0.7, t * 0.85, ridgeCol);
           this.beam(m, tip, t * 0.5, t * 0.6, ridgeCol);
-        } else {
-          this.beam(e, [e[0] + dx * t * 2.2, e[1] + t * 1.9, e[2] + dz * t * 2.2], t * 0.6, t * 0.7, ridgeCol);
+        } else if (tip > 0) {
+          this.beam(e, [e[0] + dx * t * 2.2 * tip, e[1] + t * 1.9 * tip, e[2] + dz * t * 2.2 * tip], t * 0.6, t * 0.7, ridgeCol);
         }
       }
     }
@@ -456,9 +457,11 @@ function roofSite() {
 // ---- hip roofs that meet ----
 // The proportions Buf.hip() gives a roof of plan w × d (overhang included): half sizes, half ridge length, rows and
 // columns of the mesh, the concavity of the slope (gamma) and the exponent of the corner lift.
-export function hipShape(w, d, flare = 0, hips = false, ridgeCol = null, segs = null) {
+// ridge: optional ridge half length as a share of the half width (a hip-and-gable roof's long ridge on a near-square
+// plan); left out, the ridge is what the plan leaves once the hips take 0.92 of the half depth.
+export function hipShape(w, d, flare = 0, hips = false, ridgeCol = null, segs = null, ridge = null) {
   const hw = w / 2, hd = d / 2;
-  const rl = Math.max(0, hw - hd * 0.92);
+  const rl = ridge == null ? Math.max(0, hw - hd * 0.92) : Math.max(0, Math.min(0.95, ridge)) * hw;
   const rows = Math.max(1, Math.round(segs ?? (flare > 0 && hips && ridgeCol ? 2 : 1)));
   const cols = flare > 0 ? (rows <= 2 ? 2 : rows + 2) : 1;
   const gamma = flare > 0 && rows > 1 ? 1 + Math.min(0.8, flare * 1.25) : 1;
@@ -481,7 +484,7 @@ export function joinRoofs(roofs) {
   const gutters = [];
   const fr = roofs.map((r) => {
     const ux = Math.cos(r.ang), uz = Math.sin(r.ang), over = r.over || 0;
-    const sh = hipShape(r.w + over * 2, r.d + over * 2, r.flare || 0, !!r.hips, r.ridgeCol || null, r.segs ?? null);
+    const sh = hipShape(r.w + over * 2, r.d + over * 2, r.flare || 0, !!r.hips, r.ridgeCol || null, r.segs ?? null, r.opts?.ridge ?? r.ridge ?? null);
     return { ...r, over, ux, uz, sh, R: Math.hypot(r.w, r.d) / 2 + over };
   });
   // the edge a cut leaves on roof r: its height, and the half length of the level stretch (centred on the roof's own

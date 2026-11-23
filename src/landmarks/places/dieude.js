@@ -3,21 +3,24 @@ import { KIND, Buf, hex, shade, inRing } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { glowPoints, lightMaterial } from '../../geo/materials.js';
-import { fence, yard, roadsNear, buildingsNear, FENCE } from '../enclosure.js';
+import { fence, roadsNear, FENCE } from '../enclosure.js';
 
 // Quốc tự Diệu Đế, 102 Bạch Đằng, on the east bank of the Đông Ba canal facing the Citadel (founded 1844 by Thiệu Trị
 // on his birthplace; most rows pulled down 1887; rebuilt smaller 1953; restoration from 2018, when the 350 m² main
 // hall was moved back about 19 m). See docs/places/dieude.md for sources and what is estimated.
 //
+//
 // The plan is read in a frame on the axis: a = metres from the entrance (OSM node 7199615582, where the axis footway
 // 257257955 from Bạch Đằng meets the gate) back toward the hall (north-east), b = metres across (+b south-east,
-// toward the lane Chùa Ông). The precinct is the whole block between Bạch Đằng (a ≈ -10.6), the lanes Diệu Đế
-// (b ≈ -50) and Chùa Ông (b ≈ +46) and Tô Hiến Thành (a ≈ 123): about 1.1 ha, the "over 10,000 m²" of the sources.
-// OSM maps the hall block (way 771244228: a 61-86, b ±14) and a long range on the north-west side of the court
-// (way 771244225: a 6-43, b -32 … -42). The gate with its upper storey, the octagonal bell and drum towers either
-// side of it, the hexagonal bell and stele pavilions in the court, and the Đại Giác hall (three bays and two lean-to
-// bays, five doors, ngói liệt tiles, twin dragons facing the moon on the ridge) follow the written descriptions.
-
+// toward Diệu Đế). The precinct is the whole block between Bạch Đằng (a ≈ -10.6), Ngự Viên (b ≈ -50), Diệu Đế
+// (b ≈ +46) and Tô Hiến Thành (a ≈ 123-127): about 1.1 ha, the "over 10,000 m²" of the sources. OSM maps the hall
+// block (way 771244228: a 61-86, b ±14) and three roofs at the back of the block (the pagoda's own ranges: a
+// double-roofed house in the north corner, a house in the south-east corner and a long range on Tô Hiến Thành),
+// which this file draws itself, with the brown tiles the satellite and street views show. The gate with its upper
+// storey, the octagonal bell and drum towers either side of it, the hexagonal bell and stele pavilions in the court,
+// and the Đại Giác hall (three bays and two lean-to bays, five doors, ngói liệt tiles, twin dragons facing the moon on
+// the ridge) follow the written descriptions; the hall's roof plan, the two small pavilions, the grove and the brick
+// wall with its second entrance on Bạch Đằng follow the satellite and street views.
 export const id = 'dieude';
 
 const ANG = Math.atan2(-0.57775, 0.81621); // axis, gate → hall (bearing about 55°, the gate faces south-west)
@@ -31,6 +34,30 @@ const yellow = hex('#e2c271'), yellowD = hex('#c9a65a'), tile = hex('#9d4a33'), 
 const lacq = hex('#9e3426'), door = hex('#5b2a1d'), dark = hex('#2a211d'), stone = hex('#a49d8e'), stoneL = hex('#c2baa8');
 const pave = hex('#c6bba3'), walk = hex('#ad9c80'), lawn = hex('#7f9752'), bronze = hex('#5d4a2c'), leaf = hex('#4f7337'), leafD = hex('#3f5f2d');
 const bark = hex('#5a4634'), mosaic = hex('#5f9a8a');
+const brown = hex('#6b4535'), brownD = hex('#553729'), redTile = hex('#a9503a'), lime = hex('#d8ccb2'), iron = hex('#80796e');
+const moss = hex('#56603f'), verge = hex('#6c8a47'), grey = hex('#9b988f'), greyL = hex('#b3afa5'), screen = hex('#9b3a2c');
+// the precinct wall: old brick, weathered, under a low coping (Street View)
+const WALL = { ...FENCE.pagoda, h: 2.4, plinth: 2.4, every: 5.0, postW: 0.44, postUp: -0.1, wall: hex('#6a4a3c'), cap: hex('#5e564c'), pierW: 1.0, pierUp: 1.3, t: 0.42 };
+// on Tô Hiến Thành, in front of the long range, the wall is lower brick under a red-painted screen (Street View)
+const BACK = { ...WALL, rail: true, plinth: 1.25, h: 2.45, iron: screen, postW: 0.45 };
+
+// the wall line in the frame, set from the satellite and the street views: along Bạch Đằng about 7 m in from the kerb
+// (a footpath and a grass verge before it), along Ngự Viên about 5.5 m in, along Diệu Đế 1-2 m in, and along Tô
+// Hiến Thành about 4 m in from the centre line, following the street's slight bend; the east corner is cut back
+// where Tô Hiến Thành turns into Diệu Đế
+const A0 = 1, B0 = -41.5, B1 = 42;
+const BACKLINE = [[119.7, B0], [121.54, -15], [122.1, -6.9], [122.52, 15], [122.9, 34.5]];
+const RING = [[A0, B0], ...BACKLINE, [117, B1], [A0, B1]];
+const aBack = (b) => { for (let i = 0; i + 1 < BACKLINE.length; i++) { const [p, q] = [BACKLINE[i], BACKLINE[i + 1]]; if (b <= q[1]) return p[0] + ((q[0] - p[0]) * (b - p[1])) / (q[1] - p[1]); } return 122.9; };
+const segD = (a, b, p, q) => { const dx = q[0] - p[0], db = q[1] - p[1], t = Math.max(0, Math.min(1, ((a - p[0]) * dx + (b - p[1]) * db) / (dx * dx + db * db))); return Math.hypot(a - p[0] - dx * t, b - p[1] - db * t); };
+const ringD = (a, b) => Math.min(...RING.map((p, i) => segD(a, b, p, RING[(i + 1) % RING.length])));
+const inside = (a, b, m = 0) => inRing(a, b, RING) && ringD(a, b) >= m;
+
+// the roofs the court must leave alone, in the frame: [a0, a1, b0, b1] boxes and [a, b, r] discs (eaves included)
+const BOXES = [[-1.6, 3.6, -8.4, 8.4], [61.0, 88.6, -14.6, 14.6], [83.9, 100.2, -41.2, -27.8], [83.9, 102.7, 25.8, 40.8], [101.4, 121.0, -22.5, 21.9]];
+const DISCS = [[8.1, -12.4, 3.9], [8.1, 12.4, 3.9], [30, -15, 3.9], [30, 15, 3.9], [66.5, -19.5, 4.0], [35, -36.6, 4.0], [1, -25, 2.6], [122.2, 0, 3.2]];
+const clearOf = (a, b, r) => BOXES.every(([a0, a1, b0, b1]) => Math.hypot(Math.max(a0 - a, 0, a - a1), Math.max(b0 - b, 0, b - b1)) > r)
+  && DISCS.every(([u, v, R]) => Math.hypot(a - u, b - v) > r + R);
 
 export function build({ data, S, group }) {
   const box = (a, b, y0, y1, la, lb, col, o = {}) => { const q = W(a, b); S.box(q[0], q[1], y0, y1, la, lb, ANG + (o.rot || 0), col, o); };
@@ -39,42 +66,61 @@ export function build({ data, S, group }) {
   const lamps = [];
   const L = new Buf(128); // eave light strips after dark
 
-  // ---- the walls round the block (yellow under a tile coping), set in from the streets; the gate stands in the front
-  const roads = roadsNear(data, W(55, 0), 200), blds = buildingsNear(data, W(55, 0), 120);
-  const Fr = { c: O, f: F, p: P, a: ANG, at: (a, b = 0) => W(a, b) };
-  const Y = yard(Fr, roads, -2.5, 119, -46, 42.5, -2.5, 90, -43, 40, blds);
-  const side = [[25, Y.b0], [25, Y.b1], [96, Y.b0], [96, Y.b1], [Y.a1, 0]]; // side gates onto the lanes and the back street
-  fence(S, Y.ring, FENCE.pagoda, { roads, solid: blds, openings: [[...W(Y.a0, 0), 7.6], ...side.map(([a, b]) => [...W(a, b), 1.4])] });
+  // ---- the walls round the block. Street View (Google, all four streets) shows old brick (gạch vồ) about 2.4 m high,
+  // weathered dark red-brown, with trees leaning over it everywhere, running unbroken along Ngự Viên and Diệu Đế to the
+  // corners; a second entrance between slim grey stone piers with ball finials on Bạch Đằng some 25 m north-west of
+  // the main gate; on Tô Hiến Thành a low brick wall under a red screen and a small gate on the axis, its brick piers
+  // green with moss. The gate itself and the piers drawn below stand in the wall line (solid), so the wall stops at them.
+  const roads = roadsNear(data, W(55, 0), 200);
+  const sq = (a, b, la, lb) => [W(a - la / 2, b - lb / 2), W(a + la / 2, b - lb / 2), W(a + la / 2, b + lb / 2), W(a - la / 2, b + lb / 2)];
+  const sideP = [[A0, -26.75], [A0, -23.25]], backP = [[aBack(-2.1), -2.1], [aBack(2.1), 2.1]];
+  const solid = [sq(1.0, 0, 3.4, 15.2), ...sideP.map(([a, b]) => sq(a, b, 0.7, 0.7)), ...backP.map(([a, b]) => sq(a, b, 1.1, 1.1))];
+  const front = [[122.52, 15], [122.9, 34.5], [117, B1], [A0, B1], [A0, B0], [119.7, B0], [121.54, -15]];
+  fence(S, front.map(([a, b]) => W(a, b)), WALL, { closed: false, roads, solid, openings: [[...W(A0, -25), 1.75]] });
+  fence(S, [[121.54, -15], [122.1, -6.9], [122.52, 15]].map(([a, b]) => W(a, b)), BACK, { closed: false, roads, solid, openings: [[...W(aBack(0), 0), 2.1]] });
+  for (const [a, b] of sideP) stonePier(S, W(a, b));
+  for (const [a, b] of backP) mossPier(S, W(a, b));
 
-  // ---- the court: paved in front of the hall, a garden round and behind it; laid in 4 m cells that keep off the
-  // mapped buildings at the back (monks' quarters), raised a little and marked paved so no infill house or stray
-  // tree lands in the court
+  // ---- the court: under the trees almost everywhere, so mostly beaten earth and lawn; paved only along the axis and
+  // before the hall. Laid in 4 m cells inside the wall that keep off the buildings at the back, raised a little and
+  // marked paved so no infill house or stray tree lands in the court
   const p0 = S.n;
-  const pad = blds.map((r) => r);
-  const hitB = (x, z) => pad.some((r) => inRing(x, z, r));
   const STEP = 4;
-  for (let a = Y.a0 + 0.3; a < Y.a1 - 0.3; a += STEP) for (let b = Y.b0 + 0.3; b < Y.b1 - 0.3; b += STEP) {
-    const a1 = Math.min(a + STEP, Y.a1 - 0.3), b1 = Math.min(b + STEP, Y.b1 - 0.3);
+  const onB = (a, b) => BOXES.slice(2).some(([a0, a1, b0, b1]) => a > a0 + 0.5 && a < a1 - 0.5 && b > b0 + 0.5 && b < b1 - 0.5);
+  for (let a = A0 + 0.3; a < 122.6; a += STEP) for (let b = B0 + 0.3; b < B1 - 0.3; b += STEP) {
+    const a1 = a + STEP, b1 = Math.min(b + STEP, B1 - 0.3);
     const corners = [[a, b], [a1, b], [a1, b1], [a, b1]];
-    if (corners.some(([u, v]) => hitB(...W(u, v))) || hitB(...W((a + a1) / 2, (b + b1) / 2))) continue;
-    const front = (a + a1) / 2 < 59 && Math.abs((b + b1) / 2) < 30;
-    S.kind = front ? KIND.ROAD : KIND.GROUND;
+    if (!corners.every(([u, v]) => inside(u, v, 0.3)) || corners.some(([u, v]) => onB(u, v)) || onB((a + a1) / 2, (b + b1) / 2)) continue;
+    const am = (a + a1) / 2, bm = Math.abs((b + b1) / 2);
+    const paved = (am < 59 && bm < 7) || (am > 45 && am < 59 && bm < 15);
+    S.kind = paved ? KIND.ROAD : KIND.GROUND;
     const v = corners.map(([u, w]) => { const q = W(u, w); return [q[0], gY(q[0], q[1]) + 0.24, q[1]]; });
-    S.quad(v[0], v[3], v[2], v[1], front ? pave : lawn, [0, 1, 0]);
+    S.quad(v[0], v[3], v[2], v[1], paved ? pave : lawn, [0, 1, 0]);
   }
   // the axis walk from the gate to the hall steps, a shade darker
   S.kind = KIND.ROAD;
-  box(29.5, 0, y0 - 0.2, y0 + 0.3, 59, 4.2, walk, { topKind: KIND.ROAD });
+  box(31, 0, y0 - 0.2, y0 + 0.3, 56, 4.2, walk, { topKind: KIND.ROAD });
+  // outside on Bạch Đằng: a grass verge along the foot of the wall between the footpath and the wall (Street View),
+  // a paved path in to the second entrance
+  S.kind = KIND.GROUND;
+  for (const [b0, b1, col] of [[B0 + 0.3, -27.4, verge], [-27.4, -22.6, pave], [-22.6, -8.2, verge], [8.2, B1 - 0.3, verge]]) {
+    const v = [[-2.4, b0], [A0 - 0.3, b0], [A0 - 0.3, b1], [-2.4, b1]].map(([u, w]) => { const q = W(u, w); return [q[0], gY(q[0], q[1]) + 0.16, q[1]]; });
+    S.quad(v[0], v[3], v[2], v[1], col, [0, 1, 0]);
+  }
   S.paved = [...(S.paved || []), [p0, S.n]];
 
   gate(S, box, lamps, L);
-  for (const s of [-1, 1]) tower(S, W(4.6, s * 12.4), lamps);
+  for (const s of [-1, 1]) tower(S, W(8.1, s * 12.4), lamps);
   // the hexagonal pavilions of the court: the great bell (cast 1846) on the left, the stele of 1846 (1.9 m by 1.07 m)
   // on the right, as one faces the hall
   hexPavilion(S, W(30, 15), 'bell', lamps);
   hexPavilion(S, W(30, -15), 'stele', lamps);
   mainHall(S, box, lamps, L);
-  sideRange(S, box, lamps);
+  backRanges(S, box, lamps);
+  // two small roofed pavilions the satellite shows under the trees: one by the wall on Ngự Viên, one at the hall's
+  // west corner, set askew to it
+  smallPavilion(S, box, 35, -36.6, 4.6, 0, true);
+  smallPavilion(S, box, 66.5, -19.5, 4.4, 0.56, false);
   // the bronze incense urn on the axis in front of the hall, and two rows of potted bonsai along the walk
   {
     const q = W(55, 0), g = gY(...q);
@@ -83,15 +129,56 @@ export function build({ data, S, group }) {
     S.kind = KIND.PLAIN;
     S.cyl(q[0], q[1], g + 0.7, g + 1.5, 0.45, 0.6, 8, bronze);
     S.cyl(q[0], q[1], g + 1.5, g + 2.1, 0.5, 0.22, 8, bronze);
-    for (let a = 8; a <= 50; a += 6) for (const s of [-1, 1]) {
+    for (let a = 14; a <= 50; a += 6) for (const s of [-1, 1]) {
       const p = W(a, s * 3.2), h = gY(...p);
       S.cyl(p[0], p[1], h + 0.2, h + 0.75, 0.35, 0.42, 6, hex('#6f5b4a'), { cap: false });
       S.cyl(p[0], p[1], h + 0.75, h + 1.55, 0.6, 0.15, 6, leaf);
     }
   }
-  // shade trees round the court and in the garden behind the hall
-  for (const [a, b, r, h] of [[14, -27, 3.8, 9], [14, 28, 4.2, 10], [46, 30, 3.6, 8.5], [48, -26, 3.4, 8], [92, 0, 4.4, 10.5], [70, -30, 3.4, 8], [70, 31, 3.6, 8.5], [108, 30, 3.8, 9]]) {
-    tree(S, W(a, b), r, h);
+  // the grove: from the air (Google satellite) old trees close over the whole precinct, the hall and the back ranges
+  // the only gaps; from every street their crowns stand over the wall. A jittered 7 m grid of broad crowns (high
+  // enough to clear the walk, the bonsai and the wall), kept off the roofs; under them, along the inside of the wall,
+  // shrubs and young trees that show over it; a banyan on the Bạch Đằng verge
+  {
+    const rnd = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
+    const G = 6;
+    for (let i = 0; A0 + 2 + i * G < 123; i++) for (let j = 0; B0 + 2 + j * G < B1; j++) {
+      const a = A0 + 2.6 + i * G + (rnd(i, j, 1) - 0.5) * 4;
+      const b = B0 + 2.6 + j * G + (rnd(i, j, 2) - 0.5) * 4;
+      let r = 4.4 + rnd(i, j, 3) * 2.2;
+      const h = 11 + rnd(i, j, 4) * 6;
+      if (!inside(a, b, 1.6) || (a < 60 && Math.abs(b) < 4.2)) continue;
+      while (r > 2.6 && !clearOf(a, b, r)) r -= 0.4; // smaller trees in the gaps between the roofs
+      if (!clearOf(a, b, r)) continue;
+      // near the wall the crowns come down to just over it, so the street sees leaves, not trunks
+      tree(S, W(a, b), r, r < 4 ? h * 0.75 : h, ringD(a, b) < r + 2.5 ? 3.0 : null);
+    }
+    // the old trees either side of the walk, their crowns meeting over it
+    for (let a = 15; a <= 52; a += 6.5) for (const sb of [-1, 1]) {
+      const b = sb * (5.4 + rnd(a, sb, 6) * 1.2);
+      let r = 5.2;
+      while (r > 2.6 && !clearOf(a, b, r)) r -= 0.4;
+      if (clearOf(a, b, r)) tree(S, W(a, b), r, 12 + rnd(a, sb, 7) * 4);
+    }
+    // the understorey along the wall
+    const edge = [[A0, B0], ...BACKLINE, [117, B1], [A0, B1], [A0, B0]];
+    let k = 0;
+    for (let i = 0; i + 1 < edge.length; i++) {
+      const [p, q] = [edge[i], edge[i + 1]], len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      for (let s = 1.6; s < len - 1.6; s += 2.8, k++) for (const row of [0, 3.6]) {
+        const t = s / len, r = 1.3 + rnd(k, row, 1) * 0.8, h = 3.4 + rnd(k, row, 2) * 1.8;
+        // step in toward the middle of the block, clear of the wall; a second row behind
+        const am = p[0] + (q[0] - p[0]) * t, bm = p[1] + (q[1] - p[1]) * t;
+        const da = 60 - am, db = 0 - bm, dl = Math.hypot(da, db), nb = [-(q[1] - p[1]) / len, (q[0] - p[0]) / len];
+        const sgn = nb[0] * da + nb[1] * db > 0 ? 1 : -1, a = am + sgn * nb[0] * (r + 1.0 + row), b = bm + sgn * nb[1] * (r + 1.0 + row);
+        if (!dl || rnd(k, row, 3) < 0.1 || !inside(a, b, r + 0.6) || !clearOf(a, b, r + 0.3) || (a < 6 && Math.abs(b) < 10)) continue;
+        shrub(S, W(a, b), r, h);
+      }
+    }
+    // young trees close behind the wall either side of the second entrance and before the towers, low-crowned,
+    // that hide the court from Bạch Đằng
+    for (const [a, b] of [[4.6, -19.5], [4.4, -31.5], [4.6, 19.5], [4.4, 30]]) if (clearOf(a, b, 3.3)) tree(S, W(a, b), 3.3, 10, 3.0);
+    banyan(S, W(-1.7, -16.5), 6.6, 15);
   }
   S.kind = KIND.PLAIN;
   S.base = 0;
@@ -108,7 +195,7 @@ export function build({ data, S, group }) {
 // ---- the gate on Bạch Đằng (Phượng Môn): three openings in a yellow masonry front, the middle one under a gate
 // storey with its own two-tier roof, small tiled roofs over the side openings
 function gate(S, box, lamps, L) {
-  const a = -2.5, g = gY(...W(a, 0)), y1 = g + 0.3, D = 3.4, Wd = 15.2;
+  const a = 1.0, g = gY(...W(a, 0)), y1 = g + 0.3, D = 3.4, Wd = 15.2;
   S.base = g - LAND_Y;
   S.kind = KIND.MASONRY;
   box(a, 0, g - 0.3, y1, D + 1.2, Wd + 0.6, stone, { topKind: KIND.ROAD });
@@ -201,91 +288,184 @@ function hexPavilion(S, c, what, lamps) {
   lamps.push([c, g + 3.2, [1, 0.5, 0.26]]);
 }
 
-// ---- Đại Giác hall: three bays and two lean-to bays (21 m by 16.5 m, about the 350 m² the sources give) on a stone
-// base, a verandah of six lacquered columns before five doors, under a two-tier roof of ngói liệt with twin dragons
-// facing the moon on the ridge; the meditation halls on both sides and a rear range fill the rest of the mapped block
+// ---- Đại Giác hall: three bays and two lean-to bays (3 gian 2 chái) on a stone base. The plan follows the roof as
+// the satellite shows it (Google, 2026): a front house (tiền đường) under its own hipped roof, ridge across the axis
+// at a ≈ 67.4, joined in a valley gutter to the main house (chánh điện) behind, whose two-tier roof has its upper
+// ridge at a ≈ 76.9 (about 14 m long, the hips running out to the corners) and a lower tier showing as a narrow band
+// down both sides and a wider one across the back. The whole roof is about 26 m across and 26 m deep, eaves
+// included; walls a 62.8-86.8, b ±12.9 (the OSM outline, way 771244228, is a 61-86: the roofs put it about 1 m
+// further back). A verandah of six lacquered columns before five doors; ngói liệt tiles; twin dragons facing the
+// moon on the upper ridge. No street view reaches the hall, so its heights, colours and fronts stay estimated.
 function mainHall(S, box, lamps, L) {
-  const a0 = 62, a1 = 78.5, Wd = 21, c = (a0 + a1) / 2, ac = W(c, 0);
+  const a0 = 62.8, a1 = 86.8, aj = 72.0, hb = 12.9; // front, back, the line between front and main house, half width
   let gmax = -1e9;
-  for (const [a, b] of [[a0, -10], [a0, 10], [a1, -10], [a1, 10], [c, 0]]) gmax = Math.max(gmax, gY(...W(a, b)));
+  for (const [a, b] of [[a0, -hb], [a0, hb], [a1, -hb], [a1, hb], [(a0 + a1) / 2, 0]]) gmax = Math.max(gmax, gY(...W(a, b)));
   const g = gmax, yb = g + 0.8; // floor on its stone base
   S.base = g - LAND_Y;
   S.kind = KIND.MASONRY;
-  box(c, 0, g - 0.4, yb, a1 - a0 + 1.6, Wd + 1.6, stone, { top: stoneL, topKind: KIND.ROAD });
+  box((a0 + a1) / 2, 0, g - 0.4, yb, a1 - a0 + 1.2, 2 * hb + 1.2, stone, { top: stoneL, topKind: KIND.ROAD });
   // steps up the front, the full width of the three middle bays
   S.kind = KIND.ROAD;
-  for (let i = 0; i < 4; i++) box(a0 - 0.8 - 0.35 * (4 - i) + 0.175, 0, g - 0.2, g + 0.2 * (i + 1), 0.35, 12.4 - i * 0.2, stoneL);
-  // the closed hall behind the verandah
+  for (let i = 0; i < 4; i++) box(a0 - 0.6 - 0.35 * (4 - i) + 0.175, 0, g - 0.2, g + 0.2 * (i + 1), 0.35, 12.4 - i * 0.2, stoneL);
+  // the closed hall behind the verandah (front and main house are one room inside)
+  const af = a0 + 2.2; // the door wall
   S.kind = KIND.CIVIC;
-  box((a0 + 2.6 + a1) / 2, 0, yb, yb + 4.3, a1 - a0 - 2.6, Wd - 0.4, yellow, { top: tileD });
+  box((af + a1) / 2, 0, yb, yb + 4.3, a1 - af, 2 * hb, yellow, { top: tileD });
   S.kind = KIND.PLAIN;
-  // five doors (lacquered leaves, the middle one wider) and the board "Diệu Đế Quốc Tự" over it
-  for (const [b, w] of [[-8.0, 2.0], [-4.2, 2.2], [0, 2.8], [4.2, 2.2], [8.0, 2.0]]) {
-    box(a0 + 2.58, b, yb, yb + 3.0, 0.06, w, door);
-    box(a0 + 2.56, b, yb + 3.0, yb + 3.2, 0.06, w + 0.3, trim);
+  // five doors, one to a bay (the middle one wider), and the board "Diệu Đế Quốc Tự" over the middle
+  for (const [b, w] of [[-10.6, 2.0], [-5.6, 2.4], [0, 2.8], [5.6, 2.4], [10.6, 2.0]]) {
+    box(af - 0.02, b, yb, yb + 3.0, 0.06, w, door);
+    box(af - 0.04, b, yb + 3.0, yb + 3.2, 0.06, w + 0.3, trim);
   }
-  box(a0 + 2.5, 0, yb + 3.35, yb + 3.95, 0.08, 3.4, hex('#3a2a1c'));
-  box(a0 + 2.46, 0, yb + 3.42, yb + 3.88, 0.06, 3.0, hex('#d8b14a'));
-  // the verandah: six columns on the front, a beam along their heads
+  box(af - 0.1, 0, yb + 3.35, yb + 3.95, 0.08, 3.4, hex('#3a2a1c'));
+  box(af - 0.14, 0, yb + 3.42, yb + 3.88, 0.06, 3.0, hex('#d8b14a'));
+  // the verandah: six columns on the front (bays of 4, 5.6, 5.6, 5.6, 4 m), a beam along their heads
   S.kind = KIND.TIMBER;
-  const cols = [-10, -6, -2.1, 2.1, 6, 10];
-  for (const b of cols) { const q = W(a0 + 0.5, b); S.cyl(q[0], q[1], yb, yb + 4.1, 0.24, 0.22, 8, lacq, { cap: false }); }
+  const cols = [-12.4, -8.4, -2.8, 2.8, 8.4, 12.4];
+  for (const b of cols) { const q = W(a0 + 0.4, b); S.cyl(q[0], q[1], yb, yb + 4.1, 0.24, 0.22, 8, lacq, { cap: false }); }
   S.kind = KIND.PLAIN;
-  { const p = W(a0 + 0.5, -10.3), q = W(a0 + 0.5, 10.3); S.beam([p[0], yb + 4.1, p[1]], [q[0], yb + 4.1, q[1]], 0.3, 0.36, lacq); }
-  box(a0 + 1.55, 0, yb + 4.0, yb + 4.3, 2.1, Wd, shade(yellow, 0.5), { bottom: true }); // verandah ceiling
-  // the roof: a broad lower tier over the whole hall, a short clerestory, and the upper tier
+  { const p = W(a0 + 0.4, -12.7), q = W(a0 + 0.4, 12.7); S.beam([p[0], yb + 4.1, p[1]], [q[0], yb + 4.1, q[1]], 0.3, 0.36, lacq); }
+  box((a0 + af) / 2, 0, yb + 4.0, yb + 4.3, af - a0, 2 * hb, shade(yellow, 0.5), { bottom: true }); // verandah ceiling
   const yr = yb + 4.3;
-  S.hip(ac[0], ac[1], Wd, a1 - a0, ACROSS, yr, 1.7, tile, { flare: 0.5, over: 1.3, fascia: 0.22, fasciaCol: trim, hips: true, segs: 3 });
+  // the front house's roof, ridge across the axis
+  const fc = W((a0 + aj) / 2, 0);
+  S.hip(fc[0], fc[1], 2 * hb, aj - a0, ACROSS, yr, 2.6, tile, { flare: 0.5, over: 1.1, fascia: 0.22, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 3 });
+  ridgeOrnament(S, W((a0 + aj) / 2, 0), yr + 2.65, 4.2, 0.55);
+  // the main house: the lower tier over its whole plan (meets the front roof in a valley), a short clerestory, the
+  // upper tier
+  const mc = W((aj + a1) / 2, 0);
+  S.hip(mc[0], mc[1], 2 * hb, a1 - aj, ACROSS, yr, 1.4, tile, { flare: 0.45, over: 1.1, fascia: 0.22, fasciaCol: trim, hips: true, segs: 3 });
+  const u0 = 72.3, u1 = 81.5, uh = 11.5, uc = (u0 + u1) / 2, yu = yr + 1.6;
   S.kind = KIND.CIVIC;
-  box(c + 0.4, 0, yr + 0.9, yr + 2.0, 9.6, 14.6, yellowD, { top: tileD });
+  box(uc, 0, yr + 0.3, yu, u1 - u0, 2 * uh, yellowD, { top: tileD });
   S.kind = KIND.PLAIN;
-  S.hip(ac[0] + F[0] * 0.4, ac[1] + F[1] * 0.4, 15.4, 10.2, ACROSS, yr + 2.0, 2.4, tile, { flare: 0.55, over: 1.1, fascia: 0.2, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 4 });
-  ridgeOrnament(S, W(c + 0.4, 0), yr + 4.45, 5.4, 0.7);
+  const q = W(uc, 0);
+  S.hip(q[0], q[1], 2 * uh, u1 - u0, ACROSS, yu, 2.6, tile, { flare: 0.55, over: 1.4, fascia: 0.2, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 4 });
+  ridgeOrnament(S, W(uc, 0), yu + 2.65, 5.4, 0.7);
   // eave lights and lanterns along the verandah
-  for (const [a, hb, yy] of [[a0 - 0.9, 11.6, yr - 0.35], [c + 0.4 - 5.1 - 0.8, 8.0, yr + 1.85]]) {
-    const p = W(a, -hb), q = W(a, hb);
-    L.beam([p[0], yy, p[1]], [q[0], yy, q[1]], 0.12, 0.12, [1, 1, 1]);
+  for (const [a, h, yy] of [[a0 - 1.0, hb + 1.0, yr - 0.35], [u0 - 1.3, uh + 1.2, yu - 0.15]]) {
+    const p = W(a, -h), r = W(a, h);
+    L.beam([p[0], yy, p[1]], [r[0], yy, r[1]], 0.12, 0.12, [1, 1, 1]);
   }
-  for (const b of [-8, -4.1, 0, 4.1, 8]) lamps.push([W(a0 + 0.2, b), yb + 3.5, [1, 0.42, 0.22]]);
-
-  // the meditation halls (thiền đường) on both sides and the rear range, lower, within the mapped outline
-  for (const s of [-1, 1]) {
-    const b = s * 12.6, q = W(73.5, b), gg = gY(...q);
-    S.kind = KIND.MASONRY;
-    box(73.5, b, gg - 0.3, gg + 0.5, 25, 3.4, stone, { topKind: KIND.ROAD });
-    S.kind = KIND.CIVIC;
-    box(73.5, b, gg + 0.5, gg + 3.6, 24, 2.6, yellow, { top: tileD });
-    S.kind = KIND.PLAIN;
-    for (let a = 64; a <= 84; a += 4) box(a, b + s * 1.31, gg + 0.5, gg + 2.6, 1.3, 0.06, door);
-    S.hip(q[0], q[1], 24, 2.6, ANG, gg + 3.6, 1.2, tile, { flare: 0.3, over: 0.7, fascia: 0.16, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 2 });
-  }
-  {
-    const q = W(82.6, 0), gg = gY(...q);
-    S.kind = KIND.CIVIC;
-    box(82.6, 0, gg, gg + 3.8, 6.2, 20.4, yellow, { top: tileD });
-    S.kind = KIND.PLAIN;
-    S.hip(q[0], q[1], 20.4, 6.2, ACROSS, gg + 3.8, 1.6, tile, { flare: 0.3, over: 0.8, fascia: 0.16, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 2 });
-  }
+  for (const b of [-10.6, -5.6, 0, 5.6, 10.6]) lamps.push([W(a0 + 0.2, b), yb + 3.5, [1, 0.42, 0.22]]);
 }
 
-// ---- the long range on the north-west side of the court (OSM way 771244225, 37.5 m by 9.4 m): one storey, a
-// verandah toward the court
-function sideRange(S, box, lamps) {
-  const ac = 24.5, b = -37.1, q = W(ac, b), g = gY(...q);
+// ---- the pagoda's ranges at the back of the block, all mapped in OSM and all under old brown tiles from the air
+// (Google satellite, 2026). Each is drawn on its outline, so the city leaves its generic house out (city.js drops a
+// mapped building the landmark covers).
+function backRanges(S, box, lamps) {
+  // the north corner, on Ngự Viên: a low house under a double roof, a short upper tier riding on the lower one (from
+  // the street a dark tiled roof behind the wall)
+  tiledHouse(S, box, 84.8, 99.3, -40.2, -28.7, { wallH: 2.9, roofH: 1.5, col: brownD, upper: { inset: 2.6, rise: 1.1, h: 1.7 } });
+  // the south-east corner, on Diệu Đế: one storey under a brown tiled hip
+  tiledHouse(S, box, 84.8, 101.8, 26.7, 39.9, { wallH: 3.0, roofH: 2.1, col: brown });
+  // the long range on Tô Hiến Thành (Street View from the street, satellite): one storey under old tiles with dragons at
+  // the ends and the middle of the ridge; a corrugated-iron sheet laid over the slope toward the street, carried on
+  // down as a lean-to verandah on thin posts; small red-tiled houses at both ends
+  const a0 = 102.4, a1 = 116.4, b0 = -12.8, b1 = 13.1, wallH = 3.0, roofH = 2.3;
+  const { g, yw } = tiledHouse(S, box, a0, a1, b0, b1, { wallH, roofH, col: brown, over: 0.6 });
+  const ac = (a0 + a1) / 2, yr = yw + roofH;
+  ridgeOrnament(S, W(ac, 0), yr - 0.05, 3.2, 0.42);
+  for (const s of [-1, 1]) ridgeOrnament(S, W(ac, s * ((b1 - b0) / 2 - (a1 - a0) / 2 - 0.2) + (b0 + b1) / 2), yr - 0.05, 1.6, 0.3);
+  const V = (a, b, y) => { const q = W(a, b); return [q[0], y, q[1]]; };
+  const sheet = (p, q, r, s, c) => { S.quad(p, q, r, s, c); S.quad(p, s, r, q, c); };
+  S.kind = KIND.PLAIN;
+  const e1 = a1 + 0.9, e2 = 120.3, bs0 = b0 + 0.6, bs1 = b1 - 0.6;
+  sheet(V(ac + 0.3, bs0, yr + 0.12), V(ac + 0.3, bs1, yr + 0.12), V(e1, bs1, yw + 0.05), V(e1, bs0, yw + 0.05), iron);
+  sheet(V(e1, bs0, yw + 0.05), V(e1, bs1, yw + 0.05), V(e2, bs1, yw - 0.75), V(e2, bs0, yw - 0.75), shade(iron, 0.85));
+  S.kind = KIND.MASONRY;
+  box((a1 + e2) / 2 + 0.1, (b0 + b1) / 2, g - 0.2, g + 0.25, e2 - a1 + 0.2, b1 - b0 - 1.2, stone, { topKind: KIND.ROAD });
+  S.kind = KIND.TIMBER;
+  for (let b = bs0 + 0.4; b <= bs1 - 0.39; b += (bs1 - bs0 - 0.8) / 7) { const q = W(e2 - 0.3, b); S.cyl(q[0], q[1], g + 0.25, yw - 0.68, 0.07, 0.07, 6, hex('#5b4a3a'), { cap: false }); }
+  S.kind = KIND.PLAIN;
+  for (const b of [-8, -2.5, 3, 8.5]) box(a1 + 0.02, b, g + 0.35, g + 2.5, 0.06, 1.4, door);
+  // the red-tiled houses at the two ends
+  tiledHouse(S, box, 110.0, 117.0, -21.6, -14.2, { wallH: 2.8, roofH: 1.6, col: redTile });
+  tiledHouse(S, box, 109.0, 119.0, 14.6, 21.0, { wallH: 2.8, roofH: 1.6, col: redTile });
+  for (const b of [-6, 6]) lamps.push([W(e2 - 0.6, b), yw - 1.0, [1, 0.62, 0.36]]);
+}
+
+// a one-storey house on a low plinth under a tiled hip, on the rectangle [a0, a1] x [b0, b1] of the frame; with
+// `upper`, a short clerestory and a second, smaller hip riding on the first
+function tiledHouse(S, box, a0, a1, b0, b1, { wallH = 3, roofH = 2, col = brown, over = 0.7, upper = null } = {}) {
+  let g = -1e9;
+  for (const [a, b] of [[a0, b0], [a0, b1], [a1, b0], [a1, b1]]) g = Math.max(g, gY(...W(a, b)));
+  const ac = (a0 + a1) / 2, bc = (b0 + b1) / 2, la = a1 - a0, lb = b1 - b0, yw = g + 0.35 + wallH;
+  const along = la >= lb, ang = along ? ANG : ACROSS, w = Math.max(la, lb), d = Math.min(la, lb);
   S.base = g - LAND_Y;
   S.kind = KIND.MASONRY;
-  box(ac, b, g - 0.3, g + 0.45, 37.6, 9.4, stone, { topKind: KIND.ROAD });
+  box(ac, bc, g - 0.3, g + 0.35, la + 0.3, lb + 0.3, stone, { topKind: KIND.ROAD });
   S.kind = KIND.CIVIC;
-  box(ac, b - 0.8, g + 0.45, g + 3.5, 36.4, 6.6, yellow, { top: tileD });
+  box(ac, bc, g + 0.35, yw, la, lb, lime, { top: shade(col, 0.8) });
   S.kind = KIND.PLAIN;
-  for (let a = ac - 16; a <= ac + 16.1; a += 4) {
-    box(a, b + 2.52, g + 0.45, g + 2.6, 1.4, 0.06, door);
-    const c = W(a + 2, b + 4.1); S.cyl(c[0], c[1], g + 0.45, g + 3.4, 0.16, 0.15, 6, lacq, { cap: false });
+  // dark doors and windows along the long sides
+  const n = Math.max(2, Math.round(w / 4));
+  for (let i = 0; i < n; i++) {
+    const t = -w / 2 + (w * (i + 0.5)) / n;
+    for (const s of [-1, 1]) {
+      if (along) box(ac + t, bc + s * (lb / 2 + 0.02), g + 0.45, g + 0.45 + (i % 2 ? 1.3 : 2.1), 1.1, 0.06, dark);
+      else box(ac + s * (la / 2 + 0.02), bc + t, g + 0.45, g + 0.45 + (i % 2 ? 1.3 : 2.1), 0.06, 1.1, dark);
+    }
   }
-  S.hip(q[0], q[1], 37.6, 9.0, ANG, g + 3.5, 2.0, tile, { flare: 0.35, over: 0.6, fascia: 0.18, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 2 });
-  for (let a = ac - 14; a <= ac + 14.1; a += 7) lamps.push([W(a, b + 4.4), g + 3.0, [1, 0.62, 0.36]]);
+  const q = W(ac, bc);
+  S.hip(q[0], q[1], w, d, ang, yw, roofH, col, { flare: 0.3, over, fascia: 0.14, fasciaCol: shade(col, 0.75), ridgeCol: shade(col, 1.15), hips: true, segs: 2 });
+  if (upper) {
+    const wu = w - 2 * upper.inset, du = d - 2 * upper.inset, yu = yw + upper.rise;
+    S.kind = KIND.CIVIC;
+    S.box(q[0], q[1], yw + 0.2, yu, wu, du, ang, lime, { top: shade(col, 0.8) });
+    S.kind = KIND.PLAIN;
+    S.hip(q[0], q[1], wu, du, ang, yu, upper.h, col, { flare: 0.3, over: 0.6, fascia: 0.12, fasciaCol: shade(col, 0.75), ridgeCol: shade(col, 1.15), hips: true, segs: 2 });
+  }
+  return { g, yw };
 }
 
+// a small square pavilion under a tiled hip: walled (a little shrine) or open on four columns
+function smallPavilion(S, box, a, b, s, rot, walled) {
+  const q = W(a, b), g = gY(...q), ang = ANG + rot, yw = g + 0.45 + 2.7;
+  S.base = g - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(q[0], q[1], g - 0.25, g + 0.45, s + 0.5, s + 0.5, ang, stone, { top: stoneL, topKind: KIND.ROAD });
+  if (walled) {
+    S.kind = KIND.CIVIC;
+    S.box(q[0], q[1], g + 0.45, yw, s - 0.6, s - 0.6, ang, yellow, { top: tileD });
+    S.kind = KIND.PLAIN;
+    const u = [Math.cos(ang), Math.sin(ang)], v = [-u[1], u[0]], o = (s - 0.6) / 2 + 0.02;
+    S.box(q[0] + v[0] * o, q[1] + v[1] * o, g + 0.45, g + 2.4, 1.2, 0.06, ang, door);
+  } else {
+    S.kind = KIND.TIMBER;
+    for (const [i, j] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      const u = [Math.cos(ang), Math.sin(ang)], v = [-u[1], u[0]], o = s / 2 - 0.3;
+      S.cyl(q[0] + (u[0] * i + v[0] * j) * o, q[1] + (u[1] * i + v[1] * j) * o, g + 0.45, yw, 0.15, 0.13, 6, lacq, { cap: false });
+    }
+    S.kind = KIND.PLAIN;
+  }
+  S.hip(q[0], q[1], s, s, ang, yw, 1.6, tile, { flare: 0.4, over: 0.6, fascia: 0.14, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 2 });
+}
+
+// the second entrance on Bạch Đằng: a slim grey stone pier with a moulded cap and a ball finial (Street View)
+function stonePier(S, c) {
+  const g = gY(...c);
+  S.base = g - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(c[0], c[1], g - 0.3, g + 0.5, 0.7, 0.7, ANG, grey, { top: greyL });
+  S.box(c[0], c[1], g + 0.5, g + 2.9, 0.52, 0.52, ANG, grey, { top: greyL });
+  S.kind = KIND.PLAIN;
+  S.box(c[0], c[1], g + 2.9, g + 3.08, 0.72, 0.72, ANG, greyL);
+  S.box(c[0], c[1], g + 3.08, g + 3.2, 0.4, 0.4, ANG, grey);
+  S.cyl(c[0], c[1], g + 3.2, g + 3.42, 0.12, 0.27, 8, greyL, { cap: false });
+  S.cyl(c[0], c[1], g + 3.42, g + 3.7, 0.27, 0.06, 8, greyL);
+}
+
+// the back gate on Tô Hiến Thành: an old brick pier, its top green with moss
+function mossPier(S, c) {
+  const g = gY(...c);
+  S.base = g - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(c[0], c[1], g - 0.3, g + 2.6, 1.0, 1.0, ANG, shade(WALL.wall, 0.9), { top: moss });
+  S.kind = KIND.PLAIN;
+  S.box(c[0], c[1], g + 2.6, g + 2.85, 1.15, 1.15, ANG, moss);
+  S.box(c[0], c[1], g + 2.85, g + 3.15, 0.6, 0.6, ANG, moss, { taper: 0.5 });
+}
 // a cone-shaped roof over a regular n-gon (octagonal towers, hexagonal pavilions): a concave slope from the eave
 // (radius r0 at y) to radius r1 at y + h, corner ridges in the trim colour ending in upturned tips
 function polyRoof(S, c, n, rot, y, r0, h, r1, col, ridgeCol) {
@@ -321,13 +501,13 @@ function ridgeOrnament(S, c, y, span, k) {
   S.kind = keep;
 }
 
-// a broad shade tree: trunk and three stacked crowns
-function tree(S, c, r, h) {
-  const g = gY(...c);
+// a broad shade tree: trunk and three stacked crowns (lo: the crown's underside, above the ground)
+function tree(S, c, r, h, lo = null) {
+  const g = gY(...c), y1 = lo ?? h * 0.35;
   const keep = S.kind;
   S.kind = KIND.PLAIN;
-  S.cyl(c[0], c[1], g, g + h * 0.45, 0.28, 0.2, 6, bark);
-  S.cyl(c[0], c[1], g + h * 0.35, g + h * 0.6, r * 0.75, r, 7, leafD);
+  S.cyl(c[0], c[1], g, g + Math.max(y1 + 0.5, h * 0.45), 0.28, 0.2, 6, bark);
+  S.cyl(c[0], c[1], g + y1, g + h * 0.6, r * 0.75, r, 7, leafD);
   S.cyl(c[0], c[1], g + h * 0.6, g + h * 0.82, r, r * 0.7, 7, leaf);
   S.cyl(c[0], c[1], g + h * 0.82, g + h, r * 0.7, r * 0.15, 7, leaf);
   S.kind = keep;
@@ -337,4 +517,26 @@ function lightMeshFrom(buf, mat) {
   const mesh = new THREE.Mesh(buf.geometry(), mat);
   mesh.renderOrder = 19;
   return mesh;
+}
+
+// a shrub or young tree under the big crowns: a short trunk and a low, round crown
+function shrub(S, c, r, h) {
+  const g = gY(...c), keep = S.kind;
+  S.kind = KIND.PLAIN;
+  S.cyl(c[0], c[1], g, g + h * 0.35, 0.12, 0.1, 5, bark);
+  S.cyl(c[0], c[1], g + h * 0.25, g + h * 0.6, r * 0.7, r, 7, leafD);
+  S.cyl(c[0], c[1], g + h * 0.6, g + h, r, r * 0.3, 7, leaf);
+  S.kind = keep;
+}
+
+// a banyan (đa): a thick, fluted trunk and a wide, low-spreading crown
+function banyan(S, c, r, h) {
+  const g = gY(...c), keep = S.kind;
+  S.kind = KIND.PLAIN;
+  S.cyl(c[0], c[1], g, g + 1.2, 1.3, 0.8, 8, bark);
+  S.cyl(c[0], c[1], g + 1.2, g + h * 0.42, 0.8, 0.55, 8, bark);
+  S.cyl(c[0], c[1], g + h * 0.34, g + h * 0.58, r * 0.85, r, 9, leafD);
+  S.cyl(c[0], c[1], g + h * 0.58, g + h * 0.82, r, r * 0.75, 9, leaf);
+  S.cyl(c[0], c[1], g + h * 0.82, g + h, r * 0.75, r * 0.2, 9, leaf);
+  S.kind = keep;
 }
