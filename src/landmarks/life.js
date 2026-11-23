@@ -3,7 +3,7 @@ import { Buf, hex, shade, unflat, inRing, pathLength } from '../geo/buf.js';
 import { cityMaterial, enc, glowPoints } from '../geo/materials.js';
 import { rise, pondY } from '../geo/terrain.js';
 import { LAND_Y, quality, ROAD_W, ROAD_MAX, roadWidth } from '../config.js';
-import { bridgeProfiles, resample } from '../geo/bridges.js';
+import { bridgeProfiles, resample, ownLit } from '../geo/bridges.js';
 import { landTest } from './boats.js';
 import { TT_LENGTH } from './truongtien.js';
 import { replaced } from './places/index.js';
@@ -459,6 +459,7 @@ function buildLampPosts(data, group, out = {}) {
       const { p, a } = along(r.pts, s);
       const side = k % 2 ? 1 : -1, off = (r.w / 2 + 0.5) * side;
       const lx = p[0] - Math.sin(a) * off, lz = p[1] + Math.cos(a) * off;
+      if (ownLit(data, lx, lz)) continue; // a bridge with its own lamps (geo/bridges.js `lit`): no post beside them
       const P = r.bridge && profiles.get(r.flat), up = P ? P.bump(s) : 0; // on a humped deck the post rides the curve
       const glowY = LAND_Y + rise(lx, lz) + (r.bridge ? 8 + up : 7.5);
       const baseY = r.bridge ? Math.max(BRIDGE_TOP, LAND_Y + rise(lx, lz)) + up : LAND_Y + rise(lx, lz);

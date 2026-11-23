@@ -25,9 +25,11 @@ const NAMED = {
   'Cầu Trung Đạo': { own: true },
   // one 8.4 m vault in a 71.7 m masonry dam, 8.05 m high; the deck crowns over the vault (landmarks/places/thuyquan.js)
   'Đông Thành Thủy Quan': { rise: 4.3, ramp: 0.45 },
-  // a humped girder bridge over sông Đông Ba that lands at grade on both banks (landmarks/places/giahoi.js has the
-  // sources and why 2 m): the crown stands over the water, the mapped ways run on at street level past the abutments
-  'Cầu Gia Hội': { rise: 2.0, water: true },
+  // a girder bridge over sông Đông Ba, carried at street level on the ~2.6 m quay walls with only a slight crown
+  // (Street View from Chi Lăng and Bạch Đằng: a long level deck line over a dark void); it lands at grade on both
+  // banks and the mapped ways run on as street past the abutments. It carries its own lamps (`lit`: drawn by
+  // landmarks/places/giahoi.js), so the generic posts and glows keep 5 m clear of it.
+  'Cầu Gia Hội': { rise: 0.5, water: true, lit: 5 },
   'Cầu Cửa Ngăn': { rise: 1.0 }, // its own causeway with balustrades (landmarks/places/gate-cua-ngan.js)
   // 1971 girder bridge: the deck climbs off each bank within ~40 m, then crowns gently (landmarks/places/phuxuan.js)
   'Cầu Phú Xuân': { rise: 4.2, ramp: 0.1 },
@@ -37,6 +39,26 @@ const NAMED = {
   'Cầu Trường Tiền': { rise: 0 },
   'Cầu Nguyễn Hoàng': { rise: 0 },
 };
+// Bridges that carry their own lamps (NAMED `lit`: m around the mapped outline): a generic street lamp (geo/city.js
+// glow, landmarks/life.js post, an embankment post of landmarks/riverlights.js) whose lantern would stand on the deck or within that distance of it is left out, so
+// it does not stand beside the bridge's own lamp standards. True at (x, z) for such a lantern.
+const litCache = new WeakMap();
+export function ownLit(data, x, z) {
+  let rings = litCache.get(data);
+  if (!rings) {
+    rings = (data.bridges || []).filter((q) => q.n && NAMED[q.n] && NAMED[q.n].lit).map((q) => ({ ring: unflat(q.ring), pad: NAMED[q.n].lit }));
+    litCache.set(data, rings);
+  }
+  for (const { ring, pad } of rings) {
+    if (inRing(x, z, ring)) return true;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz;
+      const t = l2 ? clamp(((x - a[0]) * dx + (z - a[1]) * dz) / l2, 0, 1) : 0;
+      if (Math.hypot(a[0] + dx * t - x, a[1] + dz * t - z) < pad) return true;
+    }
+  }
+  return false;
+}
 const RUN_FLAT = 150; // a bridge run longer than this keeps its level deck
 // the street surface over the flat floor (geo/city.js lays carriageways at LAND_Y + 0.05 + 0.01) and the deck's
 // default top at the banks (BRIDGE_TOP in landmarks/life.js): a deck that lands at grade comes down by the difference
