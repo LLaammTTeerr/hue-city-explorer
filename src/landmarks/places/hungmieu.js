@@ -5,6 +5,7 @@ import { fence, FENCE } from '../enclosure.js';
 import { rectRing } from '../../geo/gates.js';
 import { planter, dinh } from '../props.js';
 import { archGate } from '../archgate.js';
+import { ridgeDragons } from '../ornaments.js';
 
 // ---- Hưng Miếu (Hưng Tổ Miếu), the temple of Gia Long's parents, behind Thế Miếu in the Imperial City ----
 //
@@ -105,6 +106,14 @@ export function build({ S, data }) {
   hip(0, -4.0, 17.0, 9.2, yp + 3.3, 1.0, { over: 1.3, flare: 0.35 });
   box(0, -4.0, yp + 3.6, yp + 4.65, 12.6, 5.6, shade(LAC, 0.8));
   hip(0, -4.0, 12.6, 5.6, yp + 4.6, 2.0, { over: 1.0, ridgeCol: RIDGE });
+  ridgeDragons(S, P(0, -4.0), yp + 6.68, ang, { span: 5.2, scale: 0.88 });
+  // cream-white plastered side end walls on the main & front halls (matching restoration photos)
+  S.kind = KIND.PLAIN;
+  for (const s of [-1, 1]) {
+    box(s * 8.54, -4.0, yp, yp + 3.15, 0.12, 8.8, hex('#e2dac8'));
+    box(s * 8.54, 3.8, yp, yp + 2.85, 0.12, 6.0, hex('#e2dac8'));
+  }
+  S.kind = KIND.TIMBER;
   // front house (tiền doanh): 5 bays + 2 chái, its roof carried forward over the free columns on the court
   box(0, 3.8, yp, yp + 3.0, 17.0, 6.4, LAC, { top: shade(TILE, 0.8) });
   hip(0, 4.5, 17.0, 7.8, yp + 3.0, 1.85, { over: 1.25, ridgeCol: RIDGE });

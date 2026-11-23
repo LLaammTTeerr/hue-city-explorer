@@ -67,12 +67,11 @@ export function build({ data, S, group, place }) {
   const y0 = LAND_Y + lo, yTop = LAND_Y + hi + 0.12;
   S.base = lo;
 
-  // Colours as the 2024 car panoramas show them: the 2016-17 yellow has weathered to an ochre-brown, the glazed roofs
-  // have aged dark, the ceramic panels are a deep blue, and the lan can is grey stone with dark pierced panels.
-  const yellow = hex('#b48d52'), yellowD = hex('#977445'), trim = hex('#cbb994'), panel = hex('#a3804c');
-  const roof = hex('#5c4d3f'), ridge = hex('#7d6b52'), slab = hex('#5a4a3e'), tablet = hex('#bdb197'), dark = hex('#3a302a');
-  const pillar = hex('#b99c66'), blue = hex('#41678e'), pave = hex('#cfcabd'), bronze = hex('#9a7e45');
-  const railStone = hex('#a29d92'), railPanel = hex('#55524b');
+  // Weathered limestone-ochre / pale stone finish with deep cobalt-blue ceramic panels and grey stone lan can
+  const yellow = hex('#c9be9e'), yellowD = hex('#aea386'), trim = hex('#ded6c0'), panel = hex('#b8ad90');
+  const roof = hex('#6e5546'), ridge = hex('#947d64'), slab = hex('#685649'), tablet = hex('#cfc6b0'), dark = hex('#3a302a');
+  const pillar = hex('#cbc1a4'), blue = hex('#3c6692'), pave = hex('#d2cdc0'), bronze = hex('#9a7e45');
+  const railStone = hex('#aba69c'), railPanel = hex('#5c5952');
 
   const box = (a, b, ya, yb, da, db, col, o) => { const q = at(a, b); S.box(q[0], q[1], ya, yb, da, db, A, col, o); };
   const hipAt = (a, b, wb, da, y, h, col, o) => { const q = at(a, b); S.hip(q[0], q[1], wb, da, A + Math.PI / 2, y, h, col, o); };

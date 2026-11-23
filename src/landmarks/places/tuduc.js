@@ -62,8 +62,8 @@ const LAKE_Y = LAND_Y + 4.2 + 0.08; // Lưu Khiêm's surface (pond level 4.2 m, 
 
 const C = {
   brick: hex('#6e6253'), brickMoss: hex('#5e6249'), stone: PAL.stone, stoneGrey: hex('#9b978d'), stoneDark: hex('#7c786f'),
-  stucco: hex('#d6cdb6'), lacquer: hex('#86362a'), lacquerOld: hex('#6f3c30'), roofY: PAL.imperialRoof, roofYOld: hex('#b48b3e'),
-  roofTile: hex('#7a6552'), roofGrey: hex('#5e5b56'), rubble: hex('#70777a'), coping: hex('#a3a398'), door: hex('#2b2422'), moss: PAL.moss, mandarin: hex('#a29d92'), timber: hex('#5a3d2c'), mosaic: hex('#8fa6a0'),
+  stucco: hex('#d6cdb6'), lacquer: hex('#86362a'), lacquerOld: hex('#6f3c30'), roofY: hex('#c49342'), roofYOld: hex('#a5763a'),
+  roofTile: hex('#865944'), roofGrey: hex('#635d56'), rubble: hex('#70777a'), coping: hex('#a3a398'), door: hex('#2b2422'), moss: PAL.moss, mandarin: hex('#a29d92'), timber: hex('#5a3d2c'), mosaic: hex('#8fa6a0'),
 };
 const RIDGE = hex('#e9d27e');
 

@@ -2,6 +2,7 @@ import { KIND, hex, shade } from '../../geo/buf.js';
 import { LAND_Y, PAL } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
 import { fence, offStreets } from '../enclosure.js';
+import { ridgeDragons, ridgeGourd } from '../ornaments.js';
 
 // ---- Bảo tàng Cổ vật Cung đình Huế (Huế Museum of Royal Antiquities): điện Long An, 3 Lê Trực ----
 //
@@ -36,7 +37,7 @@ const HALL = [[-731.0, -290.6], [-713.0, -266.3], [-745.2, -242.7], [-763.5, -26
 // the museum grounds (OSM 695810697); the back (Đinh Công Tráng) runs from GROUNDS[3] to GROUNDS[0]
 const GROUNDS = [[-689.2, -347.4], [-642.3, -282.0], [-741.5, -209.5], [-792.9, -270.2]];
 
-const TILE = PAL.imperialRoof, TILE2 = shade(PAL.imperialRoof2, 0.95), RIDGE = hex('#f0d27a');
+const TILE = hex('#c28e3c'), TILE2 = hex('#a87832'), RIDGE = hex('#e5cc7e');
 const WOOD = hex('#6f4a2e'), WOOD_D = hex('#4a3020'), WOOD_L = hex('#8a6240');
 const STONE = PAL.stone, BRICK = hex('#a5715a'), OCHRE = hex('#d6ae5e'), CREAM = hex('#efe4c8'), IRON = hex('#2c2a26');
 const BRONZE = hex('#4f5446'), GLASS = hex('#2c3a40');
@@ -132,16 +133,12 @@ export function build({ data, S }) {
   // the valley gutter between the two houses
   S.kind = KIND.PLAIN;
   box(0, vR + dR / 2 + 0.15, eaveF + 0.15, eaveF + 0.35, W + 0.6 + ends, 0.5, shade(TILE2, 0.7));
-  // the main ridge: a sun disc between two dragons (lưỡng long triều nhật), the ridge ends turned up
+  // the main ridge: ornate lưỡng long chầu nhật (twin dragons facing the sun) + gourd on front ridge
   const ridgeY = yU + hU;
-  cyl(0, vR, ridgeY + 0.15, ridgeY + 0.85, 0.34, 0.14, 8, RIDGE);
-  for (const s of [-1, 1]) {
-    const a = P(s * 0.7, vR), b = P(s * 2.8, vR);
-    S.beam([a[0], ridgeY + 0.7, a[1]], [b[0], ridgeY + 0.3, b[1]], 0.22, 0.32, RIDGE);
-  }
-  // the front house's ridge ornament: a small gourd at the middle
+  ridgeDragons(S, P(0, vR), ridgeY + 0.08, ang, { span: 7.4, scale: 1.0 });
   const yRF = eaveF + 2.3;
-  cyl(0, vF + 0.35, yRF + 0.1, yRF + 0.6, 0.24, 0.1, 8, RIDGE);
+  const fC = P(0, vF + 0.35);
+  ridgeGourd(S, fC[0], fC[1], yRF + 0.06, 0.9, RIDGE);
 
   // ---- the gate on Lê Trực: two tall ochre piers with cream caps and a lotus finial, iron leaves folded back ----
   const gw = 6.0;
