@@ -39,7 +39,9 @@ the gates loop's shared guard `replaced('gate:' + name)`. The rampart, its slot 
 - Tower plans 9.4 × 6.2 m and 4.8 × 3.4 m, centred on the OSM footprint; arch sizes on the tower (2.5 × 2.75 m
   middle, 1.5 × 1.95 m sides, 1.5 × 2.3 m on the ends).
 - The passage keeps the shared `CITADEL_PASSAGE` (4.2 m wide, crown 5.4 m) so it matches the rampart's slot.
-- The inner (city) face is drawn like the outer one (tablet and arch ring); no photo of it was found.
+- The inner (city) face: Street View from the inner road (2024) shows it set back in a notch of the rampart, with an
+  open forecourt between brick slot walls ending in two capped piers about 5.5 m high, and a blank panel where the
+  outer face carries its name tablet.
 - Colours from the single photo: brick #74503f with darker streaks, grey plaster #8f8b80, cream plaster #d3ccb6,
   tiles #8e4f3a.
 
@@ -47,6 +49,37 @@ the gates loop's shared guard `replaced('gate:' + name)`. The rampart, its slot 
 - Before: the generic Citadel gate (grey brick block, crenellated parapet, a timber two-tier pavilion with golden
   roofs). Now: red-brown brick front with brick-ringed arch, ledge and name tablet, panelled grey parapet, and the
   masonry two-storey vọng lâu with arched openings and tile-edged cornices. About 5k triangles.
+
+## Street View alignment (2026-11-22)
+- Six car panos and the satellite were used as visual reference only (nothing copied in). Axis 54° into the city
+  and the centre match; the wall and roads line up at z19.
+- Estimates now drawn: outer face t -8.3, inner face t +3.5 (the satellite flat top spans about t -8.8..+2.6 and
+  17 m along the wall; drawn 17.6 m), forecourt t 3.5..9.6. Tower centred at t -4 (satellite about -2.4 after the
+  lean correction, pano bearings about -5.7); lower storey 7.7 x 5.4 m, upper 3.9 x 2.8 m, upper arch open,
+  corner eaves upswept. Brick #76604f with dark damp bands, grey plaster caps #8a857b.
+- Disagreements kept as they were: the passage reads about 29 m long from the outer road (block is 12 m plus the
+  forecourt); the forecourt is wider on the SE side than the shared 5.6 m slot; the satellite roof outline reads
+  10.6 x 6.8 m (eave overhang and lean); the real rampart's inner side is stepped (about 4 m retaining wall, wall set
+  back above) where kinhthanh.js draws one 6.6 m face.
+
+## Review fixes (2026-11-23)
+- Passage in three stages, as the car pano through it shows: an outer vault 5.4 m wide with its crown at 5.7 m,
+  t -8.8..-3.8 (the outer face moved out to the satellite's lean-corrected -8.8); the door arch, 4.7 m wide and
+  0.8 m deep (seen 5-6 m from the outer mouth, about 635 px at fov 80); then the 4.2 m vault to the inner face at
+  +3.5. Lining in red brick (#7e5c4c), mottled per course and lighter towards the mouths, damp at the foot, a stone
+  course at the springing. The car pano a (t -9.3) now stands at the outer mouth, inside the opening.
+- Still unresolved: from the outer mouth the inner mouth reads 25-30 m away (115 px at fov 80, and a car 15-18 m in
+  is still under the vault), where the city-side pano b (inner arch about 16 m from t +19.5) and the satellite hold
+  the inner face at about +3.5. The block stays at 12.3 m; the depth is an owner question.
+- Vọng lâu resized from pano b (lower roof 270 px and upper 125 px against the 210 px arch, about 21 m away) and
+  pano f (lower roof 215 px at about 33 m, 36 degrees off the end): lower storey 6.3 x 4.8 m, 2.1 m tall, roof about
+  6.9 x 5.4 m over the eaves; upper 2.7 x 2.2 m, 1.9 m tall, roof about 3.3 m. Moved to t -1.5 and s +2 (NW of the
+  axis): the satellite after the lean puts the roof at about t -1.4, s +2.8; pano b's parallax gives s +1.5.
+- Roofs now pitched tile hips in orange-tan (#b4774c) with a slight flare and small corner ornaments, instead of
+  flat slabs with standing tiles and spike fins; walls weathered grey plaster (#9d988b) with brick-red arch rims.
+- Damp streaks on both fronts are tapered and close to the brick's colour; the hard olive bars are gone.
+- Left for kinhthanh.js / build-data (owner questions): stepped inner rampart, the forecourt wider on the SE, the
+  moat as lotus field and the causeway width.
 
 ## Moat width
 - The drawn west moat covers about 61,300 m². VNA (24/07/2026, on the moat-embankment project) gives 56,319 m² for
