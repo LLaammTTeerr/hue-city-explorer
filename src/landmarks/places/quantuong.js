@@ -36,6 +36,8 @@ const DECK = LAND_Y + DECK_H; // see DECK_H
 const STEPS = 51, TREAD = 0.75, RAMP_W = 8.2, MID_W = 6.4; // sourced: 51 steps, 75-80 cm, ramp 8.2 m wide; the
 // satellite's 38 m ramp asks for the short end of the tread; Street View shows narrow sloping bands beside the steps
 
+const FORE = 1.2; // depth of the paved forecourt in front of the first step, as far as the street's kerb allows
+
 const BRICK = hex('#4f4b44'); // gạch vồ under a worn lime render, dark grey and mossy as Street View shows it
 const RENDER = hex('#6e695f'); // patches of the 2013 lime render
 const DAMP = hex('#35342f');
@@ -163,15 +165,42 @@ export function build({ S }) {
       S.box(q[0], q[1], y0, LAND_Y + rise * (k + 0.6), TREAD * 3, sw - 0.05, fa, BRICK);
     }
   }
-  // a paved landing at the ramp's foot, closed to the street by a black iron fence (Street View)
-  // (no landing: the street's kerb is right at the first step)
+  // the forecourt at the ramp's foot (Street View from Ông Ích Khiêm): a flat paved court before the first step,
+  // wider on the side away from Ông Ích Khiêm, closed by a tall ornate iron fence (about 1.8 m: pickets with spear
+  // tips, a lattice band, heavier posts) with a stone pier at its front corners carrying a lamp post
   {
+    const P = (a, b, y) => { const q = at(a, b); return [q[0], y, q[1]]; };
+    const a0 = -run - FORE, a1 = -run + 2.0, bL = -(RAMP_W / 2 + 0.4), bR = RAMP_W / 2 + 2.6;
+    S.kind = KIND.ROAD; // the paving, a hair above the ground
+    S.quad(P(a0, bL, LAND_Y + 0.05), P(a0, bR, LAND_Y + 0.05), P(-run, bR, LAND_Y + 0.05), P(-run, bL, LAND_Y + 0.05), hex('#7a7268'), [0, 1, 0]);
+    S.quad(P(-run, bR, LAND_Y + 0.05), P(a0, bR, LAND_Y + 0.05), P(a0, bL, LAND_Y + 0.05), P(-run, bL, LAND_Y + 0.05), hex('#7a7268'), [0, 1, 0]);
     S.kind = KIND.PLAIN;
-    const P = (a, b, y) => { const q = at(a, b); return [q[0], y, q[1]]; }, w = RAMP_W / 2 + 0.5, a0 = -run - 0.5, a1 = -run + 2.5;
-    for (const [pa, pb] of [[[a0, -w], [a0, w]], [[a0, -w], [a1, -w]], [[a0, w], [a1, w]]]) {
-      const len = Math.hypot(pa[0] - pb[0], pa[1] - pb[1]), n = Math.round(len / 0.9);
-      for (const h of [0.15, 1.05, 1.2]) S.beam(P(pa[0], pa[1], LAND_Y + h), P(pb[0], pb[1], LAND_Y + h), 0.05, 0.05, IRON);
-      for (let i = 0; i <= n; i++) { const t = i / n; S.beam(P(pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t, LAND_Y), P(pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t, LAND_Y + 1.3), i % 3 ? 0.03 : 0.08, i % 3 ? 0.03 : 0.08, IRON); }
+    const FH = 1.8;
+    const fence = (pa, pb) => {
+      const len = Math.hypot(pa[0] - pb[0], pa[1] - pb[1]), L = (t, h) => P(pa[0] + (pb[0] - pa[0]) * t, pa[1] + (pb[1] - pa[1]) * t, LAND_Y + h);
+      for (const h of [0.12, 0.55, 1.35, FH - 0.12]) S.beam(L(0, h), L(1, h), 0.05, 0.05, IRON);
+      const n = Math.max(2, Math.round(len / 0.16));
+      for (let i = 0; i <= n; i++) { const t = i / n; S.beam(L(t, 0), L(t, FH), 0.025, 0.025, IRON); S.beam(L(t, FH), L(t, FH + 0.12), 0.05, 0.01, IRON); }
+      const bays = Math.max(1, Math.round(len / 1.9));
+      for (let j = 0; j < bays; j++) { // the post, and a lattice of crossing bars in the band between the rails
+        const t0 = j / bays, t1 = (j + 1) / bays, m = 6;
+        S.beam(L(t0, 0), L(t0, FH + 0.25), 0.1, 0.1, IRON);
+        for (let i = 0; i < m; i++) {
+          const s0 = t0 + (t1 - t0) * i / m, s1 = t0 + (t1 - t0) * (i + 1) / m;
+          S.beam(L(s0, 0.55), L(s1, 1.35), 0.02, 0.02, IRON); S.beam(L(s1, 0.55), L(s0, 1.35), 0.02, 0.02, IRON);
+        }
+      }
+      S.beam(L(1, 0), L(1, FH + 0.25), 0.1, 0.1, IRON);
+    };
+    fence([a0, bL], [a0, bR]); fence([a0, bL], [a1, bL]); fence([a0, bR], [a1, bR]);
+    for (const b of [bL, bR]) { // the stone piers and their lamp posts
+      const q = at(a0, b);
+      S.kind = KIND.MASONRY;
+      S.box(q[0], q[1], LAND_Y - 0.1, LAND_Y + 1.2, 0.55, 0.55, fa, shade(STONE, 0.8), { top: STONE });
+      S.kind = KIND.PLAIN;
+      S.cyl(q[0], q[1], LAND_Y + 1.2, LAND_Y + 3.6, 0.07, 0.05, 6, IRON);
+      S.box(q[0], q[1], LAND_Y + 3.6, LAND_Y + 3.9, 0.2, 0.2, fa, hex('#e8e2cc'), { taper: 1.25 });
+      S.cyl(q[0], q[1], LAND_Y + 3.9, LAND_Y + 4.05, 0.17, 0.03, 6, IRON);
     }
   }
 
@@ -219,17 +248,29 @@ export function build({ S }) {
     S.beam([p[0], yP + hIn - 0.15, p[1]], [q[0], yP + hIn - 0.15, q[1]], 0.24, 0.28, lb);
   }
   // lower tier: an eight-sloped skirt from the outer columns up to the inner square
-  octRoof(S, C, rot, R0 + 1.25 * K, IN * 1.25, yP + hOut, yP + hOut + 1.35 * K, 0.32 * K, ROOF, RIDGE, shade(LAC, 0.6));
+  octRoof(S, C, rot, R0 + 1.25 * K, IN * 1.25, yP + hOut, yP + hOut + 1.35 * K, 0.1 * K, ROOF, RIDGE, shade(LAC, 0.6));
   // the chồng diêm: dark boards between the tiers
   S.kind = KIND.TIMBER;
   S.box(C[0], C[1], yP + hOut + 1.05 * K, yP + hIn, IN * 2 + 0.3, IN * 2 + 0.3, fa, shade(LAC, 0.62), { top: shade(ROOF, 0.8) });
-  // upper tier: four slopes, a short ridge
-  S.hip(C[0], C[1], IN * 2 + 0.5, IN * 2 + 0.1, fa + Math.PI / 2, yP + hIn, 1.45 * K, ROOF, { flare: 0.35, over: 0.85 * K, fascia: 0.2, fasciaCol: shade(LAC, 0.6), glazed: true, segs: 3, ridgeCol: RIDGE, hips: true });
-  // a lightning rod on the ridge
+  // upper tier: a steep four-sloped pyramid with straight, nearly flat eaves (Street View, close up: about half the
+  // lower tier's width, its slopes meeting at a gourd finial; the corners end in small scrolls, not long horns), so a
+  // plain hip without flare, its hip ridges and corner scrolls drawn here at the pavilion's own scale
+  const UW = IN * 2 + 0.3, UO = 0.35 * K, UH = 1.9 * K, yU = yP + hIn, ang = fa + Math.PI / 2;
+  S.hip(C[0], C[1], UW, UW, ang, yU, UH, ROOF, { over: UO, fascia: 0.16, fasciaCol: shade(LAC, 0.6), glazed: true, ridgeCol: RIDGE });
   S.kind = KIND.PLAIN;
-  const yR = yP + hIn + 1.45 * K;
-  S.box(C[0], C[1], yR + 0.05, yR + 1.15, 0.05, 0.05, fa, hex('#3a3a38'));
-  S.cyl(C[0], C[1], yR, yR + 0.4, 0.16, 0.06, 6, RIDGE, { rot });
+  const apex = [C[0], yU + UH + 0.04, C[1]];
+  for (const [su, sv] of [[1, 1], [1, -1], [-1, -1], [-1, 1]]) {
+    const u = su * (UW / 2 + UO), v = sv * (UW / 2 + UO);
+    const e = [C[0] + u * Math.cos(ang) - v * Math.sin(ang), yU + 0.06, C[1] + u * Math.sin(ang) + v * Math.cos(ang)];
+    S.beam(e, apex, 0.12, 0.14, RIDGE);
+    const dx = e[0] - C[0], dz = e[2] - C[1], l = Math.hypot(dx, dz);
+    S.beam(e, [e[0] + dx / l * 0.25, e[1] + 0.2, e[2] + dz / l * 0.25], 0.1, 0.12, RIDGE);
+  }
+  // the gourd finial and a lightning rod
+  const yR = yU + UH;
+  S.cyl(C[0], C[1], yR - 0.05, yR + 0.25, 0.2, 0.12, 6, RIDGE, { rot });
+  S.cyl(C[0], C[1], yR + 0.25, yR + 0.55, 0.12, 0.03, 6, RIDGE, { rot });
+  S.box(C[0], C[1], yR + 0.55, yR + 1.4, 0.05, 0.05, fa, hex('#3a3a38'));
 
   // ---- the war-time bunker on the bastion's tip (OSM 13673950594): squat concrete, a dark firing slit ----
   {
@@ -251,13 +292,13 @@ export function build({ S }) {
 function octRoof(S, C, rot, r0, r1, y0, y1, lift, col, ridgeCol, fasciaCol) {
   const keep = S.kind;
   const P = (r, k, y) => { const a = rot + k * Math.PI / 4; return [C[0] + Math.cos(a) * r, y, C[1] + Math.sin(a) * r]; };
-  // three rows from eave to top, concave; the corners lifted
+  // three rows from eave to top, only slightly concave (Street View: a nearly straight skirt); the corners barely lifted
   const rows = 3, cols = 2;
   const pt = (k, s, t) => { // side k, s along it (0..1), t eave -> top (0..1)
     const a = P(1, k, 0), b = P(1, k + 1, 0);
     const ux = a[0] - C[0] + (b[0] - a[0]) * s, uz = a[2] - C[1] + (b[2] - a[2]) * s; // a point on the unit octagon
     const r = r0 + (r1 - r0) * t;
-    const y = y0 + (y1 - y0) * t ** 1.5 + lift * Math.abs(2 * s - 1) ** 2 * (1 - t) ** 2;
+    const y = y0 + (y1 - y0) * t ** 1.15 + lift * Math.abs(2 * s - 1) ** 2 * (1 - t) ** 2;
     return [C[0] + ux * r, y, C[1] + uz * r];
   };
   S.kind = KIND.GLAZED;
@@ -278,7 +319,7 @@ function octRoof(S, C, rot, r0, r1, y0, y1, lift, col, ridgeCol, fasciaCol) {
     let prev = null;
     for (let i = rows; i >= 0; i--) { const p = pt(k, 0, i / rows); const q = [p[0], p[1] + 0.12, p[2]]; if (prev) S.beam(prev, q, 0.2, 0.22, ridgeCol); prev = q; }
     const dx = prev[0] - C[0], dz = prev[2] - C[1], l = Math.hypot(dx, dz);
-    S.beam(prev, [prev[0] + dx / l * 0.5, prev[1] + 0.45, prev[2] + dz / l * 0.5], 0.16, 0.18, ridgeCol);
+    S.beam(prev, [prev[0] + dx / l * 0.35, prev[1] + 0.12, prev[2] + dz / l * 0.35], 0.16, 0.18, ridgeCol); // a short, low horn: the real eaves are nearly flat
   }
   // the top ring where the skirt meets the chồng diêm
   for (let k = 0; k < 8; k++) { const a = pt(k, 0, 1), b = pt(k + 1, 0, 1); S.beam([a[0], a[1] + 0.08, a[2]], [b[0], b[1] + 0.08, b[2]], 0.18, 0.18, ridgeCol); }

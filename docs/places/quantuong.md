@@ -50,3 +50,13 @@ Model: `src/landmarks/places/quantuong.js` (id `quantuong`). No older builder dr
 - The rampart, the walk and the bastion's parapet belong to `kinhthanh` and are unchanged. The platform stands at the inner corner of its walk.
 - Flagpole: it is historical, and no source says one stands today. The 2020 rain gauge mast and cameras are too small to model.
 - No night lights (no source for floodlighting).
+
+## Review fixes (Street View, car panos)
+
+- The ramp's foot: a flat paved forecourt before the first step, closed by a tall ornate iron fence (about 1.8 m,
+  spear-tipped pickets, a lattice band, heavier posts) with stone piers and lamp posts at its front corners, wider on
+  the side away from Ông Ích Khiêm. Its depth in front of the steps is held to 1.2 m by the mapped kerb of Tôn Thất
+  Thiệp (more puts paving in the carriageway, check:overlap); the steps themselves stay where the satellite puts them.
+- The pavilion's roofs, from a 20° close-up of the Tôn Thất Thiệp pano: the upper tier is a steep four-sloped pyramid
+  about half the lower tier's width, meeting at a gourd finial, with straight eaves and small corner scrolls; the
+  lower octagonal skirt is nearly straight. The long upturned horns were dropped.
