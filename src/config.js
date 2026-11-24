@@ -19,8 +19,8 @@ export const quality = (() => {
   const low = isCoarse() || small;
   return {
     low,
-    pixelRatio: Math.min(devicePixelRatio || 1, low ? 1.6 : 2),
-    shadowSize: low ? 2048 : 4096,
+    pixelRatio: Math.min(devicePixelRatio || 1, low ? 1.5 : 2),
+    shadowSize: low ? 1024 : 2048,
     reflection: !low,
     treeShare: low ? 0.5 : 1,
     rainCount: low ? 3500 : 8000,

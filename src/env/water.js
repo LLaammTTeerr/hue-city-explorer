@@ -196,26 +196,45 @@ export function buildWater(data) {
   const geo = new THREE.PlaneGeometry(b[2] - b[0], b[3] - b[1]);
   let mesh;
   if (quality.reflection) {
-    const scale = 0.45;
+    const scale = 0.35;
+    const rtW = (w, r) => Math.max(2, Math.min(960, Math.round(w * r * scale)));
+    const rtH = (h, r) => Math.max(2, Math.min(540, Math.round(h * r * scale)));
     mesh = new Reflector(geo, {
       shader,
-      textureWidth: Math.max(2, Math.round(innerWidth * quality.pixelRatio * scale)),
-      textureHeight: Math.max(2, Math.round(innerHeight * quality.pixelRatio * scale)),
+      textureWidth: rtW(innerWidth, quality.pixelRatio),
+      textureHeight: rtH(innerHeight, quality.pixelRatio),
       clipBias: 0.02,
       multisample: 0,
     });
-    // the mirror image is refreshed on alternate frames: it is soft and distorted anyway, and this halves its cost
+    // Refresh the distorted water reflection every 3rd frame when moving, and skip when the camera is still
+    // during daytime (ripples still animate in the fragment shader). Adaptive quality can also turn it off.
     const renderMirror = mesh.onBeforeRender;
-    let tick = 0;
-    mesh.userData.invalidate = () => { tick = 0; };
+    let tick = 0, enabled = true, hasFrame = false;
+    const lastPos = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const lastQuat = new THREE.Quaternion();
+    mesh.userData.invalidate = () => { tick = 0; hasFrame = false; };
+    mesh.userData.setReflection = (on) => {
+      enabled = !!on;
+      mesh.material.uniforms.uReflect.value = enabled ? 1 : 0;
+      if (enabled) { tick = 0; hasFrame = false; }
+    };
     mesh.userData.resize = (w, h, pr = quality.pixelRatio) => {
       const r = typeof pr === 'object' && pr && typeof pr.getPixelRatio === 'function' ? pr.getPixelRatio() : pr;
-      mesh.getRenderTarget().setSize(Math.max(2, Math.round(w * r * scale)), Math.max(2, Math.round(h * r * scale)));
+      mesh.getRenderTarget().setSize(rtW(w, r), rtH(h, r));
       tick = 0;
+      hasFrame = false;
     };
     mesh.onBeforeRender = function (...args) {
-      if (tick++ % 2 === 0) {
-        mesh.getReflectionCamera(args[2]).layers.set(0);
+      if (!enabled) return;
+      const cam = args[2];
+      const moved = !hasFrame || cam.position.distanceToSquared(lastPos) > 0.04 || Math.abs(cam.quaternion.dot(lastQuat)) < 0.999999;
+      const night = mesh.material.uniforms.uGlow.value > 0.05;
+      if (!moved && !night) return;
+      if (!hasFrame || tick++ % 3 === 0) {
+        lastPos.copy(cam.position);
+        lastQuat.copy(cam.quaternion);
+        hasFrame = true;
+        mesh.getReflectionCamera(cam).layers.set(0);
         renderMirror.apply(this, args);
       }
     };
@@ -225,6 +244,7 @@ export function buildWater(data) {
     mesh = new THREE.Mesh(geo, new THREE.ShaderMaterial({ ...shader, uniforms: u }));
     mesh.userData.resize = () => {};
     mesh.userData.invalidate = () => {};
+    mesh.userData.setReflection = () => {};
   }
   mesh.rotation.x = -Math.PI / 2;
   mesh.position.set((b[0] + b[2]) / 2, 0, (b[1] + b[3]) / 2);

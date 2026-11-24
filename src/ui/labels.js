@@ -100,8 +100,14 @@ export function createLabels(root, data, camera, onPick) {
         }
         // Keep moving a tag with its place while it fades out, too: a tag frozen at its last screen point while the
         // city turns under it is the ghost the orbit used to leave behind.
-        if (onScreen) it.el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
-        if (show) it.el.style.setProperty('--fade', Math.max(0, fade).toFixed(2));
+        if (onScreen && (show || it.shown)) {
+          const tx = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+          if (it._tx !== tx) { it._tx = tx; it.el.style.transform = tx; }
+        }
+        if (show) {
+          const fv = Math.max(0, fade).toFixed(2);
+          if (it._fv !== fv) { it._fv = fv; it.el.style.setProperty('--fade', fv); }
+        }
         if (show !== it.shown) {
           it.shown = show;
           it.el.classList.toggle('show', show);

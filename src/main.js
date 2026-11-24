@@ -92,7 +92,7 @@ async function main() {
   // ---------- renderer ----------
   // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
   // at 1, but the adaptive fallback (adapt) may still take quality.pixelRatio below 1 on a slow 1x screen
-  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.min(quality.pixelRatio, Math.max(1, Math.sqrt(3.0e6 / (innerWidth * innerHeight)))));
+  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.min(quality.pixelRatio, Math.max(1, Math.sqrt(2.0e6 / (innerWidth * innerHeight)))));
   renderer.setPixelRatio(fitRatio());
   renderer.setSize(innerWidth, innerHeight, false);
   renderer.toneMapping = THREE.NeutralToneMapping;
@@ -141,7 +141,8 @@ async function main() {
   const { camera, controls } = rig;
   camera.layers.enable(1); // layer 1: things kept out of the water reflection
   const post = quality.low ? null : createPost(renderer, scene, camera);
-  const draw = () => (post ? post.render() : renderer.render(scene, camera));
+  let usePost = !!post;
+  const draw = () => (usePost && post ? post.render() : renderer.render(scene, camera));
 
   // Opening frame: from above the river below the bridge, looking up-stream into the afternoon light.
   // Trường Tiền crosses the foreground, chợ Đông Ba sits at its right-hand end, the Citadel wall and Kỳ Đài run off behind.
@@ -328,20 +329,40 @@ async function main() {
     adapt(now);
     requestAnimationFrame(tick);
   }
-  // Drop render resolution a notch if the device cannot hold ~30 fps. Slow frames add up, each counting for at most
-  // 250 ms, so one stall cannot trigger a step down but a device stuck at any low rate does; a background tab is not
-  // counted, and the count restarts when the tab comes back.
-  let slow = 0, lastT = 0, pr = quality.pixelRatio;
+  // Multi-tier adaptive quality controller: if the device cannot hold ~28 fps, step down gracefully through
+  // resolution, water reflection, SSAO/bloom, shadow cascade, and finally direct rendering so every device stays fluid.
+  let slow = 0, lastT = 0, pr = quality.pixelRatio, perfTier = 0;
+  let detailReach = quality.low ? 850 : 1280;
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { slow = 0; lastT = performance.now(); } });
   function adapt(now) {
     const ft = now - lastT; lastT = now;
     if (document.visibilityState !== 'visible') { slow = 0; return; }
     slow = ft > 36 ? slow + Math.min(ft, 250) : Math.max(0, slow - ft * 2);
-    if (slow > 2500 && pr > 0.8) {
-      // step down from the ratio actually in use, so the first steps are not swallowed by the pixel cap in fitRatio
-      pr = Math.max(0.75, Math.min(pr, renderer.getPixelRatio()) - 0.25); slow = 0;
-      quality.pixelRatio = pr;
-      pendingSize = Math.max(pendingSize, 1); // applied before the next draw (see resize)
+    if (slow > 1600) {
+      slow = 0;
+      if (perfTier === 0) {
+        perfTier = 1;
+        water.mesh.userData.setReflection?.(false);
+        detailReach = Math.min(detailReach, 980);
+        pr = Math.max(1.0, Math.min(pr, renderer.getPixelRatio()) - 0.25);
+        quality.pixelRatio = pr;
+        pendingSize = Math.max(pendingSize, 1);
+      } else if (perfTier === 1) {
+        perfTier = 2;
+        if (post) post.setFast(true);
+        shadows.setNearEnabled?.(false);
+        detailReach = Math.min(detailReach, 850);
+        pr = Math.max(0.85, Math.min(pr, renderer.getPixelRatio()) - 0.2);
+        quality.pixelRatio = pr;
+        pendingSize = Math.max(pendingSize, 1);
+      } else if (perfTier === 2) {
+        perfTier = 3;
+        usePost = false;
+        detailReach = Math.min(detailReach, 720);
+        pr = 0.75;
+        quality.pixelRatio = pr;
+        pendingSize = Math.max(pendingSize, 1);
+      }
     }
   }
   function step(dt) {
@@ -360,7 +381,7 @@ async function main() {
     traffic.update(dt);
     street.update(dt, time);
     heroes.update(camera.position);
-    updateDetail(camera, quality.low ? 900 : 1500);
+    updateDetail(camera, detailReach);
     updateShadow();
     sky.mesh.scale.setScalar(camera.far * 0.9);
     const pxScale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
