@@ -2060,6 +2060,291 @@ function buildDaiNoiHero() {
   return scene;
 }
 
+// ---- Track O: Final 8 Modern, Transit, Market & Heritage Landmarks (83/83 complete) ----
+
+// Build AEON MALL Huế hero accent .glb (Culture Stream rooftop skylight lantern cupola & magenta crest ribs)
+function buildAeonHero() {
+  const parts = [];
+  const y0 = 22.0;
+  // Sculpted polygonal glass-and-bronze skylight atrium drum seated flush on the 22 m mall roof
+  const plinth = new THREE.CylinderGeometry(7.2, 7.6, 0.9, 12);
+  plinth.translate(0, y0 + 0.45, 0);
+  parts.push(paint(plinth, 0xefeeea));
+  const drum = new THREE.CylinderGeometry(6.4, 6.8, 2.6, 12);
+  drum.translate(0, y0 + 2.2, 0);
+  parts.push(paint(drum, 0x3b5264));
+  // Curved dome canopy with bronze architectural ribs
+  const dome = new THREE.SphereGeometry(6.5, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+  dome.scale(1, 0.42, 1);
+  dome.translate(0, y0 + 3.45, 0);
+  parts.push(paint(dome, 0xb48a55));
+  // Flowing magenta & white "Culture Stream" ribbon ring + central spire finial
+  const ring = new THREE.TorusGeometry(7.0, 0.28, 10, 28);
+  ring.rotateX(Math.PI / 2);
+  ring.translate(0, y0 + 3.5, 0);
+  parts.push(paint(ring, 0xc0187a));
+  parts.push(latheGourd(0, y0 + 6.18, 0, 1.05, 0xefeeea));
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'aeon_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Vincom Plaza / Meliá Vinpearl Huế hero accent .glb (160 m architectural crown spire & twin sky-bar halo rings)
+function buildVincomHero() {
+  const parts = [];
+  const y0 = 156.5; // top of rooftop sky-bar plant room
+  // Sculpted octagonal brushed-titanium crown drum & illuminated twin halo rings
+  const drum = new THREE.CylinderGeometry(4.2, 4.8, 1.8, 8);
+  drum.translate(0, y0 + 0.9, 0);
+  parts.push(paint(drum, 0xc9cdd0));
+  for (const [ry, r, col] of [[y0 + 1.85, 5.2, 0xe8c85a], [y0 + 2.8, 3.8, 0xf2f4f6]]) {
+    const ring = new THREE.TorusGeometry(r, 0.22, 10, 24);
+    ring.rotateX(Math.PI / 2);
+    ring.translate(0, ry, 0);
+    parts.push(paint(ring, col));
+  }
+  // Tapered needle spire with aviation beacon tip
+  const spire = new THREE.CylinderGeometry(0.08, 0.36, 7.2, 8);
+  spire.translate(0, y0 + 5.4, 0);
+  parts.push(paint(spire, 0xe6eaee));
+  const beacon = new THREE.SphereGeometry(0.32, 10, 8);
+  beacon.translate(0, y0 + 9.1, 0);
+  parts.push(paint(beacon, 0xe02832));
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'vincom_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Chợ Bến Ngự hero accent .glb (central gable ridge cupola, 6 louvered ventilator cowls & gable finials)
+function buildBenNguHero() {
+  const parts = [];
+  const yR = 9.78; // middle gable ridge height (e = 7.4 + h = 2.4)
+  // Central octagonal louvered market cupola
+  const base = new THREE.CylinderGeometry(1.5, 1.7, 0.65, 8);
+  base.translate(0, yR + 0.325, 0);
+  parts.push(paint(base, 0xddd3b2));
+  const drum = new THREE.CylinderGeometry(1.25, 1.35, 1.15, 8);
+  drum.translate(0, yR + 1.2, 0);
+  parts.push(paint(drum, 0x566066));
+  const roof = new THREE.ConeGeometry(1.65, 0.95, 8);
+  roof.translate(0, yR + 2.22, 0);
+  parts.push(paint(roof, 0x9a4838));
+  parts.push(latheGourd(0, yR + 2.7, 0, 0.68, 0xe8c44c));
+  // 6 rhythmic market ridge ventilator cowls along the central spine
+  for (const x of [-12, -7.5, -3.8, 3.8, 7.5, 12]) {
+    const neck = new THREE.CylinderGeometry(0.32, 0.38, 0.55, 8);
+    neck.translate(x, yR + 0.275, 0);
+    parts.push(paint(neck, 0xb8bcbb));
+    const cap = new THREE.ConeGeometry(0.55, 0.32, 8);
+    cap.translate(x, yR + 0.68, 0);
+    parts.push(paint(cap, 0x8a6a55));
+  }
+  // Front & back gable-peak crest finials
+  for (const sx of [-1, 1]) {
+    parts.push(latheGourd(sx * 16.8, yR + 0.05, 0, 0.62, 0xd8b244));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'benngu_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Bến xe phía Bắc hero accent .glb (rooftop civic clock pavilion, curved transit canopy & flagpole mast)
+function buildBenXeBacHero() {
+  const parts = [];
+  const y0 = 7.75; // top of white roof slab (R + SL)
+  const zf = 11.5; // front edge facing Lý Thái Tổ
+  // 4 modernist white concrete piers supporting a curved civic clock-pavilion canopy
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const p = new THREE.BoxGeometry(0.42, 3.2, 0.42);
+    p.translate(sx * 2.2, y0 + 1.6, zf + sz * 1.4);
+    parts.push(paint(p, 0xefeee8));
+  }
+  // Clock housing with gilded circular dial facing the street
+  const box = new THREE.BoxGeometry(3.6, 2.2, 2.0);
+  box.translate(0, y0 + 1.6, zf);
+  parts.push(paint(box, 0x1f56a6));
+  const dial = new THREE.CylinderGeometry(0.85, 0.85, 0.16, 16);
+  dial.rotateX(Math.PI / 2);
+  dial.translate(0, y0 + 1.65, zf + 1.04);
+  parts.push(paint(dial, 0xf6eed8));
+  const rim = new THREE.TorusGeometry(0.86, 0.08, 8, 20);
+  rim.translate(0, y0 + 1.65, zf + 1.12);
+  parts.push(paint(rim, 0xe8b832));
+  // Swept transit-wing roof slab + civic flagpole
+  const canopy = new THREE.BoxGeometry(6.2, 0.35, 3.8);
+  canopy.translate(0, y0 + 3.35, zf);
+  parts.push(paint(canopy, 0xf0c22e));
+  const mast = new THREE.CylinderGeometry(0.06, 0.1, 4.2, 8);
+  mast.translate(0, y0 + 5.6, zf);
+  parts.push(paint(mast, 0xd8dce0));
+  parts.push(latheGourd(0, y0 + 7.7, zf, 0.35, 0xe8c040));
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'benxebac_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Bến xe phía Nam hero accent .glb (pediment crown cupola, civic flagpole & twin bronze forecourt lamps)
+function buildBenXeNamHero() {
+  const parts = [];
+  const yPeak = 10.48; // apex of the central triangular pediment
+  // Sculpted civic crown pedestal + gilded transit finial & flagpole mast on the pediment peak
+  const ped = new THREE.CylinderGeometry(0.85, 1.05, 0.65, 8);
+  ped.translate(0, yPeak + 0.325, 0);
+  parts.push(paint(ped, 0xf1ede2));
+  const dome = new THREE.SphereGeometry(0.86, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+  dome.scale(1, 0.7, 1);
+  dome.translate(0, yPeak + 0.65, 0);
+  parts.push(paint(dome, 0x1f56a6));
+  const mast = new THREE.CylinderGeometry(0.06, 0.1, 3.8, 8);
+  mast.translate(0, yPeak + 3.1, 0);
+  parts.push(paint(mast, 0xdcded8));
+  parts.push(latheGourd(0, yPeak + 5.0, 0, 0.36, 0xe8c03c));
+  // Twin sculpted heritage 3-globe forecourt lamp standards flanking the front granite steps
+  for (const sx of [-1, 1]) {
+    const x = sx * 9.5, z = 4.6;
+    const base = new THREE.CylinderGeometry(0.24, 0.32, 0.9, 8);
+    base.translate(x, 0.45, z);
+    parts.push(paint(base, 0x48443c));
+    const pole = new THREE.CylinderGeometry(0.08, 0.13, 4.2, 8);
+    pole.translate(x, 2.9, z);
+    parts.push(paint(pole, 0x48443c));
+    const arm = new THREE.BoxGeometry(1.3, 0.08, 0.08);
+    arm.translate(x, 4.95, z);
+    parts.push(paint(arm, 0xc8a448));
+    for (const [dx, dy] of [[-0.62, 0], [0, 0.3], [0.62, 0]]) {
+      const g = new THREE.SphereGeometry(0.22, 10, 8);
+      g.translate(x + dx, 5.2 + dy, z);
+      parts.push(paint(g, 0xf8f0dc));
+    }
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'benxenam_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Trấn Bình Đài · Mang Cá hero accent .glb (Trấn Bình Môn ridge finials, corner scrolls & twin bronze rampart cannons)
+function buildMangCaHero() {
+  const parts = [];
+  const yWall = 6.6, yEave = 10.1, yRidge = 12.4, hw = 17.95, hd = 4.95;
+  // Sculpted weathered ceramic ridge-crest finials along the 34.4 m colonial gate-house roof
+  for (const x of [-15.2, 0, 15.2]) {
+    parts.push(latheGourd(x, yRidge + 0.05, 0, x === 0 ? 0.92 : 0.72, 0xd8b86a));
+  }
+  // 4 corner ridge scrolls on the eaves
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    parts.push(cornerScroll(sx * hw, yEave, sz * hd, sx * 0.55, sz * 0.55, 0.68));
+  }
+  // Twin historical weathered bronze bastion cannons on wooden gun carriages on the rampart walk
+  for (const sx of [-1, 1]) {
+    const cx = sx * 13.5, cz = 5.4;
+    const carriage = new THREE.BoxGeometry(1.1, 0.55, 1.8);
+    carriage.translate(cx, yWall + 0.275, cz);
+    parts.push(paint(carriage, 0x5c4230));
+    const barrel = new THREE.CylinderGeometry(0.14, 0.22, 2.3, 10);
+    barrel.rotateX(Math.PI / 2 - 0.12);
+    barrel.translate(cx, yWall + 0.75, cz + 0.25);
+    parts.push(paint(barrel, 0x3b443e));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'mangca_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Chợ Tây Lộc hero accent .glb (Nguyễn Trãi 2-tier red-tiled market gate ridge dragons, 8 corner scrolls & lanterns)
+function buildTayLocHero() {
+  const parts = [];
+  // Gate runs along local z (v): lower roof y=4.1 (z ±3.65, x ±0.65), upper roof y=5.5..5.95 (z ±2.35, x ±0.35)
+  const yR = 5.95;
+  // Central golden lotus-gourd finial & twin emerald ridge dragons along the gate ridge (rotated along z)
+  parts.push(latheGourd(0, yR + 0.04, 0, 0.72, 0xf0c848));
+  for (const sz of [-1, 1]) {
+    const dr = sculptedDragon(0, 0, 0, sz, 0.58, 0x347854);
+    for (const g of dr) {
+      g.rotateY(Math.PI / 2);
+      g.translate(0, yR + 0.08, sz * 1.35);
+      parts.push(g);
+    }
+  }
+  // 8 upturned golden-terracotta corner scrolls on both gate roof tiers
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    parts.push(cornerScroll(sx * 1.15, 4.05, sz * 4.15, sx * 0.35, sz * 0.45, 0.52));
+    parts.push(cornerScroll(sx * 0.75, 5.48, sz * 2.75, sx * 0.28, sz * 0.38, 0.44));
+  }
+  // Pair of sculpted heritage market lantern standards flanking the gate pillars
+  for (const sz of [-1, 1]) {
+    const z = sz * 4.35;
+    const base = new THREE.CylinderGeometry(0.22, 0.28, 0.75, 8);
+    base.translate(0.5, 0.375, z);
+    parts.push(paint(base, 0x8e6b32));
+    const post = new THREE.CylinderGeometry(0.07, 0.1, 3.1, 8);
+    post.translate(0.5, 2.25, z);
+    parts.push(paint(post, 0x4c3a28));
+    const lantern = new THREE.SphereGeometry(0.26, 10, 8);
+    lantern.scale(1, 1.3, 1);
+    lantern.translate(0.5, 4.02, z);
+    parts.push(paint(lantern, 0xf8e2a4));
+  }
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'tayloc_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
+// Build Đông Thành Thủy Quan hero accent .glb (stone lotus-urn parapet finials, áp quan drop-gate beam & keystone lantern)
+function buildThuyQuanHero() {
+  const parts = [];
+  const yDeck = 4.72; // crown deck height over the 8.4 m stone vault
+  // 4 carved đá thanh stone lotus-urn finials crowning the arch pilasters on both parapets
+  for (const sx of [-1, 1]) for (const [z, yTop] of [[-2.25, yDeck + 0.95], [2.25, yDeck + 1.55]]) {
+    parts.push(latheGourd(sx * 4.8, yTop + 0.04, z, 0.58, 0xa8aca4));
+  }
+  // Historical áp quan (drop-gate) stone pivot piers & timber windlass beam on the inner parapet
+  for (const sx of [-1, 1]) {
+    const pier = new THREE.BoxGeometry(0.62, 2.4, 0.62);
+    pier.translate(sx * 3.8, yDeck + 1.2, -2.25);
+    parts.push(paint(pier, 0x8d908a));
+    parts.push(latheGourd(sx * 3.8, yDeck + 2.42, -2.25, 0.42, 0xc8a852));
+  }
+  const beam = new THREE.CylinderGeometry(0.14, 0.14, 7.6, 8);
+  beam.rotateZ(Math.PI / 2);
+  beam.translate(0, yDeck + 2.15, -2.25);
+  parts.push(paint(beam, 0x6b4b32));
+  // Central sculpted imperial bronze signal lantern over the arch keystone on the outer parapet
+  const lPost = new THREE.CylinderGeometry(0.1, 0.14, 1.4, 8);
+  lPost.translate(0, yDeck + 2.25, 2.25);
+  parts.push(paint(lPost, 0x4c4438));
+  const lGlobe = new THREE.SphereGeometry(0.28, 10, 8);
+  lGlobe.translate(0, yDeck + 3.12, 2.25);
+  parts.push(paint(lGlobe, 0xf8e8be));
+  parts.push(latheGourd(0, yDeck + 3.4, 2.25, 0.36, 0xd8b24c));
+  const merged = mergeGeoms(parts);
+  const mesh = new THREE.Mesh(merged, new THREE.MeshStandardMaterial({ vertexColors: true }));
+  mesh.name = 'thuyquan_hero_ornaments';
+  const scene = new THREE.Scene();
+  scene.add(mesh);
+  return scene;
+}
+
 const exporter = new GLTFExporter();
 for (const [name, buildFn] of [
   ['ngomon-hero.glb', buildNgoMonHero],
@@ -2135,6 +2420,14 @@ for (const [name, buildFn] of [
   ['vongcanh-hero.glb', buildVongCanhHero],
   ['ancuu-hero.glb', buildAnCuuHero],
   ['dainoi-hero.glb', buildDaiNoiHero],
+  ['aeon-hero.glb', buildAeonHero],
+  ['vincom-hero.glb', buildVincomHero],
+  ['benngu-hero.glb', buildBenNguHero],
+  ['benxebac-hero.glb', buildBenXeBacHero],
+  ['benxenam-hero.glb', buildBenXeNamHero],
+  ['mangca-hero.glb', buildMangCaHero],
+  ['tayloc-hero.glb', buildTayLocHero],
+  ['thuyquan-hero.glb', buildThuyQuanHero],
 ]) {
   const scene = buildFn();
   const glb = await exporter.parseAsync(scene, { binary: true });
