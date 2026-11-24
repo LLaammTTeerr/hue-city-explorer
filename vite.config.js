@@ -10,7 +10,20 @@ if (!commit) try { commit = execSync('git rev-parse --short HEAD', { stdio: ['ig
 export default defineConfig({
   base: './',
   server: { port: 5183, host: '127.0.0.1' },
-  build: { target: 'es2022', chunkSizeWarningLimit: 900 },
+  build: {
+    target: 'es2022',
+    chunkSizeWarningLimit: 1200,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            { name: 'three', test: /node_modules[\\/]three/ },
+            { name: 'places', test: /src[\\/]landmarks[\\/]places[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   define: {
     __APP_VERSION__: JSON.stringify(version),
     __APP_COMMIT__: JSON.stringify(commit),
