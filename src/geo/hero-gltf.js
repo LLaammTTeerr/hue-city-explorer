@@ -462,6 +462,70 @@ export const HERO_MODELS = [
     rotY: 0,
     radius: 380,
   },
+  // Track N: Riverfront, Bridges, Scenic Hills, Market & Imperial City
+  {
+    id: 'phuxuan',
+    file: 'phuxuan-hero.glb',
+    pos: [-396.75, 0, 367.94],
+    rotY: 2.2824,
+    radius: 420,
+  },
+  {
+    id: 'giahoi',
+    file: 'giahoi-hero.glb',
+    pos: [11.77, 0, -560.25],
+    rotY: -2.4412,
+    radius: 300,
+  },
+  {
+    id: 'golim',
+    file: 'golim-hero.glb',
+    pos: [-227.93, 0, 433.87],
+    rotY: -2.3926,
+    radius: 320,
+  },
+  {
+    id: 'ndchieu',
+    file: 'ndchieu-hero.glb',
+    pos: [56.45, 0, 237.7],
+    rotY: 0,
+    radius: 300,
+  },
+  {
+    id: 'conhen',
+    file: 'conhen-hero.glb',
+    pos: [424.0, 0, -1121.0],
+    rotY: -1.571,
+    radius: 340,
+  },
+  {
+    id: 'ngubinh',
+    file: 'ngubinh-hero.glb',
+    pos: [774.2, 0, 2997.7],
+    rotY: 0,
+    radius: 420,
+  },
+  {
+    id: 'vongcanh',
+    file: 'vongcanh-hero.glb',
+    pos: [-2783.8, 0, 4354.3],
+    rotY: -0.84,
+    radius: 420,
+  },
+  {
+    id: 'ancuu',
+    file: 'ancuu-hero.glb',
+    pos: [1266.75, 0, 1257.55],
+    rotY: 0.2198,
+    radius: 320,
+  },
+  {
+    id: 'dainoi',
+    file: 'dainoi-hero.glb',
+    pos: [-1150.0, 0, -21.3],
+    rotY: 0.62,
+    radius: 380,
+  },
 ];
 
 // Convert a loaded glTF Mesh to Hue's shared cityMaterial convention (sqrt-encoded linear vertex colors, aKind, aBase).
