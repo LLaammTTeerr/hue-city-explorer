@@ -77,27 +77,35 @@ export function createCascades(scene, sun, { tight = true, tightSize = 2048 } = 
     stats,
     // redraw both maps (new casters that bypass lodAdd, a restored context, anything the keys cannot see)
     invalidate() { for (const m of maps) m.dirty = true; },
+    // allow adaptive quality to disable the second shadow cascade on struggling GPUs
+    setNearEnabled(on) {
+      if (!near || near.castShadow === !!on) return;
+      near.castShadow = !!on;
+      near.shadow.intensity = on ? sun.shadow.intensity : 0;
+      for (const m of maps) m.dirty = true;
+    },
     // ext: half-width of the wide map in metres
     update(focus, dir, ext, now = performance.now() / 1000) { // now: seconds
       // step the size in ~12 % stages, so zooming does not re-grid the map every frame
       const q = 260 * Math.pow(1.12, Math.ceil(Math.log(Math.max(260, ext) / 260) / Math.log(1.12)));
       place(sun, focus, dir, q);
-      if (near) {
+      if (near && near.castShadow) {
         place(near, focus, dir, Math.max(36, q * 0.27));
         near.shadow.intensity = sun.shadow.intensity;
       }
       const lod = lodFlips();
-      for (const m of maps) check(m, q, dir, lod);
-      if (warm > 0) { warm--; for (const m of maps) draw(m, now); return; }
+      for (const m of maps) if (m.light.castShadow) check(m, q, dir, lod);
+      if (warm > 0) { warm--; for (const m of maps) if (m.light.castShadow) draw(m, now); return; }
       // the movers' cadence in seconds, per map (wide, near); none while the shadows are faded out
       const s = Math.min(1, (q - 260) / 1300);
-      const every = [THREE.MathUtils.lerp(0.1, 0.33, s), THREE.MathUtils.lerp(0.033, 0.1, s)];
+      const every = [THREE.MathUtils.lerp(0.5, 1.0, s), THREE.MathUtils.lerp(0.1, 0.25, s)];
       const shown = sun.shadow.intensity > 0.002;
       // a changed map before one that is only due; between equals, the one not drawn last
       let pick = -1;
       for (let pass = 0; pass < 2 && pick < 0; pass++) {
         for (let j = 0; j < maps.length; j++) {
           const i = (prefer + j) % maps.length, m = maps[i];
+          if (!m.light.castShadow) continue;
           if (m.dirty || (pass && shown && now - m.last >= every[i] - 0.004)) { pick = i; break; }
         }
       }

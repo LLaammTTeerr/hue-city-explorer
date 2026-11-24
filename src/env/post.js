@@ -51,8 +51,8 @@ class OcclusionPass extends Pass {
           float rpx = min( R * uProjScale / dist, 56.0 );
           float rot = ign( gl_FragCoord.xy ) * 6.2831853;
           float occ = 0.0;
-          for ( int i = 0; i < 12; i++ ) {
-            float fi = ( float( i ) + 0.5 ) / 12.0;
+          for ( int i = 0; i < 8; i++ ) {
+            float fi = ( float( i ) + 0.5 ) / 8.0;
             float a = rot + float( i ) * 2.39996323;
             vec2 suv = vUv + vec2( cos( a ), sin( a ) ) * rpx * sqrt( fi ) * px;
             vec3 S = viewPos( suv, viewZ( suv ) );
@@ -61,7 +61,7 @@ class OcclusionPass extends Pass {
             float nv = dot( N, v ) * inversesqrt( l2 + 1e-4 );
             occ += max( 0.0, nv - 0.14 ) / ( 1.0 + l2 / ( R * R ) );
           }
-          float ao = 1.0 - clamp( occ / 12.0 * 2.9 * uStrength, 0.0, 0.92 );
+          float ao = 1.0 - clamp( occ / 8.0 * 2.9 * uStrength, 0.0, 0.92 );
           ao = mix( ao, 1.0, smoothstep( 2600.0, 6500.0, dist ) );
           gl_FragColor = vec4( ao, ao, ao, 1.0 );
         }`,
@@ -79,8 +79,8 @@ class OcclusionPass extends Pass {
           vec2 px = 1.0 / uRes;
           float zc = viewZ( vUv );
           float sum = 0.0, wsum = 0.0;
-          for ( int x = -2; x <= 1; x++ ) for ( int y = -2; y <= 1; y++ ) {
-            vec2 uv = vUv + ( vec2( float( x ), float( y ) ) + 0.5 ) * px;
+          for ( int x = -1; x <= 1; x++ ) for ( int y = -1; y <= 1; y++ ) {
+            vec2 uv = vUv + vec2( float( x ), float( y ) ) * 1.25 * px;
             float w = max( 0.0, 1.0 - abs( viewZ( uv ) - zc ) / ( 0.04 * abs( zc ) + 0.4 ) );
             sum += texture2D( tAO, uv ).r * w; wsum += w;
           }
@@ -243,6 +243,9 @@ class OcclusionPass extends Pass {
         }`,
     });
     this.quad = new FullScreenQuad(this.aoMat);
+    this.skipAO = false;
+    this.whiteTex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+    this.whiteTex.needsUpdate = true;
   }
   setSize(w, h) {
     const hw = Math.max(2, Math.ceil(w / 2)), hh = Math.max(2, Math.ceil(h / 2));
@@ -258,24 +261,26 @@ class OcclusionPass extends Pass {
   }
   render(renderer, writeBuffer, readBuffer) {
     const cam = this.camera;
-    const tan = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
-    for (const m of [this.aoMat, this.blurMat]) {
-      m.uniforms.tDepth.value = readBuffer.depthTexture;
-      m.uniforms.uNearFar.value.set(cam.near, cam.far);
+    if (!this.skipAO) {
+      const tan = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+      for (const m of [this.aoMat, this.blurMat]) {
+        m.uniforms.tDepth.value = readBuffer.depthTexture;
+        m.uniforms.uNearFar.value.set(cam.near, cam.far);
+      }
+      this.aoMat.uniforms.uTan.value.set(tan * cam.aspect, tan);
+      this.aoMat.uniforms.uProjScale.value = this.aoRT.height / (2 * tan);
+      this.aoMat.uniforms.uStrength.value = this.strength;
+      this.quad.material = this.aoMat;
+      renderer.setRenderTarget(this.aoRT);
+      this.quad.render(renderer);
+      this.blurMat.uniforms.tAO.value = this.aoRT.texture;
+      this.quad.material = this.blurMat;
+      renderer.setRenderTarget(this.blurRT);
+      this.quad.render(renderer);
     }
-    this.aoMat.uniforms.uTan.value.set(tan * cam.aspect, tan);
-    this.aoMat.uniforms.uProjScale.value = this.aoRT.height / (2 * tan);
-    this.aoMat.uniforms.uStrength.value = this.strength;
-    this.quad.material = this.aoMat;
-    renderer.setRenderTarget(this.aoRT);
-    this.quad.render(renderer);
-    this.blurMat.uniforms.tAO.value = this.aoRT.texture;
-    this.quad.material = this.blurMat;
-    renderer.setRenderTarget(this.blurRT);
-    this.quad.render(renderer);
     const cu = this.compMat.uniforms;
     cu.tDiffuse.value = readBuffer.texture;
-    cu.tAO.value = this.blurRT.texture;
+    cu.tAO.value = this.skipAO ? this.whiteTex : this.blurRT.texture;
     cu.tDepth.value = readBuffer.depthTexture;
     cu.uInvProj.value.copy(cam.projectionMatrixInverse);
     cu.uCamWorld.value.copy(cam.matrixWorld);
@@ -308,12 +313,12 @@ class OcclusionPass extends Pass {
 export function createPost(renderer, scene, camera) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
   size.set(Math.max(2, size.x), Math.max(2, size.y)); // a hidden window can report zero
-  const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 4, depthTexture: new THREE.DepthTexture(size.x, size.y) });
+  const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 2, depthTexture: new THREE.DepthTexture(size.x, size.y) });
   const composer = new EffectComposer(renderer, target);
   composer.addPass(new RenderPass(scene, camera));
   const occlusion = new OcclusionPass(camera);
   composer.addPass(occlusion);
-  const bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.32, 0.55, 1.0);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(Math.max(2, size.x >> 1), Math.max(2, size.y >> 1)), 0.32, 0.55, 1.0);
   composer.addPass(bloom);
   // The canvas has an alpha channel (three always asks for one) over the page's paper colour, so the last pass
   // writes an opaque alpha: whatever went wrong upstream, the page can never show through the model.
@@ -323,22 +328,34 @@ export function createPost(renderer, scene, camera) {
   // The composer multiplies by its own pixel ratio; we hand it device pixels already, so pin that to 1.
   composer.setPixelRatio(1);
   composer.setSize(size.x, size.y);
+  let fast = false;
   return {
     occlusion, bloom,
     render: () => composer.render(),
-    resize() { renderer.getDrawingBufferSize(size); composer.setSize(Math.max(2, size.x), Math.max(2, size.y)); },
+    resize() {
+      renderer.getDrawingBufferSize(size);
+      const w = Math.max(2, size.x), h = Math.max(2, size.y);
+      composer.setSize(w, h);
+      bloom.setSize(Math.max(2, w >> 1), Math.max(2, h >> 1));
+    },
+    setFast(on) {
+      fast = !!on;
+      occlusion.skipAO = fast;
+      if (fast) bloom.enabled = false;
+    },
     // night and rain want gentler occlusion and a touch more glow; mist takes the mood's haze colour
     setMood(glow, rain, mistColor, mist, time) {
       occlusion.strength = (1 - 0.35 * Math.max(glow * 0.6, rain)) * (1 - 0.3 * occlusion.compMat.uniforms.uInk.value);
       occlusion.compMat.uniforms.uNight.value = glow;
       bloom.strength = (0.3 + 0.3 * glow) * (1 - 0.55 * occlusion.compMat.uniforms.uInk.value);
+      bloom.enabled = !fast && bloom.strength >= 0.08;
       const u = occlusion.compMat.uniforms;
       u.uVignette.value = 0.15 + 0.15 * glow;
       u.uMistColor.value.copy(mistColor);
       u.uMist.value = mist;
       u.uTime.value = time;
     },
-    setFocus(distance, aperture) { occlusion.focus = distance; occlusion.aperture = aperture; },
+    setFocus(distance, aperture) { occlusion.focus = distance; occlusion.aperture = fast ? 0 : aperture; },
     setLook(ink) { occlusion.compMat.uniforms.uInk.value = ink; },
   };
 }
