@@ -526,6 +526,63 @@ export const HERO_MODELS = [
     rotY: 0.62,
     radius: 380,
   },
+  // Track O: Final 8 Modern, Transit, Market & Heritage Landmarks (83/83 complete)
+  {
+    id: 'aeon',
+    file: 'aeon-hero.glb',
+    pos: [2842.16, 0, 1594.39],
+    rotY: -0.5306,
+    radius: 420,
+  },
+  {
+    id: 'vincom',
+    file: 'vincom-hero.glb',
+    pos: [556.58, 0, 643.78],
+    rotY: 0.3291,
+    radius: 420,
+  },
+  {
+    id: 'benngu',
+    file: 'benngu-hero.glb',
+    pos: [-525.07, 0, 1509.49],
+    rotY: -0.3665,
+    radius: 320,
+  },
+  {
+    id: 'benxebac',
+    file: 'benxebac-hero.glb',
+    pos: [-4502.44, 0, -1886.94],
+    rotY: -0.5655,
+    radius: 340,
+  },
+  {
+    id: 'benxenam',
+    file: 'benxenam-hero.glb',
+    pos: [1822.44, 0, 2040.01],
+    rotY: 2.5763,
+    radius: 340,
+  },
+  {
+    id: 'mangca',
+    file: 'mangca-hero.glb',
+    pos: [-1461.73, 0, -2184.75],
+    rotY: -0.9409,
+    radius: 340,
+  },
+  {
+    id: 'tayloc',
+    file: 'tayloc-hero.glb',
+    pos: [-2258.46, 0, -522.36],
+    rotY: 0.6281,
+    radius: 340,
+  },
+  {
+    id: 'thuyquan',
+    file: 'thuyquan-hero.glb',
+    pos: [-917.85, 0, -1422.6],
+    rotY: 2.2217,
+    radius: 320,
+  },
 ];
 
 // Convert a loaded glTF Mesh to Hue's shared cityMaterial convention (sqrt-encoded linear vertex colors, aKind, aBase).
