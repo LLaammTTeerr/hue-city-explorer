@@ -1,15 +1,15 @@
 import '@fontsource/be-vietnam-pro/400.css';
 import '@fontsource/be-vietnam-pro/500.css';
 import '@fontsource/be-vietnam-pro/600.css';
-import '@fontsource-variable/fraunces/full.css';
-import '@fontsource-variable/fraunces/full-italic.css';
+import '@fontsource-variable/fraunces/wght.css';
+import '@fontsource-variable/fraunces/wght-italic.css';
 import './ui/style.css';
 
 import * as THREE from 'three';
 import { LAND_Y, quality } from './config.ts';
 import { buildCity, updateDetail } from './geo/city.ts';
 import { createHeroLoader } from './geo/hero-gltf.ts';
-import { releaseAfterUpload, releasedCount } from './geo/release.ts';
+import { releaseAfterUpload, releasedCount, KEEP_GEOMETRY } from './geo/release.ts';
 import { buildLandmarks } from './landmarks/build.ts';
 import { shared } from './geo/materials.ts';
 import { buildSky } from './env/sky.ts';
@@ -598,6 +598,12 @@ async function main() {
   // ---------- labels, look & interactions ----------
   // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
   labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true), data.streetLabels);
+  // Drop raw city arrays from JS heap once all builders and labels have consumed them (only meta/places stay live).
+  if (!KEEP_GEOMETRY) {
+    for (const k of ['terrain', 'roads', 'medians', 'rails', 'bld', 'infill', 'trees', 'green', 'land', 'ponds', 'pondLv', 'wall', 'iwalls', 'sites', 'riverLamps', 'moorings', 'streetLabels', 'bridges']) {
+      delete data[k];
+    }
+  }
   const leafMats = new Set<any>();
   world.group.traverse((obj: any) => {
     if (obj.material?.defines && 'HUE_FOLIAGE' in obj.material.defines) leafMats.add(obj.material);

@@ -409,7 +409,7 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
       occlusion.strength = (1 - POST_CFG.aoWeatherReduction * Math.max(glow * POST_CFG.aoGlowWeight, rain)) * (1 - POST_CFG.aoInkReduction * inkValue);
       compUniforms.uNight.value = glow;
       bloom.strength = (POST_CFG.bloomBaseStrength + POST_CFG.bloomNightBoost * glow) * (1 - POST_CFG.bloomInkReduction * inkValue);
-      bloom.enabled = !fast && bloom.strength >= POST_CFG.bloomMinEnabledStrength;
+      bloom.enabled = !fast && !(inkValue > 0.5 && glow < 0.05) && bloom.strength >= POST_CFG.bloomMinEnabledStrength;
       compUniforms.uVignette.value = POST_CFG.vignetteBase + POST_CFG.vignetteNightBoost * glow;
       compUniforms.uMistColor.value.copy(mistColor);
       compUniforms.uMist.value = mist;
