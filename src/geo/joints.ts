@@ -7,7 +7,7 @@ export function bridgeJoints(roads) {
   const key = (p) => Math.round(p[0] * 10) + ',' + Math.round(p[1] * 10);
   const at = new Map();
   for (const r of roads) {
-    if (r.c > 3 || r.pts.length < 2) continue;
+    if (r.c > 5 || r.pts.length < 2) continue;
     for (const e of [0, 1]) {
       const k = key(e ? r.pts[r.pts.length - 1] : r.pts[0]);
       if (!at.has(k)) at.set(k, []);
@@ -42,7 +42,7 @@ export function bridgeJoints(roads) {
 // { p, u (outward), hw, reach }. A street that starts within reach beyond it, inside its width, is cut on that line.
 export function handDeckJoints(roads, decks) {
   for (const D of decks) for (const r of roads) {
-    if (r.bridge || r.c > 3) continue;
+    if (r.bridge || r.c > 4) continue;
     for (const e of [0, 1]) {
       const P = e ? r.pts[r.pts.length - 1] : r.pts[0], dx = P[0] - D.p[0], dz = P[1] - D.p[1];
       const s = dx * D.u[0] + dz * D.u[1], t = -dx * D.u[1] + dz * D.u[0];

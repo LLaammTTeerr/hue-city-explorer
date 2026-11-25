@@ -29,12 +29,12 @@ const unflat = (f) => { const p = []; for (let i = 0; i + 1 < f.length; i += 2) 
 const joints = [];
 const profiles = bridgeProfiles(data), ownTT = thuyTienBridgeRoads(data), ownGH = replaced('giahoi') ? giaHoiRoads(data) : new Set();
 const streetEnds = [];
-for (const r of data.roads) if (!r[1] && (r[0] | 0) <= 3) { const f = r[2]; streetEnds.push([f[0] / 10, f[1] / 10], [f[f.length - 2] / 10, f[f.length - 1] / 10]); }
+for (const r of data.roads) if (!r[1] && (r[0] | 0) <= 4) { const f = r[2]; streetEnds.push([f[0] / 10, f[1] / 10], [f[f.length - 2] / 10, f[f.length - 1] / 10]); }
 const meetsStreet = (p) => streetEnds.some((q) => Math.hypot(q[0] - p[0], q[1] - p[1]) < 0.5);
 const tangent = (pts, i, j) => { const a = pts[i], b = pts[j], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; };
 data.roads.forEach((r, i) => {
   const c = r[0] | 0;
-  if (r[1] !== 1 || c > 3 || ownTT.has(r[2]) || ownGH.has(r[2])) return;
+  if (r[1] !== 1 || c > 4 || ownTT.has(r[2]) || ownGH.has(r[2])) return;
   const P = profiles.get(r[2]);
   if (!P || P.citadel || P.arches) return;
   if (P.name === 'Cầu Phú Xuân' && replaced('phuxuan')) return;
@@ -42,7 +42,7 @@ data.roads.forEach((r, i) => {
   const w = roadWidth(r), pts = unflat(r[2]);
   const deck = P.span ? subPath(pts, P.span[0], P.span[1]) : pts;
   const n = deck.length, name = `road ${i}${P.name ? ' ' + P.name : ''}`;
-  const hwPave = (w + (c <= 2 ? 3.6 : 2.4)) / 2;
+  const hwPave = (w + (c <= 2 ? 3.6 : c === 3 ? 2.4 : 0.44)) / 2;
   // the deck's start: a street starts there (or the way runs on as street past its abutment)
   if ((P.span && P.span[0] > 0.05) || meetsStreet(deck[0])) { const d = tangent(deck, 1, 0); joints.push({ name: name + ' start', p: deck[0], u: d, hwPave, hwCar: w / 2 }); }
   if ((P.span && P.span[1] < P.len - 0.05) || meetsStreet(deck[n - 1])) { const d = tangent(deck, n - 2, n - 1); joints.push({ name: name + ' end', p: deck[n - 1], u: d, hwPave, hwCar: w / 2 }); }

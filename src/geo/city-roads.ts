@@ -427,9 +427,10 @@ function buildBridgeDecks(data: any, roads: any[], profiles: Map<any, any>, stru
 
     const deckWidth = road.bridge === 2
       ? ROAD_W[road.c] + (road.c <= 2 ? 3 : 1.5)
-      : road.c <= 3 ? road.w + (road.c <= 2 ? PAVEMENT_ADD_MAJOR_M : PAVEMENT_ADD_MINOR_M) : road.w + 1.5;
-    const slabOpt = road.c <= 3 ? { lane: { w: road.w, col: roadCols[Math.min(road.c, 3)] }, ends: road.ends } : { ends: road.ends };
-    const deckTop = road.c <= 3 ? casing : roadCols[Math.min(road.c, 3)];
+      : road.c <= 3 ? road.w + (road.c <= 2 ? PAVEMENT_ADD_MAJOR_M : PAVEMENT_ADD_MINOR_M)
+        : road.w + KERB_ADD_MINOR_M;
+    const slabOpt = { lane: { w: road.w, col: roadCols[Math.min(road.c, ROAD_MAX)] }, ends: road.ends };
+    const deckTop = road.c <= 3 ? casing : shade(roadCols[Math.min(road.c, ROAD_MAX)], 0.85);
     const profile = profiles.get(road.flat);
     if (!profile) continue;
     if (profile.name === 'Cầu Phú Xuân' && replaced('phuxuan')) continue;
@@ -456,7 +457,7 @@ function buildBridgeDecks(data: any, roads: any[], profiles: Map<any, any>, stru
       );
       structures.kind = prevKind;
     } else {
-      const tilt = road.c <= 3 ? landingTilt(road.pts, profile.len, deckWidth) : null;
+      const tilt = road.c <= 4 ? landingTilt(road.pts, profile.len, deckWidth) : null;
       if (tilt) slab(structures, resample(road.pts, 1.5).pts, deckWidth, profile.y, profile.thick, deckTop, deckSide, parapet, null, { ...slabOpt, tilt });
       else slab(structures, profile.breaks.length ? resample(road.pts, 8, profile.breaks).pts : road.pts, deckWidth, profile.y, profile.thick, deckTop, deckSide, parapet, null, slabOpt);
     }
