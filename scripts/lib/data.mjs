@@ -50,8 +50,8 @@ export function withTiles(data, read = readTile) {
     treeParts.push(b.trees);
     infillParts.push(b.infill);
   }
-  data.trees = concatInt32(treeParts);
-  data.infill = concatInt32(infillParts);
+  data.trees = Array.from(concatInt32(treeParts));
+  data.infill = Array.from(concatInt32(infillParts));
   data.meta.tiles = [];
   return data;
 }

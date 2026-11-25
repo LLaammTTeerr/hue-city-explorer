@@ -74,7 +74,7 @@ export function encodeHueBin(h: ArrayLike<number>, trees: ArrayLike<number>, inf
   return bytes;
 }
 
-export function decodeHueBin(buf: ArrayBuffer | ArrayBufferView): { h: Int16Array; trees: Int32Array; infill: Int32Array } {
+export function decodeHueBin(buf: ArrayBuffer | ArrayBufferView): { h: Int16Array; trees: number[]; infill: number[] } {
   const view = ArrayBuffer.isView(buf)
     ? new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
     : new DataView(buf);
@@ -90,10 +90,11 @@ export function decodeHueBin(buf: ArrayBuffer | ArrayBufferView): { h: Int16Arra
     off += 2;
   }
   off = align4(off);
-  let trees: Int32Array;
-  [trees, off] = readTrees(view, off, treeCount);
-  const [infill] = readInfill(view, off, infillCount);
-  return { h, trees, infill };
+  let treesTyped: Int32Array;
+  [treesTyped, off] = readTrees(view, off, treeCount);
+  const [infillTyped] = readInfill(view, off, infillCount);
+  // First-frame trees/infill may be mutated (e.g. `.push()`) by place builders before populate()
+  return { h, trees: Array.from(treesTyped), infill: Array.from(infillTyped) };
 }
 
 export function encodeTileBin(body: { i0: [number, number]; treesNear: number; infillNear: number; trees: ArrayLike<number>; infill: ArrayLike<number> }): Uint8Array {
