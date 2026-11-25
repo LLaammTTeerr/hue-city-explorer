@@ -62,7 +62,7 @@ svg .fill { fill: currentColor; stroke: none; }
 #scene.dragging { cursor: grabbing; }
 
 /* paper surface shared by every panel: a faint fibre texture laid over the flat tone */
-#search .bar, #panel, .icon, .tog, .seg, #card, dialog, #hint {
+#search .bar, #panel, .icon, .tog, .seg, #card, dialog, #hint, #capture-menu {
   background-color: var(--panel);
   background-image: radial-gradient(rgba(44, 36, 30, 0.035) 1px, transparent 1.2px), radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1.3px);
   background-size: 7px 7px, 11px 11px;
@@ -73,7 +73,7 @@ svg .fill { fill: currentColor; stroke: none; }
   -webkit-backdrop-filter: blur(10px) saturate(1.1);
   transition: background-color 0.45s ease, border-color 0.45s ease, color 0.45s ease;
 }
-body[data-time='2'] :is(#search .bar, #panel, .icon, .tog, .seg, #card, dialog, #hint) {
+body[data-time='2'] :is(#search .bar, #panel, .icon, .tog, .seg, #card, dialog, #hint, #capture-menu) {
   background-image: linear-gradient(180deg, rgba(207, 168, 98, 0.045), transparent 45%);
   background-size: auto;
   background-position: 0 0;
@@ -149,7 +149,14 @@ body[data-time='2'] :is(#search .bar, #panel, .icon, .tog, .seg, #card, dialog, 
 .seg button[aria-checked='true'] { color: var(--cream); background: var(--seal); }
 .seg.text button { width: auto; min-width: 40px; padding: 0 10px; font-size: 13px; font-weight: 500; letter-spacing: 0.04em; }
 
-#tools { position: fixed; right: var(--edge-r); top: var(--top); display: flex; gap: 8px; transition: opacity 0.35s; }
+#tools { position: fixed; right: var(--edge-r); top: var(--top); display: flex; gap: 8px; z-index: 4; transition: opacity 0.35s; }
+#capture-wrap { position: relative; }
+#btn-capture.busy { opacity: 0.65; cursor: progress; color: var(--accent-ink); }
+#capture-menu { position: absolute; top: calc(100% + 6px); right: 0; min-width: 176px; padding: 4px; border-radius: 6px; background-color: var(--paper); display: flex; flex-direction: column; gap: 2px; z-index: 6; animation: rise 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#capture-menu[hidden] { display: none; }
+#capture-menu button { display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; padding: 7px 10px; border-radius: 4px; font-size: 13px; font-weight: 500; text-align: left; color: var(--ink); transition: background 0.15s, color 0.15s; white-space: nowrap; }
+#capture-menu button:hover, #capture-menu button:focus-visible { background: var(--wash); color: var(--accent-ink); outline: none; }
+#capture-menu small { font-size: 11px; font-weight: 400; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 #nav { position: fixed; right: var(--edge-r); bottom: calc(var(--bottom) + 34px); display: flex; flex-direction: column; gap: 8px; align-items: center; transition: opacity 0.35s; }
 .compass { width: 50px; height: 50px; border-radius: 50%; }
 .compass svg { width: 42px; height: 42px; stroke: none; }
@@ -262,7 +269,7 @@ body.loading #search, body.loading #card { z-index: 11; }
 .fail-actions .tog.primary:hover { background-color: var(--seal-deep); }
 #loader #fail-status { min-height: 1.5em; font-size: 12.5px; color: var(--accent-ink); }
 
-body.flat #scene, body.flat #labels, body.flat #nav, body.flat #actions, body.flat #btn-labels, body.flat #btn-look, body.flat #btn-share, body.flat #card-share { display: none; }
+body.flat #scene, body.flat #labels, body.flat #nav, body.flat #actions, body.flat #btn-labels, body.flat #btn-look, body.flat #capture-wrap, body.flat #btn-share, body.flat #card-share { display: none; }
 #map2d { position: fixed; inset: 0; width: 100%; height: 100%; display: block; background: #c9d4d3; touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 #map2d[hidden] { display: none; }
 #map2d:active { cursor: grabbing; }
@@ -296,6 +303,7 @@ body.flat #scene, body.flat #labels, body.flat #nav, body.flat #actions, body.fl
   #panel { max-height: 46vh; }
   /* under the search box: the tools and the compass in a column on the right */
   #tools { top: calc(var(--top) + 58px); flex-direction: column; align-items: flex-end; gap: 6px; }
+  #capture-menu { top: 0; right: calc(100% + 8px); }
   /* the language choice stands upright in the column, as wide as the icons */
   #tools .seg.text { flex-direction: column; width: 42px; height: auto; }
   #tools .seg.text button { width: 36px; min-width: 0; height: 30px; padding: 0; font-size: 12px; }
