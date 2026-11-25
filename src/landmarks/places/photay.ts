@@ -946,7 +946,7 @@ export function build({ data, S, group, place }) {
     for (let i = 0; i < road[2].length; i += 2) pts.push([road[2][i] / 10, road[2][i + 1] / 10]);
     if (pts.some((pt) => Math.hypot(pt[0] - cx, pt[1] - cz) < QUARTER_RADIUS + 60)) allRoads.push({ c: road[0], half: roadWidth(road) / 2, pts, box: boxOf(pts) });
   }
-  const onRoad = (x, z, pad = 0.3) => allRoads.some((road) => road.c <= 4 && nearestOnPolyline(road.pts, x, z).d < road.half + pad);
+  const onRoad = (x, z, pad = 0.3) => allRoads.some((road) => road.c <= 4 && inBox(road.box, x, z, road.half + pad) && nearestOnPolyline(road.pts, x, z).d < road.half + pad);
 
   const rings = [], replaced: Record<string, any> = {};
   (data.bld || []).forEach((rec, bldIdx) => {

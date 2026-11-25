@@ -2,12 +2,11 @@
 //
 //   npm run build && node scripts/perf.mjs [--build dir] [--runs 3] [--net fast|4g] [--viewport 1400x900] [--json out.json]
 //
-// Serves the build with `vite preview` (gzip off, like a plain static host without compression) or, with --gzip,
-// through a tiny gzip server (like GitHub Pages), opens it in headless Chrome (GPU) with a fresh profile per run, and
-// reports per run: the page's performance marks (search-ready, geometry-loaded, first-frame, tiles-loaded), bytes
-// transferred, JS heap used after the tiles are in (after a forced GC), the scene's GPU buffer bytes (geometry
-// attributes and indices, textures by size), draw calls, and the resident memory of the Chrome renderer and GPU
-// processes. --net 4g throttles to 9 Mbit/s down, 40 ms latency.
+// Serves the build through a small gzip static server (like GitHub Pages), opens it in headless Chrome (GPU) with a
+// fresh profile per run, and reports per run: the page's performance marks (search-ready, geometry-loaded,
+// first-frame, tiles-loaded), bytes transferred, JS heap used after the tiles are in (after a forced GC), the bytes of
+// geometry arrays still held in JS, draw calls, and the resident memory of the Chrome renderer and GPU processes.
+// --net 4g throttles to 9 Mbit/s down, 40 ms latency.
 import { spawn, execSync } from 'node:child_process';
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
@@ -94,7 +93,7 @@ async function oneRun(i) {
       const H = window.__hue, marks = {};
       for (const m of performance.getEntriesByType('mark')) if (m.name.startsWith('hue:')) marks[m.name.slice(4)] = Math.round(m.startTime);
       gc(); await new Promise((r) => setTimeout(r, 300)); gc();
-      let geo = 0, tex = 0; const seen = new Set();
+      let geo = 0; const seen = new Set();
       H.scene.traverse((o) => {
         const g = o.geometry; if (g && !seen.has(g)) { seen.add(g);
           for (const a of Object.values(g.attributes)) geo += a.array ? a.array.byteLength : 0;
