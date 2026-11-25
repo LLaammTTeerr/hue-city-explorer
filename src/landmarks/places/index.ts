@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import polygonClipping from 'polygon-clipping';
 import { Buf, KIND, unflat } from '../../geo/buf.ts';
+import { cityMaterial } from '../../geo/materials.ts';
+import { releaseAfterUpload } from '../../geo/release.ts';
 import type { HueData, PlaceModule, PlaceUpdateHandle, Vec2 } from '../../types.ts';
 
 // Replica models, one file per place: src/landmarks/places/<slug>.js, picked up here without being listed.
@@ -21,12 +23,40 @@ import type { HueData, PlaceModule, PlaceUpdateHandle, Vec2 } from '../../types.
 // on globalThis.__hueReplicas. The list is read on first use, not at import: builders (and city.js through
 // citadel.js) import this file before node has handed the replicas over, and place files may import builders.
 // (Vite rewrites only the glob call itself, so test the node hand-over first, never import.meta.glob.)
+// Distant places (> 1.8 km from the opening view, with no city/road/clearing hooks) are lazy-loaded after first-frame
+// in browser builds so their JS and geometry stay off the critical path. Headless Node checks still load all places
+// eagerly via globalThis.__hueReplicas.
+const LAZY_PLACE_IDS = new Set([
+  'thieutri', 'dongkhanh', 'hoquyen', 'gate:Cửa An Hòa', 'quantuong', 'gate:Cửa Hữu', 'aeon',
+  'gate:Cửa Chánh Tây', 'gate:Cửa Hậu', 'khaidinh', 'benxenam', 'xatac', 'benxebac', 'gate:Cửa Kẻ Trài', 'thuytien',
+].map((id) => id.normalize('NFC')));
+
 let list: PlaceModule[] | null = null, ids: Set<string> | null = null;
+let lazyLoaders: Record<string, () => Promise<PlaceModule>> | null = null;
 function load() {
   if (list) return;
-  const mods = globalThis.__hueReplicas || import.meta.glob(['./*.ts', '!./index.ts'], { eager: true });
-  list = (Object.values(mods) as PlaceModule[]).filter((m) => m && m.id && typeof m.build === 'function');
-  ids = new Set(list.map((m) => String(m.id).normalize('NFC')));
+  if (globalThis.__hueReplicas) {
+    const mods = globalThis.__hueReplicas;
+    list = (Object.values(mods) as PlaceModule[]).filter((m) => m && m.id && typeof m.build === 'function');
+    ids = new Set(list.map((m) => String(m.id).normalize('NFC')));
+    return;
+  }
+  const eagerMods = import.meta.glob([
+    './*.ts',
+    '!./index.ts',
+    '!./thieutri.ts', '!./dongkhanh.ts', '!./hoquyen.ts', '!./gate-cua-an-hoa.ts',
+    '!./quantuong.ts', '!./gate-cua-huu.ts', '!./aeon.ts', '!./gate-cua-chanh-tay.ts',
+    '!./gate-cua-hau.ts', '!./khaidinh.ts', '!./benxenam.ts', '!./xatac.ts',
+    '!./benxebac.ts', '!./gate-cua-ke-trai.ts', '!./thuytien.ts',
+  ], { eager: true });
+  lazyLoaders = import.meta.glob([
+    './thieutri.ts', './dongkhanh.ts', './hoquyen.ts', './gate-cua-an-hoa.ts',
+    './quantuong.ts', './gate-cua-huu.ts', './aeon.ts', './gate-cua-chanh-tay.ts',
+    './gate-cua-hau.ts', './khaidinh.ts', './benxenam.ts', './xatac.ts',
+    './benxebac.ts', './gate-cua-ke-trai.ts', './thuytien.ts',
+  ], { eager: false }) as Record<string, () => Promise<PlaceModule>>;
+  list = (Object.values(eagerMods) as PlaceModule[]).filter((m) => m && m.id && typeof m.build === 'function');
+  ids = new Set([...list.map((m) => String(m.id).normalize('NFC')), ...LAZY_PLACE_IDS]);
 }
 
 export const replaced = (id: string): boolean => { load(); return ids.has(String(id).normalize('NFC')); };
@@ -140,5 +170,57 @@ export function buildPlaces(
     S.base = 0;
     if (onEach) onEach(id, [n0, S.n], k0);
   }
-  return { update(time, glow, rain) { for (const r of live) r.update(time, glow, rain); } };
+  const deferredLive: PlaceUpdateHandle[] = [];
+  return {
+    update(time, glow, rain) {
+      for (const r of live) r.update(time, glow, rain);
+      for (const r of deferredLive) r.update(time, glow, rain);
+    },
+    _deferredLive: deferredLive,
+  } as PlaceUpdateHandle & { _deferredLive: PlaceUpdateHandle[] };
+}
+
+// Load and build the deferred distant place modules after first-frame, uploading their geometry into chunked meshes
+// and releasing CPU arrays once on the GPU.
+export async function buildDeferredPlaces(
+  data: HueData,
+  group: THREE.Group,
+  replicasHandle: PlaceUpdateHandle & { _deferredLive?: PlaceUpdateHandle[] },
+): Promise<THREE.Object3D[]> {
+  load();
+  if (!lazyLoaders) return [];
+  const mods = (await Promise.all(Object.values(lazyLoaders).map((fn) => fn())))
+    .filter((m) => m && m.id && typeof m.build === 'function');
+  const S = new Buf(32000);
+  const live = replicasHandle._deferredLive || [];
+  const beforeChildren = group.children.length;
+  for (const m of mods) {
+    const id = String(m.id).normalize('NFC');
+    const p = (data.places || []).find((q) => String(q.id).normalize('NFC') === id);
+    const place = p ? { ...p, x: p.x / 10, z: p.z / 10 } : null;
+    const n0 = S.n;
+    try {
+      let handle: PlaceUpdateHandle | void;
+      if (m.joinRoofs !== false) S.joined(() => { handle = m.build({ data, S, group, place, THREE }); });
+      else handle = m.build({ data, S, group, place, THREE });
+      if (handle && typeof handle.update === 'function') live.push(handle);
+    } catch (e) {
+      S.n = n0;
+      console.warn(`deferred replica ${id} not built:`, e);
+    }
+    S.kind = KIND.PLAIN;
+    S.base = 0;
+  }
+  const added: THREE.Object3D[] = group.children.slice(beforeChildren);
+  if (S.n > 0) {
+    const mesh = new THREE.Mesh(S.geometry(), cityMaterial());
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    mesh.name = 'deferred-places';
+    group.add(mesh);
+    added.push(mesh);
+  }
+  S.release();
+  for (const obj of added) releaseAfterUpload(obj);
+  return added;
 }

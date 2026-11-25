@@ -12,6 +12,7 @@ import { createHeroLoader } from './geo/hero-gltf.ts';
 import { releaseAfterUpload, releasedCount, KEEP_GEOMETRY } from './geo/release.ts';
 import { decodeHueBin, decodeTileBin } from './geo/codec.ts';
 import { buildLandmarks } from './landmarks/build.ts';
+import { buildDeferredPlaces } from './landmarks/places/index.ts';
 import { shared } from './geo/materials.ts';
 import { buildSky } from './env/sky.ts';
 import { buildWater } from './env/water.ts';
@@ -575,6 +576,7 @@ async function main() {
   const scene = new THREE.Scene();
 
   const world = buildCity(data);
+  performance.mark('hue:city-built');
   ui.loaderProgress(LOADER_PROGRESS.cityBuilt);
   await nextMacrotask();
 
@@ -590,6 +592,7 @@ async function main() {
   scene.add(world.group, dynamic);
   const lanternGlows: any[] = []; // glow points that landmarks flagged for the per-frame update
   dynamic.traverse((obj) => { if (obj.userData.glow) lanternGlows.push(obj); });
+  performance.mark('hue:landmarks-built');
   ui.loaderProgress(LOADER_PROGRESS.landmarksBuilt);
   await nextMacrotask();
 
@@ -597,6 +600,7 @@ async function main() {
   const water = buildWater(data);
   const rain = buildRain();
   scene.add(sky.mesh, water.mesh, water.ponds, rain.mesh);
+  performance.mark('hue:env-built');
 
   mood = createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl });
   mood.onChange((state: any) => ui.setMood({ rain: state.rainTarget, time: state.timeTarget }));
@@ -624,9 +628,9 @@ async function main() {
   // ---------- labels, look & interactions ----------
   // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
   labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true), data.streetLabels);
-  // Drop raw city arrays from JS heap once all builders and labels have consumed them (only meta/places stay live).
+  // Drop raw city arrays from JS heap once all builders and labels have consumed them (sites/gates wait for deferred places).
   if (!KEEP_GEOMETRY) {
-    for (const k of ['terrain', 'roads', 'medians', 'rails', 'bld', 'infill', 'trees', 'green', 'land', 'ponds', 'pondLv', 'wall', 'iwalls', 'sites', 'riverLamps', 'moorings', 'streetLabels', 'bridges', 'precomputed']) {
+    for (const k of ['terrain', 'roads', 'medians', 'rails', 'bld', 'infill', 'trees', 'green', 'land', 'ponds', 'pondLv', 'wall', 'iwalls', 'riverLamps', 'moorings', 'streetLabels', 'bridges', 'precomputed']) {
       delete data[k];
     }
   }
@@ -813,7 +817,16 @@ async function main() {
     setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, DRIFT_START_DELAY_MS);
   }
 
-  const tiles = streamRemainingTiles({ data, world, leafMats, shadows, sun, syncLeafLook: () => setLook(look) });
+  const tiles = Promise.all([
+    streamRemainingTiles({ data, world, leafMats, shadows, sun, syncLeafLook: () => setLook(look) }),
+    buildDeferredPlaces(data, dynamic, replicas).then((meshes) => {
+      if (!KEEP_GEOMETRY) { delete data.sites; delete data.gates; }
+      if (meshes.length) {
+        if (shadows.invalidate) shadows.invalidate();
+        dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
+      }
+    }),
+  ]);
 
   // handle for debugging and automated checks (tiles: resolves once every tile is in the scene)
   window.__hue = {

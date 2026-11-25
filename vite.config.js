@@ -18,7 +18,10 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             { name: 'three', test: /node_modules[\\/]three/ },
-            { name: 'places', test: /src[\\/]landmarks[\\/]places[\\/]/ },
+            {
+              name: 'places',
+              test: /src[\\/]landmarks[\\/]places[\\/](?!(thieutri|dongkhanh|hoquyen|gate-cua-an-hoa|quantuong|gate-cua-huu|aeon|gate-cua-chanh-tay|gate-cua-hau|khaidinh|benxenam|xatac|benxebac|gate-cua-ke-trai|thuytien)\.ts$)/,
+            },
           ],
         },
       },
