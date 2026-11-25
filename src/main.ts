@@ -541,6 +541,7 @@ async function main() {
     cardClosed: () => syncCard(null),
     rain: whenReady(() => mood.setRain(!mood.state.rainTarget)),
     time: whenReady((idx: number) => mood.setTime(idx)),
+    season: whenReady((idx: number) => mood.setSeason(idx)),
     look: whenReady(() => setLook(!look, true)),
     capture: whenReady((preset?: CapturePreset) => runCapture(preset)),
     captureSize: (preset: CapturePreset) => captureCtrl?.sizeFor(preset) ?? null,
@@ -593,8 +594,8 @@ async function main() {
   performance.mark('hue:env-built');
 
   mood = createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl });
-  mood.onChange((state: any) => ui.setMood({ rain: state.rainTarget, time: state.timeTarget }));
-  ui.setMood({ rain: mood.state.rainTarget, time: mood.state.timeTarget });
+  mood.onChange((state: any) => ui.setMood({ rain: state.rainTarget, time: state.timeTarget, season: state.season }));
+  ui.setMood({ rain: mood.state.rainTarget, time: mood.state.timeTarget, season: mood.state.season });
 
   // ---------- camera & post ----------
   const bounds = data.meta.bounds.map((val: number) => val / DECIMETRES_PER_METRE);
@@ -760,7 +761,8 @@ async function main() {
 
     if (post) {
       const morningMist = (1 - THREE.MathUtils.smoothstep(mood.state.time, 0, 0.85)) * 0.52;
-      const mist = 0.38 + morningMist + 0.45 * mood.state.rain + 0.1 * mood.cur.glow;
+      const winterMist = mood.state.winter * 0.42;
+      const mist = 0.38 + morningMist + winterMist + 0.45 * mood.state.rain + 0.1 * mood.cur.glow;
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, mist, elapsedTime);
       // focus on what the camera is looking at; near the ground everything is sharp, illustrated look is sharp throughout
       const focusDist = camera.position.distanceTo(controls.target);

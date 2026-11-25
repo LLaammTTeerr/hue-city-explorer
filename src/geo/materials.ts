@@ -11,6 +11,9 @@ export const shared = {
   uSunDir: { value: new THREE.Vector3(0.7, 0.6, 0.3) },
   uSunI: { value: 2.5 },
   uLook: { value: 0 }, // 0 realistic (reflections, relief, rooms behind glass), 1 illustrated (flat washes; the ink is drawn in post.js)
+  uSpring: { value: 0 }, // 0..1 Spring / Tết (fresh green + golden hoàng mai & đào blossoms)
+  uAutumn: { value: 0 }, // 0..1 Autumn (warm honey-gold, amber & russet foliage)
+  uWinter: { value: 0 }, // 0..1 Winter (cool misty Huế cypress & silvery-sage foliage)
 };
 
 // In the drawn look the ground (the slab, the hills and the streets, greens and yards laid on them, none of which
@@ -89,9 +92,12 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     shader.uniforms.uTime = shared.uTime;
     shader.uniforms.uWind = shared.uWind;
     shader.uniforms.uLook = shared.uLook;
+    shader.uniforms.uSpring = shared.uSpring;
+    shader.uniforms.uAutumn = shared.uAutumn;
+    shader.uniforms.uWinter = shared.uWinter;
     cascades(shader);
     shader.vertexShader = patch(shader.vertexShader)
-      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nvarying float vFlood;\nuniform float uTime;\nuniform float uWind;')
+      .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nvarying float vFlood;\nvarying float vTreeSeed;\nuniform float uTime;\nuniform float uWind;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND)
       .replace('#include <color_vertex>', foliage ? FOLIAGE_COLOR : '#include <color_vertex>')
       .replace(
@@ -100,11 +106,13 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         {
           vec4 wp = vec4( transformed, 1.0 );
           vec3 wn = objectNormal;
+          vTreeSeed = 0.5;
           #ifdef USE_INSTANCING
             wp = instanceMatrix * wp;
             mat3 im = mat3( instanceMatrix );
             wn /= vec3( dot( im[ 0 ], im[ 0 ] ), dot( im[ 1 ], im[ 1 ] ), dot( im[ 2 ], im[ 2 ] ) );
             wn = im * wn;
+            vTreeSeed = fract( sin( dot( instanceMatrix[ 3 ].xz, vec2( 12.9898, 78.233 ) ) ) * 43758.5453 );
           #endif
           vWPos = ( modelMatrix * wp ).xyz;
           vWNrm = normalize( mat3( modelMatrix ) * wn );

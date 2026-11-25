@@ -22,12 +22,16 @@ varying vec3 vWNrm;
 varying float vKind;
 varying float vBase;
 varying float vFlood;
+varying float vTreeSeed;
 uniform float uGlow;
 uniform float uLandY;
 uniform float uWet;
 uniform vec3 uSunDir;
 uniform float uSunI;
 uniform float uLook;
+uniform float uSpring;
+uniform float uAutumn;
+uniform float uWinter;
 float hueHash( vec2 p ) { p = fract( mod( p, 2048.0 ) * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
 float hueHashI( vec2 i ) {
   uvec2 q = uvec2( ivec2( i ) ) * uvec2( 1597334673u, 3812015801u );
@@ -102,6 +106,37 @@ vec3 hueRoomC = vec3( 1.0 ); // the room seen through a lit window
   if ( uLook > 0.5 ) {
     vec3 flatCrown = vColor.rgb * vColor.rgb * 1.52 * mix( vec3( 0.82, 0.92, 1.02 ), vec3( 1.14, 1.08, 0.86 ), crownTop );
     diffuseColor.rgb = mix( diffuseColor.rgb, flatCrown, 0.72 );
+  }
+  // Seasonal Huế flora (deciduous crowns only; trunks vKind < 0.5 stay bark)
+  if ( vKind > 0.5 && ( uSpring > 0.004 || uAutumn > 0.004 || uWinter > 0.004 ) ) {
+    float crownShade = mix( 0.74, 1.18, crownTop ) * ( 0.78 + 0.36 * leaf );
+    if ( uSpring > 0.004 ) {
+      // Spring / Tết: fresh luminous spring-green foliage + golden hoàng mai & soft peach đào blossoms
+      vec3 springCol = diffuseColor.rgb * vec3( 1.06, 1.16, 0.86 );
+      float isBlossom = smoothstep( 0.74, 0.78, vTreeSeed );
+      vec3 blossomHue = vTreeSeed > 0.90 ? vec3( 0.88, 0.36, 0.44 ) : vec3( 0.92, 0.62, 0.07 );
+      float bloomMask = isBlossom * smoothstep( 0.14, 0.68, sunWarm );
+      springCol = mix( springCol, blossomHue * crownShade, bloomMask * 0.88 );
+      diffuseColor.rgb = mix( diffuseColor.rgb, springCol, uSpring );
+    }
+    if ( uAutumn > 0.004 ) {
+      // Autumn: ~30% evergreens stay deep pine/emerald; ~70% shift into honey-gold, amber-copper & russet
+      vec3 autCol = diffuseColor.rgb * vec3( 1.06, 0.96, 0.84 );
+      if ( vTreeSeed >= 0.30 ) {
+        vec3 autHue = vTreeSeed < 0.52 ? vec3( 0.48, 0.42, 0.09 )
+          : vTreeSeed < 0.74 ? vec3( 0.82, 0.46, 0.06 )
+          : vTreeSeed < 0.89 ? vec3( 0.72, 0.25, 0.05 )
+          : vec3( 0.58, 0.13, 0.06 );
+        autCol = mix( autCol, autHue * crownShade, 0.84 );
+      }
+      diffuseColor.rgb = mix( diffuseColor.rgb, autCol, uAutumn );
+    }
+    if ( uWinter > 0.004 ) {
+      // Winter (mùa đông xứ Huế): cool misty silver-sage & deep rain-soaked cypress green (no snow)
+      float wl = dot( diffuseColor.rgb, vec3( 0.2126, 0.7152, 0.0722 ) );
+      vec3 misty = mix( vec3( wl ) * vec3( 0.72, 0.86, 0.92 ), diffuseColor.rgb * vec3( 0.68, 0.84, 0.90 ), 0.52 );
+      diffuseColor.rgb = mix( diffuseColor.rgb, misty, uWinter );
+    }
   }
   // a crown is pigment, not a lamp: past 0.6 the brightest channel is eased toward 0.85 with the hue kept, or the
   // light blossom (hoàng mai, bằng lăng, phượng) and the sunlit leaf tips go out to white in the sun
