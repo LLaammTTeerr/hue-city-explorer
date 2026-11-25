@@ -24,280 +24,361 @@ import { CITADEL_PASSAGE } from '../../geo/gates.ts';
 // passage, t > 0 into the city.
 export const id = 'gate:Cửa Chánh Tây';
 
-const C = [-2921.5, -633.0]; // footprint centre (hue.json gates, from OSM)
-const A = -2.197; // the footprint's long axis (along the wall)
-const ux = Math.cos(A), uz = Math.sin(A);
-const P = (s, t): [number, number] => [C[0] + s * ux - t * uz, C[1] + s * uz + t * ux];
-const V = (s, t, y?) => { const p = P(s, t); return [p[0], y, p[1]]; };
-const N = (ds, dt, dy = 0): [number, number, number] => [ds * ux - dt * uz, dy, ds * uz + dt * ux];
+const GATE_CENTER = [-2921.5, -633.0]; // footprint centre (hue.json gates, from OSM)
+const WALL_ANGLE = -2.197; // the footprint's long axis (along the wall)
+const AXIS_COS = Math.cos(WALL_ANGLE);
+const AXIS_SIN = Math.sin(WALL_ANGLE);
+const toWorld = (localS, localT): [number, number] => [
+  GATE_CENTER[0] + localS * AXIS_COS - localT * AXIS_SIN,
+  GATE_CENTER[1] + localS * AXIS_SIN + localT * AXIS_COS,
+];
+const toPoint3 = (localS, localT, y?) => {
+  const pos = toWorld(localS, localT);
+  return [pos[0], y, pos[1]];
+};
+const toNormal = (ds, dt, dy = 0): [number, number, number] => [ds * AXIS_COS - dt * AXIS_SIN, dy, ds * AXIS_SIN + dt * AXIS_COS];
 
-// The block runs from the rampart's outer face (t = -8.15) to t = +3.5; from there to the rampart's inner face (+9.5)
-// the passage runs on through an open forecourt between the slot's walls, capped piers at its mouth. The inner face's
-// place is an estimate from Street View on Thái Phiên (2024: the 4.2 m arch seen about 15 m from the car, the
-// rampart's face about 10 m) and the satellite (allowing for the image's lean, which shifts tops about 0.34 m per metre
-// of height towards the city, the flat top spans t -8.8 to +2.6 and about 17 m along the wall, against the OSM
-// footprint's 12.8 x 19.6 m). Satellite and Street View both put the vọng lâu over the outer half of the block: the
-// satellite (lean allowed for) at t ~ -2.4, bearings from two car panos at t ~ -5.7.
-// The passage in stages (Street View through it, car pano 2024): a wide outer vault where the door leaves stood
-// open, about 5.4 m across and 5 m deep, then the narrower brick arch the doors hung in (about 4.7 m, seen 5-6 m
-// from the outer mouth), then the 4.2 m vault on to the inner face. The outer face stands at the satellite's
-// lean-corrected -8.8. From the outer mouth the inner mouth looks further away (25-30 m) than the 12 m block allows;
-// the inner face's place is held by the city-side pano and the satellite (docs/places/gate-cua-chanh-tay.md).
-const T0 = -8.8, TI = 3.5, T1 = 9.6, HW = 8.8; // outer face, inner face, rampart's inner face; half width of the block
-const TD = T0 + 5.0, TD1 = TD + 0.8; // the door arch
-const FRONT = 7.0; // half width of the frontispiece that stands 0.25 m proud on each face
-const YB = LAND_Y + 8.0; // block's flat top (estimate: about 1.4 m over the 6.6 m rampart, as the photo shows)
-const PW = CITADEL_PASSAGE.w, PH = CITADEL_PASSAGE.h, SLOT = CITADEL_PASSAGE.slot; // passage 4.2 m wide, crown 5.4 m
-// The vọng lâu's centre: the satellite (lean allowed for) puts it about t -1 and 2-3 m NW (+s) of the passage
-// axis; pano b sees it right of the inner arch by an offset that gives s +1.5 at that depth; s +2 drawn.
-const TT = -1.5, TS = 2.0;
+const OUTER_FACE_T = -8.8;
+const INNER_FACE_T = 3.5;
+const RAMPART_INNER_T = 9.6;
+const BLOCK_HALF_W = 8.8; // outer face, inner face, rampart's inner face; half width of the block
+const DOOR_ARCH_T0 = OUTER_FACE_T + 5.0;
+const DOOR_ARCH_T1 = DOOR_ARCH_T0 + 0.8;
+const FRONTISPIECE_HALF_W = 7.0; // half width of the frontispiece that stands 0.25 m proud on each face
+const BLOCK_TOP_Y = LAND_Y + 8.0; // block's flat top (estimate: about 1.4 m over the 6.6 m rampart, as the photo shows)
+const PASSAGE_W = CITADEL_PASSAGE.w;
+const PASSAGE_H = CITADEL_PASSAGE.h;
+const PASSAGE_SLOT = CITADEL_PASSAGE.slot; // passage 4.2 m wide, crown 5.4 m
+const TOWER_OFFSET_T = -1.5;
+const TOWER_OFFSET_S = 2.0;
+const ARCH_SEGS = 10;
+const VAULT_SEGS = 14;
 
-const BRICK = hex('#76604f'); // weathered grey-brown brick (sunlit in the 2024 Street View: about #89765f)
-const BRICK_DARK = hex('#4c3f36'), BRICK_RED = hex('#8a5e48'), DAMP = hex('#3d352f');
-const GREY = hex('#8a857b'), GREY_LIGHT = hex('#a49f92'), TABLET = hex('#7d7c74'), CARVE = hex('#56554f');
-// the tower's lime plaster weathered grey (panos b and f), its roofs in orange-tan tile
-const PLASTER = hex('#9d988b'), PLASTER_DARK = hex('#848074'), TILE = hex('#b4774c');
-const LINING = hex('#7e5c4c'); // the passage's red brick lining, lit from the mouths
-const DARK = hex('#1f1a18');
+// the passage in sections, [t0, t1, half width, crown, light]: outer vault, door arch, inner vault
+const PASSAGE_SECTIONS = [
+  [OUTER_FACE_T, DOOR_ARCH_T0, 2.7, LAND_Y + 5.7, 0.95],
+  [DOOR_ARCH_T0, DOOR_ARCH_T1, 2.35, LAND_Y + 5.5, 0.8],
+  [DOOR_ARCH_T1, INNER_FACE_T, PASSAGE_W / 2, LAND_Y + PASSAGE_H, 0.66],
+];
+const GATE_FACES = [
+  [OUTER_FACE_T, -1, 2.7, LAND_Y + 5.7],
+  [INNER_FACE_T, 1, PASSAGE_W / 2, LAND_Y + PASSAGE_H],
+]; // [face t, outward, arch half width, crown]
 
-export function build({ S }) {
-  const keep = S.kind, n0 = S.n;
-  const box = (s, t, y0, y1, ss, st, col, opts?) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, opts); };
-  const Y = LAND_Y, K = 10;
-  const tc = (T0 + TI) / 2, D = TI - T0;
-  // the passage in sections, [t0, t1, half width, crown, light]: outer vault, door arch, inner vault
-  const SECS = [[T0, TD, 2.7, Y + 5.7, 0.95], [TD, TD1, 2.35, Y + 5.5, 0.8], [TD1, TI, PW / 2, Y + PH, 0.66]];
-  // a point on an arch profile: k = 0..K+2 runs up the left jamb, over the arch, down the right jamb
-  const prof = (k, r, crown) => {
-    const spring = crown - r;
-    if (k === 0) return [-r, Y];
-    if (k === K + 2) return [r, Y];
-    const th = Math.PI - (Math.PI * (k - 1)) / K;
-    return [r * Math.cos(th), spring + r * Math.sin(th)];
-  };
-  const arc = (k, r, crown) => prof(k + 1, r, crown);
+const COLORS = {
+  brick: hex('#76604f'), // weathered grey-brown brick (sunlit in the 2024 Street View: about #89765f)
+  brickDark: hex('#4c3f36'),
+  brickRed: hex('#8a5e48'),
+  damp: hex('#3d352f'),
+  grey: hex('#8a857b'),
+  greyLight: hex('#a49f92'),
+  tablet: hex('#7d7c74'),
+  carve: hex('#56554f'),
+  plaster: hex('#9d988b'), // the tower's lime plaster weathered grey (panos b and f)
+  plasterDark: hex('#848074'),
+  tile: hex('#b4774c'), // its roofs in orange-tan tile
+  lining: hex('#7e5c4c'), // the passage's red brick lining, lit from the mouths
+  dark: hex('#1f1a18'),
+  moss: hex('#5c6340'),
+};
 
+// a point on an arch profile: k = 0..ARCH_SEGS+2 runs up the left jamb, over the arch, down the right jamb
+function archProfilePt(k, radius, crownY) {
+  const springY = crownY - radius;
+  if (k === 0) return [-radius, LAND_Y];
+  if (k === ARCH_SEGS + 2) return [radius, LAND_Y];
+  const theta = Math.PI - (Math.PI * (k - 1)) / ARCH_SEGS;
+  return [radius * Math.cos(theta), springY + radius * Math.sin(theta)];
+}
+
+function archPt(k, radius, crownY) {
+  return archProfilePt(k + 1, radius, crownY);
+}
+
+// A storey's cap: a plaster cornice and a pitched hip of orange-tan tile, its eaves curling up at the corners into
+// short upturned hip ends (Buf.hip, slight flare, no long horns), a small ornament on the ridge.
+function buildTierCap(S, towerBox, width, depth, baseY, roofH, overhang) {
+  S.kind = KIND.PLAIN;
+  towerBox(0, 0, baseY, baseY + 0.12, width + 0.2, depth + 0.2, COLORS.plasterDark);
+  towerBox(0, 0, baseY + 0.12, baseY + 0.26, width + 0.36, depth + 0.36, COLORS.plaster, { top: COLORS.plaster });
+  const roofY = baseY + 0.26;
+  const centerPos = toWorld(TOWER_OFFSET_S, TOWER_OFFSET_T);
+  S.hip(centerPos[0], centerPos[1], width, depth, WALL_ANGLE, roofY, roofH, COLORS.tile, { over: overhang, flare: 0.1, segs: 3, ridgeCol: shade(COLORS.tile, 0.8) });
+  // a small ornament curling up from each corner of the eave
+  S.kind = KIND.TILE;
+  const eaveW = width + 2 * overhang;
+  const eaveD = depth + 2 * overhang;
+  for (const signS of [-1, 1]) {
+    for (const signT of [-1, 1]) {
+      const pt0 = toPoint3(TOWER_OFFSET_S + (signS * (eaveW - 0.5)) / 2, TOWER_OFFSET_T + (signT * (eaveD - 0.5)) / 2, roofY + 0.12);
+      const pt1 = toPoint3(TOWER_OFFSET_S + (signS * (eaveW + 0.25)) / 2, TOWER_OFFSET_T + (signT * (eaveD + 0.25)) / 2, roofY + 0.42);
+      const pt2 = toPoint3(TOWER_OFFSET_S + (signS * eaveW) / 2, TOWER_OFFSET_T + (signT * eaveD) / 2, roofY + 0.05);
+      S.tri(pt0, pt1, pt2, shade(COLORS.tile, 0.8), [0, 1, 0]);
+      S.tri(pt0, pt2, pt1, shade(COLORS.tile, 0.8), [0, -1, 0]);
+    }
+  }
+  S.kind = KIND.PLAIN;
+  const ridgeHalf = Math.max(0.1, (width - depth) / 2) * 0.6;
+  const topY = roofY + roofH;
+  for (const offsetS of [-ridgeHalf, ridgeHalf]) {
+    const pos = toWorld(TOWER_OFFSET_S + offsetS, TOWER_OFFSET_T);
+    S.cyl(pos[0], pos[1], topY - 0.05, topY + 0.22, 0.09, 0.04, 6, COLORS.plasterDark);
+  }
+}
+
+// An arched opening on a face: open (a dark recess) or blind (plaster fill), framed by a brick-red rim.
+// alongS: the face is at constant t, the opening centred at s; otherwise the face is at constant s, centred at t.
+function buildArchOpening(S, posS, posT, outSign, alongS, sillY, width, height, isOpen, rimColor = COLORS.brickRed) {
+  const rad0 = width / 2;
+  const springY = sillY + height - rad0;
+  const segs = 8;
+  const ptAt = (along, y, outDist) => (alongS ? toPoint3(posS + along, posT + outSign * outDist, y) : toPoint3(posS + outSign * outDist, posT + along, y));
+  const faceNorm = alongS ? toNormal(0, outSign) : toNormal(outSign, 0);
+  for (const [rad, outDist, col] of [[rad0 + 0.2, 0.03, rimColor], [rad0, 0.05, isOpen ? COLORS.dark : COLORS.plasterDark]] as any[]) {
+    S.quad(ptAt(-rad, sillY, outDist), ptAt(rad, sillY, outDist), ptAt(rad, springY, outDist), ptAt(-rad, springY, outDist), col, faceNorm);
+    for (let k = 0; k < segs; k++) {
+      const ang0 = Math.PI - (Math.PI * k) / segs;
+      const ang1 = Math.PI - (Math.PI * (k + 1)) / segs;
+      S.tri(ptAt(0, springY, outDist), ptAt(rad * Math.cos(ang0), springY + rad * Math.sin(ang0), outDist), ptAt(rad * Math.cos(ang1), springY + rad * Math.sin(ang1), outDist), col, faceNorm);
+    }
+  }
+}
+
+function buildGateBlockAndVault(S, box) {
   // ---- the block: brick piers either side of each section of the passage, masonry over its crown ---------------
   S.kind = KIND.MASONRY;
-  for (const [t0, t1, r, crown] of SECS) {
-    const tm = (t0 + t1) / 2, d = t1 - t0;
-    for (const sg of [-1, 1]) box(sg * (HW + r) / 2, tm, Y - 0.5, YB, HW - r, d, BRICK, { top: GREY_LIGHT, topKind: KIND.ROAD });
-    box(0, tm, crown, YB, 2 * r + 0.02, d, BRICK, { top: GREY_LIGHT, topKind: KIND.ROAD });
+  for (const [t0, t1, radius, crownY] of PASSAGE_SECTIONS) {
+    const midT = (t0 + t1) / 2;
+    const secDepth = t1 - t0;
+    for (const side of [-1, 1]) box(side * (BLOCK_HALF_W + radius) / 2, midT, LAND_Y - 0.5, BLOCK_TOP_Y, BLOCK_HALF_W - radius, secDepth, COLORS.brick, { top: COLORS.greyLight, topKind: KIND.ROAD });
+    box(0, midT, crownY, BLOCK_TOP_Y, 2 * radius + 0.02, secDepth, COLORS.brick, { top: COLORS.greyLight, topKind: KIND.ROAD });
   }
-  const FACES = [[T0, -1, 2.7, Y + 5.7], [TI, 1, PW / 2, Y + PH]]; // [face t, outward, arch half width, crown]
   // the frontispiece on each face, the spandrels of the arch on it
-  for (const [tf, dt, r, crown] of FACES) {
-    const tp = tf + dt * 0.125;
-    for (const sg of [-1, 1]) box(sg * (FRONT + r) / 2, tp, Y - 0.5, YB, FRONT - r, 0.25, BRICK);
-    box(0, tp, crown, YB, 2 * r + 0.02, 0.25, BRICK);
-    const tfo = tf + dt * 0.25;
-    for (let k = 0; k < K; k++) {
-      const [sa, ya] = arc(k, r, crown), [sb, yb] = arc(k + 1, r, crown);
-      S.quad(V(sa, tfo, ya), V(sb, tfo, yb), V(sb, tfo, crown), V(sa, tfo, crown), BRICK, N(0, dt));
+  for (const [faceT, outSign, radius, crownY] of GATE_FACES) {
+    const frontMidT = faceT + outSign * 0.125;
+    for (const side of [-1, 1]) box(side * (FRONTISPIECE_HALF_W + radius) / 2, frontMidT, LAND_Y - 0.5, BLOCK_TOP_Y, FRONTISPIECE_HALF_W - radius, 0.25, COLORS.brick);
+    box(0, frontMidT, crownY, BLOCK_TOP_Y, 2 * radius + 0.02, 0.25, COLORS.brick);
+    const frontOutT = faceT + outSign * 0.25;
+    for (let k = 0; k < ARCH_SEGS; k++) {
+      const [s0, y0] = archPt(k, radius, crownY);
+      const [s1, y1] = archPt(k + 1, radius, crownY);
+      S.quad(toPoint3(s0, frontOutT, y0), toPoint3(s1, frontOutT, y1), toPoint3(s1, frontOutT, crownY), toPoint3(s0, frontOutT, crownY), COLORS.brick, toNormal(0, outSign));
     }
-    for (const sg of [-1, 1]) {
-      const s = sg * FRONT;
-      S.quad(V(s, tf, Y - 0.5), V(s, tfo, Y - 0.5), V(s, tfo, YB), V(s, tf, YB), BRICK, N(sg, 0));
+    for (const side of [-1, 1]) {
+      const endS = side * FRONTISPIECE_HALF_W;
+      S.quad(toPoint3(endS, faceT, LAND_Y - 0.5), toPoint3(endS, frontOutT, LAND_Y - 0.5), toPoint3(endS, frontOutT, BLOCK_TOP_Y), toPoint3(endS, faceT, BLOCK_TOP_Y), COLORS.brick, toNormal(side, 0));
     }
   }
 
   // ---- the passage: barrel vaults lined in red brick, mottled course by course, the steps where it narrows ----
   S.kind = KIND.PLAIN;
-  const KV = 14;
-  const arcV = (k, r, crown) => { const th = Math.PI - (Math.PI * k) / KV, sp = crown - r; return [r * Math.cos(th), sp + r * Math.sin(th)]; };
-  SECS.forEach(([t0, t1, r, crown, light], i) => {
-    const first = i === 0, last = i === SECS.length - 1;
-    const tA = first ? t0 - 0.24 : t0, tB = last ? t1 + 0.24 : t1; // through the frontispiece on the faces
-    const spring = crown - r, n = Math.max(1, Math.round((tB - tA) / 0.55));
-    for (let j = 0; j < n; j++) {
-      const a0 = tA + ((tB - tA) * j) / n, a1 = tA + ((tB - tA) * (j + 1)) / n;
+  const vaultArcPt = (k, radius, crownY) => {
+    const theta = Math.PI - (Math.PI * k) / VAULT_SEGS;
+    const springY = crownY - radius;
+    return [radius * Math.cos(theta), springY + radius * Math.sin(theta)];
+  };
+  PASSAGE_SECTIONS.forEach(([t0, t1, radius, crownY, lightLevel], secIdx) => {
+    const isFirst = secIdx === 0;
+    const isLast = secIdx === PASSAGE_SECTIONS.length - 1;
+    const startT = isFirst ? t0 - 0.24 : t0;
+    const endT = isLast ? t1 + 0.24 : t1; // through the frontispiece on the faces
+    const springY = crownY - radius;
+    const ringCount = Math.max(1, Math.round((endT - startT) / 0.55));
+    for (let j = 0; j < ringCount; j++) {
+      const ringT0 = startT + ((endT - startT) * j) / ringCount;
+      const ringT1 = startT + ((endT - startT) * (j + 1)) / ringCount;
       // light falls off from the nearer mouth of the passage
-      const f = light * (0.82 + 0.18 * Math.abs((a0 + a1) / 2 - (T0 + TI) / 2) / ((TI - T0) / 2));
-      for (let k = 0; k < KV; k++) {
-        const [sa, ya] = arcV(k, r, crown), [sb, yb] = arcV(k + 1, r, crown);
-        const c = shade(LINING, f * (0.86 + 0.24 * rand(i * 997 + j * 31 + k, 3)));
-        S.quad(V(sa, a0, ya), V(sb, a0, yb), V(sb, a1, yb), V(sa, a1, ya), c, N(-(sa + sb) / 2, 0, spring - (ya + yb) / 2));
+      const lightFactor = lightLevel * (0.82 + 0.18 * Math.abs((ringT0 + ringT1) / 2 - (OUTER_FACE_T + INNER_FACE_T) / 2) / ((INNER_FACE_T - OUTER_FACE_T) / 2));
+      for (let k = 0; k < VAULT_SEGS; k++) {
+        const [s0, y0] = vaultArcPt(k, radius, crownY);
+        const [s1, y1] = vaultArcPt(k + 1, radius, crownY);
+        const brickCol = shade(COLORS.lining, lightFactor * (0.86 + 0.24 * rand(secIdx * 997 + j * 31 + k, 3)));
+        S.quad(toPoint3(s0, ringT0, y0), toPoint3(s1, ringT0, y1), toPoint3(s1, ringT1, y1), toPoint3(s0, ringT1, y0), brickCol, toNormal(-(s0 + s1) / 2, 0, springY - (y0 + y1) / 2));
       }
-      for (const sg of [-1, 1]) {
-        const s = sg * (r - 0.01);
-        for (let b = 0; b < 3; b++) { // the wall in three bands, the lowest one damp
-          const y0 = Y + ((spring - Y) * b) / 3, y1 = Y + ((spring - Y) * (b + 1)) / 3;
-          const c = b === 0 ? mix(DAMP, LINING, 0.45 + 0.2 * rand(j * 7 + i, 5)) : shade(LINING, f * 0.92 * (0.86 + 0.24 * rand(i * 991 + j * 13 + b * 5 + (sg > 0 ? 50 : 0), 4)));
-          S.quad(V(s, a0, y0), V(s, a1, y0), V(s, a1, y1), V(s, a0, y1), c, N(-sg, 0));
+      for (const side of [-1, 1]) {
+        const wallS = side * (radius - 0.01);
+        for (let band = 0; band < 3; band++) { // the wall in three bands, the lowest one damp
+          const y0 = LAND_Y + ((springY - LAND_Y) * band) / 3;
+          const y1 = LAND_Y + ((springY - LAND_Y) * (band + 1)) / 3;
+          const wallCol = band === 0
+            ? mix(COLORS.damp, COLORS.lining, 0.45 + 0.2 * rand(j * 7 + secIdx, 5))
+            : shade(COLORS.lining, lightFactor * 0.92 * (0.86 + 0.24 * rand(secIdx * 991 + j * 13 + band * 5 + (side > 0 ? 50 : 0), 4)));
+          S.quad(toPoint3(wallS, ringT0, y0), toPoint3(wallS, ringT1, y0), toPoint3(wallS, ringT1, y1), toPoint3(wallS, ringT0, y1), wallCol, toNormal(-side, 0));
         }
         // the course of stone at the springing
-        const sc = sg * (r - 0.03);
-        S.quad(V(sc, a0, spring - 0.14), V(sc, a1, spring - 0.14), V(sc, a1, spring), V(sc, a0, spring), shade(GREY, f * 0.8), N(-sg, 0));
+        const courseS = side * (radius - 0.03);
+        S.quad(toPoint3(courseS, ringT0, springY - 0.14), toPoint3(courseS, ringT1, springY - 0.14), toPoint3(courseS, ringT1, springY), toPoint3(courseS, ringT0, springY), shade(COLORS.grey, lightFactor * 0.8), toNormal(-side, 0));
       }
     }
   });
-  for (let i = 0; i + 1 < SECS.length; i++) { // the step face, looking back towards the wider section
-    const [, t, r0, c0] = SECS[i], [, , r1, c1] = SECS[i + 1], tt = t - 0.01;
-    for (let k = 0; k < K + 2; k++) {
-      const [oa, yoa] = prof(k, r0, c0), [ob, yob] = prof(k + 1, r0, c0), [ia, yia] = prof(k, r1, c1), [ib, yib] = prof(k + 1, r1, c1);
-      S.quad(V(oa, tt, yoa), V(ob, tt, yob), V(ib, tt, yib), V(ia, tt, yia), shade(LINING, 0.62 - 0.1 * i), N(0, -1));
+  for (let i = 0; i + 1 < PASSAGE_SECTIONS.length; i++) { // the step face, looking back towards the wider section
+    const [, stepT, r0, c0] = PASSAGE_SECTIONS[i];
+    const [, , r1, c1] = PASSAGE_SECTIONS[i + 1];
+    const faceT = stepT - 0.01;
+    for (let k = 0; k < ARCH_SEGS + 2; k++) {
+      const [oa, yoa] = archProfilePt(k, r0, c0);
+      const [ob, yob] = archProfilePt(k + 1, r0, c0);
+      const [ia, yia] = archProfilePt(k, r1, c1);
+      const [ib, yib] = archProfilePt(k + 1, r1, c1);
+      S.quad(toPoint3(oa, faceT, yoa), toPoint3(ob, faceT, yob), toPoint3(ib, faceT, yib), toPoint3(ia, faceT, yia), shade(COLORS.lining, 0.62 - 0.1 * i), toNormal(0, -1));
     }
   }
+}
 
+function buildForecourtAndFacades(S, box) {
   // ---- the forecourt inside: the slot's walls from the inner face to the rampart's, capped piers at its mouth --
   S.kind = KIND.MASONRY;
-  const yW = Y + WALL_H;
-  for (const sg of [-1, 1]) {
-    box(sg * (SLOT / 2 + 0.45), (TI + T1) / 2, Y - 0.5, yW, 0.9, T1 - TI, BRICK, { top: GREY_LIGHT });
-    S.quad(V(sg * SLOT / 2, TI, Y + 0.02), V(sg * SLOT / 2, T1, Y + 0.02), V(sg * SLOT / 2, T1, Y + 0.9), V(sg * SLOT / 2, TI, Y + 0.9), DAMP, N(-sg, 0));
+  const wallWalkY = LAND_Y + WALL_H;
+  for (const side of [-1, 1]) {
+    box(side * (PASSAGE_SLOT / 2 + 0.45), (INNER_FACE_T + RAMPART_INNER_T) / 2, LAND_Y - 0.5, wallWalkY, 0.9, RAMPART_INNER_T - INNER_FACE_T, COLORS.brick, { top: COLORS.greyLight });
+    S.quad(toPoint3(side * PASSAGE_SLOT / 2, INNER_FACE_T, LAND_Y + 0.02), toPoint3(side * PASSAGE_SLOT / 2, RAMPART_INNER_T, LAND_Y + 0.02), toPoint3(side * PASSAGE_SLOT / 2, RAMPART_INNER_T, LAND_Y + 0.9), toPoint3(side * PASSAGE_SLOT / 2, INNER_FACE_T, LAND_Y + 0.9), COLORS.damp, toNormal(-side, 0));
     // the pier at the forecourt's mouth, standing a little proud of the rampart's face; its cap about 5.5 m up
-    const sp = sg * (SLOT / 2 + 0.55), tp = T1 - 0.3, yc = Y + 4.3;
-    box(sp, tp, Y - 0.5, yc, 1.3, 1.2, BRICK, { top: GREY_LIGHT });
-    box(sp, tp, yc, yc + 0.25, 1.6, 1.5, GREY, { top: GREY_LIGHT });
-    box(sp, tp, yc + 0.25, yc + 0.8, 1.1, 1.0, GREY_LIGHT, { taper: 1.3 });
-    box(sp, tp, yc + 0.8, yc + 1.05, 1.7, 1.6, GREY, { top: GREY_LIGHT });
-    box(sp, tp, yc + 1.05, yc + 1.25, 0.9, 0.8, GREY_LIGHT, { taper: 0.6 });
+    const pierS = side * (PASSAGE_SLOT / 2 + 0.55);
+    const pierT = RAMPART_INNER_T - 0.3;
+    const capY = LAND_Y + 4.3;
+    box(pierS, pierT, LAND_Y - 0.5, capY, 1.3, 1.2, COLORS.brick, { top: COLORS.greyLight });
+    box(pierS, pierT, capY, capY + 0.25, 1.6, 1.5, COLORS.grey, { top: COLORS.greyLight });
+    box(pierS, pierT, capY + 0.25, capY + 0.8, 1.1, 1.0, COLORS.greyLight, { taper: 1.3 });
+    box(pierS, pierT, capY + 0.8, capY + 1.05, 1.7, 1.6, COLORS.grey, { top: COLORS.greyLight });
+    box(pierS, pierT, capY + 1.05, capY + 1.25, 0.9, 0.8, COLORS.greyLight, { taper: 0.6 });
   }
   S.kind = KIND.ROAD;
-  S.quad(V(-PW / 2, T0 - 0.55, Y + 0.02), V(PW / 2, T0 - 0.55, Y + 0.02), V(PW / 2, T1 + 0.3, Y + 0.02), V(-PW / 2, T1 + 0.3, Y + 0.02), shade(PAL.stone, 0.62), [0, 1, 0]);
-  for (const sg of [-1, 1]) { // the floor of the wider stages either side of the roadway
-    const s0 = sg * PW / 2, s1 = sg * 2.7;
-    S.quad(V(Math.min(s0, s1), T0 - 0.3, Y + 0.02), V(Math.max(s0, s1), T0 - 0.3, Y + 0.02), V(Math.max(s0, s1), TD1, Y + 0.02), V(Math.min(s0, s1), TD1, Y + 0.02), shade(PAL.stone, 0.55), [0, 1, 0]);
+  S.quad(toPoint3(-PASSAGE_W / 2, OUTER_FACE_T - 0.55, LAND_Y + 0.02), toPoint3(PASSAGE_W / 2, OUTER_FACE_T - 0.55, LAND_Y + 0.02), toPoint3(PASSAGE_W / 2, RAMPART_INNER_T + 0.3, LAND_Y + 0.02), toPoint3(-PASSAGE_W / 2, RAMPART_INNER_T + 0.3, LAND_Y + 0.02), shade(PAL.stone, 0.62), [0, 1, 0]);
+  for (const side of [-1, 1]) { // the floor of the wider stages either side of the roadway
+    const s0 = side * PASSAGE_W / 2;
+    const s1 = side * 2.7;
+    S.quad(toPoint3(Math.min(s0, s1), OUTER_FACE_T - 0.3, LAND_Y + 0.02), toPoint3(Math.max(s0, s1), OUTER_FACE_T - 0.3, LAND_Y + 0.02), toPoint3(Math.max(s0, s1), DOOR_ARCH_T1, LAND_Y + 0.02), toPoint3(Math.min(s0, s1), DOOR_ARCH_T1, LAND_Y + 0.02), shade(PAL.stone, 0.55), [0, 1, 0]);
   }
 
   // ---- each face: the brick arch ring, the ledge, the tablet (blank on the city side), the damp and streaks --
   S.kind = KIND.PLAIN;
-  for (const [tf, dt, r, crown] of FACES) {
-    const t = tf + dt * 0.25; // the frontispiece's face
-    const ring = dt < 0 ? 0.42 : 0.48; // the wider outer arch has a slimmer ring, to leave room for the tablet
-    for (const [r0, r1, d, col] of ([[r, r + ring, 0.06, BRICK_RED], [r + ring, r + 2 * ring - 0.06, 0.1, shade(BRICK_RED, 0.9)]] as any[])) {
-      for (let k = 0; k < K; k++) {
-        const [ia, ya] = arc(k, r0, crown - r + r0), [ib, yb] = arc(k + 1, r0, crown - r + r0), [oa, yoa] = arc(k, r1, crown - r + r1), [ob, yob] = arc(k + 1, r1, crown - r + r1);
-        S.quad(V(ia, t + dt * d, ya), V(ib, t + dt * d, yb), V(ob, t + dt * d, yob), V(oa, t + dt * d, yoa), col, N(0, dt));
+  for (const [faceT, outSign, radius, crownY] of GATE_FACES) {
+    const frontT = faceT + outSign * 0.25; // the frontispiece's face
+    const ringW = outSign < 0 ? 0.42 : 0.48; // the wider outer arch has a slimmer ring, to leave room for the tablet
+    for (const [rad0, rad1, outDist, col] of [[radius, radius + ringW, 0.06, COLORS.brickRed], [radius + ringW, radius + 2 * ringW - 0.06, 0.1, shade(COLORS.brickRed, 0.9)]] as any[]) {
+      for (let k = 0; k < ARCH_SEGS; k++) {
+        const [ia, ya] = archPt(k, rad0, crownY - radius + rad0);
+        const [ib, yb] = archPt(k + 1, rad0, crownY - radius + rad0);
+        const [oa, yoa] = archPt(k, rad1, crownY - radius + rad1);
+        const [ob, yob] = archPt(k + 1, rad1, crownY - radius + rad1);
+        S.quad(toPoint3(ia, frontT + outSign * outDist, ya), toPoint3(ib, frontT + outSign * outDist, yb), toPoint3(ob, frontT + outSign * outDist, yob), toPoint3(oa, frontT + outSign * outDist, yoa), col, toNormal(0, outSign));
       }
     }
-    for (const sg of [-1, 1]) {
-      const s0 = sg * (r + 0.02), s1 = sg * FRONT;
-      S.quad(V(Math.min(s0, s1), t + dt * 0.02, Y), V(Math.max(s0, s1), t + dt * 0.02, Y), V(Math.max(s0, s1), t + dt * 0.02, Y + 0.9), V(Math.min(s0, s1), t + dt * 0.02, Y + 0.9), DAMP, N(0, dt));
+    for (const side of [-1, 1]) {
+      const s0 = side * (radius + 0.02);
+      const s1 = side * FRONTISPIECE_HALF_W;
+      S.quad(toPoint3(Math.min(s0, s1), frontT + outSign * 0.02, LAND_Y), toPoint3(Math.max(s0, s1), frontT + outSign * 0.02, LAND_Y), toPoint3(Math.max(s0, s1), frontT + outSign * 0.02, LAND_Y + 0.9), toPoint3(Math.min(s0, s1), frontT + outSign * 0.02, LAND_Y + 0.9), COLORS.damp, toNormal(0, outSign));
     }
-    box(0, t + dt * 0.1, YB - 1.15, YB - 0.95, 2 * FRONT + 0.4, 0.2, GREY, { top: GREY_LIGHT }); // the string course
-    // damp streaks running down from the cornice, tapering as they fade, and patches of moss under the string
-    // course: soft and close to the brick's colour, so they read as weathering rather than panels
-    const streak = (s0, w, yTop, yBot, col, d) => {
-      const sb = s0 + w * (0.3 + 0.4 * rand(Math.round(s0 * 100), 9)), td = t + dt * d;
-      S.quad(V(s0, td, yTop), V(s0 + w, td, yTop), V(sb + w * 0.12, td, yBot), V(sb - w * 0.12, td, yBot), col, N(0, dt));
+    box(0, frontT + outSign * 0.1, BLOCK_TOP_Y - 1.15, BLOCK_TOP_Y - 0.95, 2 * FRONTISPIECE_HALF_W + 0.4, 0.2, COLORS.grey, { top: COLORS.greyLight }); // the string course
+    const addStreak = (startS, width, topY, botY, color, outDist) => {
+      const botS = startS + width * (0.3 + 0.4 * rand(Math.round(startS * 100), 9));
+      const streakT = frontT + outSign * outDist;
+      S.quad(toPoint3(startS, streakT, topY), toPoint3(startS + width, streakT, topY), toPoint3(botS + width * 0.12, streakT, botY), toPoint3(botS - width * 0.12, streakT, botY), color, toNormal(0, outSign));
     };
     for (let i = 0; i < 14; i++) {
-      const seed = i * 17 + (dt > 0 ? 5 : 0);
-      const s = -FRONT + 0.4 + rand(seed, 1) * (2 * FRONT - 1.2), w = 0.25 + rand(seed, 2) * 0.55;
-      if (Math.abs(s + w / 2) < r + 1.1) continue; // keep the arch and its ring clear
-      const yBot = Y + 1.2 + rand(seed, 3) * 4.0;
-      streak(s, w, YB - 1.2, yBot, mix(BRICK_DARK, BRICK, 0.62 + rand(seed, 4) * 0.22), 0.03);
+      const seed = i * 17 + (outSign > 0 ? 5 : 0);
+      const streakS = -FRONTISPIECE_HALF_W + 0.4 + rand(seed, 1) * (2 * FRONTISPIECE_HALF_W - 1.2);
+      const streakW = 0.25 + rand(seed, 2) * 0.55;
+      if (Math.abs(streakS + streakW / 2) < radius + 1.1) continue; // keep the arch and its ring clear
+      const botY = LAND_Y + 1.2 + rand(seed, 3) * 4.0;
+      addStreak(streakS, streakW, BLOCK_TOP_Y - 1.2, botY, mix(COLORS.brickDark, COLORS.brick, 0.62 + rand(seed, 4) * 0.22), 0.03);
     }
     for (let i = 0; i < 7; i++) {
-      const seed = i * 11 + (dt > 0 ? 3 : 0);
-      const s0 = -FRONT + 0.5 + rand(seed, 7) * (2 * FRONT - 1.6), w0 = 0.4 + rand(seed, 8) * 0.9;
-      if (Math.abs(s0 + w0 / 2) < r + 1.1) continue;
-      streak(s0, w0, YB - 1.18, YB - 1.5 - rand(seed, 6) * 0.9, mix(BRICK, hex('#5c6340'), 0.3 + rand(seed, 5) * 0.15), 0.035);
+      const seed = i * 11 + (outSign > 0 ? 3 : 0);
+      const streakS = -FRONTISPIECE_HALF_W + 0.5 + rand(seed, 7) * (2 * FRONTISPIECE_HALF_W - 1.6);
+      const streakW = 0.4 + rand(seed, 8) * 0.9;
+      if (Math.abs(streakS + streakW / 2) < radius + 1.1) continue;
+      addStreak(streakS, streakW, BLOCK_TOP_Y - 1.18, BLOCK_TOP_Y - 1.5 - rand(seed, 6) * 0.9, mix(COLORS.brick, COLORS.moss, 0.3 + rand(seed, 5) * 0.15), 0.035);
     }
     // the grey cornice ledge over the arch; outside, the tablet with its three carved characters, inside a blank panel
-    const yl = Math.max(crown + 2 * ring - 0.04, Math.min(crown + 1.0, YB - 1.6));
-    box(0, t + dt * 0.12, yl, yl + 0.22, 6.6, 0.24, GREY, { top: GREY_LIGHT });
-    box(0, t + dt * 0.07, yl + 0.22, yl + 0.34, 6.2, 0.14, shade(GREY, 0.85));
-    const yt = yl + 0.42, th = Math.min(1.15, YB - 0.4 - yt);
-    if (dt < 0) {
-      box(0, t + dt * 0.09, yt, yt + th, 3.1, 0.18, GREY_LIGHT);
-      box(0, t + dt * 0.15, yt + 0.1, yt + th - 0.1, 2.75, 0.06, TABLET);
-      for (const k of [-1, 0, 1]) box(k * 0.82, t + dt * 0.19, yt + 0.18, yt + th - 0.18, 0.58, 0.04, CARVE);
+    const ledgeY = Math.max(crownY + 2 * ringW - 0.04, Math.min(crownY + 1.0, BLOCK_TOP_Y - 1.6));
+    box(0, frontT + outSign * 0.12, ledgeY, ledgeY + 0.22, 6.6, 0.24, COLORS.grey, { top: COLORS.greyLight });
+    box(0, frontT + outSign * 0.07, ledgeY + 0.22, ledgeY + 0.34, 6.2, 0.14, shade(COLORS.grey, 0.85));
+    const tabletY = ledgeY + 0.42;
+    const tabletH = Math.min(1.15, BLOCK_TOP_Y - 0.4 - tabletY);
+    if (outSign < 0) {
+      box(0, frontT + outSign * 0.09, tabletY, tabletY + tabletH, 3.1, 0.18, COLORS.greyLight);
+      box(0, frontT + outSign * 0.15, tabletY + 0.1, tabletY + tabletH - 0.1, 2.75, 0.06, COLORS.tablet);
+      for (const charIdx of [-1, 0, 1]) box(charIdx * 0.82, frontT + outSign * 0.19, tabletY + 0.18, tabletY + tabletH - 0.18, 0.58, 0.04, COLORS.carve);
     } else {
-      box(0, t + dt * 0.06, yt, yt + th, 4.4, 0.12, GREY_LIGHT);
-      box(0, t + dt * 0.09, yt + 0.12, yt + th - 0.12, 4.0, 0.04, shade(GREY, 0.82));
+      box(0, frontT + outSign * 0.06, tabletY, tabletY + tabletH, 4.4, 0.12, COLORS.greyLight);
+      box(0, frontT + outSign * 0.09, tabletY + 0.12, tabletY + tabletH - 0.12, 4.0, 0.04, shade(COLORS.grey, 0.82));
     }
   }
+}
+
+function buildParapetAndWatchtower(S, box) {
+  const midT = (OUTER_FACE_T + INNER_FACE_T) / 2;
+  const blockDepth = INNER_FACE_T - OUTER_FACE_T;
 
   // ---- the cornice and the panelled parapet round the flat top ------------------------------------------------
   S.kind = KIND.MASONRY;
-  box(0, tc, YB - 0.35, YB, 2 * HW + 0.2, D + 0.7, GREY, { top: GREY_LIGHT, topKind: KIND.ROAD });
-  const PH2 = 0.95, PT = 0.45;
-  const edges: [number, boolean, number, number][] = [ // [s or t centre, along s?, length, outward sign]
-    [T0 - 0.35 + PT / 2, true, 2 * HW + 0.2, -1], [TI + 0.35 - PT / 2, true, 2 * HW + 0.2, 1],
-    [-HW - 0.1 + PT / 2, false, D + 0.7, -1], [HW + 0.1 - PT / 2, false, D + 0.7, 1],
+  box(0, midT, BLOCK_TOP_Y - 0.35, BLOCK_TOP_Y, 2 * BLOCK_HALF_W + 0.2, blockDepth + 0.7, COLORS.grey, { top: COLORS.greyLight, topKind: KIND.ROAD });
+  const paraH = 0.95;
+  const paraT = 0.45;
+  const paraEdges: [number, boolean, number, number][] = [ // [s or t centre, along s?, length, outward sign]
+    [OUTER_FACE_T - 0.35 + paraT / 2, true, 2 * BLOCK_HALF_W + 0.2, -1],
+    [INNER_FACE_T + 0.35 - paraT / 2, true, 2 * BLOCK_HALF_W + 0.2, 1],
+    [-BLOCK_HALF_W - 0.1 + paraT / 2, false, blockDepth + 0.7, -1],
+    [BLOCK_HALF_W + 0.1 - paraT / 2, false, blockDepth + 0.7, 1],
   ];
-  for (const [c, along, len, sg] of edges) {
-    const bx = (u, y0, y1, l, th, col, o?) => along ? box(u, c + sg * (o || 0), y0, y1, l, th, col, { top: GREY_LIGHT }) : box(c + sg * (o || 0), tc + u, y0, y1, th, l, col, { top: GREY_LIGHT });
-    bx(0, YB, YB + PH2, len, PT, GREY);
-    bx(0, YB + PH2, YB + PH2 + 0.12, len + 0.1, PT + 0.14, GREY_LIGHT);
-    const n = Math.max(2, Math.round(len / 2.2));
-    for (let k = 0; k <= n; k++) bx(-len / 2 + 0.25 + ((len - 0.5) * k) / n, YB, YB + PH2 + 0.22, 0.42, PT + 0.12, GREY_LIGHT); // posts
-    for (let k = 0; k < n; k++) bx(-len / 2 + 0.25 + ((len - 0.5) * (k + 0.5)) / n, YB + 0.18, YB + PH2 - 0.16, (len - 0.5) / n - 0.75, PT + 0.04, shade(GREY, 0.8), 0); // recessed panels, darker
+  for (const [edgeCoord, alongS, edgeLen, outSign] of paraEdges) {
+    const placeEdgeBox = (along, y0, y1, sizeAlong, sizeAcross, color, outOff?) => (
+      alongS
+        ? box(along, edgeCoord + outSign * (outOff || 0), y0, y1, sizeAlong, sizeAcross, color, { top: COLORS.greyLight })
+        : box(edgeCoord + outSign * (outOff || 0), midT + along, y0, y1, sizeAcross, sizeAlong, color, { top: COLORS.greyLight })
+    );
+    placeEdgeBox(0, BLOCK_TOP_Y, BLOCK_TOP_Y + paraH, edgeLen, paraT, COLORS.grey);
+    placeEdgeBox(0, BLOCK_TOP_Y + paraH, BLOCK_TOP_Y + paraH + 0.12, edgeLen + 0.1, paraT + 0.14, COLORS.greyLight);
+    const bayCount = Math.max(2, Math.round(edgeLen / 2.2));
+    for (let k = 0; k <= bayCount; k++) placeEdgeBox(-edgeLen / 2 + 0.25 + ((edgeLen - 0.5) * k) / bayCount, BLOCK_TOP_Y, BLOCK_TOP_Y + paraH + 0.22, 0.42, paraT + 0.12, COLORS.greyLight); // posts
+    for (let k = 0; k < bayCount; k++) placeEdgeBox(-edgeLen / 2 + 0.25 + ((edgeLen - 0.5) * (k + 0.5)) / bayCount, BLOCK_TOP_Y + 0.18, BLOCK_TOP_Y + paraH - 0.16, (edgeLen - 0.5) / bayCount - 0.75, paraT + 0.04, shade(COLORS.grey, 0.8), 0); // recessed panels
   }
 
-  // ---- the vọng lâu, lower storey ----------------------------------------------------------------------------
-  // sizes from the car panos: from Lương Ngọc Quyền (b, about 21 m away) the lower roof spans about 7 m and the upper
-  // about 3.2 m; from the NW (f, about 33 m, seen 36 degrees off the end) the lower roof reads 8.4 m across, which
-  // fits a plan of about 7 x 5.4 m over the eaves. The satellite's 10.6 x 6.8 m outline includes the image's lean.
-  const L1 = { w: 6.3, d: 4.8, h: 2.1 }, L2 = { w: 2.7, d: 2.2, h: 1.9 };
-  const y1 = YB;
-  const tb = (s, t, ...rest: any[]) => (box as any)(s + TS, t + TT, ...rest); // the tower stands at s = TS, t = TT
+  // ---- the vọng lâu, lower storey and upper storey -----------------------------------------------------------
+  const lowerSpec = { w: 6.3, d: 4.8, h: 2.1 };
+  const upperSpec = { w: 2.7, d: 2.2, h: 1.9 };
+  const towerBox = (localS, localT, ...rest: any[]) => (box as any)(localS + TOWER_OFFSET_S, localT + TOWER_OFFSET_T, ...rest);
   S.kind = KIND.MASONRY;
-  tb(0, 0, y1, y1 + 0.3, L1.w + 0.5, L1.d + 0.5, shade(GREY, 0.95), { top: GREY_LIGHT, topKind: KIND.ROAD });
-  const y1f = y1 + 0.3, yr1 = y1f + L1.h;
+  towerBox(0, 0, BLOCK_TOP_Y, BLOCK_TOP_Y + 0.3, lowerSpec.w + 0.5, lowerSpec.d + 0.5, shade(COLORS.grey, 0.95), { top: COLORS.greyLight, topKind: KIND.ROAD });
+  const lowerFloorY = BLOCK_TOP_Y + 0.3;
+  const lowerTopY = lowerFloorY + lowerSpec.h;
   S.kind = KIND.PLAIN; // lime plaster, weathered grey
-  tb(0, 0, y1f, yr1, L1.w, L1.d, PLASTER, { top: PLASTER_DARK });
-  for (const dt of [-1, 1]) {
-    const t = (dt * L1.d) / 2;
-    archOpening(S, TS, t + TT, dt, true, y1f, 1.8, 1.8, true);
-    for (const s of [-2.05, 2.05]) archOpening(S, s + TS, t + TT, dt, true, y1f + 0.2, 1.0, 1.3, false);
-    tb(0, t + dt * 0.03, y1f, y1f + 0.35, L1.w + 0.02, 0.08, PLASTER_DARK); // stained foot
+  towerBox(0, 0, lowerFloorY, lowerTopY, lowerSpec.w, lowerSpec.d, COLORS.plaster, { top: COLORS.plasterDark });
+  for (const dirT of [-1, 1]) {
+    const faceT = (dirT * lowerSpec.d) / 2;
+    buildArchOpening(S, TOWER_OFFSET_S, faceT + TOWER_OFFSET_T, dirT, true, lowerFloorY, 1.8, 1.8, true);
+    for (const sideS of [-2.05, 2.05]) buildArchOpening(S, sideS + TOWER_OFFSET_S, faceT + TOWER_OFFSET_T, dirT, true, lowerFloorY + 0.2, 1.0, 1.3, false);
+    towerBox(0, faceT + dirT * 0.03, lowerFloorY, lowerFloorY + 0.35, lowerSpec.w + 0.02, 0.08, COLORS.plasterDark); // stained foot
   }
-  for (const sg of [-1, 1]) archOpening(S, TS + (sg * L1.w) / 2, TT, sg, false, y1f, 1.2, 1.6, true);
-  tierCap(S, tb, L1.w, L1.d, yr1, 0.85, 0.3);
+  for (const side of [-1, 1]) buildArchOpening(S, TOWER_OFFSET_S + (side * lowerSpec.w) / 2, TOWER_OFFSET_T, side, false, lowerFloorY, 1.2, 1.6, true);
+  buildTierCap(S, towerBox, lowerSpec.w, lowerSpec.d, lowerTopY, 0.85, 0.3);
 
-  // ---- the upper storey ---------------------------------------------------------------------------------------
-  const y2 = yr1 + 0.3, yr2 = y2 + L2.h;
+  const upperBaseY = lowerTopY + 0.3;
+  const upperTopY = upperBaseY + upperSpec.h;
   S.kind = KIND.PLAIN;
-  tb(0, 0, yr1, yr2, L2.w, L2.d, PLASTER, { top: PLASTER_DARK });
-  for (const dt of [-1, 1]) {
-    const t = (dt * L2.d) / 2;
-    tb(0, t + dt * 0.03, y2 + 0.45, y2 + 1.6, 1.7, 0.06, BRICK_RED); // the bare-brick panel
-    archOpening(S, TS, t + TT + dt * 0.04, dt, true, y2 + 0.5, 1.0, 0.95, true, BRICK);
+  towerBox(0, 0, lowerTopY, upperTopY, upperSpec.w, upperSpec.d, COLORS.plaster, { top: COLORS.plasterDark });
+  for (const dirT of [-1, 1]) {
+    const faceT = (dirT * upperSpec.d) / 2;
+    towerBox(0, faceT + dirT * 0.03, upperBaseY + 0.45, upperBaseY + 1.6, 1.7, 0.06, COLORS.brickRed); // the bare-brick panel
+    buildArchOpening(S, TOWER_OFFSET_S, faceT + TOWER_OFFSET_T + dirT * 0.04, dirT, true, upperBaseY + 0.5, 1.0, 0.95, true, COLORS.brick);
   }
-  for (const sg of [-1, 1]) tb((sg * L2.w) / 2 + sg * 0.03, 0, y2 + 0.5, y2 + 1.5, 0.06, 1.1, BRICK_RED);
-  tierCap(S, tb, L2.w, L2.d, yr2, 0.8, 0.28);
-
-  (S.paved = S.paved || []).push([n0, S.n]);
-  S.kind = keep;
+  for (const side of [-1, 1]) towerBox((side * upperSpec.w) / 2 + side * 0.03, 0, upperBaseY + 0.5, upperBaseY + 1.5, 0.06, 1.1, COLORS.brickRed);
+  buildTierCap(S, towerBox, upperSpec.w, upperSpec.d, upperTopY, 0.8, 0.28);
 }
 
-// A storey's cap: a plaster cornice and a pitched hip of orange-tan tile, its eaves curling up at the corners into
-// short upturned hip ends (Buf.hip, slight flare, no long horns), a small ornament on the ridge.
-function tierCap(S, box, w, d, y, rh, over) {
-  S.kind = KIND.PLAIN;
-  box(0, 0, y, y + 0.12, w + 0.2, d + 0.2, PLASTER_DARK);
-  box(0, 0, y + 0.12, y + 0.26, w + 0.36, d + 0.36, PLASTER, { top: PLASTER });
-  const yr = y + 0.26;
-  const c = P(TS, TT);
-  S.hip(c[0], c[1], w, d, A, yr, rh, TILE, { over, flare: 0.1, segs: 3, ridgeCol: shade(TILE, 0.8) });
-  // a small ornament curling up from each corner of the eave
-  S.kind = KIND.TILE;
-  const W = w + 2 * over, D = d + 2 * over;
-  for (const si of [-1, 1]) for (const ti of [-1, 1]) {
-    const q0 = V(TS + (si * (W - 0.5)) / 2, TT + (ti * (D - 0.5)) / 2, yr + 0.12);
-    const q1 = V(TS + (si * (W + 0.25)) / 2, TT + (ti * (D + 0.25)) / 2, yr + 0.42);
-    const q2 = V(TS + (si * W) / 2, TT + (ti * D) / 2, yr + 0.05);
-    S.tri(q0, q1, q2, shade(TILE, 0.8), [0, 1, 0]); S.tri(q0, q2, q1, shade(TILE, 0.8), [0, -1, 0]);
-  }
-  S.kind = KIND.PLAIN;
-  const rl = Math.max(0.1, (w - d) / 2) * 0.6, top = yr + rh;
-  for (const u of [-rl, rl]) { const p = P(TS + u, TT); S.cyl(p[0], p[1], top - 0.05, top + 0.22, 0.09, 0.04, 6, PLASTER_DARK); }
-}
+export function build({ S }) {
+  const keepKind = S.kind;
+  const pavedStart = S.n;
+  const box = (localS, localT, y0, y1, sizeS, sizeT, color, opts?) => {
+    const pos = toWorld(localS, localT);
+    S.box(pos[0], pos[1], y0, y1, sizeS, sizeT, WALL_ANGLE, color, opts);
+  };
 
-// An arched opening on a face: open (a dark recess) or blind (plaster fill), framed by a brick-red rim.
-// along: the face is at constant t, the opening centred at s; otherwise the face is at constant s, centred at t.
-function archOpening(S, s, t, sg, along, y0, w, h, open, rim = BRICK_RED) {
-  const r = w / 2, spring = y0 + h - r, K = 8;
-  const at = (u, y, d) => (along ? V(s + u, t + sg * d, y) : V(s + sg * d, t + u, y));
-  const n = along ? N(0, sg) : N(sg, 0);
-  for (const [rr, d, col] of ([[r + 0.2, 0.03, rim], [r, 0.05, open ? DARK : PLASTER_DARK]] as any[])) {
-    S.quad(at(-rr, y0, d), at(rr, y0, d), at(rr, spring, d), at(-rr, spring, d), col, n);
-    for (let k = 0; k < K; k++) {
-      const a0 = Math.PI - (Math.PI * k) / K, a1 = Math.PI - (Math.PI * (k + 1)) / K;
-      S.tri(at(0, spring, d), at(rr * Math.cos(a0), spring + rr * Math.sin(a0), d), at(rr * Math.cos(a1), spring + rr * Math.sin(a1), d), col, n);
-    }
-  }
+  buildGateBlockAndVault(S, box);
+  buildForecourtAndFacades(S, box);
+  buildParapetAndWatchtower(S, box);
+
+  (S.paved = S.paved || []).push([pavedStart, S.n]);
+  S.kind = keepKind;
 }

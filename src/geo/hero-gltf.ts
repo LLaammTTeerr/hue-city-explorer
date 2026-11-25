@@ -8,92 +8,90 @@ import { HERO_MODELS } from './hero-manifest.ts';
 
 export { HERO_MODELS };
 
-// Mobile/low-tier GPU memory cap: evict least-recently-used distant hero roots when exceeding this count.
 const MAX_LOW_HEROES = 24;
+const HERO_CHECK_INTERVAL_MS = 400;
+const HERO_EVICT_RADIUS_MULT = 1.35;
+const DEFAULT_HERO_COLOR = 0xd8b25a;
 
 // Convert a loaded glTF Mesh to Hue's shared cityMaterial convention (sqrt-encoded linear vertex colors, aKind, aBase).
-function bindCityMaterial(mesh, sharedMat) {
-  const g = mesh.geometry;
-  if (!g || !g.attributes.position) return;
-  const count = g.attributes.position.count;
-  if (!g.attributes.normal) g.computeVertexNormals();
-  // Ensure vertex colors exist and are sqrt-encoded (cityMaterial squares vColor.rgb in fragment shader)
-  if (!g.attributes.color) {
-    const col = mesh.material?.color ? mesh.material.color : new THREE.Color(0xd8b25a);
-    const arr = new Float32Array(count * 3);
-    const r = Math.sqrt(Math.max(0, col.r));
-    const gr = Math.sqrt(Math.max(0, col.g));
-    const b = Math.sqrt(Math.max(0, col.b));
-    for (let i = 0; i < count; i++) {
-      arr[i * 3] = r;
-      arr[i * 3 + 1] = gr;
-      arr[i * 3 + 2] = b;
+function bindCityMaterial(mesh: THREE.Mesh, sharedMat: THREE.Material) {
+  const geo = mesh.geometry;
+  if (!geo || !geo.attributes.position) return;
+  const vertCount = geo.attributes.position.count;
+  if (!geo.attributes.normal) geo.computeVertexNormals();
+
+  const encodedColors = new Float32Array(vertCount * 3);
+  if (!geo.attributes.color) {
+    const baseCol = (mesh.material as any)?.color ? (mesh.material as any).color : new THREE.Color(DEFAULT_HERO_COLOR);
+    const sr = Math.sqrt(Math.max(0, baseCol.r));
+    const sg = Math.sqrt(Math.max(0, baseCol.g));
+    const sb = Math.sqrt(Math.max(0, baseCol.b));
+    for (let i = 0; i < vertCount; i++) {
+      encodedColors[i * 3] = sr;
+      encodedColors[i * 3 + 1] = sg;
+      encodedColors[i * 3 + 2] = sb;
     }
-    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   } else {
-    // glTF COLOR_0 is linear (Float32 or normalized Uint8/Uint16; BufferAttribute.getX denormalizes to [0..1]);
-    // sqrt-encode once so cityMaterial's vColor*vColor recovers exact linear RGB
-    const c = g.attributes.color;
-    const arr = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      arr[i * 3] = Math.sqrt(Math.max(0, c.getX(i)));
-      arr[i * 3 + 1] = Math.sqrt(Math.max(0, c.getY(i)));
-      arr[i * 3 + 2] = Math.sqrt(Math.max(0, c.getZ(i)));
+    const colorAttr = geo.attributes.color;
+    for (let i = 0; i < vertCount; i++) {
+      encodedColors[i * 3] = Math.sqrt(Math.max(0, colorAttr.getX(i)));
+      encodedColors[i * 3 + 1] = Math.sqrt(Math.max(0, colorAttr.getY(i)));
+      encodedColors[i * 3 + 2] = Math.sqrt(Math.max(0, colorAttr.getZ(i)));
     }
-    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
   }
-  const kind = mesh.userData?.hueKind ?? KIND.PLAIN;
-  const kArr = new Float32Array(count);
-  kArr.fill(kind);
-  g.setAttribute('aKind', new THREE.BufferAttribute(kArr, 1));
-  g.setAttribute('aBase', new THREE.BufferAttribute(new Float32Array(count), 1));
+  geo.setAttribute('color', new THREE.BufferAttribute(encodedColors, 3));
+
+  const kindVal = mesh.userData?.hueKind ?? KIND.PLAIN;
+  const kindArr = new Float32Array(vertCount).fill(kindVal);
+  geo.setAttribute('aKind', new THREE.BufferAttribute(kindArr, 1));
+  geo.setAttribute('aBase', new THREE.BufferAttribute(new Float32Array(vertCount), 1));
   mesh.material = sharedMat;
   mesh.castShadow = !quality.low;
   mesh.receiveShadow = true;
 }
 
-function disposeRoot(root) {
-  root.traverse((o) => {
-    if (o.isMesh && o.geometry) o.geometry.dispose();
+function disposeRoot(root: THREE.Object3D) {
+  root.traverse((obj: any) => {
+    if (obj.isMesh && obj.geometry) obj.geometry.dispose();
   });
 }
 
-export function createHeroLoader(parentGroup, onLoaded = null) {
+export function createHeroLoader(parentGroup: THREE.Group, onLoaded: ((id: string, root: THREE.Object3D) => void) | null = null) {
   const loader = new GLTFLoader();
-  const mat = cityMaterial({ windows: false, hero: true });
-  const state = new Map(); // id -> 'loading' | 'loaded' | 'failed'
-  const roots = new Map();
-  const lastUsed = new Map(); // id -> timestamp for LRU eviction on quality.low
-  let lastCheck = 0;
+  const sharedMat = cityMaterial({ windows: false, hero: true });
+  const loadState = new Map<string, any>(); // id -> Promise | 'loaded' | 'failed'
+  const roots = new Map<string, THREE.Object3D>();
+  const lastUsed = new Map<string, number>(); // id -> timestamp for LRU eviction on quality.low
+  let lastCheckMs = 0;
 
-  function evictIfNeeded(camPos) {
+  function evictIfNeeded(camPos: THREE.Vector3) {
     if (!quality.low || roots.size <= MAX_LOW_HEROES) return;
-    const candidates = [];
+    const candidates: { id: string; lastUsedMs: number }[] = [];
     for (const entry of HERO_MODELS) {
       if (!roots.has(entry.id)) continue;
-      const d = camPos ? Math.hypot(camPos.x - entry.pos[0], camPos.z - entry.pos[2]) : Infinity;
-      if (d < entry.radius * 1.35) continue; // keep active/nearby heroes
-      candidates.push({ id: entry.id, t: lastUsed.get(entry.id) || 0 });
+      const dist = camPos ? Math.hypot(camPos.x - entry.pos[0], camPos.z - entry.pos[2]) : Infinity;
+      if (dist < entry.radius * HERO_EVICT_RADIUS_MULT) continue;
+      candidates.push({ id: entry.id, lastUsedMs: lastUsed.get(entry.id) || 0 });
     }
-    candidates.sort((a, b) => a.t - b.t);
-    for (const c of candidates) {
+    candidates.sort((a, b) => a.lastUsedMs - b.lastUsedMs);
+    for (const candidate of candidates) {
       if (roots.size <= MAX_LOW_HEROES) break;
-      const root = roots.get(c.id);
+      const root = roots.get(candidate.id);
       if (root) {
         parentGroup.remove(root);
         disposeRoot(root);
       }
-      roots.delete(c.id);
-      state.delete(c.id);
-      lastUsed.delete(c.id);
+      roots.delete(candidate.id);
+      loadState.delete(candidate.id);
+      lastUsed.delete(candidate.id);
     }
   }
 
-  function loadEntry(entry) {
+  function loadEntry(entry: (typeof HERO_MODELS)[number]) {
     lastUsed.set(entry.id, performance.now());
-    if (state.has(entry.id)) return state.get(entry.id);
+    if (loadState.has(entry.id)) return loadState.get(entry.id);
     const url = `${import.meta.env.BASE_URL}data/models/${entry.file}`;
-    const p = new Promise((resolve) => {
+    const promise = new Promise((resolve) => {
       loader.load(
         url,
         (gltf) => {
@@ -101,15 +99,15 @@ export function createHeroLoader(parentGroup, onLoaded = null) {
           root.name = `hero:${entry.id}`;
           root.position.set(entry.pos[0], LAND_Y + rise(entry.pos[0], entry.pos[2]) + (entry.pos[1] || 0), entry.pos[2]);
           root.rotation.y = entry.rotY || 0;
-          root.traverse((o: any) => {
-            if (o.isMesh) {
-              bindCityMaterial(o, mat);
-              o.userData.landmark = entry.id;
+          root.traverse((obj: any) => {
+            if (obj.isMesh) {
+              bindCityMaterial(obj, sharedMat);
+              obj.userData.landmark = entry.id;
             }
           });
           parentGroup.add(root);
           roots.set(entry.id, root);
-          state.set(entry.id, 'loaded');
+          loadState.set(entry.id, 'loaded');
           lastUsed.set(entry.id, performance.now());
           if (onLoaded) onLoaded(entry.id, root);
           resolve(root);
@@ -117,38 +115,38 @@ export function createHeroLoader(parentGroup, onLoaded = null) {
         undefined,
         (err: any) => {
           console.warn(`[hue] hero model ${entry.file} not loaded:`, err?.message || err);
-          state.set(entry.id, 'failed');
+          loadState.set(entry.id, 'failed');
           resolve(null);
         },
       );
     });
-    state.set(entry.id, p);
-    return p;
+    loadState.set(entry.id, promise);
+    return promise;
   }
 
   return {
-    prefetch(id) {
-      const entry = HERO_MODELS.find((m) => m.id === id);
+    prefetch(id: string) {
+      const entry = HERO_MODELS.find((item) => item.id === id);
       return entry ? loadEntry(entry) : Promise.resolve(null);
     },
-    update(camPos) {
+    update(camPos: THREE.Vector3) {
       const now = performance.now();
-      if (now - lastCheck < 400) return;
-      lastCheck = now;
+      if (now - lastCheckMs < HERO_CHECK_INTERVAL_MS) return;
+      lastCheckMs = now;
       for (const entry of HERO_MODELS) {
-        const d = Math.hypot(camPos.x - entry.pos[0], camPos.z - entry.pos[2]);
-        if (d < entry.radius) {
+        const dist = Math.hypot(camPos.x - entry.pos[0], camPos.z - entry.pos[2]);
+        if (dist < entry.radius) {
           lastUsed.set(entry.id, now);
-          if (!state.has(entry.id)) loadEntry(entry);
+          if (!loadState.has(entry.id)) loadEntry(entry);
         }
       }
       evictIfNeeded(camPos);
     },
     status() {
-      const out = {};
+      const out: Record<string, string> = {};
       for (const entry of HERO_MODELS) {
-        const s = state.get(entry.id);
-        out[entry.id] = typeof s === 'string' ? s : s ? 'loading' : 'idle';
+        const current = loadState.get(entry.id);
+        out[entry.id] = typeof current === 'string' ? current : current ? 'loading' : 'idle';
       }
       return out;
     },

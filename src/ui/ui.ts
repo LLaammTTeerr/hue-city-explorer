@@ -2,295 +2,492 @@ import { STR, NOTES, QUICK } from './content.ts';
 import { createSearch } from './search.ts';
 import { isCoarse } from '../config.ts';
 
-const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-// storage can throw outright (blocked cookies, some private modes, sandboxed frames); the language choice is only a nicety
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch { /* not kept */ } },
-};
-// story data is hand-edited: only web links become a src or an href
-const webUrl = (u) => { try { const x = new URL(u, location.href); return x.protocol === 'http:' || x.protocol === 'https:' ? x : null; } catch { return null; } };
+const DECIMETRES_PER_METRE = 10;
+const METRES_PER_DEG_LAT = 110574;
+const METRES_PER_DEG_LON_EQ = 111319.49;
+const CARD_IMAGE_MAX_ASPECT = 0.72;
+const AUTHOR_MAX_LEN = 60;
+const HINT_DEFAULT_MS = 5200;
+const HINT_FIRST_MS = 7000;
+const HINT_LABELS_OFF_MS = 4200;
+const ZOOM_IN_FACTOR = 0.6;
+const ZOOM_OUT_FACTOR = 1.6;
+const TIME_OF_DAY_COUNT = 3;
+const TIME_NIGHT_INDEX = 2;
+const BREAKPOINT_NARROW_PX = 720;
+const BREAKPOINT_MID_PX = 900;
+const THEME_COLOR_NIGHT = '#1d1727';
+const THEME_COLOR_DAY = '#f5efe2';
+const HEADING_TENTHS_FACTOR = 1800;
 
-export function createUI(data, handlers) {
+const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+const setVisible = (id: string, visible: boolean) => { byId(id).hidden = !visible; };
+
+const store = {
+  get(key: string) { try { return localStorage.getItem(key); } catch { return null; } },
+  set(key: string, val: string) { try { localStorage.setItem(key, val); } catch { /* not kept */ } },
+};
+
+function parseWebUrl(rawUrl: string | undefined): URL | null {
+  if (!rawUrl) return null;
+  try {
+    const parsed = new URL(rawUrl, location.href);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function formatPlaceCoords(place: { x: number; z: number }, origin: { lat: number; lon: number }): string {
+  const lat = origin.lat - place.z / DECIMETRES_PER_METRE / METRES_PER_DEG_LAT;
+  const lon = origin.lon + place.x / DECIMETRES_PER_METRE / (Math.cos((origin.lat * Math.PI) / 180) * METRES_PER_DEG_LON_EQ);
+  return `${lat.toFixed(4)}° N · ${lon.toFixed(4)}° E`;
+}
+
+function buildQuickStrip(placeById: Map<string, any>, handlers: any) {
+  const listEl = byId('places');
+  const buttons = new Map<string, HTMLButtonElement>();
+  const overviewBtn = document.createElement('button');
+  overviewBtn.type = 'button';
+  overviewBtn.className = 'ov';
+  overviewBtn.dataset.t = 'overview';
+  overviewBtn.addEventListener('click', () => handlers.overview());
+  listEl.appendChild(overviewBtn);
+
+  for (const id of QUICK) {
+    const place = placeById.get(id);
+    if (!place) continue;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = place.n;
+    btn.addEventListener('click', () => handlers.pick(id, true));
+    listEl.appendChild(btn);
+    buttons.set(id, btn);
+  }
+  return { listEl, buttons };
+}
+
+function createHintController() {
+  let timer = 0;
+  function hint(text: string, durationMs = HINT_DEFAULT_MS) {
+    const el = byId('hint');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(timer);
+    if (durationMs) timer = setTimeout(() => el.classList.remove('show'), durationMs);
+  }
+  function hideHint() {
+    clearTimeout(timer);
+    byId('hint').classList.remove('show');
+  }
+  return { hint, hideHint };
+}
+
+function renderCardDetails(
+  place: any,
+  story: any,
+  lang: string,
+  strings: any,
+  origin: { lat: number; lon: number },
+  pickLocalized: (obj: any) => [string, string],
+  setTextWithLang: (el: HTMLElement, text: string, textLang?: string) => void,
+): void {
+  const note = NOTES[place.id] || (place.k === 'gate' ? NOTES.gate : null);
+
+  const kind = pickLocalized(story && story.kind);
+  if (kind[0]) setTextWithLang(byId('card-kind'), ...kind);
+  else setTextWithLang(byId('card-kind'), strings.kinds[place.k] || strings.kinds.place);
+
+  const title = lang === 'en' && story && pickLocalized(story.title);
+  if (title && title[0]) setTextWithLang(byId('card-name'), ...title);
+  else setTextWithLang(byId('card-name'), place.n, 'vi');
+
+  setTextWithLang(byId('card-when'), ...pickLocalized(story && story.when));
+  setVisible('card-when', !!(story && story.when));
+
+  const summary = pickLocalized(story && story.summary);
+  if (summary[0]) setTextWithLang(byId('card-note'), ...summary);
+  else setTextWithLang(byId('card-note'), note ? note[lang] : '');
+
+  const storyEl = byId('card-story');
+  storyEl.textContent = '';
+  const [storyText, storyLang] = pickLocalized(story && story.story);
+  for (const para of storyText.split(/\n\s*\n/)) {
+    if (!para.trim()) continue;
+    const paragraphEl = document.createElement('p');
+    setTextWithLang(paragraphEl, para.trim(), storyLang);
+    storyEl.append(paragraphEl);
+  }
+  setVisible('card-story', storyEl.childElementCount > 0);
+
+  const factsEl = byId('card-facts');
+  factsEl.textContent = '';
+  for (const fact of (story && story.facts) || []) {
+    const dt = document.createElement('dt');
+    const dd = document.createElement('dd');
+    setTextWithLang(dt, ...pickLocalized(fact.label));
+    setTextWithLang(dd, ...pickLocalized(fact.value));
+    factsEl.append(dt, dd);
+  }
+  setVisible('card-facts', factsEl.childElementCount > 0);
+
+  const sourcesEl = byId('card-sources');
+  sourcesEl.textContent = '';
+  const sourceList = (story && story.sources) || [];
+  if (sourceList.length) {
+    sourcesEl.append(`${strings.sources}: `);
+    sourceList.forEach((source: any, idx: number) => {
+      const url = parseWebUrl(source.url);
+      const linkNode: HTMLAnchorElement | HTMLSpanElement = url
+        ? Object.assign(document.createElement('a'), { href: url.href, target: '_blank', rel: 'noopener' })
+        : document.createElement('span');
+      linkNode.textContent = source.title || (url ? url.hostname : '');
+      sourcesEl.append(linkNode, idx < sourceList.length - 1 ? ' · ' : '');
+    });
+  }
+  setVisible('card-sources', sourceList.length > 0);
+  byId('card-meta').textContent = formatPlaceCoords(place, origin);
+}
+
+function bindToolbarEvents(opts: {
+  handlers: any;
+  timeButtons: HTMLButtonElement[];
+  getLang: () => string;
+  getTimeIdx: () => number;
+  getCurrentPlace: () => any;
+  pickLang: (nextLang: string) => void;
+  hideCard: () => void;
+  nextShot: () => void;
+  applyText: () => void;
+}): void {
+  const { handlers, timeButtons, getLang, getTimeIdx, getCurrentPlace, pickLang, hideCard, nextShot, applyText } = opts;
+
+  document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((btn) => {
+    btn.addEventListener('click', () => { if (btn.dataset.lang && btn.dataset.lang !== getLang()) pickLang(btn.dataset.lang); });
+  });
+  new ResizeObserver(([entry]) => {
+    const heightPx = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+    document.documentElement.style.setProperty('--tools-h', `${heightPx}px`);
+  }).observe(byId('tools'));
+
+  byId('btn-labels').addEventListener('click', () => handlers.labels());
+  byId('btn-look').addEventListener('click', () => handlers.look());
+  byId('btn-about').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
+  byId('btn-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
+  byId('card-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
+  byId('attrib').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
+  byId('about-close').addEventListener('click', () => byId<HTMLDialogElement>('about').close());
+  byId('about').addEventListener('click', (event) => { if (event.target === byId('about')) byId<HTMLDialogElement>('about').close(); });
+  byId('osm-only').addEventListener('change', (event) => handlers.osmOnly((event.target as HTMLInputElement).checked));
+  byId('btn-home').addEventListener('click', () => handlers.home());
+  byId('btn-zin').addEventListener('click', () => handlers.zoom(ZOOM_IN_FACTOR));
+  byId('btn-zout').addEventListener('click', () => handlers.zoom(ZOOM_OUT_FACTOR));
+  byId('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
+  byId('card-shot').addEventListener('click', nextShot);
+  byId('btn-rain').addEventListener('click', () => handlers.rain());
+
+  timeButtons.forEach((btn) => btn.addEventListener('click', () => handlers.time(+btn.dataset.time!)));
+  byId('seg-time').addEventListener('keydown', (event) => {
+    const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const nextIdx = (getTimeIdx() + delta + TIME_OF_DAY_COUNT) % TIME_OF_DAY_COUNT;
+    handlers.time(nextIdx);
+    timeButtons[nextIdx].focus();
+  });
+
+  let isNarrow = innerWidth <= BREAKPOINT_NARROW_PX;
+  let isMid = innerWidth < BREAKPOINT_MID_PX;
+  addEventListener('resize', () => {
+    if (isNarrow === (innerWidth <= BREAKPOINT_NARROW_PX) && isMid === (innerWidth < BREAKPOINT_MID_PX)) return;
+    isNarrow = innerWidth <= BREAKPOINT_NARROW_PX;
+    isMid = innerWidth < BREAKPOINT_MID_PX;
+    applyText();
+  });
+}
+
+export function createUI(data: any, handlers: any) {
   let lang = (store.get('hue-lang') || (navigator.language || 'vi').slice(0, 2)) === 'vi' ? 'vi' : 'en';
-  // until the scene is ready the interface behind the loader is out of reach, for the keyboard too. The search box and
-  // the card are the exception: they stand above the loader (body.loading in style.css) and work from the place
-  // index alone, so a visitor can look a place up while the city is still downloading.
-  const live = new Set(['search', 'card']);
-  const behind = [...document.body.children].filter((el) => el.id !== 'loader' && el.tagName !== 'SCRIPT' && !live.has(el.id)) as HTMLElement[];
-  function lock() { $('loader').classList.remove('done'); document.body.classList.add('loading'); behind.forEach((el) => { el.inert = true; }); }
+  const liveIds = new Set(['search', 'card']);
+  const behindLoader = [...document.body.children].filter(
+    (el) => el.id !== 'loader' && el.tagName !== 'SCRIPT' && !liveIds.has(el.id),
+  ) as HTMLElement[];
+
+  function lock() {
+    byId('loader').classList.remove('done');
+    document.body.classList.add('loading');
+    behindLoader.forEach((el) => { el.inert = true; });
+  }
   lock();
-  let T = STR[lang];
-  let current = null; // place shown in the card
-  const placeById = new Map<string, any>(data.places.map((p: any) => [p.id, p]));
-  const seen = new Set();
+
+  let strings = STR[lang];
+  let currentPlace: any = null;
+  const placeById = new Map<string, any>(data.places.map((place: any) => [place.id, place]));
+  const seen = new Set<string>();
   const origin = data.meta.origin;
 
-  // ---- quick strip (phones): the whole-model button, then the short walk through the city ----
-  const list = $('places');
-  const listButtons = new Map();
-  {
-    const overview = document.createElement('button');
-    overview.type = 'button';
-    overview.className = 'ov';
-    overview.dataset.t = 'overview';
-    overview.addEventListener('click', () => handlers.overview());
-    list.appendChild(overview);
-    for (const id of QUICK) {
-      const p = placeById.get(id);
-      if (!p) continue;
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.textContent = p.n;
-      b.addEventListener('click', () => handlers.pick(id, true));
-      list.appendChild(b);
-      listButtons.set(id, b);
-    }
-  }
+  const { listEl, buttons: listButtons } = buildQuickStrip(placeById, handlers);
+  const { hint, hideHint } = createHintController();
 
-  // ---- search box: every place in the data, found by name, kind or description ----
-  let stories = null, storiesAsked = false, shot = 0;
+  let stories: Record<string, any> | null = null;
+  let storiesAsked = false;
+  let shotIndex = 0;
+  let mediaGen = 0;
+  let openerEl: Element | null = null;
+  let timeIdx = 1;
+
+  const pickLocalized = (obj: any): [string, string] => (
+    !obj ? ['', lang] : obj[lang] ? [obj[lang], lang] : obj.vi ? [obj.vi, 'vi'] : obj.en ? [obj.en, 'en'] : ['', lang]
+  );
+  const setTextWithLang = (el: HTMLElement, text: string, textLang = lang) => {
+    el.textContent = text;
+    if (textLang !== lang) el.lang = textLang;
+    else el.removeAttribute('lang');
+  };
+
   const search = createSearch({
     places: data.places,
-    T: () => T, Tof: (l) => STR[l], lang: () => lang,
-    stories: () => stories, loadStories: () => loadStories(),
-    seen, currentId: () => current && current.id,
-    pick: (id, from) => handlers.pick(id, true, from),
+    T: () => strings,
+    Tof: (code: string) => STR[code],
+    lang: () => lang,
+    stories: () => stories,
+    loadStories: () => loadStories(),
+    seen,
+    currentId: () => currentPlace && currentPlace.id,
+    pick: (id: string, from: HTMLElement) => handlers.pick(id, true, from),
     overview: () => handlers.overview(),
     clear: () => { hideCard(); handlers.cardClosed(); },
   });
 
-  // ---- text ----
-  function refreshQuick() {
-    listButtons.forEach((b, id) => {
-      const p = placeById.get(id), st = stories && stories[id];
-      const title = lang === 'en' && st && txl(st.title);
-      b.textContent = (title && title[0]) || p.n;
+  function refreshQuickStrip() {
+    listButtons.forEach((btn, id) => {
+      const place = placeById.get(id);
+      const story = stories && stories[id];
+      const title = lang === 'en' && story && pickLocalized(story.title);
+      btn.textContent = (title && title[0]) || place.n;
     });
   }
+
   function applyText() {
-    T = STR[lang];
+    strings = STR[lang];
     document.documentElement.lang = lang;
-    document.title = `Huế · ${T.tagline}`;
-    document.querySelectorAll<HTMLElement>('[data-t]').forEach((el) => { el.textContent = T[el.dataset.t]; });
-    list.setAttribute('aria-label', T.places);
-    refreshQuick();
-    search.refresh(current);
-    const rainTip = $('btn-rain').getAttribute('aria-pressed') === 'true' ? T.rainOn : T.rain;
-    $('btn-rain').querySelector('span').textContent = rainTip;
-    $('seg-lang').setAttribute('aria-label', T.langGroup);
-    document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.lang === lang)));
-    const tips = { 'btn-share': T.share, 'btn-labels': T.labels, 'btn-look': T.look, 'btn-about': T.about, 'btn-home': T.home, 'btn-zin': T.zoomIn, 'btn-zout': T.zoomOut, 'card-close': T.close, 'about-close': T.close, 'btn-rain': rainTip };
-    document.querySelectorAll<HTMLButtonElement>('#seg-time button').forEach((b) => { const tip = T.times[+b.dataset.time]; b.title = tip; b.setAttribute('aria-label', tip); });
-    for (const [id, tip] of Object.entries(tips)) { $(id).title = tip; $(id).setAttribute('aria-label', tip); }
-    $('attrib').textContent = T.attrib;
-    $('about-title').textContent = T.aboutTitle;
-    const n = (v) => v.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
-    $('about-body').innerHTML = T.aboutBody.replace('{buildings}', n(data.meta.counts.buildings)).replace('{infill}', n(data.meta.counts.infill));
-    const ts = (data.meta.osmTimestamp || '').slice(0, 10);
-    $('about-fine').textContent = (lang === 'vi' ? 'Dữ liệu OSM trích ngày ' : 'OSM extract dated ') + ts + ' · Overpass API · three.js · v' + __APP_VERSION__ + (__APP_COMMIT__ ? ' (' + __APP_COMMIT__ + ')' : '');
-    $('loader-text').textContent = T.loading;
-    $('scene').setAttribute('aria-label', T.scene);
-    $('seg-time').setAttribute('aria-label', T.timeOfDay);
-    if (current) fillCard(current);
+    document.title = `Huế · ${strings.tagline}`;
+    document.querySelectorAll<HTMLElement>('[data-t]').forEach((el) => { el.textContent = strings[el.dataset.t!]; });
+    listEl.setAttribute('aria-label', strings.places);
+    refreshQuickStrip();
+    search.refresh(currentPlace);
+
+    const rainTip = byId('btn-rain').getAttribute('aria-pressed') === 'true' ? strings.rainOn : strings.rain;
+    byId('btn-rain').querySelector('span')!.textContent = rainTip;
+    byId('seg-lang').setAttribute('aria-label', strings.langGroup);
+    document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach(
+      (btn) => btn.setAttribute('aria-checked', String(btn.dataset.lang === lang)),
+    );
+    const tooltips: Record<string, string> = {
+      'btn-share': strings.share, 'btn-labels': strings.labels, 'btn-look': strings.look,
+      'btn-about': strings.about, 'btn-home': strings.home, 'btn-zin': strings.zoomIn,
+      'btn-zout': strings.zoomOut, 'card-close': strings.close, 'about-close': strings.close,
+      'btn-rain': rainTip,
+    };
+    document.querySelectorAll<HTMLButtonElement>('#seg-time button').forEach((btn) => {
+      const tip = strings.times[+btn.dataset.time!];
+      btn.title = tip;
+      btn.setAttribute('aria-label', tip);
+    });
+    for (const [id, tip] of Object.entries(tooltips)) {
+      byId(id).title = tip;
+      byId(id).setAttribute('aria-label', tip);
+    }
+
+    byId('attrib').textContent = strings.attrib;
+    byId('about-title').textContent = strings.aboutTitle;
+    const formatCount = (val: number) => val.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
+    byId('about-body').innerHTML = strings.aboutBody
+      .replace('{buildings}', formatCount(data.meta.counts.buildings))
+      .replace('{infill}', formatCount(data.meta.counts.infill));
+    const osmDate = (data.meta.osmTimestamp || '').slice(0, 10);
+    const datePrefix = lang === 'vi' ? 'Dữ liệu OSM trích ngày ' : 'OSM extract dated ';
+    const commitSuffix = __APP_COMMIT__ ? ` (${__APP_COMMIT__})` : '';
+    byId('about-fine').textContent = `${datePrefix}${osmDate} · Overpass API · three.js · v${__APP_VERSION__}${commitSuffix}`;
+    byId('loader-text').textContent = strings.loading;
+    byId('scene').setAttribute('aria-label', strings.scene);
+    byId('seg-time').setAttribute('aria-label', strings.timeOfDay);
+    if (currentPlace) fillCard(currentPlace);
   }
 
-  // ---- card ----
-  // The explorer: stories, facts and picture references live in data/stories.json, fetched the first time a card
-  // opens. Pictures are Wikimedia Commons files under free licences, shown with their credit; without a
-  // connection the card simply has no picture. Only a successful load is kept: a failed one (offline, an HTTP error,
-  // a bad body) clears the pending flag and leaves stories unset, so the next card or search opening asks again.
   function loadStories() {
     if (stories || storiesAsked) return;
     storiesAsked = true;
     fetch(`${import.meta.env.BASE_URL}data/stories.json`)
-      .then((r) => { if (!r.ok) throw new Error('stories.json: HTTP ' + r.status); return r.json(); })
-      .then((j) => { stories = j || {}; refreshQuick(); if (current) fillCard(current); search.refresh(current); })
-      .catch((e) => { console.warn(e); storiesAsked = false; });
+      .then((res) => { if (!res.ok) throw new Error(`stories.json: HTTP ${res.status}`); return res.json(); })
+      .then((json) => {
+        stories = json || {};
+        refreshQuickStrip();
+        if (currentPlace) fillCard(currentPlace);
+        search.refresh(currentPlace);
+      })
+      .catch((err) => { console.warn(err); storiesAsked = false; });
   }
-  const show = (id, on) => { $(id).hidden = !on; };
-  let mediaGen = 0;
-  function fillMedia(st, tried = 0) {
+
+  function fillMedia(story: any, tried = 0) {
     const gen = ++mediaGen;
-    const imgs = (st && st.images) || [];
-    const im = imgs.length ? imgs[shot % imgs.length] : null, thumb = im && webUrl(im.thumb);
-    const img = $<HTMLImageElement>('card-img'), next = $<HTMLButtonElement>('card-shot');
-    img.onload = null; img.onerror = null;
-    show('card-media', false);
-    if (!thumb) { img.removeAttribute('src'); return; }
-    img.style.aspectRatio = im.width && im.height ? `${im.width} / ${Math.min(im.height, im.width * 0.72)}` : '';
-    img.alt = (im.caption && im.caption[lang]) || '';
-    // the picture is a button that shows the next one; with a single picture there is nothing to press
-    const tip = imgs.length > 1 ? `${T.nextPhoto} (${(shot % imgs.length) + 1}/${imgs.length})` : '';
-    next.title = tip; next.disabled = !tip;
-    if (tip) next.setAttribute('aria-label', tip); else next.removeAttribute('aria-label');
-    img.classList.toggle('more', imgs.length > 1);
-    $('card-caption').textContent = (im.caption && im.caption[lang]) || '';
-    const credit = $('card-credit');
-    credit.textContent = '';
-    const page = webUrl(im.page);
-    const a: HTMLAnchorElement | HTMLSpanElement = page ? Object.assign(document.createElement('a'), { href: page.href, target: '_blank', rel: 'noopener' }) : document.createElement('span');
-    a.textContent = [`${T.photoBy}: ${(im.author || 'Wikimedia Commons').slice(0, 60)}`, im.license].filter(Boolean).join(' · ');
-    credit.append(a);
-    img.onload = () => { if (gen === mediaGen) show('card-media', true); };
-    img.onerror = () => {
+    const images = (story && story.images) || [];
+    const image = images.length ? images[shotIndex % images.length] : null;
+    const thumbUrl = image && parseWebUrl(image.thumb);
+    const imgEl = byId<HTMLImageElement>('card-img');
+    const nextBtn = byId<HTMLButtonElement>('card-shot');
+    imgEl.onload = null;
+    imgEl.onerror = null;
+    setVisible('card-media', false);
+    if (!thumbUrl) { imgEl.removeAttribute('src'); return; }
+
+    imgEl.style.aspectRatio = image.width && image.height
+      ? `${image.width} / ${Math.min(image.height, image.width * CARD_IMAGE_MAX_ASPECT)}`
+      : '';
+    imgEl.alt = (image.caption && image.caption[lang]) || '';
+    const tip = images.length > 1 ? `${strings.nextPhoto} (${(shotIndex % images.length) + 1}/${images.length})` : '';
+    nextBtn.title = tip;
+    nextBtn.disabled = !tip;
+    if (tip) nextBtn.setAttribute('aria-label', tip);
+    else nextBtn.removeAttribute('aria-label');
+    imgEl.classList.toggle('more', images.length > 1);
+    byId('card-caption').textContent = (image.caption && image.caption[lang]) || '';
+
+    const creditEl = byId('card-credit');
+    creditEl.textContent = '';
+    const pageUrl = parseWebUrl(image.page);
+    const creditNode: HTMLAnchorElement | HTMLSpanElement = pageUrl
+      ? Object.assign(document.createElement('a'), { href: pageUrl.href, target: '_blank', rel: 'noopener' })
+      : document.createElement('span');
+    creditNode.textContent = [
+      `${strings.photoBy}: ${(image.author || 'Wikimedia Commons').slice(0, AUTHOR_MAX_LEN)}`,
+      image.license,
+    ].filter(Boolean).join(' · ');
+    creditEl.append(creditNode);
+
+    imgEl.onload = () => { if (gen === mediaGen) setVisible('card-media', true); };
+    imgEl.onerror = () => {
       if (gen !== mediaGen) return;
-      if (tried + 1 < imgs.length) { shot++; fillMedia(st, tried + 1); }
-      else show('card-media', false);
+      if (tried + 1 < images.length) { shotIndex++; fillMedia(story, tried + 1); }
+      else setVisible('card-media', false);
     };
-    img.removeAttribute('src');
-    img.src = thumb.href;
+    imgEl.removeAttribute('src');
+    imgEl.src = thumbUrl.href;
   }
-  // text in the interface language, or the other one when it is missing: [text, language of that text]
-  const txl = (o: any): [string, string] => (!o ? ['', lang] : o[lang] ? [o[lang], lang] : o.vi ? [o.vi, 'vi'] : o.en ? [o.en, 'en'] : ['', lang]);
-  // write text and mark a fallback with its own language, so a screen reader pronounces it by the right rules
-  const put = (el, text, l = lang) => { el.textContent = text; if (l !== lang) el.lang = l; else el.removeAttribute('lang'); };
-  function fillCard(p) {
-    const note = NOTES[p.id] || (p.k === 'gate' ? NOTES.gate : null);
-    const st = stories && stories[p.id];
-    const kind = txl(st && st.kind);
-    if (kind[0]) put($('card-kind'), ...kind); else put($('card-kind'), T.kinds[p.k] || T.kinds.place);
-    const title = lang === 'en' && st && txl(st.title);
-    if (title && title[0]) put($('card-name'), ...title); else put($('card-name'), p.n, 'vi'); // the place's own (Vietnamese) name
-    put($('card-when'), ...txl(st && st.when)); show('card-when', !!(st && st.when));
-    const summary = txl(st && st.summary);
-    if (summary[0]) put($('card-note'), ...summary); else put($('card-note'), note ? note[lang] : '');
-    const story = $('card-story'); story.textContent = '';
-    const [storyText, storyLang] = txl(st && st.story);
-    for (const para of storyText.split(/\n\s*\n/)) if (para.trim()) { const el = document.createElement('p'); put(el, para.trim(), storyLang); story.append(el); }
-    show('card-story', story.childElementCount > 0);
-    const facts = $('card-facts'); facts.textContent = '';
-    for (const f of (st && st.facts) || []) { const dt = document.createElement('dt'), dd = document.createElement('dd'); put(dt, ...txl(f.label)); put(dd, ...txl(f.value)); facts.append(dt, dd); }
-    show('card-facts', facts.childElementCount > 0);
-    const src = $('card-sources'); src.textContent = '';
-    const list = (st && st.sources) || [];
-    if (list.length) {
-      src.append(`${T.sources}: `);
-      list.forEach((q, i) => {
-        const u = webUrl(q.url);
-        const a: HTMLAnchorElement | HTMLSpanElement = u ? Object.assign(document.createElement('a'), { href: u.href, target: '_blank', rel: 'noopener' }) : document.createElement('span');
-        a.textContent = q.title || (u ? u.hostname : '');
-        src.append(a, i < list.length - 1 ? ' · ' : '');
-      });
-    }
-    show('card-sources', list.length > 0);
-    fillMedia(st);
-    const lat = origin.lat - p.z / 10 / 110574, lon = origin.lon + p.x / 10 / (Math.cos((origin.lat * Math.PI) / 180) * 111319.49);
-    $('card-meta').textContent = `${lat.toFixed(4)}° N · ${lon.toFixed(4)}° E`;
+
+  function fillCard(place: any) {
+    const story = stories && stories[place.id];
+    renderCardDetails(place, story, lang, strings, origin, pickLocalized, setTextWithLang);
+    fillMedia(story);
   }
-  // focus moves into the card when it opens and goes back to whatever opened it when it closes
-  let opener = null;
-  function showCard(id, from = document.activeElement) {
-    const p = placeById.get(id);
-    if (!p) return;
-    const card = $('card');
-    if (from && from !== document.body && !card.contains(from)) opener = from;
-    current = p;
-    shot = 0;
+
+  function showCard(id: string, from: Element | null = document.activeElement) {
+    const place = placeById.get(id);
+    if (!place) return;
+    const cardEl = byId('card');
+    if (from && from !== document.body && !cardEl.contains(from)) openerEl = from;
+    currentPlace = place;
+    shotIndex = 0;
     loadStories();
-    fillCard(p);
-    $('card-scroll').scrollTop = 0;
-    card.hidden = false;
-    $('card-name').focus({ preventScroll: true });
-    card.style.animation = 'none'; void card.offsetWidth; card.style.animation = '';
+    fillCard(place);
+    byId('card-scroll').scrollTop = 0;
+    cardEl.hidden = false;
+    byId('card-name').focus({ preventScroll: true });
+    cardEl.style.animation = 'none';
+    void cardEl.offsetWidth;
+    cardEl.style.animation = '';
     document.body.classList.add('has-card');
     seen.add(id);
-    search.setShown(p);
-    listButtons.forEach((b, k) => { b.classList.toggle('active', k === id); if (seen.has(k)) b.classList.add('seen'); });
+    search.setShown(place);
+    listButtons.forEach((btn, key) => {
+      btn.classList.toggle('active', key === id);
+      if (seen.has(key)) btn.classList.add('seen');
+    });
   }
+
   function hideCard() {
-    current = null;
+    currentPlace = null;
     search.setShown(null);
-    const card = $('card'), hadFocus = card.contains(document.activeElement);
-    card.hidden = true;
-    if (hadFocus && opener && opener.isConnected) opener.focus({ preventScroll: true });
-    opener = null;
+    const cardEl = byId('card');
+    const hadFocus = cardEl.contains(document.activeElement);
+    cardEl.hidden = true;
+    if (hadFocus && openerEl instanceof HTMLElement && openerEl.isConnected) openerEl.focus({ preventScroll: true });
+    openerEl = null;
     document.body.classList.remove('has-card');
-    listButtons.forEach((b) => b.classList.remove('active'));
+    listButtons.forEach((btn) => btn.classList.remove('active'));
   }
 
-  // ---- hint ----
-  let hintTimer = 0;
-  function hint(text, ms = 5200) {
-    const el = $('hint');
-    el.textContent = text;
-    el.classList.add('show');
-    clearTimeout(hintTimer);
-    if (ms) hintTimer = setTimeout(() => el.classList.remove('show'), ms);
-  }
-  const hideHint = () => { clearTimeout(hintTimer); $('hint').classList.remove('show'); };
-
-  // ---- wiring ----
-  document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((b) => b.addEventListener('click', () => { if (b.dataset.lang !== lang) pickLang(b.dataset.lang); }));
-  // On phones the compass stacks under the tool column; publish its real height so the CSS never guesses it.
-  new ResizeObserver(([e]) => document.documentElement.style.setProperty('--tools-h', `${Math.ceil(e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height)}px`)).observe($('tools'));
-  function pickLang(l) { lang = l; store.set('hue-lang', lang); applyText(); handlers.lang(lang); } // applyText refills an open card
-  $('btn-labels').addEventListener('click', () => handlers.labels());
-  $('btn-look').addEventListener('click', () => handlers.look());
-  $('btn-about').addEventListener('click', () => $<HTMLDialogElement>('about').showModal());
-  // share the view as it stands, with the open card if there is one (src/ui/share.js)
-  $('btn-share').addEventListener('click', () => handlers.share(current && current.id));
-  $('card-share').addEventListener('click', () => handlers.share(current && current.id));
-  $('attrib').addEventListener('click', () => $<HTMLDialogElement>('about').showModal());
-  $('about-close').addEventListener('click', () => $<HTMLDialogElement>('about').close());
-  $('about').addEventListener('click', (e) => { if (e.target === $('about')) $<HTMLDialogElement>('about').close(); });
-  $('osm-only').addEventListener('change', (e) => handlers.osmOnly((e.target as HTMLInputElement).checked));
-  $('btn-home').addEventListener('click', () => handlers.home());
-  $('btn-zin').addEventListener('click', () => handlers.zoom(0.6));
-  $('btn-zout').addEventListener('click', () => handlers.zoom(1.6));
-  $('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
-  $('card-shot').addEventListener('click', () => { if (current) { shot++; fillMedia(stories && stories[current.id]); } });
-  $('btn-rain').addEventListener('click', () => handlers.rain());
   const timeButtons = [...document.querySelectorAll<HTMLButtonElement>('#seg-time button')];
-  timeButtons.forEach((b) => b.addEventListener('click', () => handlers.time(+b.dataset.time)));
-  // a radio group: one stop in the tab order, arrow keys move the choice
-  let timeIdx = 1;
-  $('seg-time').addEventListener('keydown', (e) => {
-    const d = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
-    if (!d) return;
-    e.preventDefault(); e.stopPropagation();
-    const i = (timeIdx + d + 3) % 3;
-    handlers.time(i);
-    timeButtons[i].focus();
+  bindToolbarEvents({
+    handlers,
+    timeButtons,
+    getLang: () => lang,
+    getTimeIdx: () => timeIdx,
+    getCurrentPlace: () => currentPlace,
+    pickLang: (nextLang) => {
+      lang = nextLang;
+      store.set('hue-lang', lang);
+      applyText();
+      handlers.lang(lang);
+    },
+    hideCard,
+    nextShot: () => { if (currentPlace) { shotIndex++; fillMedia(stories && stories[currentPlace.id]); } },
+    applyText,
   });
 
   applyText();
-  // the short wordings (phone) and the placeholder follow the window across its breakpoints
-  let narrow = innerWidth <= 720, mid = innerWidth < 900;
-  addEventListener('resize', () => {
-    if (narrow === innerWidth <= 720 && mid === innerWidth < 900) return;
-    narrow = innerWidth <= 720; mid = innerWidth < 900;
-    applyText();
-  });
 
-  let heading = NaN;
+  let lastHeadingDeg = NaN;
   return {
     get lang() { return lang; },
-    get T() { return T; },
-    showCard, hideCard, hint, hideHint,
-    get cardId() { return current && current.id; },
-    firstHint() { hint(isCoarse() ? T.hintTouch : T.hintMouse, 7000); },
-    setLabels(on) { $('btn-labels').classList.toggle('on', on); $('btn-labels').setAttribute('aria-pressed', String(on)); if (!on) hint(T.hintLabels, 4200); },
-    setLook(ink) { $('btn-look').classList.toggle('on', !!ink); $('btn-look').setAttribute('aria-pressed', String(!!ink)); },
-    setMood({ rain, time }) {
-      document.body.dataset.time = String(time); // the sheets turn to dark lacquer once the lights are on (style.css)
-      const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-      if (theme) theme.content = time === 2 ? '#1d1727' : '#f5efe2';
-      const rainTip = rain ? T.rainOn : T.rain;
-      $('btn-rain').setAttribute('aria-pressed', String(!!rain));
-      $('btn-rain').querySelector('span').textContent = rainTip;
-      $('btn-rain').title = rainTip;
-      $('btn-rain').setAttribute('aria-label', rainTip);
+    get T() { return strings; },
+    showCard,
+    hideCard,
+    hint,
+    hideHint,
+    get cardId() { return currentPlace && currentPlace.id; },
+    firstHint() { hint(isCoarse() ? strings.hintTouch : strings.hintMouse, HINT_FIRST_MS); },
+    setLabels(on: boolean) {
+      byId('btn-labels').classList.toggle('on', on);
+      byId('btn-labels').setAttribute('aria-pressed', String(on));
+      if (!on) hint(strings.hintLabels, HINT_LABELS_OFF_MS);
+    },
+    setLook(isInk: boolean | number) {
+      byId('btn-look').classList.toggle('on', !!isInk);
+      byId('btn-look').setAttribute('aria-pressed', String(!!isInk));
+    },
+    setMood({ rain, time }: { rain: boolean | number; time: number }) {
+      document.body.dataset.time = String(time);
+      const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+      if (themeMeta) themeMeta.content = time === TIME_NIGHT_INDEX ? THEME_COLOR_NIGHT : THEME_COLOR_DAY;
+      const rainTip = rain ? strings.rainOn : strings.rain;
+      const rainBtn = byId('btn-rain');
+      rainBtn.setAttribute('aria-pressed', String(!!rain));
+      rainBtn.querySelector('span')!.textContent = rainTip;
+      rainBtn.title = rainTip;
+      rainBtn.setAttribute('aria-label', rainTip);
       timeIdx = time;
-      timeButtons.forEach((b) => { const on = +b.dataset.time === time; b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
+      timeButtons.forEach((btn) => {
+        const active = +btn.dataset.time! === time;
+        btn.setAttribute('aria-checked', String(active));
+        btn.tabIndex = active ? 0 : -1;
+      });
     },
-    setHeading(rad) {
-      const deg = Math.round((-rad * 1800) / Math.PI) / 10; // tenths of a degree; no style write while the view holds still
-      if (deg !== heading) { heading = deg; $('needle').style.transform = `rotate(${deg}deg)`; }
+    setHeading(rad: number) {
+      const deg = Math.round((-rad * HEADING_TENTHS_FACTOR) / Math.PI) / 10;
+      if (deg !== lastHeadingDeg) {
+        lastHeadingDeg = deg;
+        byId('needle').style.transform = `rotate(${deg}deg)`;
+      }
     },
-    loaderProgress(p) { $('loader-bar').style.width = Math.round(p * 100) + '%'; },
-    loaderDone() { $('loader').classList.add('done'); document.body.classList.remove('loading'); behind.forEach((el) => { el.inert = false; }); },
-    lock, // the loader back over the interface (a retried start after the 2D fallback)
+    loaderProgress(progress: number) { byId('loader-bar').style.width = `${Math.round(progress * 100)}%`; },
+    loaderDone() {
+      byId('loader').classList.add('done');
+      document.body.classList.remove('loading');
+      behindLoader.forEach((el) => { el.inert = false; });
+    },
+    lock,
     applyText,
   };
 }

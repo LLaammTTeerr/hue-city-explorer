@@ -8,532 +8,617 @@ import { fence, roadsNear, FENCE } from '../enclosure.ts';
 // Quốc tự Diệu Đế, 102 Bạch Đằng, on the east bank of the Đông Ba canal facing the Citadel (founded 1844 by Thiệu Trị
 // on his birthplace; most rows pulled down 1887; rebuilt smaller 1953; restoration from 2018, when the 350 m² main
 // hall was moved back about 19 m). See docs/places/dieude.md for sources and what is estimated.
-//
-//
-// The plan is read in a frame on the axis: a = metres from the entrance (OSM node 7199615582, where the axis footway
-// 257257955 from Bạch Đằng meets the gate) back toward the hall (north-east), b = metres across (+b south-east,
-// toward Diệu Đế). The precinct is the whole block between Bạch Đằng (a ≈ -10.6), Ngự Viên (b ≈ -50), Diệu Đế
-// (b ≈ +46) and Tô Hiến Thành (a ≈ 123-127): about 1.1 ha, the "over 10,000 m²" of the sources. OSM maps the hall
-// block (way 771244228: a 61-86, b ±14) and three roofs at the back of the block (the pagoda's own ranges: a
-// double-roofed house in the north corner, a house in the south-east corner and a long range on Tô Hiến Thành),
-// which this file draws itself, with the brown tiles the satellite and street views show. The gate with its upper
-// storey, the octagonal bell and drum towers either side of it, the hexagonal bell and stele pavilions in the court,
-// and the Đại Giác hall (three bays and two lean-to bays, five doors, ngói liệt tiles, twin dragons facing the moon on
-// the ridge) follow the written descriptions; the hall's roof plan, the two small pavilions, the grove and the brick
-// wall with its second entrance on Bạch Đằng follow the satellite and street views.
 export const id = 'dieude';
 
-const ANG = Math.atan2(-0.57775, 0.81621); // axis, gate → hall (bearing about 55°, the gate faces south-west)
-const F = [Math.cos(ANG), Math.sin(ANG)], P = [-F[1], F[0]];
-const O = [-213.3, -948.3]; // a = 0, b = 0
-const W = (a, b?): [number, number] => [O[0] + F[0] * a + P[0] * b, O[1] + F[1] * a + P[1] * b];
-const gY = (x, z) => LAND_Y + rise(x, z);
-const ACROSS = ANG + Math.PI / 2; // a roof ridge running across the axis
+const AXIS_ANGLE = Math.atan2(-0.57775, 0.81621); // axis, gate → hall (bearing about 55°, the gate faces south-west)
+const ACROSS_ANGLE = AXIS_ANGLE + Math.PI / 2;
+const FWD: [number, number] = [Math.cos(AXIS_ANGLE), Math.sin(AXIS_ANGLE)];
+const PERP: [number, number] = [-FWD[1], FWD[0]];
+const ORIGIN: [number, number] = [-213.3, -948.3];
 
-const yellow = hex('#e2c271'), yellowD = hex('#c9a65a'), tile = hex('#9d4a33'), tileD = hex('#7f3a28'), trim = hex('#ece0c2');
-const lacq = hex('#9e3426'), door = hex('#5b2a1d'), dark = hex('#2a211d'), stone = hex('#a49d8e'), stoneL = hex('#c2baa8');
-const pave = hex('#c6bba3'), walk = hex('#ad9c80'), lawn = hex('#7f9752'), bronze = hex('#5d4a2c'), leaf = hex('#4f7337'), leafD = hex('#3f5f2d');
-const bark = hex('#5a4634'), mosaic = hex('#5f9a8a');
-const brown = hex('#6b4535'), brownD = hex('#553729'), redTile = hex('#a9503a'), lime = hex('#d8ccb2'), iron = hex('#80796e');
-const moss = hex('#56603f'), verge = hex('#6c8a47'), grey = hex('#9b988f'), greyL = hex('#b3afa5'), screen = hex('#9b3a2c');
-// the precinct wall: old brick, weathered, under a low coping (Street View)
-const WALL = { ...FENCE.pagoda, h: 2.4, plinth: 2.4, every: 5.0, postW: 0.44, postUp: -0.1, wall: hex('#6a4a3c'), cap: hex('#5e564c'), pierW: 1.0, pierUp: 1.3, t: 0.42 };
-// on Tô Hiến Thành, in front of the long range, the wall is lower brick under a red-painted screen (Street View)
-const BACK = { ...WALL, rail: true, plinth: 1.25, h: 2.45, iron: screen, postW: 0.45 };
+const COLORS = {
+  yellow: hex('#e2c271'),
+  yellowDark: hex('#c9a65a'),
+  tile: hex('#9d4a33'),
+  tileDark: hex('#7f3a28'),
+  trim: hex('#ece0c2'),
+  lacquer: hex('#9e3426'),
+  door: hex('#5b2a1d'),
+  dark: hex('#2a211d'),
+  stone: hex('#a49d8e'),
+  stoneLight: hex('#c2baa8'),
+  pave: hex('#c6bba3'),
+  walk: hex('#ad9c80'),
+  lawn: hex('#7f9752'),
+  bronze: hex('#5d4a2c'),
+  leaf: hex('#4f7337'),
+  mosaic: hex('#5f9a8a'),
+  mosaicTeal: hex('#2e6f78'),
+  brown: hex('#6b4535'),
+  brownDark: hex('#553729'),
+  redTile: hex('#a9503a'),
+  lime: hex('#d8ccb2'),
+  iron: hex('#80796e'),
+  moss: hex('#56603f'),
+  verge: hex('#6c8a47'),
+  grey: hex('#9b988f'),
+  greyLight: hex('#b3afa5'),
+  screen: hex('#9b3a2c'),
+  pot: hex('#6f5b4a'),
+  boardBg: hex('#3a2a1c'),
+  gold: hex('#d8b14a'),
+  lotusGold: hex('#e5c158'),
+  stele: hex('#6f6a61'),
+  postTimber: hex('#5b4a3a'),
+  flameRed: hex('#c9442c'),
+};
 
-// the wall line in the frame, set from the satellite and the street views: along Bạch Đằng about 7 m in from the kerb
-// (a footpath and a grass verge before it), along Ngự Viên about 5.5 m in, along Diệu Đế 1-2 m in, and along Tô
-// Hiến Thành about 4 m in from the centre line, following the street's slight bend; the east corner is cut back
-// where Tô Hiến Thành turns into Diệu Đế
-const A0 = 1, B0 = -41.5, B1 = 42;
-const BACKLINE = [[119.7, B0], [121.54, -15], [122.1, -6.9], [122.52, 15], [122.9, 34.5]];
-const RING = [[A0, B0], ...BACKLINE, [117, B1], [A0, B1]];
-const aBack = (b) => { for (let i = 0; i + 1 < BACKLINE.length; i++) { const [p, q] = [BACKLINE[i], BACKLINE[i + 1]]; if (b <= q[1]) return p[0] + ((q[0] - p[0]) * (b - p[1])) / (q[1] - p[1]); } return 122.9; };
-const segD = (a, b, p, q) => { const dx = q[0] - p[0], db = q[1] - p[1], t = Math.max(0, Math.min(1, ((a - p[0]) * dx + (b - p[1]) * db) / (dx * dx + db * db))); return Math.hypot(a - p[0] - dx * t, b - p[1] - db * t); };
-const ringD = (a, b) => Math.min(...RING.map((p, i) => segD(a, b, p, RING[(i + 1) % RING.length])));
-const inside = (a, b, m = 0) => inRing(a, b, RING) && ringD(a, b) >= m;
+const WALL_STYLE = { ...FENCE.pagoda, h: 2.4, plinth: 2.4, every: 5.0, postW: 0.44, postUp: -0.1, wall: hex('#6a4a3c'), cap: hex('#5e564c'), pierW: 1.0, pierUp: 1.3, t: 0.42 };
+const BACK_WALL_STYLE = { ...WALL_STYLE, rail: true, plinth: 1.25, h: 2.45, iron: COLORS.screen, postW: 0.45 };
 
-// the roofs the court must leave alone, in the frame: [a0, a1, b0, b1] boxes and [a, b, r] discs (eaves included)
-const BOXES = [[-1.6, 3.6, -8.4, 8.4], [61.0, 88.6, -14.6, 14.6], [83.9, 100.2, -41.2, -27.8], [83.9, 102.7, 25.8, 40.8], [101.4, 121.0, -22.5, 21.9]];
-const DISCS = [[8.1, -12.4, 3.9], [8.1, 12.4, 3.9], [30, -15, 3.9], [30, 15, 3.9], [66.5, -19.5, 4.0], [35, -36.6, 4.0], [1, -25, 2.6], [122.2, 0, 3.2]];
-const clearOf = (a, b, r) => BOXES.every(([a0, a1, b0, b1]) => Math.hypot(Math.max(a0 - a, 0, a - a1), Math.max(b0 - b, 0, b - b1)) > r)
-  && DISCS.every(([u, v, R]) => Math.hypot(a - u, b - v) > r + R);
+const FRONT_A = 1;
+const LEFT_B = -41.5;
+const RIGHT_B = 42;
+const BACKLINE: [number, number][] = [[119.7, LEFT_B], [121.54, -15], [122.1, -6.9], [122.52, 15], [122.9, 34.5]];
+const PRECINCT_RING: [number, number][] = [[FRONT_A, LEFT_B], ...BACKLINE, [117, RIGHT_B], [FRONT_A, RIGHT_B]];
+const ROOF_BOXES: [number, number, number, number][] = [
+  [-1.6, 3.6, -8.4, 8.4], [61.0, 88.6, -14.6, 14.6], [83.9, 100.2, -41.2, -27.8],
+  [83.9, 102.7, 25.8, 40.8], [101.4, 121.0, -22.5, 21.9],
+];
+const ROOF_DISCS: [number, number, number][] = [
+  [8.1, -12.4, 3.9], [8.1, 12.4, 3.9], [30, -15, 3.9], [30, 15, 3.9],
+  [66.5, -19.5, 4.0], [35, -36.6, 4.0], [1, -25, 2.6], [122.2, 0, 3.2],
+];
+
+const toWorld = (along: number, across = 0): [number, number] => [
+  ORIGIN[0] + FWD[0] * along + PERP[0] * across,
+  ORIGIN[1] + FWD[1] * along + PERP[1] * across,
+];
+const groundY = (x: number, z: number) => LAND_Y + rise(x, z);
+
+function backWallA(across: number) {
+  for (let i = 0; i + 1 < BACKLINE.length; i++) {
+    const p0 = BACKLINE[i];
+    const p1 = BACKLINE[i + 1];
+    if (across <= p1[1]) return p0[0] + ((p1[0] - p0[0]) * (across - p0[1])) / (p1[1] - p0[1]);
+  }
+  return 122.9;
+}
+
+function distToSeg2D(along: number, across: number, p0: [number, number], p1: [number, number]) {
+  const dx = p1[0] - p0[0];
+  const db = p1[1] - p0[1];
+  const frac = Math.max(0, Math.min(1, ((along - p0[0]) * dx + (across - p0[1]) * db) / (dx * dx + db * db)));
+  return Math.hypot(along - p0[0] - dx * frac, across - p0[1] - db * frac);
+}
+
+const distToRing = (along: number, across: number) =>
+  Math.min(...PRECINCT_RING.map((pt, i) => distToSeg2D(along, across, pt, PRECINCT_RING[(i + 1) % PRECINCT_RING.length])));
+
+const isInsidePrecinct = (along: number, across: number, margin = 0) =>
+  inRing(along, across, PRECINCT_RING) && distToRing(along, across) >= margin;
+
+const isClearOfRoofs = (along: number, across: number, radius: number) =>
+  ROOF_BOXES.every(([a0, a1, b0, b1]) => Math.hypot(Math.max(a0 - along, 0, along - a1), Math.max(b0 - across, 0, across - b1)) > radius)
+  && ROOF_DISCS.every(([da, db, discR]) => Math.hypot(along - da, across - db) > radius + discR);
+
+function frameBox(S, along: number, across: number, y0: number, y1: number, lenA: number, lenB: number, col: number[], opts: Record<string, any> = {}) {
+  const pt = toWorld(along, across);
+  S.box(pt[0], pt[1], y0, y1, lenA, lenB, AXIS_ANGLE + (opts.rot || 0), col, opts);
+}
+
+function buildWallsAndCourt(S, data, baseY: number) {
+  const roads = roadsNear(data, toWorld(55, 0), 200);
+  const footprint = (along: number, across: number, lenA: number, lenB: number) => [
+    toWorld(along - lenA / 2, across - lenB / 2),
+    toWorld(along + lenA / 2, across - lenB / 2),
+    toWorld(along + lenA / 2, across + lenB / 2),
+    toWorld(along - lenA / 2, across + lenB / 2),
+  ];
+  const sidePiers: [number, number][] = [[FRONT_A, -26.75], [FRONT_A, -23.25]];
+  const backPiers: [number, number][] = [[backWallA(-2.1), -2.1], [backWallA(2.1), 2.1]];
+  const solid = [
+    footprint(1.0, 0, 3.4, 15.2),
+    ...sidePiers.map(([along, across]) => footprint(along, across, 0.7, 0.7)),
+    ...backPiers.map(([along, across]) => footprint(along, across, 1.1, 1.1)),
+  ];
+  const frontWallPts: [number, number][] = [[122.52, 15], [122.9, 34.5], [117, RIGHT_B], [FRONT_A, RIGHT_B], [FRONT_A, LEFT_B], [119.7, LEFT_B], [121.54, -15]];
+  fence(S, frontWallPts.map(([along, across]) => toWorld(along, across)), WALL_STYLE, { closed: false, roads, solid, openings: [[...toWorld(FRONT_A, -25), 1.75]] });
+  fence(S, [[121.54, -15], [122.1, -6.9], [122.52, 15]].map(([along, across]) => toWorld(along, across)), BACK_WALL_STYLE, { closed: false, roads, solid, openings: [[...toWorld(backWallA(0), 0), 2.1]] });
+  for (const [along, across] of sidePiers) drawStonePier(S, toWorld(along, across));
+  for (const [along, across] of backPiers) drawMossPier(S, toWorld(along, across));
+
+  const pavedStart = S.n;
+  const cellStep = 4;
+  const onBackBuilding = (along: number, across: number) =>
+    ROOF_BOXES.slice(2).some(([a0, a1, b0, b1]) => along > a0 + 0.5 && along < a1 - 0.5 && across > b0 + 0.5 && across < b1 - 0.5);
+  for (let a0 = FRONT_A + 0.3; a0 < 122.6; a0 += cellStep) {
+    for (let b0 = LEFT_B + 0.3; b0 < RIGHT_B - 0.3; b0 += cellStep) {
+      const a1 = a0 + cellStep;
+      const b1 = Math.min(b0 + cellStep, RIGHT_B - 0.3);
+      const cellCorners: [number, number][] = [[a0, b0], [a1, b0], [a1, b1], [a0, b1]];
+      if (!cellCorners.every(([ca, cb]) => isInsidePrecinct(ca, cb, 0.3)) || cellCorners.some(([ca, cb]) => onBackBuilding(ca, cb)) || onBackBuilding((a0 + a1) / 2, (b0 + b1) / 2)) continue;
+      const midA = (a0 + a1) / 2;
+      const absMidB = Math.abs((b0 + b1) / 2);
+      const isPaved = (midA < 59 && absMidB < 7) || (midA > 45 && midA < 59 && absMidB < 15);
+      S.kind = isPaved ? KIND.ROAD : KIND.GROUND;
+      const verts = cellCorners.map(([ca, cb]) => {
+        const pt = toWorld(ca, cb);
+        return [pt[0], groundY(pt[0], pt[1]) + 0.24, pt[1]];
+      });
+      S.quad(verts[0], verts[3], verts[2], verts[1], isPaved ? COLORS.pave : COLORS.lawn, [0, 1, 0]);
+    }
+  }
+  S.kind = KIND.ROAD;
+  frameBox(S, 31, 0, baseY - 0.2, baseY + 0.3, 56, 4.2, COLORS.walk, { topKind: KIND.ROAD });
+  S.kind = KIND.GROUND;
+  for (const [b0, b1, col] of [[LEFT_B + 0.3, -27.4, COLORS.verge], [-27.4, -22.6, COLORS.pave], [-22.6, -8.2, COLORS.verge], [8.2, RIGHT_B - 0.3, COLORS.verge]] as [number, number, number[]][]) {
+    const verts = [[-2.4, b0], [FRONT_A - 0.3, b0], [FRONT_A - 0.3, b1], [-2.4, b1]].map(([ca, cb]) => {
+      const pt = toWorld(ca, cb);
+      return [pt[0], groundY(pt[0], pt[1]) + 0.16, pt[1]];
+    });
+    S.quad(verts[0], verts[3], verts[2], verts[1], col, [0, 1, 0]);
+  }
+  S.paved = [...(S.paved || []), [pavedStart, S.n]];
+}
+
+// Phượng Môn gate on Bạch Đằng
+function buildGate(S, lamps: any[], eaveLights: Buf) {
+  const gateA = 1.0;
+  const gatePt = toWorld(gateA, 0);
+  const gy = groundY(gatePt[0], gatePt[1]);
+  const floorY = gy + 0.3;
+  const depth = 3.4;
+  const width = 15.2;
+  S.base = gy - LAND_Y;
+  S.kind = KIND.MASONRY;
+  frameBox(S, gateA, 0, gy - 0.3, floorY, depth + 1.2, width + 0.6, COLORS.stone, { topKind: KIND.ROAD });
+  S.kind = KIND.CIVIC;
+  frameBox(S, gateA, 0, floorY, floorY + 4.4, depth, width, COLORS.yellow, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  frameBox(S, gateA, 0, floorY + 4.1, floorY + 4.5, depth + 0.4, width + 0.4, COLORS.trim);
+
+  for (const side of [-1, 1]) {
+    for (const [bPos, openW, openH] of [[0, 3.0, 3.6], [-4.8, 2.0, 2.8], [4.8, 2.0, 2.8]] as [number, number, number][]) {
+      frameBox(S, gateA + side * (depth / 2 + 0.01), bPos, floorY, floorY + openH, 0.06, openW, COLORS.dark);
+      frameBox(S, gateA + side * (depth / 2 + 0.02), bPos, floorY + openH, floorY + openH + 0.25, 0.06, openW + 0.4, COLORS.trim);
+    }
+  }
+  for (const bPos of [-6.6, -3.0, 3.0, 6.6]) frameBox(S, gateA - depth / 2 - 0.25, bPos, floorY, floorY + 4.1, 0.42, 0.42, COLORS.lacquer);
+  for (const side of [-1, 1]) {
+    for (const bPos of [-4.8, 4.8]) frameBox(S, gateA + side * (depth / 2 + 0.05), bPos, floorY + 3.25, floorY + 3.85, 0.06, 2.2, COLORS.mosaic);
+    frameBox(S, gateA + side * (depth / 2 + 0.05), 0, floorY + 4.18, floorY + 4.42, 0.06, width - 1.2, COLORS.mosaicTeal);
+  }
+  frameBox(S, gateA - depth / 2 - 0.06, 0, floorY + 3.75, floorY + 4.1, 0.08, 2.6, COLORS.boardBg);
+  frameBox(S, gateA - depth / 2 - 0.08, 0, floorY + 3.8, floorY + 4.05, 0.06, 2.2, COLORS.gold);
+
+  // twin trụ biểu lotus pillars flanking the forecourt
+  for (const side of [-1, 1]) {
+    const pt = toWorld(gateA - 3.0, side * 8.6);
+    const pg = groundY(pt[0], pt[1]);
+    S.kind = KIND.MASONRY;
+    S.box(pt[0], pt[1], pg - 0.2, pg + 0.6, 1.05, 1.05, AXIS_ANGLE, COLORS.stone, { top: COLORS.stoneLight });
+    S.box(pt[0], pt[1], pg + 0.6, pg + 4.5, 0.68, 0.68, AXIS_ANGLE, COLORS.yellow, { top: COLORS.trim });
+    S.kind = KIND.PLAIN;
+    S.box(pt[0], pt[1], pg + 1.2, pg + 3.9, 0.72, 0.36, AXIS_ANGLE, COLORS.mosaic);
+    S.box(pt[0], pt[1], pg + 4.5, pg + 4.78, 0.88, 0.88, AXIS_ANGLE, COLORS.trim);
+    S.cyl(pt[0], pt[1], pg + 4.78, pg + 5.18, 0.32, 0.42, 8, COLORS.lotusGold);
+    S.cyl(pt[0], pt[1], pg + 5.18, pg + 5.65, 0.38, 0.06, 8, COLORS.lotusGold);
+  }
+
+  for (const side of [-1, 1]) {
+    const sidePt = toWorld(gateA, side * 5.0);
+    S.hip(sidePt[0], sidePt[1], 5.0, depth + 0.4, ACROSS_ANGLE, floorY + 4.5, 1.0, COLORS.tile, { flare: 0.35, over: 0.6, fascia: 0.16, fasciaCol: COLORS.trim, ridgeCol: COLORS.trim, hips: true, segs: 2 });
+  }
+
+  // gate upper storey under a two-tier roof
+  const upperY = floorY + 4.5;
+  S.kind = KIND.TIMBER;
+  S.box(gatePt[0], gatePt[1], upperY, upperY + 2.3, 3.0, 6.0, AXIS_ANGLE, COLORS.yellowDark, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  for (const side of [-1, 1]) {
+    frameBox(S, gateA + side * 1.52, 0, upperY + 0.4, upperY + 1.9, 0.06, 4.2, COLORS.dark);
+    frameBox(S, gateA + side * 1.6, 0, upperY, upperY + 0.7, 0.1, 6.2, COLORS.lacquer);
+  }
+  S.hip(gatePt[0], gatePt[1], 6.6, 3.6, ACROSS_ANGLE, upperY + 2.3, 0.9, COLORS.tile, { flare: 0.4, over: 0.8, fascia: 0.18, fasciaCol: COLORS.trim, hips: true, segs: 2 });
+  S.kind = KIND.TIMBER;
+  S.box(gatePt[0], gatePt[1], upperY + 2.7, upperY + 3.5, 2.2, 4.6, AXIS_ANGLE, COLORS.yellowDark, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  S.hip(gatePt[0], gatePt[1], 5.0, 2.6, ACROSS_ANGLE, upperY + 3.5, 1.4, COLORS.tile, { flare: 0.45, over: 0.8, fascia: 0.18, fasciaCol: COLORS.trim, ridgeCol: COLORS.trim, hips: true, segs: 3 });
+  drawRidgeOrnament(S, gatePt, upperY + 4.9, 2.2, 0.45);
+
+  for (const side of [-1, 1]) {
+    for (const bPos of [-4.8, 0, 4.8]) lamps.push([toWorld(gateA + side * (depth / 2 + 0.6), bPos), floorY + 3.9, [1, 0.38, 0.2]]);
+    const p0 = toWorld(gateA + side * (depth / 2 + 0.75), -width / 2);
+    const p1 = toWorld(gateA + side * (depth / 2 + 0.75), width / 2);
+    eaveLights.beam([p0[0], floorY + 4.3, p0[1]], [p1[0], floorY + 4.3, p1[1]], 0.12, 0.12, [1, 1, 1]);
+  }
+}
+
+// octagonal two-storey bell / drum tower either side of the gate
+function buildBellOrDrumTower(S, center: [number, number], lamps: any[]) {
+  const gy = groundY(center[0], center[1]);
+  const radius = 2.7;
+  const rot = AXIS_ANGLE + Math.PI / 8;
+  S.base = gy - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.cyl(center[0], center[1], gy - 0.3, gy + 0.6, radius + 0.8, radius + 0.8, 8, COLORS.stone, { rot });
+  S.kind = KIND.CIVIC;
+  S.cyl(center[0], center[1], gy + 0.6, gy + 3.9, radius, radius, 8, COLORS.yellow, { rot });
+  S.kind = KIND.PLAIN;
+  const apothem = radius * Math.cos(Math.PI / 8) + 0.02;
+  for (let i = 0; i < 8; i++) {
+    const angle = AXIS_ANGLE + (i * Math.PI) / 4;
+    S.box(center[0] + Math.cos(angle) * apothem, center[1] + Math.sin(angle) * apothem, gy + 0.6, gy + (i % 2 ? 2.4 : 3.0), 0.06, i % 2 ? 0.9 : 1.3, angle, COLORS.dark);
+  }
+  drawPolyRoof(S, center, 8, rot, gy + 3.9, radius + 1.0, 1.1, radius * 0.62, COLORS.tile, COLORS.trim);
+  S.kind = KIND.TIMBER;
+  S.cyl(center[0], center[1], gy + 4.6, gy + 6.4, radius * 0.66, radius * 0.66, 8, COLORS.yellowDark, { rot });
+  S.kind = KIND.PLAIN;
+  const upperApothem = radius * 0.66 * Math.cos(Math.PI / 8) + 0.02;
+  for (let i = 0; i < 8; i += 2) {
+    const angle = AXIS_ANGLE + (i * Math.PI) / 4;
+    S.box(center[0] + Math.cos(angle) * upperApothem, center[1] + Math.sin(angle) * upperApothem, gy + 4.9, gy + 6.1, 0.06, 0.8, angle, COLORS.dark);
+    lamps.push([[center[0] + Math.cos(angle) * (radius + 0.6), center[1] + Math.sin(angle) * (radius + 0.6)], gy + 3.5, [1, 0.42, 0.22]]);
+  }
+  drawPolyRoof(S, center, 8, rot, gy + 6.4, radius * 0.66 + 0.9, 1.8, 0.05, COLORS.tile, COLORS.trim);
+  S.cyl(center[0], center[1], gy + 8.2, gy + 8.6, 0.18, 0.28, 6, COLORS.trim);
+  S.cyl(center[0], center[1], gy + 8.6, gy + 9.1, 0.28, 0.05, 6, COLORS.gold);
+}
+
+// hexagonal open pavilion sheltering the great bell or the 1846 stele
+function buildHexPavilion(S, center: [number, number], contents: 'bell' | 'stele', lamps: any[]) {
+  const gy = groundY(center[0], center[1]);
+  const radius = 2.6;
+  const rot = AXIS_ANGLE;
+  S.base = gy - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.cyl(center[0], center[1], gy - 0.2, gy + 0.6, radius + 0.7, radius + 0.6, 6, COLORS.stone, { rot });
+  S.kind = KIND.TIMBER;
+  for (let i = 0; i < 6; i++) {
+    const angle = rot + (i * Math.PI) / 3;
+    S.cyl(center[0] + Math.cos(angle) * radius, center[1] + Math.sin(angle) * radius, gy + 0.6, gy + 3.5, 0.17, 0.15, 6, COLORS.lacquer, { cap: false });
+  }
+  S.kind = KIND.PLAIN;
+  for (let i = 0; i < 6; i++) {
+    const a0 = rot + (i * Math.PI) / 3;
+    const a1 = rot + ((i + 1) * Math.PI) / 3;
+    S.beam([center[0] + Math.cos(a0) * radius, gy + 3.4, center[1] + Math.sin(a0) * radius], [center[0] + Math.cos(a1) * radius, gy + 3.4, center[1] + Math.sin(a1) * radius], 0.2, 0.3, COLORS.lacquer);
+  }
+  drawPolyRoof(S, center, 6, rot, gy + 3.5, radius + 1.0, 1.0, radius * 0.55, COLORS.tile, COLORS.trim);
+  drawPolyRoof(S, center, 6, rot, gy + 4.3, radius * 0.55 + 0.6, 1.2, 0.05, COLORS.tile, COLORS.trim);
+  S.cyl(center[0], center[1], gy + 5.5, gy + 6.0, 0.22, 0.05, 6, COLORS.gold);
+  if (contents === 'bell') {
+    S.beam([center[0], gy + 3.4, center[1]], [center[0], gy + 2.9, center[1]], 0.1, 0.1, COLORS.dark);
+    S.cyl(center[0], center[1], gy + 1.3, gy + 2.6, 0.75, 0.55, 10, COLORS.bronze);
+    S.cyl(center[0], center[1], gy + 2.6, gy + 2.95, 0.55, 0.2, 10, COLORS.bronze);
+  } else {
+    S.kind = KIND.MASONRY;
+    S.box(center[0], center[1], gy + 0.6, gy + 1.0, 0.7, 1.6, AXIS_ANGLE, COLORS.stone);
+    S.box(center[0], center[1], gy + 1.0, gy + 2.9, 0.26, 1.07, AXIS_ANGLE, COLORS.stele);
+    S.cyl(center[0], center[1], gy + 2.9, gy + 3.1, 0.55, 0.3, 6, COLORS.stele, { rot });
+  }
+  lamps.push([center, gy + 3.2, [1, 0.5, 0.26]]);
+}
+
+// Đại Giác main hall: front house + two-tier main house
+function buildMainHall(S, lamps: any[], eaveLights: Buf) {
+  const frontA = 62.8;
+  const backA = 86.8;
+  const joinA = 72.0;
+  const halfB = 12.9;
+  let maxG = -1e9;
+  for (const [along, across] of [[frontA, -halfB], [frontA, halfB], [backA, -halfB], [backA, halfB], [(frontA + backA) / 2, 0]] as [number, number][]) {
+    const pt = toWorld(along, across);
+    maxG = Math.max(maxG, groundY(pt[0], pt[1]));
+  }
+  const floorY = maxG + 0.8;
+  S.base = maxG - LAND_Y;
+  S.kind = KIND.MASONRY;
+  frameBox(S, (frontA + backA) / 2, 0, maxG - 0.4, floorY, backA - frontA + 1.2, 2 * halfB + 1.2, COLORS.stone, { top: COLORS.stoneLight, topKind: KIND.ROAD });
+  S.kind = KIND.ROAD;
+  for (let i = 0; i < 4; i++) frameBox(S, frontA - 0.6 - 0.35 * (4 - i) + 0.175, 0, maxG - 0.2, maxG + 0.2 * (i + 1), 0.35, 12.4 - i * 0.2, COLORS.stoneLight);
+
+  const doorWallA = frontA + 2.2;
+  S.kind = KIND.CIVIC;
+  frameBox(S, (doorWallA + backA) / 2, 0, floorY, floorY + 4.3, backA - doorWallA, 2 * halfB, COLORS.yellow, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  for (const [bPos, doorW] of [[-10.6, 2.0], [-5.6, 2.4], [0, 2.8], [5.6, 2.4], [10.6, 2.0]] as [number, number][]) {
+    frameBox(S, doorWallA - 0.02, bPos, floorY, floorY + 3.0, 0.06, doorW, COLORS.door);
+    frameBox(S, doorWallA - 0.04, bPos, floorY + 3.0, floorY + 3.2, 0.06, doorW + 0.3, COLORS.trim);
+  }
+  frameBox(S, doorWallA - 0.1, 0, floorY + 3.35, floorY + 3.95, 0.08, 3.4, COLORS.boardBg);
+  frameBox(S, doorWallA - 0.14, 0, floorY + 3.42, floorY + 3.88, 0.06, 3.0, COLORS.gold);
+
+  S.kind = KIND.TIMBER;
+  for (const bPos of [-12.4, -8.4, -2.8, 2.8, 8.4, 12.4]) {
+    const pt = toWorld(frontA + 0.4, bPos);
+    S.cyl(pt[0], pt[1], floorY, floorY + 4.1, 0.24, 0.22, 8, COLORS.lacquer, { cap: false });
+  }
+  S.kind = KIND.PLAIN;
+  const beamL = toWorld(frontA + 0.4, -12.7);
+  const beamR = toWorld(frontA + 0.4, 12.7);
+  S.beam([beamL[0], floorY + 4.1, beamL[1]], [beamR[0], floorY + 4.1, beamR[1]], 0.3, 0.36, COLORS.lacquer);
+  frameBox(S, (frontA + doorWallA) / 2, 0, floorY + 4.0, floorY + 4.3, doorWallA - frontA, 2 * halfB, shade(COLORS.yellow, 0.5), { bottom: true });
+
+  const roofBaseY = floorY + 4.3;
+  const frontCenter = toWorld((frontA + joinA) / 2, 0);
+  S.hip(frontCenter[0], frontCenter[1], 2 * halfB, joinA - frontA, ACROSS_ANGLE, roofBaseY, 2.6, COLORS.tile, { flare: 0.5, over: 1.1, fascia: 0.22, fasciaCol: COLORS.trim, ridgeCol: COLORS.trim, hips: true, segs: 3 });
+  drawRidgeOrnament(S, frontCenter, roofBaseY + 2.65, 4.2, 0.55);
+
+  const mainCenter = toWorld((joinA + backA) / 2, 0);
+  S.hip(mainCenter[0], mainCenter[1], 2 * halfB, backA - joinA, ACROSS_ANGLE, roofBaseY, 1.4, COLORS.tile, { flare: 0.45, over: 1.1, fascia: 0.22, fasciaCol: COLORS.trim, hips: true, segs: 3 });
+  const upperA0 = 72.3;
+  const upperA1 = 81.5;
+  const upperHalfB = 11.5;
+  const upperMidA = (upperA0 + upperA1) / 2;
+  const upperRoofY = roofBaseY + 1.6;
+  S.kind = KIND.CIVIC;
+  frameBox(S, upperMidA, 0, roofBaseY + 0.3, upperRoofY, upperA1 - upperA0, 2 * upperHalfB, COLORS.yellowDark, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  const upperCenter = toWorld(upperMidA, 0);
+  S.hip(upperCenter[0], upperCenter[1], 2 * upperHalfB, upperA1 - upperA0, ACROSS_ANGLE, upperRoofY, 2.6, COLORS.tile, { flare: 0.55, over: 1.4, fascia: 0.2, fasciaCol: COLORS.trim, ridgeCol: COLORS.trim, hips: true, segs: 4 });
+  drawRidgeOrnament(S, upperCenter, upperRoofY + 2.65, 5.4, 0.7);
+
+  for (const [eaveA, spanB, eaveY] of [[frontA - 1.0, halfB + 1.0, roofBaseY - 0.35], [upperA0 - 1.3, upperHalfB + 1.2, upperRoofY - 0.15]] as [number, number, number][]) {
+    const p0 = toWorld(eaveA, -spanB);
+    const p1 = toWorld(eaveA, spanB);
+    eaveLights.beam([p0[0], eaveY, p0[1]], [p1[0], eaveY, p1[1]], 0.12, 0.12, [1, 1, 1]);
+  }
+  for (const bPos of [-10.6, -5.6, 0, 5.6, 10.6]) lamps.push([toWorld(frontA + 0.2, bPos), floorY + 3.5, [1, 0.42, 0.22]]);
+}
+
+// the pagoda's back ranges along Ngự Viên, Diệu Đế and Tô Hiến Thành
+function buildBackRanges(S, lamps: any[]) {
+  drawTiledHouse(S, 84.8, 99.3, -40.2, -28.7, { wallH: 2.9, roofH: 1.5, col: COLORS.brownDark, upper: { inset: 2.6, rise: 1.1, h: 1.7 } });
+  drawTiledHouse(S, 84.8, 101.8, 26.7, 39.9, { wallH: 3.0, roofH: 2.1, col: COLORS.brown });
+
+  const a0 = 102.4, a1 = 116.4, b0 = -12.8, b1 = 13.1, wallH = 3.0, roofH = 2.3;
+  const { ground, wallTopY } = drawTiledHouse(S, a0, a1, b0, b1, { wallH, roofH, col: COLORS.brown, over: 0.6 });
+  const midA = (a0 + a1) / 2;
+  const ridgeY = wallTopY + roofH;
+  drawRidgeOrnament(S, toWorld(midA, 0), ridgeY - 0.05, 3.2, 0.42);
+  for (const side of [-1, 1]) drawRidgeOrnament(S, toWorld(midA, side * ((b1 - b0) / 2 - (a1 - a0) / 2 - 0.2) + (b0 + b1) / 2), ridgeY - 0.05, 1.6, 0.3);
+
+  const pt3 = (along: number, across: number, y: number): [number, number, number] => {
+    const pt = toWorld(along, across);
+    return [pt[0], y, pt[1]];
+  };
+  const drawDoubleQuad = (p0, p1, p2, p3, col) => { S.quad(p0, p1, p2, p3, col); S.quad(p0, p3, p2, p1, col); };
+  S.kind = KIND.PLAIN;
+  const eaveA1 = a1 + 0.9;
+  const eaveA2 = 120.3;
+  const sheetB0 = b0 + 0.6;
+  const sheetB1 = b1 - 0.6;
+  drawDoubleQuad(pt3(midA + 0.3, sheetB0, ridgeY + 0.12), pt3(midA + 0.3, sheetB1, ridgeY + 0.12), pt3(eaveA1, sheetB1, wallTopY + 0.05), pt3(eaveA1, sheetB0, wallTopY + 0.05), COLORS.iron);
+  drawDoubleQuad(pt3(eaveA1, sheetB0, wallTopY + 0.05), pt3(eaveA1, sheetB1, wallTopY + 0.05), pt3(eaveA2, sheetB1, wallTopY - 0.75), pt3(eaveA2, sheetB0, wallTopY - 0.75), shade(COLORS.iron, 0.85));
+  S.kind = KIND.MASONRY;
+  frameBox(S, (a1 + eaveA2) / 2 + 0.1, (b0 + b1) / 2, ground - 0.2, ground + 0.25, eaveA2 - a1 + 0.2, b1 - b0 - 1.2, COLORS.stone, { topKind: KIND.ROAD });
+  S.kind = KIND.TIMBER;
+  for (let bPos = sheetB0 + 0.4; bPos <= sheetB1 - 0.39; bPos += (sheetB1 - sheetB0 - 0.8) / 7) {
+    const pt = toWorld(eaveA2 - 0.3, bPos);
+    S.cyl(pt[0], pt[1], ground + 0.25, wallTopY - 0.68, 0.07, 0.07, 6, COLORS.postTimber, { cap: false });
+  }
+  S.kind = KIND.PLAIN;
+  for (const bPos of [-8, -2.5, 3, 8.5]) frameBox(S, a1 + 0.02, bPos, ground + 0.35, ground + 2.5, 0.06, 1.4, COLORS.door);
+
+  drawTiledHouse(S, 110.0, 117.0, -21.6, -14.2, { wallH: 2.8, roofH: 1.6, col: COLORS.redTile });
+  drawTiledHouse(S, 109.0, 119.0, 14.6, 21.0, { wallH: 2.8, roofH: 1.6, col: COLORS.redTile });
+  for (const bPos of [-6, 6]) lamps.push([toWorld(eaveA2 - 0.6, bPos), wallTopY - 1.0, [1, 0.62, 0.36]]);
+}
+
+function drawTiledHouse(S, a0: number, a1: number, b0: number, b1: number, opts: Record<string, any> = {}) {
+  const { wallH = 3, roofH = 2, col = COLORS.brown, over = 0.7, upper = null } = opts;
+  let ground = -1e9;
+  for (const [along, across] of [[a0, b0], [a0, b1], [a1, b0], [a1, b1]] as [number, number][]) {
+    const pt = toWorld(along, across);
+    ground = Math.max(ground, groundY(pt[0], pt[1]));
+  }
+  const midA = (a0 + a1) / 2;
+  const midB = (b0 + b1) / 2;
+  const lenA = a1 - a0;
+  const lenB = b1 - b0;
+  const wallTopY = ground + 0.35 + wallH;
+  const alongAxis = lenA >= lenB;
+  const roofAngle = alongAxis ? AXIS_ANGLE : ACROSS_ANGLE;
+  const longSpan = Math.max(lenA, lenB);
+  const shortSpan = Math.min(lenA, lenB);
+
+  S.base = ground - LAND_Y;
+  S.kind = KIND.MASONRY;
+  frameBox(S, midA, midB, ground - 0.3, ground + 0.35, lenA + 0.3, lenB + 0.3, COLORS.stone, { topKind: KIND.ROAD });
+  S.kind = KIND.CIVIC;
+  frameBox(S, midA, midB, ground + 0.35, wallTopY, lenA, lenB, COLORS.lime, { top: shade(col, 0.8) });
+  S.kind = KIND.PLAIN;
+  const openCount = Math.max(2, Math.round(longSpan / 4));
+  for (let i = 0; i < openCount; i++) {
+    const offset = -longSpan / 2 + (longSpan * (i + 0.5)) / openCount;
+    for (const side of [-1, 1]) {
+      const openH = i % 2 ? 1.3 : 2.1;
+      if (alongAxis) frameBox(S, midA + offset, midB + side * (lenB / 2 + 0.02), ground + 0.45, ground + 0.45 + openH, 1.1, 0.06, COLORS.dark);
+      else frameBox(S, midA + side * (lenA / 2 + 0.02), midB + offset, ground + 0.45, ground + 0.45 + openH, 0.06, 1.1, COLORS.dark);
+    }
+  }
+  const center = toWorld(midA, midB);
+  S.hip(center[0], center[1], longSpan, shortSpan, roofAngle, wallTopY, roofH, col, { flare: 0.3, over, fascia: 0.14, fasciaCol: shade(col, 0.75), ridgeCol: shade(col, 1.15), hips: true, segs: 2 });
+  if (upper) {
+    const upperW = longSpan - 2 * upper.inset;
+    const upperD = shortSpan - 2 * upper.inset;
+    const upperY = wallTopY + upper.rise;
+    S.kind = KIND.CIVIC;
+    S.box(center[0], center[1], wallTopY + 0.2, upperY, upperW, upperD, roofAngle, COLORS.lime, { top: shade(col, 0.8) });
+    S.kind = KIND.PLAIN;
+    S.hip(center[0], center[1], upperW, upperD, roofAngle, upperY, upper.h, col, { flare: 0.3, over: 0.6, fascia: 0.12, fasciaCol: shade(col, 0.75), ridgeCol: shade(col, 1.15), hips: true, segs: 2 });
+  }
+  return { ground, wallTopY };
+}
+
+function drawSmallPavilion(S, along: number, across: number, size: number, rotOffset: number, walled: boolean) {
+  const pt = toWorld(along, across);
+  const gy = groundY(pt[0], pt[1]);
+  const angle = AXIS_ANGLE + rotOffset;
+  const wallTopY = gy + 0.45 + 2.7;
+  S.base = gy - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(pt[0], pt[1], gy - 0.25, gy + 0.45, size + 0.5, size + 0.5, angle, COLORS.stone, { top: COLORS.stoneLight, topKind: KIND.ROAD });
+  const dirU = [Math.cos(angle), Math.sin(angle)];
+  const dirV = [-dirU[1], dirU[0]];
+  if (walled) {
+    S.kind = KIND.CIVIC;
+    S.box(pt[0], pt[1], gy + 0.45, wallTopY, size - 0.6, size - 0.6, angle, COLORS.yellow, { top: COLORS.tileDark });
+    S.kind = KIND.PLAIN;
+    const offset = (size - 0.6) / 2 + 0.02;
+    S.box(pt[0] + dirV[0] * offset, pt[1] + dirV[1] * offset, gy + 0.45, gy + 2.4, 1.2, 0.06, angle, COLORS.door);
+  } else {
+    S.kind = KIND.TIMBER;
+    const offset = size / 2 - 0.3;
+    for (const [su, sv] of [[-1, -1], [1, -1], [1, 1], [-1, 1]] as [number, number][]) {
+      S.cyl(pt[0] + (dirU[0] * su + dirV[0] * sv) * offset, pt[1] + (dirU[1] * su + dirV[1] * sv) * offset, gy + 0.45, wallTopY, 0.15, 0.13, 6, COLORS.lacquer, { cap: false });
+    }
+    S.kind = KIND.PLAIN;
+  }
+  S.hip(pt[0], pt[1], size, size, angle, wallTopY, 1.6, COLORS.tile, { flare: 0.4, over: 0.6, fascia: 0.14, fasciaCol: COLORS.trim, ridgeCol: COLORS.trim, hips: true, segs: 2 });
+}
+
+function drawStonePier(S, center: [number, number]) {
+  const gy = groundY(center[0], center[1]);
+  S.base = gy - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(center[0], center[1], gy - 0.3, gy + 0.5, 0.7, 0.7, AXIS_ANGLE, COLORS.grey, { top: COLORS.greyLight });
+  S.box(center[0], center[1], gy + 0.5, gy + 2.9, 0.52, 0.52, AXIS_ANGLE, COLORS.grey, { top: COLORS.greyLight });
+  S.kind = KIND.PLAIN;
+  S.box(center[0], center[1], gy + 2.9, gy + 3.08, 0.72, 0.72, AXIS_ANGLE, COLORS.greyLight);
+  S.box(center[0], center[1], gy + 3.08, gy + 3.2, 0.4, 0.4, AXIS_ANGLE, COLORS.grey);
+  S.cyl(center[0], center[1], gy + 3.2, gy + 3.42, 0.12, 0.27, 8, COLORS.greyLight, { cap: false });
+  S.cyl(center[0], center[1], gy + 3.42, gy + 3.7, 0.27, 0.06, 8, COLORS.greyLight);
+}
+
+function drawMossPier(S, center: [number, number]) {
+  const gy = groundY(center[0], center[1]);
+  S.base = gy - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(center[0], center[1], gy - 0.3, gy + 2.6, 1.0, 1.0, AXIS_ANGLE, shade(WALL_STYLE.wall, 0.9), { top: COLORS.moss });
+  S.kind = KIND.PLAIN;
+  S.box(center[0], center[1], gy + 2.6, gy + 2.85, 1.15, 1.15, AXIS_ANGLE, COLORS.moss);
+  S.box(center[0], center[1], gy + 2.85, gy + 3.15, 0.6, 0.6, AXIS_ANGLE, COLORS.moss, { taper: 0.5 });
+}
+
+function drawPolyRoof(S, center: [number, number], sides: number, rot: number, y: number, botR: number, height: number, topR: number, col: number[], ridgeCol: number[]) {
+  const prevKind = S.kind;
+  S.kind = KIND.TILE;
+  const midR = topR + (botR - topR) * 0.42;
+  const midY = y + height * 0.62;
+  S.cyl(center[0], center[1], y - 0.1, midY, botR, midR, sides, col, { rot, cap: false });
+  S.cyl(center[0], center[1], midY, y + height, midR, topR, sides, col, { rot, cap: topR > 0.06 });
+  S.kind = KIND.PLAIN;
+  S.cyl(center[0], center[1], y - 0.3, y - 0.1, botR - 0.05, botR, sides, ridgeCol, { rot, cap: false });
+  for (let i = 0; i < sides; i++) {
+    const angle = rot + (i / sides) * Math.PI * 2;
+    const dirX = Math.cos(angle);
+    const dirZ = Math.sin(angle);
+    const eavePt = [center[0] + dirX * botR, y, center[1] + dirZ * botR];
+    const midPt = [center[0] + dirX * midR, midY + 0.05, center[1] + dirZ * midR];
+    const peakPt = [center[0] + dirX * topR, y + height + 0.05, center[1] + dirZ * topR];
+    S.beam(eavePt, midPt, 0.16, 0.16, ridgeCol);
+    S.beam(midPt, peakPt, 0.14, 0.14, ridgeCol);
+    S.beam(eavePt, [eavePt[0] + dirX * 0.45, y + 0.45, eavePt[2] + dirZ * 0.45], 0.14, 0.14, ridgeCol);
+  }
+  S.kind = prevKind;
+}
+
+// twin dragons facing the moon on a ridge (lưỡng long triều nguyệt)
+function drawRidgeOrnament(S, center: [number, number], y: number, span: number, scale: number) {
+  const prevKind = S.kind;
+  S.kind = KIND.PLAIN;
+  const at = (across: number, dy: number): [number, number, number] => [center[0] + PERP[0] * across, y + dy, center[1] + PERP[1] * across];
+  S.box(center[0], center[1], y, y + 0.9 * scale, 0.12, 0.85 * scale, AXIS_ANGLE, COLORS.gold);
+  S.box(center[0], center[1], y + 0.9 * scale, y + 1.3 * scale, 0.1, 0.35 * scale, AXIS_ANGLE, COLORS.flameRed);
+  const dragonCurve: [number, number][] = [[0.55, 0.2], [0.9, 0.85], [1.4, 0.5], [1.9, 0.9], [2.3, 0.3]];
+  for (const side of [-1, 1]) {
+    const pts = dragonCurve.map(([across, dy]) => at((side * across * scale * span) / 4.6, dy * scale));
+    for (let i = 0; i + 1 < pts.length; i++) S.beam(pts[i], pts[i + 1], 0.16 * scale + 0.05, 0.22 * scale + 0.05, COLORS.mosaic);
+  }
+  S.kind = prevKind;
+}
+
+function buildCourtPropsAndGrove(S, data) {
+  const urnPt = toWorld(55, 0);
+  const urnY = groundY(urnPt[0], urnPt[1]);
+  S.kind = KIND.MASONRY;
+  S.box(urnPt[0], urnPt[1], urnY, urnY + 0.7, 1.4, 1.4, AXIS_ANGLE, COLORS.stone, { top: COLORS.stoneLight });
+  S.kind = KIND.PLAIN;
+  S.cyl(urnPt[0], urnPt[1], urnY + 0.7, urnY + 1.5, 0.45, 0.6, 8, COLORS.bronze);
+  S.cyl(urnPt[0], urnPt[1], urnY + 1.5, urnY + 2.1, 0.5, 0.22, 8, COLORS.bronze);
+  for (let along = 14; along <= 50; along += 6) {
+    for (const side of [-1, 1]) {
+      const potPt = toWorld(along, side * 3.2);
+      const potY = groundY(potPt[0], potPt[1]);
+      S.cyl(potPt[0], potPt[1], potY + 0.2, potY + 0.75, 0.35, 0.42, 6, COLORS.pot, { cap: false });
+      S.cyl(potPt[0], potPt[1], potY + 0.75, potY + 1.55, 0.6, 0.15, 6, COLORS.leaf);
+    }
+  }
+
+  if (!Array.isArray(data.trees)) return;
+  const hash = (i: number, j: number, k: number) => {
+    const val = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453;
+    return val - Math.floor(val);
+  };
+  const plant = (pt: [number, number], scale: number, kind = 1) => {
+    data.trees.push(Math.round(pt[0] * 10), Math.round(pt[1] * 10), Math.max(7, Math.min(16, Math.round(scale * 10))), kind);
+  };
+  const gridStep = 9.5;
+  for (let i = 0; FRONT_A + 3 + i * gridStep < 121; i++) {
+    for (let j = 0; LEFT_B + 3 + j * gridStep < RIGHT_B - 2; j++) {
+      const along = FRONT_A + 3.5 + i * gridStep + (hash(i, j, 1) - 0.5) * 4.5;
+      const across = LEFT_B + 3.5 + j * gridStep + (hash(i, j, 2) - 0.5) * 4.5;
+      if (!isInsidePrecinct(along, across, 3.0) || (along < 62 && Math.abs(across) < 7.0) || (along < 14 && Math.abs(across) < 16)) continue;
+      let clearR = 3.8 + hash(i, j, 3) * 1.4;
+      while (clearR > 2.6 && !isClearOfRoofs(along, across, clearR)) clearR -= 0.4;
+      if (!isClearOfRoofs(along, across, clearR)) continue;
+      plant(toWorld(along, across), 0.85 + hash(i, j, 4) * 0.4, hash(i, j, 5) < 0.55 ? 1 : 0);
+    }
+  }
+  for (let along = 18; along <= 48; along += 10) {
+    for (const side of [-1, 1]) {
+      const across = side * (7.2 + hash(along, side, 6) * 1.2);
+      if (isClearOfRoofs(along, across, 3.2)) plant(toWorld(along, across), 1.0 + hash(along, side, 7) * 0.25, 4);
+    }
+  }
+  plant(toWorld(-1.7, -16.5), 1.35, 5);
+}
 
 export function build({ data, S, group }) {
-  const box = (a, b, y0, y1, la, lb, col, o: Record<string, any> = {}) => { const q = W(a, b); S.box(q[0], q[1], y0, y1, la, lb, ANG + (o.rot || 0), col, o); };
-  const y0 = gY(...W(30, 0));
-  S.base = y0 - LAND_Y;
-  const lamps = [];
-  const L = new Buf(128); // eave light strips after dark
+  const courtRef = toWorld(30, 0);
+  const baseY = groundY(courtRef[0], courtRef[1]);
+  S.base = baseY - LAND_Y;
+  const lamps: any[] = [];
+  const eaveLights = new Buf(128);
 
-  // ---- the walls round the block. Street View (Google, all four streets) shows old brick (gạch vồ) about 2.4 m high,
-  // weathered dark red-brown, with trees leaning over it everywhere, running unbroken along Ngự Viên and Diệu Đế to the
-  // corners; a second entrance between slim grey stone piers with ball finials on Bạch Đằng some 25 m north-west of
-  // the main gate; on Tô Hiến Thành a low brick wall under a red screen and a small gate on the axis, its brick piers
-  // green with moss. The gate itself and the piers drawn below stand in the wall line (solid), so the wall stops at them.
-  const roads = roadsNear(data, W(55, 0), 200);
-  const sq = (a, b, la, lb) => [W(a - la / 2, b - lb / 2), W(a + la / 2, b - lb / 2), W(a + la / 2, b + lb / 2), W(a - la / 2, b + lb / 2)];
-  const sideP = [[A0, -26.75], [A0, -23.25]], backP = [[aBack(-2.1), -2.1], [aBack(2.1), 2.1]];
-  const solid = [sq(1.0, 0, 3.4, 15.2), ...sideP.map(([a, b]) => sq(a, b, 0.7, 0.7)), ...backP.map(([a, b]) => sq(a, b, 1.1, 1.1))];
-  const front = [[122.52, 15], [122.9, 34.5], [117, B1], [A0, B1], [A0, B0], [119.7, B0], [121.54, -15]];
-  fence(S, front.map(([a, b]) => W(a, b)), WALL, { closed: false, roads, solid, openings: [[...W(A0, -25), 1.75]] });
-  fence(S, [[121.54, -15], [122.1, -6.9], [122.52, 15]].map(([a, b]) => W(a, b)), BACK, { closed: false, roads, solid, openings: [[...W(aBack(0), 0), 2.1]] });
-  for (const [a, b] of sideP) stonePier(S, W(a, b));
-  for (const [a, b] of backP) mossPier(S, W(a, b));
-
-  // ---- the court: under the trees almost everywhere, so mostly beaten earth and lawn; paved only along the axis and
-  // before the hall. Laid in 4 m cells inside the wall that keep off the buildings at the back, raised a little and
-  // marked paved so no infill house or stray tree lands in the court
-  const p0 = S.n;
-  const STEP = 4;
-  const onB = (a, b) => BOXES.slice(2).some(([a0, a1, b0, b1]) => a > a0 + 0.5 && a < a1 - 0.5 && b > b0 + 0.5 && b < b1 - 0.5);
-  for (let a = A0 + 0.3; a < 122.6; a += STEP) for (let b = B0 + 0.3; b < B1 - 0.3; b += STEP) {
-    const a1 = a + STEP, b1 = Math.min(b + STEP, B1 - 0.3);
-    const corners = [[a, b], [a1, b], [a1, b1], [a, b1]];
-    if (!corners.every(([u, v]) => inside(u, v, 0.3)) || corners.some(([u, v]) => onB(u, v)) || onB((a + a1) / 2, (b + b1) / 2)) continue;
-    const am = (a + a1) / 2, bm = Math.abs((b + b1) / 2);
-    const paved = (am < 59 && bm < 7) || (am > 45 && am < 59 && bm < 15);
-    S.kind = paved ? KIND.ROAD : KIND.GROUND;
-    const v = corners.map(([u, w]) => { const q = W(u, w); return [q[0], gY(q[0], q[1]) + 0.24, q[1]]; });
-    S.quad(v[0], v[3], v[2], v[1], paved ? pave : lawn, [0, 1, 0]);
-  }
-  // the axis walk from the gate to the hall steps, a shade darker
-  S.kind = KIND.ROAD;
-  box(31, 0, y0 - 0.2, y0 + 0.3, 56, 4.2, walk, { topKind: KIND.ROAD });
-  // outside on Bạch Đằng: a grass verge along the foot of the wall between the footpath and the wall (Street View),
-  // a paved path in to the second entrance
-  S.kind = KIND.GROUND;
-  for (const [b0, b1, col] of ([[B0 + 0.3, -27.4, verge], [-27.4, -22.6, pave], [-22.6, -8.2, verge], [8.2, B1 - 0.3, verge]] as any[])) {
-    const v = [[-2.4, b0], [A0 - 0.3, b0], [A0 - 0.3, b1], [-2.4, b1]].map(([u, w]) => { const q = W(u, w); return [q[0], gY(q[0], q[1]) + 0.16, q[1]]; });
-    S.quad(v[0], v[3], v[2], v[1], col, [0, 1, 0]);
-  }
-  S.paved = [...(S.paved || []), [p0, S.n]];
-
-  gate(S, box, lamps, L);
-  for (const s of [-1, 1]) tower(S, W(8.1, s * 12.4), lamps);
-  // the hexagonal pavilions of the court: the great bell (cast 1846) on the left, the stele of 1846 (1.9 m by 1.07 m)
-  // on the right, as one faces the hall
-  hexPavilion(S, W(30, 15), 'bell', lamps);
-  hexPavilion(S, W(30, -15), 'stele', lamps);
-  mainHall(S, box, lamps, L);
-  backRanges(S, box, lamps);
-  // two small roofed pavilions the satellite shows under the trees: one by the wall on Ngự Viên, one at the hall's
-  // west corner, set askew to it
-  smallPavilion(S, box, 35, -36.6, 4.6, 0, true);
-  smallPavilion(S, box, 66.5, -19.5, 4.4, 0.56, false);
-  // the bronze incense urn on the axis in front of the hall, and two rows of potted bonsai along the walk
-  {
-    const q = W(55, 0), g = gY(...q);
-    S.kind = KIND.MASONRY;
-    S.box(q[0], q[1], g, g + 0.7, 1.4, 1.4, ANG, stone, { top: stoneL });
-    S.kind = KIND.PLAIN;
-    S.cyl(q[0], q[1], g + 0.7, g + 1.5, 0.45, 0.6, 8, bronze);
-    S.cyl(q[0], q[1], g + 1.5, g + 2.1, 0.5, 0.22, 8, bronze);
-    for (let a = 14; a <= 50; a += 6) for (const s of [-1, 1]) {
-      const p = W(a, s * 3.2), h = gY(...p);
-      S.cyl(p[0], p[1], h + 0.2, h + 0.75, 0.35, 0.42, 6, hex('#6f5b4a'), { cap: false });
-      S.cyl(p[0], p[1], h + 0.75, h + 1.55, 0.6, 0.15, 6, leaf);
-    }
-  }
-  // the grove: from the air (Google satellite) old trees frame the precinct while keeping the main hall, gate,
-  // bell/drum towers and central walk legible; planted via data.trees so foliage.js renders real instanced leafy
-  // crowns instead of static low-poly blobs.
-  if (Array.isArray(data.trees)) {
-    const rnd = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
-    const plant = (c, sc, kind = 1) => { data.trees.push(Math.round(c[0] * 10), Math.round(c[1] * 10), Math.max(7, Math.min(16, Math.round(sc * 10))), kind); };
-    const G = 9.5;
-    for (let i = 0; A0 + 3 + i * G < 121; i++) for (let j = 0; B0 + 3 + j * G < B1 - 2; j++) {
-      const a = A0 + 3.5 + i * G + (rnd(i, j, 1) - 0.5) * 4.5;
-      const b = B0 + 3.5 + j * G + (rnd(i, j, 2) - 0.5) * 4.5;
-      // keep the front gate forecourt and central walk open so Phượng Môn and Đại Giác Hall read clearly
-      if (!inside(a, b, 3.0) || (a < 62 && Math.abs(b) < 7.0) || (a < 14 && Math.abs(b) < 16)) continue;
-      let r = 3.8 + rnd(i, j, 3) * 1.4;
-      while (r > 2.6 && !clearOf(a, b, r)) r -= 0.4;
-      if (!clearOf(a, b, r)) continue;
-      const sc = 0.85 + rnd(i, j, 4) * 0.4;
-      plant(W(a, b), sc, rnd(i, j, 5) < 0.55 ? 1 : 0);
-    }
-    // avenue shade trees flanking the central walk
-    for (let a = 18; a <= 48; a += 10) for (const sb of [-1, 1]) {
-      const b = sb * (7.2 + rnd(a, sb, 6) * 1.2);
-      if (clearOf(a, b, 3.2)) plant(W(a, b), 1.0 + rnd(a, sb, 7) * 0.25, 4);
-    }
-    // banyan on the Bạch Đằng verge north-west of the gate
-    plant(W(-1.7, -16.5), 1.35, 5);
-  }
+  buildWallsAndCourt(S, data, baseY);
+  buildGate(S, lamps, eaveLights);
+  for (const side of [-1, 1]) buildBellOrDrumTower(S, toWorld(8.1, side * 12.4), lamps);
+  buildHexPavilion(S, toWorld(30, 15), 'bell', lamps);
+  buildHexPavilion(S, toWorld(30, -15), 'stele', lamps);
+  buildMainHall(S, lamps, eaveLights);
+  buildBackRanges(S, lamps);
+  drawSmallPavilion(S, 35, -36.6, 4.6, 0, true);
+  drawSmallPavilion(S, 66.5, -19.5, 4.4, 0.56, false);
+  buildCourtPropsAndGrove(S, data);
   S.kind = KIND.PLAIN;
   S.base = 0;
 
-  // ---- after dark: red lanterns under the gate and tower eaves, the hall's eaves lit warm, lamps on the court
-  const strip = lightMeshFrom(L, lightMaterial(0xffc987, 1.1));
-  const pos = [], col = [];
-  for (const [p, h, c] of lamps) { pos.push(p[0], h, p[1]); col.push(...c); }
-  const pts = glowPoints(pos, col, 4);
-  pts.userData.glow = true;
-  for (const m of [strip, pts]) { m.userData.landmark = id; group.add(m); }
-}
-
-// ---- the gate on Bạch Đằng (Phượng Môn): three openings in a yellow masonry front, the middle one under a gate
-// storey with its own two-tier roof, small tiled roofs over the side openings
-function gate(S, box, lamps, L) {
-  const a = 1.0, g = gY(...W(a, 0)), y1 = g + 0.3, D = 3.4, Wd = 15.2;
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  box(a, 0, g - 0.3, y1, D + 1.2, Wd + 0.6, stone, { topKind: KIND.ROAD });
-  S.kind = KIND.CIVIC;
-  box(a, 0, y1, y1 + 4.4, D, Wd, yellow, { top: tileD });
-  S.kind = KIND.PLAIN;
-  box(a, 0, y1 + 4.1, y1 + 4.5, D + 0.4, Wd + 0.4, trim);
-  // the openings (dark, seen through to the court) on both faces, with arched heads read as a lighter band
-  for (const s of [-1, 1]) for (const [b, w, h] of ([[0, 3.0, 3.6], [-4.8, 2.0, 2.8], [4.8, 2.0, 2.8]] as any[])) {
-    box(a + s * (D / 2 + 0.01), b, y1, y1 + h, 0.06, w, dark);
-    box(a + s * (D / 2 + 0.02), b, y1 + h, y1 + h + 0.25, 0.06, w + 0.4, trim);
+  const stripMesh = new THREE.Mesh(eaveLights.geometry(), lightMaterial(0xffc987, 1.1));
+  stripMesh.renderOrder = 19;
+  const positions: number[] = [];
+  const colors: number[] = [];
+  for (const [pt, height, col] of lamps) {
+    positions.push(pt[0], height, pt[1]);
+    colors.push(...col);
   }
-  // lacquered columns standing proud of the front, polychrome khảm sành sứ frieze panels, and the gold name board "Diệu Đế Quốc Tự"
-  for (const b of [-6.6, -3.0, 3.0, 6.6]) { box(a - D / 2 - 0.25, b, y1, y1 + 4.1, 0.42, 0.42, lacq); }
-  for (const s of [-1, 1]) {
-    for (const b of [-4.8, 4.8]) box(a + s * (D / 2 + 0.05), b, y1 + 3.25, y1 + 3.85, 0.06, 2.2, mosaic);
-    box(a + s * (D / 2 + 0.05), 0, y1 + 4.18, y1 + 4.42, 0.06, Wd - 1.2, hex('#2e6f78'));
+  const glow = glowPoints(positions, colors, 4);
+  glow.userData.glow = true;
+  for (const mesh of [stripMesh, glow]) {
+    mesh.userData.landmark = id;
+    group.add(mesh);
   }
-  box(a - D / 2 - 0.06, 0, y1 + 3.75, y1 + 4.1, 0.08, 2.6, hex('#3a2a1c'));
-  box(a - D / 2 - 0.08, 0, y1 + 3.8, y1 + 4.05, 0.06, 2.2, hex('#d8b14a'));
-  // twin carved trụ biểu lotus pillars flanking the Bạch Đằng entrance forecourt
-  for (const s of [-1, 1]) {
-    const pq = W(a - 3.0, s * 8.6), pg = gY(...pq);
-    S.kind = KIND.MASONRY;
-    S.box(pq[0], pq[1], pg - 0.2, pg + 0.6, 1.05, 1.05, ANG, stone, { top: stoneL });
-    S.box(pq[0], pq[1], pg + 0.6, pg + 4.5, 0.68, 0.68, ANG, yellow, { top: trim });
-    S.kind = KIND.PLAIN;
-    S.box(pq[0], pq[1], pg + 1.2, pg + 3.9, 0.72, 0.36, ANG, mosaic);
-    S.box(pq[0], pq[1], pg + 4.5, pg + 4.78, 0.88, 0.88, ANG, trim);
-    S.cyl(pq[0], pq[1], pg + 4.78, pg + 5.18, 0.32, 0.42, 8, hex('#e5c158'));
-    S.cyl(pq[0], pq[1], pg + 5.18, pg + 5.65, 0.38, 0.06, 8, hex('#e5c158'));
-  }
-  // small roofs over the side openings
-  for (const s of [-1, 1]) {
-    const q = W(a, s * 5.0);
-    S.hip(q[0], q[1], 5.0, D + 0.4, ACROSS, y1 + 4.5, 1.0, tile, { flare: 0.35, over: 0.6, fascia: 0.16, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 2 });
-  }
-  // the gate storey: a lacquered upper room with a gallery, under a two-tier roof
-  const yu = y1 + 4.5, q = W(a, 0);
-  S.kind = KIND.TIMBER;
-  S.box(q[0], q[1], yu, yu + 2.3, 3.0, 6.0, ANG, yellowD, { top: tileD });
-  S.kind = KIND.PLAIN;
-  for (const s of [-1, 1]) { box(a + s * 1.52, 0, yu + 0.4, yu + 1.9, 0.06, 4.2, dark); box(a + s * 1.6, 0, yu, yu + 0.7, 0.1, 6.2, lacq); }
-  S.hip(q[0], q[1], 6.6, 3.6, ACROSS, yu + 2.3, 0.9, tile, { flare: 0.4, over: 0.8, fascia: 0.18, fasciaCol: trim, hips: true, segs: 2 });
-  S.kind = KIND.TIMBER;
-  S.box(q[0], q[1], yu + 2.7, yu + 3.5, 2.2, 4.6, ANG, yellowD, { top: tileD });
-  S.kind = KIND.PLAIN;
-  S.hip(q[0], q[1], 5.0, 2.6, ACROSS, yu + 3.5, 1.4, tile, { flare: 0.45, over: 0.8, fascia: 0.18, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 3 });
-  ridgeOrnament(S, W(a, 0), yu + 4.9, 2.2, 0.45);
-  // red silk lanterns under the eaves, front and back; the gate's eave line lit
-  for (const s of [-1, 1]) for (const b of [-4.8, 0, 4.8]) lamps.push([W(a + s * (D / 2 + 0.6), b), y1 + 3.9, [1, 0.38, 0.2]]);
-  for (const s of [-1, 1]) { const p = W(a + s * (D / 2 + 0.75), -Wd / 2), r = W(a + s * (D / 2 + 0.75), Wd / 2); L.beam([p[0], y1 + 4.3, p[1]], [r[0], y1 + 4.3, r[1]], 0.12, 0.12, [1, 1, 1]); }
-}
-
-// ---- an octagonal two-storey tower (chung lâu / cổ lâu) either side of the gate
-function tower(S, c, lamps) {
-  const g = gY(...(c as [number, number])), R = 2.7, rot = ANG + Math.PI / 8;
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  S.cyl(c[0], c[1], g - 0.3, g + 0.6, R + 0.8, R + 0.8, 8, stone, { rot });
-  S.kind = KIND.CIVIC;
-  S.cyl(c[0], c[1], g + 0.6, g + 3.9, R, R, 8, yellow, { rot });
-  // an arched opening on each face, dark
-  S.kind = KIND.PLAIN;
-  for (let i = 0; i < 8; i++) {
-    const t = ANG + (i * Math.PI) / 4, n = [Math.cos(t), Math.sin(t)], ap = R * Math.cos(Math.PI / 8) + 0.02;
-    S.box(c[0] + n[0] * ap, c[1] + n[1] * ap, g + 0.6, g + (i % 2 ? 2.4 : 3.0), 0.06, i % 2 ? 0.9 : 1.3, t, dark);
-  }
-  polyRoof(S, c, 8, rot, g + 3.9, R + 1.0, 1.1, R * 0.62, tile, trim);
-  S.kind = KIND.TIMBER;
-  S.cyl(c[0], c[1], g + 4.6, g + 6.4, R * 0.66, R * 0.66, 8, yellowD, { rot });
-  S.kind = KIND.PLAIN;
-  for (let i = 0; i < 8; i += 2) { const t = ANG + (i * Math.PI) / 4, n = [Math.cos(t), Math.sin(t)], ap = R * 0.66 * Math.cos(Math.PI / 8) + 0.02; S.box(c[0] + n[0] * ap, c[1] + n[1] * ap, g + 4.9, g + 6.1, 0.06, 0.8, t, dark); }
-  polyRoof(S, c, 8, rot, g + 6.4, R * 0.66 + 0.9, 1.8, 0.05, tile, trim);
-  S.cyl(c[0], c[1], g + 8.2, g + 8.6, 0.18, 0.28, 6, trim);
-  S.cyl(c[0], c[1], g + 8.6, g + 9.1, 0.28, 0.05, 6, hex('#d8b14a'));
-  for (let i = 0; i < 8; i += 2) { const t = ANG + (i * Math.PI) / 4; lamps.push([[c[0] + Math.cos(t) * (R + 0.6), c[1] + Math.sin(t) * (R + 0.6)], g + 3.5, [1, 0.42, 0.22]]); }
-}
-
-// ---- a hexagonal open pavilion on a low platform, sheltering the great bell or the stele
-function hexPavilion(S, c, what, lamps) {
-  const g = gY(...(c as [number, number])), R = 2.6, rot = ANG;
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  S.cyl(c[0], c[1], g - 0.2, g + 0.6, R + 0.7, R + 0.6, 6, stone, { rot });
-  S.kind = KIND.TIMBER;
-  for (let i = 0; i < 6; i++) { const t = rot + (i * Math.PI) / 3; S.cyl(c[0] + Math.cos(t) * R, c[1] + Math.sin(t) * R, g + 0.6, g + 3.5, 0.17, 0.15, 6, lacq, { cap: false }); }
-  S.kind = KIND.PLAIN;
-  for (let i = 0; i < 6; i++) {
-    const t0 = rot + (i * Math.PI) / 3, t1 = rot + ((i + 1) * Math.PI) / 3;
-    S.beam([c[0] + Math.cos(t0) * R, g + 3.4, c[1] + Math.sin(t0) * R], [c[0] + Math.cos(t1) * R, g + 3.4, c[1] + Math.sin(t1) * R], 0.2, 0.3, lacq);
-  }
-  polyRoof(S, c, 6, rot, g + 3.5, R + 1.0, 1.0, R * 0.55, tile, trim);
-  polyRoof(S, c, 6, rot, g + 4.3, R * 0.55 + 0.6, 1.2, 0.05, tile, trim);
-  S.cyl(c[0], c[1], g + 5.5, g + 6.0, 0.22, 0.05, 6, hex('#d8b14a'));
-  if (what === 'bell') {
-    S.beam([c[0], g + 3.4, c[1]], [c[0], g + 2.9, c[1]], 0.1, 0.1, dark);
-    S.cyl(c[0], c[1], g + 1.3, g + 2.6, 0.75, 0.55, 10, bronze);
-    S.cyl(c[0], c[1], g + 2.6, g + 2.95, 0.55, 0.2, 10, bronze);
-  } else {
-    S.kind = KIND.MASONRY;
-    S.box(c[0], c[1], g + 0.6, g + 1.0, 0.7, 1.6, ANG, stone);
-    S.box(c[0], c[1], g + 1.0, g + 2.9, 0.26, 1.07, ANG, hex('#6f6a61'));
-    S.cyl(c[0], c[1], g + 2.9, g + 3.1, 0.55, 0.3, 6, hex('#6f6a61'), { rot });
-  }
-  lamps.push([c, g + 3.2, [1, 0.5, 0.26]]);
-}
-
-// ---- Đại Giác hall: three bays and two lean-to bays (3 gian 2 chái) on a stone base. The plan follows the roof as
-// the satellite shows it (Google, 2026): a front house (tiền đường) under its own hipped roof, ridge across the axis
-// at a ≈ 67.4, joined in a valley gutter to the main house (chánh điện) behind, whose two-tier roof has its upper
-// ridge at a ≈ 76.9 (about 14 m long, the hips running out to the corners) and a lower tier showing as a narrow band
-// down both sides and a wider one across the back. The whole roof is about 26 m across and 26 m deep, eaves
-// included; walls a 62.8-86.8, b ±12.9 (the OSM outline, way 771244228, is a 61-86: the roofs put it about 1 m
-// further back). A verandah of six lacquered columns before five doors; ngói liệt tiles; twin dragons facing the
-// moon on the upper ridge. No street view reaches the hall, so its heights, colours and fronts stay estimated.
-function mainHall(S, box, lamps, L) {
-  const a0 = 62.8, a1 = 86.8, aj = 72.0, hb = 12.9; // front, back, the line between front and main house, half width
-  let gmax = -1e9;
-  for (const [a, b] of ([[a0, -hb], [a0, hb], [a1, -hb], [a1, hb], [(a0 + a1) / 2, 0]] as any[])) gmax = Math.max(gmax, gY(...W(a, b)));
-  const g = gmax, yb = g + 0.8; // floor on its stone base
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  box((a0 + a1) / 2, 0, g - 0.4, yb, a1 - a0 + 1.2, 2 * hb + 1.2, stone, { top: stoneL, topKind: KIND.ROAD });
-  // steps up the front, the full width of the three middle bays
-  S.kind = KIND.ROAD;
-  for (let i = 0; i < 4; i++) box(a0 - 0.6 - 0.35 * (4 - i) + 0.175, 0, g - 0.2, g + 0.2 * (i + 1), 0.35, 12.4 - i * 0.2, stoneL);
-  // the closed hall behind the verandah (front and main house are one room inside)
-  const af = a0 + 2.2; // the door wall
-  S.kind = KIND.CIVIC;
-  box((af + a1) / 2, 0, yb, yb + 4.3, a1 - af, 2 * hb, yellow, { top: tileD });
-  S.kind = KIND.PLAIN;
-  // five doors, one to a bay (the middle one wider), and the board "Diệu Đế Quốc Tự" over the middle
-  for (const [b, w] of ([[-10.6, 2.0], [-5.6, 2.4], [0, 2.8], [5.6, 2.4], [10.6, 2.0]] as any[])) {
-    box(af - 0.02, b, yb, yb + 3.0, 0.06, w, door);
-    box(af - 0.04, b, yb + 3.0, yb + 3.2, 0.06, w + 0.3, trim);
-  }
-  box(af - 0.1, 0, yb + 3.35, yb + 3.95, 0.08, 3.4, hex('#3a2a1c'));
-  box(af - 0.14, 0, yb + 3.42, yb + 3.88, 0.06, 3.0, hex('#d8b14a'));
-  // the verandah: six columns on the front (bays of 4, 5.6, 5.6, 5.6, 4 m), a beam along their heads
-  S.kind = KIND.TIMBER;
-  const cols = [-12.4, -8.4, -2.8, 2.8, 8.4, 12.4];
-  for (const b of cols) { const q = W(a0 + 0.4, b); S.cyl(q[0], q[1], yb, yb + 4.1, 0.24, 0.22, 8, lacq, { cap: false }); }
-  S.kind = KIND.PLAIN;
-  { const p = W(a0 + 0.4, -12.7), q = W(a0 + 0.4, 12.7); S.beam([p[0], yb + 4.1, p[1]], [q[0], yb + 4.1, q[1]], 0.3, 0.36, lacq); }
-  box((a0 + af) / 2, 0, yb + 4.0, yb + 4.3, af - a0, 2 * hb, shade(yellow, 0.5), { bottom: true }); // verandah ceiling
-  const yr = yb + 4.3;
-  // the front house's roof, ridge across the axis
-  const fc = W((a0 + aj) / 2, 0);
-  S.hip(fc[0], fc[1], 2 * hb, aj - a0, ACROSS, yr, 2.6, tile, { flare: 0.5, over: 1.1, fascia: 0.22, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 3 });
-  ridgeOrnament(S, W((a0 + aj) / 2, 0), yr + 2.65, 4.2, 0.55);
-  // the main house: the lower tier over its whole plan (meets the front roof in a valley), a short clerestory, the
-  // upper tier
-  const mc = W((aj + a1) / 2, 0);
-  S.hip(mc[0], mc[1], 2 * hb, a1 - aj, ACROSS, yr, 1.4, tile, { flare: 0.45, over: 1.1, fascia: 0.22, fasciaCol: trim, hips: true, segs: 3 });
-  const u0 = 72.3, u1 = 81.5, uh = 11.5, uc = (u0 + u1) / 2, yu = yr + 1.6;
-  S.kind = KIND.CIVIC;
-  box(uc, 0, yr + 0.3, yu, u1 - u0, 2 * uh, yellowD, { top: tileD });
-  S.kind = KIND.PLAIN;
-  const q = W(uc, 0);
-  S.hip(q[0], q[1], 2 * uh, u1 - u0, ACROSS, yu, 2.6, tile, { flare: 0.55, over: 1.4, fascia: 0.2, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 4 });
-  ridgeOrnament(S, W(uc, 0), yu + 2.65, 5.4, 0.7);
-  // eave lights and lanterns along the verandah
-  for (const [a, h, yy] of ([[a0 - 1.0, hb + 1.0, yr - 0.35], [u0 - 1.3, uh + 1.2, yu - 0.15]] as any[])) {
-    const p = W(a, -h), r = W(a, h);
-    L.beam([p[0], yy, p[1]], [r[0], yy, r[1]], 0.12, 0.12, [1, 1, 1]);
-  }
-  for (const b of [-10.6, -5.6, 0, 5.6, 10.6]) lamps.push([W(a0 + 0.2, b), yb + 3.5, [1, 0.42, 0.22]]);
-}
-
-// ---- the pagoda's ranges at the back of the block, all mapped in OSM and all under old brown tiles from the air
-// (Google satellite, 2026). Each is drawn on its outline, so the city leaves its generic house out (city.js drops a
-// mapped building the landmark covers).
-function backRanges(S, box, lamps) {
-  // the north corner, on Ngự Viên: a low house under a double roof, a short upper tier riding on the lower one (from
-  // the street a dark tiled roof behind the wall)
-  tiledHouse(S, box, 84.8, 99.3, -40.2, -28.7, { wallH: 2.9, roofH: 1.5, col: brownD, upper: { inset: 2.6, rise: 1.1, h: 1.7 } });
-  // the south-east corner, on Diệu Đế: one storey under a brown tiled hip
-  tiledHouse(S, box, 84.8, 101.8, 26.7, 39.9, { wallH: 3.0, roofH: 2.1, col: brown });
-  // the long range on Tô Hiến Thành (Street View from the street, satellite): one storey under old tiles with dragons at
-  // the ends and the middle of the ridge; a corrugated-iron sheet laid over the slope toward the street, carried on
-  // down as a lean-to verandah on thin posts; small red-tiled houses at both ends
-  const a0 = 102.4, a1 = 116.4, b0 = -12.8, b1 = 13.1, wallH = 3.0, roofH = 2.3;
-  const { g, yw } = tiledHouse(S, box, a0, a1, b0, b1, { wallH, roofH, col: brown, over: 0.6 });
-  const ac = (a0 + a1) / 2, yr = yw + roofH;
-  ridgeOrnament(S, W(ac, 0), yr - 0.05, 3.2, 0.42);
-  for (const s of [-1, 1]) ridgeOrnament(S, W(ac, s * ((b1 - b0) / 2 - (a1 - a0) / 2 - 0.2) + (b0 + b1) / 2), yr - 0.05, 1.6, 0.3);
-  const V = (a, b, y?) => { const q = W(a, b); return [q[0], y, q[1]]; };
-  const sheet = (p, q, r, s, c) => { S.quad(p, q, r, s, c); S.quad(p, s, r, q, c); };
-  S.kind = KIND.PLAIN;
-  const e1 = a1 + 0.9, e2 = 120.3, bs0 = b0 + 0.6, bs1 = b1 - 0.6;
-  sheet(V(ac + 0.3, bs0, yr + 0.12), V(ac + 0.3, bs1, yr + 0.12), V(e1, bs1, yw + 0.05), V(e1, bs0, yw + 0.05), iron);
-  sheet(V(e1, bs0, yw + 0.05), V(e1, bs1, yw + 0.05), V(e2, bs1, yw - 0.75), V(e2, bs0, yw - 0.75), shade(iron, 0.85));
-  S.kind = KIND.MASONRY;
-  box((a1 + e2) / 2 + 0.1, (b0 + b1) / 2, g - 0.2, g + 0.25, e2 - a1 + 0.2, b1 - b0 - 1.2, stone, { topKind: KIND.ROAD });
-  S.kind = KIND.TIMBER;
-  for (let b = bs0 + 0.4; b <= bs1 - 0.39; b += (bs1 - bs0 - 0.8) / 7) { const q = W(e2 - 0.3, b); S.cyl(q[0], q[1], g + 0.25, yw - 0.68, 0.07, 0.07, 6, hex('#5b4a3a'), { cap: false }); }
-  S.kind = KIND.PLAIN;
-  for (const b of [-8, -2.5, 3, 8.5]) box(a1 + 0.02, b, g + 0.35, g + 2.5, 0.06, 1.4, door);
-  // the red-tiled houses at the two ends
-  tiledHouse(S, box, 110.0, 117.0, -21.6, -14.2, { wallH: 2.8, roofH: 1.6, col: redTile });
-  tiledHouse(S, box, 109.0, 119.0, 14.6, 21.0, { wallH: 2.8, roofH: 1.6, col: redTile });
-  for (const b of [-6, 6]) lamps.push([W(e2 - 0.6, b), yw - 1.0, [1, 0.62, 0.36]]);
-}
-
-// a one-storey house on a low plinth under a tiled hip, on the rectangle [a0, a1] x [b0, b1] of the frame; with
-// `upper`, a short clerestory and a second, smaller hip riding on the first
-function tiledHouse(S, box, a0, a1, b0, b1, { wallH = 3, roofH = 2, col = brown, over = 0.7, upper = null }: Record<string, any> = {}) {
-  let g = -1e9;
-  for (const [a, b] of ([[a0, b0], [a0, b1], [a1, b0], [a1, b1]] as any[])) g = Math.max(g, gY(...W(a, b)));
-  const ac = (a0 + a1) / 2, bc = (b0 + b1) / 2, la = a1 - a0, lb = b1 - b0, yw = g + 0.35 + wallH;
-  const along = la >= lb, ang = along ? ANG : ACROSS, w = Math.max(la, lb), d = Math.min(la, lb);
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  box(ac, bc, g - 0.3, g + 0.35, la + 0.3, lb + 0.3, stone, { topKind: KIND.ROAD });
-  S.kind = KIND.CIVIC;
-  box(ac, bc, g + 0.35, yw, la, lb, lime, { top: shade(col, 0.8) });
-  S.kind = KIND.PLAIN;
-  // dark doors and windows along the long sides
-  const n = Math.max(2, Math.round(w / 4));
-  for (let i = 0; i < n; i++) {
-    const t = -w / 2 + (w * (i + 0.5)) / n;
-    for (const s of [-1, 1]) {
-      if (along) box(ac + t, bc + s * (lb / 2 + 0.02), g + 0.45, g + 0.45 + (i % 2 ? 1.3 : 2.1), 1.1, 0.06, dark);
-      else box(ac + s * (la / 2 + 0.02), bc + t, g + 0.45, g + 0.45 + (i % 2 ? 1.3 : 2.1), 0.06, 1.1, dark);
-    }
-  }
-  const q = W(ac, bc);
-  S.hip(q[0], q[1], w, d, ang, yw, roofH, col, { flare: 0.3, over, fascia: 0.14, fasciaCol: shade(col, 0.75), ridgeCol: shade(col, 1.15), hips: true, segs: 2 });
-  if (upper) {
-    const wu = w - 2 * upper.inset, du = d - 2 * upper.inset, yu = yw + upper.rise;
-    S.kind = KIND.CIVIC;
-    S.box(q[0], q[1], yw + 0.2, yu, wu, du, ang, lime, { top: shade(col, 0.8) });
-    S.kind = KIND.PLAIN;
-    S.hip(q[0], q[1], wu, du, ang, yu, upper.h, col, { flare: 0.3, over: 0.6, fascia: 0.12, fasciaCol: shade(col, 0.75), ridgeCol: shade(col, 1.15), hips: true, segs: 2 });
-  }
-  return { g, yw };
-}
-
-// a small square pavilion under a tiled hip: walled (a little shrine) or open on four columns
-function smallPavilion(S, box, a, b, s, rot, walled) {
-  const q = W(a, b), g = gY(...q), ang = ANG + rot, yw = g + 0.45 + 2.7;
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  S.box(q[0], q[1], g - 0.25, g + 0.45, s + 0.5, s + 0.5, ang, stone, { top: stoneL, topKind: KIND.ROAD });
-  if (walled) {
-    S.kind = KIND.CIVIC;
-    S.box(q[0], q[1], g + 0.45, yw, s - 0.6, s - 0.6, ang, yellow, { top: tileD });
-    S.kind = KIND.PLAIN;
-    const u = [Math.cos(ang), Math.sin(ang)], v = [-u[1], u[0]], o = (s - 0.6) / 2 + 0.02;
-    S.box(q[0] + v[0] * o, q[1] + v[1] * o, g + 0.45, g + 2.4, 1.2, 0.06, ang, door);
-  } else {
-    S.kind = KIND.TIMBER;
-    for (const [i, j] of ([[-1, -1], [1, -1], [1, 1], [-1, 1]] as any[])) {
-      const u = [Math.cos(ang), Math.sin(ang)], v = [-u[1], u[0]], o = s / 2 - 0.3;
-      S.cyl(q[0] + (u[0] * i + v[0] * j) * o, q[1] + (u[1] * i + v[1] * j) * o, g + 0.45, yw, 0.15, 0.13, 6, lacq, { cap: false });
-    }
-    S.kind = KIND.PLAIN;
-  }
-  S.hip(q[0], q[1], s, s, ang, yw, 1.6, tile, { flare: 0.4, over: 0.6, fascia: 0.14, fasciaCol: trim, ridgeCol: trim, hips: true, segs: 2 });
-}
-
-// the second entrance on Bạch Đằng: a slim grey stone pier with a moulded cap and a ball finial (Street View)
-function stonePier(S, c) {
-  const g = gY(...(c as [number, number]));
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  S.box(c[0], c[1], g - 0.3, g + 0.5, 0.7, 0.7, ANG, grey, { top: greyL });
-  S.box(c[0], c[1], g + 0.5, g + 2.9, 0.52, 0.52, ANG, grey, { top: greyL });
-  S.kind = KIND.PLAIN;
-  S.box(c[0], c[1], g + 2.9, g + 3.08, 0.72, 0.72, ANG, greyL);
-  S.box(c[0], c[1], g + 3.08, g + 3.2, 0.4, 0.4, ANG, grey);
-  S.cyl(c[0], c[1], g + 3.2, g + 3.42, 0.12, 0.27, 8, greyL, { cap: false });
-  S.cyl(c[0], c[1], g + 3.42, g + 3.7, 0.27, 0.06, 8, greyL);
-}
-
-// the back gate on Tô Hiến Thành: an old brick pier, its top green with moss
-function mossPier(S, c) {
-  const g = gY(...(c as [number, number]));
-  S.base = g - LAND_Y;
-  S.kind = KIND.MASONRY;
-  S.box(c[0], c[1], g - 0.3, g + 2.6, 1.0, 1.0, ANG, shade(WALL.wall, 0.9), { top: moss });
-  S.kind = KIND.PLAIN;
-  S.box(c[0], c[1], g + 2.6, g + 2.85, 1.15, 1.15, ANG, moss);
-  S.box(c[0], c[1], g + 2.85, g + 3.15, 0.6, 0.6, ANG, moss, { taper: 0.5 });
-}
-// a cone-shaped roof over a regular n-gon (octagonal towers, hexagonal pavilions): a concave slope from the eave
-// (radius r0 at y) to radius r1 at y + h, corner ridges in the trim colour ending in upturned tips
-function polyRoof(S, c, n, rot, y, r0, h, r1, col, ridgeCol) {
-  const keep = S.kind;
-  S.kind = KIND.TILE;
-  const rm = r1 + (r0 - r1) * 0.42, ym = y + h * 0.62;
-  S.cyl(c[0], c[1], y - 0.1, ym, r0, rm, n, col, { rot, cap: false });
-  S.cyl(c[0], c[1], ym, y + h, rm, r1, n, col, { rot, cap: r1 > 0.06 });
-  S.kind = KIND.PLAIN;
-  S.cyl(c[0], c[1], y - 0.3, y - 0.1, r0 - 0.05, r0, n, ridgeCol, { rot, cap: false }); // fascia
-  for (let i = 0; i < n; i++) {
-    const t = rot + (i / n) * Math.PI * 2, u = [Math.cos(t), Math.sin(t)];
-    const pe = [c[0] + u[0] * r0, y, c[1] + u[1] * r0], pm = [c[0] + u[0] * rm, ym + 0.05, c[1] + u[1] * rm], pt = [c[0] + u[0] * r1, y + h + 0.05, c[1] + u[1] * r1];
-    S.beam(pe, pm, 0.16, 0.16, ridgeCol);
-    S.beam(pm, pt, 0.14, 0.14, ridgeCol);
-    S.beam(pe, [pe[0] + u[0] * 0.45, y + 0.45, pe[2] + u[1] * 0.45], 0.14, 0.14, ridgeCol); // the upturned tip
-  }
-  S.kind = keep;
-}
-
-// twin dragons facing the moon on a ridge (lưỡng long triều nguyệt): a disc with a flame in the middle, a dragon
-// each side reading as an arched, scaly body in glazed shards
-function ridgeOrnament(S, c, y, span, k) {
-  const keep = S.kind;
-  S.kind = KIND.PLAIN;
-  const at = (b, h) => { const q = [c[0] + P[0] * b, c[1] + P[1] * b]; return [q[0], y + h, q[1]]; };
-  S.box(c[0], c[1], y, y + 0.9 * k, 0.12, 0.85 * k, ANG, hex('#d8b14a'));
-  S.box(c[0], c[1], y + 0.9 * k, y + 1.3 * k, 0.1, 0.35 * k, ANG, hex('#c9442c'));
-  for (const s of [-1, 1]) {
-    const pts = [[0.55, 0.2], [0.9, 0.85], [1.4, 0.5], [1.9, 0.9], [2.3, 0.3]].map(([b, h]) => at(s * b * k * span / 4.6, h * k));
-    for (let i = 0; i + 1 < pts.length; i++) S.beam(pts[i], pts[i + 1], 0.16 * k + 0.05, 0.22 * k + 0.05, mosaic);
-  }
-  S.kind = keep;
-}
-
-// a broad shade tree: trunk and three stacked crowns (lo: the crown's underside, above the ground)
-function tree(S, c, r, h, lo = null) {
-  const g = gY(...(c as [number, number])), y1 = lo ?? h * 0.35;
-  const keep = S.kind;
-  S.kind = KIND.PLAIN;
-  S.cyl(c[0], c[1], g, g + Math.max(y1 + 0.5, h * 0.45), 0.28, 0.2, 6, bark);
-  S.cyl(c[0], c[1], g + y1, g + h * 0.6, r * 0.75, r, 7, leafD);
-  S.cyl(c[0], c[1], g + h * 0.6, g + h * 0.82, r, r * 0.7, 7, leaf);
-  S.cyl(c[0], c[1], g + h * 0.82, g + h, r * 0.7, r * 0.15, 7, leaf);
-  S.kind = keep;
-}
-
-function lightMeshFrom(buf, mat) {
-  const mesh = new THREE.Mesh(buf.geometry(), mat);
-  mesh.renderOrder = 19;
-  return mesh;
-}
-
-// a shrub or young tree under the big crowns: a short trunk and a low, round crown
-function shrub(S, c, r, h) {
-  const g = gY(...(c as [number, number])), keep = S.kind;
-  S.kind = KIND.PLAIN;
-  S.cyl(c[0], c[1], g, g + h * 0.35, 0.12, 0.1, 5, bark);
-  S.cyl(c[0], c[1], g + h * 0.25, g + h * 0.6, r * 0.7, r, 7, leafD);
-  S.cyl(c[0], c[1], g + h * 0.6, g + h, r, r * 0.3, 7, leaf);
-  S.kind = keep;
-}
-
-// a banyan (đa): a thick, fluted trunk and a wide, low-spreading crown
-function banyan(S, c, r, h) {
-  const g = gY(...(c as [number, number])), keep = S.kind;
-  S.kind = KIND.PLAIN;
-  S.cyl(c[0], c[1], g, g + 1.2, 1.3, 0.8, 8, bark);
-  S.cyl(c[0], c[1], g + 1.2, g + h * 0.42, 0.8, 0.55, 8, bark);
-  S.cyl(c[0], c[1], g + h * 0.34, g + h * 0.58, r * 0.85, r, 9, leafD);
-  S.cyl(c[0], c[1], g + h * 0.58, g + h * 0.82, r, r * 0.75, 9, leaf);
-  S.cyl(c[0], c[1], g + h * 0.82, g + h, r * 0.75, r * 0.2, 9, leaf);
-  S.kind = keep;
 }

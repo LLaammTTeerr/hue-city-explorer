@@ -21,354 +21,598 @@ import { lightMaterial } from '../../geo/materials.ts';
 // rendered upper storey with one arch on each face under a hipped roof with curled ridge ends and a spike finial.
 // The bridge is a masonry causeway with white vase balustrades and a small vaulted culvert near the gate end.
 export const id = 'gate:Cửa Ngăn';
-const NAME = 'Cửa Ngăn';
+const GATE_NAME = 'Cửa Ngăn';
 
-const OPEN_W = 3.8, OPEN_H = 4.6; // inside the 5.6 m slot city.js and kinhthanh.js cut through the rampart
-const TOP = 1.4; // cornice top over the wall walk: with the 0.8 m parapet the block stands ~8.8 m (Street View, 2026)
+const OPEN_WIDTH = 3.8;
+const OPEN_HEIGHT = 4.6; // inside the 5.6 m slot city.js and kinhthanh.js cut through the rampart
+const CORNICE_TOP_OFFSET = 1.4; // cornice top over the wall walk: with the 0.8 m parapet the block stands ~8.8 m (Street View, 2026)
+const BRIDGE_WIDTH = 5.9; // the causeway over the moat (OSM man_made=bridge way 1431132256)
+const BLOCK_DEPTH = 13.0; // the masonry block across the wall (satellite 12-14 m; OSM 12.0 m): the passage runs on through the earth rampart
+const GATE_WIDTH = 17.1; // along the wall (OSM)
+const PARAPET_HEIGHT = 0.8;
+const ARCH_SEGS = 10;
+
 // The block's brick is the rampart's (kinhthanh.js: shade(PAL.brick, 0.86)) with a little of the old red left in it:
 // weathered near-black brown with grey streaks, the same brick as the wall beside it (Street View, 2026)
-const RAMPART = shade(PAL.brick, 0.86);
-const BRICK = mix(RAMPART, hex('#6e4a3c'), 0.3), BRICK_D = hex('#3a3833'), RENDER = hex('#7b7a72'), RENDER_D = hex('#5c5b55');
-const FRAME = shade(BRICK, 0.9), DARK = hex('#1f1a18'), PANEL = hex('#b8b2a2'), PANEL_IN = hex('#4a4540');
-const TOWER = mix(RAMPART, hex('#6e4a3c'), 0.25), UPPER = hex('#6f6c64'), TILE = hex('#4f4740'), RIDGE = hex('#6a665e');
-const STREAK = [hex('#46443e'), hex('#4a4d3e'), hex('#3c3a35')]; // soot and lichen from the cornice down (kinhthanh.js)
-const WHITE = hex('#a9a79e'), CAUSE = hex('#858577'), CAUSE_D = hex('#4f5446'), PAVE = hex('#8a857a'), RUBBLE = hex('#6a665b');
-const BW = 5.9; // the causeway over the moat (OSM man_made=bridge way 1431132256)
-const DEPTH = 13.0; // the masonry block across the wall (satellite 12-14 m; OSM 12.0 m): the passage runs on through the earth rampart
+const RAMPART_BRICK = shade(PAL.brick, 0.86);
+const GATE_BRICK = mix(RAMPART_BRICK, hex('#6e4a3c'), 0.3);
+const COLORS = {
+  brick: GATE_BRICK,
+  brickDark: hex('#3a3833'),
+  render: hex('#7b7a72'),
+  renderDark: hex('#5c5b55'),
+  frame: shade(GATE_BRICK, 0.9),
+  dark: hex('#1f1a18'),
+  panel: hex('#b8b2a2'),
+  tower: mix(RAMPART_BRICK, hex('#6e4a3c'), 0.25),
+  upper: hex('#6f6c64'),
+  tile: hex('#4f4740'),
+  ridge: hex('#6a665e'),
+  streaks: [hex('#46443e'), hex('#4a4d3e'), hex('#3c3a35')], // soot and lichen from the cornice down (kinhthanh.js)
+  white: hex('#a9a79e'),
+  causeway: hex('#858577'),
+  causewayDark: hex('#4f5446'),
+  pave: hex('#8a857a'),
+  rubble: hex('#6a665b'),
+  finialSpike: hex('#4a4744'),
+};
 
-export function build({ data, S, group, place, THREE }) {
-  const norm = (s) => String(s || '').normalize('NFC');
-  const g = (data.gates || []).find((q) => norm(q.n) === norm(NAME));
-  if (!g) throw new Error('gate not in data.gates');
-  const kt = (data.places || []).find((q) => q.id === 'kinhthanh');
-  const centre = kt ? [kt.x / 10, kt.z / 10] : [g.c[0] / 10 - 600, g.c[1] / 10 - 800];
-  const ax = gateAxis(g, centre), cx = ax.cx, cz = ax.cz;
-  // O: out of the city (towards the moat and the river), U: along the wall
-  let ox = ax.px, oz = ax.pz;
-  if ((cx - centre[0]) * ox + (cz - centre[1]) * oz < 0) { ox = -ox; oz = -oz; }
-  const ux = -oz, uz = ox, AU = Math.atan2(uz, ux);
-  const P = (u, v): [number, number] => [cx + u * ux + v * ox, cz + u * uz + v * oz];
-  const V = (u, v, y?) => { const p = P(u, v); return [p[0], y, p[1]]; };
-  const N = (nu, nv, ny = 0): [number, number, number] => [nu * ux + nv * ox, ny, nu * uz + nv * oz];
-  const box = (u, v, y0, y1, su, sv, col, opts?) => { const p = P(u, v); S.box(p[0], p[1], y0, y1, su, sv, AU, col, opts); };
+function createGateFrame(data, S) {
+  const norm = (str) => String(str || '').normalize('NFC');
+  const gateRec = (data.gates || []).find((rec) => norm(rec.n) === norm(GATE_NAME));
+  if (!gateRec) throw new Error('gate not in data.gates');
+  const citadelPlace = (data.places || []).find((rec) => rec.id === 'kinhthanh');
+  const cityCenter = citadelPlace ? [citadelPlace.x / 10, citadelPlace.z / 10] : [gateRec.c[0] / 10 - 600, gateRec.c[1] / 10 - 800];
+  const axis = gateAxis(gateRec, cityCenter);
+  const centerX = axis.cx;
+  const centerZ = axis.cz;
+  // outAxis: out of the city (towards the moat and the river), alongAxis: along the wall
+  let outX = axis.px;
+  let outZ = axis.pz;
+  if ((centerX - cityCenter[0]) * outX + (centerZ - cityCenter[1]) * outZ < 0) {
+    outX = -outX;
+    outZ = -outZ;
+  }
+  const alongX = -outZ;
+  const alongZ = outX;
+  const wallAngle = Math.atan2(alongZ, alongX);
+  const toWorld = (localU, localV): [number, number] => [centerX + localU * alongX + localV * outX, centerZ + localU * alongZ + localV * outZ];
+  const toPoint3 = (localU, localV, y?) => {
+    const pos = toWorld(localU, localV);
+    return [pos[0], y, pos[1]];
+  };
+  const toNormal = (normU, normV, normY = 0): [number, number, number] => [normU * alongX + normV * outX, normY, normU * alongZ + normV * outZ];
+  const box = (localU, localV, y0, y1, sizeU, sizeV, color, opts?) => {
+    const pos = toWorld(localU, localV);
+    S.box(pos[0], pos[1], y0, y1, sizeU, sizeV, wallAngle, color, opts);
+  };
 
   // rays in the gate's own (u, v) frame against mapped edges: the rampart band (data.wall) and the land's edge (the moat)
-  const edges = (polys) => { const out = []; for (const poly of polys || []) for (const r of poly.map(unflat)) for (let i = 0; i < r.length; i++) out.push([r[i], r[(i + 1) % r.length]]); return out; };
-  const bandE = edges(data.wall), landE = edges(data.land);
-  const hitsOn = (E, u0, v0, du, dv, far = 40) => {
-    const p = P(u0, v0), dx = du * ux + dv * ox, dz = du * uz + dv * oz, out = [];
-    for (const [a, b] of E) {
-      const ex = b[0] - a[0], ez = b[1] - a[1], den = dx * ez - dz * ex;
-      if (Math.abs(den) < 1e-9) continue;
-      const qx = a[0] - p[0], qz = a[1] - p[1], t = (qx * ez - qz * ex) / den, s = (qx * dz - qz * dx) / den;
-      if (s >= 0 && s <= 1 && Math.abs(t) < far) out.push(t);
+  const extractEdges = (polys) => {
+    const edges = [];
+    for (const poly of polys || []) {
+      for (const ring of poly.map(unflat)) {
+        for (let i = 0; i < ring.length; i++) edges.push([ring[i], ring[(i + 1) % ring.length]]);
+      }
     }
-    return out;
+    return edges;
   };
-  const near = (E, u0, v0, du, dv, dflt) => { const h = hitsOn(E, u0, v0, du, dv).filter((t) => t > 0.05); return h.length ? Math.min(...h) : dflt; };
+  const bandEdges = extractEdges(data.wall);
+  const landEdges = extractEdges(data.land);
+  const rayHits = (edgeList, u0, v0, du, dv, maxDist = 40) => {
+    const orig = toWorld(u0, v0);
+    const dx = du * alongX + dv * outX;
+    const dz = du * alongZ + dv * outZ;
+    const hits = [];
+    for (const [ptA, ptB] of edgeList) {
+      const ex = ptB[0] - ptA[0];
+      const ez = ptB[1] - ptA[1];
+      const denom = dx * ez - dz * ex;
+      if (Math.abs(denom) < 1e-9) continue;
+      const qx = ptA[0] - orig[0];
+      const qz = ptA[1] - orig[1];
+      const paramT = (qx * ez - qz * ex) / denom;
+      const paramS = (qx * dz - qz * dx) / denom;
+      if (paramS >= 0 && paramS <= 1 && Math.abs(paramT) < maxDist) hits.push(paramT);
+    }
+    return hits;
+  };
+  const nearestHit = (edgeList, u0, v0, du, dv, fallback) => {
+    const hits = rayHits(edgeList, u0, v0, du, dv).filter((dist) => dist > 0.05);
+    return hits.length ? Math.min(...hits) : fallback;
+  };
+
   // where the rampart's faces cross the axis: the notch the passage opens into, and the outer face
-  const vNotch = -near(bandE, 0, 0, 0, -1, 6.0), vOut = near(bandE, 0, 0, 0, 1, 5.6) + 0.8; // the block stands a little proud of the outer face
-  const vIn = Math.max(vNotch - 0.4, vOut - DEPTH); // its inner face; behind it the passage runs on, open, through the rampart
-  const uL = -near(bandE, 0, vNotch - 1, -1, 0, 3.7), uR = near(bandE, 0, vNotch - 1, 1, 0, 4.7); // the notch's sides
-  const vFace = -near(bandE, uR + 1.5, 0, 0, -1, 11.4); // the rampart's inner face along Ông Ích Khiêm
-  const vBank = near(landE, 0, vOut, 0, 1, 8.4) + vOut; // the moat's edge
-  const W = 17.1; // along the wall (OSM)
-  const y0 = LAND_Y - 0.5, yT = LAND_Y + WALL_H + TOP, fl = LAND_Y + 0.02;
-  const r = OPEN_W / 2, crown = LAND_Y + OPEN_H, spring = crown - r, K = 10;
-  const arc = (k, rr = r, sp = spring, n = K) => { const th = Math.PI - (Math.PI * k) / n; return [rr * Math.cos(th), sp + rr * Math.sin(th)]; };
-  const n0 = S.n;
+  const vNotch = -nearestHit(bandEdges, 0, 0, 0, -1, 6.0);
+  const vOut = nearestHit(bandEdges, 0, 0, 0, 1, 5.6) + 0.8; // the block stands a little proud of the outer face
+  const vIn = Math.max(vNotch - 0.4, vOut - BLOCK_DEPTH); // its inner face; behind it the passage runs on, open, through the rampart
+  const uLeft = -nearestHit(bandEdges, 0, vNotch - 1, -1, 0, 3.7);
+  const uRight = nearestHit(bandEdges, 0, vNotch - 1, 1, 0, 4.7); // the notch's sides
+  const vFace = -nearestHit(bandEdges, uRight + 1.5, 0, 0, -1, 11.4); // the rampart's inner face along Ông Ích Khiêm
+  const vBank = nearestHit(landEdges, 0, vOut, 0, 1, 8.4) + vOut; // the moat's edge
+
+  return {
+    centerX, centerZ, outX, outZ, alongX, alongZ, wallAngle,
+    toWorld, toPoint3, toNormal, box,
+    vNotch, vOut, vIn, uLeft, uRight, vFace, vBank,
+  };
+}
+
+function arcPoint(k, radius, springY, segCount = ARCH_SEGS) {
+  const theta = Math.PI - (Math.PI * k) / segCount;
+  return [radius * Math.cos(theta), springY + radius * Math.sin(theta)];
+}
+
+function buildGateBlockAndFaces(S, frame, dims) {
+  const { toPoint3, toNormal, box, vIn, vOut } = frame;
+  const { baseY, corniceY, floorY, archRadius, crownY, springY } = dims;
 
   // ---- the gate block, the passage driven through it ----
   S.kind = KIND.MASONRY;
-  for (const [v, sg] of ([[vIn, -1], [vOut, 1]] as any[])) {
-    const n = N(0, sg);
-    const q = (u0, u1, ya, yb) => S.quad(V(u0, v, ya), V(u1, v, ya), V(u1, v, yb), V(u0, v, yb), BRICK, n);
-    q(-W / 2, -r, y0, yT); q(r, W / 2, y0, yT); q(-r, r, crown, yT);
-    for (let k = 0; k < K; k++) { const [sa, ya] = arc(k), [sb, yb] = arc(k + 1); S.quad(V(sa, v, ya), V(sb, v, yb), V(sb, v, crown), V(sa, v, crown), BRICK, n); }
+  for (const [faceV, faceSign] of [[vIn, -1], [vOut, 1]]) {
+    const faceNorm = toNormal(0, faceSign);
+    const faceQuad = (u0, u1, ya, yb) => S.quad(toPoint3(u0, faceV, ya), toPoint3(u1, faceV, ya), toPoint3(u1, faceV, yb), toPoint3(u0, faceV, yb), COLORS.brick, faceNorm);
+    faceQuad(-GATE_WIDTH / 2, -archRadius, baseY, corniceY);
+    faceQuad(archRadius, GATE_WIDTH / 2, baseY, corniceY);
+    faceQuad(-archRadius, archRadius, crownY, corniceY);
+    for (let k = 0; k < ARCH_SEGS; k++) {
+      const [u0, y0] = arcPoint(k, archRadius, springY);
+      const [u1, y1] = arcPoint(k + 1, archRadius, springY);
+      S.quad(toPoint3(u0, faceV, y0), toPoint3(u1, faceV, y1), toPoint3(u1, faceV, crownY), toPoint3(u0, faceV, crownY), COLORS.brick, faceNorm);
+    }
   }
-  for (const sg of [-1, 1]) { const u = (sg * W) / 2; S.quad(V(u, vIn, y0), V(u, vOut, y0), V(u, vOut, yT), V(u, vIn, yT), BRICK, N(sg, 0)); }
+  for (const side of [-1, 1]) {
+    const sideU = (side * GATE_WIDTH) / 2;
+    S.quad(toPoint3(sideU, vIn, baseY), toPoint3(sideU, vOut, baseY), toPoint3(sideU, vOut, corniceY), toPoint3(sideU, vIn, corniceY), COLORS.brick, toNormal(side, 0));
+  }
   S.kind = KIND.ROAD;
-  S.quad(V(-W / 2, vIn, yT), V(-W / 2, vOut, yT), V(W / 2, vOut, yT), V(W / 2, vIn, yT), shade(PAL.stone, 0.8), [0, 1, 0]);
-  S.quad(V(-r, vIn - 0.3, fl), V(-r, vOut + 0.3, fl), V(r, vOut + 0.3, fl), V(r, vIn - 0.3, fl), shade(PAL.stone, 0.6), [0, 1, 0]);
+  S.quad(toPoint3(-GATE_WIDTH / 2, vIn, corniceY), toPoint3(-GATE_WIDTH / 2, vOut, corniceY), toPoint3(GATE_WIDTH / 2, vOut, corniceY), toPoint3(GATE_WIDTH / 2, vIn, corniceY), shade(PAL.stone, 0.8), [0, 1, 0]);
+  S.quad(toPoint3(-archRadius, vIn - 0.3, floorY), toPoint3(-archRadius, vOut + 0.3, floorY), toPoint3(archRadius, vOut + 0.3, floorY), toPoint3(archRadius, vIn - 0.3, floorY), shade(PAL.stone, 0.6), [0, 1, 0]);
   S.kind = KIND.PLAIN;
-  for (let k = 0; k < K; k++) { // the barrel vault and the passage's dark sides
-    const [sa, ya] = arc(k), [sb, yb] = arc(k + 1);
-    S.quad(V(sa, vIn + 0.01, ya), V(sa, vOut - 0.01, ya), V(sb, vOut - 0.01, yb), V(sb, vIn + 0.01, yb), shade(BRICK, 0.38), N(-(sa + sb) / 2, 0, spring - (ya + yb) / 2));
+  for (let k = 0; k < ARCH_SEGS; k++) { // the barrel vault and the passage's dark sides
+    const [u0, y0] = arcPoint(k, archRadius, springY);
+    const [u1, y1] = arcPoint(k + 1, archRadius, springY);
+    S.quad(toPoint3(u0, vIn + 0.01, y0), toPoint3(u0, vOut - 0.01, y0), toPoint3(u1, vOut - 0.01, y1), toPoint3(u1, vIn + 0.01, y1), shade(COLORS.brick, 0.38), toNormal(-(u0 + u1) / 2, 0, springY - (y0 + y1) / 2));
   }
-  for (const sg of [-1, 1]) { const u = sg * (r - 0.01); S.quad(V(u, vIn, fl), V(u, vOut, fl), V(u, vOut, spring), V(u, vIn, spring), DARK, N(-sg, 0)); }
+  for (const side of [-1, 1]) {
+    const wallU = side * (archRadius - 0.01);
+    S.quad(toPoint3(wallU, vIn, floorY), toPoint3(wallU, vOut, floorY), toPoint3(wallU, vOut, springY), toPoint3(wallU, vIn, springY), COLORS.dark, toNormal(-side, 0));
+  }
 
   // ---- the two faces: damp foot, rendered pilasters, the arch's brick panel, the name panel, render patches, cornice ----
-  for (const [v, sg] of ([[vIn, -1], [vOut, 1]] as any[])) {
-    const t = v + sg * 0.1;
-    box(0, t + sg * 0.02, y0, LAND_Y + 0.6, W + 0.3, 0.25, BRICK_D);
-    for (const s of [-1, 1]) {
-      box(s * (W / 2 - 0.6), t + sg * 0.05, LAND_Y + 0.6, yT - 0.6, 1.3, 0.3, RENDER); // corner pilasters, rendered grey
-      box(s * 2.75, t, fl, LAND_Y + 5.8, 0.5, 0.2, FRAME); // the brick panel's sides
-      box(s * (r + 0.25), t + sg * 0.03, fl, spring, 0.5, 0.2, FRAME); // the arch's jambs
+  for (const [faceV, faceSign] of [[vIn, -1], [vOut, 1]]) {
+    const trimV = faceV + faceSign * 0.1;
+    box(0, trimV + faceSign * 0.02, baseY, LAND_Y + 0.6, GATE_WIDTH + 0.3, 0.25, COLORS.brickDark);
+    for (const side of [-1, 1]) {
+      box(side * (GATE_WIDTH / 2 - 0.6), trimV + faceSign * 0.05, LAND_Y + 0.6, corniceY - 0.6, 1.3, 0.3, COLORS.render); // corner pilasters, rendered grey
+      box(side * 2.75, trimV, floorY, LAND_Y + 5.8, 0.5, 0.2, COLORS.frame); // the brick panel's sides
+      box(side * (archRadius + 0.25), trimV + faceSign * 0.03, floorY, springY, 0.5, 0.2, COLORS.frame); // the arch's jambs
     }
-    box(0, t, LAND_Y + 5.8, LAND_Y + 6.1, 6.0, 0.2, FRAME); // the panel's head
+    box(0, trimV, LAND_Y + 5.8, LAND_Y + 6.1, 6.0, 0.2, COLORS.frame); // the panel's head
     S.kind = KIND.MASONRY;
-    for (let k = 0; k < K; k++) { // the arch's brick voussoir ring
-      const [sa, ya] = arc(k, r + 0.3), [sb, yb] = arc(k + 1, r + 0.3);
-      S.beam(V(sa, t + sg * 0.04, ya), V(sb, t + sg * 0.04, yb), 0.24, 0.6, FRAME);
+    for (let k = 0; k < ARCH_SEGS; k++) { // the arch's brick voussoir ring
+      const [u0, y0] = arcPoint(k, archRadius + 0.3, springY);
+      const [u1, y1] = arcPoint(k + 1, archRadius + 0.3, springY);
+      S.beam(toPoint3(u0, trimV + faceSign * 0.04, y0), toPoint3(u1, trimV + faceSign * 0.04, y1), 0.24, 0.6, COLORS.frame);
     }
     S.kind = KIND.PLAIN;
     // the name panel: a framed rendered tablet with the characters in relief
-    const pb = LAND_Y + 6.25, ph = 1.05;
-    box(0, t + sg * 0.06, pb, pb + ph, 2.6, 0.16, RENDER);
-    box(0, t + sg * 0.1, pb + 0.12, pb + ph - 0.12, 2.3, 0.08, PANEL);
+    const panelBaseY = LAND_Y + 6.25;
+    const panelH = 1.05;
+    box(0, trimV + faceSign * 0.06, panelBaseY, panelBaseY + panelH, 2.6, 0.16, COLORS.render);
+    box(0, trimV + faceSign * 0.1, panelBaseY + 0.12, panelBaseY + panelH - 0.12, 2.3, 0.08, COLORS.panel);
     // the weathering: soot and lichen streaks running down from the cornice over the brick and the pilasters, as on the
     // rampart beside it (no rectangular render patches: the render is left on the pilasters and the cornice band). Each
     // streak is a single quad laid on its face at its own small offset, and no two on one face overlap.
-    const fq = (u0, u1, ya, yb, off, col) => S.quad(V(u0, v + sg * off, ya), V(u1, v + sg * off, ya), V(u1, v + sg * off, yb), V(u0, v + sg * off, yb), col, N(0, sg));
-    for (const s of [-1, 1]) {
+    const streakQuad = (u0, u1, ya, yb, offset, color) => S.quad(
+      toPoint3(u0, faceV + faceSign * offset, ya),
+      toPoint3(u1, faceV + faceSign * offset, ya),
+      toPoint3(u1, faceV + faceSign * offset, yb),
+      toPoint3(u0, faceV + faceSign * offset, yb),
+      color,
+      toNormal(0, faceSign),
+    );
+    for (const side of [-1, 1]) {
       for (let j = 0; j < 3; j++) { // three slots between the arch's brick panel (|u| 3.0) and the pilaster (|u| 7.3)
-        const k = rand(j, 21 + sg + s), w = 0.3 + k * 0.45, uc = 3.4 + j * 1.3 + (0.6 - w / 2) * rand(j, 23 + sg + s);
-        const ya = LAND_Y + 1.2 + rand(j, 25 + sg + s) * 3.4;
-        fq(s * uc, s * (uc + w), ya, yT - 1.5, 0.04, mix(BRICK, STREAK[(j + (s > 0 ? 1 : 0)) % 3], 0.45));
+        const randVal = rand(j, 21 + faceSign + side);
+        const streakW = 0.3 + randVal * 0.45;
+        const streakU = 3.4 + j * 1.3 + (0.6 - streakW / 2) * rand(j, 23 + faceSign + side);
+        const streakBotY = LAND_Y + 1.2 + rand(j, 25 + faceSign + side) * 3.4;
+        streakQuad(side * streakU, side * (streakU + streakW), streakBotY, corniceY - 1.5, 0.04, mix(COLORS.brick, COLORS.streaks[(j + (side > 0 ? 1 : 0)) % 3], 0.45));
       }
-      const up = s * (W / 2 - 0.6); // a dark streak down each pilaster, just proud of its rendered face (front at 0.3)
-      fq(up - 0.35, up + 0.1, LAND_Y + 2.2 + rand(s, 27 + sg) * 2, yT - 0.6, 0.34, mix(RENDER, RENDER_D, 0.6));
+      const pilasterU = side * (GATE_WIDTH / 2 - 0.6); // a dark streak down each pilaster, just proud of its rendered face (front at 0.3)
+      streakQuad(pilasterU - 0.35, pilasterU + 0.1, LAND_Y + 2.2 + rand(side, 27 + faceSign) * 2, corniceY - 0.6, 0.34, mix(COLORS.render, COLORS.renderDark, 0.6));
     }
-    box(0, t + sg * 0.01, yT - 1.5, yT - 0.6, W - 2.6, 0.12, RENDER_D); // the frieze under the cornice
-    box(0, t + sg * 0.1, yT - 0.6, yT - 0.2, W + 0.5, 0.4, RENDER);
-    box(0, t + sg * 0.16, yT - 0.2, yT, W + 0.7, 0.52, shade(RENDER, 1.08), { top: shade(PAL.stone, 0.85) });
+    box(0, trimV + faceSign * 0.01, corniceY - 1.5, corniceY - 0.6, GATE_WIDTH - 2.6, 0.12, COLORS.renderDark); // the frieze under the cornice
+    box(0, trimV + faceSign * 0.1, corniceY - 0.6, corniceY - 0.2, GATE_WIDTH + 0.5, 0.4, COLORS.render);
+    box(0, trimV + faceSign * 0.16, corniceY - 0.2, corniceY, GATE_WIDTH + 0.7, 0.52, shade(COLORS.render, 1.08), { top: shade(PAL.stone, 0.85) });
   }
+}
 
+function buildTopParapetAndWatchtower(S, frame, corniceY) {
+  const { toWorld, box, vIn, vOut, alongX, alongZ, outX, outZ, wallAngle } = frame;
   // ---- the solid parapet round the flat top, with posts at the corners and along the faces ----
-  const D = vOut - vIn, vm = (vIn + vOut) / 2, PH = 0.8;
-  for (const [len, alongU, off] of ([[W, true, vIn + 0.25], [W, true, vOut - 0.25], [D, false, -W / 2 + 0.25], [D, false, W / 2 - 0.25]] as any[])) {
-    if (alongU) box(0, off, yT, yT + PH, len, 0.5, RENDER, { top: shade(RENDER, 1.15) });
-    else box(off, vm, yT, yT + PH, 0.5, len, RENDER, { top: shade(RENDER, 1.15) });
+  const blockDepth = vOut - vIn;
+  const midV = (vIn + vOut) / 2;
+  for (const [segLen, alongU, offset] of [[GATE_WIDTH, true, vIn + 0.25], [GATE_WIDTH, true, vOut - 0.25], [blockDepth, false, -GATE_WIDTH / 2 + 0.25], [blockDepth, false, GATE_WIDTH / 2 - 0.25]] as any[]) {
+    if (alongU) box(0, offset, corniceY, corniceY + PARAPET_HEIGHT, segLen, 0.5, COLORS.render, { top: shade(COLORS.render, 1.15) });
+    else box(offset, midV, corniceY, corniceY + PARAPET_HEIGHT, 0.5, segLen, COLORS.render, { top: shade(COLORS.render, 1.15) });
   }
-  for (const v of [vIn + 0.25, vOut - 0.25]) for (const u of [-W / 2 + 0.25, -W / 2 + 4.5, W / 2 - 4.5, W / 2 - 0.25]) {
-    box(u, v, yT, yT + PH + 0.45, 0.62, 0.62, RENDER, { top: shade(RENDER, 1.15) });
-    box(u, v, yT + PH + 0.45, yT + PH + 0.6, 0.4, 0.4, RENDER_D);
+  for (const postV of [vIn + 0.25, vOut - 0.25]) {
+    for (const postU of [-GATE_WIDTH / 2 + 0.25, -GATE_WIDTH / 2 + 4.5, GATE_WIDTH / 2 - 4.5, GATE_WIDTH / 2 - 0.25]) {
+      box(postU, postV, corniceY, corniceY + PARAPET_HEIGHT + 0.45, 0.62, 0.62, COLORS.render, { top: shade(COLORS.render, 1.15) });
+      box(postU, postV, corniceY + PARAPET_HEIGHT + 0.45, corniceY + PARAPET_HEIGHT + 0.6, 0.4, 0.4, COLORS.renderDark);
+    }
   }
 
   // ---- the vọng lâu: two masonry storeys under glazed tile, weathered dark, the eaves near straight with short tips ----
-  const TW = 8.5, TD = 7.0, H1 = 3.8; // lower storey (front width and height measured on the bridge-axis Street View, 2026; depth estimated)
-  const tv = vm, y1 = yT + H1;
+  const towerW = 8.5;
+  const towerD = 7.0;
+  const lowerH = 3.8; // lower storey (front width and height measured on the bridge-axis Street View, 2026; depth estimated)
+  const lowerTopY = corniceY + lowerH;
   S.kind = KIND.MASONRY;
-  box(0, tv, yT, y1, TW, TD, TOWER);
+  box(0, midV, corniceY, lowerTopY, towerW, towerD, COLORS.tower);
   S.kind = KIND.PLAIN;
-  box(0, tv, y1 - 0.35, y1, TW + 0.24, TD + 0.24, RENDER); // the cornice band
+  box(0, midV, lowerTopY - 0.35, lowerTopY, towerW + 0.24, towerD + 0.24, COLORS.render); // the cornice band
+
   // arched openings, as dark recesses with a brick rim; faces: long (±O) and short (±U)
-  const opening = (face, s, w, sill, top, rimCol) => {
-    const { at, right, nrm } = face, rr = w / 2, sp = top - rr, M = 6;
-    const pt = (x, y, out = 0): [number, number, number] => [at[0] + right[0] * x + nrm[0] * out, y, at[1] + right[1] * x + nrm[1] * out];
-    const n3 = [nrm[0], 0, nrm[1]];
-    S.quad(pt(s - rr, sill, 0.03), pt(s + rr, sill, 0.03), pt(s + rr, sp, 0.03), pt(s - rr, sp, 0.03), DARK, n3);
-    for (let k = 0; k < M; k++) {
-      const [a0, b0] = arc(k, rr, sp, M), [a1, b1] = arc(k + 1, rr, sp, M);
-      S.tri(pt(s, sp, 0.03), pt(s + a0, b0, 0.03), pt(s + a1, b1, 0.03), DARK, n3);
-      const [c0, d0] = arc(k, rr + 0.22, sp, M), [c1, d1] = arc(k + 1, rr + 0.22, sp, M);
-      S.quad(pt(s + a0, b0, 0.06), pt(s + a1, b1, 0.06), pt(s + c1, d1, 0.06), pt(s + c0, d0, 0.06), rimCol, n3);
+  const buildArchOpening = (face, offsetAlong, width, sillY, topY, rimColor) => {
+    const { at, right, nrm } = face;
+    const rad = width / 2;
+    const springY = topY - rad;
+    const segs = 6;
+    const pt = (along, y, out = 0): [number, number, number] => [at[0] + right[0] * along + nrm[0] * out, y, at[1] + right[1] * along + nrm[1] * out];
+    const norm3 = [nrm[0], 0, nrm[1]];
+    S.quad(pt(offsetAlong - rad, sillY, 0.03), pt(offsetAlong + rad, sillY, 0.03), pt(offsetAlong + rad, springY, 0.03), pt(offsetAlong - rad, springY, 0.03), COLORS.dark, norm3);
+    for (let k = 0; k < segs; k++) {
+      const [a0, b0] = arcPoint(k, rad, springY, segs);
+      const [a1, b1] = arcPoint(k + 1, rad, springY, segs);
+      S.tri(pt(offsetAlong, springY, 0.03), pt(offsetAlong + a0, b0, 0.03), pt(offsetAlong + a1, b1, 0.03), COLORS.dark, norm3);
+      const [c0, d0] = arcPoint(k, rad + 0.22, springY, segs);
+      const [c1, d1] = arcPoint(k + 1, rad + 0.22, springY, segs);
+      S.quad(pt(offsetAlong + a0, b0, 0.06), pt(offsetAlong + a1, b1, 0.06), pt(offsetAlong + c1, d1, 0.06), pt(offsetAlong + c0, d0, 0.06), rimColor, norm3);
     }
   };
-  const faces = (w, d, v0) => [
-    { at: P(0, v0 + d / 2), right: [ux, uz], nrm: [ox, oz], len: w },
-    { at: P(0, v0 - d / 2), right: [ux, uz], nrm: [-ox, -oz], len: w },
-    { at: P(w / 2, v0), right: [ox, oz], nrm: [ux, uz], len: d },
-    { at: P(-w / 2, v0), right: [ox, oz], nrm: [-ux, -uz], len: d },
+  const getFaces = (width, depth, centerV) => [
+    { at: toWorld(0, centerV + depth / 2), right: [alongX, alongZ], nrm: [outX, outZ], len: width },
+    { at: toWorld(0, centerV - depth / 2), right: [alongX, alongZ], nrm: [-outX, -outZ], len: width },
+    { at: toWorld(width / 2, centerV), right: [outX, outZ], nrm: [alongX, alongZ], len: depth },
+    { at: toWorld(-width / 2, centerV), right: [outX, outZ], nrm: [-alongX, -alongZ], len: depth },
   ];
-  for (const f of faces(TW, TD, tv)) {
-    if (f.len > 7.5) { opening(f, 0, 2.0, yT + PH - 0.1, yT + 2.75, shade(TOWER, 1.15)); for (const s of [-2.75, 2.75]) opening(f, s, 1.25, yT + PH + 0.1, yT + 2.3, shade(TOWER, 1.15)); }
-    else opening(f, 0, 1.5, yT + PH, yT + 2.5, shade(TOWER, 1.15));
+  for (const face of getFaces(towerW, towerD, midV)) {
+    if (face.len > 7.5) {
+      buildArchOpening(face, 0, 2.0, corniceY + PARAPET_HEIGHT - 0.1, corniceY + 2.75, shade(COLORS.tower, 1.15));
+      for (const sideOff of [-2.75, 2.75]) buildArchOpening(face, sideOff, 1.25, corniceY + PARAPET_HEIGHT + 0.1, corniceY + 2.3, shade(COLORS.tower, 1.15));
+    } else {
+      buildArchOpening(face, 0, 1.5, corniceY + PARAPET_HEIGHT, corniceY + 2.5, shade(COLORS.tower, 1.15));
+    }
   }
   // first roof: a tiled skirt round the tower, its top a small parapeted terrace round the upper storey
-  S.hip(...P(0, tv), TW, TD, AU, y1, 1.05, TILE, { flare: 0.12, over: 0.6, ridgeCol: RIDGE, hips: true, horns: false, glazed: true, segs: 3, fascia: 0.14, fasciaCol: shade(TILE, 0.6) });
-  const terr = y1 + 0.95;
-  box(0, tv, terr - 0.5, terr, 5.6, 5.0, RENDER, { top: shade(PAL.stone, 0.8) });
-  for (const [len, alongU, off] of ([[5.6, true, tv - 2.35], [5.6, true, tv + 2.35], [5.0, false, -2.65], [5.0, false, 2.65]] as any[])) {
-    if (alongU) box(0, off, terr, terr + 0.45, len, 0.3, RENDER, { top: shade(RENDER, 1.15) });
-    else box(off, tv, terr, terr + 0.45, 0.3, len, RENDER, { top: shade(RENDER, 1.15) });
+  S.hip(...toWorld(0, midV), towerW, towerD, wallAngle, lowerTopY, 1.05, COLORS.tile, {
+    flare: 0.12, over: 0.6, ridgeCol: COLORS.ridge, hips: true, horns: false, glazed: true, segs: 3, fascia: 0.14, fasciaCol: shade(COLORS.tile, 0.6),
+  });
+  const terraceY = lowerTopY + 0.95;
+  box(0, midV, terraceY - 0.5, terraceY, 5.6, 5.0, COLORS.render, { top: shade(PAL.stone, 0.8) });
+  for (const [segLen, alongU, offset] of [[5.6, true, midV - 2.35], [5.6, true, midV + 2.35], [5.0, false, -2.65], [5.0, false, 2.65]] as any[]) {
+    if (alongU) box(0, offset, terraceY, terraceY + 0.45, segLen, 0.3, COLORS.render, { top: shade(COLORS.render, 1.15) });
+    else box(offset, midV, terraceY, terraceY + 0.45, 0.3, segLen, COLORS.render, { top: shade(COLORS.render, 1.15) });
   }
-  for (const su of [-2.65, 2.65]) for (const sv of [-2.35, 2.35]) box(su, tv + sv, terr, terr + 0.8, 0.42, 0.42, RENDER, { top: RIDGE });
+  for (const signU of [-2.65, 2.65]) {
+    for (const signV of [-2.35, 2.35]) box(signU, midV + signV, terraceY, terraceY + 0.8, 0.42, 0.42, COLORS.render, { top: COLORS.ridge });
+  }
   // the upper storey, rendered, one arch on each face, then the top roof
-  const UW = 4.0, UD = 3.6, y2 = terr + 2.05;
-  box(0, tv, terr, y2, UW, UD, UPPER);
-  box(0, tv, y2 - 0.28, y2, UW + 0.2, UD + 0.2, RENDER);
-  for (const f of faces(UW, UD, tv)) opening(f, 0, 1.15, terr + 0.35, terr + 1.65, shade(UPPER, 0.85));
-  const RH = 1.15;
-  S.hip(...P(0, tv), UW, UD, AU, y2, RH, TILE, { flare: 0.12, over: 0.5, ridgeCol: RIDGE, hips: true, horns: false, glazed: true, segs: 3, fascia: 0.12, fasciaCol: shade(TILE, 0.6) });
+  const upperW = 4.0;
+  const upperD = 3.6;
+  const upperTopY = terraceY + 2.05;
+  box(0, midV, terraceY, upperTopY, upperW, upperD, COLORS.upper);
+  box(0, midV, upperTopY - 0.28, upperTopY, upperW + 0.2, upperD + 0.2, COLORS.render);
+  for (const face of getFaces(upperW, upperD, midV)) buildArchOpening(face, 0, 1.15, terraceY + 0.35, terraceY + 1.65, shade(COLORS.upper, 0.85));
+  const upperRoofH = 1.15;
+  S.hip(...toWorld(0, midV), upperW, upperD, wallAngle, upperTopY, upperRoofH, COLORS.tile, {
+    flare: 0.12, over: 0.5, ridgeCol: COLORS.ridge, hips: true, horns: false, glazed: true, segs: 3, fascia: 0.12, fasciaCol: shade(COLORS.tile, 0.6),
+  });
   // ridge ornaments: the curled ends (rồng chầu, read at this scale as raised scrolls) and the finial: a gourd and a spike
-  const yR = y2 + RH, rl = Math.max(0.3, (UW + 1.0) / 2 - ((UD + 1.0) / 2) * 0.92);
-  for (const s of [-1, 1]) { box(s * rl, tv, yR - 0.05, yR + 0.42, 0.22, 0.22, RIDGE); box(s * (rl - 0.18), tv, yR + 0.3, yR + 0.45, 0.42, 0.18, RIDGE); }
-  box(0, tv, yR - 0.05, yR + 0.3, 0.42, 0.42, RIDGE);
-  box(0, tv, yR + 0.3, yR + 0.62, 0.3, 0.3, RIDGE, { taper: 0.5 });
-  box(0, tv, yR + 0.62, yR + 1.45, 0.06, 0.06, hex('#4a4744'));
+  const ridgeY = upperTopY + upperRoofH;
+  const ridgeHalf = Math.max(0.3, (upperW + 1.0) / 2 - ((upperD + 1.0) / 2) * 0.92);
+  for (const side of [-1, 1]) {
+    box(side * ridgeHalf, midV, ridgeY - 0.05, ridgeY + 0.42, 0.22, 0.22, COLORS.ridge);
+    box(side * (ridgeHalf - 0.18), midV, ridgeY + 0.3, ridgeY + 0.45, 0.42, 0.18, COLORS.ridge);
+  }
+  box(0, midV, ridgeY - 0.05, ridgeY + 0.3, 0.42, 0.42, COLORS.ridge);
+  box(0, midV, ridgeY + 0.3, ridgeY + 0.62, 0.3, 0.3, COLORS.ridge, { taper: 0.5 });
+  box(0, midV, ridgeY + 0.62, ridgeY + 1.45, 0.06, 0.06, COLORS.finialSpike);
+  return { midV, towerW, towerD, lowerTopY, upperW, upperD, upperTopY };
+}
+
+function buildRearCuttingAndForecourt(S, frame, baseY) {
+  const { toPoint3, toNormal, box, vNotch, vIn, vOut, uLeft, uRight, vFace, vBank } = frame;
   // ---- behind the block: the passage runs on, open, through the earth rampart to Ông Ích Khiêm ----
   // kinhthanh.js cuts the slot (CITADEL_PASSAGE.slot) and leaves its sides to the gate model; at its city end the slot
   // opens into the mapped notch, and the notch's mouth is framed by two rendered piers with stepped caps (Street View)
-  const hs = CITADEL_PASSAGE.slot / 2, yW = LAND_Y + WALL_H;
+  const halfSlot = CITADEL_PASSAGE.slot / 2;
+  const wallWalkY = LAND_Y + WALL_H;
   if (vNotch < vIn - 0.2) {
     S.kind = KIND.MASONRY;
-    for (const sg of [-1, 1]) { const u = sg * hs; S.quad(V(u, vNotch, y0), V(u, vIn, y0), V(u, vIn, yW), V(u, vNotch, yW), BRICK, N(-sg, 0)); }
+    for (const side of [-1, 1]) {
+      const slotU = side * halfSlot;
+      S.quad(toPoint3(slotU, vNotch, baseY), toPoint3(slotU, vIn, baseY), toPoint3(slotU, vIn, wallWalkY), toPoint3(slotU, vNotch, wallWalkY), COLORS.brick, toNormal(-side, 0));
+    }
     S.kind = KIND.PLAIN;
-    for (const sg of [-1, 1]) box(sg * (hs + 0.3), (vNotch + vIn) / 2, yW, yW + 0.5, 0.6, vIn - vNotch, RENDER_D, { top: shade(RENDER, 1.1) }); // the cutting's coping
+    for (const side of [-1, 1]) {
+      box(side * (halfSlot + 0.3), (vNotch + vIn) / 2, wallWalkY, wallWalkY + 0.5, 0.6, vIn - vNotch, COLORS.renderDark, { top: shade(COLORS.render, 1.1) }); // the cutting's coping
+    }
   }
-  for (const u of [uL, uR]) {
-    const uc = u + Math.sign(u) * 0.1, vc = vFace + 0.1;
-    box(uc, vc, y0, LAND_Y + 4.6, 1.6, 1.6, RENDER);
-    box(uc, vc, LAND_Y + 4.6, LAND_Y + 4.85, 1.9, 1.9, shade(RENDER, 1.06));
-    box(uc, vc, LAND_Y + 4.85, LAND_Y + 5.45, 1.25, 1.25, RENDER, { taper: 0.7 });
-    box(uc, vc, LAND_Y + 5.45, LAND_Y + 5.75, 0.5, 0.5, RENDER_D);
-    const vf = vc - 0.8 - 0.03, ua = uc - 0.5, ub = uc + 0.2; // a soot streak down the face it shows the street
-    S.quad(V(ua, vf, LAND_Y + 1.0), V(ub, vf, LAND_Y + 1.0), V(ub, vf, LAND_Y + 4.55), V(ua, vf, LAND_Y + 4.55), mix(RENDER, RENDER_D, 0.25), N(0, -1));
-    box(uc, vc, y0, LAND_Y + 0.5, 1.7, 1.7, BRICK_D); // its damp foot
+  for (const pierU of [uLeft, uRight]) {
+    const centerU = pierU + Math.sign(pierU) * 0.1;
+    const centerV = vFace + 0.1;
+    box(centerU, centerV, baseY, LAND_Y + 4.6, 1.6, 1.6, COLORS.render);
+    box(centerU, centerV, LAND_Y + 4.6, LAND_Y + 4.85, 1.9, 1.9, shade(COLORS.render, 1.06));
+    box(centerU, centerV, LAND_Y + 4.85, LAND_Y + 5.45, 1.25, 1.25, COLORS.render, { taper: 0.7 });
+    box(centerU, centerV, LAND_Y + 5.45, LAND_Y + 5.75, 0.5, 0.5, COLORS.renderDark);
+    const faceV = centerV - 0.8 - 0.03; // a soot streak down the face it shows the street
+    S.quad(toPoint3(centerU - 0.5, faceV, LAND_Y + 1.0), toPoint3(centerU + 0.2, faceV, LAND_Y + 1.0), toPoint3(centerU + 0.2, faceV, LAND_Y + 4.55), toPoint3(centerU - 0.5, faceV, LAND_Y + 4.55), mix(COLORS.render, COLORS.renderDark, 0.25), toNormal(0, -1));
+    box(centerU, centerV, baseY, LAND_Y + 0.5, 1.7, 1.7, COLORS.brickDark); // its damp foot
   }
   // a paved apron on the wall walk round the block, where the walk meets the gate (sandy strips on the satellite)
   S.kind = KIND.ROAD;
-  for (const sg of [-1, 1]) {
-    const u0 = sg * (W / 2), u1 = sg * (W / 2 + 4), va = vFace + 0.4, vb = vOut - 0.8 - 1.6, y = yW + 0.04;
-    S.quad(V(u0, va, y), V(u1, va, y), V(u1, vb, y), V(u0, vb, y), shade(PAL.stone, 0.7), [0, 1, 0]);
+  for (const side of [-1, 1]) {
+    const u0 = side * (GATE_WIDTH / 2);
+    const u1 = side * (GATE_WIDTH / 2 + 4);
+    const apronV0 = vFace + 0.4;
+    const apronV1 = vOut - 0.8 - 1.6;
+    const apronY = wallWalkY + 0.04;
+    S.quad(toPoint3(u0, apronV0, apronY), toPoint3(u1, apronV0, apronY), toPoint3(u1, apronV1, apronY), toPoint3(u0, apronV1, apronY), shade(PAL.stone, 0.7), [0, 1, 0]);
   }
   S.kind = KIND.PLAIN;
 
   // ---- the forecourt: a paved terrace at the gate's foot, low balustrades along the moat edge over a rubble revetment ----
-  const TU = W / 2 + 3.5, bh = BW / 2, yb = LAND_Y + 0.08;
+  const terraceHalfU = GATE_WIDTH / 2 + 3.5;
+  const bridgeHalfW = BRIDGE_WIDTH / 2;
+  const terraceY = LAND_Y + 0.08;
   S.kind = KIND.ROAD;
-  for (const sg of [-1, 1]) { const u0 = sg * (OPEN_W / 2 + 0.6), u1 = sg * TU; S.quad(V(u0, vOut + 0.3, yb), V(u1, vOut + 0.3, yb), V(u1, vBank - 0.1, yb), V(u0, vBank - 0.1, yb), PAVE, [0, 1, 0]); }
+  for (const side of [-1, 1]) {
+    const u0 = side * (OPEN_WIDTH / 2 + 0.6);
+    const u1 = side * terraceHalfU;
+    S.quad(toPoint3(u0, vOut + 0.3, terraceY), toPoint3(u1, vOut + 0.3, terraceY), toPoint3(u1, vBank - 0.1, terraceY), toPoint3(u0, vBank - 0.1, terraceY), COLORS.pave, [0, 1, 0]);
+  }
   S.kind = KIND.MASONRY;
-  { const vr = vBank + 0.06, ua = -TU - 6, ub = TU + 6; S.quad(V(ua, vr, POND_Y - 0.8), V(ub, vr, POND_Y - 0.8), V(ub, vr, LAND_Y + 0.05), V(ua, vr, LAND_Y + 0.05), RUBBLE, N(0, 1)); }
+  const revetV = vBank + 0.06;
+  S.quad(toPoint3(-terraceHalfU - 6, revetV, POND_Y - 0.8), toPoint3(terraceHalfU + 6, revetV, POND_Y - 0.8), toPoint3(terraceHalfU + 6, revetV, LAND_Y + 0.05), toPoint3(-terraceHalfU - 6, revetV, LAND_Y + 0.05), COLORS.rubble, toNormal(0, 1));
   S.kind = KIND.PLAIN;
-  for (const sg of [-1, 1]) {
-    const u0 = sg * (bh + 0.3), u1 = sg * TU, um = (u0 + u1) / 2, len = Math.abs(u1 - u0), vb = vBank - 0.25;
-    box(um, vb, yb - 0.05, yb + 0.28, len, 0.36, WHITE, { top: shade(WHITE, 0.96) }); // plinth
-    box(um, vb, yb + 0.8, yb + 0.92, len, 0.3, WHITE, { top: shade(WHITE, 1.04) }); // hand-rail
-    for (let x = 0.5; x < len - 0.3; x += 0.42) box(u0 + sg * x, vb, yb + 0.28, yb + 0.8, 0.14, 0.14, shade(WHITE, 0.9)); // vase balusters
-    for (let x = 0; x <= len + 0.01; x += len / Math.max(1, Math.round(len / 2.4))) { // posts, a heavier one at each end
-      const end = x < 0.01 || x > len - 0.01, sz = end ? 0.5 : 0.34;
-      box(u0 + sg * x, vb, yb - 0.05, yb + (end ? 1.15 : 1.0), sz, sz, WHITE);
-      box(u0 + sg * x, vb, yb + (end ? 1.15 : 1.0), yb + (end ? 1.27 : 1.1), sz + 0.1, sz + 0.1, shade(WHITE, 0.9));
+  for (const side of [-1, 1]) {
+    const u0 = side * (bridgeHalfW + 0.3);
+    const u1 = side * terraceHalfU;
+    const midU = (u0 + u1) / 2;
+    const runLen = Math.abs(u1 - u0);
+    const balV = vBank - 0.25;
+    box(midU, balV, terraceY - 0.05, terraceY + 0.28, runLen, 0.36, COLORS.white, { top: shade(COLORS.white, 0.96) }); // plinth
+    box(midU, balV, terraceY + 0.8, terraceY + 0.92, runLen, 0.3, COLORS.white, { top: shade(COLORS.white, 1.04) }); // hand-rail
+    for (let dist = 0.5; dist < runLen - 0.3; dist += 0.42) {
+      box(u0 + side * dist, balV, terraceY + 0.28, terraceY + 0.8, 0.14, 0.14, shade(COLORS.white, 0.9)); // vase balusters
+    }
+    for (let dist = 0; dist <= runLen + 0.01; dist += runLen / Math.max(1, Math.round(runLen / 2.4))) { // posts, a heavier one at each end
+      const isEnd = dist < 0.01 || dist > runLen - 0.01;
+      const postSize = isEnd ? 0.5 : 0.34;
+      box(u0 + side * dist, balV, terraceY - 0.05, terraceY + (isEnd ? 1.15 : 1.0), postSize, postSize, COLORS.white);
+      box(u0 + side * dist, balV, terraceY + (isEnd ? 1.15 : 1.0), terraceY + (isEnd ? 1.27 : 1.1), postSize + 0.1, postSize + 0.1, shade(COLORS.white, 0.9));
     }
   }
+}
 
-  // the tiled roofs drop on the terrace: a lime-grey cap where the first roof's ridges meet the terrace
-  (S.paved = S.paved || []).push([n0, S.n]);
-
+function buildCausewayBridge(data, S, frame) {
   // ---- Cầu Cửa Ngăn: the causeway over the moat (the shared road-bridge deck leaves it out; city.js) ----
-  const nb = S.n;
-  const prof = bridgeProfiles(data);
-  let road = null, Pr = null;
-  for (const rr of data.roads || []) { const pr = Array.isArray(rr) && rr[1] && prof.get(rr[2]); if (pr && pr.name === 'Cầu Cửa Ngăn') { road = rr; Pr = pr; break; } }
-  if (road) {
-    const R = resample(unflat(road[2]), 1.5);
-    const pts = R.pts, ss = R.s, wet = POND_Y - 0.8;
-    const side = (i) => { // unit vector to the left of the road at point i
-      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-      return [-(b[1] - a[1]) / l, (b[0] - a[0]) / l];
+  const bridgeStart = S.n;
+  const profiles = bridgeProfiles(data);
+  let bridgeRoad = null;
+  let profile = null;
+  for (const roadRec of data.roads || []) {
+    const prof = Array.isArray(roadRec) && roadRec[1] && profiles.get(roadRec[2]);
+    if (prof && prof.name === 'Cầu Cửa Ngăn') {
+      bridgeRoad = roadRec;
+      profile = prof;
+      break;
+    }
+  }
+  if (bridgeRoad) {
+    const sampled = resample(unflat(bridgeRoad[2]), 1.5);
+    const pts = sampled.pts;
+    const dists = sampled.s;
+    const wetY = POND_Y - 0.8;
+    const leftNormal = (idx) => { // unit vector to the left of the road at point idx
+      const ptA = pts[Math.max(0, idx - 1)];
+      const ptB = pts[Math.min(pts.length - 1, idx + 1)];
+      const len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]) || 1;
+      return [-(ptB[1] - ptA[1]) / len, (ptB[0] - ptA[0]) / len];
     };
-    const at = (i, o, y) => { const n = side(i); return [pts[i][0] + n[0] * o, y, pts[i][1] + n[1] * o]; };
-    const dy = (i) => Pr.y(ss[i]);
+    const pointAt = (idx, offset, y) => {
+      const norm = leftNormal(idx);
+      return [pts[idx][0] + norm[0] * offset, y, pts[idx][1] + norm[1] * offset];
+    };
+    const deckY = (idx) => profile.y(dists[idx]);
     for (let i = 0; i + 1 < pts.length; i++) {
-      const n = side(i), nL = [n[0], 0, n[1]], nR = [-n[0], 0, -n[1]];
+      const norm = leftNormal(i);
+      const normLeft = [norm[0], 0, norm[1]];
+      const normRight = [-norm[0], 0, -norm[1]];
       S.kind = KIND.ROAD;
-      S.quad(at(i, -BW / 2, dy(i)), at(i + 1, -BW / 2, dy(i + 1)), at(i + 1, BW / 2, dy(i + 1)), at(i, BW / 2, dy(i)), hex(PAL.road[2]), [0, 1, 0]);
+      S.quad(pointAt(i, -BRIDGE_WIDTH / 2, deckY(i)), pointAt(i + 1, -BRIDGE_WIDTH / 2, deckY(i + 1)), pointAt(i + 1, BRIDGE_WIDTH / 2, deckY(i + 1)), pointAt(i, BRIDGE_WIDTH / 2, deckY(i)), hex(PAL.road[2]), [0, 1, 0]);
       S.kind = KIND.MASONRY;
-      for (const [o, nn] of ([[BW / 2, nL], [-BW / 2, nR]] as any[])) {
-        S.quad(at(i, o, wet), at(i + 1, o, wet), at(i + 1, o, dy(i + 1) - 0.25), at(i, o, dy(i) - 0.25), CAUSE, nn);
-        S.quad(at(i, o, wet), at(i + 1, o, wet), at(i + 1, o, POND_Y + 0.35), at(i, o, POND_Y + 0.35), CAUSE_D, nn); // the damp, mossy foot
+      for (const [offset, sideNorm] of [[BRIDGE_WIDTH / 2, normLeft], [-BRIDGE_WIDTH / 2, normRight]] as any[]) {
+        S.quad(pointAt(i, offset, wetY), pointAt(i + 1, offset, wetY), pointAt(i + 1, offset, deckY(i + 1) - 0.25), pointAt(i, offset, deckY(i) - 0.25), COLORS.causeway, sideNorm);
+        S.quad(pointAt(i, offset, wetY), pointAt(i + 1, offset, wetY), pointAt(i + 1, offset, POND_Y + 0.35), pointAt(i, offset, POND_Y + 0.35), COLORS.causewayDark, sideNorm); // the damp, mossy foot
       }
       S.kind = KIND.PLAIN;
       // the balustrade: a plinth and a hand-rail, vase balusters between them, a post every few metres
-      for (const o of [BW / 2 - 0.15, -BW / 2 + 0.15]) {
-        S.beam(at(i, o, dy(i) + 0.1), at(i + 1, o, dy(i + 1) + 0.1), 0.34, 0.3, WHITE);
-        S.beam(at(i, o, dy(i) + 0.82), at(i + 1, o, dy(i + 1) + 0.82), 0.3, 0.14, WHITE);
-        for (const f of [0.25, 0.75]) {
-          const p = at(i, o, 0), q = at(i + 1, o, 0), x = p[0] + (q[0] - p[0]) * f, z = p[2] + (q[2] - p[2]) * f, yy = dy(i) + (dy(i + 1) - dy(i)) * f;
-          S.box(x, z, yy + 0.25, yy + 0.75, 0.14, 0.14, Math.atan2(n[1], n[0]), shade(WHITE, 0.94));
+      for (const offset of [BRIDGE_WIDTH / 2 - 0.15, -BRIDGE_WIDTH / 2 + 0.15]) {
+        S.beam(pointAt(i, offset, deckY(i) + 0.1), pointAt(i + 1, offset, deckY(i + 1) + 0.1), 0.34, 0.3, COLORS.white);
+        S.beam(pointAt(i, offset, deckY(i) + 0.82), pointAt(i + 1, offset, deckY(i + 1) + 0.82), 0.3, 0.14, COLORS.white);
+        for (const frac of [0.25, 0.75]) {
+          const pt0 = pointAt(i, offset, 0);
+          const pt1 = pointAt(i + 1, offset, 0);
+          const x = pt0[0] + (pt1[0] - pt0[0]) * frac;
+          const z = pt0[2] + (pt1[2] - pt0[2]) * frac;
+          const y = deckY(i) + (deckY(i + 1) - deckY(i)) * frac;
+          S.box(x, z, y + 0.25, y + 0.75, 0.14, 0.14, Math.atan2(norm[1], norm[0]), shade(COLORS.white, 0.94));
         }
       }
     }
     // posts, and at each end a heavier pier where the balustrade turns along the bank
-    const len = ss[ss.length - 1];
+    const totalLen = dists[dists.length - 1];
     for (let i = 0; i < pts.length; i++) {
-      if (i !== 0 && i !== pts.length - 1 && Math.round(ss[i] / 1.5) % 2) continue;
-      const end = i === 0 || i === pts.length - 1, n = side(i), a = Math.atan2(n[1], n[0]);
-      for (const o of [BW / 2 - 0.15, -BW / 2 + 0.15]) {
-        const p = at(i, o, 0), s = end ? 0.55 : 0.32, top = dy(i) + (end ? 1.2 : 0.98);
-        S.box(p[0], p[2], dy(i) - 0.1, top, s, s, a, WHITE);
-        S.box(p[0], p[2], top, top + 0.12, s + 0.12, s + 0.12, a, shade(WHITE, 0.92));
-        const gateEnd = end && Math.hypot(pts[i][0] - cx, pts[i][1] - cz) < 20; // there the forecourt's balustrade takes over
-        if (end && !gateEnd) { // the wing along the bank
-          const out = Math.sign(o), q0 = at(i, o, 0), dir = [n[0] * out, n[1] * out], wl = i === pts.length - 1 ? 5.5 : 3.0;
-          const q1 = [q0[0] + dir[0] * wl, q0[2] + dir[1] * wl], gy = LAND_Y + 0.05;
-          S.box((q0[0] + q1[0]) / 2, (q0[2] + q1[1]) / 2, gy - 0.3, gy + 0.85, wl, 0.3, a, WHITE, { top: shade(WHITE, 0.96) });
-          S.box(q1[0], q1[1], gy - 0.3, gy + 1.05, 0.48, 0.48, a, WHITE);
+      if (i !== 0 && i !== pts.length - 1 && Math.round(dists[i] / 1.5) % 2) continue;
+      const isEnd = i === 0 || i === pts.length - 1;
+      const norm = leftNormal(i);
+      const postAngle = Math.atan2(norm[1], norm[0]);
+      for (const offset of [BRIDGE_WIDTH / 2 - 0.15, -BRIDGE_WIDTH / 2 + 0.15]) {
+        const pt = pointAt(i, offset, 0);
+        const postSize = isEnd ? 0.55 : 0.32;
+        const postTopY = deckY(i) + (isEnd ? 1.2 : 0.98);
+        S.box(pt[0], pt[2], deckY(i) - 0.1, postTopY, postSize, postSize, postAngle, COLORS.white);
+        S.box(pt[0], pt[2], postTopY, postTopY + 0.12, postSize + 0.12, postSize + 0.12, postAngle, shade(COLORS.white, 0.92));
+        const isGateEnd = isEnd && Math.hypot(pts[i][0] - frame.centerX, pts[i][1] - frame.centerZ) < 20; // there the forecourt's balustrade takes over
+        if (isEnd && !isGateEnd) { // the wing along the bank
+          const outSign = Math.sign(offset);
+          const wingStart = pointAt(i, offset, 0);
+          const wingDir = [norm[0] * outSign, norm[1] * outSign];
+          const wingLen = i === pts.length - 1 ? 5.5 : 3.0;
+          const wingEnd = [wingStart[0] + wingDir[0] * wingLen, wingStart[2] + wingDir[1] * wingLen];
+          const bankY = LAND_Y + 0.05;
+          S.box((wingStart[0] + wingEnd[0]) / 2, (wingStart[2] + wingEnd[1]) / 2, bankY - 0.3, bankY + 0.85, wingLen, 0.3, postAngle, COLORS.white, { top: shade(COLORS.white, 0.96) });
+          S.box(wingEnd[0], wingEnd[1], bankY - 0.3, bankY + 1.05, 0.48, 0.48, postAngle, COLORS.white);
         }
       }
     }
     // the small vaulted culvert near the gate end, seen on both sides of the causeway
-    const sc = Math.max(4, len - 12), ic = ss.findIndex((s) => s >= sc), cw = 3.0, csp = POND_Y + 0.15, cr = cw / 2;
-    if (ic > 0) for (const o of [BW / 2 + 0.03, -BW / 2 - 0.03]) {
-      const n = side(ic), sg = Math.sign(o), nn = [n[0] * sg, 0, n[1] * sg];
-      const T = [pts[Math.min(pts.length - 1, ic + 1)][0] - pts[Math.max(0, ic - 1)][0], pts[Math.min(pts.length - 1, ic + 1)][1] - pts[Math.max(0, ic - 1)][1]];
-      const tl = Math.hypot(T[0], T[1]) || 1, tx = T[0] / tl, tz = T[1] / tl;
-      const pc = at(ic, o, 0), q = (x, y, out = 0) => [pc[0] + tx * x + n[0] * sg * out, y, pc[2] + tz * x + n[1] * sg * out];
-      S.quad(q(-cr, POND_Y - 0.2), q(cr, POND_Y - 0.2), q(cr, csp), q(-cr, csp), DARK, nn);
-      for (let k = 0; k < 6; k++) {
-        const [a0, b0] = arc(k, cr, csp, 6), [a1, b1] = arc(k + 1, cr, csp, 6);
-        S.tri(q(0, csp), q(a0, b0), q(a1, b1), DARK, nn);
-        const [c0, d0] = arc(k, cr + 0.3, csp, 6), [c1, d1] = arc(k + 1, cr + 0.3, csp, 6);
-        S.quad(q(a0, b0, 0.03), q(a1, b1, 0.03), q(c1, d1, 0.03), q(c0, d0, 0.03), shade(CAUSE, 1.2), nn);
+    const culvertDist = Math.max(4, totalLen - 12);
+    const culvertIdx = dists.findIndex((dist) => dist >= culvertDist);
+    const culvertW = 3.0;
+    const culvertSpringY = POND_Y + 0.15;
+    const culvertR = culvertW / 2;
+    if (culvertIdx > 0) {
+      for (const offset of [BRIDGE_WIDTH / 2 + 0.03, -BRIDGE_WIDTH / 2 - 0.03]) {
+        const norm = leftNormal(culvertIdx);
+        const sideSign = Math.sign(offset);
+        const sideNorm = [norm[0] * sideSign, 0, norm[1] * sideSign];
+        const tanVec = [
+          pts[Math.min(pts.length - 1, culvertIdx + 1)][0] - pts[Math.max(0, culvertIdx - 1)][0],
+          pts[Math.min(pts.length - 1, culvertIdx + 1)][1] - pts[Math.max(0, culvertIdx - 1)][1],
+        ];
+        const tanLen = Math.hypot(tanVec[0], tanVec[1]) || 1;
+        const tanX = tanVec[0] / tanLen;
+        const tanZ = tanVec[1] / tanLen;
+        const centerPt = pointAt(culvertIdx, offset, 0);
+        const culvertPt = (along, y, out = 0) => [centerPt[0] + tanX * along + norm[0] * sideSign * out, y, centerPt[2] + tanZ * along + norm[1] * sideSign * out];
+        S.quad(culvertPt(-culvertR, POND_Y - 0.2), culvertPt(culvertR, POND_Y - 0.2), culvertPt(culvertR, culvertSpringY), culvertPt(-culvertR, culvertSpringY), COLORS.dark, sideNorm);
+        for (let k = 0; k < 6; k++) {
+          const [a0, b0] = arcPoint(k, culvertR, culvertSpringY, 6);
+          const [a1, b1] = arcPoint(k + 1, culvertR, culvertSpringY, 6);
+          S.tri(culvertPt(0, culvertSpringY), culvertPt(a0, b0), culvertPt(a1, b1), COLORS.dark, sideNorm);
+          const [c0, d0] = arcPoint(k, culvertR + 0.3, culvertSpringY, 6);
+          const [c1, d1] = arcPoint(k + 1, culvertR + 0.3, culvertSpringY, 6);
+          S.quad(culvertPt(a0, b0, 0.03), culvertPt(a1, b1, 0.03), culvertPt(c1, d1, 0.03), culvertPt(c0, d0, 0.03), shade(COLORS.causeway, 1.2), sideNorm);
+        }
       }
     }
     // the street lamp the shared lamp-post pass stands over this deck (landmarks/life.js: one each 36 m, the first at
     // 18 m, alternate sides, ROAD_W/2 + 0.5 m out): a small corbelled bay in the balustrade carries it
-    for (let s = 18, k = 0; s < len; s += 36, k++) {
-      const i = ss.findIndex((x) => x >= s), o = (ROAD_W[Math.max(0, Math.min(5, road[0] | 0))] / 2 + 0.5) * (k % 2 ? 1 : -1);
-      if (i < 0) continue;
-      const n = side(i), a = Math.atan2(n[1], n[0]), sg = Math.sign(o), w0 = BW / 2, w1 = Math.abs(o) + 0.6;
-      const pa = at(i, sg * (w0 + w1) / 2, 0), yy = dy(i);
+    for (let dist = 18, k = 0; dist < totalLen; dist += 36, k++) {
+      const idx = dists.findIndex((val) => val >= dist);
+      const lampOffset = (ROAD_W[Math.max(0, Math.min(5, bridgeRoad[0] | 0))] / 2 + 0.5) * (k % 2 ? 1 : -1);
+      if (idx < 0) continue;
+      const norm = leftNormal(idx);
+      const angle = Math.atan2(norm[1], norm[0]);
+      const sideSign = Math.sign(lampOffset);
+      const innerHalf = BRIDGE_WIDTH / 2;
+      const outerHalf = Math.abs(lampOffset) + 0.6;
+      const bayPos = pointAt(idx, sideSign * (innerHalf + outerHalf) / 2, 0);
+      const y = deckY(idx);
       S.kind = KIND.MASONRY;
-      S.box(pa[0], pa[2], yy - 1.6, yy, w1 - w0, 2.2, a, CAUSE, { top: hex(PAL.road[2]) });
+      S.box(bayPos[0], bayPos[2], y - 1.6, y, outerHalf - innerHalf, 2.2, angle, COLORS.causeway, { top: hex(PAL.road[2]) });
       S.kind = KIND.PLAIN;
-      const pe = at(i, sg * (w1 - 0.15), 0);
-      S.box(pe[0], pe[2], yy, yy + 0.9, 0.3, 2.2, a, WHITE, { top: shade(WHITE, 0.95) });
+      const kerbPos = pointAt(idx, sideSign * (outerHalf - 0.15), 0);
+      S.box(kerbPos[0], kerbPos[2], y, y + 0.9, 0.3, 2.2, angle, COLORS.white, { top: shade(COLORS.white, 0.95) });
     }
   }
   S.kind = KIND.PLAIN;
-  (S.paved = S.paved || []).push([nb, S.n]);
+  (S.paved = S.paved || []).push([bridgeStart, S.n]);
+}
 
-  if (!group || !THREE) return null;
+function buildSignboardAndNightLights(group, THREE, frame, dims, tower) {
+  if (!group || !THREE) return;
+  const { toWorld, toPoint3, vIn, vOut, outX, outZ, wallAngle } = frame;
   // the panel's characters, read right to left: 體 仁 門 (a small canvas, in the browser only)
   if (typeof document !== 'undefined') {
-    const cv = document.createElement('canvas');
-    cv.width = 256; cv.height = 96;
-    const c = cv.getContext('2d');
-    c.fillStyle = '#b8b2a2'; c.fillRect(0, 0, 256, 96);
-    c.fillStyle = '#4a4540'; c.font = 'bold 64px serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    ['門', '仁', '體'].forEach((ch, i) => c.fillText(ch, 48 + i * 80, 50));
-    const tex = new THREE.CanvasTexture(cv);
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 96;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#b8b2a2';
+    ctx.fillRect(0, 0, 256, 96);
+    ctx.fillStyle = '#4a4540';
+    ctx.font = 'bold 64px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ['門', '仁', '體'].forEach((ch, i) => ctx.fillText(ch, 48 + i * 80, 50));
+    const tex = new THREE.CanvasTexture(canvas);
     tex.colorSpace = THREE.SRGBColorSpace;
     const mat = new THREE.MeshLambertMaterial({ map: tex });
     const geo = new THREE.PlaneGeometry(2.2, 0.82);
-    for (const [v, sg] of ([[vIn, -1], [vOut, 1]] as any[])) {
-      const p = P(0, v + sg * 0.27), m = new THREE.Mesh(geo, mat);
-      m.position.set(p[0], LAND_Y + 6.25 + 0.525, p[1]);
-      m.rotation.y = Math.atan2(ox * sg, oz * sg);
-      m.userData.landmark = id;
-      group.add(m);
+    for (const [faceV, faceSign] of [[vIn, -1], [vOut, 1]]) {
+      const pos = toWorld(0, faceV + faceSign * 0.27);
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(pos[0], LAND_Y + 6.25 + 0.525, pos[1]);
+      mesh.rotation.y = Math.atan2(outX * faceSign, outZ * faceSign);
+      mesh.userData.landmark = id;
+      group.add(mesh);
     }
   }
   // after dark (one of the two lit south gates): warm light under both eaves, along the cornice, and in the passage
-  const L = new Buf(400);
-  const ring = (w, d, v0, y?) => {
-    const c = [[-w / 2, -d / 2], [w / 2, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];
-    for (let k = 0; k < 4; k++) { const a = c[k], b = c[(k + 1) % 4]; (L.beam as any)(V(a[0], v0 + a[1], y), V(b[0], v0 + b[1], y), 0.12, 0.1); }
+  const lightBuf = new Buf(400);
+  const addLightRing = (width, depth, centerV, y?) => {
+    const corners = [[-width / 2, -depth / 2], [width / 2, -depth / 2], [width / 2, depth / 2], [-width / 2, depth / 2]];
+    for (let k = 0; k < 4; k++) {
+      const ptA = corners[k];
+      const ptB = corners[(k + 1) % 4];
+      (lightBuf.beam as any)(toPoint3(ptA[0], centerV + ptA[1], y), toPoint3(ptB[0], centerV + ptB[1], y), 0.12, 0.1);
+    }
   };
-  L.beam = ((beam) => function (this: any, a, b, w, h, col = [1, 0.85, 0.6]) { return beam.call(this, a, b, w, h, col); })(L.beam);
-  ring(TW + 0.3, TD + 0.3, tv, y1 - 0.4);
-  ring(UW + 0.25, UD + 0.25, tv, y2 - 0.32);
-  for (const [v, sg] of ([[vIn, -1], [vOut, 1]] as any[])) {
-    (L.beam as any)(V(-W / 2 + 1.3, v + sg * 0.5, yT - 0.65), V(W / 2 - 1.3, v + sg * 0.5, yT - 0.65), 0.12, 0.1);
-    L.box(...P(0, v - sg * 1.2), spring + 0.4, spring + 0.6, 0.5, 0.3, AU, [1, 0.8, 0.5]);
+  lightBuf.beam = ((beamFn) => function (this: any, ptA, ptB, width, height, col = [1, 0.85, 0.6]) {
+    return beamFn.call(this, ptA, ptB, width, height, col);
+  })(lightBuf.beam);
+  addLightRing(tower.towerW + 0.3, tower.towerD + 0.3, tower.midV, tower.lowerTopY - 0.4);
+  addLightRing(tower.upperW + 0.25, tower.upperD + 0.25, tower.midV, tower.upperTopY - 0.32);
+  for (const [faceV, faceSign] of [[vIn, -1], [vOut, 1]]) {
+    (lightBuf.beam as any)(toPoint3(-GATE_WIDTH / 2 + 1.3, faceV + faceSign * 0.5, dims.corniceY - 0.65), toPoint3(GATE_WIDTH / 2 - 1.3, faceV + faceSign * 0.5, dims.corniceY - 0.65), 0.12, 0.1);
+    const lightPos = toWorld(0, faceV - faceSign * 1.2);
+    lightBuf.box(lightPos[0], lightPos[1], dims.springY + 0.4, dims.springY + 0.6, 0.5, 0.3, wallAngle, [1, 0.8, 0.5]);
   }
-  const lm = new THREE.Mesh(L.geometry(), lightMaterial(0xffd9a0, 1.5));
-  lm.renderOrder = 19;
-  lm.userData.landmark = id;
-  group.add(lm);
+  const lightMesh = new THREE.Mesh(lightBuf.geometry(), lightMaterial(0xffd9a0, 1.5));
+  lightMesh.renderOrder = 19;
+  lightMesh.userData.landmark = id;
+  group.add(lightMesh);
+}
+
+export function build({ data, S, group, THREE }) {
+  const frame = createGateFrame(data, S);
+  const archRadius = OPEN_WIDTH / 2;
+  const crownY = LAND_Y + OPEN_HEIGHT;
+  const dims = {
+    baseY: LAND_Y - 0.5,
+    corniceY: LAND_Y + WALL_H + CORNICE_TOP_OFFSET,
+    floorY: LAND_Y + 0.02,
+    archRadius,
+    crownY,
+    springY: crownY - archRadius,
+  };
+  const pavedStart = S.n;
+
+  buildGateBlockAndFaces(S, frame, dims);
+  const tower = buildTopParapetAndWatchtower(S, frame, dims.corniceY);
+  buildRearCuttingAndForecourt(S, frame, dims.baseY);
+
+  // the tiled roofs drop on the terrace: a lime-grey cap where the first roof's ridges meet the terrace
+  (S.paved = S.paved || []).push([pavedStart, S.n]);
+
+  buildCausewayBridge(data, S, frame);
+  buildSignboardAndNightLights(group, THREE, frame, dims, tower);
   return null;
 }

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import polygonClipping from 'polygon-clipping';
-import { KIND, unflat } from '../../geo/buf.ts';
-import type { HueData, PlaceModule, Vec2 } from '../../types.ts';
+import { Buf, KIND, unflat } from '../../geo/buf.ts';
+import type { HueData, PlaceModule, PlaceUpdateHandle, Vec2 } from '../../types.ts';
 
 // Replica models, one file per place: src/landmarks/places/<slug>.js, picked up here without being listed.
 //
@@ -33,7 +33,7 @@ export const replaced = (id: string): boolean => { load(); return ids.has(String
 
 // A place may also export ownsMapped(ring): true for a mapped building outline (data.bld, scene metres) that the
 // place's model draws itself, so geo/city.js leaves it out even where the model's roofs do not cover it.
-export function placeOwns(ring) {
+export function placeOwns(ring: Vec2[]): boolean {
   load();
   return list.some((m) => typeof m.ownsMapped === 'function' && m.ownsMapped(ring));
 }
@@ -41,9 +41,9 @@ export function placeOwns(ring) {
 // A place that models a bridge deck may also export deckEnds(data): its end lines, [{ p, u, hw, reach }] (p on the
 // deck's axis at the end, u the unit vector out of the deck, hw the half width, reach how far past the end a street
 // may start and still be an approach). geo/city.js cuts the approach streets on those lines; check-joints tests them.
-export function placeDeckEnds(data) {
+export function placeDeckEnds(data: HueData) {
   load();
-  const out = [];
+  const out: Array<{ p: Vec2; u: Vec2; hw: number; reach: number; id: string }> = [];
   for (const m of list) {
     if (typeof m.deckEnds !== 'function') continue;
     try { for (const e of m.deckEnds(data)) out.push({ ...e, id: m.id }); } catch (e) { console.warn(`deck ends of ${m.id}:`, e); }
@@ -55,16 +55,16 @@ export function placeDeckEnds(data) {
 // (data.wall[0]), for a court sunk into a bastion beside a monument that stands on it (Kỳ Đài). They are cut before
 // any place is built, so the rampart (kinhthanh.js) and the gates that find its faces all see the same band. A cut
 // that would split the band in two is refused.
-function withRampartCuts(data) {
-  const band = (data.wall || [])[0], cuts = [];
+function withRampartCuts(data: HueData): HueData {
+  const band = (data.wall || [])[0], cuts: Vec2[][] = [];
   for (const m of list) {
     if (typeof m.rampartCuts !== 'function') continue;
     try { cuts.push(...m.rampartCuts(data)); } catch (e) { console.warn(`rampart cuts of ${m.id}:`, e); }
   }
   if (!band || !cuts.length) return data;
-  const close = (r) => [...r, r[0]];
+  const close = (r: Vec2[]) => [...r, r[0]];
   try {
-    const out = polygonClipping.difference(band.map((f) => close(unflat(f))), ...cuts.map((r) => [close(r)]));
+    const out = polygonClipping.difference(band.map((f: number[]) => close(unflat(f))), ...cuts.map((r) => [close(r)]));
     if (out.length !== 1) throw new Error(`the band would fall into ${out.length} pieces`);
     const flat = out[0].map((r) => r.slice(0, -1).flatMap(([x, z]) => [x * 10, z * 10]));
     return { ...data, wall: [flat, ...data.wall.slice(1)] };
@@ -76,9 +76,9 @@ function withRampartCuts(data) {
 
 // A place that lights its own walk may also export lightAreas(data): rings ([[x, z], ...], metres) inside which the
 // generic riverside lamps (riverlights.js, data.riverLamps) are left out, so its own lamp design is the only one there.
-export function placeLightAreas(data) {
+export function placeLightAreas(data: HueData): Vec2[][] {
   load();
-  const out = [];
+  const out: Vec2[][] = [];
   for (const m of list) {
     if (typeof m.lightAreas !== 'function') continue;
     try { out.push(...m.lightAreas(data)); } catch (e) { console.warn(`light areas of ${m.id}:`, e); }
@@ -89,9 +89,9 @@ export function placeLightAreas(data) {
 // A place that models paths OSM maps as ways (a gallery round a building, its steps) may export ownWays(data): a
 // test on a data.roads record ([class, bridge, flat, ...]) that is true for the ways it draws itself. geo/city.js and
 // landmarks/life.js leave those out of the street network, so no footway is laid at grade where the model stands.
-export function placeOwnsWay(data) {
+export function placeOwnsWay(data: HueData): (road: any) => boolean {
   load();
-  const tests = [];
+  const tests: Array<(road: any) => boolean> = [];
   for (const m of list) {
     if (typeof m.ownWays !== 'function') continue;
     try { tests.push(m.ownWays(data)); } catch (e) { console.warn(`own ways of ${m.id}:`, e); }
@@ -102,9 +102,9 @@ export function placeOwnsWay(data) {
 // A place that lays its own ground flush with the land (a lawn, walks) may also export clearings(data): rings of
 // [x, z] in model metres where geo/city.js draws none of the city's footways (class 5) or green patches (the ones
 // whose middle lies inside) and plants no trees or houses. buildCity reads them before any model is built.
-export function placeClearings(data) {
+export function placeClearings(data: HueData): Vec2[][] {
   load();
-  const out = [];
+  const out: Vec2[][] = [];
   for (const m of list) {
     if (typeof m.clearings !== 'function') continue;
     try { for (const ring of m.clearings(data)) if (ring && ring.length >= 3) out.push(ring); } catch (e) { console.warn(`clearings of ${m.id}:`, e); }
@@ -113,20 +113,25 @@ export function placeClearings(data) {
 }
 
 // onEach(id, [from, to], firstChild): optional, for the headless checks, which tell the places apart
-export function buildPlaces(data0, S, group, onEach = null) {
+export function buildPlaces(
+  data0: HueData,
+  S: Buf,
+  group: THREE.Group,
+  onEach: ((id: string, range: [number, number], firstChild: number) => void) | null = null,
+): PlaceUpdateHandle {
   load();
   const data = withRampartCuts(data0);
-  const live = [];
+  const live: PlaceUpdateHandle[] = [];
   for (const m of list) {
     const id = String(m.id).normalize('NFC');
     const p = (data.places || []).find((q) => String(q.id).normalize('NFC') === id);
     const place = p ? { ...p, x: p.x / 10, z: p.z / 10 } : null;
     const n0 = S.n, k0 = group ? group.children.length : 0; // on a throw, roll the shared buffer back so no half-built model is left behind
     try {
-      let r;
-      if (m.joinRoofs !== false) S.joined(() => { r = m.build({ data, S, group, place, THREE }); });
-      else r = m.build({ data, S, group, place, THREE });
-      if (r && typeof r.update === 'function') live.push(r);
+      let handle: PlaceUpdateHandle | void;
+      if (m.joinRoofs !== false) S.joined(() => { handle = m.build({ data, S, group, place, THREE }); });
+      else handle = m.build({ data, S, group, place, THREE });
+      if (handle && typeof handle.update === 'function') live.push(handle);
     } catch (e) {
       S.n = n0;
       console.warn(`replica ${id} not built:`, e);

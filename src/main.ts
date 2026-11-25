@@ -26,380 +26,661 @@ import { VIEWS } from './ui/content.ts';
 import { rise } from './geo/terrain.ts';
 import { createFallback } from './ui/fallback.ts';
 
+const DECIMETRES_PER_METRE = 10;
+const MAX_POST_PIXELS = 2.0e6;
+const CAMERA_BOUNDS_INSET_M = 250;
+const SUN_SHADOW_RADIUS = 2.4;
+const SKY_FAR_SCALE = 0.9;
+const GLOW_VISIBLE_THRESHOLD = 0.01;
+const MAX_FRAME_DT_S = 0.05;
+const DRIFT_START_DELAY_MS = 1400;
+
+const LOADER_PROGRESS = {
+  indexReady: 0.05,
+  geometryLoaded: 0.15,
+  cityBuilt: 0.55,
+  landmarksBuilt: 0.8,
+  done: 1,
+} as const;
+
+const HOME_VIEW = {
+  refAspect: 1.62,
+  aspectRange: 2.5,
+  back: [790, 1300] as const,
+  side: [140, 110] as const,
+  height: [250, 430] as const,
+  ahead: [90, 150] as const,
+  north: [40, 55] as const,
+};
+
+const OVERVIEW_VIEW = {
+  refAspect: 1.4,
+  aspectExponent: 0.9,
+  offsetX: 4000,
+  height: 3300,
+  offsetZ: 5300,
+  flyDurationS: 3,
+} as const;
+
+const PLACE_PICK = {
+  maxMovePx: 6,
+  maxTapMs: 450,
+  reachM: { area: 0, island: 220, bridge: 150, default: 85 },
+  flyDurationS: 2.6,
+  portraitDistanceScale: 1.35,
+  flyDistanceMargin: 1.2,
+} as const;
+
+const DBLCLICK_ZOOM = {
+  distanceFactor: 0.45,
+  minDistanceM: 60,
+  flyDurationS: 1.1,
+} as const;
+
+const KEYBOARD_ZOOM = { inFactor: 0.65, outFactor: 1.5 } as const;
+
+const SHADOW_EXTENT = { minM: 260, maxM: 2600, distRatio: 0.8 } as const;
+
+const HIGH_ALT_FOG = { startM: 1000, endM: 3500, maxReduction: 0.78 } as const;
+const DOF_ALTITUDE = { startM: 120, endM: 650, maxAperture: 0.3 } as const;
+
+const ADAPTIVE_QUALITY = {
+  slowFrameMs: 36,
+  maxFrameCreditMs: 250,
+  triggerBudgetMs: 1600,
+  initialDetailReachLowM: 850,
+  initialDetailReachHighM: 1280,
+  tiers: [
+    { detailReachM: 980, minPixelRatio: 1.0, pixelRatioStep: 0.25 },
+    { detailReachM: 850, minPixelRatio: 0.85, pixelRatioStep: 0.2 },
+    { detailReachM: 720, fixedPixelRatio: 0.75 },
+  ],
+} as const;
+
+const RESIZE_NONE = 0;
+const RESIZE_BUFFERS = 1;
+const RESIZE_FULL = 2;
+
 const canvas = document.getElementById('scene') as HTMLCanvasElement;
 // yield to the event loop between build steps (a message task is not throttled in background tabs, unlike rAF and timers)
-const frame = () => new Promise<void>((r) => { const ch = new MessageChannel(); ch.port1.onmessage = () => r(); ch.port2.postMessage(0); });
+const nextMacrotask = () => new Promise<void>((resolve) => {
+  const channel = new MessageChannel();
+  channel.port1.onmessage = () => resolve();
+  channel.port2.postMessage(0);
+});
 
 // `?nogl` (debugging): behave as a device without WebGL, so the recovery screen and the 2D fallback can be tried
 const NOGL = new URLSearchParams(location.search).has('nogl');
 if (NOGL) {
-  const getContext = HTMLCanvasElement.prototype.getContext;
-  (HTMLCanvasElement.prototype as any).getContext = function (type: string, ...rest: any[]) { return /webgl/i.test(type) ? null : (getContext as any).call(this, type, ...rest); };
+  const origGetContext = HTMLCanvasElement.prototype.getContext;
+  (HTMLCanvasElement.prototype as any).getContext = function (type: string, ...rest: any[]) {
+    return /webgl/i.test(type) ? null : (origGetContext as any).call(this, type, ...rest);
+  };
 }
+
 // The renderer doubles as the capability check, made before anything heavy is fetched. null when WebGL is unavailable;
 // the exception stays in the console. A second try without antialiasing and the high-performance hint catches the
 // drivers that refuse only those.
 function createRenderer() {
-  for (const opts of [{ antialias: true, powerPreference: 'high-performance' as const }, { antialias: false }]) {
+  const attempts = [
+    { antialias: true, powerPreference: 'high-performance' as const },
+    { antialias: false },
+  ];
+  for (const opts of attempts) {
     try { return new THREE.WebGLRenderer({ canvas, ...opts }); } catch (err) { console.error(err); }
   }
   return null;
 }
-const getJSON = async (name) => {
+
+async function fetchDataJSON(name: string) {
   const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
   if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
   return res.json();
-};
+}
 
-let ui = null, index = null, fallback = null;
-async function main() {
-  const t0 = performance.now();
-  // the place index (~30 kB: names, kinds, positions, counts) comes first: search and the cards need nothing else
-  const indexP = getJSON('places.json');
-  let renderer = createRenderer();
-  // the geometry bundle (~8 MB) only once the device has shown it can render it, then alongside the index
-  let geometryP = renderer ? getJSON('hue.json') : null;
-  if (geometryP) geometryP.catch(() => {}); // a failure is reported where it is awaited, below
-  index = await indexP;
+// The post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
+// at 1, but the adaptive fallback may still take quality.pixelRatio below 1 on a slow 1x screen.
+function fitPixelRatio() {
+  if (quality.low) return quality.pixelRatio;
+  const maxRatio = Math.max(1, Math.sqrt(MAX_POST_PIXELS / (innerWidth * innerHeight)));
+  return Math.min(quality.pixelRatio, maxRatio);
+}
 
-  let rig, mood, labels, data, sharing;
-  const live = (f) => (...a) => (rig ? f(...a) : undefined); // controls that need the 3D scene
-  const syncCard = (id = null) => { labels?.setActive?.(id); labels?.invalidateLayout?.(); };
-  ui = createUI(index, {
-    pick: (id, fly, from) => pick(id, fly, from),
-    overview: () => { ui.hideCard(); syncCard(null); if (!rig) { fallback && fallback.home(); return; } const v = overviewView(); rig.flyTo(v.pos, v.target, { duration: 3 }); },
-    lang: () => { if (labels) labels.remeasure(); if (fallback) fallback.relabel(); },
-    labels: live(() => toggleLabels()),
-    osmOnly: live((on) => { world.infill.forEach((m) => { m.visible = !on; }); }),
-    home: () => { ui.hideCard(); syncCard(null); if (rig) rig.goHome(); else if (fallback) fallback.home(); },
-    zoom: (k) => { if (rig) rig.zoomBy(k); else if (fallback) fallback.zoom(k); },
-    cardClosed: () => syncCard(null),
-    rain: live(() => mood.setRain(!mood.state.rainTarget)),
-    time: live((i) => mood.setTime(i)),
-    look: live(() => setLook(!look, true)),
-    share: (id) => sharing && sharing.share(id),
-  });
-  performance.mark('hue:search-ready');
-  fallback = createFallback({ ui, index, tryRenderer: createRenderer, onPick: (id) => pick(id, true) });
-  ui.loaderProgress(0.05);
-  // no WebGL: the recovery screen, and hue.json is never fetched unless "Retry 3D" gets a renderer
-  if (!renderer) renderer = await fallback.recover();
-  data = await (geometryP || getJSON('hue.json'));
-  performance.mark('hue:geometry-loaded');
-  ui.loaderProgress(0.15);
-  await frame();
+// Opening frame: from above the river below the bridge, looking up-stream into the afternoon light.
+// Trường Tiền crosses the foreground, chợ Đông Ba sits at its right-hand end, the Citadel wall and Kỳ Đài run off behind.
+function computeHomeView(bridge: { centre: number[]; dir: number[] }) {
+  const center = bridge.centre;
+  const dir = bridge.dir;
+  const upstream = [-dir[1], dir[0]];
+  // narrower windows step back and up so the whole bridge and the market still share the frame
+  const narrowBlend = Math.max(0, Math.min(1, (HOME_VIEW.refAspect / (innerWidth / innerHeight) - 1) / HOME_VIEW.aspectRange));
+  const lerpPair = (pair: readonly [number, number]) => pair[0] + (pair[1] - pair[0]) * narrowBlend;
+  const back = lerpPair(HOME_VIEW.back);
+  const side = lerpPair(HOME_VIEW.side);
+  const height = lerpPair(HOME_VIEW.height);
+  const ahead = lerpPair(HOME_VIEW.ahead);
+  const north = lerpPair(HOME_VIEW.north);
+  const pos = new THREE.Vector3(
+    center[0] - upstream[0] * back - dir[0] * side,
+    height,
+    center[1] - upstream[1] * back - dir[1] * side,
+  );
+  const target = new THREE.Vector3(
+    center[0] + upstream[0] * ahead - dir[0] * north,
+    LAND_Y,
+    center[1] + upstream[1] * ahead - dir[1] * north,
+  );
+  return { pos, target };
+}
 
-  // ---------- renderer ----------
-  // the post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
-  // at 1, but the adaptive fallback (adapt) may still take quality.pixelRatio below 1 on a slow 1x screen
-  const fitRatio = () => (quality.low ? quality.pixelRatio : Math.min(quality.pixelRatio, Math.max(1, Math.sqrt(2.0e6 / (innerWidth * innerHeight)))));
-  renderer.setPixelRatio(fitRatio());
-  renderer.setSize(innerWidth, innerHeight, false);
-  renderer.toneMapping = THREE.NeutralToneMapping;
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFShadowMap;
-  const scene = new THREE.Scene();
+// The whole slab from the south-east, the way one would stand over a model on a table.
+function computeOverviewView(bounds: number[]) {
+  const aspectScale = Math.pow(Math.max(1, OVERVIEW_VIEW.refAspect / (innerWidth / innerHeight)), OVERVIEW_VIEW.aspectExponent);
+  const centerX = (bounds[0] + bounds[2]) / 2;
+  const centerZ = (bounds[1] + bounds[3]) / 2;
+  return {
+    pos: new THREE.Vector3(
+      centerX + OVERVIEW_VIEW.offsetX * aspectScale,
+      OVERVIEW_VIEW.height * aspectScale,
+      centerZ + OVERVIEW_VIEW.offsetZ * aspectScale,
+    ),
+    target: new THREE.Vector3(centerX, LAND_Y, centerZ),
+  };
+}
 
-  // ---------- world ----------
-  const world = buildCity(data);
-  ui.loaderProgress(0.55);
-  await frame();
-  const dynamic = new THREE.Group();
-  // every landmark, populate and the moving things, in the sequence the geometry checks build too (src/landmarks/build.js)
-  const { bridge, citadel, extraGlows, floating, replicas, boats, lanterns, traffic, street } = buildLandmarks(data, world, dynamic);
-  const heroes = createHeroLoader(dynamic, () => {
-    if (shadows?.invalidate) shadows.invalidate();
-    else if (sun?.shadow) sun.shadow.needsUpdate = true;
-  });
-  scene.add(world.group, dynamic);
-  const lanternGlows = []; // lanternGlows: glow points that landmarks flagged for the per-frame update
-  dynamic.traverse((o) => { if (o.userData.glow) lanternGlows.push(o); });
-  ui.loaderProgress(0.8);
-  await frame();
-
-  const sky = buildSky();
-  const water = buildWater(data);
-  const rain = buildRain();
-  scene.add(sky.mesh, water.mesh, water.ponds, rain.mesh);
-
+function setupLighting(scene: THREE.Scene, renderer: THREE.WebGLRenderer) {
   const hemi = new THREE.HemisphereLight(0xffffff, 0x887766, 1);
   const sun = new THREE.DirectionalLight(0xffffff, 2);
   sun.castShadow = true;
   sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
-  sun.shadow.radius = 2.4;
+  sun.shadow.radius = SUN_SHADOW_RADIUS;
   scene.add(hemi, sun, sun.target);
   const shadows = createCascades(scene, sun, { tight: !quality.low }); // after the sun, so the sun stays light 0
   const ibl = quality.low ? null : createIBL(renderer, scene);
+  return { hemi, sun, shadows, ibl };
+}
 
-  mood = createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl });
-  mood.onChange((s) => ui.setMood({ rain: s.rainTarget, time: s.timeTarget }));
-  ui.setMood({ rain: mood.state.rainTarget, time: mood.state.timeTarget });
+function findNearestPlace(places: any[], groundPos: THREE.Vector3) {
+  let best = null;
+  let bestDist = Infinity;
+  for (const place of places) {
+    const dist = Math.hypot(place.x / DECIMETRES_PER_METRE - groundPos.x, place.z / DECIMETRES_PER_METRE - groundPos.z);
+    const reach = PLACE_PICK.reachM[place.k as keyof typeof PLACE_PICK.reachM] ?? PLACE_PICK.reachM.default;
+    if (dist < reach && dist < bestDist) {
+      bestDist = dist;
+      best = place;
+    }
+  }
+  return best;
+}
 
-  // ---------- camera ----------
-  const b = data.meta.bounds.map((v) => v / 10);
-  rig = createCamera(canvas, { minX: b[0] + 250, minZ: b[1] + 250, maxX: b[2] - 250, maxZ: b[3] - 250 });
+function bindCanvasInteractions(opts: {
+  rig: any;
+  data: any;
+  ui: any;
+  mood: any;
+  pick: (id: string, fly?: boolean, from?: any) => void;
+  syncCard: (id?: string | null) => void;
+  toggleLabels: () => void;
+  toggleLook: () => void;
+}) {
+  const { rig, data, ui, mood, pick, syncCard, toggleLabels, toggleLook } = opts;
   const { camera, controls } = rig;
-  camera.layers.enable(1); // layer 1: things kept out of the water reflection
-  const post = quality.low ? null : createPost(renderer, scene, camera);
-  let usePost = !!post;
-  const draw = () => (usePost && post ? post.render() : renderer.render(scene, camera));
 
-  // Opening frame: from above the river below the bridge, looking up-stream into the afternoon light.
-  // Trường Tiền crosses the foreground, chợ Đông Ba sits at its right-hand end, the Citadel wall and Kỳ Đài run off behind.
-  const c = bridge.centre, d = bridge.dir;
-  const upR = [-d[1], d[0]];
-  function homeView() {
-    // narrower windows step back and up so the whole bridge and the market still share the frame
-    const t = Math.max(0, Math.min(1, (1.62 / (innerWidth / innerHeight) - 1) / 2.5));
-    const mixv = (a, b) => a + (b - a) * t;
-    const back = mixv(790, 1300), side = mixv(140, 110), height = mixv(250, 430), ahead = mixv(90, 150), north = mixv(40, 55);
-    const pos = new THREE.Vector3(c[0] - upR[0] * back - d[0] * side, height, c[1] - upR[1] * back - d[1] * side);
-    const target = new THREE.Vector3(c[0] + upR[0] * ahead - d[0] * north, LAND_Y, c[1] + upR[1] * ahead - d[1] * north);
-    return { pos, target };
+  // Tap / click on the ground near a landmark reveals it.
+  // Every pointer is tracked: a second finger neither ends the first one's drag nor counts as a tap.
+  const activePointers = new Map<number, { x: number; y: number; downAt: number; lastX: number; lastY: number; multi: boolean; dragged?: boolean }>();
+  canvas.addEventListener('pointerdown', (event) => {
+    const multi = activePointers.size > 0;
+    if (multi) activePointers.forEach((ptr) => { ptr.multi = true; });
+    activePointers.set(event.pointerId, {
+      x: event.clientX, y: event.clientY, downAt: performance.now(),
+      lastX: event.clientX, lastY: event.clientY, multi,
+    });
+    canvas.classList.add('dragging');
+  });
+  canvas.addEventListener('pointermove', (event) => {
+    const ptr = activePointers.get(event.pointerId);
+    if (!ptr) return;
+    ptr.lastX = event.clientX;
+    ptr.lastY = event.clientY;
+    // a drag stays a drag even if it ends near its start
+    if (Math.hypot(event.clientX - ptr.x, event.clientY - ptr.y) > PLACE_PICK.maxMovePx) ptr.dragged = true;
+  });
+  const handlePointerUp = (event: PointerEvent) => {
+    const ptr = activePointers.get(event.pointerId);
+    activePointers.delete(event.pointerId);
+    if (!activePointers.size) canvas.classList.remove('dragging');
+    if (!ptr) return;
+    const moved = Math.hypot(event.clientX - ptr.x, event.clientY - ptr.y);
+    const elapsed = performance.now() - ptr.downAt;
+    if (ptr.multi || ptr.dragged || moved > PLACE_PICK.maxMovePx || elapsed > PLACE_PICK.maxTapMs || event.type === 'pointercancel') return;
+    const groundPos = rig.groundAt(event.clientX, event.clientY);
+    if (!groundPos) return;
+    const hitPlace = findNearestPlace(data.places, groundPos);
+    if (hitPlace) pick(hitPlace.id, false);
+    else if (ui.cardId) { ui.hideCard(); syncCard(null); }
+  };
+  addEventListener('pointerup', handlePointerUp);
+  addEventListener('pointercancel', handlePointerUp);
+
+  const clearPointers = () => { activePointers.clear(); canvas.classList.remove('dragging'); };
+  addEventListener('blur', clearPointers);
+  document.addEventListener('visibilitychange', clearPointers);
+
+  canvas.addEventListener('dblclick', (event) => {
+    const groundPos = rig.groundAt(event.clientX, event.clientY);
+    if (!groundPos) return;
+    const offset = camera.position.clone().sub(controls.target).multiplyScalar(DBLCLICK_ZOOM.distanceFactor);
+    if (offset.length() < DBLCLICK_ZOOM.minDistanceM) offset.setLength(DBLCLICK_ZOOM.minDistanceM);
+    groundPos.y = LAND_Y + rise(groundPos.x, groundPos.z);
+    rig.flyTo(groundPos.clone().add(offset), groundPos, { duration: DBLCLICK_ZOOM.flyDurationS, arc: false });
+  });
+  canvas.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  addEventListener('keydown', (event) => {
+    if (fromForm(event) || event.metaKey || event.ctrlKey || (document.getElementById('about') as HTMLDialogElement).open) return;
+    const key = event.key.toLowerCase();
+    if (key === 'escape') { ui.hideCard(); syncCard(null); }
+    else if (key === 'h' || key === 'home') { rig.goHome(); ui.hideCard(); syncCard(null); }
+    else if (key === 'r') mood.setRain(!mood.state.rainTarget);
+    else if (key === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
+    else if (key === 'l') toggleLabels();
+    else if (key === 'v') toggleLook();
+    else if (key === '+' || key === '=') rig.zoomBy(KEYBOARD_ZOOM.inFactor);
+    else if (key === '-' || key === '_') rig.zoomBy(KEYBOARD_ZOOM.outFactor);
+  });
+}
+
+// Multi-tier adaptive quality controller: if the device cannot hold ~28 fps, step down gracefully through
+// resolution, water reflection, SSAO/bloom, shadow cascade, and finally direct rendering so every device stays fluid.
+function createAdaptiveQuality(opts: {
+  renderer: THREE.WebGLRenderer;
+  water: any;
+  post: any;
+  shadows: any;
+  onRequestBufferResize: () => void;
+  onDisablePost: () => void;
+}) {
+  const { renderer, water, post, shadows, onRequestBufferResize, onDisablePost } = opts;
+  let slowBudgetMs = 0;
+  let lastTimestamp = 0;
+  let pixelRatio = quality.pixelRatio;
+  let perfTier = 0;
+  let detailReach: number = quality.low ? ADAPTIVE_QUALITY.initialDetailReachLowM : ADAPTIVE_QUALITY.initialDetailReachHighM;
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      slowBudgetMs = 0;
+      lastTimestamp = performance.now();
+    }
+  });
+
+  function stepDown() {
+    if (perfTier === 0) {
+      const tier = ADAPTIVE_QUALITY.tiers[0];
+      perfTier = 1;
+      water.mesh.userData.setReflection?.(false);
+      detailReach = Math.min(detailReach, tier.detailReachM);
+      pixelRatio = Math.max(tier.minPixelRatio, Math.min(pixelRatio, renderer.getPixelRatio()) - tier.pixelRatioStep);
+    } else if (perfTier === 1) {
+      const tier = ADAPTIVE_QUALITY.tiers[1];
+      perfTier = 2;
+      if (post) post.setFast(true);
+      shadows.setNearEnabled?.(false);
+      detailReach = Math.min(detailReach, tier.detailReachM);
+      pixelRatio = Math.max(tier.minPixelRatio, Math.min(pixelRatio, renderer.getPixelRatio()) - tier.pixelRatioStep);
+    } else if (perfTier === 2) {
+      const tier = ADAPTIVE_QUALITY.tiers[2];
+      perfTier = 3;
+      onDisablePost();
+      detailReach = Math.min(detailReach, tier.detailReachM);
+      pixelRatio = tier.fixedPixelRatio;
+    } else {
+      return;
+    }
+    quality.pixelRatio = pixelRatio;
+    onRequestBufferResize();
   }
-  // The whole slab from the south-east, the way one would stand over a model on a table.
-  function overviewView() {
-    const k = Math.pow(Math.max(1, 1.4 / (innerWidth / innerHeight)), 0.9);
-    const cx = (b[0] + b[2]) / 2, cz = (b[1] + b[3]) / 2;
-    return { pos: new THREE.Vector3(cx + 4000 * k, 3300 * k, cz + 5300 * k), target: new THREE.Vector3(cx, LAND_Y, cz) };
+
+  return {
+    get detailReach() { return detailReach; },
+    observe(now: number) {
+      const frameMs = now - lastTimestamp;
+      lastTimestamp = now;
+      if (document.visibilityState !== 'visible') { slowBudgetMs = 0; return; }
+      slowBudgetMs = frameMs > ADAPTIVE_QUALITY.slowFrameMs
+        ? slowBudgetMs + Math.min(frameMs, ADAPTIVE_QUALITY.maxFrameCreditMs)
+        : Math.max(0, slowBudgetMs - frameMs * 2);
+      if (slowBudgetMs > ADAPTIVE_QUALITY.triggerBudgetMs) {
+        slowBudgetMs = 0;
+        stepDown();
+      }
+    },
+  };
+}
+
+function syncGlowUniforms(opts: {
+  renderer: THREE.WebGLRenderer;
+  camera: THREE.PerspectiveCamera;
+  world: any;
+  bridge: any;
+  extraGlows: any[];
+  lanterns: any;
+  lanternGlows: any[];
+  glow: number;
+}) {
+  const { renderer, camera, world, bridge, extraGlows, lanterns, lanternGlows, glow } = opts;
+  const pxScale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+  const isLit = glow > GLOW_VISIBLE_THRESHOLD;
+  world.lamps.material.uniforms.uScale.value = pxScale;
+  world.lamps.visible = isLit;
+  bridge.lamps.material.uniforms.uScale.value = pxScale;
+  bridge.lamps.visible = isLit;
+  for (const light of bridge.lights) {
+    light.material.uniforms.uScale.value = pxScale;
+    light.visible = isLit;
   }
-  let hv = homeView();
-  rig.setHome(hv.pos, hv.target);
-  rig.jumpHome();
+  for (const glowMesh of extraGlows) {
+    glowMesh.material.uniforms.uScale.value = pxScale;
+    glowMesh.visible = isLit;
+  }
+  if (lanterns.halo) lanterns.halo.material.uniforms.uScale.value = pxScale;
+  for (const glowMesh of lanternGlows) {
+    glowMesh.material.uniforms.uScale.value = pxScale;
+    glowMesh.visible = isLit;
+  }
+}
 
+// hue.json carries the first frame's trees and houses; the others come in tiles (data.meta.tiles, nearest the opening
+// view first, see build-data.mjs), fetched one behind the other after the first frame and planted between two frames.
+// Every tile added fires 'hue:scene-changed' on window (detail.meshes: what was added).
+async function streamRemainingTiles(opts: {
+  data: any;
+  world: any;
+  leafMats: Set<any>;
+  shadows: any;
+  sun: THREE.DirectionalLight;
+  syncLeafLook: () => void;
+}) {
+  const { data, world, leafMats, shadows, sun, syncLeafLook } = opts;
+  const tileList = data.meta.tiles || [];
+  const fetchTile = (tile: { f: string }) => fetchDataJSON(tile.f).catch((err) => {
+    console.warn('[hue] tile not loaded', tile.f, err);
+    return null;
+  });
+  let nextTile = tileList.length ? fetchTile(tileList[0]) : null;
+  for (let i = 0; i < tileList.length; i++) {
+    const body = await nextTile;
+    nextTile = i + 1 < tileList.length ? fetchTile(tileList[i + 1]) : null; // download the next one while this one is planted
+    if (!body) continue;
+    await nextMacrotask();
+    const meshes = (world as any).addTile(body);
+    for (const mesh of meshes) {
+      if (mesh.material?.defines && 'HUE_FOLIAGE' in mesh.material.defines && !leafMats.has(mesh.material)) {
+        leafMats.add(mesh.material);
+        syncLeafLook();
+      }
+    }
+    if (shadows.invalidate) shadows.invalidate();
+    else {
+      sun.shadow.needsUpdate = true;
+      if (shadows.near) shadows.near.shadow.needsUpdate = true;
+    }
+    dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
+  }
+  performance.mark('hue:tiles-loaded');
+}
 
-  // ---------- labels & picking ----------
+let ui: any = null;
+let index: any = null;
+let fallback: any = null;
+
+async function main() {
+  const startTime = performance.now();
+  // the place index (~30 kB: names, kinds, positions, counts) comes first: search and the cards need nothing else
+  const indexPromise = fetchDataJSON('places.json');
+  let renderer = createRenderer();
+  // the geometry bundle (~8 MB) only once the device has shown it can render it, then alongside the index
+  let geometryPromise = renderer ? fetchDataJSON('hue.json') : null;
+  if (geometryPromise) geometryPromise.catch(() => {}); // a failure is reported where it is awaited, below
+  index = await indexPromise;
+
+  let rig: any;
+  let mood: any;
+  let labels: any;
+  let data: any;
+  let sharing: any;
+  let look = 1; // 1 illustrated (ink line and flat wash), the default, and 0 realistic
   let labelsOn = true;
-  labels = createLabels(document.getElementById('labels'), index, camera, (id) => pick(id, true)); // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
-  function toggleLabels() { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); }
+
+  const whenReady = (fn: (...args: any[]) => any) => (...args: any[]) => (rig ? fn(...args) : undefined);
+  const syncCard = (id: string | null = null) => { labels?.setActive?.(id); labels?.invalidateLayout?.(); };
+  const toggleLabels = () => { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); };
 
   function pick(id: string, fly?: boolean, from?: any) {
-    const p = index.places.find((q) => q.id === id);
-    if (!p) return;
+    const place = index.places.find((item: any) => item.id === id);
+    if (!place) return;
     ui.showCard(id, from);
     if (!rig) { if (fallback) fallback.show(id); return; } // still loading, or the 2D map: the card alone
     heroes.prefetch(id);
     labels.markVisited(id);
     syncCard(id);
     if (fly) {
-      const v = VIEWS[id] || VIEWS.default;
-      const tx = p.x / 10 + v.look[0], tz = p.z / 10 + v.look[1];
-      const target = new THREE.Vector3(tx, LAND_Y + rise(tx, tz), tz);
-      const k = (innerWidth / innerHeight < 1 ? 1.35 : 1) * 1.2;
-      const gy = LAND_Y + rise(p.x / 10, p.z / 10);
-      rig.flyTo(new THREE.Vector3(p.x / 10 + v.off[0] * k, gy + v.off[1] * k, p.z / 10 + v.off[2] * k), target, { duration: 2.6 });
+      const view = VIEWS[id] || VIEWS.default;
+      const targetX = place.x / DECIMETRES_PER_METRE + view.look[0];
+      const targetZ = place.z / DECIMETRES_PER_METRE + view.look[1];
+      const target = new THREE.Vector3(targetX, LAND_Y + rise(targetX, targetZ), targetZ);
+      const distScale = (innerWidth / innerHeight < 1 ? PLACE_PICK.portraitDistanceScale : 1) * PLACE_PICK.flyDistanceMargin;
+      const groundY = LAND_Y + rise(place.x / DECIMETRES_PER_METRE, place.z / DECIMETRES_PER_METRE);
+      const pos = new THREE.Vector3(
+        place.x / DECIMETRES_PER_METRE + view.off[0] * distScale,
+        groundY + view.off[1] * distScale,
+        place.z / DECIMETRES_PER_METRE + view.off[2] * distScale,
+      );
+      rig.flyTo(pos, target, { duration: PLACE_PICK.flyDurationS });
     }
   }
 
-  // tap / click on the ground near a landmark reveals it.
-  // Every pointer is tracked: a second finger neither ends the first one's drag nor counts as a tap.
-  const downs = new Map();
-  canvas.addEventListener('pointerdown', (e) => {
-    const multi = downs.size > 0;
-    if (multi) downs.forEach((d) => { d.multi = true; });
-    downs.set(e.pointerId, { x: e.clientX, y: e.clientY, t: performance.now(), lx: e.clientX, ly: e.clientY, multi });
-    canvas.classList.add('dragging');
+  ui = createUI(index, {
+    pick: (id: string, fly?: boolean, from?: any) => pick(id, fly, from),
+    overview: () => {
+      ui.hideCard();
+      syncCard(null);
+      if (!rig) { fallback?.home(); return; }
+      const view = computeOverviewView(bounds);
+      rig.flyTo(view.pos, view.target, { duration: OVERVIEW_VIEW.flyDurationS });
+    },
+    lang: () => { labels?.remeasure(); fallback?.relabel(); },
+    labels: whenReady(() => toggleLabels()),
+    osmOnly: whenReady((onlyOsm: boolean) => { world.infill.forEach((mesh: any) => { mesh.visible = !onlyOsm; }); }),
+    home: () => { ui.hideCard(); syncCard(null); if (rig) rig.goHome(); else fallback?.home(); },
+    zoom: (factor: number) => { if (rig) rig.zoomBy(factor); else fallback?.zoom(factor); },
+    cardClosed: () => syncCard(null),
+    rain: whenReady(() => mood.setRain(!mood.state.rainTarget)),
+    time: whenReady((idx: number) => mood.setTime(idx)),
+    look: whenReady(() => setLook(!look, true)),
+    share: (id: string | null) => sharing?.share(id),
   });
-  canvas.addEventListener('pointermove', (e) => {
-    const down = downs.get(e.pointerId);
-    if (!down) return;
-    down.lx = e.clientX; down.ly = e.clientY;
-    if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) down.dragged = true; // a drag stays a drag even if it ends near its start
+  performance.mark('hue:search-ready');
+  fallback = createFallback({ ui, index, tryRenderer: createRenderer, onPick: (id: string) => pick(id, true) });
+  ui.loaderProgress(LOADER_PROGRESS.indexReady);
+
+  // no WebGL: the recovery screen, and hue.json is never fetched unless "Retry 3D" gets a renderer
+  if (!renderer) renderer = await fallback.recover();
+  data = await (geometryPromise || fetchDataJSON('hue.json'));
+  performance.mark('hue:geometry-loaded');
+  ui.loaderProgress(LOADER_PROGRESS.geometryLoaded);
+  await nextMacrotask();
+
+  // ---------- renderer & world ----------
+  renderer.setPixelRatio(fitPixelRatio());
+  renderer.setSize(innerWidth, innerHeight, false);
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  const scene = new THREE.Scene();
+
+  const world = buildCity(data);
+  ui.loaderProgress(LOADER_PROGRESS.cityBuilt);
+  await nextMacrotask();
+
+  const dynamic = new THREE.Group();
+  // every landmark, populate and the moving things, in the sequence the geometry checks build too (src/landmarks/build.js)
+  const { bridge, citadel, extraGlows, floating, replicas, boats, lanterns, traffic, street } = buildLandmarks(data, world, dynamic);
+  const { hemi, sun, shadows, ibl } = setupLighting(scene, renderer);
+  const heroes = createHeroLoader(dynamic, () => {
+    if (shadows?.invalidate) shadows.invalidate();
+    else if (sun?.shadow) sun.shadow.needsUpdate = true;
   });
-  const up = (e) => {
-    const down = downs.get(e.pointerId);
-    downs.delete(e.pointerId);
-    if (!downs.size) canvas.classList.remove('dragging');
-    if (!down) return;
-    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t;
-    if (down.multi || down.dragged || moved > 6 || dt > 450 || e.type === 'pointercancel') return;
-    const g = rig.groundAt(e.clientX, e.clientY);
-    if (!g) return;
-    let best = null, bd = Infinity;
-    for (const p of data.places) {
-      const dist = Math.hypot(p.x / 10 - g.x, p.z / 10 - g.z);
-      const reach = p.k === 'area' ? 0 : p.k === 'island' ? 220 : p.k === 'bridge' ? 150 : 85;
-      if (dist < reach && dist < bd) { bd = dist; best = p; }
-    }
-    if (best) pick(best.id, false);
-    else if (ui.cardId) { ui.hideCard(); syncCard(null); }
+  scene.add(world.group, dynamic);
+  const lanternGlows: any[] = []; // glow points that landmarks flagged for the per-frame update
+  dynamic.traverse((obj) => { if (obj.userData.glow) lanternGlows.push(obj); });
+  ui.loaderProgress(LOADER_PROGRESS.landmarksBuilt);
+  await nextMacrotask();
+
+  const sky = buildSky();
+  const water = buildWater(data);
+  const rain = buildRain();
+  scene.add(sky.mesh, water.mesh, water.ponds, rain.mesh);
+
+  mood = createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl });
+  mood.onChange((state: any) => ui.setMood({ rain: state.rainTarget, time: state.timeTarget }));
+  ui.setMood({ rain: mood.state.rainTarget, time: mood.state.timeTarget });
+
+  // ---------- camera & post ----------
+  const bounds = data.meta.bounds.map((val: number) => val / DECIMETRES_PER_METRE);
+  const cameraBounds = {
+    minX: bounds[0] + CAMERA_BOUNDS_INSET_M,
+    minZ: bounds[1] + CAMERA_BOUNDS_INSET_M,
+    maxX: bounds[2] - CAMERA_BOUNDS_INSET_M,
+    maxZ: bounds[3] - CAMERA_BOUNDS_INSET_M,
   };
-  addEventListener('pointerup', up);
-  addEventListener('pointercancel', up);
-  const clearDowns = () => { downs.clear(); canvas.classList.remove('dragging'); };
-  addEventListener('blur', clearDowns);
-  document.addEventListener('visibilitychange', clearDowns);
-  canvas.addEventListener('dblclick', (e) => {
-    const g = rig.groundAt(e.clientX, e.clientY);
-    if (!g) return;
-    const off = camera.position.clone().sub(controls.target).multiplyScalar(0.45);
-    if (off.length() < 60) off.setLength(60);
-    g.y = LAND_Y + rise(g.x, g.z);
-    rig.flyTo(g.clone().add(off), g, { duration: 1.1, arc: false });
-  });
-  canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+  rig = createCamera(canvas, cameraBounds);
+  const { camera, controls } = rig;
+  camera.layers.enable(1); // layer 1: things kept out of the water reflection
+  const post = quality.low ? null : createPost(renderer, scene, camera);
+  let usePost = !!post;
+  const draw = () => (usePost && post ? post.render() : renderer.render(scene, camera));
 
-  addEventListener('keydown', (e) => {
-    if (fromForm(e) || e.metaKey || e.ctrlKey || (document.getElementById('about') as HTMLDialogElement).open) return;
-    const k = e.key.toLowerCase();
-    if (k === 'escape') { ui.hideCard(); syncCard(null); }
-    else if (k === 'h' || k === 'home') { rig.goHome(); ui.hideCard(); syncCard(null); }
-    else if (k === 'r') mood.setRain(!mood.state.rainTarget);
-    else if (k === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
-    else if (k === 'l') toggleLabels();
-    else if (k === 'v') setLook(!look, true);
-    else if (k === '+' || k === '=') rig.zoomBy(0.65);
-    else if (k === '-' || k === '_') rig.zoomBy(1.5);
-  });
+  let home = computeHomeView(bridge);
+  rig.setHome(home.pos, home.target);
+  rig.jumpHome();
 
-  rig.onInteract(() => ui.hideHint());
-
-  // ---------- look ----------
-  // two renderings of the same model: 1 illustrated (ink line and flat wash), the default, and 0 realistic.
-  // `?look=real` / `?look=ink` choose one; otherwise the last one chosen is kept.
-  let look = 1;
+  // ---------- labels, look & interactions ----------
+  // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
+  labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true));
   const leafMats = new Set<any>();
-  world.group.traverse((o: any) => { if (o.material && o.material.defines && 'HUE_FOLIAGE' in o.material.defines) leafMats.add(o.material); });
-  function setLook(v, remember = false) {
-    look = v ? 1 : 0;
+  world.group.traverse((obj: any) => {
+    if (obj.material?.defines && 'HUE_FOLIAGE' in obj.material.defines) leafMats.add(obj.material);
+  });
+
+  function setLook(isInk: boolean | number, remember = false) {
+    look = isInk ? 1 : 0;
     if (remember) { try { localStorage.setItem('hue-look', look ? 'ink' : 'real'); } catch { /* private mode */ } }
     // drawn leaves carry a mask in the alpha channel (post.js), which alpha-to-coverage would read as holes
-    for (const m of leafMats) { if (m.alphaToCoverage !== !look) { m.alphaToCoverage = !look; m.needsUpdate = true; } }
+    for (const mat of leafMats) {
+      if (mat.alphaToCoverage !== !look) { mat.alphaToCoverage = !look; mat.needsUpdate = true; }
+    }
     shared.uLook.value = look;
     mood.state.look = look;
     document.body.dataset.look = look ? 'ink' : 'real';
     ui.setLook(look);
-    shadows.invalidate(); // the maps hold no look of their own today; redrawn anyway, so a look-dependent caster cannot go stale
+    shadows.invalidate();
   }
 
-  // ---------- resize ----------
-  // Changing the canvas size clears its drawing buffer. Done after the frame's draw (from the adaptive fallback at the
-  // end of tick, or from a resize callback queued behind tick in the same animation frame), the browser composites the
-  // cleared, transparent canvas and the page background flashes through. So a size change is only ever requested
-  // here and applied at the top of the next step(), before anything is drawn into the new buffer.
-  let pendingSize = 0; // 1: the render resolution (adapt), 2: the window as well
+  bindCanvasInteractions({
+    rig, data, ui, mood, pick, syncCard, toggleLabels,
+    toggleLook: () => setLook(!look, true),
+  });
+  rig.onInteract(() => ui.hideHint());
+
+  // ---------- resize & lost GPU context ----------
+  // Changing the canvas size clears its drawing buffer, so size changes are deferred and applied at the top of step().
+  let pendingResize = RESIZE_NONE;
   function resizeBuffers() {
-    renderer.setPixelRatio(fitRatio());
+    renderer.setPixelRatio(fitPixelRatio());
     renderer.setSize(innerWidth, innerHeight, false);
     if (post) post.resize(); // each resize reallocates the multisampled post targets and the mirror's
     water.mesh.userData.resize(innerWidth, innerHeight);
   }
-  function resize() {
+  function resizeAll() {
     resizeBuffers();
     camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     labels.remeasure();
-    hv = homeView();
-    rig.setHome(hv.pos, hv.target);
+    home = computeHomeView(bridge);
+    rig.setHome(home.pos, home.target);
     if (rig.opening && !rig.flying) rig.jumpHome(); // otherwise keep the current view or flight destination
   }
-  addEventListener('resize', () => { pendingSize = 2; });
+  addEventListener('resize', () => { pendingResize = RESIZE_FULL; });
 
-  // ---------- lost GPU context ----------
-  // A driver reset or memory pressure can take the WebGL context away. three prevents the default (so the browser
-  // may give it back) and rebuilds its own state when it returns; what the app keeps on the GPU between frames, the
-  // sky's light probe and the shadow maps, is drawn again here. Meanwhile the loop runs on and three skips the draws.
-  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); console.warn('[hue] WebGL context lost'); });
+  canvas.addEventListener('webglcontextlost', (event) => { event.preventDefault(); console.warn('[hue] WebGL context lost'); });
   canvas.addEventListener('webglcontextrestored', () => {
     console.warn('[hue] WebGL context restored');
     if (ibl) ibl.invalidate();
     shadows.invalidate();
     water.mesh.userData.invalidate?.();
-    pendingSize = Math.max(pendingSize, 1);
+    pendingResize = Math.max(pendingResize, RESIZE_BUFFERS);
   });
 
   // ---------- frame loop ----------
-  let last = performance.now();
-  const focus = new THREE.Vector3();
-  let time = 0;
+  const adaptive = createAdaptiveQuality({
+    renderer, water, post, shadows,
+    onRequestBufferResize: () => { pendingResize = Math.max(pendingResize, RESIZE_BUFFERS); },
+    onDisablePost: () => { usePost = false; },
+  });
+
+  let lastFrameTime = performance.now();
+  const shadowFocus = new THREE.Vector3();
+  let elapsedTime = 0;
+
   function updateShadow() {
-    // keep the shadow map centred where the eye is resting, sized to the view
     const dist = camera.position.distanceTo(controls.target);
-    focus.copy(controls.target);
-    focus.y = LAND_Y + rise(focus.x, focus.z);
-    const ext = Math.max(260, Math.min(2600, dist * 0.8));
-    shadows.update(focus, mood.sunDir, ext);
+    shadowFocus.copy(controls.target);
+    shadowFocus.y = LAND_Y + rise(shadowFocus.x, shadowFocus.z);
+    const extent = Math.max(SHADOW_EXTENT.minM, Math.min(SHADOW_EXTENT.maxM, dist * SHADOW_EXTENT.distRatio));
+    shadows.update(shadowFocus, mood.sunDir, extent);
   }
 
-  function tick() {
-    const now = performance.now();
-    const dt = Math.min(0.05, (now - last) / 1000);
-    last = now;
-    step(dt);
-    adapt(now);
-    requestAnimationFrame(tick);
-  }
-  // Multi-tier adaptive quality controller: if the device cannot hold ~28 fps, step down gracefully through
-  // resolution, water reflection, SSAO/bloom, shadow cascade, and finally direct rendering so every device stays fluid.
-  let slow = 0, lastT = 0, pr = quality.pixelRatio, perfTier = 0;
-  let detailReach = quality.low ? 850 : 1280;
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { slow = 0; lastT = performance.now(); } });
-  function adapt(now) {
-    const ft = now - lastT; lastT = now;
-    if (document.visibilityState !== 'visible') { slow = 0; return; }
-    slow = ft > 36 ? slow + Math.min(ft, 250) : Math.max(0, slow - ft * 2);
-    if (slow > 1600) {
-      slow = 0;
-      if (perfTier === 0) {
-        perfTier = 1;
-        water.mesh.userData.setReflection?.(false);
-        detailReach = Math.min(detailReach, 980);
-        pr = Math.max(1.0, Math.min(pr, renderer.getPixelRatio()) - 0.25);
-        quality.pixelRatio = pr;
-        pendingSize = Math.max(pendingSize, 1);
-      } else if (perfTier === 1) {
-        perfTier = 2;
-        if (post) post.setFast(true);
-        shadows.setNearEnabled?.(false);
-        detailReach = Math.min(detailReach, 850);
-        pr = Math.max(0.85, Math.min(pr, renderer.getPixelRatio()) - 0.2);
-        quality.pixelRatio = pr;
-        pendingSize = Math.max(pendingSize, 1);
-      } else if (perfTier === 2) {
-        perfTier = 3;
-        usePost = false;
-        detailReach = Math.min(detailReach, 720);
-        pr = 0.75;
-        quality.pixelRatio = pr;
-        pendingSize = Math.max(pendingSize, 1);
-      }
+  function step(dt: number) {
+    if (pendingResize) {
+      const fullResize = pendingResize === RESIZE_FULL;
+      pendingResize = RESIZE_NONE;
+      if (fullResize) resizeAll(); else resizeBuffers();
     }
-  }
-  function step(dt) {
-    if (pendingSize) { const full = pendingSize === 2; pendingSize = 0; if (full) resize(); else resizeBuffers(); }
-    time += dt;
+    elapsedTime += dt;
     rig.update(dt);
-    mood.update(dt, time);
-    const hgt = Math.max(0, camera.position.y - LAND_Y);
-    if (scene.fog && 'density' in scene.fog && hgt > 1000) (scene.fog as THREE.FogExp2).density *= 1 - 0.78 * THREE.MathUtils.smoothstep(hgt, 1000, 3500);
-    bridge.update(time, mood.cur.glow, mood.state.rain);
-    floating.update(time);
-    replicas.update(time, mood.cur.glow, mood.state.rain);
-    citadel.update(time, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
-    boats.update(dt, time);
-    lanterns.update(dt, time);
+    mood.update(dt, elapsedTime);
+
+    const cameraAltitude = Math.max(0, camera.position.y - LAND_Y);
+    if (scene.fog && 'density' in scene.fog && cameraAltitude > HIGH_ALT_FOG.startM) {
+      const fade = THREE.MathUtils.smoothstep(cameraAltitude, HIGH_ALT_FOG.startM, HIGH_ALT_FOG.endM);
+      (scene.fog as THREE.FogExp2).density *= 1 - HIGH_ALT_FOG.maxReduction * fade;
+    }
+
+    bridge.update(elapsedTime, mood.cur.glow, mood.state.rain);
+    floating.update(elapsedTime);
+    replicas.update(elapsedTime, mood.cur.glow, mood.state.rain);
+    citadel.update(elapsedTime, 0.35 + 0.65 * Math.min(1, mood.cur.sunI / 2.2 + mood.cur.hemiI * 0.25));
+    boats.update(dt, elapsedTime);
+    lanterns.update(dt, elapsedTime);
     traffic.update(dt);
-    street.update(dt, time);
+    street.update(dt, elapsedTime);
     heroes.update(camera.position);
-    updateDetail(camera, detailReach);
+    updateDetail(camera, adaptive.detailReach);
     updateShadow();
-    sky.mesh.scale.setScalar(camera.far * 0.9);
-    const pxScale = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-    world.lamps.material.uniforms.uScale.value = pxScale;
-    bridge.lights.forEach((l) => { l.material.uniforms.uScale.value = pxScale; });
-    bridge.lamps.material.uniforms.uScale.value = pxScale;
-    for (const g of extraGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01; }
-    if (lanterns.halo) lanterns.halo.material.uniforms.uScale.value = pxScale;
-    for (const g of lanternGlows) { g.material.uniforms.uScale.value = pxScale; g.visible = mood.cur.glow > 0.01; }
-    const lit = mood.cur.glow > 0.01;
-    world.lamps.visible = lit; bridge.lamps.visible = lit; bridge.lights.forEach((l) => { l.visible = lit; });
+    sky.mesh.scale.setScalar(camera.far * SKY_FAR_SCALE);
+
+    syncGlowUniforms({ renderer, camera, world, bridge, extraGlows, lanterns, lanternGlows, glow: mood.cur.glow });
+
     if (post) {
-      post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow, time);
-      // focus on what the camera is looking at. Near the ground everything is sharp, as a building is to someone standing
-      // by it; only from the air does the far field soften a little. The illustrated look is sharp throughout.
-      const fd = camera.position.distanceTo(controls.target);
-      const hgt = camera.position.y - LAND_Y;
-      post.setFocus(fd, (1 - look) * 0.3 * THREE.MathUtils.smoothstep(hgt, 120, 650));
+      const mist = 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow;
+      post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, mist, elapsedTime);
+      // focus on what the camera is looking at; near the ground everything is sharp, illustrated look is sharp throughout
+      const focusDist = camera.position.distanceTo(controls.target);
+      const aperture = (1 - look) * DOF_ALTITUDE.maxAperture * THREE.MathUtils.smoothstep(camera.position.y - LAND_Y, DOF_ALTITUDE.startM, DOF_ALTITUDE.endM);
+      post.setFocus(focusDist, aperture);
       post.setLook(look);
     }
     draw();
@@ -407,49 +688,39 @@ async function main() {
     ui.setHeading(rig.heading());
   }
 
-  let savedLook = null;
+  function tick() {
+    const now = performance.now();
+    const dt = Math.min(MAX_FRAME_DT_S, (now - lastFrameTime) / 1000);
+    lastFrameTime = now;
+    step(dt);
+    adaptive.observe(now);
+    requestAnimationFrame(tick);
+  }
+
+  // ---------- initial frame & startup ----------
+  let savedLook: string | null = null;
   try { savedLook = localStorage.getItem('hue-look'); } catch { /* private mode */ }
   setLook((new URLSearchParams(location.search).get('look') || savedLook || 'ink') !== 'real');
+
   // a shared view (?v=1…, src/ui/share.js) replaces the opening: atmosphere, camera and card are set before the first draw
-  sharing = createShare({ data, rig, mood, setLook, pick, ui, bounds: { minX: b[0] + 250, minZ: b[1] + 250, maxX: b[2] - 250, maxZ: b[3] - 250 } });
+  sharing = createShare({ data, rig, mood, setLook, pick, ui, bounds: cameraBounds });
   const sharedView = sharing.apply();
   step(0); // update mood, detail, lights, shadows and compile shaders before the curtain lifts
-  console.debug(`[hue] ready in ${Math.round(performance.now() - t0)} ms`);
-  ui.loaderProgress(1);
-  await frame();
+  console.debug(`[hue] ready in ${Math.round(performance.now() - startTime)} ms`);
+  ui.loaderProgress(LOADER_PROGRESS.done);
+  await nextMacrotask();
   ui.loaderDone();
   performance.mark('hue:first-frame');
   if (ui.cardId && !sharedView) pick(ui.cardId, true); // a place opened from the search box while the city loaded: go there now
-  // `?still`: no frame loop, no drift, no adaptive resolution. Time moves only when __hue.step(dt) is called, so
-  // scripts/shot.mjs gets the same frame for the same steps on every run and revision (to within a few pixels of GPU noise).
-  const still = new URLSearchParams(location.search).has('still');
-  if (!still) {
+
+  // `?still`: no frame loop, no drift, no adaptive resolution (for deterministic screenshot capture)
+  const isStill = new URLSearchParams(location.search).has('still');
+  if (!isStill) {
     requestAnimationFrame(tick);
-    setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, 1400);
+    setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, DRIFT_START_DELAY_MS);
   }
 
-  // ---------- the rest of the trees and houses ----------
-  // hue.json carries the first frame's; the others come in tiles (data.meta.tiles, nearest the opening view first,
-  // see build-data.mjs), fetched one behind the other after the first frame and each planted between two frames.
-  // Every tile added fires 'hue:scene-changed' on window (detail.meshes: what was added), for anything that keeps a
-  // drawing of the scene between frames; the shadow maps are told directly.
-  const tiles = (async () => {
-    const list = data.meta.tiles || [];
-    const get = (t) => getJSON(t.f).catch((err) => { console.warn('[hue] tile not loaded', t.f, err); return null; });
-    let next = list.length ? get(list[0]) : null;
-    for (let k = 0; k < list.length; k++) {
-      const body = await next;
-      next = k + 1 < list.length ? get(list[k + 1]) : null; // download the next one while this one is planted
-      if (!body) continue;
-      await frame();
-      const meshes = (world as any).addTile(body);
-      for (const o of meshes) if (o.material?.defines && 'HUE_FOLIAGE' in o.material.defines && !leafMats.has(o.material)) { leafMats.add(o.material); setLook(look); }
-      if (shadows.invalidate) shadows.invalidate();
-      else { sun.shadow.needsUpdate = true; if (shadows.near) shadows.near.shadow.needsUpdate = true; }
-      dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
-    }
-    performance.mark('hue:tiles-loaded');
-  })();
+  const tiles = streamRemainingTiles({ data, world, leafMats, shadows, sun, syncLeafLook: () => setLook(look) });
 
   // handle for debugging and automated checks (tiles: resolves once every tile is in the scene)
   window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing, tiles, heroes };

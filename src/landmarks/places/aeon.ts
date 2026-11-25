@@ -22,287 +22,375 @@ import { groundHeightAt, addEmissiveStripMesh } from '../helpers.ts';
 
 export const id = 'aeon';
 
-const C = {
-  wall: hex('#6c625a'), wallLo: hex('#4c4a49'), grey: hex('#bdb9b2'), white: hex('#efeeea'), roof: hex('#a7a49d'),
-  slat: hex('#b48a55'), slatDk: hex('#8a6440'), orange: hex('#c4682c'), glass: hex('#34424d'), atrium: hex('#5d7f6a'),
-  magenta: hex('#c0187a'), solar: hex('#3d5168'), green: hex('#4f7136'), greenDk: hex('#3d5a2b'), deck: hex('#9b8f80'),
-  steel: hex('#6f7378'), stripe: hex('#d9cfc6'),
+const ROOF_HEIGHT = 22.0;
+const PARAPET_HEIGHT = 1.2;
+const LONG_END_HEIGHT = 27.0;
+const SHORT_END_HEIGHT = 25.0;
+const FIN_TOP_HEIGHT = 25.5;
+
+const COLORS = {
+  wall: hex('#6c625a'),
+  wallLow: hex('#4c4a49'),
+  grey: hex('#bdb9b2'),
+  white: hex('#efeeea'),
+  roof: hex('#a7a49d'),
+  slat: hex('#b48a55'),
+  slatDark: hex('#8a6440'),
+  orange: hex('#c4682c'),
+  glass: hex('#34424d'),
+  atrium: hex('#5d7f6a'),
+  magenta: hex('#c0187a'),
+  solar: hex('#3d5168'),
+  green: hex('#4f7136'),
+  greenDark: hex('#3d5a2b'),
+  deck: hex('#9b8f80'),
+  steel: hex('#6f7378'),
+  stripe: hex('#d9cfc6'),
+  trunk: hex('#5a4634'),
+  fountainWater: hex('#4f8494'),
+  cars: [hex('#e8e6e0'), hex('#323842'), hex('#a8322d'), hex('#345c8a'), hex('#c7c4bc'), hex('#6e7478')],
 };
 
-
-export function build({ data, S, group }) {
-  const sp = data.special && data.special.aeon;
-  if (!sp) return;
-  const R = unflat(sp.ring);
-  if (R.length < 6) return;
-  if (signedArea(R) < 0) R.reverse(); // so convex turns have a positive cross product
-
+function createMallFrame(ring, S) {
   // the frame: v along the long arm of the L (its longest edge, + towards the arm's far end), u across it, + into the
   // L; the origin at the inner corner (the reflex vertex nearest the middle). The long arm then lies at u < 0, the
   // short arm at v < 0, and the rounded outer corner (the entrance) faces -u -v.
-  let best = null;
-  for (let i = 0; i < R.length; i++) {
-    const p = R[i], q = R[(i + 1) % R.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
-    if (!best || L > best.L) best = { p, q, L };
+  let longestEdge = null;
+  for (let i = 0; i < ring.length; i++) {
+    const ptA = ring[i];
+    const ptB = ring[(i + 1) % ring.length];
+    const len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+    if (!longestEdge || len > longestEdge.len) longestEdge = { ptA, ptB, len };
   }
-  const cen = R.reduce((s, p) => [s[0] + p[0] / R.length, s[1] + p[1] / R.length], [0, 0]); // only to pick the origin
-  let O = null;
-  for (let i = 0; i < R.length; i++) {
-    const a = R[(i + R.length - 1) % R.length], b = R[i], c = R[(i + 1) % R.length];
-    if ((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]) >= 0) continue;
-    const d = Math.hypot(b[0] - cen[0], b[1] - cen[1]);
-    if (!O || d < O.d) O = { p: b, d };
+  const centroid = ring.reduce((acc, pt) => [acc[0] + pt[0] / ring.length, acc[1] + pt[1] / ring.length], [0, 0]);
+  let reflexCorner = null;
+  for (let i = 0; i < ring.length; i++) {
+    const prevPt = ring[(i + ring.length - 1) % ring.length];
+    const currPt = ring[i];
+    const nextPt = ring[(i + 1) % ring.length];
+    if ((currPt[0] - prevPt[0]) * (nextPt[1] - currPt[1]) - (currPt[1] - prevPt[1]) * (nextPt[0] - currPt[0]) >= 0) continue;
+    const dist = Math.hypot(currPt[0] - centroid[0], currPt[1] - centroid[1]);
+    if (!reflexCorner || dist < reflexCorner.dist) reflexCorner = { pt: currPt, dist };
   }
-  if (!O) return;
-  const o = O.p;
-  const dp = Math.hypot(best.p[0] - o[0], best.p[1] - o[1]), dq = Math.hypot(best.q[0] - o[0], best.q[1] - o[1]);
-  const far = dp > dq ? best.p : best.q, near = dp > dq ? best.q : best.p;
-  const W = [(far[0] - near[0]) / best.L, (far[1] - near[1]) / best.L];
-  let T = [W[1], -W[0]];
+  if (!reflexCorner) return null;
+  const origin = reflexCorner.pt;
+  const distA = Math.hypot(longestEdge.ptA[0] - origin[0], longestEdge.ptA[1] - origin[1]);
+  const distB = Math.hypot(longestEdge.ptB[0] - origin[0], longestEdge.ptB[1] - origin[1]);
+  const farPt = distA > distB ? longestEdge.ptA : longestEdge.ptB;
+  const nearPt = distA > distB ? longestEdge.ptB : longestEdge.ptA;
+  const axisV = [(farPt[0] - nearPt[0]) / longestEdge.len, (farPt[1] - nearPt[1]) / longestEdge.len];
+  let axisU = [axisV[1], -axisV[0]];
   // the long arm's body lies at u < 0: judged by the vertices well along it (a plain centroid leans towards the arc)
-  const armU = R.filter((p) => (p[0] - o[0]) * W[0] + (p[1] - o[1]) * W[1] > best.L / 4).reduce((s, p) => s + (p[0] - o[0]) * T[0] + (p[1] - o[1]) * T[1], 0);
-  if (armU > 0) T = [-T[0], -T[1]];
-  const P = (u, v): [number, number] => [o[0] + T[0] * u + W[0] * v, o[1] + T[1] * u + W[1] * v];
-  const UV = R.map((p) => [(p[0] - o[0]) * T[0] + (p[1] - o[1]) * T[1], (p[0] - o[0]) * W[0] + (p[1] - o[1]) * W[1]]);
-  const angOf = (du, dv) => Math.atan2(T[1] * du + W[1] * dv, T[0] * du + W[0] * dv); // a u-v direction as a scene angle
-  const aT = angOf(1, 0);
-  const y0 = groundHeightAt(o[0], o[1]);
-  const box = (u, v, ya, yb, su, sv, col, opt?) => { const p = P(u, v); S.box(p[0], p[1], ya, yb, su, sv, aT, col, opt); };
-  const vmax = Math.max(...UV.map((p) => p[1])), vmin = Math.min(...UV.map((p) => p[1])), umax = Math.max(...UV.map((p) => p[0]));
-  // the two straight front faces either side of the arc: the long arm's (u = uW) and the short arm's (v = vN)
-  const uW = Math.max(...UV.filter((p) => p[0] < -10 && p[1] > -25 && p[1] < 110).map((p) => p[0]));
-  const vN = Math.min(...UV.filter((p) => p[0] > -15 && p[0] < 35).map((p) => p[1]));
+  const armSumU = ring
+    .filter((pt) => (pt[0] - origin[0]) * axisV[0] + (pt[1] - origin[1]) * axisV[1] > longestEdge.len / 4)
+    .reduce((acc, pt) => acc + (pt[0] - origin[0]) * axisU[0] + (pt[1] - origin[1]) * axisU[1], 0);
+  if (armSumU > 0) axisU = [-axisU[0], -axisU[1]];
+
+  const toWorld = (localU, localV): [number, number] => [origin[0] + axisU[0] * localU + axisV[0] * localV, origin[1] + axisU[1] * localU + axisV[1] * localV];
+  const uvRing = ring.map((pt) => [(pt[0] - origin[0]) * axisU[0] + (pt[1] - origin[1]) * axisU[1], (pt[0] - origin[0]) * axisV[0] + (pt[1] - origin[1]) * axisV[1]]);
+  const angleOf = (du, dv) => Math.atan2(axisU[1] * du + axisV[1] * dv, axisU[0] * du + axisV[0] * dv);
+  const angleU = angleOf(1, 0);
+  const baseY = groundHeightAt(origin[0], origin[1]);
+  const box = (localU, localV, yMin, yMax, sizeU, sizeV, color, opts?) => {
+    const pos = toWorld(localU, localV);
+    S.box(pos[0], pos[1], yMin, yMax, sizeU, sizeV, angleU, color, opts);
+  };
+  const vMax = Math.max(...uvRing.map((pt) => pt[1]));
+  const vMin = Math.min(...uvRing.map((pt) => pt[1]));
+  const uMax = Math.max(...uvRing.map((pt) => pt[0]));
+  // the two straight front faces either side of the arc: the long arm's (u = uWest) and the short arm's (v = vNorth)
+  const uWest = Math.max(...uvRing.filter((pt) => pt[0] < -10 && pt[1] > -25 && pt[1] < 110).map((pt) => pt[0]));
+  const vNorth = Math.min(...uvRing.filter((pt) => pt[0] > -15 && pt[0] < 35).map((pt) => pt[1]));
   // the arc: the run of short edges between the two faces; its centre is where the faces' normals through its two
   // ends meet, i.e. (largest u, largest v) of its points
-  const arc = [];
-  for (let i = 0; i < UV.length; i++) {
-    const p = UV[i], q = UV[(i + 1) % UV.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
-    if (L >= 2 && L <= 14 && p[0] < uW + 60 && p[1] < vN + 60 && p[0] <= 0 && p[1] <= 0 && Math.min(p[0], q[0]) < -3 && Math.min(p[1], q[1]) < -3) arc.push([p, q]);
+  const arcSegs = [];
+  for (let i = 0; i < uvRing.length; i++) {
+    const ptA = uvRing[i];
+    const ptB = uvRing[(i + 1) % uvRing.length];
+    const segLen = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+    if (segLen >= 2 && segLen <= 14 && ptA[0] < uWest + 60 && ptA[1] < vNorth + 60 && ptA[0] <= 0 && ptA[1] <= 0 && Math.min(ptA[0], ptB[0]) < -3 && Math.min(ptA[1], ptB[1]) < -3) {
+      arcSegs.push([ptA, ptB]);
+    }
   }
-  if (!arc.length) return;
-  const ctr = [Math.max(...arc.flat().map((p) => p[0])), Math.max(...arc.flat().map((p) => p[1]))];
+  if (!arcSegs.length) return null;
+  const arcCenter = [Math.max(...arcSegs.flat().map((pt) => pt[0])), Math.max(...arcSegs.flat().map((pt) => pt[1]))];
+  return { ring, uvRing, toWorld, angleOf, angleU, baseY, box, vMax, vMin, uMax, uWest, vNorth, arcSegs, arcCenter };
+}
 
-  const LB = new Buf(1024), MB = new Buf(256), GB = new Buf(512); // night: warm shopfronts, magenta signs, the atrium
-  const lit = (B, u, v, ya, yb, su, sv) => { const p = P(u, v); B.box(p[0], p[1], ya, yb, su, sv, aT, [1, 1, 1], { top: [1, 1, 1], bottom: true }); };
-  S.base = y0 - LAND_Y;
+function walkAlongFace(ua, va, ub, vb, step, callback) {
+  const len = Math.hypot(ub - ua, vb - va);
+  const count = Math.max(1, Math.floor(len / step));
+  for (let i = 0; i < count; i++) {
+    callback(ua + ((ub - ua) * (i + 0.5)) / count, va + ((vb - va) * (i + 0.5)) / count, len / count);
+  }
+}
 
-  const ROOF = 22.0, PAR = 1.2, ENDS = 27.0, EAST = 25.0, FIN = 25.5;
+function buildBodyAndWings(S, frame, addLit, warmBuf, magentaBuf) {
+  const { ring, uvRing, baseY, box, vMax, vMin, uMax, uWest, vNorth } = frame;
   // ---------------- the body: the whole footprint to the roof, white slab bands, a dark base ----------------
   S.kind = KIND.MODERN;
-  S.prism(R, y0 - 0.5, y0 + ROOF, C.wall, C.roof, { parapet: PAR, topKind: KIND.FLAT });
+  S.prism(ring, baseY - 0.5, baseY + ROOF_HEIGHT, COLORS.wall, COLORS.roof, { parapet: PARAPET_HEIGHT, topKind: KIND.FLAT });
   S.kind = KIND.PLAIN;
-  const band = (ya, yb, col, out) => {
-    for (let i = 0; i < R.length; i++) {
-      const p = R[i], q = R[(i + 1) % R.length], L = Math.hypot(q[0] - p[0], q[1] - p[1]);
-      if (L < 0.5) continue;
-      const t = [(q[0] - p[0]) / L, (q[1] - p[1]) / L];
-      const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
-      let nn = [t[1], -t[0]];
-      if (inRing(m[0] + nn[0] * 0.5, m[1] + nn[1] * 0.5, R)) nn = [-nn[0], -nn[1]]; // outwards
-      S.box(m[0] + nn[0] * out / 2, m[1] + nn[1] * out / 2, ya, yb, L + out, out, Math.atan2(t[1], t[0]), col, { bottom: true });
+  const addPerimeterBand = (yMin, yMax, color, outDepth) => {
+    for (let i = 0; i < ring.length; i++) {
+      const ptA = ring[i];
+      const ptB = ring[(i + 1) % ring.length];
+      const len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+      if (len < 0.5) continue;
+      const tan = [(ptB[0] - ptA[0]) / len, (ptB[1] - ptA[1]) / len];
+      const mid = [(ptA[0] + ptB[0]) / 2, (ptA[1] + ptB[1]) / 2];
+      let norm = [tan[1], -tan[0]];
+      if (inRing(mid[0] + norm[0] * 0.5, mid[1] + norm[1] * 0.5, ring)) norm = [-norm[0], -norm[1]]; // outwards
+      S.box(mid[0] + norm[0] * outDepth / 2, mid[1] + norm[1] * outDepth / 2, yMin, yMax, len + outDepth, outDepth, Math.atan2(tan[1], tan[0]), color, { bottom: true });
     }
   };
-  band(y0 - 0.5, y0 + 1.2, C.wallLo, 0.3);
-  band(y0 + 10.6, y0 + 11.3, C.white, 0.35);
-  band(y0 + ROOF + PAR - 0.6, y0 + ROOF + PAR + 0.15, C.white, 0.4);
+  addPerimeterBand(baseY - 0.5, baseY + 1.2, COLORS.wallLow, 0.3);
+  addPerimeterBand(baseY + 10.6, baseY + 11.3, COLORS.white, 0.35);
+  addPerimeterBand(baseY + ROOF_HEIGHT + PARAPET_HEIGHT - 0.6, baseY + ROOF_HEIGHT + PARAPET_HEIGHT + 0.15, COLORS.white, 0.4);
 
-  // a run of work along a straight face from (ua, va) to (ub, vb), n = its outward normal in u-v
-  const along = (ua, va, ub, vb, step, fn) => {
-    const L = Math.hypot(ub - ua, vb - va), k = Math.max(1, Math.floor(L / step));
-    for (let i = 0; i < k; i++) fn(ua + ((ub - ua) * (i + 0.5)) / k, va + ((vb - va) * (i + 0.5)) / k, L / k);
-  };
-  const fins = (ua, va, ub, vb, n, y1) => {
-    const su = Math.abs(ub - ua) + Math.abs(n[0]) * 0.4, sv = Math.abs(vb - va) + Math.abs(n[1]) * 0.4;
-    box((ua + ub) / 2 + n[0] * 0.25, (va + vb) / 2 + n[1] * 0.25, y0 + 11.3, y1 - 0.4, su, sv, C.slatDk, { top: C.slatDk });
-    let k = 0;
-    along(ua, va, ub, vb, 1.4, (u, v) => {
-      k++;
-      box(u + n[0] * 0.9, v + n[1] * 0.9, y0 + 11.3, y1 + (k % 6 === 0 ? 0.5 : 0), 0.3 + Math.abs(n[0]) * 0.6, 0.3 + Math.abs(n[1]) * 0.6, k % 3 ? C.slat : shade(C.slat, 0.88));
+  const buildFins = (ua, va, ub, vb, norm, topY) => {
+    const sizeU = Math.abs(ub - ua) + Math.abs(norm[0]) * 0.4;
+    const sizeV = Math.abs(vb - va) + Math.abs(norm[1]) * 0.4;
+    box((ua + ub) / 2 + norm[0] * 0.25, (va + vb) / 2 + norm[1] * 0.25, baseY + 11.3, topY - 0.4, sizeU, sizeV, COLORS.slatDark, { top: COLORS.slatDark });
+    let finIdx = 0;
+    walkAlongFace(ua, va, ub, vb, 1.4, (localU, localV) => {
+      finIdx++;
+      box(localU + norm[0] * 0.9, localV + norm[1] * 0.9, baseY + 11.3, topY + (finIdx % 6 === 0 ? 0.5 : 0), 0.3 + Math.abs(norm[0]) * 0.6, 0.3 + Math.abs(norm[1]) * 0.6, finIdx % 3 ? COLORS.slat : shade(COLORS.slat, 0.88));
     });
   };
-  const shops = (ua, va, ub, vb, n, every) => {
-    let k = 0;
-    along(ua, va, ub, vb, 7, (u, v, l) => {
-      const su = Math.abs(n[1]) * (l - 1) + Math.abs(n[0]) * 0.3, sv = Math.abs(n[0]) * (l - 1) + Math.abs(n[1]) * 0.3;
-      box(u + n[0] * 0.15, v + n[1] * 0.15, y0 + 1.2, y0 + 4.8, su, sv, C.glass);
-      if (k++ % every === 0) lit(LB, u + n[0] * 0.35, v + n[1] * 0.35, y0 + 1.4, y0 + 4.6, Math.max(0.06, su - 0.6 * Math.abs(n[1])), Math.max(0.06, sv - 0.6 * Math.abs(n[0])));
+  const buildShops = (ua, va, ub, vb, norm, litEvery) => {
+    let shopIdx = 0;
+    walkAlongFace(ua, va, ub, vb, 7, (localU, localV, segLen) => {
+      const sizeU = Math.abs(norm[1]) * (segLen - 1) + Math.abs(norm[0]) * 0.3;
+      const sizeV = Math.abs(norm[0]) * (segLen - 1) + Math.abs(norm[1]) * 0.3;
+      box(localU + norm[0] * 0.15, localV + norm[1] * 0.15, baseY + 1.2, baseY + 4.8, sizeU, sizeV, COLORS.glass);
+      if (shopIdx++ % litEvery === 0) {
+        addLit(warmBuf, localU + norm[0] * 0.35, localV + norm[1] * 0.35, baseY + 1.4, baseY + 4.6, Math.max(0.06, sizeU - 0.6 * Math.abs(norm[1])), Math.max(0.06, sizeV - 0.6 * Math.abs(norm[0])));
+      }
     });
   };
 
   // ---------------- the ends of the L: white blocks, the magenta AEON sign boxes ----------------
-  const uEnd = Math.min(...UV.filter((p) => p[1] > vmax - 60).map((p) => p[0])); // the long arm widens at its far end
-  {
-    const v0 = vmax - 72, cu = uEnd / 2, su = -uEnd - 0.6;
-    S.kind = KIND.MODERN;
-    box(cu, (v0 + vmax) / 2, y0 + ROOF - 1, y0 + ENDS, su, vmax - v0 - 0.6, C.white, { top: C.roof, topKind: KIND.FLAT });
-    S.kind = KIND.PLAIN;
-    for (const y of [12.5, 17, 21.5]) box(cu, vmax + 0.1, y0 + y, y0 + y + 1.4, su * 0.8, 0.3, C.grey); // window strips on the end face
-    box(cu, vmax + 0.2, y0 + 1.2, y0 + 9.5, su * 0.85, 0.3, C.glass);
-    for (let k = 0; k < 6; k++) lit(LB, cu + (k - 2.5) * su * 0.14, vmax + 0.4, y0 + 1.6, y0 + 4.2, su * 0.11, 0.06);
-    // sign boxes at the top corner towards the front: on the front face and on the end
-    box(uEnd - 0.3, vmax - 6, y0 + ENDS - 6.5, y0 + ENDS - 1.0, 0.5, 7.0, C.magenta);
-    lit(MB, uEnd - 0.6, vmax - 6, y0 + ENDS - 5.8, y0 + ENDS - 1.7, 0.08, 5.6);
-    box(uEnd + 5, vmax + 0.35, y0 + ENDS - 6.5, y0 + ENDS - 1.0, 7.0, 0.5, C.magenta);
-    lit(MB, uEnd + 5, vmax + 0.65, y0 + ENDS - 5.8, y0 + ENDS - 1.7, 5.6, 0.08);
-  }
-  {
-    // the short arm's end: a white block with fine vertical striping on the front, a sign box at its corner
-    const u0 = umax - 34, vF = vmin, v1 = Math.min(vmin + 56, -20);
-    S.kind = KIND.MODERN;
-    box((u0 + umax) / 2, (vF + v1) / 2, y0 + ROOF - 1, y0 + EAST, umax - u0 - 0.6, v1 - vF - 0.6, C.white, { top: C.roof, topKind: KIND.FLAT });
-    S.kind = KIND.PLAIN;
-    along(u0 + 2, vF, umax - 8, vF, 1.2, (u, v) => box(u, v - 0.2, y0 + 6, y0 + EAST - 1.5, 0.35, 0.4, C.stripe));
-    box(umax - 4, vF - 0.3, y0 + EAST - 6, y0 + EAST - 1, 6.0, 0.5, C.magenta);
-    lit(MB, umax - 4, vF - 0.6, y0 + EAST - 5.4, y0 + EAST - 1.6, 4.8, 0.08);
-    box(umax + 0.3, vF + 4, y0 + EAST - 6, y0 + EAST - 1, 0.5, 6.0, C.magenta);
-    lit(MB, umax + 0.6, vF + 4, y0 + EAST - 5.4, y0 + EAST - 1.6, 0.08, 4.8);
-  }
+  const uLongEnd = Math.min(...uvRing.filter((pt) => pt[1] > vMax - 60).map((pt) => pt[0])); // the long arm widens at its far end
+  const longEndV0 = vMax - 72;
+  const longEndCenterU = uLongEnd / 2;
+  const longEndSizeU = -uLongEnd - 0.6;
+  S.kind = KIND.MODERN;
+  box(longEndCenterU, (longEndV0 + vMax) / 2, baseY + ROOF_HEIGHT - 1, baseY + LONG_END_HEIGHT, longEndSizeU, vMax - longEndV0 - 0.6, COLORS.white, { top: COLORS.roof, topKind: KIND.FLAT });
+  S.kind = KIND.PLAIN;
+  for (const bandY of [12.5, 17, 21.5]) box(longEndCenterU, vMax + 0.1, baseY + bandY, baseY + bandY + 1.4, longEndSizeU * 0.8, 0.3, COLORS.grey); // window strips on the end face
+  box(longEndCenterU, vMax + 0.2, baseY + 1.2, baseY + 9.5, longEndSizeU * 0.85, 0.3, COLORS.glass);
+  for (let k = 0; k < 6; k++) addLit(warmBuf, longEndCenterU + (k - 2.5) * longEndSizeU * 0.14, vMax + 0.4, baseY + 1.6, baseY + 4.2, longEndSizeU * 0.11, 0.06);
+  // sign boxes at the top corner towards the front: on the front face and on the end
+  box(uLongEnd - 0.3, vMax - 6, baseY + LONG_END_HEIGHT - 6.5, baseY + LONG_END_HEIGHT - 1.0, 0.5, 7.0, COLORS.magenta);
+  addLit(magentaBuf, uLongEnd - 0.6, vMax - 6, baseY + LONG_END_HEIGHT - 5.8, baseY + LONG_END_HEIGHT - 1.7, 0.08, 5.6);
+  box(uLongEnd + 5, vMax + 0.35, baseY + LONG_END_HEIGHT - 6.5, baseY + LONG_END_HEIGHT - 1.0, 7.0, 0.5, COLORS.magenta);
+  addLit(magentaBuf, uLongEnd + 5, vMax + 0.65, baseY + LONG_END_HEIGHT - 5.8, baseY + LONG_END_HEIGHT - 1.7, 5.6, 0.08);
+
+  // the short arm's end: a white block with fine vertical striping on the front, a sign box at its corner
+  const shortEndU0 = uMax - 34;
+  const shortEndV0 = vMin;
+  const shortEndV1 = Math.min(vMin + 56, -20);
+  S.kind = KIND.MODERN;
+  box((shortEndU0 + uMax) / 2, (shortEndV0 + shortEndV1) / 2, baseY + ROOF_HEIGHT - 1, baseY + SHORT_END_HEIGHT, uMax - shortEndU0 - 0.6, shortEndV1 - shortEndV0 - 0.6, COLORS.white, { top: COLORS.roof, topKind: KIND.FLAT });
+  S.kind = KIND.PLAIN;
+  walkAlongFace(shortEndU0 + 2, shortEndV0, uMax - 8, shortEndV0, 1.2, (localU, localV) => box(localU, localV - 0.2, baseY + 6, baseY + SHORT_END_HEIGHT - 1.5, 0.35, 0.4, COLORS.stripe));
+  box(uMax - 4, shortEndV0 - 0.3, baseY + SHORT_END_HEIGHT - 6, baseY + SHORT_END_HEIGHT - 1, 6.0, 0.5, COLORS.magenta);
+  addLit(magentaBuf, uMax - 4, shortEndV0 - 0.6, baseY + SHORT_END_HEIGHT - 5.4, baseY + SHORT_END_HEIGHT - 1.6, 4.8, 0.08);
+  box(uMax + 0.3, shortEndV0 + 4, baseY + SHORT_END_HEIGHT - 6, baseY + SHORT_END_HEIGHT - 1, 0.5, 6.0, COLORS.magenta);
+  addLit(magentaBuf, uMax + 0.6, shortEndV0 + 4, baseY + SHORT_END_HEIGHT - 5.4, baseY + SHORT_END_HEIGHT - 1.6, 0.08, 4.8);
 
   // ---------------- the front either side of the hub: fin screens, shopfronts, the orange box ----------------
-  const vFar = vmax - 74; // where the long arm's end block begins
-  // seen from the forecourt (looking south-east) the long arm is on the right of the entrance, the short arm on the left
-  fins(uW, 4, uW, 46, [-1, 0], y0 + FIN); // right of the entrance, along the long arm
-  shops(uW, 4, uW, vFar, [-1, 0], 2);
-  const vS = Math.min(...UV.filter((p) => p[0] > 30 && p[0] < umax - 36).map((p) => p[1])); // the short arm's front, past its step
-  fins(0, vN, 36, vN, [0, -1], y0 + FIN); // left of the entrance, along the short arm
-  shops(4, vN, 38, vN, [0, -1], 1);
-  shops(42, vS, umax - 36, vS, [0, -1], 2);
+  const longArmEndV = vMax - 74;
+  buildFins(uWest, 4, uWest, 46, [-1, 0], baseY + FIN_TOP_HEIGHT); // right of the entrance, along the long arm
+  buildShops(uWest, 4, uWest, longArmEndV, [-1, 0], 2);
+  const shortStepV = Math.min(...uvRing.filter((pt) => pt[0] > 30 && pt[0] < uMax - 36).map((pt) => pt[1])); // the short arm's front, past its step
+  buildFins(0, vNorth, 36, vNorth, [0, -1], baseY + FIN_TOP_HEIGHT); // left of the entrance, along the short arm
+  buildShops(4, vNorth, 38, vNorth, [0, -1], 1);
+  buildShops(42, shortStepV, uMax - 36, shortStepV, [0, -1], 2);
   // the orange box standing forward over the entrances right of the hub (on the long arm), slatted
-  box(uW - 4.2, 19, y0 + 5.6, y0 + 10.4, 8.4, 30, C.orange, { top: C.roof });
-  along(uW - 8.5, 4.5, uW - 8.5, 33.5, 1.5, (u, v) => box(u, v, y0 + 5.7, y0 + 10.3, 0.4, 0.3, shade(C.orange, 0.8)));
-  for (const v of [6, 19, 32]) box(uW - 7.8, v, y0, y0 + 5.6, 0.6, 0.6, C.white);
+  box(uWest - 4.2, 19, baseY + 5.6, baseY + 10.4, 8.4, 30, COLORS.orange, { top: COLORS.roof });
+  walkAlongFace(uWest - 8.5, 4.5, uWest - 8.5, 33.5, 1.5, (localU, localV) => box(localU, localV, baseY + 5.7, baseY + 10.3, 0.4, 0.3, shade(COLORS.orange, 0.8)));
+  for (const colV of [6, 19, 32]) box(uWest - 7.8, colV, baseY, baseY + 5.6, 0.6, 0.6, COLORS.white);
 
+  return { longArmEndV, shortStepV };
+}
+
+function buildEntranceHub(S, frame, addLit, warmBuf, magentaBuf, glassBuf) {
+  const { arcSegs, arcCenter, toWorld, angleOf, baseY, box } = frame;
   // ---------------- the hub: glass round the arc, the sweeping white band, AEON MALL ----------------
-  {
-    const r0 = arc.reduce((s, [p]) => s + Math.hypot(p[0] - ctr[0], p[1] - ctr[1]), 0) / arc.length;
-    for (const [p, q] of arc) {
-      const L = Math.hypot(q[0] - p[0], q[1] - p[1]), t = [(q[0] - p[0]) / L, (q[1] - p[1]) / L];
-      const mu = (p[0] + q[0]) / 2, mv = (p[1] + q[1]) / 2;
-      let n = [-t[1], t[0]];
-      if ((mu - ctr[0]) * n[0] + (mv - ctr[1]) * n[1] < 0) n = [-n[0], -n[1]];
-      const a = angOf(t[0], t[1]);
-      const at = (off, ya, yb, col, B?) => {
-        const c = P(mu + n[0] * off, mv + n[1] * off);
-        if (B) B.box(c[0], c[1], ya, yb, L, 0.08, a, [1, 1, 1], { top: [1, 1, 1], bottom: true });
-        else S.box(c[0], c[1], ya, yb, L + 0.1, 0.2, a, col);
-      };
-      at(0.25, y0 + 0.2, y0 + ROOF + 1.4, C.atrium);
-      at(0.4, y0 + 0.4, y0 + ROOF + 1.2, C.glass);
-      for (const y of [5.5, 11, 16.5]) at(0.55, y0 + y - 0.25, y0 + y + 0.25, C.grey); // the floor slabs behind the glass
-      at(0.6, y0 + 1.0, y0 + ROOF - 1.0, null, GB);
-      const c = P(p[0] + n[0] * 0.6, p[1] + n[1] * 0.6);
-      S.box(c[0], c[1], y0 + 0.2, y0 + ROOF + 1.4, 0.2, 0.3, a, C.steel); // a mullion at each kink
-      // the white band, 3 m proud of the glass: a deep fascia at the roof line, a canopy over the doors
-      const off = 3.0, Lb = L * (r0 + off) / r0 + 0.2, cb = P(mu + n[0] * off, mv + n[1] * off), ci = P(mu + n[0] * off / 2, mv + n[1] * off / 2);
-      S.box(cb[0], cb[1], y0 + ROOF - 3.0, y0 + ROOF + 3.6, Lb, 0.9, a, C.white, { bottom: true });
-      S.box(ci[0], ci[1], y0 + ROOF + 3.1, y0 + ROOF + 3.6, Lb, off, a, C.white, { bottom: true });
-      S.box(cb[0], cb[1], y0 + 5.2, y0 + 6.1, Lb, 0.9, a, C.white, { bottom: true });
-      S.box(ci[0], ci[1], y0 + 5.2, y0 + 5.5, Lb, off, a, C.white, { bottom: true });
-      lit(LB, mu + n[0] * off / 2, mv + n[1] * off / 2, y0 + 5.12, y0 + 5.18, L * 0.5, 1.4);
-    }
-    // the band sweeps smoothly down into a crisp white portal pilaster at its long-arm end and curls cleanly at its short-arm end
-    const pts = arc.flat();
-    const eL = pts.reduce((m, x) => (x[1] > m[1] ? x : m)), eR = pts.reduce((m, x) => (x[0] > m[0] ? x : m));
-    const nSweep = 10;
-    for (let k = 0; k < nSweep; k++) {
-      const t0 = k / nSweep, t1 = (k + 1) / nSweep, tm = (t0 + t1) / 2;
-      const yb = y0 + 5.2 + (ROOF - 8.2) * (1 - Math.cos(tm * Math.PI * 0.5));
-      const yt = y0 + ROOF + 3.6 - 3.0 * tm * tm;
-      box(eL[0] - 3.0 + tm * 1.4, eL[1] + 0.5 + tm * 16.0, yb, yt, 0.9, 1.85, C.white, { bottom: true });
-    }
-    box(eL[0] - 1.6, eL[1] + 16.8, y0, y0 + ROOF + 0.6, 1.1, 2.2, C.white);
-    box(eR[0] + 2.5, eR[1] - 3.0, y0, y0 + ROOF + 3.6, 5.0, 0.9, C.white);
-    // AEON MALL on the band at its crown
-    // centred by angle between the arc's two ends, not on its middle vertex (the OSM arc's vertices are uneven)
-    const dir = (p) => { const l = Math.hypot(p[0] - ctr[0], p[1] - ctr[1]); return [(p[0] - ctr[0]) / l, (p[1] - ctr[1]) / l]; };
-    const d0 = dir(eL), d1 = dir(eR);
-    let n = [d0[0] + d1[0], d0[1] + d1[1]];
-    const nl = Math.hypot(n[0], n[1]); n = [n[0] / nl, n[1] / nl];
-    const mid = [ctr[0] + n[0] * r0, ctr[1] + n[1] * r0];
-    const a = angOf(-n[1], n[0]);
-    const sc = P(mid[0] + n[0] * 3.55, mid[1] + n[1] * 3.55), sl = P(mid[0] + n[0] * 3.7, mid[1] + n[1] * 3.7);
-    S.box(sc[0], sc[1], y0 + ROOF - 0.4, y0 + ROOF + 2.9, 18, 0.25, a, C.magenta);
-    MB.box(sl[0], sl[1], y0 + ROOF, y0 + ROOF + 2.5, 17, 0.08, a, [1, 1, 1], { top: [1, 1, 1], bottom: true });
-  }
-
-  // ---------------- the roof: tree terraces on the inner side, solar panels and plant beyond ----------------
-  // Guard every rooftop element with inRing(p, R) so nothing ever floats beyond the L-shaped roof slab.
-  {
-    const yr = y0 + ROOF;
-    const onRoof = (u, v, pad = 2.5) => {
-      for (const [du, dv] of ([[0, 0], [-pad, 0], [pad, 0], [0, -pad], [0, pad]] as any[])) {
-        const q = P(u + du, v + dv);
-        if (!inRing(q[0], q[1], R)) return false;
-      }
-      return true;
+  const avgRadius = arcSegs.reduce((acc, [ptA]) => acc + Math.hypot(ptA[0] - arcCenter[0], ptA[1] - arcCenter[1]), 0) / arcSegs.length;
+  for (const [ptA, ptB] of arcSegs) {
+    const segLen = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+    const tan = [(ptB[0] - ptA[0]) / segLen, (ptB[1] - ptA[1]) / segLen];
+    const midU = (ptA[0] + ptB[0]) / 2;
+    const midV = (ptA[1] + ptB[1]) / 2;
+    let norm = [-tan[1], tan[0]];
+    if ((midU - arcCenter[0]) * norm[0] + (midV - arcCenter[1]) * norm[1] < 0) norm = [-norm[0], -norm[1]];
+    const segAngle = angleOf(tan[0], tan[1]);
+    const placeArcBox = (outDist, yMin, yMax, color, targetBuf?) => {
+      const pos = toWorld(midU + norm[0] * outDist, midV + norm[1] * outDist);
+      if (targetBuf) targetBuf.box(pos[0], pos[1], yMin, yMax, segLen, 0.08, segAngle, [1, 1, 1], { top: [1, 1, 1], bottom: true });
+      else S.box(pos[0], pos[1], yMin, yMax, segLen + 0.1, 0.2, segAngle, color);
     };
-    for (const [cu, cv, su, sv] of ([[-14, 14, 20, 40], [30, -26, 30, 14], [-20, -14, 14, 14]] as any[])) {
-      if (onRoof(cu, cv, Math.min(su, sv) * 0.42)) {
-        box(cu, cv, yr, yr + 0.35, su, sv, C.deck, { top: C.deck, topKind: KIND.ROAD });
-      }
-      for (let k = 0; k < 7; k++) {
-        const pu = cu + (((k * 37) % 10) / 10 - 0.45) * (su - 6), pv = cv + (((k * 53) % 10) / 10 - 0.45) * (sv - 6);
-        if (!onRoof(pu, pv, 2.2)) continue;
-        box(pu, pv, yr + 0.35, yr + 0.9, 3.6, 3.6, C.greenDk, { top: C.green });
-        const p = P(pu, pv);
-        S.cyl(p[0], p[1], yr + 0.9, yr + 3.0 + (k % 3) * 0.6, 1.5, 1.0, 7, k % 2 ? C.green : C.greenDk);
-      }
+    placeArcBox(0.25, baseY + 0.2, baseY + ROOF_HEIGHT + 1.4, COLORS.atrium);
+    placeArcBox(0.4, baseY + 0.4, baseY + ROOF_HEIGHT + 1.2, COLORS.glass);
+    for (const slabY of [5.5, 11, 16.5]) placeArcBox(0.55, baseY + slabY - 0.25, baseY + slabY + 0.25, COLORS.grey); // the floor slabs behind the glass
+    placeArcBox(0.6, baseY + 1.0, baseY + ROOF_HEIGHT - 1.0, null, glassBuf);
+    const mullionPos = toWorld(ptA[0] + norm[0] * 0.6, ptA[1] + norm[1] * 0.6);
+    S.box(mullionPos[0], mullionPos[1], baseY + 0.2, baseY + ROOF_HEIGHT + 1.4, 0.2, 0.3, segAngle, COLORS.steel); // a mullion at each kink
+    // the white band, 3 m proud of the glass: a deep fascia at the roof line, a canopy over the doors
+    const bandOut = 3.0;
+    const bandLen = segLen * (avgRadius + bandOut) / avgRadius + 0.2;
+    const outerPos = toWorld(midU + norm[0] * bandOut, midV + norm[1] * bandOut);
+    const innerPos = toWorld(midU + norm[0] * bandOut / 2, midV + norm[1] * bandOut / 2);
+    S.box(outerPos[0], outerPos[1], baseY + ROOF_HEIGHT - 3.0, baseY + ROOF_HEIGHT + 3.6, bandLen, 0.9, segAngle, COLORS.white, { bottom: true });
+    S.box(innerPos[0], innerPos[1], baseY + ROOF_HEIGHT + 3.1, baseY + ROOF_HEIGHT + 3.6, bandLen, bandOut, segAngle, COLORS.white, { bottom: true });
+    S.box(outerPos[0], outerPos[1], baseY + 5.2, baseY + 6.1, bandLen, 0.9, segAngle, COLORS.white, { bottom: true });
+    S.box(innerPos[0], innerPos[1], baseY + 5.2, baseY + 5.5, bandLen, bandOut, segAngle, COLORS.white, { bottom: true });
+    addLit(warmBuf, midU + norm[0] * bandOut / 2, midV + norm[1] * bandOut / 2, baseY + 5.12, baseY + 5.18, segLen * 0.5, 1.4);
+  }
+  // the band sweeps smoothly down into a crisp white portal pilaster at its long-arm end and curls cleanly at its short-arm end
+  const arcPts = arcSegs.flat();
+  const longArmEnd = arcPts.reduce((best, pt) => (pt[1] > best[1] ? pt : best));
+  const shortArmEnd = arcPts.reduce((best, pt) => (pt[0] > best[0] ? pt : best));
+  const sweepSteps = 10;
+  for (let k = 0; k < sweepSteps; k++) {
+    const midFrac = (k + 0.5) / sweepSteps;
+    const botY = baseY + 5.2 + (ROOF_HEIGHT - 8.2) * (1 - Math.cos(midFrac * Math.PI * 0.5));
+    const topY = baseY + ROOF_HEIGHT + 3.6 - 3.0 * midFrac * midFrac;
+    box(longArmEnd[0] - 3.0 + midFrac * 1.4, longArmEnd[1] + 0.5 + midFrac * 16.0, botY, topY, 0.9, 1.85, COLORS.white, { bottom: true });
+  }
+  box(longArmEnd[0] - 1.6, longArmEnd[1] + 16.8, baseY, baseY + ROOF_HEIGHT + 0.6, 1.1, 2.2, COLORS.white);
+  box(shortArmEnd[0] + 2.5, shortArmEnd[1] - 3.0, baseY, baseY + ROOF_HEIGHT + 3.6, 5.0, 0.9, COLORS.white);
+  // AEON MALL on the band at its crown
+  // centred by angle between the arc's two ends, not on its middle vertex (the OSM arc's vertices are uneven)
+  const unitFromCenter = (pt) => {
+    const dist = Math.hypot(pt[0] - arcCenter[0], pt[1] - arcCenter[1]);
+    return [(pt[0] - arcCenter[0]) / dist, (pt[1] - arcCenter[1]) / dist];
+  };
+  const dir0 = unitFromCenter(longArmEnd);
+  const dir1 = unitFromCenter(shortArmEnd);
+  let crownNorm = [dir0[0] + dir1[0], dir0[1] + dir1[1]];
+  const crownLen = Math.hypot(crownNorm[0], crownNorm[1]);
+  crownNorm = [crownNorm[0] / crownLen, crownNorm[1] / crownLen];
+  const crownMid = [arcCenter[0] + crownNorm[0] * avgRadius, arcCenter[1] + crownNorm[1] * avgRadius];
+  const signAngle = angleOf(-crownNorm[1], crownNorm[0]);
+  const signPos = toWorld(crownMid[0] + crownNorm[0] * 3.55, crownMid[1] + crownNorm[1] * 3.55);
+  const glowPos = toWorld(crownMid[0] + crownNorm[0] * 3.7, crownMid[1] + crownNorm[1] * 3.7);
+  S.box(signPos[0], signPos[1], baseY + ROOF_HEIGHT - 0.4, baseY + ROOF_HEIGHT + 2.9, 18, 0.25, signAngle, COLORS.magenta);
+  magentaBuf.box(glowPos[0], glowPos[1], baseY + ROOF_HEIGHT, baseY + ROOF_HEIGHT + 2.5, 17, 0.08, signAngle, [1, 1, 1], { top: [1, 1, 1], bottom: true });
+}
+
+function buildRoofAndSiteGrounds(S, frame, longArmEndV, shortStepV) {
+  const { ring, toWorld, baseY, box, uWest, uMax } = frame;
+  // ---------------- the roof: tree terraces on the inner side, solar panels and plant beyond ----------------
+  // Guard every rooftop element with inRing(p, ring) so nothing ever floats beyond the L-shaped roof slab.
+  const roofY = baseY + ROOF_HEIGHT;
+  const isOnRoof = (localU, localV, pad = 2.5) => {
+    for (const [du, dv] of [[0, 0], [-pad, 0], [pad, 0], [0, -pad], [0, pad]]) {
+      const pos = toWorld(localU + du, localV + dv);
+      if (!inRing(pos[0], pos[1], ring)) return false;
     }
-    S.kind = KIND.FLAT;
-    for (let v = 44; v < vFar - 4; v += 5) if (onRoof(uW / 2, v, 3)) box(uW / 2, v, yr + 0.3, yr + 0.7, -uW - 12, 3.2, C.solar, { top: C.solar });
-    for (let u = 40; u < umax - 40; u += 5) if (onRoof(u, (vS - 20) / 2 - 6, 3)) box(u, (vS - 20) / 2 - 6, yr + 0.3, yr + 0.7, 3.2, -20 - vS - 22, C.solar, { top: C.solar });
-    S.kind = KIND.PLAIN;
-    for (const [cu, cv] of ([[uW / 2, -40], [uW / 2 - 12, -30], [30, (vS - 20) / 2 + 12]] as any[])) if (onRoof(cu, cv, 4.5)) box(cu, cv, yr, yr + 2.4, 8, 5, C.grey);
+    return true;
+  };
+  for (const [centerU, centerV, sizeU, sizeV] of [[-14, 14, 20, 40], [30, -26, 30, 14], [-20, -14, 14, 14]]) {
+    if (isOnRoof(centerU, centerV, Math.min(sizeU, sizeV) * 0.42)) {
+      box(centerU, centerV, roofY, roofY + 0.35, sizeU, sizeV, COLORS.deck, { top: COLORS.deck, topKind: KIND.ROAD });
+    }
+    for (let k = 0; k < 7; k++) {
+      const treeU = centerU + (((k * 37) % 10) / 10 - 0.45) * (sizeU - 6);
+      const treeV = centerV + (((k * 53) % 10) / 10 - 0.45) * (sizeV - 6);
+      if (!isOnRoof(treeU, treeV, 2.2)) continue;
+      box(treeU, treeV, roofY + 0.35, roofY + 0.9, 3.6, 3.6, COLORS.greenDark, { top: COLORS.green });
+      const pos = toWorld(treeU, treeV);
+      S.cyl(pos[0], pos[1], roofY + 0.9, roofY + 3.0 + (k % 3) * 0.6, 1.5, 1.0, 7, k % 2 ? COLORS.green : COLORS.greenDark);
+    }
+  }
+  S.kind = KIND.FLAT;
+  for (let panelV = 44; panelV < longArmEndV - 4; panelV += 5) {
+    if (isOnRoof(uWest / 2, panelV, 3)) box(uWest / 2, panelV, roofY + 0.3, roofY + 0.7, -uWest - 12, 3.2, COLORS.solar, { top: COLORS.solar });
+  }
+  for (let panelU = 40; panelU < uMax - 40; panelU += 5) {
+    if (isOnRoof(panelU, (shortStepV - 20) / 2 - 6, 3)) box(panelU, (shortStepV - 20) / 2 - 6, roofY + 0.3, roofY + 0.7, 3.2, -20 - shortStepV - 22, COLORS.solar, { top: COLORS.solar });
+  }
+  S.kind = KIND.PLAIN;
+  for (const [plantU, plantV] of [[uWest / 2, -40], [uWest / 2 - 12, -30], [30, (shortStepV - 20) / 2 + 12]]) {
+    if (isOnRoof(plantU, plantV, 4.5)) box(plantU, plantV, roofY, roofY + 2.4, 8, 5, COLORS.grey);
   }
 
   // ---------------- landscaped forecourt parking bays, tree islands & parked cars ----------------
-  {
-    const carCols = [hex('#e8e6e0'), hex('#323842'), hex('#a8322d'), hex('#345c8a'), hex('#c7c4bc'), hex('#6e7478')];
-    for (let row = 0; row < 3; row++) {
-      const pu = uW - 22 - row * 15;
-      // landscaped green divider island with trees between parking aisles
-      S.kind = KIND.MASONRY;
-      box(pu + 6.8, 42, y0 - 0.05, y0 + 0.3, 2.2, 54, C.grey, { top: C.green, topKind: KIND.GROUND });
-      S.kind = KIND.PLAIN;
-      for (let t = 0; t < 5; t++) {
-        const tp = P(pu + 6.8, 18 + t * 12);
-        S.cyl(tp[0], tp[1], y0 + 0.3, y0 + 2.4, 0.16, 0.12, 6, hex('#5a4634'));
-        S.cyl(tp[0], tp[1], y0 + 2.2, y0 + 4.8, 1.5, 0.95, 7, t % 2 ? C.green : C.greenDk);
-      }
-      // white parking bay markings & parked cars
-      for (let k = 0; k < 10; k++) {
-        const pv = 16 + k * 5.2;
-        box(pu, pv - 2.6, y0 + 0.02, y0 + 0.06, 4.6, 0.14, C.white);
-        if ((k + row * 2) % 3 === 1) continue;
-        const cc = carCols[(k * 3 + row) % carCols.length];
-        box(pu, pv, y0 + 0.25, y0 + 0.95, 4.2, 1.85, cc, { top: cc });
-        box(pu - 0.15, pv, y0 + 0.95, y0 + 1.48, 2.3, 1.62, C.glass, { top: cc });
-      }
-    }
-    // inner south-east Moon Garden plaza (documented landscaped court & lawn islands raised cleanly above paved slab)
-    const mu = 46, mv = 46;
+  for (let row = 0; row < 3; row++) {
+    const laneU = uWest - 22 - row * 15;
+    // landscaped green divider island with trees between parking aisles
     S.kind = KIND.MASONRY;
-    box(mu, mv, y0 - 0.05, y0 + 0.28, 70, 58, C.white, { top: C.green, topKind: KIND.GROUND });
-    S.kind = KIND.ROAD;
-    box(mu, mv, y0 + 0.26, y0 + 0.34, 70, 7.5, C.deck, { topKind: KIND.ROAD });
-    box(mu, mv, y0 + 0.26, y0 + 0.34, 7.5, 58, C.deck, { topKind: KIND.ROAD });
-    // circular Moon Garden central amphitheater fountain & crescent pergola ring
-    const mp = P(mu, mv);
-    S.kind = KIND.MASONRY;
-    S.cyl(mp[0], mp[1], y0 + 0.28, y0 + 0.72, 11.5, 11.2, 20, C.white, { top: C.deck, topKind: KIND.ROAD });
-    S.cyl(mp[0], mp[1], y0 + 0.72, y0 + 0.88, 7.2, 7.0, 18, hex('#4f8494'));
-    S.cyl(mp[0], mp[1], y0 + 0.72, y0 + 1.65, 1.6, 1.2, 12, C.white);
-    // landscaped shade trees framing the Moon Garden lawns
+    box(laneU + 6.8, 42, baseY - 0.05, baseY + 0.3, 2.2, 54, COLORS.grey, { top: COLORS.green, topKind: KIND.GROUND });
     S.kind = KIND.PLAIN;
-    for (const du of [-24, -12, 12, 24]) for (const dv of [-18, 18]) {
-      const tp = P(mu + du, mv + dv);
-      S.cyl(tp[0], tp[1], y0 + 0.28, y0 + 2.55, 0.18, 0.13, 6, hex('#5a4634'));
-      S.cyl(tp[0], tp[1], y0 + 2.35, y0 + 5.35, 2.0, 1.25, 7, (du + dv) % 24 === 0 ? C.green : C.greenDk);
+    for (let treeIdx = 0; treeIdx < 5; treeIdx++) {
+      const treePos = toWorld(laneU + 6.8, 18 + treeIdx * 12);
+      S.cyl(treePos[0], treePos[1], baseY + 0.3, baseY + 2.4, 0.16, 0.12, 6, COLORS.trunk);
+      S.cyl(treePos[0], treePos[1], baseY + 2.2, baseY + 4.8, 1.5, 0.95, 7, treeIdx % 2 ? COLORS.green : COLORS.greenDark);
+    }
+    // white parking bay markings & parked cars
+    for (let k = 0; k < 10; k++) {
+      const bayV = 16 + k * 5.2;
+      box(laneU, bayV - 2.6, baseY + 0.02, baseY + 0.06, 4.6, 0.14, COLORS.white);
+      if ((k + row * 2) % 3 === 1) continue;
+      const carCol = COLORS.cars[(k * 3 + row) % COLORS.cars.length];
+      box(laneU, bayV, baseY + 0.25, baseY + 0.95, 4.2, 1.85, carCol, { top: carCol });
+      box(laneU - 0.15, bayV, baseY + 0.95, baseY + 1.48, 2.3, 1.62, COLORS.glass, { top: carCol });
     }
   }
+  // inner south-east Moon Garden plaza (documented landscaped court & lawn islands raised cleanly above paved slab)
+  const gardenU = 46;
+  const gardenV = 46;
+  S.kind = KIND.MASONRY;
+  box(gardenU, gardenV, baseY - 0.05, baseY + 0.28, 70, 58, COLORS.white, { top: COLORS.green, topKind: KIND.GROUND });
+  S.kind = KIND.ROAD;
+  box(gardenU, gardenV, baseY + 0.26, baseY + 0.34, 70, 7.5, COLORS.deck, { topKind: KIND.ROAD });
+  box(gardenU, gardenV, baseY + 0.26, baseY + 0.34, 7.5, 58, COLORS.deck, { topKind: KIND.ROAD });
+  // circular Moon Garden central amphitheater fountain & crescent pergola ring
+  const fountainPos = toWorld(gardenU, gardenV);
+  S.kind = KIND.MASONRY;
+  S.cyl(fountainPos[0], fountainPos[1], baseY + 0.28, baseY + 0.72, 11.5, 11.2, 20, COLORS.white, { top: COLORS.deck, topKind: KIND.ROAD });
+  S.cyl(fountainPos[0], fountainPos[1], baseY + 0.72, baseY + 0.88, 7.2, 7.0, 18, COLORS.fountainWater);
+  S.cyl(fountainPos[0], fountainPos[1], baseY + 0.72, baseY + 1.65, 1.6, 1.2, 12, COLORS.white);
+  // landscaped shade trees framing the Moon Garden lawns
+  S.kind = KIND.PLAIN;
+  for (const offsetU of [-24, -12, 12, 24]) {
+    for (const offsetV of [-18, 18]) {
+      const treePos = toWorld(gardenU + offsetU, gardenV + offsetV);
+      S.cyl(treePos[0], treePos[1], baseY + 0.28, baseY + 2.55, 0.18, 0.13, 6, COLORS.trunk);
+      S.cyl(treePos[0], treePos[1], baseY + 2.35, baseY + 5.35, 2.0, 1.25, 7, (offsetU + offsetV) % 24 === 0 ? COLORS.green : COLORS.greenDark);
+    }
+  }
+}
 
-  for (const [B, col, boost] of ([[LB, 0xffe2b0, 1.0], [MB, 0xff4fb0, 1.4], [GB, 0xfff1c8, 0.85]] as any[])) {
-    addEmissiveStripMesh(group, B, col, boost, id);
+export function build({ data, S, group }) {
+  const special = data.special && data.special.aeon;
+  if (!special) return;
+  const ring = unflat(special.ring);
+  if (ring.length < 6) return;
+  if (signedArea(ring) < 0) ring.reverse(); // so convex turns have a positive cross product
+
+  const frame = createMallFrame(ring, S);
+  if (!frame) return;
+
+  const warmBuf = new Buf(1024);
+  const magentaBuf = new Buf(256);
+  const glassBuf = new Buf(512); // night: warm shopfronts, magenta signs, the atrium
+  const addLit = (buf, localU, localV, yMin, yMax, sizeU, sizeV) => {
+    const pos = frame.toWorld(localU, localV);
+    buf.box(pos[0], pos[1], yMin, yMax, sizeU, sizeV, frame.angleU, [1, 1, 1], { top: [1, 1, 1], bottom: true });
+  };
+  S.base = frame.baseY - LAND_Y;
+
+  const { longArmEndV, shortStepV } = buildBodyAndWings(S, frame, addLit, warmBuf, magentaBuf);
+  buildEntranceHub(S, frame, addLit, warmBuf, magentaBuf, glassBuf);
+  buildRoofAndSiteGrounds(S, frame, longArmEndV, shortStepV);
+
+  for (const [buf, colorHex, boost] of [[warmBuf, 0xffe2b0, 1.0], [magentaBuf, 0xff4fb0, 1.4], [glassBuf, 0xfff1c8, 0.85]] as any[]) {
+    addEmissiveStripMesh(group, buf, colorHex, boost, id);
   }
   S.kind = KIND.PLAIN;
   S.base = 0;

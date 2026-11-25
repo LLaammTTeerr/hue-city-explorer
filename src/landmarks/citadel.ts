@@ -3,657 +3,753 @@ import { Buf, KIND, hex, shade, unflat, obb, ringCentre, signedArea, inRing } fr
 import { gateAxis, CITADEL_PASSAGE } from '../geo/gates.ts';
 import { LAND_Y, WALL_H, PAL } from '../config.ts';
 import { rise } from '../geo/terrain.ts';
-import { lightMaterial, glowPoints, shared } from '../geo/materials.ts';
+import { lightMaterial, glowPoints } from '../geo/materials.ts';
 import { landTest } from './boats.ts';
 import { replaced } from './places/index.ts';
 import { flag as makeFlag } from './anim.ts';
 
-const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const dark = hex('#2b2422');
+const DECIMETRES_PER_METRE = 10;
+const ARCH_SEGMENTS = 8;
+const WHITE = [1, 1, 1];
+const LANTERN_COL = [1.0, 0.72, 0.34];
+const DARK_FILL = hex('#2b2422');
+const RIDGE_GOLD = hex('#f1d77a');
+const STONE_DARK = hex('#1f1a18');
+const LIT_GATES = ['Cửa Ngăn', 'Cửa Thượng Tứ'].map((name) => name.normalize('NFC'));
+const YELLOW_ROOF_GATES = ['Cửa Hiển Nhơn', 'Chương Đức'].map((name) => name.normalize('NFC'));
+
+const clamp = (val: number, min: number, max: number) => Math.max(min, Math.min(max, val));
+
+const makeRectRing = (cx: number, cz: number, width: number, depth: number, ang: number) => {
+  const ux = Math.cos(ang), uz = Math.sin(ang);
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([su, sv]) => [
+    cx + (ux * su * width) / 2 - (uz * sv * depth) / 2,
+    cz + (uz * su * width) / 2 + (ux * sv * depth) / 2,
+  ]);
+};
+
+function buildPlatformSteps(buf: Buf, toWorld: (u: number, v: number) => [number, number], width: number, depth: number, ang: number, baseY: number, platform: number) {
+  const stepCount = Math.max(2, Math.round(platform / 0.17));
+  const stepH = platform / stepCount;
+  const tread = 0.32;
+  const stepW = clamp(width * 0.32, 1.6, 4.4);
+  const edge = depth / 2 + 1.7 - 0.06;
+  for (const sideSign of [-1, 1]) {
+    buf.kind = KIND.MASONRY;
+    for (let k = 1; k < stepCount; k++) {
+      const pt = toWorld(0, sideSign * (edge + tread * (k - 0.5)));
+      buf.box(pt[0], pt[1], baseY - 0.3, baseY + platform - stepH * k, stepW, tread, ang, shade(PAL.stone, 1.05), { topKind: KIND.ROAD });
+    }
+    buf.kind = KIND.PLAIN;
+    const run = tread * (stepCount - 1);
+    for (const cheekSide of [-1, 1]) {
+      const topPt = toWorld(cheekSide * (stepW / 2 + 0.2), sideSign * (edge - 0.3));
+      const botPt = toWorld(cheekSide * (stepW / 2 + 0.2), sideSign * (edge + run + 0.05));
+      buf.box(topPt[0], topPt[1], baseY - 0.3, baseY + platform + 0.28, 0.4, 0.6, ang, shade(PAL.stone, 0.92));
+      buf.beam([topPt[0], baseY + platform + 0.12, topPt[1]], [botPt[0], baseY + 0.1, botPt[1]], 0.36, 0.34, shade(PAL.stone, 0.92));
+    }
+  }
+}
+
+function buildColonnade(buf: Buf, toWorld: (u: number, v: number) => [number, number], cx: number, cz: number, width: number, depth: number, ang: number, baseY: number, wallH: number, wall: number[], roof: number[]) {
+  const inset = clamp(Math.min(width, depth) * 0.13, 1.0, 1.4);
+  const coreW = width - inset * 2;
+  const coreD = depth - inset * 2;
+  const lidY = baseY + wallH - 0.2;
+
+  buf.kind = KIND.TIMBER;
+  buf.box(cx, cz, baseY, lidY, coreW, coreD, ang, wall, { top: shade(roof, 0.8) });
+  buf.kind = KIND.PLAIN;
+  const doorW = Math.min(coreW * 0.3, 3.2);
+  const doorH = Math.min(wallH * 0.78, 3.4);
+  for (const sideSign of [-1, 1]) {
+    const doorPt = toWorld(0, sideSign * (coreD / 2 + 0.04));
+    buf.box(doorPt[0], doorPt[1], baseY, baseY + doorH, doorW, 0.08, ang, shade(wall, 0.55));
+    const lintelPt = toWorld(0, sideSign * (coreD / 2 + 0.06));
+    buf.box(lintelPt[0], lintelPt[1], baseY + doorH, baseY + doorH + 0.22, doorW + 0.5, 0.12, ang, shade(wall, 0.75));
+  }
+  buf.box(cx, cz, lidY, baseY + wallH, width, depth, ang, shade(wall, 0.5), { top: shade(roof, 0.8), bottom: true });
+
+  const colR = clamp(Math.min(width, depth) * 0.028, 0.18, 0.3);
+  const countU = Math.max(2, Math.round(width / 3.6));
+  const countV = Math.max(2, Math.round(depth / 3.6));
+  const postCoords: [number, number][] = [];
+  for (let i = 0; i <= countU; i++) for (const sideSign of [-1, 1]) postCoords.push([-width / 2 + (width * i) / countU, (sideSign * depth) / 2]);
+  for (let i = 1; i < countV; i++) for (const sideSign of [-1, 1]) postCoords.push([(sideSign * width) / 2, -depth / 2 + (depth * i) / countV]);
+
+  const tieY = lidY - 0.36;
+  for (const [u, v] of postCoords) {
+    const pt = toWorld(u, v);
+    buf.cyl(pt[0], pt[1], baseY, baseY + 0.26, colR * 1.8, colR * 1.55, 6, shade(PAL.stone, 0.95), { cap: false, rot: ang });
+    buf.cyl(pt[0], pt[1], baseY + 0.26, lidY, colR, colR * 0.92, 6, shade(wall, 0.92), { cap: false, rot: ang });
+    const coreU = clamp(u, -coreW / 2, coreW / 2);
+    const coreV = clamp(v, -coreD / 2, coreD / 2);
+    const corePt = toWorld(coreU, coreV);
+    if (Math.hypot(u - coreU, v - coreV) > 0.3) buf.beam([pt[0], tieY, pt[1]], [corePt[0], tieY, corePt[1]], colR * 1.1, 0.3, shade(wall, 0.7));
+  }
+  const corners = [toWorld(-width / 2, -depth / 2), toWorld(width / 2, -depth / 2), toWorld(width / 2, depth / 2), toWorld(-width / 2, depth / 2)];
+  for (let i = 0; i < 4; i++) {
+    const p0 = corners[i], p1 = corners[(i + 1) % 4];
+    buf.beam([p0[0], tieY, p0[1]], [p1[0], tieY, p1[1]], colR * 1.3, 0.34, shade(wall, 0.7));
+  }
+}
 
 // Timber hall under a swept tiled roof; tiers = 2 gives the stacked roofs of gate towers and pavilions.
-// With colonnade (on by default once the hall is big enough) w × d is the outer column line: the closed timber core
-// stands 1-1.4 m inside it, and round lacquered columns on stone bases carry the eaves around the verandah.
-export function pavilion(S, cx, cz, w, d, ang, y0, { tiers = 1, wallH = 3.6, roof = PAL.imperialRoof, wall = PAL.lacquer, over = 1.5, rh = null, platform = 0, ridge = RIDGE, eaves = null, colonnade = false, steps = true, segs = 2 } = {}) {
-  let y = y0;
-  const keep = S.kind;
+export function pavilion(buf: Buf, cx: number, cz: number, width: number, depth: number, ang: number, y0: number, {
+  tiers = 1, wallH = 3.6, roof = PAL.imperialRoof, wall = PAL.lacquer, over = 1.5, rh = null,
+  platform = 0, ridge = RIDGE_GOLD, eaves = null, colonnade = false, steps = true, segs = 2,
+}: Record<string, any> = {}) {
+  let curY = y0;
+  const prevKind = buf.kind;
   const ux = Math.cos(ang), uz = Math.sin(ang);
-  const P = (u, v) => [cx + u * ux - v * uz, cz + u * uz + v * ux];
+  const toWorld = (u: number, v: number): [number, number] => [cx + u * ux - v * uz, cz + u * uz + v * ux];
+
   if (platform) {
-    S.kind = KIND.MASONRY;
-    S.box(cx, cz, y, y + platform, w + 3.4, d + 3.4, ang, PAL.stone, { taper: 0.97, topKind: KIND.ROAD });
-    if (steps && platform >= 0.3) {
-      // a flight up the middle of the front and back, between low stone cheek walls
-      const n = Math.max(2, Math.round(platform / 0.17)), stepH = platform / n, tread = 0.32;
-      const sw = clamp(w * 0.32, 1.6, 4.4), edge = d / 2 + 1.7 - 0.06;
-      for (const sg of [-1, 1]) {
-        S.kind = KIND.MASONRY;
-        for (let k = 1; k < n; k++) {
-          const q = P(0, sg * (edge + tread * (k - 0.5)));
-          S.box(q[0], q[1], y - 0.3, y + platform - stepH * k, sw, tread, ang, shade(PAL.stone, 1.05), { topKind: KIND.ROAD });
-        }
-        S.kind = KIND.PLAIN;
-        const run = tread * (n - 1);
-        for (const s2 of [-1, 1]) {
-          const a = P(s2 * (sw / 2 + 0.2), sg * (edge - 0.3)), b = P(s2 * (sw / 2 + 0.2), sg * (edge + run + 0.05));
-          S.box(a[0], a[1], y - 0.3, y + platform + 0.28, 0.4, 0.6, ang, shade(PAL.stone, 0.92));
-          S.beam([a[0], y + platform + 0.12, a[1]], [b[0], y + 0.1, b[1]], 0.36, 0.34, shade(PAL.stone, 0.92));
-        }
-      }
-    }
-    y += platform;
+    buf.kind = KIND.MASONRY;
+    buf.box(cx, cz, curY, curY + platform, width + 3.4, depth + 3.4, ang, PAL.stone, { taper: 0.97, topKind: KIND.ROAD });
+    if (steps && platform >= 0.3) buildPlatformSteps(buf, toWorld, width, depth, ang, curY, platform);
+    curY += platform;
   }
-  const open = colonnade && Math.min(w, d) >= 4.5;
-  if (open) {
-    const inset = clamp(Math.min(w, d) * 0.13, 1.0, 1.4);
-    const cw = w - inset * 2, cd = d - inset * 2, lidY = y + wallH - 0.2;
-    // the closed core, with a pair of darker lacquered door leaves on the front and back
-    S.kind = KIND.TIMBER;
-    S.box(cx, cz, y, lidY, cw, cd, ang, wall, { top: shade(roof, 0.8) });
-    S.kind = KIND.PLAIN;
-    const dw = Math.min(cw * 0.3, 3.2), dh = Math.min(wallH * 0.78, 3.4);
-    for (const sg of [-1, 1]) {
-      const q = P(0, sg * (cd / 2 + 0.04));
-      S.box(q[0], q[1], y, y + dh, dw, 0.08, ang, shade(wall, 0.55));
-      const f = P(0, sg * (cd / 2 + 0.06));
-      S.box(f[0], f[1], y + dh, y + dh + 0.22, dw + 0.5, 0.12, ang, shade(wall, 0.75));
-    }
-    // the verandah ceiling: a thin dark lid over the column line, seen from below
-    S.box(cx, cz, lidY, y + wallH, w, d, ang, shade(wall, 0.5), { top: shade(roof, 0.8), bottom: true });
-    // round columns on stone bases (đá tảng), spaced about 3.6 m round the verandah
-    const r = clamp(Math.min(w, d) * 0.028, 0.18, 0.3);
-    const nu = Math.max(2, Math.round(w / 3.6)), nv = Math.max(2, Math.round(d / 3.6));
-    const posts = [];
-    for (let i = 0; i <= nu; i++) for (const sg of [-1, 1]) posts.push([-w / 2 + (w * i) / nu, (sg * d) / 2]);
-    for (let i = 1; i < nv; i++) for (const sg of [-1, 1]) posts.push([(sg * w) / 2, -d / 2 + (d * i) / nv]);
-    const ty = lidY - 0.36;
-    for (const [u, v] of posts) {
-      const q = P(u, v);
-      S.cyl(q[0], q[1], y, y + 0.26, r * 1.8, r * 1.55, 6, shade(PAL.stone, 0.95), { cap: false, rot: ang });
-      S.cyl(q[0], q[1], y + 0.26, lidY, r, r * 0.92, 6, shade(wall, 0.92), { cap: false, rot: ang });
-      // a tie beam from each column back to the core
-      const cu = clamp(u, -cw / 2, cw / 2), cv = clamp(v, -cd / 2, cd / 2), c2 = P(cu, cv);
-      if (Math.hypot(u - cu, v - cv) > 0.3) S.beam([q[0], ty, q[1]], [c2[0], ty, c2[1]], r * 1.1, 0.3, shade(wall, 0.7));
-    }
-    // and the perimeter beam along the column heads
-    const C = [P(-w / 2, -d / 2), P(w / 2, -d / 2), P(w / 2, d / 2), P(-w / 2, d / 2)];
-    for (let i = 0; i < 4; i++) { const a = C[i], b = C[(i + 1) % 4]; S.beam([a[0], ty, a[1]], [b[0], ty, b[1]], r * 1.3, 0.34, shade(wall, 0.7)); }
+
+  if (colonnade && Math.min(width, depth) >= 4.5) {
+    buildColonnade(buf, toWorld, cx, cz, width, depth, ang, curY, wallH, wall, roof);
   } else {
-    S.kind = KIND.TIMBER;
-    S.box(cx, cz, y, y + wallH, w, d, ang, wall, { top: shade(roof, 0.8) });
+    buf.kind = KIND.TIMBER;
+    buf.box(cx, cz, curY, curY + wallH, width, depth, ang, wall, { top: shade(roof, 0.8) });
   }
-  S.kind = KIND.TIMBER;
-  y += wallH;
-  const h1 = rh ?? clamp(d * 0.3, 1.5, 5.2);
-  const eave = { fascia: 0.3, fasciaCol: shade(wall, 0.75), ridgeCol: ridge, hips: true, glazed: true, segs };
-  let top;
+
+  buf.kind = KIND.TIMBER;
+  curY += wallH;
+  const roofH = rh ?? clamp(depth * 0.3, 1.5, 5.2);
+  const eaveOpts = { fascia: 0.3, fasciaCol: shade(wall, 0.75), ridgeCol: ridge, hips: true, glazed: true, segs };
+  let topY: number;
   if (tiers === 1) {
-    S.hip(cx, cz, w, d, ang, y, h1, roof, { flare: 0.55, over, ...eave });
-    if (eaves) eaves.push({ cx, cz, w, d, ang, y, over, fascia: eave.fascia });
-    top = y + h1;
+    buf.hip(cx, cz, width, depth, ang, curY, roofH, roof, { flare: 0.55, over, ...eaveOpts });
+    if (eaves) eaves.push({ cx, cz, w: width, d: depth, ang, y: curY, over, fascia: eaveOpts.fascia });
+    topY = curY + roofH;
   } else {
-    S.hip(cx, cz, w, d, ang, y, h1 * 0.8, roof, { flare: 0.5, over, ...eave, ridgeCol: null });
-    const w2 = w * 0.68, d2 = d * 0.62, y2 = y + h1 * 0.42;
-    S.box(cx, cz, y2, y2 + wallH * 0.62, w2, d2, ang, wall);
-    const y3 = y2 + wallH * 0.62;
-    S.hip(cx, cz, w2, d2, ang, y3, h1 * 0.85, roof, { flare: 0.5, over: over * 0.85, ...eave });
-    if (eaves) eaves.push({ cx, cz, w, d, ang, y, over, fascia: eave.fascia }, { cx, cz, w: w2, d: d2, ang, y: y3, over: over * 0.85, fascia: eave.fascia });
-    top = y3 + h1 * 0.85;
+    buf.hip(cx, cz, width, depth, ang, curY, roofH * 0.8, roof, { flare: 0.5, over, ...eaveOpts, ridgeCol: null });
+    const upperW = width * 0.68, upperD = depth * 0.62, upperBaseY = curY + roofH * 0.42;
+    buf.box(cx, cz, upperBaseY, upperBaseY + wallH * 0.62, upperW, upperD, ang, wall);
+    const upperEaveY = upperBaseY + wallH * 0.62;
+    buf.hip(cx, cz, upperW, upperD, ang, upperEaveY, roofH * 0.85, roof, { flare: 0.5, over: over * 0.85, ...eaveOpts });
+    if (eaves) {
+      eaves.push(
+        { cx, cz, w: width, d: depth, ang, y: curY, over, fascia: eaveOpts.fascia },
+        { cx, cz, w: upperW, d: upperD, ang, y: upperEaveY, over: over * 0.85, fascia: eaveOpts.fascia },
+      );
+    }
+    topY = upperEaveY + roofH * 0.85;
   }
-  S.kind = keep;
-  return top;
+  buf.kind = prevKind;
+  return topY;
 }
-const RIDGE = hex('#f1d77a');
 
-// ---- night lighting: thin strips of additive light laid just proud of the stone and timber they wash ----
-const W1 = [1, 1, 1];
-const LANTERN = [1.0, 0.72, 0.34];
-// a strip along every edge of a ring (any winding), pushed out from each face by `out`
-function ringStrip(L, ring, y, out = 0.12, w = 0.16, h = 0.26) {
-  const s = signedArea(ring) > 0 ? 1 : -1;
-  for (let i = 0, n = ring.length; i < n; i++) {
-    const a = ring[i], b = ring[(i + 1) % n];
-    const tx = b[0] - a[0], tz = b[1] - a[1], l = Math.hypot(tx, tz);
-    if (l < 0.3) continue;
-    const nx = (tz * s) / l, nz = (-tx * s) / l;
-    L.beam([a[0] + nx * out, y, a[1] + nz * out], [b[0] + nx * out, y, b[1] + nz * out], w, h, W1);
+// ---- night lighting helpers ----
+function ringStrip(lightBuf: Buf, ring: number[][], y: number, out = 0.12, width = 0.16, height = 0.26) {
+  const sign = signedArea(ring) > 0 ? 1 : -1;
+  for (let i = 0, len = ring.length; i < len; i++) {
+    const p0 = ring[i], p1 = ring[(i + 1) % len];
+    const tx = p1[0] - p0[0], tz = p1[1] - p0[1], segLen = Math.hypot(tx, tz);
+    if (segLen < 0.3) continue;
+    const nx = (tz * sign) / segLen, nz = (-tx * sign) / segLen;
+    lightBuf.beam([p0[0] + nx * out, y, p0[1] + nz * out], [p1[0] + nx * out, y, p1[1] + nz * out], width, height, WHITE);
   }
 }
-// a strip just under the soffit of a pavilion roof (an entry recorded by pavilion()), near the eave's edge.
-// sides: any of 'v-', 'v+' (the long sides, running along the roof's axis) and 'u-', 'u+' (the gable ends).
-function eaveStrip(L, e, sides = ['v-', 'v+', 'u-', 'u+'], w = 0.14, h = 0.1) {
-  const ux = Math.cos(e.ang), uz = Math.sin(e.ang);
-  const y = e.y - e.fascia - 0.07;
-  const P = (u, v) => [e.cx + u * ux - v * uz, y, e.cz + u * uz + v * ux];
-  const hu = e.w / 2 + e.over - 0.3, hv = e.d / 2 + e.over - 0.3;
-  for (const sd of sides) {
-    const sg = sd[1] === '+' ? 1 : -1;
-    if (sd[0] === 'v') L.beam(P(-hu, sg * hv), P(hu, sg * hv), w, h, W1);
-    else L.beam(P(sg * hu, -hv), P(sg * hu, hv), w, h, W1);
+
+function eaveStrip(lightBuf: Buf, eave: any, sides = ['v-', 'v+', 'u-', 'u+'], width = 0.14, height = 0.1) {
+  const ux = Math.cos(eave.ang), uz = Math.sin(eave.ang);
+  const y = eave.y - eave.fascia - 0.07;
+  const ptAt = (u: number, v: number) => [eave.cx + u * ux - v * uz, y, eave.cz + u * uz + v * ux];
+  const halfU = eave.w / 2 + eave.over - 0.3;
+  const halfV = eave.d / 2 + eave.over - 0.3;
+  for (const side of sides) {
+    const sign = side[1] === '+' ? 1 : -1;
+    if (side[0] === 'v') lightBuf.beam(ptAt(-halfU, sign * halfV), ptAt(halfU, sign * halfV), width, height, WHITE);
+    else lightBuf.beam(ptAt(sign * halfU, -halfV), ptAt(sign * halfU, halfV), width, height, WHITE);
   }
 }
-// which face of an oriented box looks most toward `dir`: its outward normal, half-depth and half-width along it
-function faceToward(o, dir) {
-  const ux = Math.cos(o.a), uz = Math.sin(o.a);
+
+function faceToward(box: any, dir: number[]) {
+  const ux = Math.cos(box.a), uz = Math.sin(box.a);
   const du = dir[0] * ux + dir[1] * uz, dv = -dir[0] * uz + dir[1] * ux;
-  if (Math.abs(du) > Math.abs(dv)) { const s = Math.sign(du) || 1; return { n: [ux * s, uz * s], t: [-uz, ux], half: o.w / 2, side: o.d / 2 }; }
-  const s = Math.sign(dv) || 1;
-  return { n: [-uz * s, ux * s], t: [ux, uz], half: o.d / 2, side: o.w / 2 };
+  if (Math.abs(du) > Math.abs(dv)) {
+    const sign = Math.sign(du) || 1;
+    return { n: [ux * sign, uz * sign], t: [-uz, ux], half: box.w / 2, side: box.d / 2 };
+  }
+  const sign = Math.sign(dv) || 1;
+  return { n: [-uz * sign, ux * sign], t: [ux, uz], half: box.d / 2, side: box.w / 2 };
 }
-function lightMesh(group, L, color, boost) {
-  if (!group || !L || L.n === 0) return null;
-  const m = new THREE.Mesh(L.geometry(), lightMaterial(color, boost));
-  m.renderOrder = 19;
-  m.userData.landmark = true; // counts towards label heights (scripts/lib/label-tops.mjs)
-  group.add(m);
-  return m;
+
+function addLightMesh(group: THREE.Group, lightBuf: Buf, color: number, boost: number) {
+  if (!group || !lightBuf || lightBuf.n === 0) return null;
+  const mesh = new THREE.Mesh(lightBuf.geometry(), lightMaterial(color, boost));
+  mesh.renderOrder = 19;
+  mesh.userData.landmark = true;
+  group.add(mesh);
+  return mesh;
 }
-function lampPoints(group, pos, col, size, glows) {
+
+function addLampPoints(group: THREE.Group, pos: number[], col: number[], size: number, glows: any[]) {
   if (!group || !pos.length) return null;
-  const p = glowPoints(pos, col, size);
-  p.userData.glow = true;
-  group.add(p);
-  glows.push(p);
-  return p;
+  const pts = glowPoints(pos, col, size);
+  pts.userData.glow = true;
+  group.add(pts);
+  glows.push(pts);
+  return pts;
 }
 
-// corners of an oriented rectangle, as a ring
-const rect = (cx, cz, w, d, a) => { const ux = Math.cos(a), uz = Math.sin(a); return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([i, j]) => [cx + (ux * i * w) / 2 - (uz * j * d) / 2, cz + (uz * i * w) / 2 + (ux * j * d) / 2]); };
-
-// ---- passages through masonry ----
-// Walls of a solid ring from y0 to y1 (no top: draw that separately) with passages driven straight through it.
-// Each opening: { p: a point on its axis, dir: unit axis [x, z], w, h (crown above floor), floor, arch }. Where the
-// axis enters and leaves the ring the wall is cut, and between the two cuts a lined tunnel is built: lighter stone
-// at each mouth, dark inside, a paved floor, flat ceiling or barrel vault; a proud stone surround frames each mouth.
-// An opening whose sides do not both land on one edge (near a corner) is skipped. Returns the openings built.
-const STONE_DARK = hex('#1f1a18');
-function passages(S, ring0, y0, y1, wallCol, openings, { frame = hex('#d6cbb5'), proud = 0.16, covers = null, porchTop = null } = {}) {
-  // OSM outlines carry runs of nearly collinear short edges; merge them so a cut lands on one straight face
+function simplifyCollinearRing(ring0: number[][]) {
   const ring = ring0.slice();
-  for (let changed = true; changed && ring.length > 3; ) {
+  for (let changed = true; changed && ring.length > 3;) {
     changed = false;
     for (let i = 0; i < ring.length && ring.length > 3; i++) {
-      const p = ring[(i + ring.length - 1) % ring.length], q = ring[i], r = ring[(i + 1) % ring.length];
-      const ex = r[0] - p[0], ez = r[1] - p[1], el = Math.hypot(ex, ez);
-      if (el < 1e-6 || Math.abs((q[0] - p[0]) * ez - (q[1] - p[1]) * ex) / el < 0.12) { ring.splice(i, 1); changed = true; i--; }
+      const prev = ring[(i + ring.length - 1) % ring.length];
+      const cur = ring[i];
+      const next = ring[(i + 1) % ring.length];
+      const ex = next[0] - prev[0], ez = next[1] - prev[1], edgeLen = Math.hypot(ex, ez);
+      if (edgeLen < 1e-6 || Math.abs((cur[0] - prev[0]) * ez - (cur[1] - prev[1]) * ex) / edgeLen < 0.12) {
+        ring.splice(i, 1);
+        changed = true;
+        i--;
+      }
     }
   }
-  const n = ring.length;
-  const out = signedArea(ring) > 0 ? 1 : -1;
-  const cuts = ring.map(() => []);
-  const tunnels = [];
-  const hit = (p, dir, a, b) => {
-    // p + dir·t = a + (b - a)·s
-    const ex = b[0] - a[0], ez = b[1] - a[1], den = dir[0] * ez - dir[1] * ex;
-    if (Math.abs(den) < 1e-6) return null;
-    const qx = a[0] - p[0], qz = a[1] - p[1];
-    return { t: (qx * ez - qz * ex) / den, s: (qx * dir[1] - qz * dir[0]) / den };
-  };
-  for (const op of openings) {
-    const nr = [-op.dir[1], op.dir[0]];
-    const line = (o) => [op.p[0] + nr[0] * o, op.p[1] + nr[1] * o];
-    const hits = [];
-    for (let i = 0; i < n; i++) { const h = hit(line(0), op.dir, ring[i], ring[(i + 1) % n]); if (h && h.s >= 0 && h.s < 1) hits.push({ i, t: h.t }); }
+  return ring;
+}
+
+function raySegmentHit(origin: number[], dir: number[], p0: number[], p1: number[]) {
+  const ex = p1[0] - p0[0], ez = p1[1] - p0[1];
+  const denom = dir[0] * ez - dir[1] * ex;
+  if (Math.abs(denom) < 1e-6) return null;
+  const qx = p0[0] - origin[0], qz = p0[1] - origin[1];
+  return { t: (qx * ez - qz * ex) / denom, s: (qx * dir[1] - qz * dir[0]) / denom };
+}
+
+// ---- passages through masonry ----
+function passages(buf: Buf, ring0: number[][], y0: number, y1: number, wallCol: number[], openings: any[], { frame = hex('#d6cbb5'), proud = 0.16, covers = null, porchTop = null }: Record<string, any> = {}) {
+  const ring = simplifyCollinearRing(ring0);
+  const count = ring.length;
+  const outSign = signedArea(ring) > 0 ? 1 : -1;
+  const cuts: any[][] = ring.map(() => []);
+  const tunnels: any[] = [];
+
+  for (const opening of openings) {
+    const rightVec = [-opening.dir[1], opening.dir[0]];
+    const lineOrigin = (off: number) => [opening.p[0] + rightVec[0] * off, opening.p[1] + rightVec[1] * off];
+    const hits: { i: number; t: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      const hit = raySegmentHit(lineOrigin(0), opening.dir, ring[i], ring[(i + 1) % count]);
+      if (hit && hit.s >= 0 && hit.s < 1) hits.push({ i, t: hit.t });
+    }
     hits.sort((a, b) => a.t - b.t);
     if (hits.length < 2 || hits.length % 2) continue;
-    let ok = true;
-    const H = hits.map(({ i, t }) => {
-      const a = ring[i], b = ring[(i + 1) % n], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      const l = hit(line(-op.w / 2), op.dir, a, b), r = hit(line(op.w / 2), op.dir, a, b);
-      if (!l || !r) { ok = false; return null; }
-      const sl = l.s * len, sr = r.s * len, s0 = Math.min(sl, sr), s1 = Math.max(sl, sr);
-      if (s0 < 0.6 || s1 > len - 0.6) ok = false;
-      for (const c of cuts[i]) if (s0 < c.s1 + 0.8 && s1 > c.s0 - 0.8) ok = false;
-      const pt = (s) => [a[0] + ((b[0] - a[0]) * s) / len, a[1] + ((b[1] - a[1]) * s) / len];
-      return { i, t, s0, s1, L: pt(sl), R: pt(sr) };
+    let valid = true;
+    const mapped = hits.map(({ i, t }) => {
+      const p0 = ring[i], p1 = ring[(i + 1) % count];
+      const segLen = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+      const leftHit = raySegmentHit(lineOrigin(-opening.w / 2), opening.dir, p0, p1);
+      const rightHit = raySegmentHit(lineOrigin(opening.w / 2), opening.dir, p0, p1);
+      if (!leftHit || !rightHit) { valid = false; return null; }
+      const sL = leftHit.s * segLen, sR = rightHit.s * segLen;
+      const s0 = Math.min(sL, sR), s1 = Math.max(sL, sR);
+      if (s0 < 0.6 || s1 > segLen - 0.6) valid = false;
+      for (const existing of cuts[i]) if (s0 < existing.s1 + 0.8 && s1 > existing.s0 - 0.8) valid = false;
+      const ptAt = (s: number) => [p0[0] + ((p1[0] - p0[0]) * s) / segLen, p0[1] + ((p1[1] - p0[1]) * s) / segLen];
+      return { i, t, s0, s1, L: ptAt(sL), R: ptAt(sR) };
     });
-    if (!ok) continue;
-    for (const h of H) cuts[h.i].push({ s0: h.s0, s1: h.s1, op });
-    for (let k = 0; k < H.length; k += 2) tunnels.push({ op, A: H[k], B: H[k + 1] });
+    if (!valid) continue;
+    for (const hit of mapped) cuts[hit!.i].push({ s0: hit!.s0, s1: hit!.s1, op: opening });
+    for (let k = 0; k < mapped.length; k += 2) tunnels.push({ op: opening, A: mapped[k], B: mapped[k + 1] });
   }
-  // the walls, cut where a passage goes through
-  const keep = S.kind;
-  for (let i = 0; i < n; i++) {
-    const a = ring[i], b = ring[(i + 1) % n];
-    const tx = b[0] - a[0], tz = b[1] - a[1], len = Math.hypot(tx, tz);
-    if (len < 1e-3) continue;
-    const hint = [tz * out, 0.001, -tx * out];
-    const at = (s, y) => [a[0] + (tx * s) / len, y, a[1] + (tz * s) / len];
-    const wq = (sa, sb, ya, yb) => { if (sb - sa > 1e-3 && yb - ya > 1e-3) S.quad(at(sa, ya), at(sb, ya), at(sb, yb), at(sa, yb), wallCol, hint); };
-    const cs = cuts[i].sort((p, q) => p.s0 - q.s0);
-    let cur = 0;
-    for (const c of cs) {
-      const { op } = c, fl = op.floor, crown = fl + op.h;
-      wq(cur, c.s0, y0, y1);
-      wq(c.s0, c.s1, y0, fl);
-      wq(c.s0, c.s1, crown, y1);
+
+  const prevKind = buf.kind;
+  for (let i = 0; i < count; i++) {
+    const p0 = ring[i], p1 = ring[(i + 1) % count];
+    const tx = p1[0] - p0[0], tz = p1[1] - p0[1], segLen = Math.hypot(tx, tz);
+    if (segLen < 1e-3) continue;
+    const hint = [tz * outSign, 0.001, -tx * outSign];
+    const edgePt = (s: number, y: number) => [p0[0] + (tx * s) / segLen, y, p0[1] + (tz * s) / segLen];
+    const addWallQuad = (sa: number, sb: number, ya: number, yb: number) => {
+      if (sb - sa > 1e-3 && yb - ya > 1e-3) buf.quad(edgePt(sa, ya), edgePt(sb, ya), edgePt(sb, yb), edgePt(sa, yb), wallCol, hint);
+    };
+    const sortedCuts = cuts[i].sort((a, b) => a.s0 - b.s0);
+    let cursor = 0;
+    for (const cut of sortedCuts) {
+      const { op } = cut;
+      const floor = op.floor, crown = floor + op.h;
+      addWallQuad(cursor, cut.s0, y0, y1);
+      addWallQuad(cut.s0, cut.s1, y0, floor);
+      addWallQuad(cut.s0, cut.s1, crown, y1);
       if (op.arch) {
-        // (an ellipse when the passage meets the face at a slant, so it matches the vault's height)
-        const r = (c.s1 - c.s0) / 2, ry = op.w / 2, m = (c.s0 + c.s1) / 2, spring = crown - ry, N = 8;
-        for (let k = 0; k < N; k++) {
-          const t0 = Math.PI - (Math.PI * k) / N, t1 = Math.PI - (Math.PI * (k + 1)) / N;
-          const x0 = m + r * Math.cos(t0), x1 = m + r * Math.cos(t1);
-          S.quad(at(x0, spring + ry * Math.sin(t0)), at(x1, spring + ry * Math.sin(t1)), at(x1, crown), at(x0, crown), wallCol, hint);
+        const radX = (cut.s1 - cut.s0) / 2, radY = op.w / 2, midS = (cut.s0 + cut.s1) / 2, spring = crown - radY;
+        for (let k = 0; k < ARCH_SEGMENTS; k++) {
+          const t0 = Math.PI - (Math.PI * k) / ARCH_SEGMENTS, t1 = Math.PI - (Math.PI * (k + 1)) / ARCH_SEGMENTS;
+          const x0 = midS + radX * Math.cos(t0), x1 = midS + radX * Math.cos(t1);
+          buf.quad(edgePt(x0, spring + radY * Math.sin(t0)), edgePt(x1, spring + radY * Math.sin(t1)), edgePt(x1, crown), edgePt(x0, crown), wallCol, hint);
         }
       }
-      // the stone surround, standing proud of the face
-      const nx = (tz * out) / len, nz = (-tx * out) / len, ea = Math.atan2(tz, tx);
-      const S2 = S.kind; S.kind = KIND.PLAIN;
-      const fb = (s, w, ya, yb) => { const q = at(s, 0); S.box(q[0] + nx * proud / 2, q[2] + nz * proud / 2, ya, yb, w, proud, ea, frame); };
-      const jw = 0.45, sp = op.arch ? crown - op.w / 2 : crown;
-      fb(c.s0 - jw / 2, jw, fl, sp);
-      fb(c.s1 + jw / 2, jw, fl, sp);
-      if (!op.arch) fb((c.s0 + c.s1) / 2, c.s1 - c.s0 + jw * 2 + 0.3, crown, Math.min(y1, crown + 0.55));
-      else {
-        const r = (c.s1 - c.s0) / 2, ry = op.w / 2, m = (c.s0 + c.s1) / 2, N = 8, ro = r + jw, ryo = ry + jw;
-        const off = (s, y, d) => { const q = at(s, y); return [q[0] + nx * d, y, q[2] + nz * d]; };
-        for (let k = 0; k < N; k++) {
-          const t0 = Math.PI - (Math.PI * k) / N, t1 = Math.PI - (Math.PI * (k + 1)) / N;
-          const ia = [m + r * Math.cos(t0), sp + ry * Math.sin(t0)], ib = [m + r * Math.cos(t1), sp + ry * Math.sin(t1)];
-          const oa = [m + ro * Math.cos(t0), sp + ryo * Math.sin(t0)], ob = [m + ro * Math.cos(t1), sp + ryo * Math.sin(t1)];
-          S.quad(off(ia[0], ia[1], proud), off(ib[0], ib[1], proud), off(ob[0], ob[1], proud), off(oa[0], oa[1], proud), frame, [nx, 0, nz]);
-          const cx2 = (ia[0] + ib[0]) / 2 - m, cy2 = (ia[1] + ib[1]) / 2 - sp, cl = Math.hypot(cx2, cy2) || 1;
-          // inner and outer edges of the band
-          const iv = [-(cx2 / cl) * (tx / len), -cy2 / cl, -(cx2 / cl) * (tz / len)];
-          S.quad(off(ia[0], ia[1], 0), off(ib[0], ib[1], 0), off(ib[0], ib[1], proud), off(ia[0], ia[1], proud), shade(frame, 0.8), iv);
-          S.quad(off(oa[0], oa[1], 0), off(ob[0], ob[1], 0), off(ob[0], ob[1], proud), off(oa[0], oa[1], proud), frame, [-iv[0], -iv[1], -iv[2]]);
+      const nx = (tz * outSign) / segLen, nz = (-tx * outSign) / segLen, edgeAng = Math.atan2(tz, tx);
+      const savedKind = buf.kind;
+      buf.kind = KIND.PLAIN;
+      const addFrameBox = (s: number, w: number, ya: number, yb: number) => {
+        const pt = edgePt(s, 0);
+        buf.box(pt[0] + (nx * proud) / 2, pt[2] + (nz * proud) / 2, ya, yb, w, proud, edgeAng, frame);
+      };
+      const jambW = 0.45, spring = op.arch ? crown - op.w / 2 : crown;
+      addFrameBox(cut.s0 - jambW / 2, jambW, floor, spring);
+      addFrameBox(cut.s1 + jambW / 2, jambW, floor, spring);
+      if (!op.arch) {
+        addFrameBox((cut.s0 + cut.s1) / 2, cut.s1 - cut.s0 + jambW * 2 + 0.3, crown, Math.min(y1, crown + 0.55));
+      } else {
+        const radX = (cut.s1 - cut.s0) / 2, radY = op.w / 2, midS = (cut.s0 + cut.s1) / 2;
+        const outRadX = radX + jambW, outRadY = radY + jambW;
+        const offsetPt = (s: number, y: number, dist: number) => { const pt = edgePt(s, y); return [pt[0] + nx * dist, y, pt[2] + nz * dist]; };
+        for (let k = 0; k < ARCH_SEGMENTS; k++) {
+          const t0 = Math.PI - (Math.PI * k) / ARCH_SEGMENTS, t1 = Math.PI - (Math.PI * (k + 1)) / ARCH_SEGMENTS;
+          const inA = [midS + radX * Math.cos(t0), spring + radY * Math.sin(t0)];
+          const inB = [midS + radX * Math.cos(t1), spring + radY * Math.sin(t1)];
+          const outA = [midS + outRadX * Math.cos(t0), spring + outRadY * Math.sin(t0)];
+          const outB = [midS + outRadX * Math.cos(t1), spring + outRadY * Math.sin(t1)];
+          buf.quad(offsetPt(inA[0], inA[1], proud), offsetPt(inB[0], inB[1], proud), offsetPt(outB[0], outB[1], proud), offsetPt(outA[0], outA[1], proud), frame, [nx, 0, nz]);
+          const cx2 = (inA[0] + inB[0]) / 2 - midS, cy2 = (inA[1] + inB[1]) / 2 - spring, cLen = Math.hypot(cx2, cy2) || 1;
+          const innerNrm = [-(cx2 / cLen) * (tx / segLen), -cy2 / cLen, -(cx2 / cLen) * (tz / segLen)];
+          buf.quad(offsetPt(inA[0], inA[1], 0), offsetPt(inB[0], inB[1], 0), offsetPt(inB[0], inB[1], proud), offsetPt(inA[0], inA[1], proud), shade(frame, 0.8), innerNrm);
+          buf.quad(offsetPt(outA[0], outA[1], 0), offsetPt(outB[0], outB[1], 0), offsetPt(outB[0], outB[1], proud), offsetPt(outA[0], outA[1], proud), frame, [-innerNrm[0], -innerNrm[1], -innerNrm[2]]);
         }
       }
-      S.kind = S2;
-      cur = c.s1;
+      buf.kind = savedKind;
+      cursor = cut.s1;
     }
-    wq(cur, len, y0, y1);
+    addWallQuad(cursor, segLen, y0, y1);
   }
-  // the tunnels
-  S.kind = KIND.PLAIN;
+
+  buf.kind = KIND.PLAIN;
+  const lerp2 = (a: number[], b: number[], t: number) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   for (const { op, A, B } of tunnels) {
-    const fl = op.floor, crown = fl + op.h, r = op.w / 2, spring = op.arch ? crown - r : crown;
-    const len = Math.abs(B.t - A.t), m = Math.min(0.5, 0.85 / Math.max(len, 1));
-    const lerp = (p, q, f) => [p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f];
-    const segs = [[0, m, 0.5], [m, 1 - m, 0], [1 - m, 1, 0.5]];
-    const mouth = shade(frame, 0.62);
-    for (const [f0, f1, lt] of segs) {
+    const floor = op.floor, crown = floor + op.h, radius = op.w / 2, spring = op.arch ? crown - radius : crown;
+    const len = Math.abs(B.t - A.t), mouthFrac = Math.min(0.5, 0.85 / Math.max(len, 1));
+    const segments = [[0, mouthFrac, 0.5], [mouthFrac, 1 - mouthFrac, 0], [1 - mouthFrac, 1, 0.5]];
+    const mouthCol = shade(frame, 0.62);
+    for (const [f0, f1, isMouth] of segments) {
       if (f1 - f0 < 1e-3) continue;
-      const col = lt ? mouth : STONE_DARK;
-      const L0 = lerp(A.L, B.L, f0), L1 = lerp(A.L, B.L, f1), R0 = lerp(A.R, B.R, f0), R1 = lerp(A.R, B.R, f1);
-      const toR = [R0[0] - L0[0], 0, R0[1] - L0[1]];
-      S.quad([L0[0], fl, L0[1]], [L1[0], fl, L1[1]], [L1[0], spring, L1[1]], [L0[0], spring, L0[1]], col, toR);
-      S.quad([R0[0], fl, R0[1]], [R1[0], fl, R1[1]], [R1[0], spring, R1[1]], [R0[0], spring, R0[1]], col, [-toR[0], 0, -toR[2]]);
-      S.kind = KIND.ROAD;
-      S.quad([L0[0], fl, L0[1]], [L1[0], fl, L1[1]], [R1[0], fl, R1[1]], [R0[0], fl, R0[1]], lt ? shade(PAL.stone, 0.8) : shade(PAL.stone, 0.42), [0, 1, 0]);
-      S.kind = KIND.PLAIN;
-      if (!op.arch) S.quad([L0[0], crown, L0[1]], [L1[0], crown, L1[1]], [R1[0], crown, R1[1]], [R0[0], crown, R0[1]], shade(col, 0.8), [0, -1, 0]);
-      else {
-        const N = 8;
-        const v = (f, th) => { const l = lerp(L0, L1, f), rr = lerp(R0, R1, f), q = lerp(l, rr, (1 - Math.cos(th)) / 2); return [q[0], spring + r * Math.sin(th), q[1]]; };
-        const ax = lerp(lerp(L0, R0, 0.5), lerp(L1, R1, 0.5), 0.5);
-        for (let k = 0; k < N; k++) {
-          const t0 = Math.PI - (Math.PI * k) / N, t1 = Math.PI - (Math.PI * (k + 1)) / N;
-          const a0 = v(0, t0), b0 = v(0, t1), a1 = v(1, t0);
-          const cxq = (a0[0] + b0[0]) / 2, cyq = (a0[1] + b0[1]) / 2, czq = (a0[2] + b0[2]) / 2;
-          S.quad(a0, b0, v(1, t1), a1, shade(col, 0.85), [ax[0] - cxq, spring - cyq, ax[1] - czq]);
+      const wallC = isMouth ? mouthCol : STONE_DARK;
+      const l0 = lerp2(A.L, B.L, f0), l1 = lerp2(A.L, B.L, f1), r0 = lerp2(A.R, B.R, f0), r1 = lerp2(A.R, B.R, f1);
+      const toRight = [r0[0] - l0[0], 0, r0[1] - l0[1]];
+      buf.quad([l0[0], floor, l0[1]], [l1[0], floor, l1[1]], [l1[0], spring, l1[1]], [l0[0], spring, l0[1]], wallC, toRight);
+      buf.quad([r0[0], floor, r0[1]], [r1[0], floor, r1[1]], [r1[0], spring, r1[1]], [r0[0], spring, r0[1]], wallC, [-toRight[0], 0, -toRight[2]]);
+      buf.kind = KIND.ROAD;
+      buf.quad([l0[0], floor, l0[1]], [l1[0], floor, l1[1]], [r1[0], floor, r1[1]], [r0[0], floor, r0[1]], isMouth ? shade(PAL.stone, 0.8) : shade(PAL.stone, 0.42), [0, 1, 0]);
+      buf.kind = KIND.PLAIN;
+      if (!op.arch) {
+        buf.quad([l0[0], crown, l0[1]], [l1[0], crown, l1[1]], [r1[0], crown, r1[1]], [r0[0], crown, r0[1]], shade(wallC, 0.8), [0, -1, 0]);
+      } else {
+        const vaultPt = (frac: number, theta: number) => {
+          const pL = lerp2(l0, l1, frac), pR = lerp2(r0, r1, frac);
+          const pt = lerp2(pL, pR, (1 - Math.cos(theta)) / 2);
+          return [pt[0], spring + radius * Math.sin(theta), pt[1]];
+        };
+        const axisMid = lerp2(lerp2(l0, r0, 0.5), lerp2(l1, r1, 0.5), 0.5);
+        for (let k = 0; k < ARCH_SEGMENTS; k++) {
+          const t0 = Math.PI - (Math.PI * k) / ARCH_SEGMENTS, t1 = Math.PI - (Math.PI * (k + 1)) / ARCH_SEGMENTS;
+          const a0 = vaultPt(0, t0), b0 = vaultPt(0, t1), a1 = vaultPt(1, t0);
+          const midX = (a0[0] + b0[0]) / 2, midY = (a0[1] + b0[1]) / 2, midZ = (a0[2] + b0[2]) / 2;
+          buf.quad(a0, b0, vaultPt(1, t1), a1, shade(wallC, 0.85), [axisMid[0] - midX, spring - midY, axisMid[1] - midZ]);
         }
       }
     }
   }
-  // where other masonry stands across a mouth (the rampart, the Imperial City wall), a porch is built out past its face
-  // with the passage carried through it, and the passage goes on as a dark opening in that face
+
   if (covers) {
     for (const { op, A, B } of tunnels) {
-      for (const [E, sg] of [[A, -1], [B, 1]]) {
-        const M = [op.p[0] + op.dir[0] * E.t, op.p[1] + op.dir[1] * E.t], od = [op.dir[0] * sg, op.dir[1] * sg];
-        let f = 0;
-        for (const [a, b] of covers) { const h = hit(M, od, a, b); if (h && h.s >= 0 && h.s <= 1 && h.t > 0.05 && h.t < 4.5) f = Math.max(f, h.t); }
-        if (!f) continue;
-        const dep = 1.2, pc = [M[0] + od[0] * (f + dep / 2), M[1] + od[1] * (f + dep / 2)];
-        const pr = rect(pc[0], pc[1], dep, op.w + 1.7, Math.atan2(od[1], od[0]));
-        const ptop = Math.min(porchTop ?? y1, op.floor + op.h + 1.0);
-        S.kind = KIND.MASONRY;
-        S.prism(pr, ptop, ptop, wallCol, shade(wallCol, 1.08));
-        passages(S, pr, y0, ptop, wallCol, [{ ...op, p: pc }], { frame, proud });
-        // the passage seen on into the wall behind
-        S.kind = KIND.PLAIN;
-        const F = [M[0] + od[0] * (f - 0.02), M[1] + od[1] * (f - 0.02)], sx = -od[1], sz = od[0], r = op.w / 2;
-        const fl = op.floor, sp = op.arch ? fl + op.h - r : fl + op.h;
-        const q = (u, y) => [F[0] + sx * u, y, F[1] + sz * u];
-        const nrm = [od[0], 0, od[1]];
-        S.quad(q(-r, fl), q(r, fl), q(r, sp), q(-r, sp), STONE_DARK, nrm);
-        if (op.arch) for (let k = 0; k < 8; k++) {
-          const t0 = Math.PI - (Math.PI * k) / 8, t1 = Math.PI - (Math.PI * (k + 1)) / 8;
-          S.tri(q(0, sp), q(r * Math.cos(t0), sp + r * Math.sin(t0)), q(r * Math.cos(t1), sp + r * Math.sin(t1)), STONE_DARK, nrm);
+      for (const [endHit, sign] of [[A, -1], [B, 1]] as [any, number][]) {
+        const mouthPt = [op.p[0] + op.dir[0] * endHit.t, op.p[1] + op.dir[1] * endHit.t];
+        const outDir = [op.dir[0] * sign, op.dir[1] * sign];
+        let maxHitDist = 0;
+        for (const [p0, p1] of covers) {
+          const hit = raySegmentHit(mouthPt, outDir, p0, p1);
+          if (hit && hit.s >= 0 && hit.s <= 1 && hit.t > 0.05 && hit.t < 4.5) maxHitDist = Math.max(maxHitDist, hit.t);
+        }
+        if (!maxHitDist) continue;
+        const porchDepth = 1.2;
+        const porchCenter = [mouthPt[0] + outDir[0] * (maxHitDist + porchDepth / 2), mouthPt[1] + outDir[1] * (maxHitDist + porchDepth / 2)];
+        const porchRing = makeRectRing(porchCenter[0], porchCenter[1], porchDepth, op.w + 1.7, Math.atan2(outDir[1], outDir[0]));
+        const pTop = Math.min(porchTop ?? y1, op.floor + op.h + 1.0);
+        buf.kind = KIND.MASONRY;
+        buf.prism(porchRing, pTop, pTop, wallCol, shade(wallCol, 1.08));
+        passages(buf, porchRing, y0, pTop, wallCol, [{ ...op, p: porchCenter }], { frame, proud });
+        buf.kind = KIND.PLAIN;
+        const facePt = [mouthPt[0] + outDir[0] * (maxHitDist - 0.02), mouthPt[1] + outDir[1] * (maxHitDist - 0.02)];
+        const sideX = -outDir[1], sideZ = outDir[0], radius = op.w / 2;
+        const floor = op.floor, spring = op.arch ? floor + op.h - radius : floor + op.h;
+        const darkPt = (u: number, y: number) => [facePt[0] + sideX * u, y, facePt[1] + sideZ * u];
+        const nrm = [outDir[0], 0, outDir[1]];
+        buf.quad(darkPt(-radius, floor), darkPt(radius, floor), darkPt(radius, spring), darkPt(-radius, spring), STONE_DARK, nrm);
+        if (op.arch) {
+          for (let k = 0; k < ARCH_SEGMENTS; k++) {
+            const t0 = Math.PI - (Math.PI * k) / ARCH_SEGMENTS, t1 = Math.PI - (Math.PI * (k + 1)) / ARCH_SEGMENTS;
+            buf.tri(darkPt(0, spring), darkPt(radius * Math.cos(t0), spring + radius * Math.sin(t0)), darkPt(radius * Math.cos(t1), spring + radius * Math.sin(t1)), STONE_DARK, nrm);
+          }
         }
       }
     }
   }
-  S.kind = keep;
+  buf.kind = prevKind;
   return tunnels;
 }
 
-function gate(S, g, centre, eaves = null, coverAt = null) {
-  // which footprint axis runs through the wall: see gateAxis
-  const { cx, cz, w, d, a, pa, px, pz, plen, pwid } = gateAxis(g, centre);
-  if (g.k === 'citadel') {
-    const top = LAND_Y + WALL_H + 1.4;
-    S.kind = KIND.MASONRY;
-    // the gate block with its arched passage driven right through it
-    // The block reaches to both faces of the rampart, a hand's breadth proud of them, so the passage runs the whole
-    // thickness of the wall; city.js cuts the matching slot out of the rampart.
+function buildGate(buf: Buf, gateRec: any, center: number[], eaves: any[] | null = null, coverAt: any = null) {
+  const { cx, cz, w, d, a, pa, px, pz, plen, pwid } = gateAxis(gateRec, center);
+  if (gateRec.k === 'citadel') {
+    const topY = LAND_Y + WALL_H + 1.4;
+    buf.kind = KIND.MASONRY;
     const reach = [plen / 2 + 0.5, plen / 2 + 0.5];
     for (const [fa, fb] of (coverAt ? coverAt(cx, cz) : [])) {
-      const ex = fb[0] - fa[0], ez = fb[1] - fa[1], den = px * ez - pz * ex;
-      if (Math.abs(den) < 1e-6) continue;
-      const qx = fa[0] - cx, qz = fa[1] - cz, t = (qx * ez - qz * ex) / den, s = (qx * pz - qz * px) / den;
-      if (s < 0 || s > 1 || Math.abs(t) < plen / 2 - 1.5 || Math.abs(t) > plen / 2 + 6) continue;
-      const k = t < 0 ? 0 : 1;
-      reach[k] = Math.max(reach[k], Math.abs(t) + 0.12);
+      const ex = fb[0] - fa[0], ez = fb[1] - fa[1], denom = px * ez - pz * ex;
+      if (Math.abs(denom) < 1e-6) continue;
+      const qx = fa[0] - cx, qz = fa[1] - cz;
+      const dist = (qx * ez - qz * ex) / denom, frac = (qx * pz - qz * px) / denom;
+      if (frac < 0 || frac > 1 || Math.abs(dist) < plen / 2 - 1.5 || Math.abs(dist) > plen / 2 + 6) continue;
+      const sideIdx = dist < 0 ? 0 : 1;
+      reach[sideIdx] = Math.max(reach[sideIdx], Math.abs(dist) + 0.12);
     }
     const shift = (reach[1] - reach[0]) / 2;
-    const ring = rect(cx + px * shift, cz + pz * shift, reach[0] + reach[1], pwid + 1, pa);
-    S.prism(ring, top, top, PAL.brickLight, PAL.stone, { topKind: KIND.ROAD });
-    const built = passages(S, ring, LAND_Y - 0.5, top, PAL.brickLight, [{ p: [cx, cz], dir: [px, pz], w: CITADEL_PASSAGE.w, h: CITADEL_PASSAGE.h, floor: LAND_Y, arch: true }]);
-    S.kind = KIND.MASONRY;
-    S.box(cx, cz, top, top + 0.8, w + 0.6, d + 0.6, a, shade(PAL.brickLight, 1.08), { top: PAL.stone, topKind: KIND.ROAD });
-    S.kind = KIND.PLAIN;
-    if (!built.length) for (const s of [-1, 1]) {
-      const fx = cx + px * s * (plen / 2 + 0.42), fz = cz + pz * s * (plen / 2 + 0.42);
-      S.box(fx, fz, LAND_Y, LAND_Y + 4.4, 0.3, 4.2, pa, dark);
-      S.box(fx, fz, LAND_Y + 4.4, LAND_Y + 5.3, 0.3, 3.0, pa, dark);
-    }
-    // the gate's flat top is walled with a crenellated brick parapet (lỗ châu mai), the watch pavilion inside it
-    {
-      const W2 = w + 0.6, D2 = d + 0.6, ux = Math.cos(a), uz = Math.sin(a);
-      const Pq = (u, v) => [cx + u * ux - v * uz, cz + u * uz + v * ux];
-      S.kind = KIND.MASONRY;
-      for (const [len, along, off] of [[W2, true, D2 / 2], [W2, true, -D2 / 2], [D2, false, W2 / 2], [D2, false, -W2 / 2]] as [number, boolean, number][]) {
-        const n = Math.max(3, Math.round(len / 1.4));
-        for (let k = 0; k < n; k++) {
-          const s = -len / 2 + (len * (k + 0.5)) / n;
-          const q = along ? Pq(s, off - Math.sign(off) * 0.25) : Pq(off - Math.sign(off) * 0.25, s);
-          const merlon = k % 2 === 0;
-          S.box(q[0], q[1], top + 0.8, top + 0.8 + (merlon ? 1.15 : 0.7), along ? len / n : 0.5, along ? 0.5 : len / n, a, shade(PAL.brickLight, 1.08), { top: PAL.stone });
-        }
-      }
-      // the name panel (carved characters on a framed stone tablet) over the arch, on each face
-      S.kind = KIND.PLAIN;
-      for (const k of [0, 1]) {
-        const sg = k ? 1 : -1, dd = reach[k] + 0.08; // the block's faces stand reach[] out from the gate's centre
-        const yb = LAND_Y + CITADEL_PASSAGE.h + 0.75;
-        S.box(cx + px * sg * dd, cz + pz * sg * dd, yb, yb + 1.25, 3.6, 0.16, pa + Math.PI / 2, hex('#ddd3bd'));
-        S.box(cx + px * sg * (dd + 0.06), cz + pz * sg * (dd + 0.06), yb + 0.18, yb + 1.07, 3.1, 0.08, pa + Math.PI / 2, hex('#3b3430'));
+    const ring = makeRectRing(cx + px * shift, cz + pz * shift, reach[0] + reach[1], pwid + 1, pa);
+    buf.prism(ring, topY, topY, PAL.brickLight, PAL.stone, { topKind: KIND.ROAD });
+    const built = passages(buf, ring, LAND_Y - 0.5, topY, PAL.brickLight, [{ p: [cx, cz], dir: [px, pz], w: CITADEL_PASSAGE.w, h: CITADEL_PASSAGE.h, floor: LAND_Y, arch: true }]);
+    buf.kind = KIND.MASONRY;
+    buf.box(cx, cz, topY, topY + 0.8, w + 0.6, d + 0.6, a, shade(PAL.brickLight, 1.08), { top: PAL.stone, topKind: KIND.ROAD });
+    buf.kind = KIND.PLAIN;
+    if (!built.length) {
+      for (const sign of [-1, 1]) {
+        const fx = cx + px * sign * (plen / 2 + 0.42), fz = cz + pz * sign * (plen / 2 + 0.42);
+        buf.box(fx, fz, LAND_Y, LAND_Y + 4.4, 0.3, 4.2, pa, DARK_FILL);
+        buf.box(fx, fz, LAND_Y + 4.4, LAND_Y + 5.3, 0.3, 3.0, pa, DARK_FILL);
       }
     }
-    pavilion(S, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, top + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270'), eaves, colonnade: true });
+
+    const parW = w + 0.6, parD = d + 0.6, ux = Math.cos(a), uz = Math.sin(a);
+    const ptLocal = (u: number, v: number) => [cx + u * ux - v * uz, cz + u * uz + v * ux];
+    buf.kind = KIND.MASONRY;
+    for (const [len, isAlong, off] of [[parW, true, parD / 2], [parW, true, -parD / 2], [parD, false, parW / 2], [parD, false, -parW / 2]] as [number, boolean, number][]) {
+      const merlonCount = Math.max(3, Math.round(len / 1.4));
+      for (let k = 0; k < merlonCount; k++) {
+        const pos = -len / 2 + (len * (k + 0.5)) / merlonCount;
+        const pt = isAlong ? ptLocal(pos, off - Math.sign(off) * 0.25) : ptLocal(off - Math.sign(off) * 0.25, pos);
+        const isMerlon = k % 2 === 0;
+        buf.box(pt[0], pt[1], topY + 0.8, topY + 0.8 + (isMerlon ? 1.15 : 0.7), isAlong ? len / merlonCount : 0.5, isAlong ? 0.5 : len / merlonCount, a, shade(PAL.brickLight, 1.08), { top: PAL.stone });
+      }
+    }
+    buf.kind = KIND.PLAIN;
+    for (const sideIdx of [0, 1]) {
+      const sign = sideIdx ? 1 : -1, dist = reach[sideIdx] + 0.08;
+      const tabletY = LAND_Y + CITADEL_PASSAGE.h + 0.75;
+      buf.box(cx + px * sign * dist, cz + pz * sign * dist, tabletY, tabletY + 1.25, 3.6, 0.16, pa + Math.PI / 2, hex('#ddd3bd'));
+      buf.box(cx + px * sign * (dist + 0.06), cz + pz * sign * (dist + 0.06), tabletY + 0.18, tabletY + 1.07, 3.1, 0.08, pa + Math.PI / 2, hex('#3b3430'));
+    }
+    pavilion(buf, cx, cz, Math.min(pwid * 0.74, 12), Math.min(plen * 0.6, 8), pa + Math.PI / 2, topY + 0.8, { tiers: 2, wallH: 3.0, roof: hex('#c08a2e'), over: 1.3, rh: 2.6, ridge: hex('#e0c270'), eaves, colonnade: true });
   } else {
-    if (replaced('chuongduc') && String(g.n || '').normalize('NFC') === 'Chương Đức'.normalize('NFC')) return { cx, cz, px, pz, plen }; // drawn by places/chuongduc.js
-    // Imperial City gates: lower, brightly tiled, three bays. The same form serves the gates of chùa Thiên Mụ, which
-    // stand up on Hà Khê hill, so they take the height of their own ground.
-    const G = LAND_Y + rise(cx, cz);
-    S.base = G - LAND_Y;
-    const top = G + 5.2;
-    S.kind = KIND.MASONRY;
-    // three arched passages through the block, the middle one taller
-    const ring = rect(cx, cz, w, Math.max(d, 4), a), wallC = hex('#d9c9a4');
-    S.prism(ring, top, top, wallC, PAL.stone, { topKind: KIND.ROAD });
-    const ops = [-1, 0, 1].map((o) => ({ p: [cx - pz * o * pwid * 0.28, cz + px * o * pwid * 0.28], dir: [px, pz], w: o === 0 ? 2.6 : 2.0, h: o === 0 ? 4.0 : 3.2, floor: G, arch: true }));
-    const built = passages(S, ring, G - 0.6, top, wallC, ops); // the Imperial City's wall stops at this footprint (city.js)
-    S.kind = KIND.PLAIN;
-    for (const s of [-1, 1]) for (const o of [-1, 0, 1]) {
-      if (built.some((t) => t.op === ops[o + 1])) continue;
-      const fx = cx + px * s * (plen / 2 + 0.1) - pz * o * pwid * 0.28, fz = cz + pz * s * (plen / 2 + 0.1) + px * o * pwid * 0.28;
-      S.box(fx, fz, G, G + (o === 0 ? 3.8 : 3.0), 0.3, o === 0 ? 2.6 : 2.0, pa, dark);
+    if (replaced('chuongduc') && String(gateRec.n || '').normalize('NFC') === 'Chương Đức'.normalize('NFC')) return { cx, cz, px, pz, plen };
+    const groundY = LAND_Y + rise(cx, cz);
+    buf.base = groundY - LAND_Y;
+    const topY = groundY + 5.2;
+    buf.kind = KIND.MASONRY;
+    const ring = makeRectRing(cx, cz, w, Math.max(d, 4), a);
+    const wallCol = hex('#d9c9a4');
+    buf.prism(ring, topY, topY, wallCol, PAL.stone, { topKind: KIND.ROAD });
+    const ops = [-1, 0, 1].map((slot) => ({
+      p: [cx - pz * slot * pwid * 0.28, cz + px * slot * pwid * 0.28],
+      dir: [px, pz],
+      w: slot === 0 ? 2.6 : 2.0,
+      h: slot === 0 ? 4.0 : 3.2,
+      floor: groundY,
+      arch: true,
+    }));
+    const built = passages(buf, ring, groundY - 0.6, topY, wallCol, ops);
+    buf.kind = KIND.PLAIN;
+    for (const sign of [-1, 1]) {
+      for (const slot of [-1, 0, 1]) {
+        if (built.some((tunnel) => tunnel.op === ops[slot + 1])) continue;
+        const fx = cx + px * sign * (plen / 2 + 0.1) - pz * slot * pwid * 0.28;
+        const fz = cz + pz * sign * (plen / 2 + 0.1) + px * slot * pwid * 0.28;
+        buf.box(fx, fz, groundY, groundY + (slot === 0 ? 3.8 : 3.0), 0.3, slot === 0 ? 2.6 : 2.0, pa, DARK_FILL);
+      }
     }
-    // Hiển Nhơn and Chương Đức, the Imperial City's east and west gates, carry their two-storey tower under yellow
-    // glazed tiles (hoàng lưu ly), the emperor's; the unnamed gates (at Thiên Mụ) and Trấn Bình keep the green
-    const nm = String(g.n || '').normalize('NFC');
-    const yellow = ['Cửa Hiển Nhơn', 'Chương Đức'].map((n) => n.normalize('NFC')).includes(nm);
-    pavilion(S, cx, cz, Math.min(pwid * 0.8, 14), Math.max(3.5, plen * 0.7), pa + Math.PI / 2, top, { tiers: 2, wallH: 2.2, roof: yellow ? PAL.imperialRoof : PAL.jadeRoof, wall: hex('#b9452e'), over: 1.1, rh: 2.2, eaves, ridge: yellow ? RIDGE : hex('#e8d9a0') });
-    // a white parapet round the gate's flat top, with the tower standing inside it
-    S.kind = KIND.PLAIN;
-    const pr = rect(cx, cz, w - 0.3, Math.max(d, 4) - 0.3, a), pi = rect(cx, cz, w - 0.9, Math.max(d, 4) - 0.9, a);
-    S.prism(pr, top, top + 0.75, hex('#e6dcc3'), hex('#efe6d0'), { holes: [pi.reverse()], top: true });
-    S.base = 0;
+    const isYellow = YELLOW_ROOF_GATES.includes(String(gateRec.n || '').normalize('NFC'));
+    pavilion(buf, cx, cz, Math.min(pwid * 0.8, 14), Math.max(3.5, plen * 0.7), pa + Math.PI / 2, topY, {
+      tiers: 2, wallH: 2.2, roof: isYellow ? PAL.imperialRoof : PAL.jadeRoof, wall: hex('#b9452e'),
+      over: 1.1, rh: 2.2, eaves, ridge: isYellow ? RIDGE_GOLD : hex('#e8d9a0'),
+    });
+    buf.kind = KIND.PLAIN;
+    const outerPar = makeRectRing(cx, cz, w - 0.3, Math.max(d, 4) - 0.3, a);
+    const innerPar = makeRectRing(cx, cz, w - 0.9, Math.max(d, 4) - 0.9, a);
+    buf.prism(outerPar, topY, topY + 0.75, hex('#e6dcc3'), hex('#efe6d0'), { holes: [innerPar.reverse()], top: true });
+    buf.base = 0;
   }
   return { cx, cz, px, pz, plen };
 }
 
-// A dataset that lacks what the Citadel needs leaves it out (and the shared buffer as it was) instead of stopping the
-// whole load; main.js still gets the object it calls every frame.
-export function buildCitadel(data, S, group) {
-  const n0 = S.n;
-  try { return citadel(data, S, group); } catch (e) {
-    S.n = n0; S.kind = KIND.PLAIN; S.base = 0;
-    console.warn('Citadel not built:', e);
-    return { flag: null, glows: [], update() {} };
+function buildKyDai(data: any, buf: Buf, group: THREE.Group, lightA: Buf, floodPos: number[], floodCol: number[]) {
+  if (!data.special?.kydai || replaced('kydai')) return null;
+  const ring = unflat(data.special.kydai.ring);
+  const center = ringCentre(ring);
+  const scaleRing = (factor: number) => ring.map((pt) => [center[0] + (pt[0] - center[0]) * factor, center[1] + (pt[1] - center[1]) * factor]);
+  let curY = LAND_Y;
+  const tiers: [number, number][] = [[1.0, 5.6], [0.74, 5.8], [0.5, 6.2]];
+  buf.kind = KIND.MASONRY;
+  for (const [scale, height] of tiers) {
+    buf.prism(scaleRing(scale), curY, curY + height, PAL.brick, PAL.stone, { scaleTop: 0.94, centre: center, topKind: KIND.ROAD });
+    buf.prism(scaleRing(scale * 0.94), curY + height, curY + height + 0.9, shade(PAL.brickLight, 1.05), PAL.stone, { holes: [scaleRing(scale * 0.9).reverse()], centre: center, top: true, topKind: KIND.ROAD });
+    ringStrip(lightA, scaleRing(scale * 0.94), curY + height + 0.9 - 0.16, 0.1, 0.18, 0.28);
+    curY += height;
+  }
+  for (let i = 0; i < 7; i++) {
+    const ang = (i / 7) * Math.PI * 2;
+    floodPos.push(center[0] + Math.cos(ang) * 2.2, curY + 0.35, center[1] + Math.sin(ang) * 2.2);
+    floodCol.push(1.0, 0.76, 0.42);
+  }
+  buf.kind = KIND.PLAIN;
+  const poleH = 37;
+  buf.cyl(center[0], center[1], curY, curY + 3, 1.3, 1.0, 8, PAL.stone);
+  buf.cyl(center[0], center[1], curY + 3, curY + poleH, 0.5, 0.28, 8, hex('#e2dccd'));
+  return makeFlag(group, { at: [center[0], curY + poleH - 0.4, center[1]], w: 15, h: 10, look: 'vn' });
+}
+
+function buildNgoMon(data: any, buf: Buf, impCenter: number[], lightA: Buf, addLantern: (x: number, y: number, z: number) => void) {
+  if (!data.special?.ngomon || replaced('ngomon')) return;
+  const ring = unflat(data.special.ngomon.ring);
+  const box = obb(ring);
+  const baseTop = LAND_Y + 5.4;
+  buf.kind = KIND.MASONRY;
+  buf.prism(ring, baseTop, baseTop, hex('#8e8172'), PAL.stone, { topKind: KIND.ROAD, parapet: 0.7 });
+  buf.kind = KIND.PLAIN;
+  ringStrip(lightA, ring, baseTop + 0.7 - 0.16, 0.12, 0.18, 0.28);
+
+  const eaves: any[] = [];
+  const ux = Math.cos(box.a), uz = Math.sin(box.a);
+  let vx = -uz, vz = ux;
+  if ((box.c[0] - impCenter[0]) * vx + (box.c[1] - impCenter[1]) * vz < 0) { vx = -vx; vz = -vz; }
+  const ptAt = (u: number, v: number) => [box.c[0] + ux * u + vx * v, box.c[1] + uz * u + vz * v];
+  const back = -box.d * 0.2;
+
+  const centerPt = ptAt(0, back);
+  pavilion(buf, centerPt[0], centerPt[1], box.w * 0.4, box.d * 0.4, box.a, baseTop, { tiers: 2, wallH: 3.1, roof: PAL.imperialRoof, over: 1.5, rh: 3.1, eaves, colonnade: true, segs: 3 });
+  for (const sign of [-1, 1]) {
+    const flankPt = ptAt(sign * box.w * 0.3, back);
+    pavilion(buf, flankPt[0], flankPt[1], box.w * 0.2, box.d * 0.3, box.a, baseTop, { tiers: 1, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.4, eaves, colonnade: true, segs: 3 });
+    const wingPt = ptAt(sign * box.w * 0.405, box.d * 0.08);
+    pavilion(buf, wingPt[0], wingPt[1], box.d * 0.66, box.w * 0.15, box.a + Math.PI / 2, baseTop, { tiers: 2, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.6, eaves, colonnade: true, segs: 3 });
+  }
+  for (const eave of eaves) eaveStrip(lightA, eave);
+
+  const ops = [-1, 0, 1].map((slot) => ({ p: ptAt(slot * box.w * 0.11, back), dir: [vx, vz], w: slot === 0 ? 3.2 : 2.4, h: slot === 0 ? 4.2 : 3.6, floor: LAND_Y, arch: false }));
+  ops.push({ p: ptAt(0, box.d * 0.29), dir: [ux, uz], w: 2.3, h: 3.3, floor: LAND_Y, arch: true });
+  buf.kind = KIND.MASONRY;
+  const built = passages(buf, ring, LAND_Y, baseTop, hex('#8e8172'), ops);
+  buf.kind = KIND.PLAIN;
+  for (const slot of [-1, 0, 1]) {
+    const tunnel = built.find((entry) => entry.op === ops[slot + 1]);
+    const lampPt = tunnel ? ptAt(slot * box.w * 0.11, back + Math.max(tunnel.A.t, tunnel.B.t) + 5.0) : ptAt(slot * box.w * 0.11, back + box.d * 0.2 + 1.0);
+    addLantern(lampPt[0], LAND_Y + (slot === 0 ? 2.5 : 2.2), lampPt[1]);
+    if (!tunnel) {
+      const darkPt = ptAt(slot * box.w * 0.11, back + box.d * 0.2 + 0.2);
+      buf.box(darkPt[0], darkPt[1], LAND_Y, LAND_Y + (slot === 0 ? 4.2 : 3.6), slot === 0 ? 3.2 : 2.4, 0.4, box.a, DARK_FILL);
+    }
   }
 }
-function citadel(data, S, group) {
-  const place = (id) => { const p = (data.places || []).find((q) => q.id === id); return p ? [p.x / 10, p.z / 10] : null; };
-  const impCentre = [data.imperial.c[0] / 10, data.imperial.c[1] / 10];
-  const cityCentre = place('kinhthanh') || impCentre; // the Imperial City stands near enough the middle to aim the gates by
 
-  // night lighting: A = Kỳ Đài and Ngọ Môn, B = the halls, riverside pavilions and the two south gates (both electric);
-  // lanterns at doorways, floodlights at the flagpole's foot
-  const LA = new Buf(800), LB = new Buf(800);
-  const lanPos = [], lanCol = [], floodPos = [], floodCol = [], glows = [];
-  const lantern = (x, y, z) => { lanPos.push(x, y, z); lanCol.push(...LANTERN); };
-  const LIT_GATES = ['Cửa Ngăn', 'Cửa Thượng Tứ'].map((n) => n.normalize('NFC'));
+function buildThaiHoa(data: any, buf: Buf, lightB: Buf, addLantern: (x: number, y: number, z: number) => void) {
+  if (!data.special?.thaihoa || replaced('thaihoa')) return;
+  const box = obb(unflat(data.special.thaihoa.ring));
+  const ux = Math.cos(box.a), uz = Math.sin(box.a), vx = -uz, vz = ux;
+  const frontTarget = data.special.ngomon ? obb(unflat(data.special.ngomon.ring)).c : data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : null;
+  const frontSign = frontTarget && (frontTarget[0] - box.c[0]) * vx + (frontTarget[1] - box.c[1]) * vz < 0 ? -1 : 1;
+  const ptAt = (u: number, v: number) => [box.c[0] + ux * u + vx * v, box.c[1] + uz * u + vz * v];
 
-  // faces of the rampart and of the Imperial City's wall (drawn in city.js), which may stand across a passage's mouth
-  const coverFaces = [];
-  for (const poly of data.wall || []) for (const r of poly.map(unflat)) for (let i = 0; i < r.length; i++) coverFaces.push([r[i], r[(i + 1) % r.length]]);
-  for (const flat of data.iwalls || []) {
-    const pts = unflat(flat);
-    for (let i = 0; i + 1 < pts.length; i++) {
-      const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (len < 0.3) continue;
-      const tx = (b[0] - a[0]) / len, tz = (b[1] - a[1]) / len;
-      for (const o of [-0.85, 0.85]) coverFaces.push([[a[0] - tx * 0.75 - tz * o, a[1] - tz * 0.75 + tx * o], [b[0] + tx * 0.75 - tz * o, b[1] + tz * 0.75 + tx * o]]);
-    }
-  }
-  const coverAt = (x, z, R = 45) => coverFaces.filter(([a, b]) => {
-    const ex = b[0] - a[0], ez = b[1] - a[1], l2 = ex * ex + ez * ez || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * ex + (z - a[1]) * ez) / l2));
-    return Math.hypot(a[0] + ex * t - x, a[1] + ez * t - z) < R;
-  });
+  buf.kind = KIND.MASONRY;
+  buf.box(box.c[0], box.c[1], LAND_Y, LAND_Y + 1.4, box.w + 7, box.d + 7, box.a, PAL.stone, { taper: 0.97, topKind: KIND.ROAD });
 
-  for (const g of data.gates || []) {
-    if (String(g.n || '').normalize('NFC') === 'Cửa Hiển Nhơn'.normalize('NFC') && replaced('hiennhon')) continue; // drawn by places/hiennhon.js
-    if (replaced('mangca') && String(g.n || '').normalize('NFC') === 'Trấn Bình Môn'.normalize('NFC')) continue; // drawn by places/mangca.js
-    if (replaced('gate:' + String(g.n || ''))) continue; // any 'gate:<name>' replica (places/gate-cua-*.js) draws that gate itself
-    if (replaced('thienmu') && data.hakhe && inRing(g.c[0] / 10, g.c[1] / 10, unflat(data.hakhe.ring))) continue; // Thiên Mụ's side gates: places/thienmu.js
-    const lit =LIT_GATES.includes(String(g.n || '').normalize('NFC'));
-    const eaves = lit ? [] : null;
-    const gi = gate(S, g, g.k === 'citadel' ? cityCentre : impCentre, eaves, coverAt);
-    if (!lit) continue;
-    // the watch pavilion's lower eave, all round, and a lamp in the passage on each face
-    if (eaves[0]) eaveStrip(LB, eaves[0]);
-    for (const s of [-1, 1]) lantern(gi.cx + gi.px * s * (gi.plen / 2 + 1.2), LAND_Y + 2.6, gi.cz + gi.pz * s * (gi.plen / 2 + 1.2));
-  }
+  const upperLen = 11, lowerLen = 13, esplanadeW = box.w + 10;
+  let pt = ptAt(0, frontSign * (box.d / 2 + 3.5 + upperLen / 2));
+  buf.box(pt[0], pt[1], LAND_Y - 0.3, LAND_Y + 0.9, esplanadeW, upperLen, box.a, shade(PAL.stone, 0.97), { topKind: KIND.ROAD });
+  pt = ptAt(0, frontSign * (box.d / 2 + 3.5 + upperLen + lowerLen / 2));
+  buf.box(pt[0], pt[1], LAND_Y - 0.3, LAND_Y + 0.45, esplanadeW + 6, lowerLen, box.a, shade(PAL.stone, 0.94), { topKind: KIND.ROAD });
+  pt = ptAt(0, frontSign * (box.d / 2 + 3.5 + (upperLen + lowerLen) / 2));
+  buf.box(pt[0], pt[1], LAND_Y - 0.3, LAND_Y + 1.0, 4.2, upperLen + lowerLen, box.a, shade(PAL.stone, 1.06), { topKind: KIND.ROAD });
 
-  // ---- Kỳ Đài: three brick terraces on the Nam Chánh bastion, and the flag ----
-  let flag = null;
-  if (data.special?.kydai && !replaced('kydai')) { // drawn by places/kydai.js
-    const ring = unflat(data.special?.kydai.ring);
-    const c = ringCentre(ring);
-    const scale = (k) => ring.map((p) => [c[0] + (p[0] - c[0]) * k, c[1] + (p[1] - c[1]) * k]);
-    let y = LAND_Y;
-    const tiers = [[1.0, 5.6], [0.74, 5.8], [0.5, 6.2]]; // 17.6 m of terraces
-    S.kind = KIND.MASONRY;
-    for (const [k, h] of tiers) {
-      S.prism(scale(k), y, y + h, PAL.brick, PAL.stone, { scaleTop: 0.94, centre: c, topKind: KIND.ROAD });
-      S.prism(scale(k * 0.94), y + h, y + h + 0.9, shade(PAL.brickLight, 1.05), PAL.stone, { holes: [scale(k * 0.9).reverse()], centre: c, top: true, topKind: KIND.ROAD });
-      ringStrip(LA, scale(k * 0.94), y + h + 0.9 - 0.16, 0.1, 0.18, 0.28); // along the parapet's outer top edge
-      y += h;
-    }
-    // a ring of floodlights at the foot of the pole, so pole and flag read against the night sky
-    for (let i = 0; i < 7; i++) {
-      const t = (i / 7) * Math.PI * 2;
-      floodPos.push(c[0] + Math.cos(t) * 2.2, y + 0.35, c[1] + Math.sin(t) * 2.2);
-      floodCol.push(1.0, 0.76, 0.42);
-    }
-    S.kind = KIND.PLAIN;
-    const poleH = 37;
-    S.cyl(c[0], c[1], y, y + 3, 1.3, 1.0, 8, PAL.stone);
-    S.cyl(c[0], c[1], y + 3, y + poleH, 0.5, 0.28, 8, hex('#e2dccd'));
-    flag = makeFlag(group, { at: [c[0], y + poleH - 0.4, c[1]], w: 15, h: 10, look: 'vn' }); // waves down-wind (anim.js)
-  }
-
-  // ---- Ngọ Môn: U-shaped masonry base from OSM, Lầu Ngũ Phụng on top ----
-  if (data.special?.ngomon && !replaced('ngomon')) {
-    const ring = unflat(data.special?.ngomon.ring);
-    const o = obb(ring);
-    const baseTop = LAND_Y + 5.4;
-    S.kind = KIND.MASONRY;
-    S.prism(ring, baseTop, baseTop, hex('#8e8172'), PAL.stone, { topKind: KIND.ROAD, parapet: 0.7 }); // top and parapet; walls below
-    S.kind = KIND.PLAIN;
-    ringStrip(LA, ring, baseTop + 0.7 - 0.16, 0.12, 0.18, 0.28); // the top of the base, on its outer faces
-    const eaves = []; // Lầu Ngũ Phụng's roofs, washed from under every eave
-    const ux = Math.cos(o.a), uz = Math.sin(o.a);
-    let vx = -uz, vz = ux; // short axis, pointed out of the Imperial City (the arms of the U reach this way)
-    if ((o.c[0] - impCentre[0]) * vx + (o.c[1] - impCentre[1]) * vz < 0) { vx = -vx; vz = -vz; }
-    const P = (u, v) => [o.c[0] + ux * u + vx * v, o.c[1] + uz * u + vz * v];
-    const back = -o.d * 0.2;
-    // centre hall: yellow glazed tiles (the emperor's), two tiers
-    let p = P(0, back);
-    pavilion(S, p[0], p[1], o.w * 0.4, o.d * 0.4, o.a, baseTop, { tiers: 2, wallH: 3.1, roof: PAL.imperialRoof, over: 1.5, rh: 3.1, eaves, colonnade: true, segs: 3 }); // under 15 m in all
-    // flanking galleries and the two wing pavilions: green tiles
-    for (const s of [-1, 1]) {
-      p = P(s * o.w * 0.3, back);
-      pavilion(S, p[0], p[1], o.w * 0.2, o.d * 0.3, o.a, baseTop, { tiers: 1, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.4, eaves, colonnade: true, segs: 3 });
-      p = P(s * o.w * 0.405, o.d * 0.08);
-      pavilion(S, p[0], p[1], o.d * 0.66, o.w * 0.15, o.a + Math.PI / 2, baseTop, { tiers: 2, wallH: 3.0, roof: PAL.jadeRoof, over: 1.1, rh: 2.6, eaves, colonnade: true, segs: 3 });
-    }
-    for (const e of eaves) eaveStrip(LA, e);
-    // the three gateways through the base (flat lintels: the emperor's in the middle, the mandarins' either side),
-    // and the arched side passage for soldiers, elephants and horses through each wing, from the court outward
-    const ops = [-1, 0, 1].map((k) => ({ p: P(k * o.w * 0.11, back), dir: [vx, vz], w: k === 0 ? 3.2 : 2.4, h: k === 0 ? 4.2 : 3.6, floor: LAND_Y, arch: false }));
-    ops.push({ p: P(0, o.d * 0.29), dir: [ux, uz], w: 2.3, h: 3.3, floor: LAND_Y, arch: true });
-    S.kind = KIND.MASONRY;
-    const built = passages(S, ring, LAND_Y, baseTop, hex('#8e8172'), ops);
-    S.kind = KIND.PLAIN;
-    for (const k of [-1, 0, 1]) {
-      const tn = built.find((t) => t.op === ops[k + 1]); // a lamp in the court, just outside each gateway
-      const l = tn ? P(k * o.w * 0.11, back + Math.max(tn.A.t, tn.B.t) + 5.0) : P(k * o.w * 0.11, back + o.d * 0.2 + 1.0);
-      lantern(l[0], LAND_Y + (k === 0 ? 2.5 : 2.2), l[1]);
-      if (!built.some((t) => t.op === ops[k + 1])) {
-        const q = P(k * o.w * 0.11, back + o.d * 0.2 + 0.2);
-        S.box(q[0], q[1], LAND_Y, LAND_Y + (k === 0 ? 4.2 : 3.6), k === 0 ? 3.2 : 2.4, 0.4, o.a, dark);
+  buf.kind = KIND.PLAIN;
+  for (const [vv, yy] of [[box.d / 2 + 3.5 + upperLen / 2, LAND_Y + 0.9], [box.d / 2 + 3.5 + upperLen + lowerLen / 2, LAND_Y + 0.45]]) {
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < 9; k++) {
+        const stonePt = ptAt(side * (5 + k * 2.4), frontSign * vv);
+        buf.box(stonePt[0], stonePt[1], yy, yy + 0.75, 0.45, 0.22, box.a, hex('#c9c1ae'));
       }
     }
   }
 
-  // ---- Điện Thái Hòa: twin joined roofs over the throne hall ----
-  // Two halls under one plan (trùng thiềm điệp ốc): the front hall (tiền điện) lower and shallower, the main hall
-  // behind it taller under a double-eaved roof (a skirt of tiles all round, the upper hip roof above), both in yellow
-  // glazed tiles; red lacquered columns round the verandah. Before it, toward Ngọ Môn, the Esplanade of Great
-  // Salutations (sân Đại Triều Nghi) falls in two stone terraces with a raised imperial way up the middle.
-  if (data.special?.thaihoa && !replaced('thaihoa')) {
-    const o = obb(unflat(data.special?.thaihoa.ring));
-    const ux = Math.cos(o.a), uz = Math.sin(o.a), vx = -uz, vz = ux;
-    const tgt = data.special.ngomon ? obb(unflat(data.special.ngomon.ring)).c : data.special.kydai ? ringCentre(unflat(data.special.kydai.ring)) : null;
-    const fs = tgt && (tgt[0] - o.c[0]) * vx + (tgt[1] - o.c[1]) * vz < 0 ? -1 : 1; // which way along v is the front
-    const V = (u, v) => [o.c[0] + ux * u + vx * v, o.c[1] + uz * u + vz * v];
-    S.kind = KIND.MASONRY;
-    S.box(o.c[0], o.c[1], LAND_Y, LAND_Y + 1.4, o.w + 7, o.d + 7, o.a, PAL.stone, { taper: 0.97, topKind: KIND.ROAD });
-    // the esplanade: an upper terrace and a lower one, and the raised way through both
-    {
-      const e1 = 11, e2 = 13, ew = o.w + 10;
-      let q = V(0, fs * (o.d / 2 + 3.5 + e1 / 2));
-      S.box(q[0], q[1], LAND_Y - 0.3, LAND_Y + 0.9, ew, e1, o.a, shade(PAL.stone, 0.97), { topKind: KIND.ROAD });
-      q = V(0, fs * (o.d / 2 + 3.5 + e1 + e2 / 2));
-      S.box(q[0], q[1], LAND_Y - 0.3, LAND_Y + 0.45, ew + 6, e2, o.a, shade(PAL.stone, 0.94), { topKind: KIND.ROAD });
-      q = V(0, fs * (o.d / 2 + 3.5 + (e1 + e2) / 2));
-      S.box(q[0], q[1], LAND_Y - 0.3, LAND_Y + 1.0, 4.2, e1 + e2, o.a, shade(PAL.stone, 1.06), { topKind: KIND.ROAD });
-      // the rank stones (phẩm sơn) of the mandarins, in two rows either side of the way on each terrace
-      S.kind = KIND.PLAIN;
-      for (const [vv, yy] of [[o.d / 2 + 3.5 + e1 / 2, LAND_Y + 0.9], [o.d / 2 + 3.5 + e1 + e2 / 2, LAND_Y + 0.45]]) for (const sd of [-1, 1]) for (let k = 0; k < 9; k++) {
-        const r = V(sd * (5 + k * 2.4), fs * vv);
-        S.box(r[0], r[1], yy, yy + 0.75, 0.45, 0.22, o.a, hex('#c9c1ae'));
-      }
-    }
-    S.kind = KIND.PLAIN;
-    const halls = [
-      { off: fs * 0.27, dep: 0.42, opt: { tiers: 1, wallH: 3.4, rh: 3.0, over: 1.5 } }, // front hall
-      { off: -fs * 0.2, dep: 0.56, opt: { tiers: 2, wallH: 3.6, rh: 3.2, over: 1.7 } }, // main hall, double eaves: 11.8 m to the ridge (docs/heights-reference.json)
-    ];
-    for (const { off, dep, opt } of halls) {
-      const eaves = [];
-      pavilion(S, o.c[0] + vx * o.d * off, o.c[1] + vz * o.d * off, o.w, o.d * dep, o.a, LAND_Y + 1.4, { ...opt, roof: PAL.imperialRoof, eaves, colonnade: true, segs: 3 });
-      // only the outer long side of each lower roof: the inner ones meet in the valley between them
-      if (eaves[0]) eaveStrip(LB, eaves[0], [off < 0 ? 'v-' : 'v+'], 0.12, 0.09);
-      if (eaves[1]) eaveStrip(LB, eaves[1], ['v-', 'v+'], 0.12, 0.09);
-    }
-    // two lamps before the doors, on the side that faces Ngọ Môn (or Kỳ Đài)
-    if (tgt) for (const k of [-1, 1]) {
-      const v = fs * (o.d * 0.5 + 0.9), u = k * o.w * 0.14;
-      lantern(o.c[0] + ux * u + vx * v, LAND_Y + 1.4 + 1.7, o.c[1] + uz * u + vz * v);
+  const halls = [
+    { off: frontSign * 0.27, dep: 0.42, opt: { tiers: 1, wallH: 3.4, rh: 3.0, over: 1.5 } },
+    { off: -frontSign * 0.2, dep: 0.56, opt: { tiers: 2, wallH: 3.6, rh: 3.2, over: 1.7 } },
+  ];
+  for (const { off, dep, opt } of halls) {
+    const eaves: any[] = [];
+    pavilion(buf, box.c[0] + vx * box.d * off, box.c[1] + vz * box.d * off, box.w, box.d * dep, box.a, LAND_Y + 1.4, { ...opt, roof: PAL.imperialRoof, eaves, colonnade: true, segs: 3 });
+    if (eaves[0]) eaveStrip(lightB, eaves[0], [off < 0 ? 'v-' : 'v+'], 0.12, 0.09);
+    if (eaves[1]) eaveStrip(lightB, eaves[1], ['v-', 'v+'], 0.12, 0.09);
+  }
+  if (frontTarget) {
+    for (const side of [-1, 1]) {
+      const v = frontSign * (box.d * 0.5 + 0.9), u = side * box.w * 0.14;
+      addLantern(box.c[0] + ux * u + vx * v, LAND_Y + 1.4 + 1.7, box.c[1] + uz * u + vz * v);
     }
   }
+}
 
-  // ---- riverside pavilions in front of the Citadel ----
+function buildRiversidePavilions(data: any, buf: Buf, lightB: Buf, addLantern: (x: number, y: number, z: number) => void) {
   for (const key of ['phuvanlau', 'nghenhluong']) {
-    if (!data.special?.[key]) continue;
-    if (replaced(key)) continue;
-    const o = obb(unflat(data.special?.[key].ring));
+    if (!data.special?.[key] || replaced(key)) continue;
+    const box = obb(unflat(data.special[key].ring));
     if (key === 'phuvanlau') {
-      const eaves = [];
-      pavilion(S, o.c[0], o.c[1], o.w * 0.86, o.d * 0.86, o.a, LAND_Y, { tiers: 2, wallH: 3.9, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 3.1, platform: 1.2, eaves, colonnade: true, segs: 3 }); // 11.8 m with its 1.2 m platform
-      if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
-      // two lamps on the river face (away from Kỳ Đài)
+      const eaves: any[] = [];
+      pavilion(buf, box.c[0], box.c[1], box.w * 0.86, box.d * 0.86, box.a, LAND_Y, { tiers: 2, wallH: 3.9, roof: PAL.imperialRoof2, wall: hex('#8f3b2a'), over: 1.2, rh: 3.1, platform: 1.2, eaves, colonnade: true, segs: 3 });
+      if (eaves[0]) eaveStrip(lightB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
       if (data.special?.kydai) {
-        const kd = ringCentre(unflat(data.special?.kydai.ring));
-        const fc = faceToward({ ...o, w: o.w * 0.86, d: o.d * 0.86 }, [o.c[0] - kd[0], o.c[1] - kd[1]]);
-        for (const k of [-1, 1]) {
-          const a = fc.half + 0.9, b = k * Math.min(1.6, fc.side * 0.4);
-          lantern(o.c[0] + fc.n[0] * a + fc.t[0] * b, LAND_Y + 1.2 + 1.6, o.c[1] + fc.n[1] * a + fc.t[1] * b);
+        const kd = ringCentre(unflat(data.special.kydai.ring));
+        const face = faceToward({ ...box, w: box.w * 0.86, d: box.d * 0.86 }, [box.c[0] - kd[0], box.c[1] - kd[1]]);
+        for (const side of [-1, 1]) {
+          const outDist = face.half + 0.9, lateral = side * Math.min(1.6, face.side * 0.4);
+          addLantern(box.c[0] + face.n[0] * outDist + face.t[0] * lateral, LAND_Y + 1.2 + 1.6, box.c[1] + face.n[1] * outDist + face.t[1] * lateral);
         }
       }
       continue;
     }
-    // Nghênh Lương Đình: a square pavilion with a lower "crab-shell" porch before and behind, on a 0.9 m base,
-    // and steps down to a landing at the water (the axis runs from Kỳ Đài out to the river)
-    const kd = data.special?.kydai ? ringCentre(unflat(data.special?.kydai.ring)) : [o.c[0] - 1, o.c[1] - 1];
-    let f = [o.c[0] - kd[0], o.c[1] - kd[1]];
-    { const l = Math.hypot(f[0], f[1]) || 1; f = [f[0] / l, f[1] / l]; }
-    const fa = Math.atan2(f[1], f[0]), side = Math.min(o.w, o.d) * 0.72, at = (a) => [o.c[0] + f[0] * a, o.c[1] + f[1] * a];
-    const wall = hex('#8f3b2a'), roof = PAL.imperialRoof2;
-    S.kind = KIND.MASONRY;
-    S.box(o.c[0], o.c[1], LAND_Y, LAND_Y + 0.9, side + 9.5, side + 3.2, fa, PAL.stone, { taper: 0.98, topKind: KIND.ROAD });
-    for (const sd of [-1, 1]) {
-      const q = at(sd * (side / 2 + 2.0));
-      S.kind = KIND.TIMBER;
-      S.box(q[0], q[1], LAND_Y + 0.9, LAND_Y + 3.5, 3.4, side * 0.7, fa, wall, { top: shade(roof, 0.8) });
-      S.hip(q[0], q[1], side * 0.7, 3.4, fa + Math.PI / 2, LAND_Y + 3.5, 1.5, roof, { flare: 0.4, over: 1.0, fascia: 0.25, fasciaCol: shade(wall, 0.75), glazed: true });
+
+    const kd = data.special?.kydai ? ringCentre(unflat(data.special.kydai.ring)) : [box.c[0] - 1, box.c[1] - 1];
+    let fwd = [box.c[0] - kd[0], box.c[1] - kd[1]];
+    const fwdLen = Math.hypot(fwd[0], fwd[1]) || 1;
+    fwd = [fwd[0] / fwdLen, fwd[1] / fwdLen];
+    const fwdAng = Math.atan2(fwd[1], fwd[0]);
+    const sideLen = Math.min(box.w, box.d) * 0.72;
+    const ptAlong = (dist: number) => [box.c[0] + fwd[0] * dist, box.c[1] + fwd[1] * dist];
+    const wallCol = hex('#8f3b2a'), roofCol = PAL.imperialRoof2;
+
+    buf.kind = KIND.MASONRY;
+    buf.box(box.c[0], box.c[1], LAND_Y, LAND_Y + 0.9, sideLen + 9.5, sideLen + 3.2, fwdAng, PAL.stone, { taper: 0.98, topKind: KIND.ROAD });
+    for (const endSign of [-1, 1]) {
+      const porchPt = ptAlong(endSign * (sideLen / 2 + 2.0));
+      buf.kind = KIND.TIMBER;
+      buf.box(porchPt[0], porchPt[1], LAND_Y + 0.9, LAND_Y + 3.5, 3.4, sideLen * 0.7, fwdAng, wallCol, { top: shade(roofCol, 0.8) });
+      buf.hip(porchPt[0], porchPt[1], sideLen * 0.7, 3.4, fwdAng + Math.PI / 2, LAND_Y + 3.5, 1.5, roofCol, { flare: 0.4, over: 1.0, fascia: 0.25, fasciaCol: shade(wallCol, 0.75), glazed: true });
     }
-    const eaves = [];
-    // the pavilion itself stands under a two-tiered (chồng diêm) roof of yellow glazed tiles
-    pavilion(S, o.c[0], o.c[1], side, side, fa, LAND_Y + 0.9, { tiers: 2, wallH: 2.7, roof, wall, over: 1.3, rh: 2.0, eaves, colonnade: true, segs: 3 }); // 7–8 m (docs/heights-reference.json)
-    // the two open sides (the porches cover the front and back), and two lamps at the river porch
-    if (eaves[0]) eaveStrip(LB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
-    for (const k of [-1, 1]) {
-      const q = at(side / 2 + 2.0 + 1.7 + 0.6);
-      lantern(q[0] - f[1] * k * 1.3, LAND_Y + 0.9 + 1.6, q[1] + f[0] * k * 1.3);
+    const eaves: any[] = [];
+    pavilion(buf, box.c[0], box.c[1], sideLen, sideLen, fwdAng, LAND_Y + 0.9, { tiers: 2, wallH: 2.7, roof: roofCol, wall: wallCol, over: 1.3, rh: 2.0, eaves, colonnade: true, segs: 3 });
+    if (eaves[0]) eaveStrip(lightB, eaves[0], ['v-', 'v+'], 0.12, 0.09);
+    for (const side of [-1, 1]) {
+      const lampPt = ptAlong(sideLen / 2 + 2.0 + 1.7 + 0.6);
+      addLantern(lampPt[0] - fwd[1] * side * 1.3, LAND_Y + 0.9 + 1.6, lampPt[1] + fwd[0] * side * 1.3);
     }
-    S.kind = KIND.MASONRY;
-    // the flight goes down the embankment face: its first step below the bank (the fifth) stands at the mapped shore,
-    // and a paved walk at the base's level runs out to it where the shore lies farther off (on a fixed run the lower
-    // steps and the landing were sunk in the bank)
-    const land = landTest(data);
-    let s0 = side / 2 + 5.2;
-    for (let a = s0 + 5 * 0.42; a < s0 + 40; a += 0.25) { const q = at(a); if (!land(q[0], q[1])) { s0 = a - 5 * 0.42; break; } }
-    if (s0 > side / 2 + 5.3) { const q = at((side / 2 + 4.7 + s0) / 2); S.box(q[0], q[1], LAND_Y - 0.4, LAND_Y + 0.86, s0 - side / 2 - 4.7, 6, fa, PAL.stone, { topKind: KIND.ROAD }); }
-    for (let i = 0; i < 13; i++) { const q = at(s0 + i * 0.42); S.box(q[0], q[1], LAND_Y - 2.4, LAND_Y + 0.86 - i * 0.2, 0.44, 6, fa, PAL.stone, { topKind: KIND.ROAD }); }
-    { const q = at(s0 + 13 * 0.42 + 2.2); S.box(q[0], q[1], LAND_Y - 3.2, LAND_Y - 1.75, 4.6, 16, fa, PAL.stone, { topKind: KIND.ROAD }); }
-    S.kind = KIND.PLAIN;
+
+    buf.kind = KIND.MASONRY;
+    const isOnLand = landTest(data);
+    let stepStart = sideLen / 2 + 5.2;
+    for (let dist = stepStart + 5 * 0.42; dist < stepStart + 40; dist += 0.25) {
+      const pt = ptAlong(dist);
+      if (!isOnLand(pt[0], pt[1])) { stepStart = dist - 5 * 0.42; break; }
+    }
+    if (stepStart > sideLen / 2 + 5.3) {
+      const walkPt = ptAlong((sideLen / 2 + 4.7 + stepStart) / 2);
+      buf.box(walkPt[0], walkPt[1], LAND_Y - 0.4, LAND_Y + 0.86, stepStart - sideLen / 2 - 4.7, 6, fwdAng, PAL.stone, { topKind: KIND.ROAD });
+    }
+    for (let i = 0; i < 13; i++) {
+      const stepPt = ptAlong(stepStart + i * 0.42);
+      buf.box(stepPt[0], stepPt[1], LAND_Y - 2.4, LAND_Y + 0.86 - i * 0.2, 0.44, 6, fwdAng, PAL.stone, { topKind: KIND.ROAD });
+    }
+    const landingPt = ptAlong(stepStart + 13 * 0.42 + 2.2);
+    buf.box(landingPt[0], landingPt[1], LAND_Y - 3.2, LAND_Y - 1.75, 4.6, 16, fwdAng, PAL.stone, { topKind: KIND.ROAD });
+    buf.kind = KIND.PLAIN;
+  }
+}
+
+export function buildCitadel(data: any, buf: Buf, group: THREE.Group) {
+  const startVert = buf.n;
+  try {
+    return buildCitadelInner(data, buf, group);
+  } catch (err) {
+    buf.n = startVert;
+    buf.kind = KIND.PLAIN;
+    buf.base = 0;
+    console.warn('Citadel not built:', err);
+    return { flag: null, glows: [], update() {} };
+  }
+}
+
+function buildCitadelInner(data: any, buf: Buf, group: THREE.Group) {
+  const placePos = (id: string) => {
+    const rec = (data.places || []).find((entry: any) => entry.id === id);
+    return rec ? [rec.x / DECIMETRES_PER_METRE, rec.z / DECIMETRES_PER_METRE] : null;
+  };
+  const impCenter = [data.imperial.c[0] / DECIMETRES_PER_METRE, data.imperial.c[1] / DECIMETRES_PER_METRE];
+  const cityCenter = placePos('kinhthanh') || impCenter;
+
+  const lightA = new Buf(800);
+  const lightB = new Buf(800);
+  const lanPos: number[] = [], lanCol: number[] = [];
+  const floodPos: number[] = [], floodCol: number[] = [];
+  const glows: any[] = [];
+  const addLantern = (x: number, y: number, z: number) => { lanPos.push(x, y, z); lanCol.push(...LANTERN_COL); };
+
+  const coverFaces: [number[], number[]][] = [];
+  for (const poly of data.wall || []) {
+    for (const ring of poly.map(unflat)) {
+      for (let i = 0; i < ring.length; i++) coverFaces.push([ring[i], ring[(i + 1) % ring.length]]);
+    }
+  }
+  for (const flat of data.iwalls || []) {
+    const pts = unflat(flat);
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const p0 = pts[i], p1 = pts[i + 1], segLen = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
+      if (segLen < 0.3) continue;
+      const tx = (p1[0] - p0[0]) / segLen, tz = (p1[1] - p0[1]) / segLen;
+      for (const off of [-0.85, 0.85]) {
+        coverFaces.push([[p0[0] - tx * 0.75 - tz * off, p0[1] - tz * 0.75 + tx * off], [p1[0] + tx * 0.75 - tz * off, p1[1] + tz * 0.75 + tx * off]]);
+      }
+    }
+  }
+  const coverAt = (x: number, z: number, reach = 45) => coverFaces.filter(([p0, p1]) => {
+    const ex = p1[0] - p0[0], ez = p1[1] - p0[1], lenSq = ex * ex + ez * ez || 1;
+    const frac = Math.max(0, Math.min(1, ((x - p0[0]) * ex + (z - p0[1]) * ez) / lenSq));
+    return Math.hypot(p0[0] + ex * frac - x, p0[1] + ez * frac - z) < reach;
+  });
+
+  for (const gateRec of data.gates || []) {
+    const normName = String(gateRec.n || '').normalize('NFC');
+    if (normName === 'Cửa Hiển Nhơn'.normalize('NFC') && replaced('hiennhon')) continue;
+    if (replaced('mangca') && normName === 'Trấn Bình Môn'.normalize('NFC')) continue;
+    if (replaced(`gate:${String(gateRec.n || '')}`)) continue;
+    if (replaced('thienmu') && data.hakhe && inRing(gateRec.c[0] / DECIMETRES_PER_METRE, gateRec.c[1] / DECIMETRES_PER_METRE, unflat(data.hakhe.ring))) continue;
+    const isLit = LIT_GATES.includes(normName);
+    const eaves = isLit ? [] : null;
+    const info = buildGate(buf, gateRec, gateRec.k === 'citadel' ? cityCenter : impCenter, eaves, coverAt);
+    if (!isLit) continue;
+    if (eaves && eaves[0]) eaveStrip(lightB, eaves[0]);
+    for (const sign of [-1, 1]) {
+      addLantern(info.cx + info.px * sign * (info.plen / 2 + 1.2), LAND_Y + 2.6, info.cz + info.pz * sign * (info.plen / 2 + 1.2));
+    }
   }
 
-  lightMesh(group, LA, 0xffb64c, 1.4);
-  lightMesh(group, LB, 0xffae42, 1.2);
-  lampPoints(group, lanPos, lanCol, 7, glows);
-  lampPoints(group, floodPos, floodCol, 8, glows);
+  const flag = buildKyDai(data, buf, group, lightA, floodPos, floodCol);
+  buildNgoMon(data, buf, impCenter, lightA, addLantern);
+  buildThaiHoa(data, buf, lightB, addLantern);
+  buildRiversidePavilions(data, buf, lightB, addLantern);
+
+  addLightMesh(group, lightA, 0xffb64c, 1.4);
+  addLightMesh(group, lightB, 0xffae42, 1.2);
+  addLampPoints(group, lanPos, lanCol, 7, glows);
+  addLampPoints(group, floodPos, floodCol, 8, glows);
 
   return {
     flag,
     glows,
-    update() {}, // the flag moves on the shared clock (anim.js)
+    update() {},
   };
 }

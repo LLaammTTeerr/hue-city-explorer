@@ -1,18 +1,32 @@
 import * as THREE from 'three';
 import { quality } from '../config.ts';
 
+const RAIN_RENDER_ORDER = 30;
+const RAIN_DEFAULT_TINT = [0.8, 0.85, 0.92] as const;
+
 // Rain streaks in a box that wraps around the camera, slanted by the same wind that flies the flag.
 export function buildRain() {
-  const n = quality.rainCount;
-  const seed = new Float32Array(n * 2 * 3), end = new Float32Array(n * 2);
-  for (let i = 0; i < n; i++) {
-    const x = Math.random(), y = Math.random(), z = Math.random();
-    for (let k = 0; k < 2; k++) { seed.set([x, y, z], (i * 2 + k) * 3); end[i * 2 + k] = k; }
+  const dropCount = quality.rainCount;
+  const seeds = new Float32Array(dropCount * 2 * 3);
+  const endpoints = new Float32Array(dropCount * 2);
+  for (let i = 0; i < dropCount; i++) {
+    const x = Math.random();
+    const y = Math.random();
+    const z = Math.random();
+    for (let k = 0; k < 2; k++) {
+      seeds.set([x, y, z], (i * 2 + k) * 3);
+      endpoints[i * 2 + k] = k;
+    }
   }
+
   const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(seed, 3));
-  geo.setAttribute('aEnd', new THREE.BufferAttribute(end, 1));
-  const uniforms = { uTime: { value: 0 }, uRain: { value: 0 }, uTint: { value: new THREE.Color(0.8, 0.85, 0.92) } };
+  geo.setAttribute('position', new THREE.BufferAttribute(seeds, 3));
+  geo.setAttribute('aEnd', new THREE.BufferAttribute(endpoints, 1));
+  const uniforms = {
+    uTime: { value: 0 },
+    uRain: { value: 0 },
+    uTint: { value: new THREE.Color(...RAIN_DEFAULT_TINT) },
+  };
   const mat = new THREE.ShaderMaterial({
     uniforms,
     transparent: true,
@@ -41,10 +55,11 @@ export function buildRain() {
         #include <colorspace_fragment>
       }`,
   });
+
   const lines = new THREE.LineSegments(geo, mat);
   lines.layers.set(1);
   lines.frustumCulled = false;
-  lines.renderOrder = 30;
+  lines.renderOrder = RAIN_RENDER_ORDER;
   lines.visible = false;
   return { mesh: lines, uniforms };
 }

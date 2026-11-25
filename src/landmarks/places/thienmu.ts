@@ -7,38 +7,23 @@ import { landTest } from '../boats.ts';
 import { streetTest, offStreets } from '../enclosure.ts';
 
 // ---- Chùa Thiên Mụ, the pagoda on Hà Khê hill above the Hương river ----
-//
-// Sources (docs/places/thienmu.md has the full list):
-//  - vi.wikipedia.org/wiki/Chùa_Thiên_Mụ, en.wikipedia.org/wiki/Thiên_Mụ_Temple: Phước Duyên tower, 21 m, seven
-//    octagonal tiers, built 1844 under Thiệu Trị, a Buddha on each tier and a spiral stair inside; the Hương
-//    Nguyện pavilion in front of it fell in 1904 and only its base is left; two square houses flanking the tower
-//    hold Thiệu Trị's steles; two hexagonal houses, one with the 1715 stele of Nguyễn Phúc Chu on a stone turtle,
-//    one with the great bell of 1710 (2.5 m high, 1.4 m across, about 2-3 t); the Tam Quan gate (two storeys, the
-//    guardians at its three entrances; inside, two halls of guardian statues either side); then Đại Hùng Bảo
-//    Điện, Địa Tạng and Quan Âm halls, the monks' quarters, the pine garden and the abbots' stupas behind; walls
-//    of brick and stone; four ceremonial pillars and a brick stair down to the riverside road, and the landing.
-//  - vietnamnet.vn (2025): the turtle stele (stele 2.6 x 1.2 m on a turtle 2.24 x 1.65 x 0.66 m) and the bell.
-//  - OpenStreetMap: tower (way 205795043, height 21), precinct (205794912, = data.hakhe), Tam Quan (1205452741),
-//    the square stele houses (1494518276, 205794914), hexagonal pavilions (1494518277/78), Đại Hùng (205794919),
-//    guardian halls (205794917, 1195439754), halls behind (205794918/21/15/13, 1205452747, 1195439753), stupa
-//    (206108046), the stair (footway steps) and the landing on the river.
-// Estimated: storey and eave heights, wall height, colours of the halls (terracotta tiles, ochre walls, lacquer),
-// which hexagon holds the bell (east, "tả chung hữu cổ"), the stair's riser count in the model's 9.9 m drop.
+// Sources: docs/places/thienmu.md (Phước Duyên 21 m 7-tier tower 1844, Tam Quan gate, Đại Hùng Bảo Điện,
+// bell & turtle stele pavilions, square stele houses, guardian halls, halls behind, stupa, stair & landing).
 
 export const id = 'thienmu';
-// how far from the place point this builder reads data.trees (build-data.mjs keeps those records in hue.json)
 export const dataReach = 120;
 
-const C = [-4678.5, 1824.9]; // tower centre (OSM)
-const ANG = -0.237; // the compound's across direction (Tam Quan's long side); +v runs out to the river
-const UX = Math.cos(ANG), UZ = Math.sin(ANG);
-const P = (u, v): [number, number] => [C[0] + u * UX - v * UZ, C[1] + u * UZ + v * UX];
-const L = (x, z) => { const dx = x - C[0], dz = z - C[1]; return [dx * UX + dz * UZ, -dx * UZ + dz * UX]; };
+const TOWER_CENTER = [-4678.5, 1824.9];
+const COMPOUND_ANG = -0.237; // Tam Quan's long side; +v runs out to the river
+const AXIS_UX = Math.cos(COMPOUND_ANG);
+const AXIS_UZ = Math.sin(COMPOUND_ANG);
+const toWorld = (u, v): [number, number] => [TOWER_CENTER[0] + u * AXIS_UX - v * AXIS_UZ, TOWER_CENTER[1] + u * AXIS_UZ + v * AXIS_UX];
+const toLocal = (x, z) => { const dx = x - TOWER_CENTER[0], dz = z - TOWER_CENTER[1]; return [dx * AXIS_UX + dz * AXIS_UZ, -dx * AXIS_UZ + dz * AXIS_UX]; };
 
 const DAIHUNG = [[-4717.0, 1732.7], [-4687.4, 1725.9], [-4681.4, 1751.5], [-4695.5, 1754.7], [-4711.1, 1758.2]];
 const STELE_HOUSES = [
-  [[-4663.8, 1828.9], [-4660.2, 1828.1], [-4659.5, 1831.3], [-4663.0, 1832.1]], // east
-  [[-4693.8, 1838.5], [-4688.5, 1837.2], [-4687.8, 1840.2], [-4693.1, 1841.5]], // west
+  [[-4663.8, 1828.9], [-4660.2, 1828.1], [-4659.5, 1831.3], [-4663.0, 1832.1]],
+  [[-4693.8, 1838.5], [-4688.5, 1837.2], [-4687.8, 1840.2], [-4693.1, 1841.5]],
 ];
 const GUARD_HALLS = [
   [[-4712.0, 1794.2], [-4706.0, 1792.8], [-4704.1, 1801.1], [-4710.1, 1802.4]],
@@ -52,809 +37,824 @@ const HALLS = [
   [[-4732.7, 1657.9], [-4708.6, 1652.0], [-4704.7, 1667.7], [-4728.9, 1673.5]],
   [[-4777.9, 1668.0], [-4767.2, 1665.4], [-4757.6, 1704.9], [-4768.1, 1707.2]],
 ];
-const STUPA = [-4738.6, 1583.5];
-const SIDE_GATES = [[-4663.9, 1750.5], [-4738.6, 1767.1]]; // OSM's two unnamed gates (data.gates): the cross path's line
-// the small gate in the east wall onto the lane, seen in Google Street View from the lane (car panorama at 16.452823,
-// 107.545376, looking 214 deg): bearing about 202 deg from it, where that line meets the court's edge. Not mapped in OSM.
-const SVB = { at: [-4641.8, 1777.2], bearing: 202 };
-// the brow on the west: the court is level east of this line (local u, v); west of it the hill falls to Văn Thánh road
-// (5-9.7 m below the court on the elevation data). Drawn clear of the west hexagonal house, the west stele house, the
-// west guardian hall and the halls behind, and through the west side gate's line.
+const STUPA_POS = [-4738.6, 1583.5];
+const SIDE_GATES = [[-4663.9, 1750.5], [-4738.6, 1767.1]];
+const EAST_GATE_SIGHT = { at: [-4641.8, 1777.2], bearing: 202 };
 const WEST_BROW = [[-48, -75], [-20, 13]];
-const STONE = PAL.stone, BRICK = hex('#b8897a'), EAVE = hex('#5b5352'), TRIM = hex('#e9dfcd'), DARK = hex('#2b2422');
-// ROOF: weathered grey-brown tile, as the halls read from above (Google satellite) and in a courtyard photo, rather than
-// the city's new terracotta
-const ROOF = hex('#80594b'), WALL = PAL.templeWall, LAC = PAL.lacquer, RIDGE = hex('#d8c9a0'), GOLD = hex('#d9c27a');
-const LIME = hex('#d9d2c2'), GREY = hex('#8d8a84'), BRONZE = hex('#5d5a43'), PAVE = hex('#b49a80');
-const LANTERN = [1.0, 0.72, 0.34];
-// the outer wall and the terrace face under it: rough grey-brown rubble under a flat stone coping (Street View, east
-// lane); the red of the gate's doors and plaque
-const RUBBLE = hex('#8d8576'), COPING = hex('#a19d92');
-// the halls: cream-ochre render under the grey-brown tiles, dark timber doors (a courtyard photosphere in Google Maps
-// and the photo notes), not the city's red lacquer
-const HALL = hex('#d3bd8c');
 
-// clip a ring (local u,v) to the half plane a*u + b*v <= c
-function clip(ring, a, b, c) {
+const STAIR_HALF_W = 4.2;
+const FRONT_BROW_V = 13.0;
+const BANK_SLOPE = 0.9;
+const GATE_WIDTH = 3.6;
+const TOWER_TOTAL_H = 21;
+const TOWER_TIERS = 7;
+
+const COL = {
+  stone: PAL.stone, brick: hex('#b8897a'), eave: hex('#5b5352'), trim: hex('#e9dfcd'), dark: hex('#2b2422'),
+  roof: hex('#80594b'), wall: PAL.templeWall, lac: PAL.lacquer, ridge: hex('#d8c9a0'), gold: hex('#d9c27a'),
+  lime: hex('#d9d2c2'), grey: hex('#8d8a84'), bronze: hex('#5d5a43'), pave: hex('#b49a80'),
+  rubble: hex('#8d8576'), coping: hex('#a19d92'), hall: hex('#d3bd8c'), moss: hex('#6f7358'),
+  render: hex('#a9a395'), grille: hex('#3b2d23'),
+};
+const LANTERN_RGB = [1.0, 0.72, 0.34];
+
+// clip a ring (local u,v) to the half plane planeA*u + planeB*v <= planeC
+function clipHalfPlane(ring, planeA, planeB, planeC) {
   const out = [];
   for (let i = 0; i < ring.length; i++) {
-    const p = ring[i], q = ring[(i + 1) % ring.length];
-    const fp = a * p[0] + b * p[1] - c, fq = a * q[0] + b * q[1] - c;
-    if (fp <= 0) out.push(p);
-    if ((fp < 0 && fq > 0) || (fp > 0 && fq < 0)) { const t = fp / (fp - fq); out.push([p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t]); }
+    const ptA = ring[i], ptB = ring[(i + 1) % ring.length];
+    const distA = planeA * ptA[0] + planeB * ptA[1] - planeC;
+    const distB = planeA * ptB[0] + planeB * ptB[1] - planeC;
+    if (distA <= 0) out.push(ptA);
+    if ((distA < 0 && distB > 0) || (distA > 0 && distB < 0)) {
+      const frac = distA / (distA - distB);
+      out.push([ptA[0] + (ptB[0] - ptA[0]) * frac, ptA[1] + (ptB[1] - ptA[1]) * frac]);
+    }
   }
   return out;
 }
 
-export function build({ data, S, group, THREE }) {
-  if (!data.hakhe) throw new Error('no Hà Khê terrace in the data');
-  // the precinct as mapped, less the lane OSM draws a metre or two into its east side (the wall stands at the kerb)
-  const hkRing = offStreets(data, unflat(data.hakhe.ring));
-  const Y = LAND_Y + data.hakhe.top / 10 + 0.06; // the walled ground of the pagoda: one level on the hill
-  const keep = S.kind;
-  const box = (u, v, ya, yb, w, d, col, o?) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ANG, col, o); };
-  const cyl = (u, v, ya, yb, r0, r1, n, col, o?) => { const q = P(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, { rot: ANG, ...o }); };
-  const beam = (u0, v0, y0, u1, v1, y1, w, h, col?) => { const a = P(u0, v0), b = P(u1, v1); S.beam([a[0], y0, a[1]], [b[0], y1, b[1]], w, h, col); };
-  const lanPos = [], lanCol = [];
-  const lamp = (u, v, y?) => { const q = P(u, v); lanPos.push(q[0], y, q[1]); lanCol.push(...LANTERN); };
-  const LT = new Buf(1200); // light strips under the tower's eaves
+function halfPlaneThrough(ptA, ptB, insidePt): [number, number, number] {
+  const len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+  let a = -(ptB[1] - ptA[1]) / len, b = (ptB[0] - ptA[0]) / len, c = a * ptA[0] + b * ptA[1];
+  if (a * insidePt[0] + b * insidePt[1] > c) { a = -a; b = -b; c = -c; }
+  return [a, b, c];
+}
 
-  // ---- the ground: the walled court one level on the hill top, and planted banks where the hill falls away ----
-  // Google car Street View (captured 2026) shows no retaining wall on the hill: on Văn Thánh road (west, svA) a wooded
-  // earth bank rises from a low rubble wall at the road; at the front-east corner (svD) a low stone embankment at the
-  // road shoulder and a tree-covered slope; on the east lane (svB) a grass bank with the precinct wall standing on top
-  // of it, about 2 m high and level. The elevation data puts the court 9.7 m above the riverside road, so the court is
-  // one level only inside a brow line, and from there the ground slopes (0.9 in 1) down to the roads: inside the
-  // mapped precinct on the west and the front, where the road runs at its edge, and on the strip between the wall and
-  // the lane on the east, where there is room. The precinct wall stands on the brow and on the mapped east side.
-  const SW = 4.2, NV = 13.0; // the stair's half width and where it leaves the court
-  const SLOPE = 0.9;
-  const loc = hkRing.map((p) => L(p[0], p[1]));
-  // a half plane a*u + b*v <= c (local), the line through p and q, the side holding s; a, b a unit normal
-  const half = (p, q, s) => {
-    const l = Math.hypot(q[0] - p[0], q[1] - p[1]);
-    let a = -(q[1] - p[1]) / l, b = (q[0] - p[0]) / l, c = a * p[0] + b * p[1];
-    if (a * s[0] + b * s[1] > c) { a = -a; b = -b; c = -c; }
-    return [a, b, c];
-  };
-  const neg = ([a, b, c]): [number, number, number] => [-a, -b, -c];
-  const HW = half(WEST_BROW[0], WEST_BROW[1], [0, 0]) as [number, number, number], HF: [number, number, number] = [0, 1, NV];
-  const fOut = (h, u, v) => h[0] * u + h[1] * v - h[2]; // metres outside a brow line
-  const level = clip(clip(loc, ...HW), ...HF);
-  const segDist = (u, v, a, b) => {
-    const ex = b[0] - a[0], ev = b[1] - a[1], l2 = ex * ex + ev * ev || 1;
-    const t = Math.max(0, Math.min(1, ((u - a[0]) * ex + (v - a[1]) * ev) / l2));
-    return Math.hypot(a[0] + ex * t - u, a[1] + ev * t - v);
-  };
-  const dLevel = (u, v) => { let d = Infinity; for (let i = 0; i < level.length; i++) d = Math.min(d, segDist(u, v, level[i], level[(i + 1) % level.length])); return d; };
-  const ground = (u, v) => LAND_Y + rise(...P(u, v));
-  const bankY = (u, v) => Math.max(Y - SLOPE * dLevel(u, v), ground(u, v) + 0.15);
-  const onStreet = streetTest(data, P(0, -60), 260);
-  const ccwRing = signedArea(hkRing) > 0;
-  const outN = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return ccwRing ? [dz / l, -dx / l] : [-dz / l, dx / l]; }; // world, outward
+function segDist2D(u, v, ptA, ptB) {
+  const ex = ptB[0] - ptA[0], ev = ptB[1] - ptA[1], lenSq = ex * ex + ev * ev || 1;
+  const frac = Math.max(0, Math.min(1, ((u - ptA[0]) * ex + (v - ptA[1]) * ev) / lenSq));
+  return Math.hypot(ptA[0] + ex * frac - u, ptA[1] + ev * frac - v);
+}
 
-  // the east strip: the mapped ring's edges along the lane (u > 12, from the front corner to the side gate's end) with
-  // the strip of hill between them and the lane, as far as the lane's kerb or until the bank meets the ground
-  const apron = [];
-  {
-    const isE = (i) => { const a = loc[i], b = loc[(i + 1) % loc.length], mu = (a[0] + b[0]) / 2, mv = (a[1] + b[1]) / 2; return mu > 12 && mv > -80 && mv < 22; };
-    let i0 = -1;
-    for (let i = 0; i < loc.length; i++) if (isE(i) && !isE((i - 1 + loc.length) % loc.length)) { i0 = i; break; }
-    if (i0 >= 0) {
-      const chain = [];
-      for (let i = i0; isE(i % loc.length) && chain.length < loc.length; i++) chain.push(i % loc.length);
-      const vs = [...chain, (chain[chain.length - 1] + 1) % loc.length];
-      const out = [];
-      vs.forEach((vi, k) => {
-        const p = hkRing[vi];
-        if (k === 0 || k === vs.length - 1) { out.push(p); return; } // tapered to nothing at both ends
-        const n1 = outN(hkRing[vs[k - 1]], p), n2 = outN(p, hkRing[vs[k + 1]]);
-        let nx = n1[0] + n2[0], nz = n1[1] + n2[1];
-        const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l;
-        let w = 0;
-        for (let t = 0.5; t <= 14; t += 0.5) {
-          const x = p[0] + nx * t, z = p[1] + nz * t;
-          if (onStreet(x, z, 0.6)) break;
-          w = t;
-          if (Y - SLOPE * t < LAND_Y + rise(x, z) + 0.15) break; // the bank has met the ground
-        }
-        out.push([p[0] + nx * w, p[1] + nz * w]);
-      });
-      apron.push({ ring: vs.map((vi) => loc[vi]), outer: out.map((p) => L(...(p as [number, number]))), edges: new Set(chain) });
-    }
-  }
-  const apronRing = apron.length ? [...apron[0].ring, ...apron[0].outer.slice().reverse()] : [];
+// ---------------- rubble wall & arched gate builders ----------------
 
-  // the court: one level, its faces hidden behind the banks or the wall
-  S.base = Y - LAND_Y;
-  {
-    const n0 = S.n;
-    S.kind = KIND.PLAIN;
-    S.prism(level.map(([u, v]) => P(u, v)), LAND_Y - 0.6, Y, shade(RUBBLE, 0.8), hex(PAL.green.sacred), { topKind: KIND.GROUND });
-    (S.noCover = S.noCover || []).push([n0, S.n]); // ground: the garden trees stand on it
-  }
-  // the banks: a height field on a 2 m grid, each cell cut to the piece it lies in
-  const pieces = [clip(loc, ...neg(HW))];
-  { const fr = clip(clip(loc, ...HW), ...neg(HF)); pieces.push(clip(fr, 1, 0, -SW - 0.6), clip(fr, -1, 0, -SW - 0.6)); }
-  if (apronRing.length) pieces.push(apronRing);
-  const inPiece = (u, v) => pieces.some((pc) => pc.length > 2 && inRing(u, v, pc));
-  {
-    const n0 = S.n, grass = hex(PAL.green.grass), CELL = 2;
-    S.kind = KIND.GROUND;
-    for (const pc of pieces) {
-      if (pc.length < 3) continue;
-      let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
-      for (const [u, v] of pc) { u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
-      for (let cu = Math.floor(u0 / CELL) * CELL; cu < u1; cu += CELL) for (let cv = Math.floor(v0 / CELL) * CELL; cv < v1; cv += CELL) {
-        let poly = clip(clip(clip(clip(pc, 1, 0, cu + CELL), -1, 0, -cu), 0, 1, cv + CELL), 0, -1, -cv);
-        poly = poly.filter((p, i) => { const q = poly[(i + 1) % poly.length]; return Math.hypot(q[0] - p[0], q[1] - p[1]) > 1e-3; });
-        if (poly.length < 3 || Math.abs(signedArea(poly)) < 0.01) continue;
-        const hs = poly.map(([u, v]) => bankY(u, v));
-        S.base = hs.reduce((s, h) => s + h, 0) / hs.length - LAND_Y;
-        const tone = 0.86 + 0.12 * rand(Math.round(cu * 7 + cv * 131) & 0xffff, 7);
-        const faces = THREE.ShapeUtils.triangulateShape(poly.map(([u, v]) => new THREE.Vector2(u, v)), []);
-        const W = poly.map(([u, v], i) => { const q = P(u, v); return [q[0], hs[i], q[1]]; });
-        for (const f of faces) S.tri(W[f[0]], W[f[1]], W[f[2]], shade(grass, tone), [0, 1, 0]);
-      }
-    }
-    S.noCover.push([n0, S.n]);
-  }
-
-  // random rubble: small irregular stones, each its own tone, the upper courses greener with moss, laid on a wall face
-  // from (s0, y0) to (s1, y1) along a line in world coordinates (a: start, t: along, n: outward normal)
-  const MOSS = hex('#6f7358');
+function makeWallBuilders(S, courtY) {
   let stoneSeed = 1;
-  const rubble = (a, t, n, s0, s1, y0, y1) => {
+  const rubble = (origin, tan, nrm, s0, s1, y0, y1) => {
     S.kind = KIND.PLAIN;
     const seed = (stoneSeed += 977);
     for (let y = y0, row = 0; y < y1 - 0.06; row++) {
-      const h = Math.min(y1 - y, 0.2 + 0.2 * rand(seed + row, 1));
-      for (let s = s0 - 0.3 * rand(seed + row, 2), k = 0; s < s1; k++) {
-        const r = seed + row * 61 + k, w = 0.28 + 0.45 * rand(r, 3);
-        const p0 = Math.max(s0, s + 0.03), p1 = Math.min(s1, s + w - 0.03);
+      const rowH = Math.min(y1 - y, 0.2 + 0.2 * rand(seed + row, 1));
+      for (let cursor = s0 - 0.3 * rand(seed + row, 2), colIdx = 0; cursor < s1; colIdx++) {
+        const stoneSeedKey = seed + row * 61 + colIdx;
+        const stoneW = 0.28 + 0.45 * rand(stoneSeedKey, 3);
+        const p0 = Math.max(s0, cursor + 0.03), p1 = Math.min(s1, cursor + stoneW - 0.03);
         if (p1 - p0 > 0.06) {
-          const off = 0.015 + 0.025 * rand(r, 4), ya = y + 0.03 + 0.03 * rand(r, 5), yb = y + h - 0.03 - 0.04 * rand(r, 6);
-          const up = Math.max(0, Math.min(1, (yb - y0) / Math.max(0.5, y1 - y0)));
-          const col = mix(shade(RUBBLE, 0.72 + 0.45 * rand(r, 8)), shade(MOSS, 0.8 + 0.3 * rand(r, 9)), up * up * 0.7 * rand(r, 10));
-          const q = (s, yy): [number, number, number] => [a[0] + t[0] * s + n[0] * off, yy, a[1] + t[1] * s + n[1] * off];
-          S.quad(q(p0, ya), q(p1, ya), q(p1, yb), q(p0, yb), col, [n[0], 0, n[1]]);
+          const outOff = 0.015 + 0.025 * rand(stoneSeedKey, 4);
+          const ya = y + 0.03 + 0.03 * rand(stoneSeedKey, 5);
+          const yb = y + rowH - 0.03 - 0.04 * rand(stoneSeedKey, 6);
+          const heightFrac = Math.max(0, Math.min(1, (yb - y0) / Math.max(0.5, y1 - y0)));
+          const col = mix(shade(COL.rubble, 0.72 + 0.45 * rand(stoneSeedKey, 8)), shade(COL.moss, 0.8 + 0.3 * rand(stoneSeedKey, 9)), heightFrac * heightFrac * 0.7 * rand(stoneSeedKey, 10));
+          const pt3 = (dist, yy): [number, number, number] => [origin[0] + tan[0] * dist + nrm[0] * outOff, yy, origin[1] + tan[1] * dist + nrm[1] * outOff];
+          S.quad(pt3(p0, ya), pt3(p1, ya), pt3(p1, yb), pt3(p0, yb), col, [nrm[0], 0, nrm[1]]);
         }
-        s += w;
+        cursor += stoneW;
       }
-      y += h;
+      y += rowH;
     }
   };
-  // a rough coping of uneven slabs, damp and mossy
-  const coping = (a, t, n, s0, s1, inset, th, top) => {
+  const coping = (origin, tan, nrm, s0, s1, inset, thick, topY) => {
     S.kind = KIND.PLAIN;
-    const ang = Math.atan2(t[1], t[0]);
-    for (let s = s0, k = 0; s < s1 - 0.05; k++) {
-      const r = (stoneSeed += 13), w = Math.min(s1 - s, 0.6 + 0.6 * rand(r, 1)), m = s + w / 2;
-      const x = a[0] + t[0] * m - n[0] * inset, z = a[1] + t[1] * m - n[1] * inset;
-      S.box(x, z, top, top + 0.1 + 0.1 * rand(r, 2), w + 0.02, th + 0.12 + 0.06 * rand(r, 3), ang, mix(shade(COPING, 0.8 + 0.25 * rand(r, 4)), MOSS, 0.45 * rand(r, 5)));
-      s += w;
+    const ang = Math.atan2(tan[1], tan[0]);
+    for (let cursor = s0; cursor < s1 - 0.05;) {
+      const slabSeed = (stoneSeed += 13);
+      const slabW = Math.min(s1 - cursor, 0.6 + 0.6 * rand(slabSeed, 1)), mid = cursor + slabW / 2;
+      const x = origin[0] + tan[0] * mid - nrm[0] * inset, z = origin[1] + tan[1] * mid - nrm[1] * inset;
+      S.box(x, z, topY, topY + 0.1 + 0.1 * rand(slabSeed, 2), slabW + 0.02, thick + 0.12 + 0.06 * rand(slabSeed, 3), ang, mix(shade(COL.coping, 0.8 + 0.25 * rand(slabSeed, 4)), COL.moss, 0.45 * rand(slabSeed, 5)));
+      cursor += slabW;
     }
   };
-  // one stretch of rubble wall: body, stones on the outer face (down to the ground outside) and a coping
-  const wall = (a, t, n, s0, s1, foot, base, top, th) => {
-    const m = (s0 + s1) / 2, inset = th / 2 + 0.02, ang = Math.atan2(t[1], t[0]);
+  const rubbleWall = (origin, tan, nrm, s0, s1, footY, baseY, topY, thick) => {
+    const mid = (s0 + s1) / 2, inset = thick / 2 + 0.02, ang = Math.atan2(tan[1], tan[0]);
     S.kind = KIND.PLAIN;
-    S.box(a[0] + t[0] * m - n[0] * inset, a[1] + t[1] * m - n[1] * inset, base, top, s1 - s0, th, ang, shade(RUBBLE, 0.78));
-    rubble(a, t, n, s0, s1, foot, top);
-    coping(a, t, n, s0, s1, inset, th, top);
+    S.box(origin[0] + tan[0] * mid - nrm[0] * inset, origin[1] + tan[1] * mid - nrm[1] * inset, baseY, topY, s1 - s0, thick, ang, shade(COL.rubble, 0.78));
+    rubble(origin, tan, nrm, s0, s1, footY, topY);
+    coping(origin, tan, nrm, s0, s1, inset, thick, topY);
   };
-
-  // the gates: a low, wide block of weathered render, one round arch closed by a timber lattice, couplet panels on the
-  // pilasters, a plaque frieze over the arch and a flat cornice (svB, the east gate; the side gates drawn the same way:
-  // no photograph shows them)
-  const RENDER = hex('#a9a395'), GRILLE = hex('#3b2d23');
-  const GATE_W = 3.6;
-  const gateAt = (g, t, n) => { // g: centre on the wall's outer line (world), t along, n outward
-    const ang = Math.atan2(t[1], t[0]), D = 0.9, H = 3.1, ow = 1.8, r = ow / 2, spring = Y + 1.7;
-    const at = (s, o): [number, number] => [g[0] + t[0] * s - n[0] * (D / 2 + 0.02 - o), g[1] + t[1] * s - n[1] * (D / 2 + 0.02 - o)];
-    const bx = (s, o, ya, yb, w, d, col) => { const q = at(s, o); S.box(q[0], q[1], ya, yb, w, d, ang, col); };
-    const pw = (GATE_W - ow) / 2;
+  const archedGate = (gatePt, tan, nrm) => {
+    const ang = Math.atan2(tan[1], tan[0]), depth = 0.9, height = 3.1, openW = 1.8, radius = openW / 2, springY = courtY + 1.7;
+    const ptAt = (along, out): [number, number] => [gatePt[0] + tan[0] * along - nrm[0] * (depth / 2 + 0.02 - out), gatePt[1] + tan[1] * along - nrm[1] * (depth / 2 + 0.02 - out)];
+    const box = (along, out, ya, yb, w, d, col) => { const pt = ptAt(along, out); S.box(pt[0], pt[1], ya, yb, w, d, ang, col); };
+    const pierW = (GATE_WIDTH - openW) / 2;
     S.kind = KIND.PLAIN;
-    for (const sg of [-1, 1]) bx(sg * (ow / 2 + pw / 2), 0, Y - 0.3, Y + H, pw, D, RENDER);
-    const halfAt = (y) => (y <= spring ? r : Math.sqrt(Math.max(0, r * r - (y - spring) ** 2)));
+    for (const side of [-1, 1]) box(side * (openW / 2 + pierW / 2), 0, courtY - 0.3, courtY + height, pierW, depth, COL.render);
+    const halfAt = (y) => (y <= springY ? radius : Math.sqrt(Math.max(0, radius * radius - (y - springY) ** 2)));
     for (let k = 0; k < 6; k++) {
-      const ya = spring + (r * k) / 6, yb = spring + (r * (k + 1)) / 6, hw = halfAt((ya + yb) / 2);
-      for (const sg of [-1, 1]) bx(sg * (hw + (r - hw) / 2), 0, ya, yb, r - hw + 0.01, D, RENDER);
-      bx(0, 0, ya, yb, hw * 2, 0.06, GRILLE);
+      const ya = springY + (radius * k) / 6, yb = springY + (radius * (k + 1)) / 6, hw = halfAt((ya + yb) / 2);
+      for (const side of [-1, 1]) box(side * (hw + (radius - hw) / 2), 0, ya, yb, radius - hw + 0.01, depth, COL.render);
+      box(0, 0, ya, yb, hw * 2, 0.06, COL.grille);
     }
-    bx(0, 0, spring + r, Y + H, ow, D, RENDER);
-    bx(0, 0, Y, spring, ow, 0.06, GRILLE);
-    // the lattice: thin bars proud of the panel on both faces
-    const BAR = shade(GRILLE, 1.7);
-    for (const u of [-0.6, -0.3, 0, 0.3, 0.6]) bx(u, 0, Y + 0.05, spring + Math.sqrt(r * r - u * u) - 0.04, 0.05, 0.12, BAR);
-    for (let y = Y + 0.3; y < spring + r - 0.1; y += 0.34) bx(0, 0, y, y + 0.05, halfAt(y + 0.025) * 2 - 0.04, 0.12, BAR);
-    // couplet panels, the plaque frieze, the cornice
-    for (const o of [-1, 1]) {
-      for (const sg of [-1, 1]) bx(sg * (ow / 2 + pw / 2), o * (D / 2 + 0.012), Y + 0.45, Y + 2.15, 0.4, 0.03, shade(RENDER, 0.78));
-      bx(0, o * (D / 2 + 0.012), spring + r + 0.08, Y + H - 0.08, 1.5, 0.03, shade(RENDER, 0.7));
+    box(0, 0, springY + radius, courtY + height, openW, depth, COL.render);
+    box(0, 0, courtY, springY, openW, 0.06, COL.grille);
+    const barCol = shade(COL.grille, 1.7);
+    for (const u of [-0.6, -0.3, 0, 0.3, 0.6]) box(u, 0, courtY + 0.05, springY + Math.sqrt(radius * radius - u * u) - 0.04, 0.05, 0.12, barCol);
+    for (let y = courtY + 0.3; y < springY + radius - 0.1; y += 0.34) box(0, 0, y, y + 0.05, halfAt(y + 0.025) * 2 - 0.04, 0.12, barCol);
+    for (const outSide of [-1, 1]) {
+      for (const side of [-1, 1]) box(side * (openW / 2 + pierW / 2), outSide * (depth / 2 + 0.012), courtY + 0.45, courtY + 2.15, 0.4, 0.03, shade(COL.render, 0.78));
+      box(0, outSide * (depth / 2 + 0.012), springY + radius + 0.08, courtY + height - 0.08, 1.5, 0.03, shade(COL.render, 0.7));
     }
-    bx(0, 0, Y + H, Y + H + 0.12, GATE_W + 0.3, D + 0.3, shade(RENDER, 0.92));
-    bx(0, 0, Y + H + 0.12, Y + H + 0.22, GATE_W + 0.1, D + 0.12, shade(RENDER, 0.84));
+    box(0, 0, courtY + height, courtY + height + 0.12, GATE_WIDTH + 0.3, depth + 0.3, shade(COL.render, 0.92));
+    box(0, 0, courtY + height + 0.12, courtY + height + 0.22, GATE_WIDTH + 0.1, depth + 0.12, shade(COL.render, 0.84));
+  };
+  return { rubbleWall, archedGate };
+}
+
+// ---------------- terrain, banks & perimeter walls ----------------
+
+function buildPlateauAndBanks(ctx, hkRing) {
+  const { S, THREE, courtY, onStreet } = ctx;
+  const loc = hkRing.map((pt) => toLocal(pt[0], pt[1]));
+  const negPlane = ([a, b, c]): [number, number, number] => [-a, -b, -c];
+  const westPlane = halfPlaneThrough(WEST_BROW[0], WEST_BROW[1], [0, 0]);
+  const frontPlane: [number, number, number] = [0, 1, FRONT_BROW_V];
+  const levelRing = clipHalfPlane(clipHalfPlane(loc, ...westPlane), ...frontPlane);
+  const distToLevel = (u, v) => {
+    let best = Infinity;
+    for (let i = 0; i < levelRing.length; i++) best = Math.min(best, segDist2D(u, v, levelRing[i], levelRing[(i + 1) % levelRing.length]));
+    return best;
+  };
+  const bankY = (u, v) => Math.max(courtY - BANK_SLOPE * distToLevel(u, v), LAND_Y + rise(...toWorld(u, v)) + 0.15);
+  const ccwRing = signedArea(hkRing) > 0;
+  const outwardNormal = (ptA, ptB) => {
+    const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], len = Math.hypot(dx, dz) || 1;
+    return ccwRing ? [dz / len, -dx / len] : [-dz / len, dx / len];
   };
 
-  // ---- the precinct wall on the court's edge; a low balustrade along the front brow ----
-  // East lane (svF, svB): random rubble of small stones under a rough mossy coping. Where the lane runs at the wall's
-  // foot (north of the side gate) the wall is sized from the ground outside it, as before: its top 2.9 m above that
-  // ground, kept between 0.9 and 2.3 m above the court. On the brow and over the east bank it stands 2 m, level.
-  const gatePts = [];
-  {
-    const ccw = signedArea(level.map(([u, v]) => P(u, v))) > 0;
-    const gl = [L(...(SIDE_GATES[0] as [number, number])), L(...(SIDE_GATES[1] as [number, number]))];
-    const gd = [gl[1][0] - gl[0][0], gl[1][1] - gl[0][1]];
-    const topAt = (x, z) => Math.min(Y + 2.3, Math.max(Y + 0.9, LAND_Y + rise(x, z) + 2.9));
-    const onApron = (la, lb) => apron.length && apron[0].ring.some((p, i, r) => i + 1 < r.length && segDist((la[0] + lb[0]) / 2, (la[1] + lb[1]) / 2, p, r[i + 1]) < 0.05);
-    // the east gate: where the car panorama's sight line (SVB) first meets the court's edge
-    const sv = L(...(SVB.at as [number, number])), sd = [Math.sin(SVB.bearing * Math.PI / 180), -Math.cos(SVB.bearing * Math.PI / 180)];
-    const sdl = [sd[0] * UX + sd[1] * UZ, -sd[0] * UZ + sd[1] * UX];
-    let east = null;
-    level.forEach((la, i) => {
-      const lb = level[(i + 1) % level.length], ex = lb[0] - la[0], ev = lb[1] - la[1];
-      const den = sdl[0] * ev - sdl[1] * ex;
-      if (Math.abs(den) < 1e-9) return;
-      const wx = la[0] - sv[0], wv = la[1] - sv[1];
-      const tt = (wx * ev - wv * ex) / den, ss = (wx * sdl[1] - wv * sdl[0]) / den;
-      if (tt > 0 && ss > 0 && ss < 1 && (!east || tt < east.tt)) east = { i, tt, ss };
+  // east apron strip between wall and lane
+  const apron = [];
+  const isEastEdge = (idx) => {
+    const ptA = loc[idx], ptB = loc[(idx + 1) % loc.length];
+    const mu = (ptA[0] + ptB[0]) / 2, mv = (ptA[1] + ptB[1]) / 2;
+    return mu > 12 && mv > -80 && mv < 22;
+  };
+  let startIdx = -1;
+  for (let i = 0; i < loc.length; i++) if (isEastEdge(i) && !isEastEdge((i - 1 + loc.length) % loc.length)) { startIdx = i; break; }
+  if (startIdx >= 0) {
+    const chain = [];
+    for (let i = startIdx; isEastEdge(i % loc.length) && chain.length < loc.length; i++) chain.push(i % loc.length);
+    const verts = [...chain, (chain[chain.length - 1] + 1) % loc.length];
+    const outerWorld = [];
+    verts.forEach((vertIdx, k) => {
+      const pt = hkRing[vertIdx];
+      if (k === 0 || k === verts.length - 1) { outerWorld.push(pt); return; }
+      const n1 = outwardNormal(hkRing[verts[k - 1]], pt), n2 = outwardNormal(pt, hkRing[verts[k + 1]]);
+      let nx = n1[0] + n2[0], nz = n1[1] + n2[1];
+      const len = Math.hypot(nx, nz) || 1;
+      nx /= len; nz /= len;
+      let reach = 0;
+      for (let dist = 0.5; dist <= 14; dist += 0.5) {
+        const x = pt[0] + nx * dist, z = pt[1] + nz * dist;
+        if (onStreet(x, z, 0.6)) break;
+        reach = dist;
+        if (courtY - BANK_SLOPE * dist < LAND_Y + rise(x, z) + 0.15) break;
+      }
+      outerWorld.push([pt[0] + nx * reach, pt[1] + nz * reach]);
     });
-    for (let i = 0; i < level.length; i++) {
-      const la = level[i], lb = level[(i + 1) % level.length];
-      const a = P(...(la as [number, number])), b = P(...(lb as [number, number]));
-      const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
-      if (len < 0.3) continue;
-      const t = [dx / len, dz / len], n = ccw ? [t[1], -t[0]] : [-t[1], t[0]]; // outward
-      const front = Math.abs(la[1] - NV) < 0.05 && Math.abs(lb[1] - NV) < 0.05;
-      const brow = Math.abs(fOut(HW, ...(la as [number, number]))) < 0.05 && Math.abs(fOut(HW, ...(lb as [number, number]))) < 0.05;
-      const level2 = brow || onApron(la, lb);
-      const segs = [[0, len]];
-      const cut = (s0, s1) => { for (let k = segs.length - 1; k >= 0; k--) { const [p0, p1] = segs[k]; if (s1 <= p0 || s0 >= p1) continue; segs.splice(k, 1, ...[[p0, s0], [s1, p1]].filter(([q0, q1]) => q1 - q0 > 0.2)); } };
-      const gates = [];
-      if (front) {
-        // the stair, and the four pillars at its head
-        const s = (u) => ((u - la[0]) / (lb[0] - la[0])) * len;
-        cut(Math.min(s(-SW), s(SW)), Math.max(s(-SW), s(SW)));
-        for (const u of [-7.4, 7.4]) cut(s(u) - 0.8, s(u) + 0.8);
-      } else {
-        const ex = lb[0] - la[0], ev = lb[1] - la[1], den = ex * gd[1] - ev * gd[0];
-        if (Math.abs(den) > 1e-6) {
-          const tt = ((gl[0][0] - la[0]) * gd[1] - (gl[0][1] - la[1]) * gd[0]) / den;
-          if (tt > 0 && tt < 1) gates.push(tt * len);
-        }
-        if (east && east.i === i) gates.push(east.ss * len);
-        for (const s of gates) cut(s - GATE_W / 2 + 0.05, s + GATE_W / 2 - 0.05);
-      }
-      for (const [s0, s1] of segs) {
-        if (front) {
-          const h = 0.95, th = 0.35, m = (s0 + s1) / 2, l = s1 - s0, ang = Math.atan2(t[1], t[0]);
-          const x = a[0] + t[0] * m - n[0] * th / 2, z = a[1] + t[1] * m - n[1] * th / 2;
-          S.kind = KIND.MASONRY;
-          S.box(x, z, Y - 0.3, Y + h, l, th, ang, LIME);
-          S.kind = KIND.PLAIN;
-          S.box(x, z, Y + h, Y + h + 0.14, l, th + 0.2, ang, GREY);
-          for (let s = s0 + 2.4; s < s1 - 0.6; s += 2.4) S.box(a[0] + t[0] * s - n[0] * th / 2, a[1] + t[1] * s - n[1] * th / 2, Y, Y + h + 0.3, 0.45, 0.45, ang, LIME);
-          continue;
-        }
-        // in stretches of at most 8 m, each as high as the ground outside it asks
-        const k8 = Math.max(1, Math.ceil((s1 - s0) / 8));
-        for (let k = 0; k < k8; k++) {
-          const p0 = s0 + ((s1 - s0) * k) / k8, p1 = s0 + ((s1 - s0) * (k + 1)) / k8, m = (p0 + p1) / 2;
-          const ox = a[0] + t[0] * m + n[0] * 2, oz = a[1] + t[1] * m + n[1] * 2;
-          const top = level2 ? Y + 2.0 : topAt(ox, oz);
-          const foot = level2 ? Y - 0.3 : Math.min(Y - 0.3, LAND_Y + rise(ox, oz) - 0.3);
-          wall(a, t, n, p0 - (k === 0 ? 0.1 : 0), p1 + (k === k8 - 1 ? 0.1 : 0), foot, Y - 0.3, top, 0.55);
-        }
-      }
-      for (const s of gates) {
-        const g = [a[0] + t[0] * s, a[1] + t[1] * s];
-        gateAt(g, t, n);
-        gatePts.push(L(...(g as [number, number])));
+    apron.push({ ring: verts.map((vertIdx) => loc[vertIdx]), outer: outerWorld.map((pt) => toLocal(pt[0], pt[1])), edges: new Set(chain) });
+  }
+  const apronRing = apron.length ? [...apron[0].ring, ...apron[0].outer.slice().reverse()] : [];
+
+  // level court
+  S.base = courtY - LAND_Y;
+  const courtStart = S.n;
+  S.kind = KIND.PLAIN;
+  S.prism(levelRing.map(([u, v]) => toWorld(u, v)), LAND_Y - 0.6, courtY, shade(COL.rubble, 0.8), hex(PAL.green.sacred), { topKind: KIND.GROUND });
+  (S.noCover = S.noCover || []).push([courtStart, S.n]);
+
+  // sloped banks on a 2 m grid
+  const bankPieces = [clipHalfPlane(loc, ...negPlane(westPlane))];
+  const frontClip = clipHalfPlane(clipHalfPlane(loc, ...westPlane), ...negPlane(frontPlane));
+  bankPieces.push(clipHalfPlane(frontClip, 1, 0, -STAIR_HALF_W - 0.6), clipHalfPlane(frontClip, -1, 0, -STAIR_HALF_W - 0.6));
+  if (apronRing.length) bankPieces.push(apronRing);
+
+  const bankStart = S.n, grassCol = hex(PAL.green.grass), cellSize = 2;
+  S.kind = KIND.GROUND;
+  for (const piece of bankPieces) {
+    if (piece.length < 3) continue;
+    let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+    for (const [u, v] of piece) { u0 = Math.min(u0, u); u1 = Math.max(u1, u); v0 = Math.min(v0, v); v1 = Math.max(v1, v); }
+    for (let cu = Math.floor(u0 / cellSize) * cellSize; cu < u1; cu += cellSize) {
+      for (let cv = Math.floor(v0 / cellSize) * cellSize; cv < v1; cv += cellSize) {
+        let poly = clipHalfPlane(clipHalfPlane(clipHalfPlane(clipHalfPlane(piece, 1, 0, cu + cellSize), -1, 0, -cu), 0, 1, cv + cellSize), 0, -1, -cv);
+        poly = poly.filter((pt, idx) => { const next = poly[(idx + 1) % poly.length]; return Math.hypot(next[0] - pt[0], next[1] - pt[1]) > 1e-3; });
+        if (poly.length < 3 || Math.abs(signedArea(poly)) < 0.01) continue;
+        const heights = poly.map(([u, v]) => bankY(u, v));
+        S.base = heights.reduce((sum, h) => sum + h, 0) / heights.length - LAND_Y;
+        const tone = 0.86 + 0.12 * rand(Math.round(cu * 7 + cv * 131) & 0xffff, 7);
+        const faces = THREE.ShapeUtils.triangulateShape(poly.map(([u, v]) => new THREE.Vector2(u, v)), []);
+        const worldPts = poly.map(([u, v], idx) => { const pt = toWorld(u, v); return [pt[0], heights[idx], pt[1]]; });
+        for (const face of faces) S.tri(worldPts[face[0]], worldPts[face[1]], worldPts[face[2]], shade(grassCol, tone), [0, 1, 0]);
       }
     }
   }
+  S.noCover.push([bankStart, S.n]);
+  return { loc, westPlane, frontPlane, levelRing, bankPieces, bankY, apron, outwardNormal };
+}
 
-  // ---- the low walls at the roads: along the mapped edge where a bank runs down to it, and along the east strip ----
-  {
-    const roadWall = (pa, pb, out, kerb = false) => { // local points; out: outward normal sign check done by the caller (world n)
-      const a = P(...(pa as [number, number])), b = P(...(pb as [number, number])), dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
-      if (len < 0.3) return;
-      const t = [dx / len, dz / len], n = out(a, b);
-      const k3 = Math.max(1, Math.ceil(len / 3));
-      for (let k = 0; k < k3; k++) {
-        const s0 = (len * k) / k3, s1 = (len * (k + 1)) / k3, m = (s0 + s1) / 2;
-        const lm = [pa[0] + (pb[0] - pa[0]) * (m / len), pa[1] + (pb[1] - pa[1]) * (m / len)];
-        const g = LAND_Y + rise(a[0] + t[0] * m + n[0] * 1.5, a[1] + t[1] * m + n[1] * 1.5);
-        const top = kerb ? Math.max(bankY(...(lm as [number, number])) + 0.05, g + 0.25) : Math.max(bankY(...(lm as [number, number])) + 0.45, g + 0.8);
-        wall(a, t, n, s0 - (k === 0 ? 0.05 : 0), s1 + (k === k3 - 1 ? 0.05 : 0), g - 0.3, g - 0.3, top, 0.5);
+function buildPrecinctWallAndGates(ctx, terrain) {
+  const { S, courtY, rubbleWall, archedGate } = ctx;
+  const { westPlane, levelRing, apron } = terrain;
+  const planeDist = (plane, u, v) => plane[0] * u + plane[1] * v - plane[2];
+  const gatePts = [];
+  const ccwLevel = signedArea(levelRing.map(([u, v]) => toWorld(u, v))) > 0;
+  const sideGateLoc = [toLocal(SIDE_GATES[0][0], SIDE_GATES[0][1]), toLocal(SIDE_GATES[1][0], SIDE_GATES[1][1])];
+  const sideGateDir = [sideGateLoc[1][0] - sideGateLoc[0][0], sideGateLoc[1][1] - sideGateLoc[0][1]];
+  const wallTopAt = (x, z) => Math.min(courtY + 2.3, Math.max(courtY + 0.9, LAND_Y + rise(x, z) + 2.9));
+  const onApron = (la, lb) => apron.length && apron[0].ring.some((pt, idx, ring) => idx + 1 < ring.length && segDist2D((la[0] + lb[0]) / 2, (la[1] + lb[1]) / 2, pt, ring[idx + 1]) < 0.05);
+
+  const sightLoc = toLocal(EAST_GATE_SIGHT.at[0], EAST_GATE_SIGHT.at[1]);
+  const sightWorldDir = [Math.sin((EAST_GATE_SIGHT.bearing * Math.PI) / 180), -Math.cos((EAST_GATE_SIGHT.bearing * Math.PI) / 180)];
+  const sightLocalDir = [sightWorldDir[0] * AXIS_UX + sightWorldDir[1] * AXIS_UZ, -sightWorldDir[0] * AXIS_UZ + sightWorldDir[1] * AXIS_UX];
+  let eastHit = null;
+  levelRing.forEach((la, idx) => {
+    const lb = levelRing[(idx + 1) % levelRing.length];
+    const ex = lb[0] - la[0], ev = lb[1] - la[1], den = sightLocalDir[0] * ev - sightLocalDir[1] * ex;
+    if (Math.abs(den) < 1e-9) return;
+    const wx = la[0] - sightLoc[0], wv = la[1] - sightLoc[1];
+    const hitT = (wx * ev - wv * ex) / den, hitS = (wx * sightLocalDir[1] - wv * sightLocalDir[0]) / den;
+    if (hitT > 0 && hitS > 0 && hitS < 1 && (!eastHit || hitT < eastHit.tt)) eastHit = { i: idx, tt: hitT, ss: hitS };
+  });
+
+  for (let i = 0; i < levelRing.length; i++) {
+    const la = levelRing[i], lb = levelRing[(i + 1) % levelRing.length];
+    const ptA = toWorld(la[0], la[1]), ptB = toWorld(lb[0], lb[1]);
+    const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], len = Math.hypot(dx, dz);
+    if (len < 0.3) continue;
+    const tan = [dx / len, dz / len], nrm = ccwLevel ? [tan[1], -tan[0]] : [-tan[1], tan[0]];
+    const isFront = Math.abs(la[1] - FRONT_BROW_V) < 0.05 && Math.abs(lb[1] - FRONT_BROW_V) < 0.05;
+    const isBrow = Math.abs(planeDist(westPlane, la[0], la[1])) < 0.05 && Math.abs(planeDist(westPlane, lb[0], lb[1])) < 0.05;
+    const isLevelWall = isBrow || onApron(la, lb);
+    const segs = [[0, len]];
+    const cutSpan = (s0, s1) => {
+      for (let k = segs.length - 1; k >= 0; k--) {
+        const [p0, p1] = segs[k];
+        if (s1 <= p0 || s0 >= p1) continue;
+        segs.splice(k, 1, ...[[p0, s0], [s1, p1]].filter(([q0, q1]) => q1 - q0 > 0.2));
       }
     };
-    const ringOut = (a, b) => outN(a, b);
-    for (let i = 0; i < loc.length; i++) {
-      if (apron.length && apron[0].edges.has(i)) continue;
-      const la = loc[i], lb = loc[(i + 1) % loc.length];
-      // the part of this edge outside the court: outside the brow line or in front of the front brow
-      const iv = [];
-      for (const h of [HW, HF]) {
-        const fa = fOut(h, ...(la as [number, number])), fb = fOut(h, ...(lb as [number, number]));
-        if (fa <= 0 && fb <= 0) continue;
-        if (fa > 0 && fb > 0) { iv.push([0, 1]); continue; }
-        const tc = fa / (fa - fb);
-        iv.push(fa > 0 ? [0, tc] : [tc, 1]);
+    const gatePositions = [];
+    if (isFront) {
+      const alongOf = (u) => ((u - la[0]) / (lb[0] - la[0])) * len;
+      cutSpan(Math.min(alongOf(-STAIR_HALF_W), alongOf(STAIR_HALF_W)), Math.max(alongOf(-STAIR_HALF_W), alongOf(STAIR_HALF_W)));
+      for (const u of [-7.4, 7.4]) cutSpan(alongOf(u) - 0.8, alongOf(u) + 0.8);
+    } else {
+      const ex = lb[0] - la[0], ev = lb[1] - la[1], den = ex * sideGateDir[1] - ev * sideGateDir[0];
+      if (Math.abs(den) > 1e-6) {
+        const frac = ((sideGateLoc[0][0] - la[0]) * sideGateDir[1] - (sideGateLoc[0][1] - la[1]) * sideGateDir[0]) / den;
+        if (frac > 0 && frac < 1) gatePositions.push(frac * len);
       }
-      if (!iv.length) continue;
-      iv.sort((p, q) => p[0] - q[0]);
-      const merged = [iv[0].slice()];
-      for (const [p0, p1] of iv.slice(1)) { const lst = merged[merged.length - 1]; if (p0 <= lst[1]) lst[1] = Math.max(lst[1], p1); else merged.push([p0, p1]); }
-      const at = (tt): [number, number] => [la[0] + (lb[0] - la[0]) * tt, la[1] + (lb[1] - la[1]) * tt];
-      for (const [p0, p1] of merged) {
-        // not across the stair
-        const A = at(p0), B = at(p1);
-        if (A[1] > NV - 0.1 && B[1] > NV - 0.1 && Math.max(A[0], B[0]) > -SW - 0.6 && Math.min(A[0], B[0]) < SW + 0.6) {
-          const sAt = (u) => (u - A[0]) / (B[0] - A[0]);
-          const c0 = Math.max(0, Math.min(1, Math.min(sAt(-SW - 0.6), sAt(SW + 0.6)))), c1 = Math.max(0, Math.min(1, Math.max(sAt(-SW - 0.6), sAt(SW + 0.6))));
-          const lerp = (s): [number, number] => [A[0] + (B[0] - A[0]) * s, A[1] + (B[1] - A[1]) * s];
-          if (c0 > 0.01) roadWall(A, lerp(c0), ringOut);
-          if (c1 < 0.99) roadWall(lerp(c1), B, ringOut);
-          continue;
-        }
-        roadWall(A, B, ringOut);
-      }
+      if (eastHit && eastHit.i === i) gatePositions.push(eastHit.ss * len);
+      for (const pos of gatePositions) cutSpan(pos - GATE_WIDTH / 2 + 0.05, pos + GATE_WIDTH / 2 - 0.05);
     }
-    if (apron.length) {
-      const o = apron[0].outer;
-      // the strip's outer edge runs the same way round as the ring, so the ring's rule gives its outward side; svB shows
-      // the grass running down to a stone kerb at the road, not a parapet, so it is only as high as the bank's foot
-      for (let k = 0; k + 1 < o.length; k++) roadWall(o[k], o[k + 1], (a, b) => outN(a, b), true);
-    }
-  }
 
-  // ---- the stair: from the terrace at the four pillars down to the riverside road, two flights and a landing ----
-  // The riverside road (Nguyễn Phúc Nguyên, OSM) runs between the stair and the landing: the flight comes down to its
-  // land-side kerb and the landing starts past its river-side pavement, both found on the mapped street, so neither
-  // runs out over the asphalt (fixed lengths put the newel posts, the landing and its posts on the carriageway).
-  const street = streetTest(data, P(0, 35), 60);
-  const across = [-SW - 0.7, 0, SW + 0.7];
-  let vEnd = 26.5;
-  for (let v = NV + 10; v < 40; v += 0.1) if (across.some((u) => street(...P(u, v), 0.3))) { vEnd = v; break; }
-  let vKerb = 36;
-  for (let v = vEnd + 1; v < 60; v += 0.1) if (![-8, -4, 0, 4, 8].some((u) => street(...P(u, v), 'pavement'))) { vKerb = v; break; }
-  {
-    const gEnd = LAND_Y + Math.max(0, rise(...P(0, vEnd)));
-    const n = 30, land = 1.8, run = (vEnd - NV - land) / n, fall = (Y - gEnd) / n;
-    const n0 = S.n;
-    S.kind = KIND.ROAD;
-    let v = NV;
-    for (let k = 0; k < n; k++) {
-      if (k === n / 2) {
-        // the landing
-        S.base = Y - fall * k - LAND_Y;
-        box(0, v + land / 2, gEnd - 0.8, Y - fall * k, SW * 2, land + 0.02, shade(STONE, 1.02), { topKind: KIND.ROAD });
-        v += land;
-      }
-      const sy = Y - fall * (k + 1);
-      S.base = sy - LAND_Y;
-      box(0, v + run / 2, gEnd - 0.8, sy, SW * 2, run + 0.02, k % 2 ? shade(BRICK, 0.9) : shade(BRICK, 0.95), { topKind: KIND.ROAD });
-      v += run;
-    }
-    (S.paved = S.paved || []).push([n0, S.n]);
-    // cheek walls with a balustrade, each side, stepping down with the flight
-    S.kind = KIND.MASONRY; S.base = 0;
-    for (const sg of [-1, 1]) {
-      const u = sg * (SW + 0.3);
-      const a = P(u, NV - 0.2), m = P(u, NV + n / 2 * run + land / 2), b = P(u, vEnd + 0.2);
-      const ym = Y - fall * n / 2;
-      S.beam([a[0], Y + 0.6, a[1]], [m[0], ym + 0.6, m[1]], 0.6, 1.2, LIME);
-      S.beam([m[0], ym + 0.6, m[1]], [b[0], gEnd + 0.6, b[1]], 0.6, 1.2, LIME);
-      // the stone face under the coping, down to the ground
-      box(u, (NV + vEnd) / 2 + 0.1, LAND_Y - 0.4, Math.min(ym, Y - 2) , 0.6, vEnd - NV + 0.4, shade(STONE, 0.88));
-      box(u, NV + (vEnd - NV) * 0.2, LAND_Y - 0.4, Y - 2, 0.6, (vEnd - NV) * 0.4, shade(STONE, 0.88));
-      // newel posts at the foot
-      box(u, vEnd - 0.2, gEnd, gEnd + 1.4, 0.8, 0.8, LIME);
-      cyl(u, vEnd - 0.2, gEnd + 1.4, gEnd + 1.9, 0.3, 0.12, 6, GREY);
-    }
-    S.base = 0;
-  }
-
-  // ---- across the road: the landing (bến) on the river, a stone platform and steps down to the water ----
-  {
-    const vH = Math.max(46, vKerb + 3); // the platform runs from the pavement's edge to the head of the flight
-    const gy = LAND_Y + Math.max(0, rise(...P(0, (vKerb + vH) / 2)));
-    const n0 = S.n;
-    S.kind = KIND.MASONRY;
-    box(0, (vKerb + vH) / 2, gy - 1.2, gy + 0.25, 16, vH - vKerb, shade(STONE, 0.98), { topKind: KIND.ROAD });
-    S.kind = KIND.ROAD;
-    const steps = 18, top = gy + 0.25, bot = 0.4, run = 0.6;
-    // the flight goes down the bank: the first step that drops a metre below the city floor stands at the mapped
-    // shore, and where the shore lies farther out the platform runs on to the head of the flight (on a fixed run the
-    // lower steps were sunk in the bank)
-    const land = landTest(data), kIn = Math.ceil(((top - (LAND_Y - 0.9)) / (top - bot)) * steps) - 1;
-    let v0 = vH;
-    for (let v = vH + kIn * run; v < 90; v += 0.25) if (![-5, 0, 5].some((u) => land(...P(u, v)))) { v0 = Math.max(vH, v - kIn * run); break; }
-    if (v0 > vH) box(0, (vH + v0) / 2, gy - 1.2, gy + 0.25, 10, v0 - vH + 0.1, shade(STONE, 0.98), { topKind: KIND.ROAD });
-    for (let k = 0; k < steps; k++) box(0, v0 + run * (k + 0.5), bot - 1.2, top - ((top - bot) * (k + 1)) / steps, 10, run + 0.02, shade(STONE, 0.92 - k * 0.015), { topKind: KIND.ROAD });
-    (S.paved = S.paved || []).push([n0, S.n]);
-    S.kind = KIND.MASONRY;
-    for (const sg of [-1, 1]) {
-      box(sg * 6.5, (vH + v0 + steps * run) / 2, bot - 1.2, top + 0.5, 3.0, v0 - vH + steps * run, shade(STONE, 0.9));
-      box(sg * 7.6, vKerb + 0.4, top, top + 0.8, 0.6, 0.6, LIME);
-      cyl(sg * 7.6, vKerb + 0.4, top + 0.8, top + 1.15, 0.28, 0.1, 6, GREY);
-    }
-    S.kind = KIND.PLAIN;
-  }
-
-  // ---- Phước Duyên tower: seven octagonal tiers on a balustraded octagonal terrace, 21 m to the finial ----
-  {
-    const n0 = S.n;
-    const rot = ANG + Math.PI / 2 - Math.PI / 8; // a flat face square to the river axis
-    const pr = 7.4, ph = 0.9;
-    S.base = Y - LAND_Y;
-    S.kind = KIND.MASONRY;
-    S.cyl(C[0], C[1], Y - 0.2, Y + ph, pr, pr * 0.98, 8, shade(STONE, 0.95), { rot });
-    S.kind = KIND.PLAIN;
-    S.cyl(C[0], C[1], Y + ph, Y + ph + 0.06, pr * 0.99, pr * 0.99, 8, shade(STONE, 1.05), { rot });
-    // the balustrade round its edge, open on the river side and the gate side
-    for (let k = 0; k < 8; k++) {
-      const a0 = rot + (k / 8) * Math.PI * 2, a1 = rot + ((k + 1) / 8) * Math.PI * 2, am = (a0 + a1) / 2;
-      const nxm = Math.cos(am), nzm = Math.sin(am);
-      const face = nxm * -UZ + nzm * UX; // dot with +v
-      const rr = pr * 0.95;
-      const A = [C[0] + Math.cos(a0) * rr, C[1] + Math.sin(a0) * rr], B = [C[0] + Math.cos(a1) * rr, C[1] + Math.sin(a1) * rr];
-      if (Math.abs(face) > 0.9) {
-        // steps up on this face
-        const mx = (A[0] + B[0]) / 2, mz = (A[1] + B[1]) / 2, fa = Math.atan2(B[1] - A[1], B[0] - A[0]);
-        for (let s = 0; s < 4; s++) {
-          const o = 0.35 + s * 0.34;
-          S.box(mx + nxm * o, mz + nzm * o, Y - 0.2, Y + ph - (s + 1) * ph / 5, 3.4, 0.36, fa, shade(STONE, 1.0), { topKind: KIND.ROAD });
-        }
-        for (const t of [0.18, 0.82]) {
-          const q = [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
-          S.box(q[0], q[1], Y + ph, Y + ph + 0.9, 0.4, 0.4, fa, LIME);
+    for (const [s0, s1] of segs) {
+      if (isFront) {
+        const balH = 0.95, thick = 0.35, mid = (s0 + s1) / 2, segL = s1 - s0, ang = Math.atan2(tan[1], tan[0]);
+        const x = ptA[0] + tan[0] * mid - nrm[0] * thick / 2, z = ptA[1] + tan[1] * mid - nrm[1] * thick / 2;
+        S.kind = KIND.MASONRY;
+        S.box(x, z, courtY - 0.3, courtY + balH, segL, thick, ang, COL.lime);
+        S.kind = KIND.PLAIN;
+        S.box(x, z, courtY + balH, courtY + balH + 0.14, segL, thick + 0.2, ang, COL.grey);
+        for (let cursor = s0 + 2.4; cursor < s1 - 0.6; cursor += 2.4) {
+          S.box(ptA[0] + tan[0] * cursor - nrm[0] * thick / 2, ptA[1] + tan[1] * cursor - nrm[1] * thick / 2, courtY, courtY + balH + 0.3, 0.45, 0.45, ang, COL.lime);
         }
         continue;
       }
-      S.beam([A[0], Y + ph + 0.7, A[1]], [B[0], Y + ph + 0.7, B[1]], 0.22, 0.14, LIME);
-      S.beam([A[0], Y + ph + 0.25, A[1]], [B[0], Y + ph + 0.25, B[1]], 0.16, 0.1, LIME);
-      S.box(A[0], A[1], Y + ph, Y + ph + 0.9, 0.36, 0.36, a0, LIME);
-    }
-    // the tiers
-    const r = 3.9, tiers = 7, finial = 2.5, total = 21 - ph - finial;
-    const hs = Array.from({ length: tiers }, (_, i) => 1.3 - i * 0.08), sum = hs.reduce((a, v) => a + v, 0);
-    let y = Y + ph;
-    for (let i = 0; i < tiers; i++) {
-      const h = (total * hs[i]) / sum;
-      const ri = r * (1 - 0.07 * i), rn = r * (1 - 0.07 * (i + 1));
-      S.kind = KIND.MASONRY;
-      S.cyl(C[0], C[1], y, y + h - 0.45, ri, ri * 0.985, 8, BRICK, { cap: false, rot });
-      S.kind = KIND.PLAIN;
-      S.cyl(C[0], C[1], y, y + 0.24, ri * 1.05, ri * 1.05, 8, TRIM, { cap: false, rot });
-      S.cyl(C[0], C[1], y + h - 0.72, y + h - 0.45, ri * 1.04, ri * 1.04, 8, TRIM, { cap: false, rot });
-      // an arched doorway on the river face and the gate face; on the six others a niche with its Buddha
-      const ap = ri * Math.cos(Math.PI / 8);
-      for (let k = 0; k < 8; k++) {
-        const th = rot + Math.PI / 8 + (k * Math.PI) / 4, nx = Math.cos(th), nz = Math.sin(th);
-        const face = nx * -UZ + nz * UX, door = Math.abs(face) > 0.9;
-        const ww = door ? Math.max(0.75, ri * 0.32) : Math.max(0.5, ri * 0.24);
-        const top = y + h * (door ? 0.6 : 0.55), bot = y + (door ? 0.24 : h * 0.2);
-        S.box(C[0] + nx * (ap + 0.02), C[1] + nz * (ap + 0.02), bot - 0.1, top + 0.18, 0.08, ww + 0.3, th, TRIM);
-        S.box(C[0] + nx * (ap + 0.07), C[1] + nz * (ap + 0.07), bot, top, 0.06, ww, th, door ? DARK : hex('#4a3a33'));
-        // the arch: a little rounded head
-        S.box(C[0] + nx * (ap + 0.07), C[1] + nz * (ap + 0.07), top, top + ww * 0.28, 0.06, ww * 0.62, th, door ? DARK : hex('#4a3a33'));
-        if (!door) S.box(C[0] + nx * (ap + 0.1), C[1] + nz * (ap + 0.1), bot, bot + (top - bot) * 0.55, 0.05, ww * 0.42, th, GOLD);
+      const chunks = Math.max(1, Math.ceil((s1 - s0) / 8));
+      for (let k = 0; k < chunks; k++) {
+        const p0 = s0 + ((s1 - s0) * k) / chunks, p1 = s0 + ((s1 - s0) * (k + 1)) / chunks, mid = (p0 + p1) / 2;
+        const ox = ptA[0] + tan[0] * mid + nrm[0] * 2, oz = ptA[1] + tan[1] * mid + nrm[1] * 2;
+        const top = isLevelWall ? courtY + 2.0 : wallTopAt(ox, oz);
+        const foot = isLevelWall ? courtY - 0.3 : Math.min(courtY - 0.3, LAND_Y + rise(ox, oz) - 0.3);
+        rubbleWall(ptA, tan, nrm, p0 - (k === 0 ? 0.1 : 0), p1 + (k === chunks - 1 ? 0.1 : 0), foot, courtY - 0.3, top, 0.55);
       }
-      // the eave: a thin slab and a short tiled slope up to the next tier
-      S.cyl(C[0], C[1], y + h - 0.45, y + h - 0.28, ri * 1.22, ri * 1.22, 8, EAVE, { rot });
-      const ly = y + h - 0.5, lr = ri * 1.14;
-      for (let k = 0; k < 8; k++) {
-        const a0 = rot + (k / 8) * Math.PI * 2, a1 = rot + ((k + 1) / 8) * Math.PI * 2;
-        LT.beam([C[0] + Math.cos(a0) * lr, ly, C[1] + Math.sin(a0) * lr], [C[0] + Math.cos(a1) * lr, ly, C[1] + Math.sin(a1) * lr], 0.12, 0.09, [1, 1, 1]);
-      }
-      S.kind = KIND.TILE;
-      S.cyl(C[0], C[1], y + h - 0.28, y + h, ri * 1.22, rn * 1.03, 8, EAVE, { cap: false, rot });
-      y += h;
     }
-    // the finial: a bowl, a gourd and the spire
-    S.kind = KIND.PLAIN;
-    S.cyl(C[0], C[1], y, y + 0.5, r * 0.48, r * 0.26, 8, EAVE, { rot });
-    S.cyl(C[0], C[1], y + 0.5, y + 0.9, r * 0.14, r * 0.2, 8, GOLD);
-    S.cyl(C[0], C[1], y + 0.9, y + 1.4, r * 0.2, r * 0.1, 8, GOLD);
-    S.cyl(C[0], C[1], y + 1.4, y + finial, 0.12, 0.03, 6, GOLD);
-    S.base = 0;
-    void n0;
+    for (const pos of gatePositions) {
+      const gatePt = [ptA[0] + tan[0] * pos, ptA[1] + tan[1] * pos];
+      archedGate(gatePt, tan, nrm);
+      gatePts.push(toLocal(gatePt[0], gatePt[1]));
+    }
+  }
+  return gatePts;
+}
+
+function buildRoadWalls(ctx, terrain) {
+  const { rubbleWall } = ctx;
+  const { loc, westPlane, frontPlane, bankY, apron, outwardNormal } = terrain;
+  const planeDist = (plane, u, v) => plane[0] * u + plane[1] * v - plane[2];
+  const roadWall = (pa, pb, outFn, isKerb = false) => {
+    const ptA = toWorld(pa[0], pa[1]), ptB = toWorld(pb[0], pb[1]);
+    const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], len = Math.hypot(dx, dz);
+    if (len < 0.3) return;
+    const tan = [dx / len, dz / len], nrm = outFn(ptA, ptB);
+    const chunks = Math.max(1, Math.ceil(len / 3));
+    for (let k = 0; k < chunks; k++) {
+      const s0 = (len * k) / chunks, s1 = (len * (k + 1)) / chunks, mid = (s0 + s1) / 2;
+      const lm = [pa[0] + ((pb[0] - pa[0]) * mid) / len, pa[1] + ((pb[1] - pa[1]) * mid) / len];
+      const baseG = LAND_Y + rise(ptA[0] + tan[0] * mid + nrm[0] * 1.5, ptA[1] + tan[1] * mid + nrm[1] * 1.5);
+      const top = isKerb ? Math.max(bankY(lm[0], lm[1]) + 0.05, baseG + 0.25) : Math.max(bankY(lm[0], lm[1]) + 0.45, baseG + 0.8);
+      rubbleWall(ptA, tan, nrm, s0 - (k === 0 ? 0.05 : 0), s1 + (k === chunks - 1 ? 0.05 : 0), baseG - 0.3, baseG - 0.3, top, 0.5);
+    }
+  };
+  for (let i = 0; i < loc.length; i++) {
+    if (apron.length && apron[0].edges.has(i)) continue;
+    const la = loc[i], lb = loc[(i + 1) % loc.length];
+    const intervals = [];
+    for (const plane of [westPlane, frontPlane]) {
+      const fa = planeDist(plane, la[0], la[1]), fb = planeDist(plane, lb[0], lb[1]);
+      if (fa <= 0 && fb <= 0) continue;
+      if (fa > 0 && fb > 0) { intervals.push([0, 1]); continue; }
+      const frac = fa / (fa - fb);
+      intervals.push(fa > 0 ? [0, frac] : [frac, 1]);
+    }
+    if (!intervals.length) continue;
+    intervals.sort((a, b) => a[0] - b[0]);
+    const merged = [intervals[0].slice()];
+    for (const [p0, p1] of intervals.slice(1)) {
+      const last = merged[merged.length - 1];
+      if (p0 <= last[1]) last[1] = Math.max(last[1], p1);
+      else merged.push([p0, p1]);
+    }
+    const lerpLoc = (frac): [number, number] => [la[0] + (lb[0] - la[0]) * frac, la[1] + (lb[1] - la[1]) * frac];
+    for (const [p0, p1] of merged) {
+      const segA = lerpLoc(p0), segB = lerpLoc(p1);
+      if (segA[1] > FRONT_BROW_V - 0.1 && segB[1] > FRONT_BROW_V - 0.1 && Math.max(segA[0], segB[0]) > -STAIR_HALF_W - 0.6 && Math.min(segA[0], segB[0]) < STAIR_HALF_W + 0.6) {
+        const paramOf = (u) => (u - segA[0]) / (segB[0] - segA[0]);
+        const c0 = Math.max(0, Math.min(1, Math.min(paramOf(-STAIR_HALF_W - 0.6), paramOf(STAIR_HALF_W + 0.6))));
+        const c1 = Math.max(0, Math.min(1, Math.max(paramOf(-STAIR_HALF_W - 0.6), paramOf(STAIR_HALF_W + 0.6))));
+        const lerpSeg = (frac): [number, number] => [segA[0] + (segB[0] - segA[0]) * frac, segA[1] + (segB[1] - segA[1]) * frac];
+        if (c0 > 0.01) roadWall(segA, lerpSeg(c0), outwardNormal);
+        if (c1 < 0.99) roadWall(lerpSeg(c1), segB, outwardNormal);
+        continue;
+      }
+      roadWall(segA, segB, outwardNormal);
+    }
+  }
+  if (apron.length) {
+    const outer = apron[0].outer;
+    for (let k = 0; k + 1 < outer.length; k++) roadWall(outer[k], outer[k + 1], outwardNormal, true);
+  }
+}
+
+function buildGroundAndWalls(ctx, hkRing) {
+  const terrain = buildPlateauAndBanks(ctx, hkRing);
+  const gatePts = buildPrecinctWallAndGates(ctx, terrain);
+  buildRoadWalls(ctx, terrain);
+  return { levelRing: terrain.levelRing, bankPieces: terrain.bankPieces, bankY: terrain.bankY, gatePts };
+}
+
+// ---------------- stair, river landing, Phước Duyên tower ----------------
+
+function buildStairAndLanding(ctx) {
+  const { data, S, courtY, box, cyl } = ctx;
+  const street = streetTest(data, toWorld(0, 35), 60);
+  const across = [-STAIR_HALF_W - 0.7, 0, STAIR_HALF_W + 0.7];
+  let vEnd = 26.5;
+  for (let v = FRONT_BROW_V + 10; v < 40; v += 0.1) if (across.some((u) => street(...toWorld(u, v), 0.3))) { vEnd = v; break; }
+  let vKerb = 36;
+  for (let v = vEnd + 1; v < 60; v += 0.1) if (![-8, -4, 0, 4, 8].some((u) => street(...toWorld(u, v), 'pavement'))) { vKerb = v; break; }
+
+  const footG = LAND_Y + Math.max(0, rise(...toWorld(0, vEnd)));
+  const stepCount = 30, landingLen = 1.8, stepRun = (vEnd - FRONT_BROW_V - landingLen) / stepCount, stepFall = (courtY - footG) / stepCount;
+  const stairStart = S.n;
+  S.kind = KIND.ROAD;
+  let vCursor = FRONT_BROW_V;
+  for (let k = 0; k < stepCount; k++) {
+    if (k === stepCount / 2) {
+      S.base = courtY - stepFall * k - LAND_Y;
+      box(0, vCursor + landingLen / 2, footG - 0.8, courtY - stepFall * k, STAIR_HALF_W * 2, landingLen + 0.02, shade(COL.stone, 1.02), { topKind: KIND.ROAD });
+      vCursor += landingLen;
+    }
+    const stepY = courtY - stepFall * (k + 1);
+    S.base = stepY - LAND_Y;
+    box(0, vCursor + stepRun / 2, footG - 0.8, stepY, STAIR_HALF_W * 2, stepRun + 0.02, k % 2 ? shade(COL.brick, 0.9) : shade(COL.brick, 0.95), { topKind: KIND.ROAD });
+    vCursor += stepRun;
+  }
+  (S.paved = S.paved || []).push([stairStart, S.n]);
+
+  S.kind = KIND.MASONRY; S.base = 0;
+  for (const side of [-1, 1]) {
+    const u = side * (STAIR_HALF_W + 0.3);
+    const ptTop = toWorld(u, FRONT_BROW_V - 0.2), ptMid = toWorld(u, FRONT_BROW_V + (stepCount / 2) * stepRun + landingLen / 2), ptBot = toWorld(u, vEnd + 0.2);
+    const midY = courtY - (stepFall * stepCount) / 2;
+    S.beam([ptTop[0], courtY + 0.6, ptTop[1]], [ptMid[0], midY + 0.6, ptMid[1]], 0.6, 1.2, COL.lime);
+    S.beam([ptMid[0], midY + 0.6, ptMid[1]], [ptBot[0], footG + 0.6, ptBot[1]], 0.6, 1.2, COL.lime);
+    box(u, (FRONT_BROW_V + vEnd) / 2 + 0.1, LAND_Y - 0.4, Math.min(midY, courtY - 2), 0.6, vEnd - FRONT_BROW_V + 0.4, shade(COL.stone, 0.88));
+    box(u, FRONT_BROW_V + (vEnd - FRONT_BROW_V) * 0.2, LAND_Y - 0.4, courtY - 2, 0.6, (vEnd - FRONT_BROW_V) * 0.4, shade(COL.stone, 0.88));
+    box(u, vEnd - 0.2, footG, footG + 1.4, 0.8, 0.8, COL.lime);
+    cyl(u, vEnd - 0.2, footG + 1.4, footG + 1.9, 0.3, 0.12, 6, COL.grey);
+  }
+  S.base = 0;
+
+  // river landing (bến) across the road
+  const vHead = Math.max(46, vKerb + 3);
+  const landG = LAND_Y + Math.max(0, rise(...toWorld(0, (vKerb + vHead) / 2)));
+  const landStart = S.n;
+  S.kind = KIND.MASONRY;
+  box(0, (vKerb + vHead) / 2, landG - 1.2, landG + 0.25, 16, vHead - vKerb, shade(COL.stone, 0.98), { topKind: KIND.ROAD });
+  S.kind = KIND.ROAD;
+  const landingSteps = 18, topY = landG + 0.25, botY = 0.4, run = 0.6;
+  const isLand = landTest(data);
+  const shoreStepIdx = Math.ceil(((topY - (LAND_Y - 0.9)) / (topY - botY)) * landingSteps) - 1;
+  let vFlightStart = vHead;
+  for (let v = vHead + shoreStepIdx * run; v < 90; v += 0.25) {
+    if (![-5, 0, 5].some((u) => isLand(...toWorld(u, v)))) { vFlightStart = Math.max(vHead, v - shoreStepIdx * run); break; }
+  }
+  if (vFlightStart > vHead) box(0, (vHead + vFlightStart) / 2, landG - 1.2, topY, 10, vFlightStart - vHead + 0.1, shade(COL.stone, 0.98), { topKind: KIND.ROAD });
+  for (let k = 0; k < landingSteps; k++) {
+    box(0, vFlightStart + run * (k + 0.5), botY - 1.2, topY - ((topY - botY) * (k + 1)) / landingSteps, 10, run + 0.02, shade(COL.stone, 0.92 - k * 0.015), { topKind: KIND.ROAD });
+  }
+  (S.paved = S.paved || []).push([landStart, S.n]);
+  S.kind = KIND.MASONRY;
+  for (const side of [-1, 1]) {
+    box(side * 6.5, (vHead + vFlightStart + landingSteps * run) / 2, botY - 1.2, topY + 0.5, 3.0, vFlightStart - vHead + landingSteps * run, shade(COL.stone, 0.9));
+    box(side * 7.6, vKerb + 0.4, topY, topY + 0.8, 0.6, 0.6, COL.lime);
+    cyl(side * 7.6, vKerb + 0.4, topY + 0.8, topY + 1.15, 0.28, 0.1, 6, COL.grey);
+  }
+  S.kind = KIND.PLAIN;
+}
+
+function buildPhuocDuyenTower(ctx) {
+  const { S, courtY, lightBuf } = ctx;
+  const rot = COMPOUND_ANG + Math.PI / 2 - Math.PI / 8;
+  const plinthR = 7.4, plinthH = 0.9;
+  S.base = courtY - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], courtY - 0.2, courtY + plinthH, plinthR, plinthR * 0.98, 8, shade(COL.stone, 0.95), { rot });
+  S.kind = KIND.PLAIN;
+  S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], courtY + plinthH, courtY + plinthH + 0.06, plinthR * 0.99, plinthR * 0.99, 8, shade(COL.stone, 1.05), { rot });
+
+  for (let k = 0; k < 8; k++) {
+    const a0 = rot + (k / 8) * Math.PI * 2, a1 = rot + ((k + 1) / 8) * Math.PI * 2, aMid = (a0 + a1) / 2;
+    const nx = Math.cos(aMid), nz = Math.sin(aMid);
+    const axisDot = nx * -AXIS_UZ + nz * AXIS_UX;
+    const railR = plinthR * 0.95;
+    const ptA = [TOWER_CENTER[0] + Math.cos(a0) * railR, TOWER_CENTER[1] + Math.sin(a0) * railR];
+    const ptB = [TOWER_CENTER[0] + Math.cos(a1) * railR, TOWER_CENTER[1] + Math.sin(a1) * railR];
+    if (Math.abs(axisDot) > 0.9) {
+      const mx = (ptA[0] + ptB[0]) / 2, mz = (ptA[1] + ptB[1]) / 2, faceAng = Math.atan2(ptB[1] - ptA[1], ptB[0] - ptA[0]);
+      for (let step = 0; step < 4; step++) {
+        const out = 0.35 + step * 0.34;
+        S.box(mx + nx * out, mz + nz * out, courtY - 0.2, courtY + plinthH - ((step + 1) * plinthH) / 5, 3.4, 0.36, faceAng, COL.stone, { topKind: KIND.ROAD });
+      }
+      for (const frac of [0.18, 0.82]) {
+        S.box(ptA[0] + (ptB[0] - ptA[0]) * frac, ptA[1] + (ptB[1] - ptA[1]) * frac, courtY + plinthH, courtY + plinthH + 0.9, 0.4, 0.4, faceAng, COL.lime);
+      }
+      continue;
+    }
+    S.beam([ptA[0], courtY + plinthH + 0.7, ptA[1]], [ptB[0], courtY + plinthH + 0.7, ptB[1]], 0.22, 0.14, COL.lime);
+    S.beam([ptA[0], courtY + plinthH + 0.25, ptA[1]], [ptB[0], courtY + plinthH + 0.25, ptB[1]], 0.16, 0.1, COL.lime);
+    S.box(ptA[0], ptA[1], courtY + plinthH, courtY + plinthH + 0.9, 0.36, 0.36, a0, COL.lime);
   }
 
-  // ---- the forecourt: paving round the tower, the Hương Nguyện ruin, the four pillars ----
-  {
-    const n0 = S.n;
-    S.kind = KIND.ROAD;
-    box(0, -4, Y, Y + 0.04, 26, 32, PAVE, { topKind: KIND.ROAD });
-    box(0, -48.5, Y, Y + 0.04, 3.2, 47, PAVE, { topKind: KIND.ROAD }); // the axis path from the gate to Đại Hùng
-    { // the cross path through the side gates, from gate to gate (the two the wall loop found on the cross line)
-      const side = gatePts.filter((g) => Math.abs(g[1] - (L(...(SIDE_GATES[0] as [number, number]))[1] + L(...(SIDE_GATES[1] as [number, number]))[1]) / 2) < 15);
-      const [a, b] = side.length === 2 ? side : [L(...(SIDE_GATES[0] as [number, number])), L(...(SIDE_GATES[1] as [number, number]))];
-      const pa = P(...(a as [number, number])), pb = P(...(b as [number, number]));
-      S.base = Y - LAND_Y;
-      S.box((pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, Y, Y + 0.04, Math.hypot(pb[0] - pa[0], pb[1] - pa[1]), 2.6, Math.atan2(pb[1] - pa[1], pb[0] - pa[0]), PAVE, { topKind: KIND.ROAD });
-    }
-    for (const sg of [-1, 1]) box(sg * 13.5, 4, Y, Y + 0.04, 7, 2.2, PAVE, { topKind: KIND.ROAD });
-    // the Hương Nguyện pavilion's base, all that is left of it
+  const baseR = 3.9, finialH = 2.5, bodyTotalH = TOWER_TOTAL_H - plinthH - finialH;
+  const weights = Array.from({ length: TOWER_TIERS }, (_, i) => 1.3 - i * 0.08);
+  const weightSum = weights.reduce((acc, val) => acc + val, 0);
+  let curY = courtY + plinthH;
+  for (let i = 0; i < TOWER_TIERS; i++) {
+    const tierH = (bodyTotalH * weights[i]) / weightSum;
+    const tierR = baseR * (1 - 0.07 * i), nextR = baseR * (1 - 0.07 * (i + 1));
     S.kind = KIND.MASONRY;
-    box(0, 9.9, Y, Y + 0.35, 9.2, 3.4, shade(STONE, 0.86), { topKind: KIND.ROAD });
+    S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY, curY + tierH - 0.45, tierR, tierR * 0.985, 8, COL.brick, { cap: false, rot });
     S.kind = KIND.PLAIN;
-    for (const u of [-3.6, -1.2, 1.2, 3.6]) for (const v of [8.8, 11]) cyl(u, v, Y + 0.35, Y + 0.5, 0.32, 0.3, 6, shade(STONE, 0.95));
-    (S.paved = S.paved || []).push([n0, S.n]);
-    // the four pillars (trụ biểu) at the head of the stair, taller pair in the middle
-    for (const u of [-7.4, -2.6, 2.6, 7.4]) {
-      const tall = Math.abs(u) < 5 ? 7.4 : 6.4, v = NV - 1.1;
-      S.base = Y - LAND_Y;
-      S.kind = KIND.MASONRY;
-      box(u, v, Y - 0.2, Y + 0.9, 1.5, 1.5, STONE);
-      box(u, v, Y + 0.9, Y + tall, 1.0, 1.0, TRIM, { taper: 0.88 });
-      S.kind = KIND.PLAIN;
-      box(u, v, Y + tall - 1.4, Y + tall - 1.2, 1.12, 1.12, GREY);
-      box(u, v, Y + tall, Y + tall + 0.32, 1.3, 1.3, EAVE);
-      cyl(u, v, Y + tall + 0.32, Y + tall + 1.1, 0.36, 0.05, 6, TRIM);
-      lamp(u, v + 0.8, Y + tall - 0.7);
+    S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY, curY + 0.24, tierR * 1.05, tierR * 1.05, 8, COL.trim, { cap: false, rot });
+    S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY + tierH - 0.72, curY + tierH - 0.45, tierR * 1.04, tierR * 1.04, 8, COL.trim, { cap: false, rot });
+    const apothem = tierR * Math.cos(Math.PI / 8);
+    for (let k = 0; k < 8; k++) {
+      const theta = rot + Math.PI / 8 + (k * Math.PI) / 4, nx = Math.cos(theta), nz = Math.sin(theta);
+      const isDoor = Math.abs(nx * -AXIS_UZ + nz * AXIS_UX) > 0.9;
+      const openW = isDoor ? Math.max(0.75, tierR * 0.32) : Math.max(0.5, tierR * 0.24);
+      const topY = curY + tierH * (isDoor ? 0.6 : 0.55), botY = curY + (isDoor ? 0.24 : tierH * 0.2);
+      S.box(TOWER_CENTER[0] + nx * (apothem + 0.02), TOWER_CENTER[1] + nz * (apothem + 0.02), botY - 0.1, topY + 0.18, 0.08, openW + 0.3, theta, COL.trim);
+      S.box(TOWER_CENTER[0] + nx * (apothem + 0.07), TOWER_CENTER[1] + nz * (apothem + 0.07), botY, topY, 0.06, openW, theta, isDoor ? COL.dark : hex('#4a3a33'));
+      S.box(TOWER_CENTER[0] + nx * (apothem + 0.07), TOWER_CENTER[1] + nz * (apothem + 0.07), topY, topY + openW * 0.28, 0.06, openW * 0.62, theta, isDoor ? COL.dark : hex('#4a3a33'));
+      if (!isDoor) S.box(TOWER_CENTER[0] + nx * (apothem + 0.1), TOWER_CENTER[1] + nz * (apothem + 0.1), botY, botY + (topY - botY) * 0.55, 0.05, openW * 0.42, theta, COL.gold);
     }
-    S.base = 0;
-  }
-
-  // ---- the court inside the gate: lawns either side of the paths, clipped shrubs and bonsai pots along the axis ----
-  {
-    const n0 = S.n;
-    S.base = Y - LAND_Y;
-    S.kind = KIND.GROUND;
-    const lawn = hex(PAL.green.grass);
-    for (const [u0, u1] of [[-24, -2.4], [2.4, 26]]) for (const [v0, v1] of [[-66.5, -48.5], [-46, -28]]) box((u0 + u1) / 2, (v0 + v1) / 2, Y, Y + 0.06, u1 - u0, v1 - v0, lawn, { topKind: KIND.GROUND });
-    (S.noCover = S.noCover || []).push([n0, S.n]);
-    S.kind = KIND.PLAIN;
-    for (let v = -64; v <= -30; v += 4.25) for (const sg of [-1, 1]) {
-      cyl(sg * 2.3, v, Y, Y + 0.45, 0.42, 0.34, 8, hex('#8a5a44'));
-      S.kind = KIND.TILE;
-      cyl(sg * 2.3, v, Y + 0.45, Y + 1.15, 0.55, 0.3, 6, hex('#4f6b3a'));
-      S.kind = KIND.PLAIN;
+    S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY + tierH - 0.45, curY + tierH - 0.28, tierR * 1.22, tierR * 1.22, 8, COL.eave, { rot });
+    const lightY = curY + tierH - 0.5, lightR = tierR * 1.14;
+    for (let k = 0; k < 8; k++) {
+      const a0 = rot + (k / 8) * Math.PI * 2, a1 = rot + ((k + 1) / 8) * Math.PI * 2;
+      lightBuf.beam([TOWER_CENTER[0] + Math.cos(a0) * lightR, lightY, TOWER_CENTER[1] + Math.sin(a0) * lightR], [TOWER_CENTER[0] + Math.cos(a1) * lightR, lightY, TOWER_CENTER[1] + Math.sin(a1) * lightR], 0.12, 0.09, [1, 1, 1]);
     }
-    S.base = 0;
+    S.kind = KIND.TILE;
+    S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY + tierH - 0.28, curY + tierH, tierR * 1.22, nextR * 1.03, 8, COL.eave, { cap: false, rot });
+    curY += tierH;
   }
+  S.kind = KIND.PLAIN;
+  S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY, curY + 0.5, baseR * 0.48, baseR * 0.26, 8, COL.eave, { rot });
+  S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY + 0.5, curY + 0.9, baseR * 0.14, baseR * 0.2, 8, COL.gold);
+  S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY + 0.9, curY + 1.4, baseR * 0.2, baseR * 0.1, 8, COL.gold);
+  S.cyl(TOWER_CENTER[0], TOWER_CENTER[1], curY + 1.4, curY + finialH, 0.12, 0.03, 6, COL.gold);
+  S.base = 0;
+}
 
-  // ---- the square houses of Thiệu Trị's steles either side of the tower ----
-  for (const rg of STELE_HOUSES) {
-    const o = obb(rg), lc = L(o.c[0], o.c[1]);
-    const w = Math.max(o.w, 3.6);
-    S.base = Y - LAND_Y;
+// ---------------- forecourt, pavilions, Tam Quan, halls & stupa ----------------
+
+function buildForecourtAndPavilions(ctx, gatePts) {
+  const { S, courtY, box, cyl, lamp } = ctx;
+
+  // forecourt paving, Hương Nguyện ruin, four trụ biểu pillars
+  const paveStart = S.n;
+  S.kind = KIND.ROAD;
+  box(0, -4, courtY, courtY + 0.04, 26, 32, COL.pave, { topKind: KIND.ROAD });
+  box(0, -48.5, courtY, courtY + 0.04, 3.2, 47, COL.pave, { topKind: KIND.ROAD });
+  const sideRefV = (toLocal(SIDE_GATES[0][0], SIDE_GATES[0][1])[1] + toLocal(SIDE_GATES[1][0], SIDE_GATES[1][1])[1]) / 2;
+  const sidePair = gatePts.filter((pt) => Math.abs(pt[1] - sideRefV) < 15);
+  const [crossA, crossB] = sidePair.length === 2 ? sidePair : [toLocal(SIDE_GATES[0][0], SIDE_GATES[0][1]), toLocal(SIDE_GATES[1][0], SIDE_GATES[1][1])];
+  const worldA = toWorld(crossA[0], crossA[1]), worldB = toWorld(crossB[0], crossB[1]);
+  S.base = courtY - LAND_Y;
+  S.box((worldA[0] + worldB[0]) / 2, (worldA[1] + worldB[1]) / 2, courtY, courtY + 0.04, Math.hypot(worldB[0] - worldA[0], worldB[1] - worldA[1]), 2.6, Math.atan2(worldB[1] - worldA[1], worldB[0] - worldA[0]), COL.pave, { topKind: KIND.ROAD });
+  for (const side of [-1, 1]) box(side * 13.5, 4, courtY, courtY + 0.04, 7, 2.2, COL.pave, { topKind: KIND.ROAD });
+
+  S.kind = KIND.MASONRY;
+  box(0, 9.9, courtY, courtY + 0.35, 9.2, 3.4, shade(COL.stone, 0.86), { topKind: KIND.ROAD });
+  S.kind = KIND.PLAIN;
+  for (const u of [-3.6, -1.2, 1.2, 3.6]) for (const v of [8.8, 11]) cyl(u, v, courtY + 0.35, courtY + 0.5, 0.32, 0.3, 6, shade(COL.stone, 0.95));
+  (S.paved = S.paved || []).push([paveStart, S.n]);
+
+  for (const u of [-7.4, -2.6, 2.6, 7.4]) {
+    const pillarH = Math.abs(u) < 5 ? 7.4 : 6.4, v = FRONT_BROW_V - 1.1;
+    S.base = courtY - LAND_Y;
     S.kind = KIND.MASONRY;
-    box(lc[0], lc[1], Y - 0.2, Y + 0.45, w + 0.8, w + 0.8, STONE, { topKind: KIND.ROAD });
-    // brick walls with an arched opening each side
-    const y1 = Y + 0.45, wh = 2.7;
-    for (const [du, dv, along] of ([[0, -w / 2, true], [0, w / 2, true], [-w / 2, 0, false], [w / 2, 0, false]] as any[])) {
-      for (const sg of [-1, 1]) {
-        const pu = du + (along ? sg * w * 0.33 : 0), pv = dv + (along ? 0 : sg * w * 0.33);
-        box(lc[0] + pu, lc[1] + pv, y1, y1 + wh, along ? w * 0.34 : 0.3, along ? 0.3 : w * 0.34, shade(WALL, 0.92));
+    box(u, v, courtY - 0.2, courtY + 0.9, 1.5, 1.5, COL.stone);
+    box(u, v, courtY + 0.9, courtY + pillarH, 1.0, 1.0, COL.trim, { taper: 0.88 });
+    S.kind = KIND.PLAIN;
+    box(u, v, courtY + pillarH - 1.4, courtY + pillarH - 1.2, 1.12, 1.12, COL.grey);
+    box(u, v, courtY + pillarH, courtY + pillarH + 0.32, 1.3, 1.3, COL.eave);
+    cyl(u, v, courtY + pillarH + 0.32, courtY + pillarH + 1.1, 0.36, 0.05, 6, COL.trim);
+    lamp(u, v + 0.8, courtY + pillarH - 0.7);
+  }
+  S.base = 0;
+
+  // lawns & bonsai pots inside the gate
+  const lawnStart = S.n;
+  S.base = courtY - LAND_Y;
+  S.kind = KIND.GROUND;
+  const lawnCol = hex(PAL.green.grass);
+  for (const [u0, u1] of [[-24, -2.4], [2.4, 26]]) for (const [v0, v1] of [[-66.5, -48.5], [-46, -28]]) {
+    box((u0 + u1) / 2, (v0 + v1) / 2, courtY, courtY + 0.06, u1 - u0, v1 - v0, lawnCol, { topKind: KIND.GROUND });
+  }
+  (S.noCover = S.noCover || []).push([lawnStart, S.n]);
+  S.kind = KIND.PLAIN;
+  for (let v = -64; v <= -30; v += 4.25) {
+    for (const side of [-1, 1]) {
+      cyl(side * 2.3, v, courtY, courtY + 0.45, 0.42, 0.34, 8, hex('#8a5a44'));
+      S.kind = KIND.TILE;
+      cyl(side * 2.3, v, courtY + 0.45, courtY + 1.15, 0.55, 0.3, 6, hex('#4f6b3a'));
+      S.kind = KIND.PLAIN;
+    }
+  }
+  S.base = 0;
+
+  // square houses of Thiệu Trị's steles
+  for (const ring of STELE_HOUSES) {
+    const rect = obb(ring), lc = toLocal(rect.c[0], rect.c[1]);
+    const width = Math.max(rect.w, 3.6), y1 = courtY + 0.45, wallH = 2.7;
+    S.base = courtY - LAND_Y;
+    S.kind = KIND.MASONRY;
+    box(lc[0], lc[1], courtY - 0.2, y1, width + 0.8, width + 0.8, COL.stone, { topKind: KIND.ROAD });
+    for (const [du, dv, along] of ([[0, -width / 2, true], [0, width / 2, true], [-width / 2, 0, false], [width / 2, 0, false]] as [number, number, boolean][])) {
+      for (const side of [-1, 1]) {
+        const pu = du + (along ? side * width * 0.33 : 0), pv = dv + (along ? 0 : side * width * 0.33);
+        box(lc[0] + pu, lc[1] + pv, y1, y1 + wallH, along ? width * 0.34 : 0.3, along ? 0.3 : width * 0.34, shade(COL.wall, 0.92));
       }
-      box(lc[0] + du, lc[1] + dv, y1 + 2.0, y1 + wh, along ? w * 0.34 : 0.3, along ? 0.3 : w * 0.34, shade(WALL, 0.92));
+      box(lc[0] + du, lc[1] + dv, y1 + 2.0, y1 + wallH, along ? width * 0.34 : 0.3, along ? 0.3 : width * 0.34, shade(COL.wall, 0.92));
     }
     S.kind = KIND.PLAIN;
-    box(lc[0], lc[1], y1, y1 + 0.3, 0.9, 0.5, GREY);
+    box(lc[0], lc[1], y1, y1 + 0.3, 0.9, 0.5, COL.grey);
     box(lc[0], lc[1], y1 + 0.3, y1 + 2.2, 0.75, 0.16, hex('#5f5a52'));
-    const q = P(lc[0], lc[1]);
+    const centerWorld = toWorld(lc[0], lc[1]);
     S.kind = KIND.TILE;
-    S.hip(q[0], q[1], w, w, ANG, y1 + wh, 1.7, ROOF, { flare: 0.45, over: 0.7, fascia: 0.22, fasciaCol: shade(ROOF, 0.7), hips: true, segs: 3, ridgeCol: RIDGE });
+    S.hip(centerWorld[0], centerWorld[1], width, width, COMPOUND_ANG, y1 + wallH, 1.7, COL.roof, { flare: 0.45, over: 0.7, fascia: 0.22, fasciaCol: shade(COL.roof, 0.7), hips: true, segs: 3, ridgeCol: COL.ridge });
     S.kind = KIND.PLAIN;
-    S.cyl(q[0], q[1], y1 + wh + 1.7, y1 + wh + 2.3, 0.22, 0.05, 5, GOLD);
+    S.cyl(centerWorld[0], centerWorld[1], y1 + wallH + 1.7, y1 + wallH + 2.3, 0.22, 0.05, 5, COL.gold);
     S.base = 0;
   }
 
-  // ---- the two hexagonal pavilions: the great bell (east) and the 1715 stele on its turtle (west) ----
-  for (const [u, v, bell] of ([[16.8, 0.7, true], [-19.0, -1.2, false]] as any[])) {
-    const r = 2.6, colH = 4.2, y1 = Y + 0.5;
-    S.base = Y - LAND_Y;
+  // two hexagonal pavilions: great bell (east) & turtle stele (west)
+  for (const [u, v, hasBell] of ([[16.8, 0.7, true], [-19.0, -1.2, false]] as [number, number, boolean][])) {
+    const radius = 2.6, colH = 4.2, y1 = courtY + 0.5;
+    S.base = courtY - LAND_Y;
     S.kind = KIND.MASONRY;
-    cyl(u, v, Y - 0.2, y1, r + 0.9, r + 0.85, 6, STONE);
+    cyl(u, v, courtY - 0.2, y1, radius + 0.9, radius + 0.85, 6, COL.stone);
     S.kind = KIND.TIMBER;
-    const q = P(u, v);
+    const center = toWorld(u, v);
     for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2 + ANG, b = ((k + 1) / 6) * Math.PI * 2 + ANG;
-      const x = q[0] + Math.cos(a) * r, z = q[1] + Math.sin(a) * r;
-      S.cyl(x, z, y1, y1 + 0.2, 0.3, 0.26, 6, shade(STONE, 0.95));
-      S.cyl(x, z, y1 + 0.2, y1 + colH, 0.17, 0.15, 6, LAC, { cap: false });
-      S.beam([x, y1 + colH - 0.15, z], [q[0] + Math.cos(b) * r, y1 + colH - 0.15, q[1] + Math.sin(b) * r], 0.24, 0.32, shade(LAC, 0.8));
+      const a0 = (k / 6) * Math.PI * 2 + COMPOUND_ANG, a1 = ((k + 1) / 6) * Math.PI * 2 + COMPOUND_ANG;
+      const x = center[0] + Math.cos(a0) * radius, z = center[1] + Math.sin(a0) * radius;
+      S.cyl(x, z, y1, y1 + 0.2, 0.3, 0.26, 6, shade(COL.stone, 0.95));
+      S.cyl(x, z, y1 + 0.2, y1 + colH, 0.17, 0.15, 6, COL.lac, { cap: false });
+      S.beam([x, y1 + colH - 0.15, z], [center[0] + Math.cos(a1) * radius, y1 + colH - 0.15, center[1] + Math.sin(a1) * radius], 0.24, 0.32, shade(COL.lac, 0.8));
     }
-    // the roof: a flared six-sided tent in two pitches, with upturned horns at the corners
     S.kind = KIND.TILE;
-    S.cyl(q[0], q[1], y1 + colH, y1 + colH + 0.9, r + 1.1, r * 0.62, 6, ROOF, { rot: ANG });
-    S.cyl(q[0], q[1], y1 + colH + 0.9, y1 + colH + 2.4, r * 0.62, 0.12, 6, ROOF, { rot: ANG, cap: false });
+    S.cyl(center[0], center[1], y1 + colH, y1 + colH + 0.9, radius + 1.1, radius * 0.62, 6, COL.roof, { rot: COMPOUND_ANG });
+    S.cyl(center[0], center[1], y1 + colH + 0.9, y1 + colH + 2.4, radius * 0.62, 0.12, 6, COL.roof, { rot: COMPOUND_ANG, cap: false });
     S.kind = KIND.PLAIN;
-    S.cyl(q[0], q[1], y1 + colH - 0.18, y1 + colH, r + 1.1, r + 1.1, 6, shade(LAC, 0.7), { rot: ANG, cap: false });
+    S.cyl(center[0], center[1], y1 + colH - 0.18, y1 + colH, radius + 1.1, radius + 1.1, 6, shade(COL.lac, 0.7), { rot: COMPOUND_ANG, cap: false });
     for (let k = 0; k < 6; k++) {
-      const a = (k / 6) * Math.PI * 2 + ANG, ca = Math.cos(a), sa = Math.sin(a);
-      const R0 = r * 0.6, R1 = r + 1.1;
-      S.beam([q[0] + ca * R0, y1 + colH + 0.95, q[1] + sa * R0], [q[0] + ca * R1, y1 + colH + 0.05, q[1] + sa * R1], 0.18, 0.2, RIDGE);
-      S.beam([q[0] + ca * R1, y1 + colH + 0.05, q[1] + sa * R1], [q[0] + ca * (R1 + 0.45), y1 + colH + 0.55, q[1] + sa * (R1 + 0.45)], 0.16, 0.18, RIDGE);
+      const ang = (k / 6) * Math.PI * 2 + COMPOUND_ANG, ca = Math.cos(ang), sa = Math.sin(ang);
+      const r0 = radius * 0.6, r1 = radius + 1.1;
+      S.beam([center[0] + ca * r0, y1 + colH + 0.95, center[1] + sa * r0], [center[0] + ca * r1, y1 + colH + 0.05, center[1] + sa * r1], 0.18, 0.2, COL.ridge);
+      S.beam([center[0] + ca * r1, y1 + colH + 0.05, center[1] + sa * r1], [center[0] + ca * (r1 + 0.45), y1 + colH + 0.55, center[1] + sa * (r1 + 0.45)], 0.16, 0.18, COL.ridge);
     }
-    S.cyl(q[0], q[1], y1 + colH + 2.4, y1 + colH + 3.1, 0.24, 0.05, 6, GOLD);
-    if (bell) {
-      // Đại Hồng Chung, 1710: about 2.5 m high and 1.4 m across, hung from a heavy beam
-      S.beam([q[0] + UX * -r * 0.85, y1 + 3.4, q[1] + UZ * -r * 0.85], [q[0] + UX * r * 0.85, y1 + 3.4, q[1] + UZ * r * 0.85], 0.3, 0.3, shade(LAC, 0.6));
-      S.cyl(q[0], q[1], y1 + 0.5, y1 + 2.7, 0.72, 0.6, 10, BRONZE);
-      S.cyl(q[0], q[1], y1 + 2.7, y1 + 3.0, 0.6, 0.3, 10, BRONZE);
-      S.cyl(q[0], q[1], y1 + 3.0, y1 + 3.3, 0.14, 0.14, 6, BRONZE);
-      S.cyl(q[0], q[1], y1 + 0.5, y1 + 0.62, 0.76, 0.76, 10, shade(BRONZE, 1.2), { cap: false });
+    S.cyl(center[0], center[1], y1 + colH + 2.4, y1 + colH + 3.1, 0.24, 0.05, 6, COL.gold);
+    if (hasBell) {
+      S.beam([center[0] - AXIS_UX * radius * 0.85, y1 + 3.4, center[1] - AXIS_UZ * radius * 0.85], [center[0] + AXIS_UX * radius * 0.85, y1 + 3.4, center[1] + AXIS_UZ * radius * 0.85], 0.3, 0.3, shade(COL.lac, 0.6));
+      S.cyl(center[0], center[1], y1 + 0.5, y1 + 2.7, 0.72, 0.6, 10, COL.bronze);
+      S.cyl(center[0], center[1], y1 + 2.7, y1 + 3.0, 0.6, 0.3, 10, COL.bronze);
+      S.cyl(center[0], center[1], y1 + 3.0, y1 + 3.3, 0.14, 0.14, 6, COL.bronze);
+      S.cyl(center[0], center[1], y1 + 0.5, y1 + 0.62, 0.76, 0.76, 10, shade(COL.bronze, 1.2), { cap: false });
     } else {
-      // the stele on its stone turtle: turtle 2.24 x 1.65 x 0.66 m on a low base, stele 2.6 x 1.2 m
       S.kind = KIND.MASONRY;
-      box(u, v, y1, y1 + 0.3, 2.6, 2.0, GREY);
-      const tq = P(u, v);
-      S.cyl(tq[0], tq[1], y1 + 0.3, y1 + 0.96, 1.05, 0.7, 8, hex('#7a776d'), { rot: ANG });
+      box(u, v, y1, y1 + 0.3, 2.6, 2.0, COL.grey);
+      S.cyl(center[0], center[1], y1 + 0.3, y1 + 0.96, 1.05, 0.7, 8, hex('#7a776d'), { rot: COMPOUND_ANG });
       box(u, v + 1.15, y1 + 0.35, y1 + 0.8, 0.45, 0.6, hex('#7a776d'));
       box(u, v, y1 + 0.9, y1 + 3.5, 1.2, 0.25, hex('#86827a'));
       box(u, v, y1 + 3.5, y1 + 3.75, 1.3, 0.3, hex('#7a776d'));
     }
     S.base = 0;
   }
+}
 
-  // ---- Tam Quan: the two-storey gate with its three entrances and their guardians ----
-  {
-    const v = -22.4, gw = 11.2, gd = 5.4, wh = 4.4, y1 = Y + 0.45;
-    const n0 = S.n;
-    S.base = Y - LAND_Y;
-    S.kind = KIND.MASONRY;
-    box(0, v, Y - 0.2, y1, gw + 1.6, gd + 2.4, STONE, { topKind: KIND.ROAD });
-    for (const sg of [-1, 1]) for (let s = 0; s < 3; s++) box(0, v + sg * (gd / 2 + 1.2 + 0.32 * (s + 0.5)), Y - 0.2, y1 - (s + 1) * 0.12, 3.2, 0.33, shade(STONE, 1.03), { topKind: KIND.ROAD });
-    // piers between the doorways, and the lintels over them
-    const piers = [[-5.6, -4.4], [-2.6, -1.2], [1.2, 2.6], [4.4, 5.6]];
-    const doors = [[-4.4, -2.6, 3.0], [-1.2, 1.2, 3.6], [2.6, 4.4, 3.0]];
-    for (const [a, b] of piers) box((a + b) / 2, v, y1, y1 + wh, b - a, gd, WALL, { top: shade(ROOF, 0.8) });
-    for (const [a, b, h] of doors) {
-      box((a + b) / 2, v, y1 + h, y1 + wh, b - a, gd, WALL, { top: shade(ROOF, 0.8) });
-      // a white arched surround on both faces
-      for (const sg of [-1, 1]) {
-        box((a + b) / 2, v + sg * (gd / 2 + 0.03), y1 + h - 0.05, y1 + h + 0.35, b - a + 0.3, 0.08, TRIM);
-        box((a + b) / 2, v + sg * (gd / 2 + 0.03), y1 + h - 0.45, y1 + h - 0.05, (b - a) * 0.5, 0.08, shade(WALL, 0.92));
+function buildTamQuanAndHalls(ctx) {
+  const { S, courtY, box, cyl, beam, lamp } = ctx;
+
+  // Tam Quan two-storey gate
+  const gateV = -22.4, gateW = 11.2, gateD = 5.4, wallH = 4.4, y1 = courtY + 0.45;
+  S.base = courtY - LAND_Y;
+  S.kind = KIND.MASONRY;
+  box(0, gateV, courtY - 0.2, y1, gateW + 1.6, gateD + 2.4, COL.stone, { topKind: KIND.ROAD });
+  for (const side of [-1, 1]) {
+    for (let step = 0; step < 3; step++) box(0, gateV + side * (gateD / 2 + 1.2 + 0.32 * (step + 0.5)), courtY - 0.2, y1 - (step + 1) * 0.12, 3.2, 0.33, shade(COL.stone, 1.03), { topKind: KIND.ROAD });
+  }
+  const piers = [[-5.6, -4.4], [-2.6, -1.2], [1.2, 2.6], [4.4, 5.6]];
+  const doors = [[-4.4, -2.6, 3.0], [-1.2, 1.2, 3.6], [2.6, 4.4, 3.0]];
+  for (const [u0, u1] of piers) box((u0 + u1) / 2, gateV, y1, y1 + wallH, u1 - u0, gateD, COL.wall, { top: shade(COL.roof, 0.8) });
+  for (const [u0, u1, doorH] of doors) {
+    box((u0 + u1) / 2, gateV, y1 + doorH, y1 + wallH, u1 - u0, gateD, COL.wall, { top: shade(COL.roof, 0.8) });
+    for (const side of [-1, 1]) {
+      box((u0 + u1) / 2, gateV + side * (gateD / 2 + 0.03), y1 + doorH - 0.05, y1 + doorH + 0.35, u1 - u0 + 0.3, 0.08, COL.trim);
+      box((u0 + u1) / 2, gateV + side * (gateD / 2 + 0.03), y1 + doorH - 0.45, y1 + doorH - 0.05, (u1 - u0) * 0.5, 0.08, shade(COL.wall, 0.92));
+    }
+    S.kind = KIND.PLAIN;
+    box((u0 + u1) / 2, gateV, y1 + doorH - 0.06, y1 + doorH, u1 - u0, gateD, shade(COL.wall, 0.45), { bottom: true });
+    for (const side of [-1, 1]) {
+      const guardU = side < 0 ? u0 + 0.3 : u1 - 0.3;
+      for (const dv of [-1.2, 1.2]) {
+        cyl(guardU, gateV + dv, y1, y1 + 0.3, 0.32, 0.32, 6, COL.grey);
+        cyl(guardU, gateV + dv, y1 + 0.3, y1 + 1.7, 0.3, 0.24, 6, COL.lime);
+        cyl(guardU, gateV + dv, y1 + 1.7, y1 + 2.05, 0.15, 0.14, 6, hex('#e3c9a6'));
       }
-      // the passage's floor and ceiling
-      S.kind = KIND.PLAIN;
-      box((a + b) / 2, v, y1 + h - 0.06, y1 + h, b - a, gd, shade(WALL, 0.45), { bottom: true });
-      // guardians: a pair of lime figures inside each entrance, against its side walls
-      for (const sg of [-1, 1]) {
-        const gu = sg < 0 ? a + 0.3 : b - 0.3;
-        for (const dv of [-1.2, 1.2]) {
-          cyl(gu, v + dv, y1, y1 + 0.3, 0.32, 0.32, 6, GREY);
-          cyl(gu, v + dv, y1 + 0.3, y1 + 1.7, 0.3, 0.24, 6, LIME);
-          cyl(gu, v + dv, y1 + 1.7, y1 + 2.05, 0.15, 0.14, 6, hex('#e3c9a6'));
-        }
-      }
-      S.kind = KIND.MASONRY;
     }
-    // the lower roof all round, the upper storey and its roof
-    S.kind = KIND.TILE;
-    const q = P(0, v);
-    S.hip(q[0], q[1], gw, gd, ANG, y1 + wh, 1.6, ROOF, { flare: 0.5, over: 0.9, fascia: 0.26, fasciaCol: shade(ROOF, 0.7), hips: true, segs: 3 });
-    S.kind = KIND.TIMBER;
-    const y2 = y1 + wh + 0.6, uh = 2.5;
-    box(0, v, y2, y2 + uh, 7.0, 3.4, shade(WALL, 0.96), { top: shade(ROOF, 0.8) });
-    S.kind = KIND.PLAIN;
-    for (const sg of [-1, 1]) {
-      for (const u of [-2.2, 0, 2.2]) box(u, v + sg * 1.72, y2 + 0.6, y2 + 1.9, u === 0 ? 1.2 : 0.8, 0.06, LAC);
-      box(0, v + sg * 1.74, y2 + 2.0, y2 + 2.4, 3.0, 0.06, hex('#3a3a3a')); // the board under the eave
-    }
-    S.kind = KIND.TILE;
-    S.hip(q[0], q[1], 7.0, 3.4, ANG, y2 + uh, 2.0, ROOF, { flare: 0.55, over: 1.0, fascia: 0.26, fasciaCol: shade(ROOF, 0.7), hips: true, segs: 3, ridgeCol: RIDGE });
-    S.kind = KIND.PLAIN;
-    // the ridge's centre ornament: a pearl between dragons, read as a small disc on a plinth
-    box(0, v, y2 + uh + 2.1, y2 + uh + 2.4, 0.9, 0.3, RIDGE);
-    cyl(0, v, y2 + uh + 2.4, y2 + uh + 2.9, 0.25, 0.25, 8, GOLD);
-    for (const u of [-1.6, 1.6]) lamp(u, v + gd / 2 + 0.4, y1 + 3.4);
-    S.base = 0;
-    void n0;
-  }
-
-  // ---- the guardian halls inside the gate (six statues in each), on their mapped footprints ----
-  for (const rg of GUARD_HALLS) {
-    const o = obb(rg);
-    S.base = Y - LAND_Y;
-    pavilion(S, o.c[0], o.c[1], o.w, o.d, o.a, Y, { tiers: 1, wallH: 3.2, roof: ROOF, wall: WALL, over: 0.8, rh: 2.0, platform: 0.4, ridge: RIDGE, steps: false, segs: 3 });
-    S.base = 0;
-  }
-
-  // ---- Đại Hùng Bảo Điện: front hall and the double-roofed main hall behind it, on one stone platform ----
-  {
-    const o = obb(DAIHUNG), lc = L(o.c[0], o.c[1]);
-    const w = 29, vF = -72.3, front = 9, main = 16;
-    S.base = Y - LAND_Y;
     S.kind = KIND.MASONRY;
-    const vc = vF - (front + main) / 2 - 0.6;
-    box(lc[0], vc, Y - 0.2, Y + 0.7, w + 2.6, front + main + 2.2, STONE, { topKind: KIND.ROAD });
-    S.kind = KIND.ROAD;
-    for (let s = 0; s < 4; s++) box(lc[0], vF + 0.5 + 0.34 * (s + 0.5), Y - 0.2, Y + 0.7 - (s + 1) * 0.175, 8, 0.35, shade(STONE, 1.03), { topKind: KIND.ROAD });
-    const y1 = Y + 0.7;
-    const pf = P(lc[0], vF - 1.4 - front / 2), pm = P(lc[0], vF - 1.4 - front - main / 2);
-    pavilion(S, pm[0], pm[1], w - 1, main, ANG, y1, { tiers: 2, wallH: 4.4, roof: ROOF, wall: HALL, over: 1.3, rh: 3.8, ridge: RIDGE, colonnade: true, segs: 4 });
-    pavilion(S, pf[0], pf[1], w, front, ANG, y1, { tiers: 1, wallH: 3.6, roof: ROOF, wall: HALL, over: 1.2, rh: 2.6, ridge: RIDGE, colonnade: true, segs: 4 });
-    // the ridge ornaments: dragons either side of a dharma wheel on the front roof
-    S.kind = KIND.PLAIN;
-    const ry = y1 + 3.6 + 2.6 + 0.4;
-    cyl(lc[0], vF - 1.4 - front / 2, ry, ry + 0.9, 0.42, 0.42, 10, GOLD);
-    for (const sg of [-1, 1]) beam(lc[0] + sg * 1.2, vF - 1.4 - front / 2, ry + 0.1, lc[0] + sg * 3.4, vF - 1.4 - front / 2, ry + 0.5, 0.3, 0.4, shade(RIDGE, 0.9));
-    for (const u of [-6, -2, 2, 6]) lamp(lc[0] + u, vF - 0.9, y1 + 3.0);
-    // incense urn on the court before it
-    S.kind = KIND.PLAIN;
-    cyl(lc[0], vF + 5, Y, Y + 0.7, 0.5, 0.4, 8, GREY);
-    cyl(lc[0], vF + 5, Y + 0.7, Y + 1.5, 0.75, 0.6, 8, BRONZE);
+  }
+  S.kind = KIND.TILE;
+  const gateCenter = toWorld(0, gateV);
+  S.hip(gateCenter[0], gateCenter[1], gateW, gateD, COMPOUND_ANG, y1 + wallH, 1.6, COL.roof, { flare: 0.5, over: 0.9, fascia: 0.26, fasciaCol: shade(COL.roof, 0.7), hips: true, segs: 3 });
+  S.kind = KIND.TIMBER;
+  const y2 = y1 + wallH + 0.6, upperH = 2.5;
+  box(0, gateV, y2, y2 + upperH, 7.0, 3.4, shade(COL.wall, 0.96), { top: shade(COL.roof, 0.8) });
+  S.kind = KIND.PLAIN;
+  for (const side of [-1, 1]) {
+    for (const u of [-2.2, 0, 2.2]) box(u, gateV + side * 1.72, y2 + 0.6, y2 + 1.9, u === 0 ? 1.2 : 0.8, 0.06, COL.lac);
+    box(0, gateV + side * 1.74, y2 + 2.0, y2 + 2.4, 3.0, 0.06, hex('#3a3a3a'));
+  }
+  S.kind = KIND.TILE;
+  S.hip(gateCenter[0], gateCenter[1], 7.0, 3.4, COMPOUND_ANG, y2 + upperH, 2.0, COL.roof, { flare: 0.55, over: 1.0, fascia: 0.26, fasciaCol: shade(COL.roof, 0.7), hips: true, segs: 3, ridgeCol: COL.ridge });
+  S.kind = KIND.PLAIN;
+  box(0, gateV, y2 + upperH + 2.1, y2 + upperH + 2.4, 0.9, 0.3, COL.ridge);
+  cyl(0, gateV, y2 + upperH + 2.4, y2 + upperH + 2.9, 0.25, 0.25, 8, COL.gold);
+  for (const u of [-1.6, 1.6]) lamp(u, gateV + gateD / 2 + 0.4, y1 + 3.4);
+  S.base = 0;
+
+  // guardian halls
+  for (const ring of GUARD_HALLS) {
+    const rect = obb(ring);
+    S.base = courtY - LAND_Y;
+    pavilion(S, rect.c[0], rect.c[1], rect.w, rect.d, rect.a, courtY, { tiers: 1, wallH: 3.2, roof: COL.roof, wall: COL.wall, over: 0.8, rh: 2.0, platform: 0.4, ridge: COL.ridge, steps: false, segs: 3 });
     S.base = 0;
   }
 
-  // ---- the halls behind: Địa Tạng, Quan Âm, the monks' quarters and the kitchens, on their mapped footprints ----
-  for (const rg of HALLS) {
-    const o = obb(rg);
-    const d = Math.min(o.d, 14), w = o.w;
-    S.base = Y - LAND_Y;
-    pavilion(S, o.c[0], o.c[1], w, d, o.a, Y, { tiers: 1, wallH: 3.2, roof: ROOF, wall: d > 9 ? HALL : WALL, over: 1.0, rh: Math.min(3.4, d * 0.28), platform: 0.45, ridge: RIDGE, colonnade: d >= 6, steps: false, segs: 3 });
+  // Đại Hùng Bảo Điện
+  const dhRect = obb(DAIHUNG), dhLoc = toLocal(dhRect.c[0], dhRect.c[1]);
+  const dhW = 29, dhFrontV = -72.3, frontD = 9, mainD = 16;
+  S.base = courtY - LAND_Y;
+  S.kind = KIND.MASONRY;
+  box(dhLoc[0], dhFrontV - (frontD + mainD) / 2 - 0.6, courtY - 0.2, courtY + 0.7, dhW + 2.6, frontD + mainD + 2.2, COL.stone, { topKind: KIND.ROAD });
+  S.kind = KIND.ROAD;
+  for (let step = 0; step < 4; step++) box(dhLoc[0], dhFrontV + 0.5 + 0.34 * (step + 0.5), courtY - 0.2, courtY + 0.7 - (step + 1) * 0.175, 8, 0.35, shade(COL.stone, 1.03), { topKind: KIND.ROAD });
+  const hallFloorY = courtY + 0.7;
+  const frontWorld = toWorld(dhLoc[0], dhFrontV - 1.4 - frontD / 2);
+  const mainWorld = toWorld(dhLoc[0], dhFrontV - 1.4 - frontD - mainD / 2);
+  pavilion(S, mainWorld[0], mainWorld[1], dhW - 1, mainD, COMPOUND_ANG, hallFloorY, { tiers: 2, wallH: 4.4, roof: COL.roof, wall: COL.hall, over: 1.3, rh: 3.8, ridge: COL.ridge, colonnade: true, segs: 4 });
+  pavilion(S, frontWorld[0], frontWorld[1], dhW, frontD, COMPOUND_ANG, hallFloorY, { tiers: 1, wallH: 3.6, roof: COL.roof, wall: COL.hall, over: 1.2, rh: 2.6, ridge: COL.ridge, colonnade: true, segs: 4 });
+  S.kind = KIND.PLAIN;
+  const ridgeY = hallFloorY + 3.6 + 2.6 + 0.4;
+  cyl(dhLoc[0], dhFrontV - 1.4 - frontD / 2, ridgeY, ridgeY + 0.9, 0.42, 0.42, 10, COL.gold);
+  for (const side of [-1, 1]) beam(dhLoc[0] + side * 1.2, dhFrontV - 1.4 - frontD / 2, ridgeY + 0.1, dhLoc[0] + side * 3.4, dhFrontV - 1.4 - frontD / 2, ridgeY + 0.5, 0.3, 0.4, shade(COL.ridge, 0.9));
+  for (const u of [-6, -2, 2, 6]) lamp(dhLoc[0] + u, dhFrontV - 0.9, hallFloorY + 3.0);
+  cyl(dhLoc[0], dhFrontV + 5, courtY, courtY + 0.7, 0.5, 0.4, 8, COL.grey);
+  cyl(dhLoc[0], dhFrontV + 5, courtY + 0.7, courtY + 1.5, 0.75, 0.6, 8, COL.bronze);
+  S.base = 0;
+
+  // rear halls
+  for (const ring of HALLS) {
+    const rect = obb(ring), depth = Math.min(rect.d, 14);
+    S.base = courtY - LAND_Y;
+    pavilion(S, rect.c[0], rect.c[1], rect.w, depth, rect.a, courtY, { tiers: 1, wallH: 3.2, roof: COL.roof, wall: depth > 9 ? COL.hall : COL.wall, over: 1.0, rh: Math.min(3.4, depth * 0.28), platform: 0.45, ridge: COL.ridge, colonnade: depth >= 6, steps: false, segs: 3 });
     S.base = 0;
   }
 
-  // ---- the garden's stupa (Thích Đôn Hậu): an octagonal tiered stupa on a stepped base ----
-  {
-    const [x, z] = STUPA;
-    S.base = Y - LAND_Y;
+  // Thích Đôn Hậu stupa
+  const [stupaX, stupaZ] = STUPA_POS;
+  S.base = courtY - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.cyl(stupaX, stupaZ, courtY - 0.2, courtY + 0.5, 3.0, 2.9, 8, COL.stone);
+  S.cyl(stupaX, stupaZ, courtY + 0.5, courtY + 0.9, 2.3, 2.2, 8, shade(COL.stone, 1.05));
+  let tierY = courtY + 0.9, tierR = 1.5;
+  for (let i = 0; i < 3; i++) {
+    const tierH = 1.5 - i * 0.25;
+    S.cyl(stupaX, stupaZ, tierY, tierY + tierH, tierR, tierR * 0.97, 8, COL.lime);
+    S.kind = KIND.PLAIN;
+    S.cyl(stupaX, stupaZ, tierY + tierH, tierY + tierH + 0.2, tierR * 1.25, tierR * 1.25, 8, COL.grey);
     S.kind = KIND.MASONRY;
-    S.cyl(x, z, Y - 0.2, Y + 0.5, 3.0, 2.9, 8, STONE);
-    S.cyl(x, z, Y + 0.5, Y + 0.9, 2.3, 2.2, 8, shade(STONE, 1.05));
-    let y = Y + 0.9, rr = 1.5;
-    for (let i = 0; i < 3; i++) {
-      const h = 1.5 - i * 0.25;
-      S.cyl(x, z, y, y + h, rr, rr * 0.97, 8, LIME);
-      S.kind = KIND.PLAIN;
-      S.cyl(x, z, y + h, y + h + 0.2, rr * 1.25, rr * 1.25, 8, GREY);
-      S.kind = KIND.MASONRY;
-      y += h + 0.2; rr *= 0.8;
-    }
-    S.kind = KIND.PLAIN;
-    S.cyl(x, z, y, y + 1.4, 0.4, 0.05, 8, GOLD);
-    S.base = 0;
+    tierY += tierH + 0.2;
+    tierR *= 0.8;
   }
+  S.kind = KIND.PLAIN;
+  S.cyl(stupaX, stupaZ, tierY, tierY + 1.4, 0.4, 0.05, 8, COL.gold);
+  S.base = 0;
+}
 
-  // ---- the trees: a canopy over the banks and round the halls, as the satellite and every street view show it ----
-  // Off the lawn court, the forecourt, the stair and the cross path; populate() keeps them off the roofs and the paving.
-  // Trees stand on the city's ground (rise), so only where the model's ground is within a metre (court) or three (bank).
-  if (Array.isArray(data.trees)) {
-    const t = data.trees, near = data.meta?.counts?.treesNear;
-    // a generated tree on the riverside road's verge, in front of the tower's corner (svD shows none there)
-    const verge = streetTest(data, P(20, 30), 40);
-    for (let i = t.length / 4 - 1; i >= 0; i--) {
-      const x = t[i * 4] / 10, z = t[i * 4 + 1] / 10, [u, v] = L(x, z);
-      if (v < 18 || v > 40 || u < 8 || u > 45 || !verge(x, z, 'pavement')) continue;
-      t.splice(i * 4, 4);
-      if (near != null && i < near) data.meta.counts.treesNear--;
-    }
-    const cl = [L(...(SIDE_GATES[0] as [number, number])), L(...(SIDE_GATES[1] as [number, number]))];
-    const crossD = (u, v) => { const ex = cl[1][0] - cl[0][0], ev = cl[1][1] - cl[0][1]; return Math.abs((u - cl[0][0]) * ev - (v - cl[0][1]) * ex) / Math.hypot(ex, ev); };
-    const clear = [[-27, 29, -101, -19], [-15, 15, -21, 13]]; // the lawn court with Đại Hùng; the tower's forecourt
-    let k = 0;
-    for (let gu = -76; gu <= 62; gu += 5.2) for (let gv = -292; gv <= 34; gv += 5.2) {
-      const r = (k++) * 7 + 3;
-      const u = gu + (rand(r, 1) - 0.5) * 3.8, v = gv + (rand(r, 2) - 0.5) * 3.8;
-      const [x, z] = P(u, v), g = LAND_Y + rise(x, z);
-      if (clear.some(([u0, u1, v0, v1]) => u > u0 && u < u1 && v > v0 && v < v1)) continue;
-      if (Math.abs(u) < SW + 2 && v > NV - 2) continue;
-      if (crossD(u, v) < 3) continue;
-      let ok = false;
-      if (inRing(u, v, level)) ok = Y - g < 1.0;
-      else if (inPiece(u, v)) ok = bankY(u, v) - g < 3.0; // a bank tree's foot under the grass reads as a shorter trunk
-      if (!ok || onStreet(x, z, 1.5)) continue;
-      const pine = v < -185;
-      t.push(Math.round(x * 10), Math.round(z * 10), 10 + Math.floor(rand(r, 3) * 6), pine ? 3 : rand(r, 4) < 0.35 ? 1 : 0);
+function plantPagodaTrees(ctx, levelRing, bankPieces, bankY) {
+  const { data, courtY, onStreet } = ctx;
+  if (!Array.isArray(data.trees)) return;
+  const trees = data.trees, nearCount = data.meta?.counts?.treesNear;
+  const verge = streetTest(data, toWorld(20, 30), 40);
+  for (let i = trees.length / 4 - 1; i >= 0; i--) {
+    const x = trees[i * 4] / 10, z = trees[i * 4 + 1] / 10, [u, v] = toLocal(x, z);
+    if (v < 18 || v > 40 || u < 8 || u > 45 || !verge(x, z, 'pavement')) continue;
+    trees.splice(i * 4, 4);
+    if (nearCount != null && i < nearCount) data.meta.counts.treesNear--;
+  }
+  const crossLoc = [toLocal(SIDE_GATES[0][0], SIDE_GATES[0][1]), toLocal(SIDE_GATES[1][0], SIDE_GATES[1][1])];
+  const crossDist = (u, v) => {
+    const ex = crossLoc[1][0] - crossLoc[0][0], ev = crossLoc[1][1] - crossLoc[0][1];
+    return Math.abs((u - crossLoc[0][0]) * ev - (v - crossLoc[0][1]) * ex) / Math.hypot(ex, ev);
+  };
+  const clearZones = [[-27, 29, -101, -19], [-15, 15, -21, 13]];
+  const inBank = (u, v) => bankPieces.some((piece) => piece.length > 2 && inRing(u, v, piece));
+  let seedIdx = 0;
+  for (let gu = -76; gu <= 62; gu += 5.2) {
+    for (let gv = -292; gv <= 34; gv += 5.2) {
+      const seed = (seedIdx++) * 7 + 3;
+      const u = gu + (rand(seed, 1) - 0.5) * 3.8, v = gv + (rand(seed, 2) - 0.5) * 3.8;
+      const [x, z] = toWorld(u, v), baseG = LAND_Y + rise(x, z);
+      if (clearZones.some(([u0, u1, v0, v1]) => u > u0 && u < u1 && v > v0 && v < v1)) continue;
+      if (Math.abs(u) < STAIR_HALF_W + 2 && v > FRONT_BROW_V - 2) continue;
+      if (crossDist(u, v) < 3) continue;
+      let canPlant = false;
+      if (inRing(u, v, levelRing)) canPlant = courtY - baseG < 1.0;
+      else if (inBank(u, v)) canPlant = bankY(u, v) - baseG < 3.0;
+      if (!canPlant || onStreet(x, z, 1.5)) continue;
+      const isPine = v < -185;
+      trees.push(Math.round(x * 10), Math.round(z * 10), 10 + Math.floor(rand(seed, 3) * 6), isPine ? 3 : rand(seed, 4) < 0.35 ? 1 : 0);
     }
   }
+}
 
-  S.kind = keep;
+export function build({ data, S, group, THREE }) {
+  if (!data.hakhe) throw new Error('no Hà Khê terrace in the data');
+  const hkRing = offStreets(data, unflat(data.hakhe.ring));
+  const courtY = LAND_Y + data.hakhe.top / 10 + 0.06;
+  const keepKind = S.kind;
+  const lanPos = [], lanCol = [];
+  const lightBuf = new Buf(1200);
 
-  // ---- night: a ring of light under each of the tower's eaves, lanterns on the pillars, the gate and the hall ----
+  const ctx = {
+    data, S, THREE, courtY, lightBuf,
+    onStreet: streetTest(data, toWorld(0, -60), 260),
+    box: (u, v, ya, yb, w, d, col, opt?) => { const pt = toWorld(u, v); S.box(pt[0], pt[1], ya, yb, w, d, COMPOUND_ANG, col, opt); },
+    cyl: (u, v, ya, yb, r0, r1, segs, col, opt?) => { const pt = toWorld(u, v); S.cyl(pt[0], pt[1], ya, yb, r0, r1, segs, col, { rot: COMPOUND_ANG, ...opt }); },
+    beam: (u0, v0, y0, u1, v1, y1, w, h, col?) => { const ptA = toWorld(u0, v0), ptB = toWorld(u1, v1); S.beam([ptA[0], y0, ptA[1]], [ptB[0], y1, ptB[1]], w, h, col); },
+    lamp: (u, v, y?) => { const pt = toWorld(u, v); lanPos.push(pt[0], y, pt[1]); lanCol.push(...LANTERN_RGB); },
+    ...makeWallBuilders(S, courtY),
+  };
+
+  const { levelRing, bankPieces, bankY, gatePts } = buildGroundAndWalls(ctx, hkRing);
+  buildStairAndLanding(ctx);
+  buildPhuocDuyenTower(ctx);
+  buildForecourtAndPavilions(ctx, gatePts);
+  buildTamQuanAndHalls(ctx);
+  plantPagodaTrees(ctx, levelRing, bankPieces, bankY);
+
+  S.kind = keepKind;
   if (group) {
-    const m = new THREE.Mesh(LT.geometry(), lightMaterial(0xffba52, 1.5));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
+    const stripMesh = new THREE.Mesh(lightBuf.geometry(), lightMaterial(0xffba52, 1.5));
+    stripMesh.renderOrder = 19;
+    stripMesh.userData.landmark = id;
+    group.add(stripMesh);
     const pts = glowPoints(lanPos, lanCol, 6.5);
     pts.userData.glow = true;
     pts.userData.landmark = id;

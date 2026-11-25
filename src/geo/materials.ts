@@ -73,24 +73,24 @@ export const patch = (src) => ({
 // PBR material for baked vertex-colour geometry (colours are stored sqrt-encoded
 // in 8 bits, see Buf.tri) with the procedural surface detail above.
 export function cityMaterial({ windows = false, foliage = false, styled = false, overlay = false, hero = false, ...opts }: Record<string, any> = {}) {
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0, ...opts });
-  m.defines = { ...(m.defines || {}) };
-  if (windows) m.defines.HUE_WINDOWS = '';
-  if (foliage) m.defines.HUE_FOLIAGE = '';
-  if (styled) m.defines.HUE_STYLED = '';
-  if (overlay) m.defines.HUE_OVERLAY = ''; // flat ribbons laid on the ground (streets): no flagstone joints
-  if (hero) m.defines.HUE_HERO = ''; // hero GLB sculptural accents: metallic/ceramic sheen on gilded/bronze/jade parts
-  m.onBeforeCompile = (sh) => {
-    sh.uniforms.uGlow = shared.uGlow;
-    sh.uniforms.uLandY = shared.uLandY;
-    sh.uniforms.uWet = shared.uWet;
-    sh.uniforms.uSunDir = shared.uSunDir;
-    sh.uniforms.uSunI = shared.uSunI;
-    sh.uniforms.uTime = shared.uTime;
-    sh.uniforms.uWind = shared.uWind;
-    sh.uniforms.uLook = shared.uLook;
-    cascades(sh);
-    sh.vertexShader = patch(sh.vertexShader)
+  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0, ...opts });
+  mat.defines = { ...(mat.defines || {}) };
+  if (windows) mat.defines.HUE_WINDOWS = '';
+  if (foliage) mat.defines.HUE_FOLIAGE = '';
+  if (styled) mat.defines.HUE_STYLED = '';
+  if (overlay) mat.defines.HUE_OVERLAY = ''; // flat ribbons laid on the ground (streets): no flagstone joints
+  if (hero) mat.defines.HUE_HERO = ''; // hero GLB sculptural accents: metallic/ceramic sheen on gilded/bronze/jade parts
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uGlow = shared.uGlow;
+    shader.uniforms.uLandY = shared.uLandY;
+    shader.uniforms.uWet = shared.uWet;
+    shader.uniforms.uSunDir = shared.uSunDir;
+    shader.uniforms.uSunI = shared.uSunI;
+    shader.uniforms.uTime = shared.uTime;
+    shader.uniforms.uWind = shared.uWind;
+    shader.uniforms.uLook = shared.uLook;
+    cascades(shader);
+    shader.vertexShader = patch(shader.vertexShader)
       .replace('#include <common>', '#include <common>\nattribute float aKind;\nattribute float aBase;\n#ifdef HUE_STYLED\nattribute float aStyle;\n#endif\nvarying vec3 vWPos;\nvarying vec3 vWNrm;\nvarying float vKind;\nvarying float vBase;\nvarying float vFlood;\nuniform float uTime;\nuniform float uWind;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n' + WIND)
       .replace('#include <color_vertex>', foliage ? FOLIAGE_COLOR : '#include <color_vertex>')
@@ -120,7 +120,7 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         }
         `,
       ).src;
-    sh.fragmentShader = patch(sh.fragmentShader)
+    shader.fragmentShader = patch(shader.fragmentShader)
       .replace('#include <common>', '#include <common>\n' + COMMON)
       .replace('#include <color_fragment>', SURFACE)
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = hueRough;')
@@ -190,8 +190,8 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         #endif`,
       ).src;
   };
-  m.customProgramCacheKey = () => 'hue-city-' + (windows ? 'w' : 'p') + (foliage ? 'f' : '') + (styled ? 's' : '') + (overlay ? 'o' : '') + (hero ? 'h' : '');
-  return m;
+  mat.customProgramCacheKey = () => 'hue-city-' + (windows ? 'w' : 'p') + (foliage ? 'f' : '') + (styled ? 's' : '') + (overlay ? 'o' : '') + (hero ? 'h' : '');
+  return mat;
 }
 
 // The land slab: broad tonal drift plus fine grain, so open ground is not one flat colour.

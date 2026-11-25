@@ -3,228 +3,53 @@ import { KIND, hex, shade, Buf } from '../geo/buf.ts';
 import { glowPoints, lightMaterial, shared } from '../geo/materials.ts';
 import { LAND_Y, PAL } from '../config.ts';
 
-// Cầu Trường Tiền. Position, axis and width come from the OSM bridge outline (way 1431129413); the six bow-string
-// steel spans — "sáu vài mười hai nhịp" — are modelled by hand to the published figures (docs/places/truongtien.md):
-// 402.6 m long, six spans of 67 m, a 6 m carriageway between the trusses and a 1.95 m walkway outside each, the bows
-// 5.45 m high (vi.wikipedia "Cao 5m45"; a side-on 2024 panorama on Commons measures 5.5–5.7 m over the bottom chord).
-// The OSM outline is 388 m, a little short of the real length, so the deck is centred on it and drawn at 402.6 m.
+// Cầu Trường Tiền: 402.6 m long, six spans of 67 m, a 6 m carriageway between the trusses and a 1.95 m walkway
+// outside each, the bows 5.45 m high (docs/places/truongtien.md).
 export const TT_LENGTH = 402.6;
-export function buildTruongTien(data, S, group) {
-  const tt = data.truongtien;
-  const pt = (p) => Array.isArray(p) && Number.isFinite(p[0]) && Number.isFinite(p[1]);
-  if (!tt || !pt(tt.a) || !pt(tt.b) || !tt.box || !pt(tt.box.c) || !(tt.box.w > 0) || !(tt.box.d > 0)) {
-    // without its outline the bridge is left out, but the caller still gets the fields and methods it uses each frame
-    console.warn('Trường Tiền not built: data.truongtien missing or incomplete');
-    const lamps = glowPoints([], [], 8);
-    group.add(lamps);
-    return { centre: [0, 0], dir: [1, 0], across: [0, 1], length: 0, width: 0, span: 0, deckTop: 0, deckBottom: 0, lights: [], lamps, update() {} };
-  }
-  const a = [tt.a[0] / 10, tt.a[1] / 10], b = [tt.b[0] / 10, tt.b[1] / 10]; // north end, south end
-  const L = TT_LENGTH, W = tt.box.d / 10;
-  const c = [tt.box.c[0] / 10, tt.box.c[1] / 10];
-  const dl = Math.hypot(b[0] - a[0], b[1] - a[1]);
-  const d = [(b[0] - a[0]) / dl, (b[1] - a[1]) / dl]; // along the bridge, north → south bank
-  const n = [-d[1], d[0]]; // across the bridge
-  const ang = Math.atan2(d[1], d[0]);
-  const SPANS = 6, span = L / SPANS;
-  // the deck stands on the river, not on the bank: its underside about 5.5 m above the water, room for a dragon boat
-  // and its roof, and the approaches climb to it from the streets
-  // The deck girder reads as a dark band about 1.2 m deep; the stone piers stop short of it, the girders sitting on
-  // steel bearing trestles about 1.5 m tall (Commons panorama, 2024).
-  const deckTop = 6.4, deckT = 1.2, trestle = 1.5;
-  const trussX = W / 2 - 2.35; // truss planes (6 m carriageway + truss); 1.95 m walkways are cantilevered outside them
-  const H = 5.45; // crown of each bow above the bottom chord
-  const E = 1.3; // the bow ends on a short end post over the pier, not on the chord
-  const N = 16; // panels per span (about 4.2 m, counted on the panorama)
-  const steel = PAL.steel, steelD = PAL.steelDark;
 
-  const at = (s, off, y) => [c[0] + d[0] * s + n[0] * off, y, c[1] + d[1] * s + n[1] * off];
+const DECIMETRES_PER_METRE = 10;
+const SPAN_COUNT = 6;
+const PANELS_PER_SPAN = 16;
+const DECK_TOP_M = 6.4;
+const DECK_THICK_M = 1.2;
+const TRESTLE_H_M = 1.5;
+const WALKWAY_INSET_M = 2.35;
+const BOW_HEIGHT_M = 5.45;
+const END_POST_H_M = 1.3;
+const APPROACH_LEN_M = 34;
+const BAND_LEN = 0.85;
+const BAND_SPEED = 9;
+const WARM_WHITE = new THREE.Color(1.0, 0.82, 0.55);
+const PALETTE = ['#8a3cff', '#2f5bff', '#19c6ff', '#2fe07a', '#ffc21a', '#ff3b2f', '#ff3fb4', '#f4f0ff'].map((hexCol) => new THREE.Color(hexCol));
 
-  // deck + walkway edge
-  S.box(c[0], c[1], deckTop - deckT, deckTop, L, W, ang, hex('#716e6b'), { top: PAL.deck, bottom: true });
-  for (const side of [-1, 1]) {
-    S.beam(at(-L / 2, side * (W / 2 - 0.1), deckTop + 1.05), at(L / 2, side * (W / 2 - 0.1), deckTop + 1.05), 0.16, 0.16, steel);
-    S.beam(at(-L / 2, side * (W / 2 - 0.1), deckTop + 0.55), at(L / 2, side * (W / 2 - 0.1), deckTop + 0.55), 0.1, 0.1, steelD);
-    for (let s = -L / 2; s <= L / 2 + 0.01; s += span / 10) S.beam(at(s, side * (W / 2 - 0.1), deckTop), at(s, side * (W / 2 - 0.1), deckTop + 1.05), 0.14, 0.14, steelD);
-    // the two guard pipes on the carriageway side of each truss, added in the 1991–95 restoration
-    for (const y of [0.45, 0.85]) S.beam(at(-L / 2, side * (trussX - 0.55), deckTop + y), at(L / 2, side * (trussX - 0.55), deckTop + y), 0.12, 0.12, steelD);
-    // walkway surface slightly lighter than the carriageway
-    const mid = at(0, side * (trussX + (W / 2 - trussX) / 2), 0);
-    S.box(mid[0], mid[2], deckTop, deckTop + 0.12, L, W / 2 - trussX - 0.3, ang, hex('#b5aea4'));
-  }
-
-  // approaches: the deck sits above the riverside parks, with ramps down to the streets
-  for (const end of [-1, 1]) {
-    const s0 = (end * L) / 2, s1 = s0 + end * 34;
-    const y1 = LAND_Y + 0.08;
-    const p = [at(s0, -W / 2, deckTop), at(s0, W / 2, deckTop), at(s1, W / 2, y1), at(s1, -W / 2, y1)];
-    S.quad(p[0], p[1], p[2], p[3], PAL.deck, [0, 1, 0]);
-    for (const side of [-1, 1]) {
-      const q0 = at(s0, (side * W) / 2, deckTop), q1 = at(s1, (side * W) / 2, y1), q2 = at(s0, (side * W) / 2, LAND_Y - 0.5), q3 = at(s1, (side * W) / 2, LAND_Y - 0.5);
-      S.kind = KIND.MASONRY;
-      S.quad(q0, q1, q3, q2, PAL.pier, [n[0] * side, 0, n[1] * side]);
-      S.kind = KIND.PLAIN;
-      S.beam(at(s0, side * (W / 2 - 0.1), deckTop + 1.0), at(s1, side * (W / 2 - 0.1), y1 + 1.0), 0.16, 0.16, steel);
-    }
-    // abutment
-    const m = at(s0 + end * 1.2, 0, 0);
-    S.kind = KIND.MASONRY;
-    S.box(m[0], m[2], -3, deckTop - deckT, 3.4, W + 2.4, ang, PAL.pier);
-    S.kind = KIND.PLAIN;
-  }
-
-  // stone piers with pointed cutwaters
-  const lampPos = [], lampCol = [];
-  for (let i = 1; i < SPANS; i++) {
-    const s = -L / 2 + i * span;
-    const pr = (hu, tip) => [[-hu, -W / 2 + 0.6], [0, -W / 2 - tip], [hu, -W / 2 + 0.6], [hu, W / 2 - 0.6], [0, W / 2 + tip], [-hu, W / 2 - 0.6]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
-    const yB = deckTop - deckT - trestle, yT = yB - 0.6;
-    S.kind = KIND.MASONRY;
-    // the battered body with its pointed cutwaters, then a projecting coping course, chamfered back on top
-    S.prism(pr(2.1, 2.6), -3, yT - 0.45, PAL.pier, PAL.pier, { scaleTop: 0.92, top: false });
-    S.prism(pr(2.26, 2.85), yT - 0.45, yT, shade(PAL.pier, 1.06), shade(PAL.pier, 1.12), { scaleTop: 0.96 });
-    S.kind = KIND.PLAIN;
-    // the cap under the deck: corners chamfered, its underside shown where it overhangs the coping
-    const hu = 2.3, hv = W / 2 - 0.4, ch = 0.4;
-    const cap = [[-hu + ch, -hv], [hu - ch, -hv], [hu, -hv + ch], [hu, hv - ch], [hu - ch, hv], [-hu + ch, hv], [-hu, hv - ch], [-hu, -hv + ch]].map(([u, v]) => { const p = at(s + u, v, 0); return [p[0], p[2]]; });
-    const capCol = shade(PAL.pier, 1.1);
-    S.prism(cap, yT, yB, capCol, capCol);
-    const cm = at(s, 0, yT);
-    for (let k = 0; k < cap.length; k++) { const a = cap[k], b = cap[(k + 1) % cap.length]; S.tri(cm, [a[0], yT, a[1]], [b[0], yT, b[1]], shade(capCol, 0.7), [0, -1, 0]); }
-    // a moulded string course round the cap
-    S.prism(cap.map(([x, z]) => [x + (x - cm[0]) * 0.03, z + (z - cm[2]) * 0.03]), yB - 0.22, yB - 0.08, shade(capCol, 0.92), capCol, { top: false });
-    // the steel bearing trestles between the pier cap and the girders: a post and two raking struts under each truss
-    for (const side of [-1, 1]) {
-      for (const u of [-1.2, 1.2]) S.beam(at(s + u, side * trussX, yB), at(s + u, side * trussX, deckTop - deckT), 0.35, 0.35, steelD);
-      S.beam(at(s - 1.6, side * trussX, yB), at(s, side * trussX, deckTop - deckT), 0.22, 0.22, steelD);
-      S.beam(at(s + 1.6, side * trussX, yB), at(s, side * trussX, deckTop - deckT), 0.22, 0.22, steelD);
-      S.beam(at(s, -trussX, yB + 0.2), at(s, trussX, yB + 0.2), 0.25, 0.25, steelD);
-    }
-    for (const side of [-1, 1]) {
-      // (the balconies that bulged out over each pier from 1937 were taken off in the 1991–95 restoration)
-      // lamp post at the rail, over the pier
-      S.beam(at(s, side * (W / 2 - 0.25), deckTop), at(s, side * (W / 2 - 0.25), deckTop + 4.2), 0.18, 0.18, steelD);
-      const lp = at(s, side * (W / 2 - 0.25), deckTop + 4.5);
-      lampPos.push(...lp); lampCol.push(1.0, 0.8, 0.5);
-    }
-  }
-
-  // the bows
-  const spanLights = [], spanStrips = [];
-  // one colour band runs the length of the bridge and slides along it (see bandColor below); the LED strips sample it
-  // per pixel on the GPU, the bow lamps per lamp on the CPU, both from the same position along the bridge
-  const band = bandMaterial(c, d, L);
-  const lampS = []; // each bow lamp's position along the bridge, span by span
-  for (let i = 0; i < SPANS; i++) {
-    const s0 = -L / 2 + i * span;
-    const lp = [], lc = [];
-    // The bows are fuller than a parabola: they leave the piers steeply (about 45° over the first panel) and flatten
-    // only near the crown, the rounded "comb" outline of the bridge seen from the river.
-    const top = (k, side) => { const t = k / N, u = 2 * t - 1; return at(s0 + t * span, side * trussX, deckTop + 0.25 + E + (H - E) * Math.pow(Math.max(0, 1 - u * u), 0.62)); };
-    const bot = (k, side) => at(s0 + (k / N) * span, side * trussX, deckTop + 0.25);
-    for (const side of [-1, 1]) {
-      S.beam(bot(0, side), bot(N, side), 0.55, 0.5, steelD);
-      for (let k = 0; k < N; k++) {
-        S.beam(top(k, side), top(k + 1, side), 0.78, 0.8, steel);
-        S.beam(top(k, side), bot(k, side), k === 0 ? 0.6 : 0.4, 0.4, steel);
-        // diagonals lean toward mid-span
-        if (k >= 1 && k < N / 2) S.beam(top(k, side), bot(k + 1, side), 0.3, 0.3, steelD);
-        if (k >= N / 2 && k < N - 1) S.beam(top(k + 1, side), bot(k, side), 0.3, 0.3, steelD);
-        // light points traced along the bow
-        for (const f of [0, 0.5]) {
-          const p0 = top(k, side), p1 = top(k + 1, side);
-          lp.push(p0[0] + (p1[0] - p0[0]) * f, p0[1] + (p1[1] - p0[1]) * f + 0.5, p0[2] + (p1[2] - p0[2]) * f);
-          lc.push(1, 1, 1);
-        }
-        if (k >= 1 && k % 2 === 0) { const p = top(k, side), q = bot(k, side); lp.push(p[0], (p[1] + q[1]) / 2, p[2]); lc.push(0.6, 0.6, 0.6); }
-      }
-    }
-    // portal and wind bracing where there is headroom
-    let prev = null;
-    for (let k = 2; k <= N - 2; k++) {
-      const l = top(k, -1), r = top(k, 1);
-      if (l[1] < deckTop + 4.6) continue; // headroom: the struts start where the bow clears about 4.3 m
-      S.beam(l, r, 0.34, 0.34, steel);
-      if (prev) { S.beam(prev[0], r, 0.2, 0.2, steelD); S.beam(prev[1], l, 0.2, 0.2, steelD); }
-      prev = [l, r];
-    }
-    const pts = glowPoints(lp, lc, 3.4);
-    group.add(pts);
-    spanLights.push(pts);
-    const ls = [];
-    for (let j = 0; j < lp.length; j += 3) ls.push((lp[j] - c[0]) * d[0] + (lp[j + 2] - c[1]) * d[1]);
-    lampS.push(ls);
-    // the LED wash: a strip riding each bow, lines down the hangers and along the bottom chord, on the outer faces
-    const LB = new Buf(700), W1 = [1, 1, 1];
-    const out = (p, side, o = 0.5, up = 0) => [p[0] + n[0] * side * o, p[1] + up, p[2] + n[1] * side * o];
-    for (const side of [-1, 1]) {
-      for (let k = 0; k < N; k++) {
-        LB.beam(out(top(k, side), side, 0.46, 0.2), out(top(k + 1, side), side, 0.46, 0.2), 0.2, 0.5, W1);
-        LB.beam(out(top(k, side), side, 0.3), out(bot(k, side), side, 0.3), 0.12, 0.12, W1);
-      }
-      LB.beam(out(bot(0, side), side, 0.36), out(bot(N, side), side, 0.36), 0.14, 0.28, W1);
-    }
-    const strip = new THREE.Mesh(LB.geometry(), band);
-    strip.renderOrder = 19;
-    strip.userData.landmark = true;
-    group.add(strip);
-    spanStrips.push(strip);
-  }
-  const lamps = glowPoints(lampPos, lampCol, 8);
-  group.add(lamps);
-  // a warm line under the handrail on both sides, and the piers lit from the water
-  {
-    const EB = new Buf(160), W1 = [1, 1, 1];
-    for (const side of [-1, 1]) {
-      EB.beam(at(-L / 2, side * (W / 2 + 0.08), deckTop - 0.12), at(L / 2, side * (W / 2 + 0.08), deckTop - 0.12), 0.1, 0.16, W1);
-      for (let i = 1; i < SPANS; i++) { const sx = -L / 2 + i * span; EB.beam(at(sx, side * (W / 2 + 1.2), 0.5), at(sx, side * (W / 2 + 0.5), deckTop - deckT - trestle - 0.8), 0.5, 0.2, W1); }
-    }
-    const edge = new THREE.Mesh(EB.geometry(), lightMaterial(0xffd9a0, 0.75));
-    edge.renderOrder = 19;
-    edge.userData.landmark = true;
-    group.add(edge);
-  }
-
-  const col = new THREE.Color();
-  return {
-    centre: c, dir: d, across: n, length: L, width: W, span, deckTop, deckBottom: deckTop - deckT, lights: spanLights, lamps,
-    // After dark the bridge carries a continuous band of colour — Huế violet through blue, cyan, green, gold, red and
-    // magenta, blending into each other along its length — and the colours change by the band sliding along the
-    // bridge, so each bow flows into the next instead of the whole bridge switching at once. In rain the band settles
-    // toward a warm white.
-    update(time, glow, rain) {
-      const warm = Math.min(1, rain * 0.85);
-      band.uniforms.uWarmMix.value = warm;
-      band.uniforms.uBoost.value = 1.5 + rain * 0.4;
-      for (let i = 0; i < spanLights.length; i++) {
-        const u = spanLights[i].material.uniforms, attr = spanLights[i].geometry.attributes.color, ls = lampS[i];
-        u.uTint.value.setRGB(1, 1, 1);
-        u.uBoost.value = 0.55 + rain * 0.25;
-        for (let j = 0; j < ls.length; j++) {
-          bandColor(ls[j], time, L, col).lerp(WARM, warm).multiplyScalar(0.6);
-          attr.setXYZ(j, col.r, col.g, col.b);
-        }
-        attr.needsUpdate = true;
-      }
-    },
-  };
+interface BridgeFrame {
+  center: [number, number];
+  dir: [number, number];
+  across: [number, number];
+  ang: number;
+  length: number;
+  width: number;
+  span: number;
+  trussX: number;
+  at: (alongS: number, off: number, y: number) => [number, number, number];
 }
 
-// The band: PALETTE laid end to end, one full round every BAND_LEN of the bridge's length, each colour easing into the
-// next, sliding along the bridge at BAND_SPEED m/s. bandColor (CPU) and the shader below compute the same thing.
-const BAND_LEN = 0.85, BAND_SPEED = 9;
-function bandColor(s, time, L, out) {
-  const n = PALETTE.length, x = ((((s - time * BAND_SPEED) / (L * BAND_LEN)) % 1) + 1) % 1 * n;
-  const a = Math.floor(x) % n, f = x - Math.floor(x), m = f * f * (3 - 2 * f);
-  return out.copy(PALETTE[a]).lerp(PALETTE[(a + 1) % n], m);
+function bandColor(alongS: number, time: number, bridgeLen: number, out: THREE.Color) {
+  const count = PALETTE.length;
+  const pos = ((((alongS - time * BAND_SPEED) / (bridgeLen * BAND_LEN)) % 1) + 1) % 1 * count;
+  const idx = Math.floor(pos) % count;
+  const frac = pos - Math.floor(pos);
+  const blend = frac * frac * (3 - 2 * frac);
+  return out.copy(PALETTE[idx]).lerp(PALETTE[(idx + 1) % count], blend);
 }
-function bandMaterial(c, d, L) {
+
+function createBandMaterial(center: [number, number], dir: [number, number], bridgeLen: number) {
   return new THREE.ShaderMaterial({
     uniforms: {
       uGlow: shared.uGlow, uTime: shared.uTime, uPal: { value: PALETTE },
-      uC: { value: new THREE.Vector2(c[0], c[1]) }, uD: { value: new THREE.Vector2(d[0], d[1]) },
-      uLen: { value: L * BAND_LEN }, uSpeed: { value: BAND_SPEED },
-      uBoost: { value: 1.5 }, uWarm: { value: WARM }, uWarmMix: { value: 0 },
+      uC: { value: new THREE.Vector2(center[0], center[1]) }, uD: { value: new THREE.Vector2(dir[0], dir[1]) },
+      uLen: { value: bridgeLen * BAND_LEN }, uSpeed: { value: BAND_SPEED },
+      uBoost: { value: 1.5 }, uWarm: { value: WARM_WHITE }, uWarmMix: { value: 0 },
     },
     vertexShader: `uniform vec2 uC, uD; varying float vS;
       void main() { vec4 w = modelMatrix * vec4( position, 1.0 ); vS = dot( w.xz - uC, uD );
@@ -246,6 +71,252 @@ function bandMaterial(c, d, L) {
     transparent: true,
   });
 }
-const WARM = new THREE.Color(1.0, 0.82, 0.55);
-// the colours of the band, in order along it: Huế violet, blue, cyan, green, gold, red, magenta, white
-const PALETTE = ['#8a3cff', '#2f5bff', '#19c6ff', '#2fe07a', '#ffc21a', '#ff3b2f', '#ff3fb4', '#f4f0ff'].map((c) => new THREE.Color(c));
+
+function buildDeckAndApproaches(buf: Buf, frame: BridgeFrame) {
+  const { center, across, ang, length, width, span, trussX, at } = frame;
+  const steel = PAL.steel, steelDark = PAL.steelDark;
+
+  buf.box(center[0], center[1], DECK_TOP_M - DECK_THICK_M, DECK_TOP_M, length, width, ang, hex('#716e6b'), { top: PAL.deck, bottom: true });
+  for (const side of [-1, 1]) {
+    const railOff = side * (width / 2 - 0.1);
+    buf.beam(at(-length / 2, railOff, DECK_TOP_M + 1.05), at(length / 2, railOff, DECK_TOP_M + 1.05), 0.16, 0.16, steel);
+    buf.beam(at(-length / 2, railOff, DECK_TOP_M + 0.55), at(length / 2, railOff, DECK_TOP_M + 0.55), 0.1, 0.1, steelDark);
+    for (let dist = -length / 2; dist <= length / 2 + 0.01; dist += span / 10) {
+      buf.beam(at(dist, railOff, DECK_TOP_M), at(dist, railOff, DECK_TOP_M + 1.05), 0.14, 0.14, steelDark);
+    }
+    for (const guardY of [0.45, 0.85]) {
+      buf.beam(at(-length / 2, side * (trussX - 0.55), DECK_TOP_M + guardY), at(length / 2, side * (trussX - 0.55), DECK_TOP_M + guardY), 0.12, 0.12, steelDark);
+    }
+    const midPt = at(0, side * (trussX + (width / 2 - trussX) / 2), 0);
+    buf.box(midPt[0], midPt[2], DECK_TOP_M, DECK_TOP_M + 0.12, length, width / 2 - trussX - 0.3, ang, hex('#b5aea4'));
+  }
+
+  for (const endSign of [-1, 1]) {
+    const s0 = (endSign * length) / 2;
+    const s1 = s0 + endSign * APPROACH_LEN_M;
+    const rampEndY = LAND_Y + 0.08;
+    const rampQuad = [at(s0, -width / 2, DECK_TOP_M), at(s0, width / 2, DECK_TOP_M), at(s1, width / 2, rampEndY), at(s1, -width / 2, rampEndY)];
+    buf.quad(rampQuad[0], rampQuad[1], rampQuad[2], rampQuad[3], PAL.deck, [0, 1, 0]);
+    for (const side of [-1, 1]) {
+      const q0 = at(s0, (side * width) / 2, DECK_TOP_M);
+      const q1 = at(s1, (side * width) / 2, rampEndY);
+      const q2 = at(s0, (side * width) / 2, LAND_Y - 0.5);
+      const q3 = at(s1, (side * width) / 2, LAND_Y - 0.5);
+      buf.kind = KIND.MASONRY;
+      buf.quad(q0, q1, q3, q2, PAL.pier, [across[0] * side, 0, across[1] * side]);
+      buf.kind = KIND.PLAIN;
+      buf.beam(at(s0, side * (width / 2 - 0.1), DECK_TOP_M + 1.0), at(s1, side * (width / 2 - 0.1), rampEndY + 1.0), 0.16, 0.16, steel);
+    }
+    const abutPt = at(s0 + endSign * 1.2, 0, 0);
+    buf.kind = KIND.MASONRY;
+    buf.box(abutPt[0], abutPt[2], -3, DECK_TOP_M - DECK_THICK_M, 3.4, width + 2.4, ang, PAL.pier);
+    buf.kind = KIND.PLAIN;
+  }
+}
+
+function buildPiers(buf: Buf, frame: BridgeFrame) {
+  const { length, width, span, trussX, at } = frame;
+  const steelDark = PAL.steelDark;
+  const lampPos: number[] = [];
+  const lampCol: number[] = [];
+
+  for (let i = 1; i < SPAN_COUNT; i++) {
+    const alongS = -length / 2 + i * span;
+    const cutwaterRing = (halfU: number, tip: number) => [
+      [-halfU, -width / 2 + 0.6], [0, -width / 2 - tip], [halfU, -width / 2 + 0.6],
+      [halfU, width / 2 - 0.6], [0, width / 2 + tip], [-halfU, width / 2 - 0.6],
+    ].map(([u, v]) => { const pt = at(alongS + u, v, 0); return [pt[0], pt[2]]; });
+
+    const capTopY = DECK_TOP_M - DECK_THICK_M - TRESTLE_H_M;
+    const capBotY = capTopY - 0.6;
+    buf.kind = KIND.MASONRY;
+    buf.prism(cutwaterRing(2.1, 2.6), -3, capBotY - 0.45, PAL.pier, PAL.pier, { scaleTop: 0.92, top: false });
+    buf.prism(cutwaterRing(2.26, 2.85), capBotY - 0.45, capBotY, shade(PAL.pier, 1.06), shade(PAL.pier, 1.12), { scaleTop: 0.96 });
+    buf.kind = KIND.PLAIN;
+
+    const halfU = 2.3, halfV = width / 2 - 0.4, chamfer = 0.4;
+    const capRing = [
+      [-halfU + chamfer, -halfV], [halfU - chamfer, -halfV], [halfU, -halfV + chamfer], [halfU, halfV - chamfer],
+      [halfU - chamfer, halfV], [-halfU + chamfer, halfV], [-halfU, halfV - chamfer], [-halfU, -halfV + chamfer],
+    ].map(([u, v]) => { const pt = at(alongS + u, v, 0); return [pt[0], pt[2]]; });
+    const capCol = shade(PAL.pier, 1.1);
+    buf.prism(capRing, capBotY, capTopY, capCol, capCol);
+    const capMid = at(alongS, 0, capBotY);
+    for (let k = 0; k < capRing.length; k++) {
+      const p0 = capRing[k], p1 = capRing[(k + 1) % capRing.length];
+      buf.tri(capMid, [p0[0], capBotY, p0[1]], [p1[0], capBotY, p1[1]], shade(capCol, 0.7), [0, -1, 0]);
+    }
+    buf.prism(capRing.map(([x, z]) => [x + (x - capMid[0]) * 0.03, z + (z - capMid[2]) * 0.03]), capTopY - 0.22, capTopY - 0.08, shade(capCol, 0.92), capCol, { top: false });
+
+    for (const side of [-1, 1]) {
+      for (const u of [-1.2, 1.2]) buf.beam(at(alongS + u, side * trussX, capTopY), at(alongS + u, side * trussX, DECK_TOP_M - DECK_THICK_M), 0.35, 0.35, steelDark);
+      buf.beam(at(alongS - 1.6, side * trussX, capTopY), at(alongS, side * trussX, DECK_TOP_M - DECK_THICK_M), 0.22, 0.22, steelDark);
+      buf.beam(at(alongS + 1.6, side * trussX, capTopY), at(alongS, side * trussX, DECK_TOP_M - DECK_THICK_M), 0.22, 0.22, steelDark);
+      buf.beam(at(alongS, -trussX, capTopY + 0.2), at(alongS, trussX, capTopY + 0.2), 0.25, 0.25, steelDark);
+      buf.beam(at(alongS, side * (width / 2 - 0.25), DECK_TOP_M), at(alongS, side * (width / 2 - 0.25), DECK_TOP_M + 4.2), 0.18, 0.18, steelDark);
+      const headPt = at(alongS, side * (width / 2 - 0.25), DECK_TOP_M + 4.5);
+      lampPos.push(...headPt);
+      lampCol.push(1.0, 0.8, 0.5);
+    }
+  }
+  return { lampPos, lampCol };
+}
+
+function buildBowSpans(buf: Buf, group: THREE.Group, frame: BridgeFrame, bandMat: THREE.ShaderMaterial) {
+  const { center, dir, across, length, span, trussX, at } = frame;
+  const steel = PAL.steel, steelDark = PAL.steelDark;
+  const spanLights: any[] = [];
+  const lampS: number[][] = [];
+  const white = [1, 1, 1];
+
+  for (let spanIdx = 0; spanIdx < SPAN_COUNT; spanIdx++) {
+    const startS = -length / 2 + spanIdx * span;
+    const lightPos: number[] = [];
+    const lightCol: number[] = [];
+    const topNode = (panel: number, side: number) => {
+      const frac = panel / PANELS_PER_SPAN;
+      const u = 2 * frac - 1;
+      return at(startS + frac * span, side * trussX, DECK_TOP_M + 0.25 + END_POST_H_M + (BOW_HEIGHT_M - END_POST_H_M) * Math.pow(Math.max(0, 1 - u * u), 0.62));
+    };
+    const botNode = (panel: number, side: number) => at(startS + (panel / PANELS_PER_SPAN) * span, side * trussX, DECK_TOP_M + 0.25);
+
+    for (const side of [-1, 1]) {
+      buf.beam(botNode(0, side), botNode(PANELS_PER_SPAN, side), 0.55, 0.5, steelDark);
+      for (let k = 0; k < PANELS_PER_SPAN; k++) {
+        buf.beam(topNode(k, side), topNode(k + 1, side), 0.78, 0.8, steel);
+        buf.beam(topNode(k, side), botNode(k, side), k === 0 ? 0.6 : 0.4, 0.4, steel);
+        if (k >= 1 && k < PANELS_PER_SPAN / 2) buf.beam(topNode(k, side), botNode(k + 1, side), 0.3, 0.3, steelDark);
+        if (k >= PANELS_PER_SPAN / 2 && k < PANELS_PER_SPAN - 1) buf.beam(topNode(k + 1, side), botNode(k, side), 0.3, 0.3, steelDark);
+        for (const frac of [0, 0.5]) {
+          const p0 = topNode(k, side), p1 = topNode(k + 1, side);
+          lightPos.push(p0[0] + (p1[0] - p0[0]) * frac, p0[1] + (p1[1] - p0[1]) * frac + 0.5, p0[2] + (p1[2] - p0[2]) * frac);
+          lightCol.push(1, 1, 1);
+        }
+        if (k >= 1 && k % 2 === 0) {
+          const tp = topNode(k, side), bp = botNode(k, side);
+          lightPos.push(tp[0], (tp[1] + bp[1]) / 2, tp[2]);
+          lightCol.push(0.6, 0.6, 0.6);
+        }
+      }
+    }
+
+    let prevPair: [number[], number[]] | null = null;
+    for (let k = 2; k <= PANELS_PER_SPAN - 2; k++) {
+      const left = topNode(k, -1), right = topNode(k, 1);
+      if (left[1] < DECK_TOP_M + 4.6) continue;
+      buf.beam(left, right, 0.34, 0.34, steel);
+      if (prevPair) {
+        buf.beam(prevPair[0], right, 0.2, 0.2, steelDark);
+        buf.beam(prevPair[1], left, 0.2, 0.2, steelDark);
+      }
+      prevPair = [left, right];
+    }
+
+    const pts = glowPoints(lightPos, lightCol, 3.4);
+    group.add(pts);
+    spanLights.push(pts);
+    const alongList: number[] = [];
+    for (let j = 0; j < lightPos.length; j += 3) alongList.push((lightPos[j] - center[0]) * dir[0] + (lightPos[j + 2] - center[1]) * dir[1]);
+    lampS.push(alongList);
+
+    const ledBuf = new Buf(700);
+    const outerOf = (pt: number[], side: number, off = 0.5, up = 0) => [pt[0] + across[0] * side * off, pt[1] + up, pt[2] + across[1] * side * off];
+    for (const side of [-1, 1]) {
+      for (let k = 0; k < PANELS_PER_SPAN; k++) {
+        ledBuf.beam(outerOf(topNode(k, side), side, 0.46, 0.2), outerOf(topNode(k + 1, side), side, 0.46, 0.2), 0.2, 0.5, white);
+        ledBuf.beam(outerOf(topNode(k, side), side, 0.3), outerOf(botNode(k, side), side, 0.3), 0.12, 0.12, white);
+      }
+      ledBuf.beam(outerOf(botNode(0, side), side, 0.36), outerOf(botNode(PANELS_PER_SPAN, side), side, 0.36), 0.14, 0.28, white);
+    }
+    const strip = new THREE.Mesh(ledBuf.geometry(), bandMat);
+    strip.renderOrder = 19;
+    strip.userData.landmark = true;
+    group.add(strip);
+  }
+  return { spanLights, lampS };
+}
+
+export function buildTruongTien(data: any, buf: Buf, group: THREE.Group) {
+  const tt = data.truongtien;
+  const isPt = (pt: any) => Array.isArray(pt) && Number.isFinite(pt[0]) && Number.isFinite(pt[1]);
+  if (!tt || !isPt(tt.a) || !isPt(tt.b) || !tt.box || !isPt(tt.box.c) || !(tt.box.w > 0) || !(tt.box.d > 0)) {
+    console.warn('Trường Tiền not built: data.truongtien missing or incomplete');
+    const lamps = glowPoints([], [], 8);
+    group.add(lamps);
+    return { centre: [0, 0], dir: [1, 0], across: [0, 1], length: 0, width: 0, span: 0, deckTop: 0, deckBottom: 0, lights: [], lamps, update() {} };
+  }
+
+  const northEnd = [tt.a[0] / DECIMETRES_PER_METRE, tt.a[1] / DECIMETRES_PER_METRE];
+  const southEnd = [tt.b[0] / DECIMETRES_PER_METRE, tt.b[1] / DECIMETRES_PER_METRE];
+  const length = TT_LENGTH;
+  const width = tt.box.d / DECIMETRES_PER_METRE;
+  const center: [number, number] = [tt.box.c[0] / DECIMETRES_PER_METRE, tt.box.c[1] / DECIMETRES_PER_METRE];
+  const axisLen = Math.hypot(southEnd[0] - northEnd[0], southEnd[1] - northEnd[1]);
+  const dir: [number, number] = [(southEnd[0] - northEnd[0]) / axisLen, (southEnd[1] - northEnd[1]) / axisLen];
+  const across: [number, number] = [-dir[1], dir[0]];
+  const span = length / SPAN_COUNT;
+  const frame: BridgeFrame = {
+    center,
+    dir,
+    across,
+    ang: Math.atan2(dir[1], dir[0]),
+    length,
+    width,
+    span,
+    trussX: width / 2 - WALKWAY_INSET_M,
+    at: (alongS, off, y) => [center[0] + dir[0] * alongS + across[0] * off, y, center[1] + dir[1] * alongS + across[1] * off],
+  };
+
+  buildDeckAndApproaches(buf, frame);
+  const { lampPos, lampCol } = buildPiers(buf, frame);
+  const bandMat = createBandMaterial(center, dir, length);
+  const { spanLights, lampS } = buildBowSpans(buf, group, frame, bandMat);
+
+  const lamps = glowPoints(lampPos, lampCol, 8);
+  group.add(lamps);
+
+  const edgeBuf = new Buf(160);
+  const white = [1, 1, 1];
+  for (const side of [-1, 1]) {
+    edgeBuf.beam(frame.at(-length / 2, side * (width / 2 + 0.08), DECK_TOP_M - 0.12), frame.at(length / 2, side * (width / 2 + 0.08), DECK_TOP_M - 0.12), 0.1, 0.16, white);
+    for (let i = 1; i < SPAN_COUNT; i++) {
+      const alongS = -length / 2 + i * span;
+      edgeBuf.beam(frame.at(alongS, side * (width / 2 + 1.2), 0.5), frame.at(alongS, side * (width / 2 + 0.5), DECK_TOP_M - DECK_THICK_M - TRESTLE_H_M - 0.8), 0.5, 0.2, white);
+    }
+  }
+  const edgeMesh = new THREE.Mesh(edgeBuf.geometry(), lightMaterial(0xffd9a0, 0.75));
+  edgeMesh.renderOrder = 19;
+  edgeMesh.userData.landmark = true;
+  group.add(edgeMesh);
+
+  const colorTmp = new THREE.Color();
+  return {
+    centre: center,
+    dir,
+    across,
+    length,
+    width,
+    span,
+    deckTop: DECK_TOP_M,
+    deckBottom: DECK_TOP_M - DECK_THICK_M,
+    lights: spanLights,
+    lamps,
+    update(time: number, _glow: number, rain: number) {
+      const warmMix = Math.min(1, rain * 0.85);
+      bandMat.uniforms.uWarmMix.value = warmMix;
+      bandMat.uniforms.uBoost.value = 1.5 + rain * 0.4;
+      for (let i = 0; i < spanLights.length; i++) {
+        const uniforms = spanLights[i].material.uniforms;
+        const colorAttr = spanLights[i].geometry.attributes.color;
+        const alongList = lampS[i];
+        uniforms.uTint.value.setRGB(1, 1, 1);
+        uniforms.uBoost.value = 0.55 + rain * 0.25;
+        for (let j = 0; j < alongList.length; j++) {
+          bandColor(alongList[j], time, length, colorTmp).lerp(WARM_WHITE, warmMix).multiplyScalar(0.6);
+          colorAttr.setXYZ(j, colorTmp.r, colorTmp.g, colorTmp.b);
+        }
+        colorAttr.needsUpdate = true;
+      }
+    },
+  };
+}
