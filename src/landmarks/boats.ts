@@ -449,10 +449,18 @@ export function buildBoats(data: any, group: THREE.Group, structures: any = null
   const track = riverTrack(data);
   const fleet: any[] = [];
   if (track) {
-    geo.computeBoundingBox();
-    const route = fleetRouter(track, structures, geo.boundingBox!.min.toArray(), geo.boundingBox!.max.toArray(), landTest(data));
+    const preRoutes: [number, number, number][] | null = Array.isArray(data.precomputed?.boatRoutes) && data.precomputed.boatRoutes.length === FLEET_COUNT
+      ? data.precomputed.boatRoutes
+      : null;
+    let route: ((want: number) => { lane: number; lo: number; hi: number }) | null = null;
+    if (!preRoutes) {
+      geo.computeBoundingBox();
+      route = fleetRouter(track, structures, geo.boundingBox!.min.toArray(), geo.boundingBox!.max.toArray(), landTest(data));
+    }
     for (let i = 0; i < FLEET_COUNT; i++) {
-      const { lane, lo, hi } = route(26 + (i % 3) * 8);
+      const { lane, lo, hi } = preRoutes
+        ? { lane: preRoutes[i][0], lo: preRoutes[i][1], hi: preRoutes[i][2] }
+        : route!(26 + (i % 3) * 8);
       fleet.push({
         mesh: createBoatMesh(),
         s: lo + ((hi - lo) * (i + 0.5)) / FLEET_COUNT,
@@ -472,6 +480,7 @@ export function buildBoats(data: any, group: THREE.Group, structures: any = null
   try { wakes = fleet.map((boat) => [boat, makeWake(group, wakeTime)]); } catch { wakes = []; }
 
   return {
+    routes: fleet.map((boat) => [boat.lane, boat.lo, boat.hi]),
     update(dt: number, time: number) {
       const isLit = shared.uGlow.value >= GLOW_VISIBLE_THRESHOLD;
       for (let i = 0; i < winMeshes.length; i++) { winMeshes[i].visible = isLit; lanMeshes[i].visible = isLit; }

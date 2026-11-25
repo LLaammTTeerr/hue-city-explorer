@@ -26,6 +26,7 @@ export async function buildScene(opts = {}) {
   let current = 'city';
   console.warn = (...a) => { warnings.push([current, a.map(String).join(' ')]); };
   const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
+  if (opts.freshPrecompute) delete data.precomputed;
   if (opts.whole) withTiles(data);
   const { initTerrain, groundY } = await import(src('geo/terrain.ts'));
   const { initDistricts } = await import(src('geo/districts.ts'));
@@ -55,9 +56,9 @@ export async function buildScene(opts = {}) {
     else if (world.group.children.length > g) sources.push({ name, range: [S.n, S.n], objs: world.group.children.slice(g) });
   };
   const onPlace = (id, range, k) => sources.push({ name: 'place:' + id, range, objs: dyn.children.slice(k) });
-  buildLandmarks(data, world, dyn, { step, onPlace, finish: !!opts.app }); // the checks read the buffer, not the merged mesh
+  const handles = buildLandmarks(data, world, dyn, { step, onPlace, finish: !!opts.app }); // the checks read the buffer, not the merged mesh
   const tiles = readTiles(data); // the trees and houses the app plants after the first frame, the way it plants them
   step('tiles', () => { for (const t of tiles) world.addTile(t); });
   console.warn = warn0;
-  return { data, tiles, world, S, dyn, sources, errors, warnings, groundY, isLand, ROAD_W: config.ROAD_W, LAND_Y: config.LAND_Y };
+  return { data, tiles, world, S, dyn, sources, errors, warnings, groundY, isLand, ROAD_W: config.ROAD_W, LAND_Y: config.LAND_Y, boats: handles.boats };
 }

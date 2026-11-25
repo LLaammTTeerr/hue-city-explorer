@@ -600,7 +600,7 @@ async function main() {
   labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true), data.streetLabels);
   // Drop raw city arrays from JS heap once all builders and labels have consumed them (only meta/places stay live).
   if (!KEEP_GEOMETRY) {
-    for (const k of ['terrain', 'roads', 'medians', 'rails', 'bld', 'infill', 'trees', 'green', 'land', 'ponds', 'pondLv', 'wall', 'iwalls', 'sites', 'riverLamps', 'moorings', 'streetLabels', 'bridges']) {
+    for (const k of ['terrain', 'roads', 'medians', 'rails', 'bld', 'infill', 'trees', 'green', 'land', 'ponds', 'pondLv', 'wall', 'iwalls', 'sites', 'riverLamps', 'moorings', 'streetLabels', 'bridges', 'precomputed']) {
       delete data[k];
     }
   }

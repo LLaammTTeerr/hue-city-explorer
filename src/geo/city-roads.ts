@@ -595,19 +595,46 @@ export function buildRoads(data: any, group: THREE.Group, structures: Buf, clear
     const [leftEdge, rightEdge] = ribbonPoints(pts, road.ws ? pts.map((pt: number[]) => widthAt(road.pts, road.ws, pt)) : road.w, road.ends);
     carriageways.push({ id, c: road.c, pts: road.pts, L: leftEdge, R: rightEdge, u: road.unmarked });
   });
-  const greens = (data.green || []).filter(([kind]: any) => kind !== 'paved').map(([, poly]: any) => unflat(poly[0]));
-  const { holes, cells: holeCells } = junctionHoles(carriageways, (x: number, z: number) => greens.some((poly: any) => inPoly(poly, x, z)));
+  const pre = data.precomputed;
+  let holes: any[];
+  let holeCells: Set<number>;
+  if (pre?.holes && pre?.holeCells) {
+    holes = pre.holes.map(([c, x, z, area, flatRects]: [number, number, number, number, number[]]) => {
+      const rects: [number, number, number, number][] = [];
+      for (let i = 0; i < flatRects.length; i += 4) rects.push([flatRects[i], flatRects[i + 1], flatRects[i + 2], flatRects[i + 3]]);
+      return { c, x, z, area, rects };
+    });
+    holeCells = new Set<number>();
+    const runs: number[] = pre.holeCells;
+    for (let i = 0; i < runs.length; i += 3) {
+      const cj = runs[i], ci0 = runs[i + 1], ci1 = runs[i + 2];
+      for (let ci = ci0; ci <= ci1; ci++) holeCells.add(ci * 1048576 + cj);
+    }
+  } else {
+    const greens = (data.green || []).filter(([kind]: any) => kind !== 'paved').map(([, poly]: any) => unflat(poly[0]));
+    const computed = junctionHoles(carriageways, (x: number, z: number) => greens.some((poly: any) => inPoly(poly, x, z)));
+    holes = computed.holes;
+    holeCells = computed.cells;
+  }
 
   buf.kind = KIND.ROAD;
   for (const hole of holes) {
     const lift = rise(hole.x, hole.z) > 0 ? DRAPE_LIFT_M : 0;
     const col = roadCols[Math.min(hole.c, ROAD_MAX)];
     const vertex = (x: number, z: number) => [x, baseY + 0.0055 + rise(x, z) + lift, z];
-    for (const [x0, x1, z0, z1] of holeRects(hole)) buf.quad(vertex(x0, z0), vertex(x0, z1), vertex(x1, z1), vertex(x1, z0), col, [0, 1, 0]);
+    const rects = hole.rects || (hole.rects = holeRects(hole));
+    for (const [x0, x1, z0, z1] of rects) buf.quad(vertex(x0, z0), vertex(x0, z1), vertex(x1, z1), vertex(x1, z0), col, [0, 1, 0]);
   }
 
   const paved: any[] = [];
-  for (const sliver of slivers(roads.filter((road) => !road.bridge && road.c <= 4))) {
+  const sliverList: any[] = pre?.slivers
+    ? pre.slivers.map(([c, flatPts, ws]: [number, number[], number[]]) => {
+        const pts: number[][] = [];
+        for (let i = 0; i < flatPts.length; i += 2) pts.push([flatPts[i], flatPts[i + 1]]);
+        return { c, pts, ws };
+      })
+    : slivers(roads.filter((road) => !road.bridge && road.c <= 4));
+  for (const sliver of sliverList) {
     ribbon(buf, sliver.pts, sliver.ws, baseY + 0.0055, roadCols[Math.min(sliver.c, ROAD_MAX)]);
     const [leftEdge, rightEdge] = ribbonPoints(sliver.pts, sliver.ws);
     paved.push({ L: leftEdge, R: rightEdge });
@@ -645,5 +672,5 @@ export function buildRoads(data: any, group: THREE.Group, structures: Buf, clear
 
   buildBridgeDecks(data, roads, profiles, structures, casing, roadCols);
   const lamps = buildStreetLamps(data, roads, profiles, group);
-  return { lamps, marks: { roads, cw: carriageways, holes, holeCells, paved, dashes } };
+  return { lamps, marks: { roads, cw: carriageways, holes, holeCells, paved, dashes, slivers: sliverList } };
 }
