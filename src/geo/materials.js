@@ -317,32 +317,35 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   vec2 uv = vec2( dot( vWPos, e ) / 0.52, dot( vWPos, s ) / 0.72 );
   float fw = fwidth( uv.x ) + fwidth( uv.y );
   float detail = 1.0 - smoothstep( 0.35, 1.2, fw );
-  float ridge = pow( abs( sin( 3.14159 * uv.x ) ), 0.55 );
-  float course = smoothstep( 0.0, 0.14, fract( uv.y ) );
+  float ridge = pow( abs( sin( 3.14159 * uv.x ) ), 0.52 );
+  float course = smoothstep( 0.0, 0.16, fract( uv.y ) );
   float jit = hueHash( floor( uv ) );
-  float shade = ( 0.74 + 0.32 * ridge ) * ( 0.84 + 0.16 * course ) * ( 0.96 + 0.08 * jit );
+  float shade = ( 0.7 + 0.36 * ridge ) * ( 0.8 + 0.2 * course ) * ( 0.94 + 0.12 * jit );
   // drawn: a flat wash hatched down the slope, the pen lifting here and there
   float hatch = ( 1.0 - smoothstep( 0.0, 0.2, abs( sin( 3.14159 * uv.x ) ) ) ) * step( 0.2, hueHash( floor( vec2( uv.x, uv.y * 0.4 ) ) ) );
   shade = mix( shade, 1.06 - 0.36 * hatch, uLook );
   // age: darker patches, lighter where rain has washed the ridges
-  hueRib = normalize( hueN + e * cos( 3.14159 * uv.x ) * 0.45 * detail );
+  hueRib = normalize( hueN + e * cos( 3.14159 * uv.x ) * 0.52 * detail );
   // each course laps the one below: the lip tips the tile a little down the slope
-  hueNp = normalize( hueRib - s * ( 1.0 - course ) * 0.35 * detail );
-  hueGlaze = vKind > 8.5 ? 1.0 : 0.1;
+  hueNp = normalize( hueRib - s * ( 1.0 - course ) * 0.4 * detail );
+  hueGlaze = vKind > 8.5 ? 1.0 : 0.12;
   float age = hueNoise( vWPos.xz * 0.35 ) * 0.6 + hueNoise( vWPos.xz * 1.4 ) * 0.4;
-  diffuseColor.rgb *= mix( 0.94, shade, detail ) * ( 0.88 + 0.22 * age );
+  diffuseColor.rgb *= mix( 0.93, shade, detail ) * ( 0.86 + 0.26 * age );
+  // subtle per-tile warmth shift (fired clay and ceramic glaze vary slightly from batch to batch)
+  diffuseColor.rgb *= mix( vec3( 1.0 ), mix( vec3( 0.95, 0.98, 1.04 ), vec3( 1.05, 1.0, 0.93 ), jit ), detail * ( 1.0 - uLook ) );
   // lichen and soot where unglazed tiles stay damp; glazed ceramic tiles shed most moss
   float moss = hueNoise( vWPos.xz * 0.23 + 31.0 ) * 0.65 + hueNoise( vWPos.xz * 1.1 + 7.0 ) * 0.35;
-  float mossK = vKind > 8.5 ? 0.16 : 0.4;
-  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.7, 0.55 ), smoothstep( 0.45, 0.82, moss ) * mossK );
+  float mossK = vKind > 8.5 ? 0.14 : 0.44;
+  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.6, 0.7, 0.52 ), smoothstep( 0.44, 0.8, moss ) * mossK );
   // soot-dark courses near the eaves, where old tiles hold water longest
-  diffuseColor.rgb *= 1.0 - ( vKind > 8.5 ? 0.07 : 0.12 ) * smoothstep( 0.6, 0.95, hueNoise( vWPos.xz * 2.4 ) );
+  diffuseColor.rgb *= 1.0 - ( vKind > 8.5 ? 0.08 : 0.14 ) * smoothstep( 0.58, 0.94, hueNoise( vWPos.xz * 2.4 ) );
   // glazed imperial tile keeps a ceramic sheen where moss has not taken it; clay tile is matt
-  hueRough = vKind > 8.5 ? mix( 0.26, 0.5, smoothstep( 0.45, 0.82, moss ) ) : mix( 0.68, 0.9, age );
-  hueMetal = vKind > 8.5 ? 0.04 : 0.0;
+  hueRough = vKind > 8.5 ? mix( 0.2, 0.46, smoothstep( 0.44, 0.8, moss ) ) : mix( 0.66, 0.9, age );
+  hueMetal = vKind > 8.5 ? 0.08 : 0.0;
 } else if ( vKind > 3.5 && vKind < 4.5 ) {
   // ---------------- brick and stone ----------------
-  diffuseColor.rgb *= mix( 1.0, mix( 0.76, 1.0, smoothstep( 0.0, 5.0, hueH ) ), hueWall );
+  // stronger grounding AO near the earth/waterline, fading smoothly up the rampart
+  diffuseColor.rgb *= mix( 1.0, mix( 0.68, 1.0, smoothstep( 0.0, 4.5, hueH ) ), hueWall );
   vec2 t = normalize( vec2( -hueN.z, hueN.x ) + 1e-5 );
   float along = dot( vWPos.xz, t );
   float rowf = vWPos.y / 0.62;
@@ -350,21 +353,26 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   float bu = along / 1.45 + 0.5 * mod( row, 2.0 );
   float fw = fwidth( bu ) + fwidth( rowf );
   float detail = ( 1.0 - smoothstep( 0.25, 0.8, fw ) ) * step( 0.5, hueWall );
-  float joint = max( 1.0 - smoothstep( 0.0, 0.09, fract( rowf ) ), 1.0 - smoothstep( 0.0, 0.05, fract( bu ) ) );
+  float joint = max( 1.0 - smoothstep( 0.0, 0.1, fract( rowf ) ), 1.0 - smoothstep( 0.0, 0.055, fract( bu ) ) );
   float jit = hueHash( vec2( floor( bu ), row ) );
-  float bricks = ( 1.0 - 0.3 * joint ) * ( 0.84 + 0.3 * jit );
-  diffuseColor.rgb *= mix( 0.96, bricks, detail );
-  // damp and moss creeping over old masonry
+  float bricks = ( 1.0 - 0.36 * joint ) * ( 0.8 + 0.36 * jit );
+  diffuseColor.rgb *= mix( 0.95, bricks, detail );
+  // subtle fired-brick / weathered-stone hue variation
+  diffuseColor.rgb *= mix( vec3( 1.0 ), mix( vec3( 0.93, 0.96, 1.02 ), vec3( 1.06, 0.98, 0.91 ), jit ), detail * 0.7 * ( 1.0 - uLook ) );
+  // damp and moss creeping over old masonry (stronger in crevices and lower courses)
   float moss = hueNoise( vec2( along * 0.12, vWPos.y * 0.45 ) ) * 0.7 + hueNoise( vec2( along * 0.5, vWPos.y * 1.3 ) ) * 0.3;
-  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.72, 0.98, 0.62 ), smoothstep( 0.45, 0.85, moss ) * 0.55 * hueWall );
-  diffuseColor.rgb *= 0.9 + 0.2 * hueNoise( vec2( along * 0.05, vWPos.y * 0.2 ) + 9.0 );
-  hueRough = 0.93;
-  hueHgt = ( -0.03 * joint + 0.012 * jit + 0.008 * hueNoise( vec2( along, vWPos.y ) * 9.0 ) ) * detail * detail;
+  float lowMoss = 1.0 - smoothstep( 0.0, 3.2, hueH );
+  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.66, 0.96, 0.56 ), clamp( smoothstep( 0.42, 0.82, moss ) * 0.58 + lowMoss * 0.22, 0.0, 0.75 ) * hueWall );
+  diffuseColor.rgb *= 0.88 + 0.24 * hueNoise( vec2( along * 0.05, vWPos.y * 0.2 ) + 9.0 );
+  hueRough = mix( 0.94, 0.82, lowMoss * 0.5 );
+  hueHgt = ( -0.036 * joint + 0.015 * jit + 0.01 * hueNoise( vec2( along, vWPos.y ) * 9.0 ) ) * detail * detail;
 } else if ( vKind > 4.5 && vKind < 5.5 ) {
   // ---------------- planted ground ----------------
-  float g = hueNoise( vWPos.xz * 0.11 ) * 0.6 + hueNoise( vWPos.xz * 0.9 ) * 0.25 + hueNoise( vWPos.xz * 5.0 ) * 0.15;
-  diffuseColor.rgb *= 0.82 + 0.34 * g;
-  diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 1.1, 1.04, 0.8 ), smoothstep( 0.55, 0.9, g ) * 0.4 );
+  float gMacro = hueNoise( vWPos.xz * 0.035 );
+  float g = hueNoise( vWPos.xz * 0.11 ) * 0.5 + hueNoise( vWPos.xz * 0.85 ) * 0.3 + hueNoise( vWPos.xz * 4.5 ) * 0.2;
+  diffuseColor.rgb *= ( 0.78 + 0.4 * g ) * ( 0.9 + 0.2 * gMacro );
+  // warm sunlit grass blades vs cooler lush shaded patches
+  diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.88, 1.02, 0.92 ), diffuseColor.rgb * vec3( 1.12, 1.05, 0.76 ), smoothstep( 0.35, 0.82, g * 0.7 + gMacro * 0.3 ) * 0.52 );
   hueRough = 0.96;
   if ( uLook > 0.5 ) {
     // drawn grass: small pen marks scattered over the wash
@@ -375,19 +383,22 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   }
 } else if ( vKind > 5.5 && vKind < 6.5 ) {
   // ---------------- paving ----------------
-  diffuseColor.rgb *= 0.93 + 0.1 * hueNoise( vWPos.xz * 0.7 ) + 0.04 * hueNoise( vWPos.xz * 7.0 );
+  float pm = hueNoise( vWPos.xz * 0.08 ) * 0.5 + hueNoise( vWPos.xz * 0.7 ) * 0.35 + hueNoise( vWPos.xz * 6.5 ) * 0.15;
+  diffuseColor.rgb *= 0.89 + 0.2 * pm;
   hueRough = 0.84;
   #ifndef HUE_OVERLAY
-  if ( hueH > 0.3 && hueN.y > 0.7 ) {
-    // terraces and platforms are laid in flagstones (đá thanh, gạch Bát Tràng): staggered joints, each stone its own tone
-    vec2 pv = vWPos.xz / 1.5;
+  if ( hueH > -0.05 && hueN.y > 0.7 ) {
+    // terraces, courtyards and plazas laid in flagstones or concrete slabs: staggered joints, each tile its own tone
+    float slab = hueH > 0.3 ? 1.5 : 2.6;
+    vec2 pv = vWPos.xz / slab;
     pv.x += step( 0.5, fract( pv.y * 0.5 ) ) * 0.5;
     vec2 pf = abs( fract( pv ) - 0.5 );
     float pw = fwidth( pv.x ) + fwidth( pv.y );
-    float near = 1.0 - smoothstep( 0.06, 0.26, pw );
-    diffuseColor.rgb *= 1.0 - 0.2 * smoothstep( 0.45, 0.5, max( pf.x, pf.y ) ) * near;
-    diffuseColor.rgb *= 1.0 + ( hueHash( floor( pv ) ) - 0.5 ) * 0.1 * near;
-    hueHgt = -0.02 * smoothstep( 0.45, 0.5, max( pf.x, pf.y ) ) * near * near;
+    float near = 1.0 - smoothstep( 0.06, 0.28, pw );
+    float jStr = hueH > 0.3 ? 0.22 : 0.13;
+    diffuseColor.rgb *= 1.0 - jStr * smoothstep( 0.45, 0.5, max( pf.x, pf.y ) ) * near;
+    diffuseColor.rgb *= 1.0 + ( hueHash( floor( pv ) ) - 0.5 ) * ( hueH > 0.3 ? 0.12 : 0.08 ) * near;
+    hueHgt = -0.022 * smoothstep( 0.45, 0.5, max( pf.x, pf.y ) ) * near * near;
   }
   #endif
 } else if ( vKind > 6.5 && vKind < 7.5 ) {
@@ -419,7 +430,35 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   float lpx = fwidth( vWPos.x ) + fwidth( vWPos.z );
   diffuseColor.rgb = mix( diffuseColor.rgb, vec3( 0.075, 0.055, 0.05 ), uLook * 0.8 * ( 1.0 - smoothstep( 0.5, 2.2, lpx ) ) );
 } else {
-  diffuseColor.rgb *= mix( 1.0, mix( 0.78, 1.0, smoothstep( 0.0, 5.0, hueH ) ), hueWall * step( 0.0, hueH ) );
+  // ---------------- plain architectural plaster, stone trim & hero GLB sculptural accents ----------------
+  diffuseColor.rgb *= mix( 1.0, mix( 0.74, 1.0, smoothstep( 0.0, 4.5, hueH ) ), hueWall * step( 0.0, hueH ) );
+  float gr = hueNoise( vWPos.xz * 0.45 + vWPos.y * 0.35 ) * 0.6 + hueNoise( vWPos.xz * 3.2 - vWPos.y * 2.4 ) * 0.4;
+  diffuseColor.rgb *= 0.92 + 0.16 * gr;
+  #ifdef HUE_HERO
+  // Hero GLB sculptural details: warm gold/bronze/jade enamel ornaments get real metallic/ceramic sheen
+  {
+    vec3 hc = diffuseColor.rgb;
+    float lum = max( hc.r, max( hc.g, hc.b ) );
+    float sat = ( lum - min( hc.r, min( hc.g, hc.b ) ) ) / max( lum, 0.001 );
+    float isGold = smoothstep( 0.28, 0.55, sat ) * smoothstep( 0.18, 0.45, hc.r ) * step( hc.b, hc.g * 0.85 );
+    float isJade = smoothstep( 0.22, 0.48, sat ) * step( hc.r, hc.g * 0.85 ) * smoothstep( 0.08, 0.25, hc.g );
+    float isBronze = smoothstep( 0.14, 0.35, sat ) * step( lum, 0.28 ) * step( hc.b, hc.r * 0.8 );
+    float sheen = clamp( isGold + isJade * 0.85 + isBronze * 0.75, 0.0, 1.0 );
+    hueRough = mix( 0.82, 0.24, sheen );
+    hueMetal = clamp( isGold * 0.52 + isBronze * 0.45 + isJade * 0.12, 0.0, 0.58 );
+    hueGlaze = max( hueGlaze, sheen * 0.75 );
+  }
+  #else
+  // Cool blue-slate architectural glass on modern landmarks (Vincom, AEON, transit hubs) catches crisp sky/sun reflections
+  {
+    vec3 pc = diffuseColor.rgb;
+    float isBlueGlass = hueWall * step( pc.r * 1.18, pc.b ) * step( pc.r, 0.24 ) * smoothstep( 0.04, 0.14, pc.b );
+    hueRough = mix( hueRough, 0.08, isBlueGlass * ( 1.0 - uLook ) );
+    hueMetal = mix( hueMetal, 0.22, isBlueGlass * ( 1.0 - uLook ) );
+    hueGlass = max( hueGlass, isBlueGlass * ( 1.0 - uLook ) );
+  }
+  hueHgt = ( 0.008 * hueNoise( vWPos.xz * 4.5 + vWPos.y * 4.5 ) ) * ( 1.0 - smoothstep( 0.15, 0.6, fwidth( vWPos.x ) + fwidth( vWPos.z ) ) );
+  #endif
 }
 {
   // relief to normal: the height's screen-space slope, laid back into the surface
@@ -461,13 +500,14 @@ const FOLIAGE_COLOR = /* glsl */ `
 
 // PBR material for baked vertex-colour geometry (colours are stored sqrt-encoded
 // in 8 bits, see Buf.tri) with the procedural surface detail above.
-export function cityMaterial({ windows = false, foliage = false, styled = false, overlay = false, ...opts } = {}) {
+export function cityMaterial({ windows = false, foliage = false, styled = false, overlay = false, hero = false, ...opts } = {}) {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.86, metalness: 0, ...opts });
   m.defines = { ...(m.defines || {}) };
   if (windows) m.defines.HUE_WINDOWS = '';
   if (foliage) m.defines.HUE_FOLIAGE = '';
   if (styled) m.defines.HUE_STYLED = '';
   if (overlay) m.defines.HUE_OVERLAY = ''; // flat ribbons laid on the ground (streets): no flagstone joints
+  if (hero) m.defines.HUE_HERO = ''; // hero GLB sculptural accents: metallic/ceramic sheen on gilded/bronze/jade parts
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uGlow = shared.uGlow;
     sh.uniforms.uLandY = shared.uLandY;
@@ -578,7 +618,7 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         #endif`,
       ).src;
   };
-  m.customProgramCacheKey = () => 'hue-city-' + (windows ? 'w' : 'p') + (foliage ? 'f' : '') + (styled ? 's' : '') + (overlay ? 'o' : '');
+  m.customProgramCacheKey = () => 'hue-city-' + (windows ? 'w' : 'p') + (foliage ? 'f' : '') + (styled ? 's' : '') + (overlay ? 'o' : '') + (hero ? 'h' : '');
   return m;
 }
 

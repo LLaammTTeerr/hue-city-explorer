@@ -172,20 +172,37 @@ export function build({ data, S, group }) {
     // paved concrete apron behind the terminal (north/yard side)
     box(2, -D / 2 - 36, y0 - 0.2, y0 + 0.08, L + 26, 56, hex('#b6b2a9'), { topKind: KIND.ROAD });
     (S.paved = S.paved || []).push([yard0, S.n]);
+    // painted yellow/white bay lane markings across the bus yard
+    S.kind = KIND.PLAIN;
+    for (let k = 0; k < 8; k++) {
+      box(-18 + k * 5.2, -D / 2 - 33, y0 + 0.08, y0 + 0.11, 0.18, 12.6, C.white);
+    }
+    for (let k = 0; k < 7; k++) {
+      box(-16.5 + k * 5.6, -D / 2 - 14.5, y0 + 0.08, y0 + 0.11, 0.18, 12.2, C.yellow);
+    }
     // parked intercity sleeper buses (orange/red Phương Trang, blue/white, cream/red) in neat angled bays
     const busCols = [hex('#e66824'), hex('#d9382a'), hex('#2c62a8'), hex('#e8e4da'), hex('#2d8a68'), hex('#e66824')];
     const bus = (u, v, angOff, col, len = 11.4, wid = 2.55, h = 3.5) => {
       const p = P(u, v), ba = a + angOff;
+      const fx = Math.cos(ba), fz = Math.sin(ba);
       S.kind = KIND.PLAIN;
-      S.box(p[0], p[1], y0 + 0.35, y0 + h, len, wid, ba, col, { top: C.white });
-      // dark tinted passenger window ribbon & front windshield
-      S.box(p[0], p[1], y0 + 1.65, y0 + h - 0.45, len - 0.3, wid + 0.04, ba, C.glass);
-      // rooftop AC pod
-      S.box(p[0], p[1], y0 + h, y0 + h + 0.32, len * 0.42, wid * 0.62, ba, C.white);
+      // lower luggage-bay skirt + main body + white livery stripe + tapered roof cap
+      S.box(p[0], p[1], y0 + 0.32, y0 + 1.18, len, wid, ba, shade(col, 0.82));
+      S.box(p[0], p[1], y0 + 1.18, y0 + h - 0.18, len, wid, ba, col, { top: C.white });
+      S.box(p[0], p[1], y0 + 1.3, y0 + 1.52, len - 0.1, wid + 0.03, ba, C.white);
+      S.box(p[0], p[1], y0 + h - 0.18, y0 + h, len - 0.35, wid - 0.18, ba, C.white, { top: C.white });
+      // dark tinted passenger window ribbon + panoramic windshield + destination LED + headlights
+      S.box(p[0], p[1], y0 + 1.65, y0 + h - 0.45, len - 0.35, wid + 0.05, ba, C.glass);
+      S.box(p[0] + fx * (len * 0.49), p[1] + fz * (len * 0.49), y0 + 1.22, y0 + h - 0.38, 0.14, wid - 0.14, ba, hex('#1d2730'));
+      S.box(p[0] + fx * (len * 0.505), p[1] + fz * (len * 0.505), y0 + h - 0.62, y0 + h - 0.42, 0.06, wid * 0.58, ba, C.yellow);
+      S.box(p[0] + fx * (len * 0.505), p[1] + fz * (len * 0.505), y0 + 0.65, y0 + 0.92, 0.06, wid * 0.82, ba, hex('#eef3f8'));
+      // twin rooftop AC pods
+      S.box(p[0] - fx * (len * 0.08), p[1] - fz * (len * 0.08), y0 + h, y0 + h + 0.3, len * 0.36, wid * 0.6, ba, hex('#dfe2e5'));
+      S.box(p[0] + fx * (len * 0.24), p[1] + fz * (len * 0.24), y0 + h, y0 + h + 0.22, len * 0.16, wid * 0.52, ba, hex('#cfd4d8'));
       // wheels
       for (const s of [-len * 0.3, len * 0.3]) {
-        const wx = p[0] + Math.cos(ba) * s, wz = p[1] + Math.sin(ba) * s;
-        S.box(wx, wz, y0 + 0.08, y0 + 0.85, 0.9, wid + 0.06, ba, hex('#232527'));
+        const wx = p[0] + fx * s, wz = p[1] + fz * s;
+        S.box(wx, wz, y0 + 0.06, y0 + 0.88, 0.92, wid + 0.06, ba, hex('#1f2124'));
       }
     };
     // row 1: boarding coaches along the pick-up canopy

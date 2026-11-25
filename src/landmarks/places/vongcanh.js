@@ -295,14 +295,15 @@ export function build({ data, S, group }) {
       const pts = [];
       for (let k = 0; k <= 36; k++) pts.push(lobePt(L, (k / 36) * Math.PI * 2));
       edging(S, pts, 1, false);
-      // planting: low flowering clumps in the shrub beds, a few in the lawns
-      const n = L[5] === 'shrub' ? Math.round(L[2] * L[3] * 0.5) : L[5] === 'lawn' ? 3 : 0;
+      // planting: vibrant sim, tường vi, ngũ sắc & marigold flowering clumps in the shrub beds, a few in the lawns
+      const FLW = [hex('#56703f'), hex('#b84c8e'), hex('#d96846'), hex('#e6b83a'), hex('#8a52a8')];
+      const n = L[5] === 'shrub' ? Math.round(L[2] * L[3] * 0.72) : L[5] === 'lawn' ? 5 : 2;
       for (let i = 0; i < n; i++) {
-        const t = hash(i, L[0]) * Math.PI * 2, rr = Math.sqrt(hash(i, L[1])) * 0.8;
+        const t = hash(i, L[0]) * Math.PI * 2, rr = Math.sqrt(hash(i, L[1])) * 0.82;
         const [x, z] = lobePt(L, t, 0), px = L[0] + (x - L[0]) * rr, pz = L[1] + (z - L[1]) * rr, g = gy(px, pz);
-        const s = 0.6 + hash(i, 7) * 0.5;
+        const s = 0.7 + hash(i, 7) * 0.6;
         S.base = g - LAND_Y;
-        S.cyl(px, pz, g, g + 0.6 * s, 0.6 * s, 0.4 * s, 6, i % 4 ? hex('#56703f') : hex('#9a5a86'), { rot: hash(i, 4) });
+        S.cyl(px, pz, g, g + 0.68 * s, 0.68 * s, 0.46 * s, 6, FLW[i % FLW.length], { rot: hash(i, 4) });
       }
     }
     // the lane's parking apron

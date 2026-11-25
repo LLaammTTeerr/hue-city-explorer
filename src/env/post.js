@@ -47,21 +47,21 @@ class OcclusionPass extends Pass {
           vec3 N = cl > 1e-6 ? cr / cl : vec3( 0.0, 0.0, 1.0 );
           float dist = -z;
           // world radius grows with distance: door-step shadows up close, street-canyon shading from the air
-          float R = clamp( dist * 0.022, 1.6, 34.0 );
+          float R = clamp( dist * 0.019, 1.3, 28.0 );
           float rpx = min( R * uProjScale / dist, 56.0 );
           float rot = ign( gl_FragCoord.xy ) * 6.2831853;
           float occ = 0.0;
-          for ( int i = 0; i < 8; i++ ) {
-            float fi = ( float( i ) + 0.5 ) / 8.0;
+          for ( int i = 0; i < 12; i++ ) {
+            float fi = ( float( i ) + 0.5 ) / 12.0;
             float a = rot + float( i ) * 2.39996323;
             vec2 suv = vUv + vec2( cos( a ), sin( a ) ) * rpx * sqrt( fi ) * px;
             vec3 S = viewPos( suv, viewZ( suv ) );
             vec3 v = S - P;
             float l2 = dot( v, v );
             float nv = dot( N, v ) * inversesqrt( l2 + 1e-4 );
-            occ += max( 0.0, nv - 0.14 ) / ( 1.0 + l2 / ( R * R ) );
+            occ += max( 0.0, nv - 0.12 ) / ( 1.0 + l2 / ( R * R ) );
           }
-          float ao = 1.0 - clamp( occ / 8.0 * 2.9 * uStrength, 0.0, 0.92 );
+          float ao = 1.0 - clamp( occ / 12.0 * 3.35 * uStrength, 0.0, 0.92 );
           ao = mix( ao, 1.0, smoothstep( 2600.0, 6500.0, dist ) );
           gl_FragColor = vec4( ao, ao, ao, 1.0 );
         }`,
@@ -130,15 +130,14 @@ class OcclusionPass extends Pass {
             float m = ( 1.0 - exp( -inLayer * 0.0021 ) ) * drift * uMist;
             col = mix( col, uMistColor, clamp( m, 0.0, 0.82 ) );
           }
-          // grade: a little more separation, warm highlights against dusty-plum Huế shade
+          // grade: photographic tonal separation in realistic look, warm highlights against cool Huế shade
           float l = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
-          // grade toward old paper and patina: warm lights, subtle plum-slate shade
-          col = mix( vec3( l ), col, 1.05 );
+          col = mix( vec3( l ), col, mix( 1.12, 1.05, uInk ) );
           // apply the gentle S-curve only inside [0, 1] so HDR glints (> 1) never invert channels
           vec3 base01 = clamp( col, 0.0, 1.0 );
           vec3 curved = base01 * base01 * ( 3.0 - 2.0 * base01 );
-          col = col + ( curved - base01 ) * 0.22;
-          col *= mix( vec3( 0.96, 0.96, 1.02 ), vec3( 1.06, 1.0, 0.92 ), smoothstep( 0.06, 0.72, l ) );
+          col = col + ( curved - base01 ) * mix( 0.28, 0.22, uInk );
+          col *= mix( vec3( 0.94, 0.96, 1.04 ), vec3( 1.07, 1.01, 0.92 ), smoothstep( 0.06, 0.72, l ) );
           vec2 q = vUv - 0.5;
           if ( uInk > 0.01 ) {
             // The illustrated look. Wash: pigment let down with a little paper, with the tooth of the sheet in it.

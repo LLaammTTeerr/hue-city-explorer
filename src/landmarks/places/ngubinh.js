@@ -176,13 +176,21 @@ export function build({ data, S }) {
     return Math.max(0, hTop(x, z) - r0(x, z));
   });
 
-  // ---- summit viewing clearing: stone bench/stele marker at the top where the path crosses ----
+  // ---- summit viewing clearing: stone terrace, benches, stele & compass marker at the top where the path crosses ----
   {
     const ys = gY(0, 0);
     S.kind = KIND.MASONRY;
-    S.cyl(O[0], O[1], ys - 0.3, ys + 0.22, 4.2, 4.0, 12, STONE, { top: shade(STONE, 1.06), topKind: KIND.ROAD });
-    S.box(O[0] + 2.4, O[1] - 1.6, ys + 0.2, ys + 0.65, 1.2, 0.7, 0.4, STONE2);
-    S.box(O[0] + 2.4, O[1] - 1.6, ys + 0.65, ys + 2.05, 0.85, 0.24, 0.4, BIA);
+    S.cyl(O[0], O[1], ys - 0.5, ys + 0.28, 5.4, 5.1, 16, STONE, { top: shade(STONE, 1.08), topKind: KIND.ROAD });
+    S.cyl(O[0], O[1], ys + 0.28, ys + 0.42, 1.6, 1.4, 12, STONE2, { top: hex('#c8a858') });
+    S.box(O[0] + 2.8, O[1] - 1.9, ys + 0.26, ys + 0.75, 1.4, 0.78, 0.4, STONE2);
+    S.box(O[0] + 2.8, O[1] - 1.9, ys + 0.75, ys + 2.3, 0.96, 0.28, 0.4, BIA);
+    // 4 carved stone viewing benches facing the Citadel & Perfume River
+    for (let k = 0; k < 4; k++) {
+      const a = 0.4 + (k * Math.PI) / 2;
+      const bx = O[0] + Math.cos(a) * 4.2, bz = O[1] + Math.sin(a) * 4.2;
+      S.box(bx, bz, ys + 0.26, ys + 0.66, 0.55, 1.75, a, STONE2);
+      S.box(bx, bz, ys + 0.66, ys + 0.78, 0.68, 1.9, a, shade(STONE, 1.08));
+    }
     S.kind = KIND.PLAIN;
   }
 

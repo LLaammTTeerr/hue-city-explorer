@@ -559,8 +559,8 @@ export function buildDaiNoiHero() {
   const y0 = 4.9, yR = 8.36, hw = 12.6, hd = 5.65, gu = 9.38;
   // Sculpted golden flaming pearl (hỏa châu) + flanking imperial enamel dragons
   parts.push(latheGourd(0, yR + 0.05, 0, 1.12, 0xf2cc52));
-  parts.push(...sculptedDragon(-3.4, yR + 0.14, 0, 1, 1.08, 0x2f7d58));
-  parts.push(...sculptedDragon(3.4, yR + 0.14, 0, -1, 1.08, 0x2f7d58));
+  parts.push(...sculptedDragon(0, yR + 0.14, 0, 1, 3.6, 0.95));
+  parts.push(...sculptedDragon(0, yR + 0.14, 0, -1, 3.6, 0.95));
   // Curled ridge-end kìm finials at both gable peaks
   for (const sx of [-1, 1]) {
     parts.push(cornerScroll(sx * gu, yR, 0, sx * 0.55, 0, 0.85));
@@ -628,5 +628,24 @@ export function buildThuyQuanHero() {
   lGlobe.translate(0, yDeck + 3.12, 2.25);
   parts.push(paint(lGlobe, 0xf8e8be));
   parts.push(latheGourd(0, yDeck + 3.4, 2.25, 0.36, 0xd8b24c));
-  return wrapScene(parts, );
+  return wrapScene(parts, 'thuyquan_hero');
+}
+
+// Build Điện Kiến Trung hero accent .glb (Indochine-Baroque palace ridge dragons & forecourt bronze cauldrons)
+export function buildKienTrungHero() {
+  const parts = [];
+  const yMain = 14.35;
+  // Flaming sun pearl & twin sculpted dragons on the central yellow-glazed ridge
+  const pearl = new THREE.SphereGeometry(0.44, 14, 10);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(0, yMain + 0.65, 0);
+  parts.push(paint(pearl, 0xea6434));
+  parts.push(latheGourd(0, yMain + 0.02, 0, 0.48, 0xe8c45e));
+  parts.push(...sculptedDragon(0, yMain, 0, 1, 4.8, 1.1));
+  parts.push(...sculptedDragon(0, yMain, 0, -1, 4.8, 1.1));
+  // Ceremonial bronze cauldrons flanking the grand forecourt stair
+  for (const su of [-1, 1]) {
+    parts.push(...bronzeCauldron(su * 6.5, 0.05, 16.5, 0.92));
+  }
+  return wrapScene(parts, 'kientrung_hero');
 }

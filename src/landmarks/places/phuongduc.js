@@ -41,16 +41,17 @@ export function build({ data, S, group, place }) {
   // helper: draw a cast bronze temple bell (đại hồng chung) or tripod urn (đỉnh đồng)
   const bronzeBell = (x, z, y, sc = 1) => {
     S.kind = KIND.PLAIN;
-    S.cyl(x, z, y, y + 0.22 * sc, 0.55 * sc, 0.5 * sc, 8, C.wood);
-    S.cyl(x, z, y + 0.22 * sc, y + 0.95 * sc, 0.48 * sc, 0.36 * sc, 10, C.bronze);
-    S.cyl(x, z, y + 0.95 * sc, y + 1.38 * sc, 0.36 * sc, 0.2 * sc, 10, C.bronzeHi);
-    S.cyl(x, z, y + 1.38 * sc, y + 1.62 * sc, 0.14 * sc, 0.08 * sc, 6, C.patina);
+    S.cyl(x, z, y, y + 0.26 * sc, 0.68 * sc, 0.6 * sc, 8, C.wood);
+    S.cyl(x, z, y + 0.26 * sc, y + 1.18 * sc, 0.6 * sc, 0.44 * sc, 10, C.bronze);
+    S.cyl(x, z, y + 1.18 * sc, y + 1.72 * sc, 0.44 * sc, 0.24 * sc, 10, C.bronzeHi);
+    S.cyl(x, z, y + 1.72 * sc, y + 2.02 * sc, 0.18 * sc, 0.1 * sc, 6, C.patina);
   };
   const bronzeUrn = (x, z, y, sc = 1) => {
     S.kind = KIND.PLAIN;
-    S.box(x, z, y, y + 0.28 * sc, 0.85 * sc, 0.85 * sc, ANG, C.pave);
-    S.cyl(x, z, y + 0.28 * sc, y + 0.95 * sc, 0.32 * sc, 0.44 * sc, 8, C.patina);
-    S.cyl(x, z, y + 0.95 * sc, y + 1.25 * sc, 0.44 * sc, 0.26 * sc, 8, C.bronzeHi);
+    S.box(x, z, y, y + 0.34 * sc, 1.05 * sc, 1.05 * sc, ANG, C.pave);
+    S.cyl(x, z, y + 0.34 * sc, y + 1.2 * sc, 0.42 * sc, 0.56 * sc, 8, C.patina);
+    S.cyl(x, z, y + 1.2 * sc, y + 1.56 * sc, 0.56 * sc, 0.34 * sc, 8, C.bronzeHi);
+    S.cyl(x, z, y + 1.56 * sc, y + 1.85 * sc, 0.2 * sc, 0.08 * sc, 8, C.gold);
   };
 
   const LB = new Buf(256);
@@ -136,12 +137,17 @@ export function build({ data, S, group, place }) {
     }
     S.hip(c[0], c[1], f.w + 0.6, f.d + 0.6, ANG, y0 + 3.8, 2.0, idx % 2 ? C.tile : C.tin, { over: 0.7, flare: 0.15, segs: 2 });
 
-    // brick melting furnace + tapered chimney stack (glowing warm ember at night)
+    // brick melting furnace + tapered chimney stack with brick cap ring (glowing warm ember at night)
     const kp = P(f.u + f.kilnSide * (f.w / 2 + 1.2), f.v + Math.sign(f.v) * 1.4);
     S.kind = KIND.MASONRY;
-    S.cyl(kp[0], kp[1], y0 - 0.3, y0 + 2.2, 1.35, 1.15, 8, C.kiln);
-    S.cyl(kp[0], kp[1], y0 + 2.2, y0 + 6.4, 0.65, 0.38, 8, C.brick);
-    gp.push(kp[0], y0 + 1.3, kp[1]);
+    S.cyl(kp[0], kp[1], y0 - 0.3, y0 + 2.6, 1.55, 1.28, 8, C.kiln);
+    S.cyl(kp[0], kp[1], y0 + 2.6, y0 + 7.8, 0.72, 0.42, 8, C.brick);
+    S.cyl(kp[0], kp[1], y0 + 7.6, y0 + 7.95, 0.54, 0.48, 8, C.kiln);
+    // glowing molten-bronze furnace mouth
+    S.kind = KIND.PLAIN;
+    const fm = P(f.u + f.kilnSide * (f.w / 2 + 1.2), f.v + Math.sign(f.v) * 0.1);
+    S.box(fm[0], fm[1], y0 + 0.4, y0 + 1.5, 0.95, 0.25, ANG, hex('#d96828'));
+    gp.push(kp[0], y0 + 1.4, kp[1]);
     gc.push(1, 0.46, 0.18);
 
     // showroom display along the street side: cast bronze bells, urns & drying clay molds

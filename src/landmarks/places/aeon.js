@@ -257,6 +257,52 @@ export function build({ data, S, group }) {
     for (const [cu, cv] of [[uW / 2, -40], [uW / 2 - 12, -30], [30, (vS - 20) / 2 + 12]]) if (onRoof(cu, cv, 4.5)) box(cu, cv, yr, yr + 2.4, 8, 5, C.grey);
   }
 
+  // ---------------- landscaped forecourt parking bays, tree islands & parked cars ----------------
+  {
+    const carCols = [hex('#e8e6e0'), hex('#323842'), hex('#a8322d'), hex('#345c8a'), hex('#c7c4bc'), hex('#6e7478')];
+    for (let row = 0; row < 3; row++) {
+      const pu = uW - 22 - row * 15;
+      // landscaped green divider island with trees between parking aisles
+      S.kind = KIND.MASONRY;
+      box(pu + 6.8, 42, y0 - 0.05, y0 + 0.3, 2.2, 54, C.grey, { top: C.green, topKind: KIND.GROUND });
+      S.kind = KIND.PLAIN;
+      for (let t = 0; t < 5; t++) {
+        const tp = P(pu + 6.8, 18 + t * 12);
+        S.cyl(tp[0], tp[1], y0 + 0.3, y0 + 2.4, 0.16, 0.12, 6, hex('#5a4634'));
+        S.cyl(tp[0], tp[1], y0 + 2.2, y0 + 4.8, 1.5, 0.95, 7, t % 2 ? C.green : C.greenDk);
+      }
+      // white parking bay markings & parked cars
+      for (let k = 0; k < 10; k++) {
+        const pv = 16 + k * 5.2;
+        box(pu, pv - 2.6, y0 + 0.02, y0 + 0.06, 4.6, 0.14, C.white);
+        if ((k + row * 2) % 3 === 1) continue;
+        const cc = carCols[(k * 3 + row) % carCols.length];
+        box(pu, pv, y0 + 0.25, y0 + 0.95, 4.2, 1.85, cc, { top: cc });
+        box(pu - 0.15, pv, y0 + 0.95, y0 + 1.48, 2.3, 1.62, C.glass, { top: cc });
+      }
+    }
+    // inner south-east Moon Garden plaza (documented landscaped court & lawn islands raised cleanly above paved slab)
+    const mu = 46, mv = 46;
+    S.kind = KIND.MASONRY;
+    box(mu, mv, y0 - 0.05, y0 + 0.28, 70, 58, C.white, { top: C.green, topKind: KIND.GROUND });
+    S.kind = KIND.ROAD;
+    box(mu, mv, y0 + 0.26, y0 + 0.34, 70, 7.5, C.deck, { topKind: KIND.ROAD });
+    box(mu, mv, y0 + 0.26, y0 + 0.34, 7.5, 58, C.deck, { topKind: KIND.ROAD });
+    // circular Moon Garden central amphitheater fountain & crescent pergola ring
+    const mp = P(mu, mv);
+    S.kind = KIND.MASONRY;
+    S.cyl(mp[0], mp[1], y0 + 0.28, y0 + 0.72, 11.5, 11.2, 20, C.white, { top: C.deck, topKind: KIND.ROAD });
+    S.cyl(mp[0], mp[1], y0 + 0.72, y0 + 0.88, 7.2, 7.0, 18, hex('#4f8494'));
+    S.cyl(mp[0], mp[1], y0 + 0.72, y0 + 1.65, 1.6, 1.2, 12, C.white);
+    // landscaped shade trees framing the Moon Garden lawns
+    S.kind = KIND.PLAIN;
+    for (const du of [-24, -12, 12, 24]) for (const dv of [-18, 18]) {
+      const tp = P(mu + du, mv + dv);
+      S.cyl(tp[0], tp[1], y0 + 0.28, y0 + 2.55, 0.18, 0.13, 6, hex('#5a4634'));
+      S.cyl(tp[0], tp[1], y0 + 2.35, y0 + 5.35, 2.0, 1.25, 7, (du + dv) % 24 === 0 ? C.green : C.greenDk);
+    }
+  }
+
   for (const [B, col, boost] of [[LB, 0xffe2b0, 1.0], [MB, 0xff4fb0, 1.4], [GB, 0xfff1c8, 0.85]]) {
     if (!B.n) continue;
     const m = new THREE.Mesh(B.geometry(), lightMaterial(col, boost));

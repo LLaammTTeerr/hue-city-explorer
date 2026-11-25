@@ -48,16 +48,21 @@ const UV = (u, v, y, swap) => (swap ? W3(v, u, y) : W3(u, v, y));
 // a gable roof over a0..a1 (along the ridge) x b0..b1 (across it, eaves included), eave at e, ridge at e + h. alongV
 // runs the ridge along v instead of u. hip1 hips the a1 end (the ridge stops half a span short of it).
 function gable(S, a0, a1, b0, b1, e, h, col, { alongV = false, hip1 = false } = {}) {
+  const keep = S.kind;
   const bm = (b0 + b1) / 2, half = (b1 - b0) / 2, r1 = hip1 ? a1 - half : a1;
   const ax = alongV ? N : T, bx = alongV ? T : N;
   const n0 = [-bx[0], 0.8, -bx[1]], n1 = [bx[0], 0.8, bx[1]], ne = [ax[0], 0.8, ax[1]];
   const p = (a, b, y) => UV(a, b, y, alongV);
+  S.kind = KIND.TILE; // corrugated steel sheet ribs & weathering
   S.quad(p(a0, b0, e), p(a1, b0, e), p(r1, bm, e + h), p(a0, bm, e + h), col, n0);
   S.quad(p(a1, b1, e), p(a0, b1, e), p(a0, bm, e + h), p(r1, bm, e + h), col, n1);
   if (hip1) S.tri(p(a1, b0, e), p(a1, b1, e), p(r1, bm, e + h), col, ne);
-  // the sheet's thickness at the eaves, so the roof does not read as paper from below
+  // ridge cap beam & sheet thickness at the eaves
+  S.kind = KIND.PLAIN;
+  S.beam(p(a0, bm, e + h + 0.05), p(r1, bm, e + h + 0.05), 0.32, 0.12, shade(col, 0.72));
   S.quad(p(a0, b0, e - 0.12), p(a1, b0, e - 0.12), p(a1, b0, e), p(a0, b0, e), shade(col, 0.6), n0);
   S.quad(p(a1, b1, e - 0.12), p(a0, b1, e - 0.12), p(a0, b1, e), p(a1, b1, e), shade(col, 0.6), n1);
+  S.kind = keep;
 }
 
 // the end wall of a gable in the plane u = u, over v0..v1 of a gable spanning g.v0..g.v1, from height y0 up to the

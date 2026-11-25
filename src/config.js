@@ -99,9 +99,9 @@ export const MOODS = {
   // Golden hour, the opening mood: a low amber sun up-river and a rose-violet haze (tím Huế) in the shade and the
   // distance; the Hương carries the light through the spans of Trường Tiền.
   afternoon: {
-    skyTop: '#8a9aca', skyHorizon: '#eccbac', skyBelow: '#cfb6a8', sunGlow: '#ffc47c', fog: '#e6d6da', fogDensity: 0.00012,
-    sunColor: '#ffd29d', sunI: 2.65, hemiSky: '#d8c7e8', hemiGround: '#9a8672', hemiI: 1.52, shadow: 0.72,
-    waterDeep: '#2e5b5e', waterShallow: '#4e7d78', glow: 0, rain: 0, hemiEnv: 0.5, envI: 0.95, exposure: 1.04, sunDisk: 1,
+    skyTop: '#8a9aca', skyHorizon: '#eccbac', skyBelow: '#cfb6a8', sunGlow: '#ffc47c', fog: '#e6d6da', fogDensity: 0.00011,
+    sunColor: '#ffd29d', sunI: 2.85, hemiSky: '#d4c8ea', hemiGround: '#968370', hemiI: 1.5, shadow: 0.78,
+    waterDeep: '#22585c', waterShallow: '#47827c', glow: 0, rain: 0, hemiEnv: 0.48, envI: 0.98, exposure: 1.06, sunDisk: 1,
   },
   // Lights on (Lên đèn): imperial Tím Huế twilight — deep indigo-violet river and plum-rose horizon glow.
   night: {

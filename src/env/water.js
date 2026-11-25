@@ -119,7 +119,7 @@ export function buildWater(data) {
         vec3 hh = mix( hw, hr, wf );
         float crest = mix( crestW, crestR, wf );
         vec2 g = hh.yz;
-        float amp = mix( 1.1, 2.0, uRain ) * lod;
+        float amp = mix( 1.28, 2.1, uRain ) * lod;
         float rip = 0.0;
         if ( uRain > 0.01 ) {
           float nearR = smoothstep( 420.0, 40.0, dist );
