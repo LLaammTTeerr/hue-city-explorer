@@ -86,7 +86,7 @@ const KEYBOARD_ZOOM = { inFactor: 0.65, outFactor: 1.5 } as const;
 const SHADOW_EXTENT = { minM: 260, maxM: 2600, distRatio: 0.8 } as const;
 
 const HIGH_ALT_FOG = { startM: 1000, endM: 3500, maxReduction: 0.78 } as const;
-const DOF_ALTITUDE = { startM: 120, endM: 650, maxAperture: 0.3 } as const;
+const DOF_ALTITUDE = { startM: 85, endM: 380, maxAperture: 0.56 } as const;
 
 const ADAPTIVE_QUALITY = {
   slowFrameMs: 42,
