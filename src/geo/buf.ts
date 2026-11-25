@@ -89,6 +89,18 @@ export class Buf {
     const nextBas = new Float32Array(this.cap); nextBas.set(this.bas); this.bas = nextBas;
   }
 
+  // Drop the working arrays once geometry() has copied them out and nothing will draw into this buffer again
+  // (the shared structures buffer is ~170 MB at full capacity). A later write starts again from a small buffer.
+  release() {
+    this.cap = 3;
+    this.n = 0;
+    this.pos = new Float32Array(9);
+    this.nrm = new Int8Array(9);
+    this.col = new Uint8Array(9);
+    this.knd = new Uint8Array(3);
+    this.bas = new Float32Array(3);
+  }
+
   // Smooth-shaded triangle with explicit per-vertex normals and colours (used for foliage).
   smoothTri(verts: number[][], norms: number[][], cols: number[][]) {
     if (this.n + 3 > this.cap) this.grow();
@@ -515,6 +527,33 @@ export const inRing = (x: number, z: number, ring: number[][]): boolean => {
   }
   return inside;
 };
+
+// inRing for one ring tested many times: its edges are bucketed by the horizontal band of z they span, so a test
+// crosses only the edges of its own band. Same answer as inRing (same crossing rule, same edges for that z).
+export function ringTest(ring: number[][], band = 8): (x: number, z: number) => boolean {
+  const n = ring.length;
+  if (n < 3) return () => false;
+  let z0 = Infinity, z1 = -Infinity;
+  for (const pt of ring) { z0 = Math.min(z0, pt[1]); z1 = Math.max(z1, pt[1]); }
+  const bands = Math.max(1, Math.ceil((z1 - z0) / band) + 1);
+  const buckets: number[][] = Array.from({ length: bands }, () => []);
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const za = ring[i][1], zb = ring[j][1];
+    if (za === zb) continue; // never crossed: (p0.z > z) !== (p1.z > z) is false for a flat edge
+    const b0 = Math.floor((Math.min(za, zb) - z0) / band), b1 = Math.floor((Math.max(za, zb) - z0) / band);
+    for (let b = b0; b <= b1; b++) buckets[b].push(i, j);
+  }
+  return (x: number, z: number) => {
+    if (z < z0 || z > z1) return false;
+    const edges = buckets[Math.floor((z - z0) / band)];
+    let inside = false;
+    for (let k = 0; k < edges.length; k += 2) {
+      const p0 = ring[edges[k]], p1 = ring[edges[k + 1]];
+      if ((p0[1] > z) !== (p1[1] > z) && x < ((p1[0] - p0[0]) * (z - p0[1])) / (p1[1] - p0[1]) + p0[0]) inside = !inside;
+    }
+    return inside;
+  };
+}
 
 export function distToSegment(x: number, z: number, ptA: number[], ptB: number[]): number {
   const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], lenSq = dx * dx + dz * dz;

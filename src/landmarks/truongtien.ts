@@ -213,6 +213,7 @@ function buildBowSpans(buf: Buf, group: THREE.Group, frame: BridgeFrame, bandMat
     }
 
     const pts = glowPoints(lightPos, lightCol, 3.4);
+    (pts.geometry.attributes.color as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage); // recoloured every frame
     group.add(pts);
     spanLights.push(pts);
     const alongList: number[] = [];

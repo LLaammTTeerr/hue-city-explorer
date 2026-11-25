@@ -110,7 +110,7 @@ try {
     await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < h });
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: view.reducedMotion ? 'reduce' : 'no-preference' }] });
   }
-  await send('Page.navigate', { url: `${base}/?look=${look}${view ? '&still' : ''}` });
+  await send('Page.navigate', { url: `${base}/?look=${look}&keepgeo${view ? '&still' : ''}` });
   for (let i = 0; i < 360; i++) { if (await evaluate('!!window.__hue')) break; await sleep(500); if (i === 359) throw new Error('scene never became ready'); }
   await evaluate('window.__hue.tiles'); // the trees and houses that arrive after the first frame (public/data/tiles/)
   if (view) { await shootView(); done(0); }

@@ -53,7 +53,7 @@ async function inBrowser() {
       return m.result?.result?.value;
     };
     await send('Runtime.enable');
-    await send('Page.navigate', { url: `http://localhost:${port}/` });
+    await send('Page.navigate', { url: `http://localhost:${port}/?keepgeo` }); // keep mesh arrays: modelTops reads positions
     for (let i = 0; ; i++) { if (await evaluate('!!window.__hue')) break; if (i > 360) throw new Error('scene never became ready'); await sleep(500); }
     // the same function, run on the live scene: time it too, since that is what startup no longer pays
     return await evaluate(`(() => {

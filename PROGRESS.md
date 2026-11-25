@@ -1,6 +1,15 @@
 # Progress
 
 ## In progress
+- Load time and memory (2026-11-26, branch `claude/website-performance-optimization-6774e9`): users reported heavy
+  RAM and slow loading. `scripts/perf.mjs` measures a build (marks, transfer, heap after GC, geometry bytes, Chrome
+  RSS). Before → after, 1400×900, Metal GPU, median of 2: JS heap 622 → 180 MB, geometry arrays kept in JS 253 → 3 MB,
+  renderer RSS 1166 → 866 MB, first frame 5.4 → 4.1 s, tiles loaded 7.1 → 4.9 s. Changes: static mesh arrays freed
+  after GPU upload (`src/geo/release.ts`; `?keepgeo` keeps them, shot.mjs passes it because it raycasts; a lost GL
+  context now reloads the page); the structures Buf released after boats; infill walls share their template instead
+  of cloning; build hotspots cut (cover grid as tiled bitmap `src/geo/cellgrid.ts`, z-banded `ringTest` for boat land
+  tests, bounding boxes in Phố Tây's `blocked`). Frames byte-identical to 7b8fb80 on ngo-mon-arrival; check and
+  build pass. Left: transfer is still 4.4 MB (hue.json 3.5 MB raw), junctionHoles/slivers ~290 ms.
 - Street View rebuild (2026-11-22, branch `claude/street-view-rebuild`): owner judged Dòng Chúa Cứu Thế and Phủ Cam
   unacceptable and asked to realign and reconstruct every landmark from Google satellite/Street View, one agent chain
   per place (haiku refs → opus rebuild → sonnet polish → fable review → opus fix). Tools in scratch/tools/ (gmaps.mjs
