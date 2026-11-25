@@ -178,7 +178,7 @@ export function infillPlanter(group: THREE.Group, off: any = null) {
     mesh.receiveShadow = true;
     mesh.computeBoundingSphere();
     mesh.layers.set(layer);
-    lodAdd(mesh, isDetail ? LOD_DETAIL_DIST_M : LOD_HOUSE_DIST_M);
+    lodAdd(mesh, isDetail ? LOD_DETAIL_DIST_M : LOD_HOUSE_DIST_M, { lift: !isDetail });
     group.add(mesh);
     meshes.push(mesh);
   }

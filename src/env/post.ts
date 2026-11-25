@@ -239,7 +239,7 @@ class OcclusionPass extends Pass {
             // the pen wavers, lifts gently on bright filigree steelwork (Trường Tiền) at medium range, and fades into watercolor haze in the distance
             line *= 0.76 + 0.24 * mNoise( gl_FragCoord.xy * 0.2 + 3.0 );
             line *= mix( 1.0, 0.36, smoothstep( 0.50, 0.82, wl ) * smoothstep( 90.0, 420.0, inkDist ) );
-            line *= mix( 1.0, 0.08, smoothstep( 320.0, 2200.0, inkDist ) );
+            line *= 1.0 - smoothstep( 320.0, 2000.0, inkDist );
             vec3 inkCol = mix( vec3( 0.16, 0.12, 0.10 ), vec3( 0.025, 0.025, 0.055 ), uNight );
             vec3 inked = mix( wash, inkCol, line * 0.86 );
             col = mix( col, inked, uInk );

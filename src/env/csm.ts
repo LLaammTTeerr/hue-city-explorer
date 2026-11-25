@@ -12,6 +12,7 @@ const CSM_CFG = {
   extentUpdateEpsM: 0.01,
   minWideExtentM: 260,
   extentStepRatio: 1.12,
+  panDeadbandRatio: 0.08,
   nearMinExtentM: 36,
   nearExtentRatio: 0.27,
   cadenceWideSpanM: 1300,
@@ -29,6 +30,9 @@ interface CascadeMap {
   key: number[];
   dirty: boolean;
   lastDrawnS: number;
+  pendingFocus: THREE.Vector3;
+  pendingDir: THREE.Vector3;
+  pendingExtent: number;
 }
 
 // Shadow maps for an orbiting camera: boxes centred on the point of attention rather than slices of the view
@@ -51,23 +55,26 @@ export function createCascades(scene: THREE.Scene, sun: THREE.DirectionalLight, 
   const snappedFocus = new THREE.Vector3();
   const sphereOffset = new THREE.Vector3();
 
-  function placeShadowBox(light: THREE.DirectionalLight, focus: THREE.Vector3, dir: THREE.Vector3, extent: number) {
+  function snapFocus(light: THREE.DirectionalLight, focus: THREE.Vector3, dir: THREE.Vector3, extent: number, out: THREE.Vector3) {
     const texel = (extent * 2) / light.shadow.mapSize.x;
     // snap the centre to the map's own texel grid, so shadow edges do not crawl as the view pans
     axisRight.crossVectors(worldUp, dir).normalize();
     axisUp.crossVectors(dir, axisRight);
-    snappedFocus.copy(focus);
-    const projRight = snappedFocus.dot(axisRight);
-    const projUp = snappedFocus.dot(axisUp);
-    snappedFocus
+    out.copy(focus);
+    const projRight = out.dot(axisRight);
+    const projUp = out.dot(axisUp);
+    out
       .addScaledVector(axisRight, Math.round(projRight / texel) * texel - projRight)
       .addScaledVector(axisUp, Math.round(projUp / texel) * texel - projUp);
+  }
 
+  function placeShadowBox(light: THREE.DirectionalLight, snapped: THREE.Vector3, dir: THREE.Vector3, extent: number) {
+    const texel = (extent * 2) / light.shadow.mapSize.x;
     // toward the sun: far enough to catch a 250 m rise casting into the box; behind: the far corner of the box
     const toward = extent * CSM_CFG.depthExtentRatio + CSM_CFG.towardMarginM;
     const behind = extent * CSM_CFG.depthExtentRatio + CSM_CFG.behindMarginM;
-    light.target.position.copy(snappedFocus);
-    light.position.copy(snappedFocus).addScaledVector(dir, toward);
+    light.target.position.copy(snapped);
+    light.position.copy(snapped).addScaledVector(dir, toward);
 
     const cam = light.shadow.camera;
     if (Math.abs(cam.right - extent) > CSM_CFG.extentUpdateEpsM) {
@@ -90,21 +97,38 @@ export function createCascades(scene: THREE.Scene, sun: THREE.DirectionalLight, 
     key: [],
     dirty: true,
     lastDrawnS: -Infinity,
+    pendingFocus: new THREE.Vector3(),
+    pendingDir: new THREE.Vector3(0, 1, 0),
+    pendingExtent: CSM_CFG.minWideExtentM,
   }));
   const stats = { sun: 0, near: 0 };
   let preferIdx = 0;
   let warmFrames = CSM_CFG.warmupFrames; // the first frames draw both maps, so neither starts empty
 
-  function checkDirty(map: CascadeMap, quantizedExtent: number, dir: THREE.Vector3, lod: any) {
-    const targetPos = map.light.target.position;
-    const nextKey = [targetPos.x, targetPos.y, targetPos.z, quantizedExtent, dir.x, dir.y, dir.z];
-    for (let i = 0; i < nextKey.length; i++) {
-      if (map.key[i] !== nextKey[i]) { map.dirty = true; map.key = nextKey; return; }
+  function checkDirty(map: CascadeMap, focus: THREE.Vector3, quantizedExtent: number, dir: THREE.Vector3, lod: any) {
+    snapFocus(map.light, focus, dir, quantizedExtent, snappedFocus);
+    map.pendingFocus.copy(snappedFocus);
+    map.pendingDir.copy(dir);
+    map.pendingExtent = quantizedExtent;
+
+    if (map.key.length === 0) { map.dirty = true; return; }
+    // extent or sun direction changed -> redraw immediately
+    if (map.key[3] !== quantizedExtent || map.key[4] !== dir.x || map.key[5] !== dir.y || map.key[6] !== dir.z) {
+      map.dirty = true;
+      return;
+    }
+    // only re-center the shadow box once the focus drifts past a small fraction of its half-width,
+    // so panning does not re-render millions of shadow triangles every frame and shadows stay rock-solid
+    const drift = Math.hypot(snappedFocus.x - map.key[0], snappedFocus.y - map.key[1], snappedFocus.z - map.key[2]);
+    if (drift > quantizedExtent * CSM_CFG.panDeadbandRatio) {
+      map.dirty = true;
+      return;
     }
     if (lod.all) { map.dirty = true; return; }
 
     // a chunk shown or hidden matters only if it casts and its sphere reaches into this map's square
     const extent = map.light.shadow.camera.right;
+    const targetPos = map.light.target.position;
     axisRight.crossVectors(worldUp, dir).normalize();
     axisUp.crossVectors(dir, axisRight);
     for (const obj of lod.list) {
@@ -121,6 +145,12 @@ export function createCascades(scene: THREE.Scene, sun: THREE.DirectionalLight, 
   }
 
   function redrawMap(map: CascadeMap, nowSec: number) {
+    // apply box position, frustum and bias atomically with the redraw so a skipped cascade never mismatches its map
+    placeShadowBox(map.light, map.pendingFocus, map.pendingDir, map.pendingExtent);
+    map.key = [
+      map.pendingFocus.x, map.pendingFocus.y, map.pendingFocus.z,
+      map.pendingExtent, map.pendingDir.x, map.pendingDir.y, map.pendingDir.z,
+    ];
     map.light.shadow.needsUpdate = true;
     map.dirty = false;
     map.lastDrawnS = nowSec;
@@ -144,14 +174,14 @@ export function createCascades(scene: THREE.Scene, sun: THREE.DirectionalLight, 
       // step the size in ~12 % stages, so zooming does not re-grid the map every frame
       const stepPower = Math.ceil(Math.log(Math.max(CSM_CFG.minWideExtentM, extent) / CSM_CFG.minWideExtentM) / Math.log(CSM_CFG.extentStepRatio));
       const quantizedExtent = CSM_CFG.minWideExtentM * Math.pow(CSM_CFG.extentStepRatio, stepPower);
-      placeShadowBox(sun, focus, dir, quantizedExtent);
-      if (near && near.castShadow) {
-        placeShadowBox(near, focus, dir, Math.max(CSM_CFG.nearMinExtentM, quantizedExtent * CSM_CFG.nearExtentRatio));
-        near.shadow.intensity = sun.shadow.intensity;
-      }
+      const nearExtent = Math.max(CSM_CFG.nearMinExtentM, quantizedExtent * CSM_CFG.nearExtentRatio);
+      if (near && near.castShadow) near.shadow.intensity = sun.shadow.intensity;
 
       const lod = lodFlips();
-      for (const map of maps) if (map.light.castShadow) checkDirty(map, quantizedExtent, dir, lod);
+      for (const map of maps) {
+        if (!map.light.castShadow) continue;
+        checkDirty(map, focus, map.light === sun ? quantizedExtent : nearExtent, dir, lod);
+      }
       if (warmFrames > 0) {
         warmFrames--;
         for (const map of maps) if (map.light.castShadow) redrawMap(map, nowSec);

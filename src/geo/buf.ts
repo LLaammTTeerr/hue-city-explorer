@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import type { RgbColor } from '../types.ts';
 
 const DECIMETRES_PER_METRE = 10;
-const DEFAULT_CHUNK_SIZE_M = 1300;
+const DEFAULT_CHUNK_SIZE_M = 2000;
 const ROOF_JOIN_GRID_M = 32;
 const ROOF_ANGLE_TOL_RAD = 0.06;
 const ROOF_HEIGHT_OVERLAP_MARGIN_M = 0.5;

@@ -89,15 +89,14 @@ const HIGH_ALT_FOG = { startM: 1000, endM: 3500, maxReduction: 0.78 } as const;
 const DOF_ALTITUDE = { startM: 120, endM: 650, maxAperture: 0.3 } as const;
 
 const ADAPTIVE_QUALITY = {
-  slowFrameMs: 36,
+  slowFrameMs: 42,
   maxFrameCreditMs: 250,
-  triggerBudgetMs: 1600,
-  initialDetailReachLowM: 850,
-  initialDetailReachHighM: 1280,
+  triggerBudgetMs: 2500,
+  initialDetailReachLowM: 900,
+  initialDetailReachHighM: 1500,
   tiers: [
-    { detailReachM: 980, minPixelRatio: 1.0, pixelRatioStep: 0.25 },
-    { detailReachM: 850, minPixelRatio: 0.85, pixelRatioStep: 0.2 },
-    { detailReachM: 720, fixedPixelRatio: 0.75 },
+    { minPixelRatio: 1.0, pixelRatioStep: 0.25 },
+    { minPixelRatio: 0.85, pixelRatioStep: 0.2 },
   ],
 } as const;
 
@@ -348,21 +347,12 @@ function createAdaptiveQuality(opts: {
       const tier = ADAPTIVE_QUALITY.tiers[0];
       perfTier = 1;
       water.mesh.userData.setReflection?.(false);
-      detailReach = Math.min(detailReach, tier.detailReachM);
       pixelRatio = Math.max(tier.minPixelRatio, Math.min(pixelRatio, renderer.getPixelRatio()) - tier.pixelRatioStep);
     } else if (perfTier === 1) {
       const tier = ADAPTIVE_QUALITY.tiers[1];
       perfTier = 2;
       if (post) post.setFast(true);
-      shadows.setNearEnabled?.(false);
-      detailReach = Math.min(detailReach, tier.detailReachM);
       pixelRatio = Math.max(tier.minPixelRatio, Math.min(pixelRatio, renderer.getPixelRatio()) - tier.pixelRatioStep);
-    } else if (perfTier === 2) {
-      const tier = ADAPTIVE_QUALITY.tiers[2];
-      perfTier = 3;
-      onDisablePost();
-      detailReach = Math.min(detailReach, tier.detailReachM);
-      pixelRatio = tier.fixedPixelRatio;
     } else {
       return;
     }
