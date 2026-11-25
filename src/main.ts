@@ -232,13 +232,13 @@ function bindCanvasInteractions(opts: {
 
   // Tap / click on the ground near a landmark reveals it.
   // Every pointer is tracked: a second finger neither ends the first one's drag nor counts as a tap.
-  const activePointers = new Map<number, { x: number; y: number; downAt: number; lastX: number; lastY: number; multi: boolean; dragged?: boolean }>();
+  const activePointers = new Map<number, { x: number; y: number; downAt: number; lastX: number; lastY: number; button: number; multi: boolean; dragged?: boolean }>();
   canvas.addEventListener('pointerdown', (event) => {
     const multi = activePointers.size > 0;
     if (multi) activePointers.forEach((ptr) => { ptr.multi = true; });
     activePointers.set(event.pointerId, {
       x: event.clientX, y: event.clientY, downAt: performance.now(),
-      lastX: event.clientX, lastY: event.clientY, multi,
+      lastX: event.clientX, lastY: event.clientY, button: event.button, multi,
     });
     canvas.classList.add('dragging');
   });
@@ -257,7 +257,7 @@ function bindCanvasInteractions(opts: {
     if (!ptr) return;
     const moved = Math.hypot(event.clientX - ptr.x, event.clientY - ptr.y);
     const elapsed = performance.now() - ptr.downAt;
-    if (ptr.multi || ptr.dragged || moved > PLACE_PICK.maxMovePx || elapsed > PLACE_PICK.maxTapMs || event.type === 'pointercancel') return;
+    if (ptr.button !== 0 || ptr.multi || ptr.dragged || moved > PLACE_PICK.maxMovePx || elapsed > PLACE_PICK.maxTapMs || event.type === 'pointercancel') return;
     const groundPos = rig.groundAt(event.clientX, event.clientY);
     if (!groundPos) return;
     const hitPlace = findNearestPlace(data.places, groundPos);
@@ -597,7 +597,7 @@ async function main() {
 
   // ---------- labels, look & interactions ----------
   // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
-  labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true));
+  labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true), data.streetLabels);
   const leafMats = new Set<any>();
   world.group.traverse((obj: any) => {
     if (obj.material?.defines && 'HUE_FOLIAGE' in obj.material.defines) leafMats.add(obj.material);

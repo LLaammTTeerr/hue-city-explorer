@@ -2825,6 +2825,86 @@ const tileList = (() => {
     return tile;
   });
 })();
+// Street name anchors: [name, x_dm, z_dm, dx_1000, dz_1000, class] placed along named carriageways
+// for map-style rotated labels on the client. Built after all RNG-using stages so nothing else shifts.
+const streetLabels = (() => {
+  const MIN_WAY_LEN = 22; // m — ignore tiny intersection stubs
+  const STEP_BY_CLASS = [180, 170, 150, 130, 110]; // m between repeated labels on long ways
+  const MIN_SAME_DIST = [140, 135, 115, 95, 85]; // m minimum spacing between labels of the same street
+  const TWIN_DIST = 24; // m — merge twin carriageways of a divided road onto their centreline
+  const TANGENT_HALF_WIN = 12; // m each side of anchor for smoothed heading
+
+  const pointAt = (pts, cum, targetS) => {
+    const s = Math.max(0, Math.min(cum[cum.length - 1], targetS));
+    let lo = 0, hi = cum.length - 1;
+    while (lo + 1 < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cum[mid] <= s) lo = mid; else hi = mid;
+    }
+    const seg = cum[hi] - cum[lo] || 1;
+    const t = (s - cum[lo]) / seg;
+    return [pts[lo][0] + (pts[hi][0] - pts[lo][0]) * t, pts[lo][1] + (pts[hi][1] - pts[lo][1]) * t];
+  };
+
+  const byName = new Map();
+  for (const r of roads) {
+    if (r.c > 4 || r.bridge || r.lanes) continue;
+    const name = (r.name || '').trim();
+    if (!name || /^cầu\s/i.test(name) || /^đi\s/i.test(name)) continue;
+    const pts = r.pts;
+    if (!pts || pts.length < 2) continue;
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) {
+      cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    }
+    const totalLen = cum[cum.length - 1];
+    if (totalLen < MIN_WAY_LEN) continue;
+    const step = STEP_BY_CLASS[r.c] || 130;
+    const count = totalLen < step ? 1 : Math.max(1, Math.round(totalLen / step));
+    let list = byName.get(name);
+    if (!list) { list = []; byName.set(name, list); }
+    for (let i = 0; i < count; i++) {
+      const s = ((i + 0.5) * totalLen) / count;
+      const [x, z] = pointAt(pts, cum, s);
+      const a = pointAt(pts, cum, s - TANGENT_HALF_WIN);
+      const b = pointAt(pts, cum, s + TANGENT_HALF_WIN);
+      const tx = b[0] - a[0], tz = b[1] - a[1], tLen = Math.hypot(tx, tz);
+      if (tLen < 1) continue;
+      list.push({ name, x, z, dx: tx / tLen, dz: tz / tLen, c: r.c, len: totalLen, merged: false });
+    }
+  }
+
+  const outLabels = [];
+  for (const candidates of byName.values()) {
+    candidates.sort((a, b) => a.c - b.c || b.len - a.len);
+    const kept = [];
+    for (const cand of candidates) {
+      const minDist = MIN_SAME_DIST[cand.c] || 95;
+      let blocked = false;
+      for (const prev of kept) {
+        const d = Math.hypot(cand.x - prev.x, cand.z - prev.z);
+        if (d < minDist) {
+          // If this is the parallel twin carriageway of a divided avenue, centre the label between them
+          if (!prev.merged && d < TWIN_DIST && Math.abs(cand.dx * prev.dx + cand.dz * prev.dz) > 0.85) {
+            prev.x = (prev.x + cand.x) * 0.5;
+            prev.z = (prev.z + cand.z) * 0.5;
+            prev.merged = true;
+          }
+          blocked = true;
+          break;
+        }
+      }
+      if (!blocked) kept.push(cand);
+    }
+    for (const item of kept) {
+      outLabels.push([item.name, q(item.x), q(item.z), Math.round(item.dx * 1000), Math.round(item.dz * 1000), item.c]);
+    }
+  }
+  outLabels.sort((a, b) => a[5] - b[5] || a[0].localeCompare(b[0]));
+  console.log('street labels:', outLabels.length, 'anchors across', byName.size, 'named streets');
+  return outLabels;
+})();
+
 const out = {
   meta: {
     origin: ORIGIN,
@@ -2873,6 +2953,7 @@ const out = {
   islands: islands.map((i) => [q(i.c[0]), q(i.c[1]), Math.round(i.area)]),
   places,
   waterLabels: water_labels,
+  streetLabels,
 };
 const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT)) : null;
 fs.mkdirSync('public/data', { recursive: true });
@@ -2924,9 +3005,9 @@ for (const t of tileList) fs.writeFileSync('public/data/' + t.f, JSON.stringify(
 }
 console.log('truong tien obb', ttBox.w.toFixed(1), 'x', ttBox.d.toFixed(1), 'centre', ttBox.c.map((v) => v.toFixed(1)), 'centreline', tt.map((p) => p.map((v) => v.toFixed(1))));
 
-// ---- checks: the terrain must not get worse without anyone noticing (see scripts/check-data.mjs) ----
+// ---- checks: the terrain must not get worse without anyone noticing (see scripts/checks/check-data.mjs) ----
 {
-  const { checkData, diffData } = await import('./check-data.mjs');
+  const { checkData, diffData } = await import('./checks/check-data.mjs');
   const { withTiles } = await import('./lib/data.mjs');
   const { fails, notes } = checkData(withTiles(JSON.parse(JSON.stringify(out)), (f) => tileList.find((t) => t.f === f).body)); // the whole model, tiles included
   // the calibration against the laser and the named summits, against the figures of November 2026 (1.31 and 1.2 m)
