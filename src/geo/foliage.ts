@@ -32,14 +32,14 @@ const FLAME_FLOWER = [0.95, 0.13, 0.06];
 const FLAME_FLOWER2 = [0.95, 0.27, 0.05];
 
 const PALETTE = {
-  greens: ['#4a6845', '#587450', '#3f5a3f', '#687a52', '#516d48', '#627849', '#466443'].map(hex),
-  dark: ['#385a42', '#3d5f44', '#33523c', '#426247'].map(hex),
-  palm: ['#526f42', '#4a683d', '#5e7846'].map(hex),
-  pine: ['#2f5040', '#345644', '#3c5c42', '#2b4a3a', '#445f3c'].map(hex),
-  willow: ['#7a9450', '#6f8b4a', '#86995a', '#6a8648'].map(hex),
+  greens: ['#4d7545', '#5d854e', '#3f6743', '#6f8e54', '#537c49', '#64844a', '#476c44'].map(hex),
+  dark: ['#355d43', '#3b6346', '#30553e', '#41674a'].map(hex),
+  palm: ['#557745', '#4c6f40', '#62804a'].map(hex),
+  pine: ['#2e5342', '#345a47', '#3d6145', '#2a4d3d', '#45643f'].map(hex),
+  willow: ['#7e9c54', '#72924c', '#8aa25e', '#6d8c4a'].map(hex),
   flameBase: ['#bdb8a8', '#c4bba4', '#b4b2a4'].map(hex),
-  lilac: ['#8f6db8', '#a17ec8', '#7d5ca8'].map(hex),
-  mai: ['#e3b53c', '#d8a632'].map(hex),
+  lilac: ['#8a74a8', '#9984b6', '#7d689b'].map(hex),
+  mai: ['#e8bc42', '#dda936'].map(hex),
 };
 
 function makeRng(initialSeed: number) {

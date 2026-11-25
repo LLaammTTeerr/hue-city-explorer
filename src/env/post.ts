@@ -184,13 +184,16 @@ class OcclusionPass extends Pass {
           col *= mix( vec3( 0.92, 0.96, 1.06 ), vec3( 1.08, 1.02, 0.91 ), smoothstep( 0.08, 0.72, l ) );
           vec2 q = vUv - 0.5;
           if ( uInk > 0.01 ) {
-            // The illustrated look. Wash: pigment let down with a little paper, with the tooth of the sheet in it.
-            vec3 paper = mix( vec3( 0.87, 0.8, 0.66 ), vec3( 0.045, 0.045, 0.085 ), uNight );
+            // The illustrated look (Pocket City watercolor & sepia-ink): soft pigment washes, warm cream paper tooth, gentle sepia outlines.
+            vec3 paper = mix( vec3( 0.94, 0.90, 0.80 ), vec3( 0.055, 0.052, 0.095 ), uNight );
             float wl = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
-            vec3 wash = mix( vec3( wl ), col, 1.1 );
-            wash = mix( wash, paper, 0.06 );
-            float tooth = mNoise( gl_FragCoord.xy * 0.42 ) * 0.6 + mNoise( gl_FragCoord.xy * 0.11 + 7.0 ) * 0.4;
-            wash *= 0.955 + 0.08 * tooth;
+            // soft painterly tonal step (watercolor pooling) without harsh posterization
+            float qLum = floor( wl * 7.0 + 0.5 ) / 7.0;
+            vec3 wash = col * mix( 1.0, ( qLum + 0.06 ) / max( wl + 0.06, 0.06 ), 0.24 );
+            wash = mix( vec3( wl ), wash, 1.14 );
+            wash = mix( wash, paper, mix( 0.09, 0.05, uNight ) );
+            float tooth = mNoise( gl_FragCoord.xy * 0.38 ) * 0.58 + mNoise( gl_FragCoord.xy * 0.095 + 7.0 ) * 0.42;
+            wash *= 0.955 + 0.085 * tooth;
             float d0 = texture2D( tDepth, vUv ).x;
             if ( d0 >= 0.999995 ) {
               // beyond the model the sky's own wash, clouds and distant ridges stay visible through the paper tooth
@@ -243,8 +246,8 @@ class OcclusionPass extends Pass {
             line *= 0.76 + 0.24 * mNoise( gl_FragCoord.xy * 0.2 + 3.0 );
             line *= mix( 1.0, 0.36, smoothstep( 0.50, 0.82, wl ) * smoothstep( 90.0, 420.0, inkDist ) );
             line *= 1.0 - smoothstep( 320.0, 2000.0, inkDist );
-            vec3 inkCol = mix( vec3( 0.16, 0.12, 0.10 ), vec3( 0.025, 0.025, 0.055 ), uNight );
-            vec3 inked = mix( wash, inkCol, line * 0.86 );
+            vec3 inkCol = mix( vec3( 0.24, 0.18, 0.14 ), vec3( 0.04, 0.04, 0.08 ), uNight );
+            vec3 inked = mix( wash, inkCol, line * 0.70 );
             col = mix( col, inked, uInk );
           }
           col *= 1.0 - uVignette * ( 1.0 - 0.6 * uInk ) * smoothstep( 0.25, 0.85, length( q * vec2( 1.0, 0.9 ) ) );

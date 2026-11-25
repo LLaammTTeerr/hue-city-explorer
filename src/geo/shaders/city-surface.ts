@@ -88,16 +88,21 @@ vec3 hueRoomC = vec3( 1.0 ); // the room seen through a lit window
   // the leaf cards (aKind 2, see PART in foliage.js) carry the atlas, a grey pattern whose mean is about 0.45 (linear):
   // bring it back to 1, so a crown shows its own colour rather than a third of it
   if ( vKind > 1.5 ) diffuseColor.rgb *= 2.2;
-  // leaf clumps: two scales of mottling, cooler in the hollows
+  // leaf clumps: two scales of mottling plus a hemisphere crown gradient (warm sunlit top → cool deep-green underside)
   float leafA = hueNoise( vWPos.xz * 1.9 + vWPos.y * 1.3 );
   float leafB = hueNoise( vWPos.xz * 6.0 - vWPos.y * 4.0 );
   float leafC = hueNoise( vWPos.xz * 13.0 + vWPos.y * 9.0 );
   float leaf = leafA * 0.5 + leafB * 0.3 + leafC * 0.2;
-  diffuseColor.rgb *= 0.6 + 0.78 * leaf;
-  // sunlit clumps go warmer and yellower, hollows cooler
-  diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.8, 0.94, 1.1 ), diffuseColor.rgb * vec3( 1.1, 1.06, 0.78 ), smoothstep( 0.35, 0.75, leaf ) );
-  // drawn: one clear wash per crown
-  if ( uLook > 0.5 ) diffuseColor.rgb = mix( diffuseColor.rgb, vColor.rgb * vColor.rgb * 1.5, 0.75 );
+  float crownTop = smoothstep( -0.35, 0.78, hueN.y );
+  diffuseColor.rgb *= ( 0.62 + 0.74 * leaf ) * mix( 0.84, 1.12, crownTop );
+  // sunlit crown tops go warmer and yellower, shaded undersides and hollows go cooler teal-green
+  float sunWarm = clamp( leaf * 0.65 + crownTop * 0.45, 0.0, 1.0 );
+  diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.74, 0.91, 1.06 ), diffuseColor.rgb * vec3( 1.15, 1.09, 0.78 ), smoothstep( 0.28, 0.78, sunWarm ) );
+  // drawn: one luminous painterly wash per crown, keeping the warm-top / cool-underside volume
+  if ( uLook > 0.5 ) {
+    vec3 flatCrown = vColor.rgb * vColor.rgb * 1.52 * mix( vec3( 0.82, 0.92, 1.02 ), vec3( 1.14, 1.08, 0.86 ), crownTop );
+    diffuseColor.rgb = mix( diffuseColor.rgb, flatCrown, 0.72 );
+  }
   // a crown is pigment, not a lamp: past 0.6 the brightest channel is eased toward 0.85 with the hue kept, or the
   // light blossom (hoàng mai, bằng lăng, phượng) and the sunlit leaf tips go out to white in the sun
   {
