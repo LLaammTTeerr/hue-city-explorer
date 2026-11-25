@@ -5,457 +5,543 @@ import { fence, roadsNear, buildingsNear } from '../enclosure.ts';
 import { glowPoints } from '../../geo/materials.ts';
 
 // ---- Chùa Báo Quốc, the pagoda on Hàm Long hill (Báo Quốc street, south bank) ----
-//
-// Sources (docs/places/baoquoc.md has the full list):
-//  - en.wikipedia (Báo Quốc Temple): a 2 ha site on Hàm Long hill; a triple gate at the head of a stair, a spacious
-//    court, the stupas on the left; four dragon-wrapped pillars in the main hall; Giác Phong's stupa (1714), 3.30 m.
-//  - vinwonders.com: the halls stand in a 口 (chánh điện, tăng xá, nhà khách, nhà hậu) round an inner court; the gate
-//    is reached up 15 stone steps; main hall 3 bays + 2 chái; 19 patriarchs' stupas, several tiers, lotus tops.
-//  - mia.vn: trùng lương trùng thiềm (double-roofed) main hall; ancestral hall at the back.
-//  - Wikimedia Commons, "Báo Quốc Temple, Huế" (2024 photos): dark, moss-stained three-arch gate with a two-tier
-//    roof over the middle, red-tiled court, red-brick terrace with two stone lantern pillars, brown-red tiled roofs.
-//  - OpenStreetMap: precinct (way 1170979640), main hall (239977720), the comb-shaped range behind it (239977717),
-//    rear hall (239977719), small hall (239977718), long range (239977721).
-// Estimated: every height, the gate's size and form, the terrace level, the stupas' layout and sizes.
-
-// precinct outline (OSM amenity=monastery), metres in the model frame
-const RING = [[-950.8, 1535.2], [-974.9, 1567.1], [-994.3, 1587.5], [-1001.3, 1593.6], [-1017.8, 1592], [-1037, 1589.7], [-1050, 1592.9], [-1060, 1603.2], [-1063.4, 1607.3], [-1065.3, 1613.9], [-1064.5, 1621.1], [-1061.2, 1628.7], [-1054, 1636.2], [-1050.2, 1644.1], [-1052.9, 1659.5], [-1050.8, 1671.2], [-1043.6, 1687], [-1038, 1693.4], [-1024.1, 1695.9], [-1009.2, 1696], [-997.9, 1698.7], [-980.6, 1705.1], [-970.6, 1706.4], [-947.8, 1697.3], [-934, 1685.4], [-910.1, 1665], [-899.5, 1650.6], [-893.8, 1640.6], [-894.2, 1625.3], [-903.2, 1609.1], [-911, 1593.1], [-919, 1581.5], [-915.7, 1556.3], [-914.6, 1540.8]];
-
-const TILE = hex('#7d4a36'), RIDGE = hex('#6b3a2b'), HTILE = hex('#9a8676'), HRIDGE = hex('#7e6c5e'), WALL = hex('#d9b45a'), WOOD = hex('#4a3226');
-const BRICK = hex('#8e4a3a'), PAVE = hex('#b6a08a'), STONE = PAL.stone, GREY = hex('#8f8c82');
-const GATE = hex('#55554b'), GATE2 = hex('#64635a'), MOSS = PAL.moss, LAC = PAL.lacquer;
-const STUPA = [hex('#9a978a'), hex('#a89a7a'), hex('#8a887c'), hex('#b2a483')];
-
+// Sources (docs/places/baoquoc.md has the full list).
 export const id = 'baoquoc';
 
-export function build({ data, S, group }) {
-  // local frame: u toward the front (north-east, to the gate and the street), v across; the hall's axis is v = 45.2.
-  // Re-framed from OSM: the mapped halls (ways 239977717-21) sit about 5.8 m south and 1.3 m east of where the
-  // satellite shows them (the long range, the inner garden and the hall front all agree on the same shift), while the
-  // precinct outline and the streets round it line up, so only the halls' frame moves (OSM had A = [-1035.6, 1624.6]).
-  // The axis stays at 50 degrees east of north (OSM 49.9, satellite 48-50).
-  const A = [-1036.9, 1618.9], U = [0.766, -0.643], V = [0.643, 0.766];
-  const W = (u, v): [number, number] => [A[0] + u * U[0] + v * V[0], A[1] + u * U[1] + v * V[1]];
-  const T = (u, v) => rise(...W(u, v));
-  const ang = Math.atan2(V[1], V[0]), angU = ang + Math.PI / 2; // box local x along v / along u
-  const AX = 45.2;
-  const c0 = W(50, 40);
-  // terrain range under a rectangle
-  const span = (u0, u1, v0, v1) => {
-    let lo = 1e9, hi = -1e9;
-    for (let i = 0; i <= 4; i++) for (let j = 0; j <= 4; j++) {
-      const t = T(u0 + ((u1 - u0) * i) / 4, v0 + ((v1 - v0) * j) / 4);
-      lo = Math.min(lo, t); hi = Math.max(hi, t);
-    }
-    return [LAND_Y + lo, LAND_Y + hi];
-  };
-  // w across (along v), d along u
-  const box = (u, v, ya, yb, w, d, col, o?) => { const q = W(u, v); S.box(q[0], q[1], ya, yb, w, d, ang, col, o); };
-  const roof = (u, v, w, d, ya, h, o?) => { const q = W(u, v); S.hip(q[0], q[1], w, d, ang, ya, h, o?.col ?? TILE, { flare: 0.4, over: 0.9, fascia: 0.22, fasciaCol: shade(TILE, 0.7), ridgeCol: RIDGE, hips: true, segs: 3, ...o }); };
-  const roofU = (u, v, len, wid, ya, h, o) => { const q = W(u, v); S.hip(q[0], q[1], len, wid, angU, ya, h, o?.col ?? TILE, { flare: 0.35, over: 0.8, fascia: 0.2, fasciaCol: shade(TILE, 0.7), ridgeCol: RIDGE, hips: true, segs: 3, ...o }); };
-  // a straight gabled roof along u (one ridge, gable ends in the wall colour): u0..u1, v0..v1 the walls
-  const gableU = (u0, u1, v0, v1, ya, h, col, over = 0.8, endCol = WALL) => {
-    const v = (v0 + v1) / 2, hw = (v1 - v0) / 2 + over, drop = over * (h / ((v1 - v0) / 2)), ua = u0 - over * 0.6, ub = u1 + over * 0.6;
-    const keep = S.kind;
-    S.kind = KIND.TILE;
-    for (const s of [-1, 1]) {
-      const e0 = V3(ua, v + s * hw, ya - drop), e1 = V3(ub, v + s * hw, ya - drop), r1 = V3(ub, v, ya + h), r0 = V3(ua, v, ya + h);
-      const up = [V[0] * s * 0.5, 1, V[1] * s * 0.5];
-      S.quad(e0, e1, r1, r0, shade(col, s < 0 ? 0.96 : 1.04), up);
-      S.quad(e0, e1, r1, r0, shade(col, 0.6), [-up[0], -1, -up[2]]); // underside of the overhang
-      S.beam(V3(ua, v + s * hw, ya - drop - 0.1), V3(ub, v + s * hw, ya - drop - 0.1), 0.18, 0.22, shade(col, 0.7));
-    }
-    S.beam(V3(ua, v, ya + h + 0.08), V3(ub, v, ya + h + 0.08), 0.35, 0.3, RIDGE);
-    S.kind = KIND.MASONRY;
-    for (const [u, s] of ([[u0, -1], [u1, 1]] as any[])) {
-      const n = [U[0] * s, 0, U[1] * s];
-      S.tri(V3(u, v0, ya), V3(u, v1, ya), V3(u, v, ya + h - 0.05), endCol, n);
-    }
-    S.kind = keep;
-  };
-  const cyl = (u, v, ya, yb, r0, r1, n, col, o?) => { const q = W(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, { rot: ang, ...o }); };
-  const V3 = (u, v, y) => { const q = W(u, v); return [q[0], y, q[1]]; };
-  const glowPos = [], glowCol = [];
-  const glow = (u, v, y, c = [1, 0.84, 0.56]) => { const q = W(u, v); glowPos.push(q[0], y, q[1]); glowCol.push(...c); };
+const PRECINCT_RING: [number, number][] = [
+  [-950.8, 1535.2], [-974.9, 1567.1], [-994.3, 1587.5], [-1001.3, 1593.6], [-1017.8, 1592], [-1037, 1589.7],
+  [-1050, 1592.9], [-1060, 1603.2], [-1063.4, 1607.3], [-1065.3, 1613.9], [-1064.5, 1621.1], [-1061.2, 1628.7],
+  [-1054, 1636.2], [-1050.2, 1644.1], [-1052.9, 1659.5], [-1050.8, 1671.2], [-1043.6, 1687], [-1038, 1693.4],
+  [-1024.1, 1695.9], [-1009.2, 1696], [-997.9, 1698.7], [-980.6, 1705.1], [-970.6, 1706.4], [-947.8, 1697.3],
+  [-934, 1685.4], [-910.1, 1665], [-899.5, 1650.6], [-893.8, 1640.6], [-894.2, 1625.3], [-903.2, 1609.1],
+  [-911, 1593.1], [-919, 1581.5], [-915.7, 1556.3], [-914.6, 1540.8],
+];
 
-  // ---- the gate (tam quan) at the head of 15 stone steps, on the axis at the paved court's north-east end ----
-  // The satellite shows the court ending at u = 89 with a pale structure on the axis just beyond it (u 94-96), in the
-  // trees on the hill's edge; the stair goes down from there and a path runs on to where the service road meets the
-  // precinct wall (OPEN, the gate's mapped place).
-  const gU = 92.5, gD = 3, gW = 11;
-  const OPEN = [-917.7, 1584.6];
-  const [gLo, gHi] = span(gU - gD / 2, gU + gD / 2, AX - gW / 2, AX + gW / 2);
-  const stepR = 0.15, stepT = 0.35, nSteps = 15;
-  const footU = gU + gD / 2 + nSteps * stepT;
-  const footY = LAND_Y + T(footU, AX);
-  const Yg = Math.max(gHi + 0.25, footY + nSteps * stepR);
-  S.base = Yg - LAND_Y;
-  const paved0 = S.n;
+const ORIGIN: [number, number] = [-1036.9, 1618.9];
+const AXIS_U: [number, number] = [0.766, -0.643];
+const AXIS_V: [number, number] = [0.643, 0.766];
+const ANGLE_V = Math.atan2(AXIS_V[1], AXIS_V[0]);
+const ANGLE_U = ANGLE_V + Math.PI / 2;
+const AXIS_CENTER_V = 45.2;
+const GATE_OPENING: [number, number] = [-917.7, 1584.6];
+const GATE_U = 92.5;
+const GATE_D = 3;
+const GATE_W = 11;
+const POND_U = 27.5;
+const POND_V = 75;
+const POND_R = 3.3;
+
+const COLORS = {
+  tile: hex('#7d4a36'),
+  ridge: hex('#6b3a2b'),
+  hallTile: hex('#9a8676'),
+  hallRidge: hex('#7e6c5e'),
+  wall: hex('#d9b45a'),
+  wood: hex('#4a3226'),
+  brick: hex('#8e4a3a'),
+  pave: hex('#b6a08a'),
+  stone: PAL.stone,
+  grey: hex('#8f8c82'),
+  gate: hex('#55554b'),
+  gateAlt: hex('#64635a'),
+  moss: PAL.moss,
+  lacquer: PAL.lacquer,
+  doorSeam: hex('#2e1a14'),
+  threshold: hex('#4a4842'),
+  panelDark: hex('#3d3d37'),
+  panelMid: hex('#474740'),
+  gateRoof: hex('#685c4e'),
+  finialGold: hex('#d4b45c'),
+  dragonTeal: hex('#5f8a78'),
+  lotusGold: hex('#d8be74'),
+  lionWhite: hex('#e8e4da'),
+  potRed: hex('#a5452f'),
+  windowGold: hex('#c99a3e'),
+  pillarDragon: hex('#5f7a6a'),
+  friezeGold: hex('#e3c25a'),
+  wheelGold: hex('#b9a46a'),
+  wheelLight: hex('#d8c27a'),
+  ridgeDragon: hex('#8a9b88'),
+  lanternWhite: hex('#f2ece0'),
+  rearTile: hex('#a5603f'),
+  rearRidge: hex('#8a4c33'),
+  pondWater: hex('#3d5248'),
+  pondRock: hex('#7b786c'),
+  statueWhite: hex('#efede6'),
+};
+const STUPA_COLORS = [hex('#9a978a'), hex('#a89a7a'), hex('#8a887c'), hex('#b2a483')];
+
+const toWorld = (uPos: number, vPos: number): [number, number] => [
+  ORIGIN[0] + uPos * AXIS_U[0] + vPos * AXIS_V[0],
+  ORIGIN[1] + uPos * AXIS_U[1] + vPos * AXIS_V[1],
+];
+const toWorld3 = (uPos: number, vPos: number, y: number): [number, number, number] => {
+  const pt = toWorld(uPos, vPos);
+  return [pt[0], y, pt[1]];
+};
+const terrainRise = (uPos: number, vPos: number) => rise(...toWorld(uPos, vPos));
+
+function terrainSpan(u0: number, u1: number, v0: number, v1: number): [number, number] {
+  let lo = 1e9;
+  let hi = -1e9;
+  for (let i = 0; i <= 4; i++) {
+    for (let j = 0; j <= 4; j++) {
+      const val = terrainRise(u0 + ((u1 - u0) * i) / 4, v0 + ((v1 - v0) * j) / 4);
+      lo = Math.min(lo, val);
+      hi = Math.max(hi, val);
+    }
+  }
+  return [LAND_Y + lo, LAND_Y + hi];
+}
+
+function frameBox(S, uPos: number, vPos: number, y0: number, y1: number, widthV: number, depthU: number, col: number[], opts?) {
+  const pt = toWorld(uPos, vPos);
+  S.box(pt[0], pt[1], y0, y1, widthV, depthU, ANGLE_V, col, opts);
+}
+
+function frameCyl(S, uPos: number, vPos: number, y0: number, y1: number, r0: number, r1: number, segs: number, col: number[], opts?) {
+  const pt = toWorld(uPos, vPos);
+  S.cyl(pt[0], pt[1], y0, y1, r0, r1, segs, col, { rot: ANGLE_V, ...opts });
+}
+
+function frameHipV(S, uPos: number, vPos: number, widthV: number, depthU: number, y0: number, height: number, opts: Record<string, any> = {}) {
+  const pt = toWorld(uPos, vPos);
+  S.hip(pt[0], pt[1], widthV, depthU, ANGLE_V, y0, height, opts.col ?? COLORS.tile, { flare: 0.4, over: 0.9, fascia: 0.22, fasciaCol: shade(COLORS.tile, 0.7), ridgeCol: COLORS.ridge, hips: true, segs: 3, ...opts });
+}
+
+function frameHipU(S, uPos: number, vPos: number, lenU: number, widthV: number, y0: number, height: number, opts: Record<string, any> = {}) {
+  const pt = toWorld(uPos, vPos);
+  S.hip(pt[0], pt[1], lenU, widthV, ANGLE_U, y0, height, opts.col ?? COLORS.tile, { flare: 0.35, over: 0.8, fascia: 0.2, fasciaCol: shade(COLORS.tile, 0.7), ridgeCol: COLORS.ridge, hips: true, segs: 3, ...opts });
+}
+
+function drawGableU(S, u0: number, u1: number, v0: number, v1: number, y0: number, height: number, col: number[], over = 0.8, endCol = COLORS.wall) {
+  const midV = (v0 + v1) / 2;
+  const halfW = (v1 - v0) / 2 + over;
+  const drop = over * (height / ((v1 - v0) / 2));
+  const ua = u0 - over * 0.6;
+  const ub = u1 + over * 0.6;
+  const prevKind = S.kind;
+  S.kind = KIND.TILE;
+  for (const side of [-1, 1]) {
+    const e0 = toWorld3(ua, midV + side * halfW, y0 - drop);
+    const e1 = toWorld3(ub, midV + side * halfW, y0 - drop);
+    const r1 = toWorld3(ub, midV, y0 + height);
+    const r0 = toWorld3(ua, midV, y0 + height);
+    const upNorm = [AXIS_V[0] * side * 0.5, 1, AXIS_V[1] * side * 0.5];
+    S.quad(e0, e1, r1, r0, shade(col, side < 0 ? 0.96 : 1.04), upNorm);
+    S.quad(e0, e1, r1, r0, shade(col, 0.6), [-upNorm[0], -1, -upNorm[2]]);
+    S.beam(toWorld3(ua, midV + side * halfW, y0 - drop - 0.1), toWorld3(ub, midV + side * halfW, y0 - drop - 0.1), 0.18, 0.22, shade(col, 0.7));
+  }
+  S.beam(toWorld3(ua, midV, y0 + height + 0.08), toWorld3(ub, midV, y0 + height + 0.08), 0.35, 0.3, COLORS.ridge);
   S.kind = KIND.MASONRY;
-  // the stair, full gate width, its flanks walled
-  for (let k = 0; k < nSteps; k++) {
-    const u0 = footU - (k + 1) * stepT, u1 = footU - k * stepT, y = footY + (k + 1) * (Yg - footY) / nSteps;
-    box((u0 + u1) / 2, AX, Math.min(gLo, footY) - 0.4, y, 9.2, stepT, shade(STONE, k % 2 ? 0.97 : 1.02), { topKind: KIND.ROAD });
+  for (const [uEnd, sign] of [[u0, -1], [u1, 1]] as [number, number][]) {
+    S.tri(toWorld3(uEnd, v0, y0), toWorld3(uEnd, v1, y0), toWorld3(uEnd, midV, y0 + height - 0.05), endCol, [AXIS_U[0] * sign, 0, AXIS_U[1] * sign]);
   }
-  for (const s of [-1, 1]) {
-    // cheek walls of the stair, sloping with it
-    for (let k = 0; k < nSteps; k += 3) {
-      const u0 = footU - (k + 3) * stepT, u1 = footU - k * stepT, y = footY + (k + 3) * (Yg - footY) / nSteps;
-      box((u0 + u1) / 2, AX + s * 5.0, Math.min(gLo, footY) - 0.4, y + 0.55, 0.8, u1 - u0, shade(GATE, 1.05), { top: MOSS });
-    }
-  }
-  // the path on from the stair's foot, down the slope to the precinct wall where the service road arrives
-  {
-    const rel = [OPEN[0] - A[0], OPEN[1] - A[1]];
-    const oU = rel[0] * U[0] + rel[1] * U[1], oV = rel[0] * V[0] + rel[1] * V[1];
-    const n = Math.max(2, Math.ceil(Math.hypot(oU - footU, oV - AX) / 2));
-    for (let k = 0; k < n; k++) {
-      const pu = (f) => footU + (oU - footU) * f, pv = (f) => AX + (oV - AX) * f;
-      const f0 = k / n, f1 = (k + 1) / n;
-      S.beam(V3(pu(f0), pv(f0), LAND_Y + T(pu(f0), pv(f0)) + 0.06), V3(pu(f1), pv(f1), LAND_Y + T(pu(f1), pv(f1)) + 0.06), 3.0, 0.14, shade(STONE, k % 2 ? 0.95 : 1.0));
-    }
-  }
-  // gate body: three arched openings in weathered grey-mossy masonry with red wooden double doors, carved pilasters,
-  // inscribed friezes and a two-tier curved mossy roof over the central bay (matching the 2024 reference photo)
-  const gH = 5.4;
-  box(gU, AX, gLo - 0.5, Yg, gW + 1.4, gD + 0.8, shade(GATE, 0.95)); // its plinth
+  S.kind = prevKind;
+}
+
+type GlowFn = (uPos: number, vPos: number, y: number, col?: number[]) => void;
+
+// 15-step stair, path from road, tam quan triple gate, forecourt, terrace, and main hall
+function buildAxisComplex(S, addGlow: GlowFn) {
+  const [gateLo, gateHi] = terrainSpan(GATE_U - GATE_D / 2, GATE_U + GATE_D / 2, AXIS_CENTER_V - GATE_W / 2, AXIS_CENTER_V + GATE_W / 2);
+  const stepRise = 0.15;
+  const stepTread = 0.35;
+  const stepCount = 15;
+  const footU = GATE_U + GATE_D / 2 + stepCount * stepTread;
+  const footY = LAND_Y + terrainRise(footU, AXIS_CENTER_V);
+  const gateY = Math.max(gateHi + 0.25, footY + stepCount * stepRise);
+  S.base = gateY - LAND_Y;
+  const pavedStart = S.n;
   S.kind = KIND.MASONRY;
-  for (const [v, w] of ([[-5.3, 1.3], [-2.2, 2.1], [2.2, 2.1], [5.3, 1.3]] as any[])) box(gU, AX + v, Yg, Yg + gH, w, gD, GATE, { top: shade(GATE, 0.8) });
-  // the three openings, round-headed: the middle 2.5 m wide and 3.8 m to its crown, the side ones 1.5 m and 3.0 m
-  const arches = [[-3.85, 1.5, 3.0], [3.85, 1.5, 3.0], [0, 2.5, 3.8]];
-  for (const [v, w, h] of arches) {
-    box(gU, AX + v, Yg + h, Yg + gH, w, gD, GATE2); // wall over the crown
-    // the head: a semicircle of radius w/2 springing at h - w/2, filled in at its corners in thin bands
-    const r = w / 2, y0 = Yg + h - r, n = 8;
-    for (let k = 0; k < n; k++) {
-      const ya = y0 + (r * k) / n, yb = y0 + (r * (k + 1)) / n, open = r * Math.sqrt(Math.max(0, 1 - ((yb - y0) / r) ** 2));
-      const side = r - open;
-      if (side < 0.02) continue;
-      for (const s of [-1, 1]) box(gU, AX + v + s * (r - side / 2), ya, yb, side, gD + 0.02, GATE2);
+
+  for (let k = 0; k < stepCount; k++) {
+    const u0 = footU - (k + 1) * stepTread;
+    const u1 = footU - k * stepTread;
+    const stepY = footY + ((k + 1) * (gateY - footY)) / stepCount;
+    frameBox(S, (u0 + u1) / 2, AXIS_CENTER_V, Math.min(gateLo, footY) - 0.4, stepY, 9.2, stepTread, shade(COLORS.stone, k % 2 ? 0.97 : 1.02), { topKind: KIND.ROAD });
+  }
+  for (const side of [-1, 1]) {
+    for (let k = 0; k < stepCount; k += 3) {
+      const u0 = footU - (k + 3) * stepTread;
+      const u1 = footU - k * stepTread;
+      const cheekY = footY + ((k + 3) * (gateY - footY)) / stepCount;
+      frameBox(S, (u0 + u1) / 2, AXIS_CENTER_V + side * 5.0, Math.min(gateLo, footY) - 0.4, cheekY + 0.55, 0.8, u1 - u0, shade(COLORS.gate, 1.05), { top: COLORS.moss });
     }
-    // red-lacquered wooden doors with upper lattice bars (center & left doors closed/ajar as in photo)
+  }
+
+  const relOpen = [GATE_OPENING[0] - ORIGIN[0], GATE_OPENING[1] - ORIGIN[1]];
+  const openU = relOpen[0] * AXIS_U[0] + relOpen[1] * AXIS_U[1];
+  const openV = relOpen[0] * AXIS_V[0] + relOpen[1] * AXIS_V[1];
+  const pathSegs = Math.max(2, Math.ceil(Math.hypot(openU - footU, openV - AXIS_CENTER_V) / 2));
+  for (let k = 0; k < pathSegs; k++) {
+    const f0 = k / pathSegs;
+    const f1 = (k + 1) / pathSegs;
+    const u0 = footU + (openU - footU) * f0, v0 = AXIS_CENTER_V + (openV - AXIS_CENTER_V) * f0;
+    const u1 = footU + (openU - footU) * f1, v1 = AXIS_CENTER_V + (openV - AXIS_CENTER_V) * f1;
+    S.beam(toWorld3(u0, v0, LAND_Y + terrainRise(u0, v0) + 0.06), toWorld3(u1, v1, LAND_Y + terrainRise(u1, v1) + 0.06), 3.0, 0.14, shade(COLORS.stone, k % 2 ? 0.95 : 1.0));
+  }
+
+  // tam quan gate body
+  const gateH = 5.4;
+  frameBox(S, GATE_U, AXIS_CENTER_V, gateLo - 0.5, gateY, GATE_W + 1.4, GATE_D + 0.8, shade(COLORS.gate, 0.95));
+  S.kind = KIND.MASONRY;
+  for (const [dv, pierW] of [[-5.3, 1.3], [-2.2, 2.1], [2.2, 2.1], [5.3, 1.3]] as [number, number][]) {
+    frameBox(S, GATE_U, AXIS_CENTER_V + dv, gateY, gateY + gateH, pierW, GATE_D, COLORS.gate, { top: shade(COLORS.gate, 0.8) });
+  }
+  for (const [dv, archW, archH] of [[-3.85, 1.5, 3.0], [3.85, 1.5, 3.0], [0, 2.5, 3.8]] as [number, number, number][]) {
+    frameBox(S, GATE_U, AXIS_CENTER_V + dv, gateY + archH, gateY + gateH, archW, GATE_D, COLORS.gateAlt);
+    const radius = archW / 2;
+    const springY = gateY + archH - radius;
+    const slices = 8;
+    for (let k = 0; k < slices; k++) {
+      const ya = springY + (radius * k) / slices;
+      const yb = springY + (radius * (k + 1)) / slices;
+      const openHalf = radius * Math.sqrt(Math.max(0, 1 - ((yb - springY) / radius) ** 2));
+      const fillW = radius - openHalf;
+      if (fillW < 0.02) continue;
+      for (const side of [-1, 1]) frameBox(S, GATE_U, AXIS_CENTER_V + dv + side * (radius - fillW / 2), ya, yb, fillW, GATE_D + 0.02, COLORS.gateAlt);
+    }
     S.kind = KIND.PLAIN;
-    if (v <= 0) {
-      box(gU, AX + v, Yg + 0.12, y0 + 0.15, w - 0.16, 0.14, shade(LAC, 0.78));
-      box(gU, AX + v, Yg + 0.12, y0 + 0.15, 0.08, 0.18, hex('#2e1a14')); // center seam
+    if (dv <= 0) {
+      frameBox(S, GATE_U, AXIS_CENTER_V + dv, gateY + 0.12, springY + 0.15, archW - 0.16, 0.14, shade(COLORS.lacquer, 0.78));
+      frameBox(S, GATE_U, AXIS_CENTER_V + dv, gateY + 0.12, springY + 0.15, 0.08, 0.18, COLORS.doorSeam);
     } else {
-      for (const s of [-1, 1]) box(gU - 0.2, AX + v + s * (r - 0.06), Yg, y0, 0.1, Math.min(w / 2, 1.1), shade(LAC, 0.75));
+      for (const side of [-1, 1]) frameBox(S, GATE_U - 0.2, AXIS_CENTER_V + dv + side * (radius - 0.06), gateY, springY, 0.1, Math.min(archW / 2, 1.1), shade(COLORS.lacquer, 0.75));
     }
     S.kind = KIND.MASONRY;
-    box(gU, AX + v, Yg, Yg + 0.14, w, 0.4, hex('#4a4842'));
+    frameBox(S, GATE_U, AXIS_CENTER_V + dv, gateY, gateY + 0.14, archW, 0.4, COLORS.threshold);
   }
-  // relief pilasters, cornice mouldings and inscribed panels on both faces
-  for (const sd of [-1, 1]) {
-    for (const v of [-5.5, -2.2, 2.2, 5.5]) box(gU + sd * (gD / 2 + 0.12), AX + v, Yg, Yg + gH + 0.35, 0.62, 0.28, shade(GATE, 1.14), { top: MOSS });
-    box(gU + sd * (gD / 2 + 0.08), AX, Yg + 4.1, Yg + 4.95, 2.8, 0.14, hex('#3d3d37'));
-    for (const v of [-3.85, 3.85]) box(gU + sd * (gD / 2 + 0.08), AX + v, Yg + 3.4, Yg + 4.3, 1.7, 0.12, hex('#474740'));
+  for (const face of [-1, 1]) {
+    for (const dv of [-5.5, -2.2, 2.2, 5.5]) frameBox(S, GATE_U + face * (GATE_D / 2 + 0.12), AXIS_CENTER_V + dv, gateY, gateY + gateH + 0.35, 0.62, 0.28, shade(COLORS.gate, 1.14), { top: COLORS.moss });
+    frameBox(S, GATE_U + face * (GATE_D / 2 + 0.08), AXIS_CENTER_V, gateY + 4.1, gateY + 4.95, 2.8, 0.14, COLORS.panelDark);
+    for (const dv of [-3.85, 3.85]) frameBox(S, GATE_U + face * (GATE_D / 2 + 0.08), AXIS_CENTER_V + dv, gateY + 3.4, gateY + 4.3, 1.7, 0.12, COLORS.panelMid);
   }
-  // stepped cornice and curled parapet ends over the side bays
-  box(gU, AX, Yg + gH, Yg + gH + 0.45, gW + 1.2, gD + 0.5, shade(GATE, 0.86), { top: MOSS });
-  for (const s of [-1, 1]) {
-    const e = V3(gU + gD / 2 + 0.1, AX + s * 6.0, Yg + gH + 0.45);
-    S.beam(e, [e[0] + V[0] * s * 0.55, e[1] + 0.75, e[2] + V[1] * s * 0.55], 0.32, 0.32, shade(GATE, 0.92));
+  frameBox(S, GATE_U, AXIS_CENTER_V, gateY + gateH, gateY + gateH + 0.45, GATE_W + 1.2, GATE_D + 0.5, shade(COLORS.gate, 0.86), { top: COLORS.moss });
+  for (const side of [-1, 1]) {
+    const endPt = toWorld3(GATE_U + GATE_D / 2 + 0.1, AXIS_CENTER_V + side * 6.0, gateY + gateH + 0.45);
+    S.beam(endPt, [endPt[0] + AXIS_V[0] * side * 0.55, endPt[1] + 0.75, endPt[2] + AXIS_V[1] * side * 0.55], 0.32, 0.32, shade(COLORS.gate, 0.92));
   }
-  // the upper storey over the middle bay and its two-tier curved mossy roof + carved ridge dragons & dharma finial
-  box(gU, AX, Yg + gH + 0.45, Yg + gH + 1.7, 5.2, 2.7, GATE2);
-  const gr = { flare: 0.48, over: 0.65, fascia: 0.16, fasciaCol: shade(GATE, 0.72), ridgeCol: shade(GATE, 0.95), segs: 3 };
-  { const q = W(gU, AX); S.hip(q[0], q[1], 6.4, 3.6, ang, Yg + gH + 0.3, 0.75, hex('#685c4e'), gr); S.hip(q[0], q[1], 5.2, 2.7, ang, Yg + gH + 1.7, 1.5, hex('#685c4e'), gr); }
+  frameBox(S, GATE_U, AXIS_CENTER_V, gateY + gateH + 0.45, gateY + gateH + 1.7, 5.2, 2.7, COLORS.gateAlt);
+  const gateRoofOpts = { flare: 0.48, over: 0.65, fascia: 0.16, fasciaCol: shade(COLORS.gate, 0.72), ridgeCol: shade(COLORS.gate, 0.95), segs: 3 };
+  const gatePt = toWorld(GATE_U, AXIS_CENTER_V);
+  S.hip(gatePt[0], gatePt[1], 6.4, 3.6, ANGLE_V, gateY + gateH + 0.3, 0.75, COLORS.gateRoof, gateRoofOpts);
+  S.hip(gatePt[0], gatePt[1], 5.2, 2.7, ANGLE_V, gateY + gateH + 1.7, 1.5, COLORS.gateRoof, gateRoofOpts);
   S.kind = KIND.PLAIN;
-  {
-    const ryG = Yg + gH + 3.2;
-    box(gU, AX, ryG, ryG + 0.72, 0.7, 0.16, hex('#d4b45c'));
-    for (const s of [-1, 1]) {
-      const a0 = V3(gU, AX + s * 1.4, ryG + 0.08), a1 = V3(gU, AX + s * 0.9, ryG + 0.55), a2 = V3(gU, AX + s * 0.45, ryG + 0.32);
-      S.beam(a0, a1, 0.18, 0.22, hex('#5f8a78'));
-      S.beam(a1, a2, 0.16, 0.18, hex('#5f8a78'));
-    }
-    // flanking stone trụ biểu lotus pillars at the stair head
-    for (const s of [-1, 1]) {
-      const pv = AX + s * 6.8;
-      S.kind = KIND.MASONRY;
-      box(gU + 1.2, pv, gLo - 0.3, Yg + 0.6, 1.15, 1.15, shade(GATE, 1.05));
-      box(gU + 1.2, pv, Yg + 0.6, Yg + 4.4, 0.65, 0.65, shade(GATE2, 1.08), { top: MOSS });
-      S.kind = KIND.PLAIN;
-      box(gU + 1.2, pv, Yg + 4.4, Yg + 4.68, 0.88, 0.88, STONE);
-      cyl(gU + 1.2, pv, Yg + 4.68, Yg + 5.15, 0.32, 0.42, 8, hex('#d8be74'));
-      cyl(gU + 1.2, pv, Yg + 5.15, Yg + 5.65, 0.36, 0.05, 8, hex('#d8be74'));
-      glow(gU + 1.2, pv, Yg + 4.95);
-    }
-  }
-  glow(gU + gD / 2 + 0.6, AX, Yg + 3.4);
-
-  // ---- the forecourt: weathered terracotta tiles (pale tan from above) climbing from the gate to the terrace, following the hill ----
-  const cV0 = 36.5, cV1 = 54.5, tU = 64; // satellite: the lower court is about 18 m wide, the step to the terrace at u 64
-  const fu = [];
-  for (let u = gU - gD / 2; u > tU - 0.01; u -= 2.5) fu.push(Math.max(u, tU));
-  if (fu[fu.length - 1] > tU) fu.push(tU);
-  const fy = [];
-  let prev = Yg;
-  for (const u of fu) { prev = Math.max(prev, span(u - 1, u + 1, cV0, cV1)[1] + 0.1); fy.push(prev); }
-  S.kind = KIND.ROAD;
-  for (let i = 0; i + 1 < fu.length; i++) {
-    const a0 = V3(fu[i], cV0, fy[i]), a1 = V3(fu[i], cV1, fy[i]), b1 = V3(fu[i + 1], cV1, fy[i + 1]), b0 = V3(fu[i + 1], cV0, fy[i + 1]);
-    S.quad(a0, a1, b1, b0, shade(PAVE, i % 2 ? 0.97 : 1.03), [0, 1, 0]);
-    // skirts down to the ground on each side
+  const gateRidgeY = gateY + gateH + 3.2;
+  frameBox(S, GATE_U, AXIS_CENTER_V, gateRidgeY, gateRidgeY + 0.72, 0.7, 0.16, COLORS.finialGold);
+  for (const side of [-1, 1]) {
+    const p0 = toWorld3(GATE_U, AXIS_CENTER_V + side * 1.4, gateRidgeY + 0.08);
+    const p1 = toWorld3(GATE_U, AXIS_CENTER_V + side * 0.9, gateRidgeY + 0.55);
+    const p2 = toWorld3(GATE_U, AXIS_CENTER_V + side * 0.45, gateRidgeY + 0.32);
+    S.beam(p0, p1, 0.18, 0.22, COLORS.dragonTeal);
+    S.beam(p1, p2, 0.16, 0.18, COLORS.dragonTeal);
+    const pillarV = AXIS_CENTER_V + side * 6.8;
     S.kind = KIND.MASONRY;
-    for (const v of [cV0, cV1]) {
-      const ta = V3(fu[i], v, fy[i]), tb = V3(fu[i + 1], v, fy[i + 1]);
-      const ba = V3(fu[i], v, LAND_Y + T(fu[i], v) - 0.4), bb = V3(fu[i + 1], v, LAND_Y + T(fu[i + 1], v) - 0.4);
-      S.quad(ba, bb, tb, ta, shade(GATE, 1.1), [V[0] * (v - AX), 0, V[1] * (v - AX)]);
+    frameBox(S, GATE_U + 1.2, pillarV, gateLo - 0.3, gateY + 0.6, 1.15, 1.15, shade(COLORS.gate, 1.05));
+    frameBox(S, GATE_U + 1.2, pillarV, gateY + 0.6, gateY + 4.4, 0.65, 0.65, shade(COLORS.gateAlt, 1.08), { top: COLORS.moss });
+    S.kind = KIND.PLAIN;
+    frameBox(S, GATE_U + 1.2, pillarV, gateY + 4.4, gateY + 4.68, 0.88, 0.88, COLORS.stone);
+    frameCyl(S, GATE_U + 1.2, pillarV, gateY + 4.68, gateY + 5.15, 0.32, 0.42, 8, COLORS.lotusGold);
+    frameCyl(S, GATE_U + 1.2, pillarV, gateY + 5.15, gateY + 5.65, 0.36, 0.05, 8, COLORS.lotusGold);
+    addGlow(GATE_U + 1.2, pillarV, gateY + 4.95);
+  }
+  addGlow(GATE_U + GATE_D / 2 + 0.6, AXIS_CENTER_V, gateY + 3.4);
+
+  // sloping forecourt from gate to terrace
+  const courtV0 = 36.5;
+  const courtV1 = 54.5;
+  const terraceEdgeU = 64;
+  const courtUs: number[] = [];
+  for (let uPos = GATE_U - GATE_D / 2; uPos > terraceEdgeU - 0.01; uPos -= 2.5) courtUs.push(Math.max(uPos, terraceEdgeU));
+  if (courtUs[courtUs.length - 1] > terraceEdgeU) courtUs.push(terraceEdgeU);
+  const courtYs: number[] = [];
+  let prevCourtY = gateY;
+  for (const uPos of courtUs) {
+    prevCourtY = Math.max(prevCourtY, terrainSpan(uPos - 1, uPos + 1, courtV0, courtV1)[1] + 0.1);
+    courtYs.push(prevCourtY);
+  }
+  S.kind = KIND.ROAD;
+  for (let i = 0; i + 1 < courtUs.length; i++) {
+    S.quad(toWorld3(courtUs[i], courtV0, courtYs[i]), toWorld3(courtUs[i], courtV1, courtYs[i]), toWorld3(courtUs[i + 1], courtV1, courtYs[i + 1]), toWorld3(courtUs[i + 1], courtV0, courtYs[i + 1]), shade(COLORS.pave, i % 2 ? 0.97 : 1.03), [0, 1, 0]);
+    S.kind = KIND.MASONRY;
+    for (const vEdge of [courtV0, courtV1]) {
+      const topA = toWorld3(courtUs[i], vEdge, courtYs[i]);
+      const topB = toWorld3(courtUs[i + 1], vEdge, courtYs[i + 1]);
+      const botA = toWorld3(courtUs[i], vEdge, LAND_Y + terrainRise(courtUs[i], vEdge) - 0.4);
+      const botB = toWorld3(courtUs[i + 1], vEdge, LAND_Y + terrainRise(courtUs[i + 1], vEdge) - 0.4);
+      S.quad(botA, botB, topB, topA, shade(COLORS.gate, 1.1), [AXIS_V[0] * (vEdge - AXIS_CENTER_V), 0, AXIS_V[1] * (vEdge - AXIS_CENTER_V)]);
     }
     S.kind = KIND.ROAD;
   }
-  // grey stone path down the middle
   S.kind = KIND.MASONRY;
-  for (let i = 0; i + 1 < fu.length; i++) S.beam(V3(fu[i], AX, fy[i] + 0.02), V3(fu[i + 1], AX, fy[i + 1] + 0.02), 2.2, 0.06, shade(STONE, 1.05));
+  for (let i = 0; i + 1 < courtUs.length; i++) S.beam(toWorld3(courtUs[i], AXIS_CENTER_V, courtYs[i] + 0.02), toWorld3(courtUs[i + 1], AXIS_CENTER_V, courtYs[i + 1] + 0.02), 2.2, 0.06, shade(COLORS.stone, 1.05));
 
-  // ---- the terrace before the hall: red-brick retaining wall, five steps, two stone lantern pillars ----
-  const Fy = fy[fy.length - 1];
-  const [tLo, tHi] = span(31, tU, 31, 59);
-  const Yt = Math.max(Fy + 0.9, tHi + 0.1);
-  // the upper court on the satellite: about 24 m across (v 32-56) between the long range's trees and the forest
-  box((46 + tU) / 2, 45, tLo - 0.5, Yt, 28, tU - 46, BRICK, { top: PAVE, topKind: KIND.ROAD });
-  box(34.9, 45, tLo - 0.5, Yt, 28, 22.2, BRICK, { top: PAVE, topKind: KIND.ROAD }); // round the hall to its back
-  for (let k = 0; k < 5; k++) box(tU + 0.35 * (k + 0.5), AX, Fy - 0.3, Yt - ((Yt - Fy) / 5) * (k + 1) + (Yt - Fy) / 5, 9, 0.35, shade(BRICK, 1.08), { topKind: KIND.ROAD });
-  // stone balustrade along the front edge, small lanterns on its posts
-  for (const [v0, v1] of ([[31.2, AX - 4.6], [AX + 4.6, 58.8]] as any[])) {
-    box(tU - 0.2, (v0 + v1) / 2, Yt, Yt + 0.65, v1 - v0, 0.25, GREY, { top: shade(GREY, 1.1) });
-    for (let v = v0; v <= v1 + 0.01; v += (v1 - v0) / 4) {
-      box(tU - 0.2, v, Yt, Yt + 0.95, 0.35, 0.35, shade(GREY, 1.05));
-      box(tU - 0.2, v, Yt + 0.95, Yt + 1.2, 0.25, 0.25, shade(STONE, 1.1));
+  // upper terrace, balustrade, lantern pillars, stone lions, and main hall
+  const forecourtTopY = courtYs[courtYs.length - 1];
+  const [terraceLo, terraceHi] = terrainSpan(31, terraceEdgeU, 31, 59);
+  const terraceY = Math.max(forecourtTopY + 0.9, terraceHi + 0.1);
+  frameBox(S, (46 + terraceEdgeU) / 2, 45, terraceLo - 0.5, terraceY, 28, terraceEdgeU - 46, COLORS.brick, { top: COLORS.pave, topKind: KIND.ROAD });
+  frameBox(S, 34.9, 45, terraceLo - 0.5, terraceY, 28, 22.2, COLORS.brick, { top: COLORS.pave, topKind: KIND.ROAD });
+  for (let k = 0; k < 5; k++) frameBox(S, terraceEdgeU + 0.35 * (k + 0.5), AXIS_CENTER_V, forecourtTopY - 0.3, terraceY - ((terraceY - forecourtTopY) / 5) * k, 9, 0.35, shade(COLORS.brick, 1.08), { topKind: KIND.ROAD });
+  for (const [v0, v1] of [[31.2, AXIS_CENTER_V - 4.6], [AXIS_CENTER_V + 4.6, 58.8]] as [number, number][]) {
+    frameBox(S, terraceEdgeU - 0.2, (v0 + v1) / 2, terraceY, terraceY + 0.65, v1 - v0, 0.25, COLORS.grey, { top: shade(COLORS.grey, 1.1) });
+    for (let vPos = v0; vPos <= v1 + 0.01; vPos += (v1 - v0) / 4) {
+      frameBox(S, terraceEdgeU - 0.2, vPos, terraceY, terraceY + 0.95, 0.35, 0.35, shade(COLORS.grey, 1.05));
+      frameBox(S, terraceEdgeU - 0.2, vPos, terraceY + 0.95, terraceY + 1.2, 0.25, 0.25, shade(COLORS.stone, 1.1));
     }
   }
-  // the two tall pillars either side of the stair, lantern tops, and the stone lions
-  for (const s of [-1, 1]) {
-    const v = AX + s * 6.2;
-    box(tU - 0.8, v, Yt, Yt + 0.5, 1.2, 1.2, GREY);
-    box(tU - 0.8, v, Yt + 0.5, Yt + 5.0, 0.7, 0.7, shade(GREY, 1.05));
-    box(tU - 0.8, v, Yt + 5.0, Yt + 5.6, 0.95, 0.95, shade(STONE, 1.05));
-    { const q = W(tU - 0.8, v); S.hip(q[0], q[1], 1.2, 1.2, ang, Yt + 5.6, 0.45, GREY, { flare: 0.3, over: 0.15, segs: 2 }); }
-    glow(tU - 0.8, v, Yt + 5.3);
-    box(tU + 2.3, AX + s * 5.4, Fy, Fy + 0.5, 0.9, 1.3, shade(STONE, 1.2));
-    box(tU + 2.2, AX + s * 5.4, Fy + 0.5, Fy + 1.2, 0.6, 0.9, hex('#e8e4da'));
-    // potted plants on red pots along the terrace
-    for (const pv of [-14, -10, 10, 14]) if (Math.sign(pv) === s) cyl(tU - 1.6, AX + pv, Yt, Yt + 0.5, 0.35, 0.45, 6, hex('#a5452f'), { cap: true });
+  for (const side of [-1, 1]) {
+    const pillarV = AXIS_CENTER_V + side * 6.2;
+    frameBox(S, terraceEdgeU - 0.8, pillarV, terraceY, terraceY + 0.5, 1.2, 1.2, COLORS.grey);
+    frameBox(S, terraceEdgeU - 0.8, pillarV, terraceY + 0.5, terraceY + 5.0, 0.7, 0.7, shade(COLORS.grey, 1.05));
+    frameBox(S, terraceEdgeU - 0.8, pillarV, terraceY + 5.0, terraceY + 5.6, 0.95, 0.95, shade(COLORS.stone, 1.05));
+    const capPt = toWorld(terraceEdgeU - 0.8, pillarV);
+    S.hip(capPt[0], capPt[1], 1.2, 1.2, ANGLE_V, terraceY + 5.6, 0.45, COLORS.grey, { flare: 0.3, over: 0.15, segs: 2 });
+    addGlow(terraceEdgeU - 0.8, pillarV, terraceY + 5.3);
+    frameBox(S, terraceEdgeU + 2.3, AXIS_CENTER_V + side * 5.4, forecourtTopY, forecourtTopY + 0.5, 0.9, 1.3, shade(COLORS.stone, 1.2));
+    frameBox(S, terraceEdgeU + 2.2, AXIS_CENTER_V + side * 5.4, forecourtTopY + 0.5, forecourtTopY + 1.2, 0.6, 0.9, COLORS.lionWhite);
+    for (const potV of [-14, -10, 10, 14]) if (Math.sign(potV) === side) frameCyl(S, terraceEdgeU - 1.6, AXIS_CENTER_V + potV, terraceY, terraceY + 0.5, 0.35, 0.45, 6, COLORS.potRed, { cap: true });
   }
 
-  // ---- main hall (chánh điện) and the front hall (tiền đường) before it, under parallel roofs ----
-  // The satellite shows a cluster of parallel roofs in weathered tan tile: a narrow front hall with its ridge across the
-  // axis (eaves u 42-46), a narrow roof behind it (u 38.8-42) and the larger main roof (u 23.6-38.8), about 19-20 m
-  // across (v 35.2-55.2). mia.vn's "trùng lương trùng thiềm" (double roof) is drawn as the parallel front and main roofs,
-  // the main roof with a small upper tier. Four dragon pillars stand on the front verandah.
-  const hB = 24.6, hF = 45.4, hW = 18; // walls: back, verandah edge, width
-  const Yp = Yt + 1.0;
-  box((hB + hF) / 2 - 0.2, AX, Yt - 0.2, Yp, hW + 1.2, hF - hB + 0.4, shade(GREY, 0.95), { top: shade(PAVE, 0.95), topKind: KIND.ROAD });
-  for (let k = 0; k < 6; k++) box(hF + 0.3 * (k + 0.5), AX, Yt - 0.2, Yp - (1.0 / 6) * k, 9, 0.3, shade(GREY, 1.02), { topKind: KIND.ROAD });
-  (S.paved = S.paved || []).push([paved0, S.n]);
+  // main hall (chánh điện) and front hall (tiền đường)
+  const hallBack = 24.6;
+  const hallFront = 45.4;
+  const hallW = 18;
+  const plinthY = terraceY + 1.0;
+  frameBox(S, (hallBack + hallFront) / 2 - 0.2, AXIS_CENTER_V, terraceY - 0.2, plinthY, hallW + 1.2, hallFront - hallBack + 0.4, shade(COLORS.grey, 0.95), { top: shade(COLORS.pave, 0.95), topKind: KIND.ROAD });
+  for (let k = 0; k < 6; k++) frameBox(S, hallFront + 0.3 * (k + 0.5), AXIS_CENTER_V, terraceY - 0.2, plinthY - (1.0 / 6) * k, 9, 0.3, shade(COLORS.grey, 1.02), { topKind: KIND.ROAD });
+  (S.paved = S.paved || []).push([pavedStart, S.n]);
+
   S.kind = KIND.MASONRY;
-  const front = hF;
-  // body walls: ochre, dark wooden door panels in the three bays set back behind the verandah
-  box((hB + front - 2.6) / 2, AX, Yp, Yp + 3.8, hW, front - 2.6 - hB, WALL, { top: shade(HTILE, 0.8) });
-  box(front - 2.5, AX, Yp, Yp + 3.2, 9.6, 0.25, WOOD);
-  for (const s of [-1, 1]) {
-    box(front - 2.5, AX + s * 7.0, Yp, Yp + 3.6, 4.0, 0.3, WALL);
-    // round 壽 windows in the chái walls
-    box(front - 2.3, AX + s * 7.0, Yp + 1.2, Yp + 2.6, 1.3, 0.12, shade(WOOD, 1.3));
-    box(front - 2.25, AX + s * 7.0, Yp + 1.6, Yp + 2.2, 0.6, 0.1, hex('#c99a3e'));
+  frameBox(S, (hallBack + hallFront - 2.6) / 2, AXIS_CENTER_V, plinthY, plinthY + 3.8, hallW, hallFront - 2.6 - hallBack, COLORS.wall, { top: shade(COLORS.hallTile, 0.8) });
+  frameBox(S, hallFront - 2.5, AXIS_CENTER_V, plinthY, plinthY + 3.2, 9.6, 0.25, COLORS.wood);
+  for (const side of [-1, 1]) {
+    frameBox(S, hallFront - 2.5, AXIS_CENTER_V + side * 7.0, plinthY, plinthY + 3.6, 4.0, 0.3, COLORS.wall);
+    frameBox(S, hallFront - 2.3, AXIS_CENTER_V + side * 7.0, plinthY + 1.2, plinthY + 2.6, 1.3, 0.12, shade(COLORS.wood, 1.3));
+    frameBox(S, hallFront - 2.25, AXIS_CENTER_V + side * 7.0, plinthY + 1.6, plinthY + 2.2, 0.6, 0.1, COLORS.windowGold);
   }
-  // verandah pillars: grey, wrapped in dragons (a darker spiral band)
   for (const dv of [-5.4, -1.9, 1.9, 5.4]) {
-    cyl(front - 0.5, AX + dv, Yp, Yp + 3.4, 0.28, 0.25, 8, shade(GREY, 1.08), { cap: false });
-    for (let k = 0; k < 3; k++) cyl(front - 0.5, AX + dv, Yp + 0.6 + k * 0.95, Yp + 0.92 + k * 0.95, 0.34, 0.34, 8, hex('#5f7a6a'), { cap: false });
+    frameCyl(S, hallFront - 0.5, AXIS_CENTER_V + dv, plinthY, plinthY + 3.4, 0.28, 0.25, 8, shade(COLORS.grey, 1.08), { cap: false });
+    for (let k = 0; k < 3; k++) frameCyl(S, hallFront - 0.5, AXIS_CENTER_V + dv, plinthY + 0.6 + k * 0.95, plinthY + 0.92 + k * 0.95, 0.34, 0.34, 8, COLORS.pillarDragon, { cap: false });
   }
-  for (const dv of [-8.6, 8.6]) cyl(front - 0.5, AX + dv, Yp, Yp + 3.4, 0.24, 0.22, 8, shade(LAC, 0.75), { cap: false });
-  const hr = { col: HTILE, fasciaCol: shade(HTILE, 0.7), ridgeCol: HRIDGE };
-  // front hall: eaves u 42-46, v 36-54.4, ridge across the axis
-  roof(44.0, AX, 17.2, 2.8, Yp + 3.4, 1.3, { ...hr, over: 0.6, flare: 0.3 });
-  // the narrow roof between (u 38.8-42)
-  roof(40.4, AX, 17.6, 2.0, Yp + 3.7, 1.2, { ...hr, over: 0.6, flare: 0.25, ridgeCol: null });
-  // main roof: eaves u 23.6-38.8, v 35.2-55.2, a frieze band and a small upper tier
-  const mU = 31.2;
-  roof(mU, AX, 18, 13.2, Yp + 3.9, 1.5, { ...hr, over: 1.0, ridgeCol: null });
-  box(mU, AX, Yp + 4.8, Yp + 5.8, 11, 7, shade(WALL, 0.85));
-  for (let k = -2; k <= 2; k++) box(mU + 3.55, AX + k * 2.0, Yp + 4.95, Yp + 5.6, 1.4, 0.08, hex('#e3c25a'));
-  roof(mU, AX, 11, 7, Yp + 5.7, 1.8, { ...hr, over: 0.9, flare: 0.5 });
-  // ridge: a dharma wheel in the middle, dragons rising at the ends
-  const ry = Yp + 7.45;
-  box(mU, AX, ry, ry + 0.9, 0.9, 0.14, hex('#b9a46a'));
-  box(mU, AX, ry + 0.2, ry + 0.7, 0.5, 0.2, hex('#d8c27a'));
-  for (const s of [-1, 1]) {
-    const e = V3(mU, AX + s * 3.0, ry);
-    const m = V3(mU, AX + s * 2.4, ry + 0.8), t = V3(mU, AX + s * 1.9, ry + 0.5);
-    S.beam(e, m, 0.25, 0.3, hex('#8a9b88'));
-    S.beam(m, t, 0.2, 0.22, hex('#8a9b88'));
-  }
-  // six white lanterns hung under the front eave
-  for (const dv of [-7.8, -5.4, -3.6, 3.6, 5.4, 7.8]) {
-    cyl(front + 0.1, AX + dv, Yp + 2.4, Yp + 2.95, 0.22, 0.22, 6, hex('#f2ece0'));
-    glow(front + 0.1, AX + dv, Yp + 2.7, [1, 0.9, 0.7]);
-  }
+  for (const dv of [-8.6, 8.6]) frameCyl(S, hallFront - 0.5, AXIS_CENTER_V + dv, plinthY, plinthY + 3.4, 0.24, 0.22, 8, shade(COLORS.lacquer, 0.75), { cap: false });
 
-  // ---- the ranges round the inner court (tăng xá, nhà khách, nhà hậu), the rear hall, the side halls ----
-  const hall = (u0, u1, v0, v1, alongU, wallH = 3.3, roofH = 1.8, ro?) => {
-    const [lo, hi] = span(u0, u1, v0, v1);
-    const y = hi + 0.35, u = (u0 + u1) / 2, v = (v0 + v1) / 2;
+  const hallRoofOpts = { col: COLORS.hallTile, fasciaCol: shade(COLORS.hallTile, 0.7), ridgeCol: COLORS.hallRidge };
+  frameHipV(S, 44.0, AXIS_CENTER_V, 17.2, 2.8, plinthY + 3.4, 1.3, { ...hallRoofOpts, over: 0.6, flare: 0.3 });
+  frameHipV(S, 40.4, AXIS_CENTER_V, 17.6, 2.0, plinthY + 3.7, 1.2, { ...hallRoofOpts, over: 0.6, flare: 0.25, ridgeCol: null });
+  const mainRoofU = 31.2;
+  frameHipV(S, mainRoofU, AXIS_CENTER_V, 18, 13.2, plinthY + 3.9, 1.5, { ...hallRoofOpts, over: 1.0, ridgeCol: null });
+  frameBox(S, mainRoofU, AXIS_CENTER_V, plinthY + 4.8, plinthY + 5.8, 11, 7, shade(COLORS.wall, 0.85));
+  for (let k = -2; k <= 2; k++) frameBox(S, mainRoofU + 3.55, AXIS_CENTER_V + k * 2.0, plinthY + 4.95, plinthY + 5.6, 1.4, 0.08, COLORS.friezeGold);
+  frameHipV(S, mainRoofU, AXIS_CENTER_V, 11, 7, plinthY + 5.7, 1.8, { ...hallRoofOpts, over: 0.9, flare: 0.5 });
+
+  const ridgeY = plinthY + 7.45;
+  frameBox(S, mainRoofU, AXIS_CENTER_V, ridgeY, ridgeY + 0.9, 0.9, 0.14, COLORS.wheelGold);
+  frameBox(S, mainRoofU, AXIS_CENTER_V, ridgeY + 0.2, ridgeY + 0.7, 0.5, 0.2, COLORS.wheelLight);
+  for (const side of [-1, 1]) {
+    const p0 = toWorld3(mainRoofU, AXIS_CENTER_V + side * 3.0, ridgeY);
+    const p1 = toWorld3(mainRoofU, AXIS_CENTER_V + side * 2.4, ridgeY + 0.8);
+    const p2 = toWorld3(mainRoofU, AXIS_CENTER_V + side * 1.9, ridgeY + 0.5);
+    S.beam(p0, p1, 0.25, 0.3, COLORS.ridgeDragon);
+    S.beam(p1, p2, 0.2, 0.22, COLORS.ridgeDragon);
+  }
+  for (const dv of [-7.8, -5.4, -3.6, 3.6, 5.4, 7.8]) {
+    frameCyl(S, hallFront + 0.1, AXIS_CENTER_V + dv, plinthY + 2.4, plinthY + 2.95, 0.22, 0.22, 6, COLORS.lanternWhite);
+    addGlow(hallFront + 0.1, AXIS_CENTER_V + dv, plinthY + 2.7, [1, 0.9, 0.7]);
+  }
+  return { footU, openU, openV };
+}
+
+// monastery ranges, stupa garden, lotus pond, forest, precinct fence, and infill cleanup
+function buildMonasteryRangesAndGrounds(S, data, axisInfo: { footU: number; openU: number; openV: number }) {
+  const drawRangeHall = (u0: number, u1: number, v0: number, v1: number, alongU: boolean, wallH = 3.3, roofH = 1.8, roofOpts?: Record<string, any>) => {
+    const [lo, hi] = terrainSpan(u0, u1, v0, v1);
+    const baseY = hi + 0.35;
+    const midU = (u0 + u1) / 2;
+    const midV = (v0 + v1) / 2;
     S.kind = KIND.MASONRY;
-    box(u, v, lo - 0.4, y, v1 - v0 + 0.4, u1 - u0 + 0.4, shade(GREY, 0.9));
-    S.kind = KIND.MASONRY;
-    box(u, v, y, y + wallH, v1 - v0 - 1.0, u1 - u0 - 1.0, WALL, { top: shade(TILE, 0.8) });
-    // openings: dark timber doors and shuttered windows at a steady bay rhythm on both long faces
-    const len = (alongU ? u1 - u0 : v1 - v0) - 1.0, nb = Math.max(2, Math.round(len / 3.2)), pitch = len / nb;
-    for (let k = 0; k < nb; k++) {
-      const t = -len / 2 + pitch * (k + 0.5), door = k % 2 === 0;
-      for (const s of [-1, 1]) {
-        const dU = alongU ? u + t : u + s * ((u1 - u0 - 1.0) / 2 + 0.03), dV = alongU ? v + s * ((v1 - v0 - 1.0) / 2 + 0.03) : v + t;
-        const yb = y + (door ? 0 : 1.0), yt = y + (door ? 2.5 : 2.4);
-        box(dU, dV, yb, yt, alongU ? 0.14 : 1.5, alongU ? 1.5 : 0.14, door ? WOOD : shade(WOOD, 0.8));
-        if (!door) box(dU, dV, yb - 0.12, yb, alongU ? 0.18 : 1.7, alongU ? 1.7 : 0.18, shade(GREY, 1.05));
+    frameBox(S, midU, midV, lo - 0.4, baseY, v1 - v0 + 0.4, u1 - u0 + 0.4, shade(COLORS.grey, 0.9));
+    frameBox(S, midU, midV, baseY, baseY + wallH, v1 - v0 - 1.0, u1 - u0 - 1.0, COLORS.wall, { top: shade(COLORS.tile, 0.8) });
+    const spanLen = (alongU ? u1 - u0 : v1 - v0) - 1.0;
+    const bayCount = Math.max(2, Math.round(spanLen / 3.2));
+    const pitch = spanLen / bayCount;
+    for (let k = 0; k < bayCount; k++) {
+      const offset = -spanLen / 2 + pitch * (k + 0.5);
+      const isDoor = k % 2 === 0;
+      for (const side of [-1, 1]) {
+        const dU = alongU ? midU + offset : midU + side * ((u1 - u0 - 1.0) / 2 + 0.03);
+        const dV = alongU ? midV + side * ((v1 - v0 - 1.0) / 2 + 0.03) : midV + offset;
+        const yBot = baseY + (isDoor ? 0 : 1.0);
+        const yTop = baseY + (isDoor ? 2.5 : 2.4);
+        frameBox(S, dU, dV, yBot, yTop, alongU ? 0.14 : 1.5, alongU ? 1.5 : 0.14, isDoor ? COLORS.wood : shade(COLORS.wood, 0.8));
+        if (!isDoor) frameBox(S, dU, dV, yBot - 0.12, yBot, alongU ? 0.18 : 1.7, alongU ? 1.7 : 0.18, shade(COLORS.grey, 1.05));
       }
     }
-    if (ro?.gable) gableU(u0 + 0.5, u1 - 0.5, v0 + 0.5, v1 - 0.5, y + wallH, roofH, ro.col ?? TILE);
-    else if (alongU) roofU(u, v, u1 - u0 - 1.0, v1 - v0 - 1.0, y + wallH, roofH, ro);
-    else roof(u, v, v1 - v0 - 1.0, u1 - u0 - 1.0, y + wallH, roofH, ro);
-    // ridge finials at the two ends
-    for (const s of [-1, 1]) {
-      const eu = alongU ? u + s * (len / 2 - 0.4) : u, ev = alongU ? v : v + s * (len / 2 - 0.4), q = W(eu, ev);
-      S.box(q[0], q[1], y + wallH + roofH - 0.05, y + wallH + roofH + 0.55, 0.3, 0.3, ang, shade(ro?.ridgeCol ?? RIDGE, 1.15));
+    if (roofOpts?.gable) drawGableU(S, u0 + 0.5, u1 - 0.5, v0 + 0.5, v1 - 0.5, baseY + wallH, roofH, roofOpts.col ?? COLORS.tile);
+    else if (alongU) frameHipU(S, midU, midV, u1 - u0 - 1.0, v1 - v0 - 1.0, baseY + wallH, roofH, roofOpts);
+    else frameHipV(S, midU, midV, v1 - v0 - 1.0, u1 - u0 - 1.0, baseY + wallH, roofH, roofOpts);
+
+    for (const side of [-1, 1]) {
+      const endU = alongU ? midU + side * (spanLen / 2 - 0.4) : midU;
+      const endV = alongU ? midV : midV + side * (spanLen / 2 - 0.4);
+      const pt = toWorld(endU, endV);
+      S.box(pt[0], pt[1], baseY + wallH + roofH - 0.05, baseY + wallH + roofH + 0.55, 0.3, 0.3, ANGLE_V, shade(roofOpts?.ridgeCol ?? COLORS.ridge, 1.15));
     }
-    return y;
   };
-  hall(0, 22.4, 0, 11, true);
-  hall(0, 14.8, 11, 28.1, false);
-  hall(0, 22.6, 28.1, 38.7, true);
-  hall(0, 9.8, 38.7, 56.1, false, 3.6, 2.0);
-  hall(0, 22.7, 56.1, 63.7, true);
-  // nhà hậu tổ: the satellite puts it 5.7 m further south-east than OSM (v 34.3-54.8), its roof a lighter, oranger tile
-  hall(-8.8, -1, 34.3, 54.8, false, 3.6, 2.0, { col: hex('#a5603f'), ridgeCol: hex('#8a4c33') });
-  // the small hall north-west of the long range: the satellite shows a roof about 7 x 11 m, eaves u 44.5-55.7, v 6-13.1
-  hall(44.8, 55.4, 6.3, 12.8, true);
-  // the long range beside the court: one roof about 49 m long and 7.4 m eave to eave (satellite u 44.7-94.1,
-  // v 18.3-25.7), a single straight ridge and gabled ends
-  hall(45.0, 93.8, 18.6, 25.4, true, 3.1, 1.9, { gable: true });
-  // the inner court, paved (up to the main hall's back wall)
-  {
-    const p0 = S.n;
-    const [lo, hi] = span(10, 23.8, 39, 56);
-    S.kind = KIND.MASONRY;
-    box(16.9, 47.5, lo - 0.3, hi + 0.12, 17, 13.8, shade(GREY, 0.95), { top: shade(PAVE, 0.92), topKind: KIND.ROAD });
-    (S.paved = S.paved || []).push([p0, S.n]);
-  }
 
-  // ---- the stupa garden: 19 patriarchs' stupas on the visitor's left, multi-tier, lotus-topped ----
+  drawRangeHall(0, 22.4, 0, 11, true);
+  drawRangeHall(0, 14.8, 11, 28.1, false);
+  drawRangeHall(0, 22.6, 28.1, 38.7, true);
+  drawRangeHall(0, 9.8, 38.7, 56.1, false, 3.6, 2.0);
+  drawRangeHall(0, 22.7, 56.1, 63.7, true);
+  drawRangeHall(-8.8, -1, 34.3, 54.8, false, 3.6, 2.0, { col: COLORS.rearTile, ridgeCol: COLORS.rearRidge });
+  drawRangeHall(44.8, 55.4, 6.3, 12.8, true);
+  drawRangeHall(45.0, 93.8, 18.6, 25.4, true, 3.1, 1.9, { gable: true });
+
+  const innerStart = S.n;
+  const [innerLo, innerHi] = terrainSpan(10, 23.8, 39, 56);
   S.kind = KIND.MASONRY;
-  const spots = [];
-  for (const [u, n] of ([[64, 5], [71.5, 5], [79, 5], [86.5, 4]] as any[])) for (let i = 0; i < n; i++) spots.push([u + ((i * 7) % 3) * 0.6, 70 + i * 5.6 + (n === 4 ? 2.8 : 0)]);
-  spots.forEach(([u, v], i) => {
-    const founder = i === 7;
-    const tiers = founder ? 3 : 3 + ((i * 5) % 3), base = founder ? 2.2 : 1.6 + ((i * 3) % 4) * 0.15;
-    const col = STUPA[i % STUPA.length];
-    const [lo, hi] = span(u - 1.5, u + 1.5, v - 1.5, v + 1.5);
-    let y = hi + 0.3;
-    if (founder) {
-      box(u, v, lo - 0.3, hi + 0.15, 5.2, 5.2, shade(GREY, 0.9));
-      for (const [du, dv, w, d] of ([[2.5, 0, 0.25, 5.2], [-2.5, 0, 0.25, 5.2], [0, -2.5, 5.2, 0.25], [0, 2.5, 5.2, 0.25]] as any[])) if (du !== 2.5) box(u + du, v + dv, hi + 0.15, hi + 0.8, w, d, shade(GATE, 1.1), { top: MOSS });
+  frameBox(S, 16.9, 47.5, innerLo - 0.3, innerHi + 0.12, 17, 13.8, shade(COLORS.grey, 0.95), { top: shade(COLORS.pave, 0.92), topKind: KIND.ROAD });
+  (S.paved = S.paved || []).push([innerStart, S.n]);
+
+  // 19 patriarchs' stupas
+  S.kind = KIND.MASONRY;
+  const stupaSpots: [number, number][] = [];
+  for (const [rowU, count] of [[64, 5], [71.5, 5], [79, 5], [86.5, 4]] as [number, number][]) {
+    for (let i = 0; i < count; i++) stupaSpots.push([rowU + ((i * 7) % 3) * 0.6, 70 + i * 5.6 + (count === 4 ? 2.8 : 0)]);
+  }
+  stupaSpots.forEach(([uPos, vPos], idx) => {
+    const isFounder = idx === 7;
+    const tiers = isFounder ? 3 : 3 + ((idx * 5) % 3);
+    const baseSize = isFounder ? 2.2 : 1.6 + ((idx * 3) % 4) * 0.15;
+    const col = STUPA_COLORS[idx % STUPA_COLORS.length];
+    const [lo, hi] = terrainSpan(uPos - 1.5, uPos + 1.5, vPos - 1.5, vPos + 1.5);
+    let curY = hi + 0.3;
+    if (isFounder) {
+      frameBox(S, uPos, vPos, lo - 0.3, hi + 0.15, 5.2, 5.2, shade(COLORS.grey, 0.9));
+      for (const [du, dv, width, depth] of [[-2.5, 0, 0.25, 5.2], [0, -2.5, 5.2, 0.25], [0, 2.5, 5.2, 0.25]] as [number, number, number, number][]) {
+        frameBox(S, uPos + du, vPos + dv, hi + 0.15, hi + 0.8, width, depth, shade(COLORS.gate, 1.1), { top: COLORS.moss });
+      }
     }
-    box(u, v, lo - 0.3, y, base + 0.5, base + 0.5, shade(col, 0.85));
-    let w = base, h = founder ? 0.75 : 0.9 + ((i * 7) % 3) * 0.12;
+    frameBox(S, uPos, vPos, lo - 0.3, curY, baseSize + 0.5, baseSize + 0.5, shade(col, 0.85));
+    let width = baseSize;
+    let tierH = isFounder ? 0.75 : 0.9 + ((idx * 7) % 3) * 0.12;
     for (let k = 0; k < tiers; k++) {
-      box(u, v, y, y + h, w, w, col);
-      box(u, v, y + h, y + h + 0.14, w + 0.3, w + 0.3, shade(col, 0.8));
-      y += h + 0.14; w *= 0.8; h *= 0.85;
+      frameBox(S, uPos, vPos, curY, curY + tierH, width, width, col);
+      frameBox(S, uPos, vPos, curY + tierH, curY + tierH + 0.14, width + 0.3, width + 0.3, shade(col, 0.8));
+      curY += tierH + 0.14;
+      width *= 0.8;
+      tierH *= 0.85;
     }
-    cyl(u, v, y, y + 0.35, w * 0.35, w * 0.5, 6, shade(col, 1.1));
-    cyl(u, v, y + 0.35, y + 0.9, w * 0.3, 0.02, 6, shade(col, 1.15), { cap: false });
+    frameCyl(S, uPos, vPos, curY, curY + 0.35, width * 0.35, width * 0.5, 6, shade(col, 1.1));
+    frameCyl(S, uPos, vPos, curY + 0.35, curY + 0.9, width * 0.3, 0.02, 6, shade(col, 1.15), { cap: false });
   });
 
-  // ---- the round lotus pond south-east of the 口, a white Quan Âm on a rock in it (satellite: centre u 27.5, v 75) ----
-  const PU = 27.5, PV = 75, PR = 3.3;
-  {
-    const [lo, hi] = span(PU - PR, PU + PR, PV - PR, PV + PR);
-    const yr = hi + 0.45;
-    S.kind = KIND.MASONRY;
-    const n = 16;
-    for (let k = 0; k < n; k++) {
-      const a = (k + 0.5) / n * Math.PI * 2, cu = PU + Math.cos(a) * PR, cv = PV + Math.sin(a) * PR;
-      const q = W(cu, cv);
-      S.box(q[0], q[1], lo - 0.3, yr, 2 * PR * Math.sin(Math.PI / n) + 0.15, 0.45, ang + a, shade(GREY, k % 2 ? 0.95 : 1.02), { top: shade(MOSS, 1.2) });
-    }
-    cyl(PU, PV, lo - 0.3, yr - 0.2, PR - 0.1, PR - 0.1, 16, hex('#3d5248'), { cap: true }); // water
-    cyl(PU + 0.6, PV, yr - 0.25, yr + 0.5, 0.9, 0.55, 7, hex('#7b786c'), { cap: true }); // the rock
-    cyl(PU + 0.6, PV, yr + 0.5, yr + 1.75, 0.32, 0.2, 8, hex('#efede6'), { cap: true }); // the statue
-    cyl(PU + 0.6, PV, yr + 1.75, yr + 2.0, 0.13, 0.11, 8, hex('#efede6'), { cap: true });
+  // round lotus pond with white Quan Âm statue
+  const [pondLo, pondHi] = terrainSpan(POND_U - POND_R, POND_U + POND_R, POND_V - POND_R, POND_V + POND_R);
+  const rimY = pondHi + 0.45;
+  S.kind = KIND.MASONRY;
+  const rimSegs = 16;
+  for (let k = 0; k < rimSegs; k++) {
+    const ang = ((k + 0.5) / rimSegs) * Math.PI * 2;
+    const pt = toWorld(POND_U + Math.cos(ang) * POND_R, POND_V + Math.sin(ang) * POND_R);
+    S.box(pt[0], pt[1], pondLo - 0.3, rimY, 2 * POND_R * Math.sin(Math.PI / rimSegs) + 0.15, 0.45, ANGLE_V + ang, shade(COLORS.grey, k % 2 ? 0.95 : 1.02), { top: shade(COLORS.moss, 1.2) });
   }
+  frameCyl(S, POND_U, POND_V, pondLo - 0.3, rimY - 0.2, POND_R - 0.1, POND_R - 0.1, 16, COLORS.pondWater, { cap: true });
+  frameCyl(S, POND_U + 0.6, POND_V, rimY - 0.25, rimY + 0.5, 0.9, 0.55, 7, COLORS.pondRock, { cap: true });
+  frameCyl(S, POND_U + 0.6, POND_V, rimY + 0.5, rimY + 1.75, 0.32, 0.2, 8, COLORS.statueWhite, { cap: true });
+  frameCyl(S, POND_U + 0.6, POND_V, rimY + 1.75, rimY + 2.0, 0.13, 0.11, 8, COLORS.statueWhite, { cap: true });
 
-  // ---- the forest on Hàm Long hill: the satellite shows closed canopy over the precinct, only the roofs, the courts
-  // and the paths showing. Trees planted on the open ground of the precinct, clear of the halls, courts and paths. ----
+  // forest on Hàm Long hill
+  const centerWorld = toWorld(50, 40);
   if (Array.isArray(data.trees)) {
-    const rects = [[-10, 24, -1.5, 65], [23, 65.5, 30, 60], [63, 97, 34.5, 56.5], [88, 101, 37, 54], [43, 96, 16.3, 27.8], [43, 57.5, 4.3, 15]];
-    const rel = [OPEN[0] - A[0], OPEN[1] - A[1]], oU = rel[0] * U[0] + rel[1] * U[1], oV = rel[0] * V[0] + rel[1] * V[1];
-    const nearPath = (u, v) => {
-      const du = oU - footU, dv = oV - AX, L = du * du + dv * dv, t = Math.max(0, Math.min(1, ((u - footU) * du + (v - AX) * dv) / L));
-      return Math.hypot(u - footU - du * t, v - AX - dv * t) < 3.2;
+    const clearRects: [number, number, number, number][] = [
+      [-10, 24, -1.5, 65], [23, 65.5, 30, 60], [63, 97, 34.5, 56.5],
+      [88, 101, 37, 54], [43, 96, 16.3, 27.8], [43, 57.5, 4.3, 15],
+    ];
+    const { footU, openU, openV } = axisInfo;
+    const nearPath = (uPos: number, vPos: number) => {
+      const du = openU - footU;
+      const dv = openV - AXIS_CENTER_V;
+      const lenSq = du * du + dv * dv;
+      const frac = Math.max(0, Math.min(1, ((uPos - footU) * du + (vPos - AXIS_CENTER_V) * dv) / lenSq));
+      return Math.hypot(uPos - footU - du * frac, vPos - AXIS_CENTER_V - dv * frac) < 3.2;
     };
-    const roads = roadsNear(data, c0, 170);
-    const onRoad = (x, z) => roads.some(([ax, az, bx, bz, w]) => {
-      const dx = bx - ax, dz = bz - az, L = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / L));
-      return Math.hypot(x - ax - dx * t, z - az - dz * t) < w / 2 + 3;
+    const roads = roadsNear(data, centerWorld, 170);
+    const onRoad = (x: number, z: number) => roads.some(([ax, az, bx, bz, width]) => {
+      const dx = bx - ax, dz = bz - az, lenSq = dx * dx + dz * dz || 1;
+      const frac = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / lenSq));
+      return Math.hypot(x - ax - dx * frac, z - az - dz * frac) < width / 2 + 3;
     });
-    const deep = (x, z) => [[0, 0], [2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5]].every(([a, b]) => inRing(x + a, z + b, RING));
-    for (let u = -60; u <= 140; u += 5.6) for (let v = -60; v <= 120; v += 5.6) {
-      const i = Math.round(u * 37 + v * 101);
-      const ju = u + (rand(i, 11) - 0.5) * 4, jv = v + (rand(i, 12) - 0.5) * 4;
-      if (rects.some(([u0, u1, v0, v1]) => ju > u0 && ju < u1 && jv > v0 && jv < v1)) continue;
-      if (nearPath(ju, jv) || Math.hypot(ju - PU, jv - PV) < PR + 2.5) continue;
-      if (spots.some(([su, sv]) => Math.hypot(ju - su, jv - sv) < 1.4)) continue;
-      const [x, z] = W(ju, jv);
-      if (!deep(x, z) || onRoad(x, z)) continue;
-      // tall, broad crowns (scale 1.1-1.5), a share of them dark, upright evergreens
-      data.trees.push(Math.round(x * 10), Math.round(z * 10), 11 + Math.floor(rand(i, 13) * 5), rand(i, 14) < 0.35 ? 1 : 0);
-
+    const deepInside = (x: number, z: number) => [[0, 0], [2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5]].every(([dx, dz]) => inRing(x + dx, z + dz, PRECINCT_RING));
+    for (let uPos = -60; uPos <= 140; uPos += 5.6) {
+      for (let vPos = -60; vPos <= 120; vPos += 5.6) {
+        const seed = Math.round(uPos * 37 + vPos * 101);
+        const ju = uPos + (rand(seed, 11) - 0.5) * 4;
+        const jv = vPos + (rand(seed, 12) - 0.5) * 4;
+        if (clearRects.some(([u0, u1, v0, v1]) => ju > u0 && ju < u1 && jv > v0 && jv < v1)) continue;
+        if (nearPath(ju, jv) || Math.hypot(ju - POND_U, jv - POND_V) < POND_R + 2.5) continue;
+        if (stupaSpots.some(([su, sv]) => Math.hypot(ju - su, jv - sv) < 1.4)) continue;
+        const [x, z] = toWorld(ju, jv);
+        if (!deepInside(x, z) || onRoad(x, z)) continue;
+        data.trees.push(Math.round(x * 10), Math.round(z * 10), 11 + Math.floor(rand(seed, 13) * 5), rand(seed, 14) < 0.35 ? 1 : 0);
+      }
     }
   }
 
-  // ---- the precinct wall: low, dark, moss-capped, open at the gate and the alley on the north corner ----
-  const c = c0;
-  const LOW = { h: 1.4, plinth: 1.4, rail: false, t: 0.35, every: 4.5, postW: 0.5, postUp: 0.25, wall: GATE, cap: MOSS, iron: null, pierW: 0.9, pierUp: 0.8 };
-  fence(S, RING, LOW, {
+  // low moss-capped precinct wall
+  const lowWallStyle = { h: 1.4, plinth: 1.4, rail: false, t: 0.35, every: 4.5, postW: 0.5, postUp: 0.25, wall: COLORS.gate, cap: COLORS.moss, iron: null, pierW: 0.9, pierUp: 0.8 };
+  fence(S, PRECINCT_RING, lowWallStyle, {
     closed: true,
-    roads: roadsNear(data, c, 160),
-    openings: [[...OPEN, 2.2], [-950.4, 1531.4, 2.5]],
-    solid: buildingsNear(data, c, 120),
+    roads: roadsNear(data, centerWorld, 160),
+    openings: [[...GATE_OPENING, 2.2], [-950.4, 1531.4, 2.5]],
+    solid: buildingsNear(data, centerWorld, 120),
   });
 
-  // ---- no generated houses inside the precinct: the hill is halls, courts, stupas and trees (as quochoc.js) ----
+  // clear infill houses and re-framed mapped buildings inside the precinct
   if (Array.isArray(data.infill)) {
-    const a = data.infill, R = 8, keep = [];
-    const near = data.meta?.counts?.infillNear ?? a.length / R;
+    const infill = data.infill;
+    const stride = 8;
+    const kept: number[] = [];
+    const nearLimit = data.meta?.counts?.infillNear ?? infill.length / stride;
     let nearKept = 0;
-    for (let i = 0; i < a.length / R; i++) {
-      if (inRing(a[i * R] / 10, a[i * R + 1] / 10, RING)) continue;
-      if (i < near) nearKept++;
-      for (let j = 0; j < R; j++) keep.push(a[i * R + j]);
+    for (let i = 0; i < infill.length / stride; i++) {
+      if (inRing(infill[i * stride] / 10, infill[i * stride + 1] / 10, PRECINCT_RING)) continue;
+      if (i < nearLimit) nearKept++;
+      for (let j = 0; j < stride; j++) kept.push(infill[i * stride + j]);
     }
-    if (keep.length !== a.length) {
-      a.length = 0;
-      for (const v of keep) a.push(v);
+    if (kept.length !== infill.length) {
+      infill.length = 0;
+      for (const val of kept) infill.push(val);
       if (data.meta?.counts && data.meta.counts.infillNear != null) data.meta.counts.infillNear = nearKept;
     }
   }
-
-  // ---- the mapped halls come out: re-framed above, they no longer sit under the model, so populate would draw them ----
   if (Array.isArray(data.bld)) {
-    const inside = (b) => {
-      const r = b[0];
-      let x = 0, z = 0;
-      for (let i = 0; i < r.length; i += 2) { x += r[i]; z += r[i + 1]; }
-      return inRing(x / (r.length / 2) / 10, z / (r.length / 2) / 10, RING);
+    const isInside = (bld) => {
+      const ring = bld[0];
+      let sumX = 0, sumZ = 0;
+      for (let i = 0; i < ring.length; i += 2) { sumX += ring[i]; sumZ += ring[i + 1]; }
+      return inRing(sumX / (ring.length / 2) / 10, sumZ / (ring.length / 2) / 10, PRECINCT_RING);
     };
-    for (let i = data.bld.length - 1; i >= 0; i--) if (inside(data.bld[i])) data.bld.splice(i, 1);
+    for (let i = data.bld.length - 1; i >= 0; i--) if (isInside(data.bld[i])) data.bld.splice(i, 1);
   }
+}
 
-  // ---- after dark: the hall's lanterns, the pillar lanterns, a lamp in the gate ----
-  const pts = glowPoints(glowPos, glowCol, 4);
-  pts.userData.glow = true;
-  pts.userData.landmark = id;
-  group.add(pts);
+export function build({ data, S, group }) {
+  const glowPos: number[] = [];
+  const glowCol: number[] = [];
+  const addGlow: GlowFn = (uPos, vPos, y, col = [1, 0.84, 0.56]) => {
+    const pt = toWorld(uPos, vPos);
+    glowPos.push(pt[0], y, pt[1]);
+    glowCol.push(...col);
+  };
+
+  const axisInfo = buildAxisComplex(S, addGlow);
+  buildMonasteryRangesAndGrounds(S, data, axisInfo);
+
+  const glow = glowPoints(glowPos, glowCol, 4);
+  glow.userData.glow = true;
+  glow.userData.landmark = id;
+  group.add(glow);
 }

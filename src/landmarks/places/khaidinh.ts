@@ -3,408 +3,390 @@ import { LAND_Y } from '../../config.ts';
 import { rise } from '../../geo/terrain.ts';
 import * as props from '../props.ts';
 
-// Lăng Khải Định (Ứng Lăng), the tomb of Emperor Khải Định on the slope of Châu Chữ hill, built 1920-1931 in
-// reinforced concrete, now weathered grey-black. Notes and sources: docs/places/khaidinh.md.
-//
-// Plan (vi.wikipedia.org/wiki/Lăng_Khải_Định): a rectangle 117 × 48.5 m on one axis climbing the hill in seven
-// levels and 127 steps. From the road 37 steps in three lanes between four dragon balustrades lead to the main
-// gate; the court of Tả/Hữu Tòng Tự (47 × 24.5 m, two three-bay houses); 29 steps up to Bái Đình, the salutation
-// court, with two rows of stone mandarins, soldiers, horses and elephants each side; the two-tier octagonal stele
-// pavilion (Bi Đình) at the back of it between two trụ biểu (obelisks); three narrow courts 13 steps apart, each
-// flight between four dragons, two concrete flagpoles on the middle one; Cung Thiên Định (34.5 × 26.4 m) on top.
-// Placed on the OSM outlines (hue.json sites.khaidinh, converted to the local frame below): the precinct's front and
-// sides (way 175035807), the two Tòng Tự (242940962/3, 17 × 8.6 m, long side along the axis) and the stele pavilion
-// (242940961) agree with the satellite to about a metre. Re-framed from the satellite (2026-11, docs/places/
-// khaidinh.md): OSM's precinct stops at 109.6 m, but the palace roof reaches 113 m up the axis, so the precinct runs
-// the 117 m of the plan from its front edge; Cung Thiên Định (OSM 242940960) stands about 5 m further up than its OSM
-// ring; the wall lines between the courts, the flights, the statue rows and the obelisks are read off the satellite.
-// Riser heights and every height above the floors: estimated from photos.
-//
-// Local frame: s up the axis from the precinct's front edge (south-west, at the head of the first stair) to its back
-// (north-east), t across it, + to the south-east.
+// Lăng Khải Định (Ứng Lăng), built 1920–1931 on Châu Chữ hill in reinforced concrete.
+// Notes and sources: docs/places/khaidinh.md.
+// Local frame: s up the axis from the precinct's front edge (SW) to back (NE), t across (+SE).
 export const id = 'khaidinh';
 
-const O = [120.35, 7766.5]; // middle of the precinct's front edge, model metres
-const UX = 0.6889, UZ = -0.7249; // the axis, up the hill
-const A = Math.atan2(UZ, UX), AV = A + Math.PI / 2;
-const P = (s, t = 0): [number, number] => [O[0] + UX * s - UZ * t, O[1] + UZ * s + UX * t];
-const V = (s, t, y?) => { const p = P(s, t); return [p[0], y, p[1]]; };
-const gY = (s, t = 0) => { const p = P(s, t); return LAND_Y + rise(p[0], p[1]); };
-const W2 = 24.25; // half the precinct's width (48.5 m)
+const ORIGIN = [120.35, 7766.5];
+const AXIS_UX = 0.6889, AXIS_UZ = -0.7249;
+const AXIS_ANG = Math.atan2(AXIS_UZ, AXIS_UX), PERP_ANG = AXIS_ANG + Math.PI / 2;
+const toWorld2 = (s, t = 0): [number, number] => [ORIGIN[0] + AXIS_UX * s - AXIS_UZ * t, ORIGIN[1] + AXIS_UZ * s + AXIS_UX * t];
+const toWorld3 = (s, t, y?) => { const pt = toWorld2(s, t); return [pt[0], y, pt[1]]; };
+const groundAt = (s, t = 0) => { const pt = toWorld2(s, t); return LAND_Y + rise(pt[0], pt[1]); };
+const HALF_WIDTH = 24.25;
 
-// weathered concrete: dark grey walls streaked black, darker ardoise roofs, paler mouldings, cornices and statues
-const WALL = hex('#5e5c59'), DARKW = hex('#4c4a47'), ROOF = hex('#3f3e3c'), TRIM = hex('#a19d94'), PAVE = hex('#77746d');
-const STAT = hex('#8a867e'), IRON = hex('#1f1e1d'), VOID = hex('#1b1918'), PALW = hex('#8d8a84');
-const STONE = hex('#4f4f4a'), GRASS = hex('#6f8a45'), WOOD = hex('#5a3a26'), TILEB = hex('#4a3b33');
-// the Tòng Tự roofs are terracotta tile (satellite); the stair cheeks weathered stone grey (Street View from the road);
-// the palace's ridges dark like its ardoise
-const TERRA = hex('#a35a3c'), CHEEK = hex('#7b7972'), RIDGE = hex('#2f2e2c');
-// the concrete is drawn as KIND.FLAT (mottled render), not KIND.MASONRY, whose shader lays brick courses on it
+const COLORS = {
+  wall: hex('#5e5c59'),
+  darkWall: hex('#4c4a47'),
+  roof: hex('#3f3e3c'),
+  trim: hex('#a19d94'),
+  pave: hex('#77746d'),
+  statue: hex('#8a867e'),
+  iron: hex('#1f1e1d'),
+  void: hex('#1b1918'),
+  palaceWall: hex('#8d8a84'),
+  stone: hex('#4f4f4a'),
+  grass: hex('#6f8a45'),
+  wood: hex('#5a3a26'),
+  tileBrown: hex('#4a3b33'),
+  terra: hex('#a35a3c'),
+  cheek: hex('#7b7972'),
+  ridge: hex('#2f2e2c'),
+};
 
-// the levels: [front s, back s]; each flight stands on the level below, against the front wall of the next one
-// (wall lines on the satellite at s 26.5, 51, 61, 70.7 and the palace terrace at 81)
-const LV = { L2: [0, 26.5], L3: [26.5, 51], L4: [51, 61], L5: [61, 70.7], L6: [70.7, 81], L7: [81, 116.5] };
-// flights: steps, from s, to s, the level they climb from, lane layout
-const STEPS = [37, 29, 13, 13, 13, 22]; // 127 in all; the split of the last 61 into 13 + 13 + 13 + 22 is estimated
+const LEVELS = { L2: [0, 26.5], L3: [26.5, 51], L4: [51, 61], L5: [61, 70.7], L6: [70.7, 81], L7: [81, 116.5] };
+const STEP_COUNTS = [37, 29, 13, 13, 13, 22];
 
-export function build({ S }) {
-  const keep = S.kind;
-  const box = (s, t, y0, y1, ss?, st?, col?, o?) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, o); };
-
-  // ---- levels: the riser is set so the palace terrace sits no more than 0.8 m under the highest ground anywhere on
-  // it (the hill climbs across the axis too, so the axis alone would leave its upper corner sunk) ----
-  const y0 = gY(-10);
-  let gTop = -Infinity;
-  for (let s = LV.L7[0]; s <= LV.L7[1]; s += 1) for (let t = -W2; t <= W2; t += 2) gTop = Math.max(gTop, gY(s, t));
-  const r = Math.max(0.15, Math.min(0.2, (gTop - 0.8 - y0) / 127));
-  const Y: Record<string, number> = {};
-  let y = y0;
-  ['L2', 'L3', 'L4', 'L5', 'L6', 'L7'].forEach((k, i) => { y += STEPS[i] * r; Y[k] = y; });
-
-  const n0 = S.n;
-  S.kind = KIND.FLAT;
-  // each level a block of concrete from below the lowest ground under it, full width, paved top; a parapet along
-  // the sides makes the 3 m fence of the precinct (the fronts of the levels are the retaining walls)
-  for (const k of Object.keys(LV)) {
-    const [a, b] = LV[k], top = Y[k];
-    let lo = Infinity;
-    for (let s = a; s <= b; s += 3) for (const t of [-W2, 0, W2]) lo = Math.min(lo, gY(s, t));
-    S.base = lo - 1 - LAND_Y;
-    box((a + b) / 2, 0, lo - 1, top, b - a, 2 * W2, WALL, { top: PAVE, topKind: KIND.ROAD });
-    // coping of the retaining wall at the front edge, either side of the flight
-    if (k !== 'L2') for (const sd of [-1, 1]) box(a + 0.3, sd * (W2 + 7) / 2, top - 0.4, top + 0.15, 0.7, W2 - 7, TRIM);
-    for (const sd of [-1, 1]) {
-      box((a + b) / 2, sd * (W2 - 0.3), top, top + 1.6, b - a, 0.6, WALL, { top: TRIM });
-      for (let s = a + 0.3; s <= b; s += Math.max(3, (b - a) / Math.round((b - a) / 5))) box(s, sd * (W2 - 0.3), top, top + 2.1, 0.9, 0.9, DARKW, { top: TRIM });
-    }
-  }
-  // front wall of the Tòng Tự court, with the gate in it and a wrought-iron railing on it, and the back wall behind
-  // the palace
-  for (const sd of [-1, 1]) {
-    box(0.3, sd * (W2 + 8.4) / 2, Y.L2, Y.L2 + 1.0, 0.6, W2 - 8.4, WALL, { top: TRIM });
-    S.kind = KIND.PLAIN;
-    for (const [y0, y1] of ([[Y.L2 + 1.0, Y.L2 + 1.08], [Y.L2 + 1.86, Y.L2 + 1.94]] as any[])) box(0.3, sd * (W2 + 8.4) / 2, y0, y1, 0.08, W2 - 8.4, IRON);
-    for (let t = 8.9; t < W2 - 0.3; t += 0.45) box(0.3, sd * t, Y.L2 + 1.0, Y.L2 + (Math.round(t / 0.45) % 4 ? 1.94 : 2.15), 0.05, 0.05, IRON);
-    S.kind = KIND.FLAT;
-  }
-  // the hill below the front wall either side of the first stair: two low retaining walls of grey rubble stone, each
-  // about 2 m high with a grass ledge several metres deep on top, the precinct wall with its railing set well back
-  // behind them (Street View from Đ. Đại Nam, the car pano at the south-west corner)
-  S.kind = KIND.MASONRY;
-  for (const sd of [-1, 1]) {
-    const t0 = 10.4, t1 = sd > 0 ? 21.2 : W2; // (the kiosk stands at the SE end; a gap of grass beside the stair)
-    let top = -Infinity;
-    for (const [s0, s1] of ([[-8.4, -4.4], [-4.4, 0]] as any[])) {
-      let gF = -Infinity, lo = Infinity;
-      for (let t = t0; t <= t1; t += 2) gF = Math.max(gF, gY(s0, sd * t));
-      for (let s = s0; s <= s1; s += 1.15) for (let t = t0; t <= t1; t += 2) lo = Math.min(lo, gY(s, sd * t));
-      top = Math.max(top, gF) + 1.9;
-      S.base = lo - 1 - LAND_Y;
-      box((s0 + s1) / 2, sd * (t0 + t1) / 2, lo - 1, top, s1 - s0, t1 - t0, STONE, { top: GRASS, topKind: KIND.GROUND });
-    }
-  }
-  S.kind = KIND.FLAT;
-  box(LV.L7[1] - 0.3, 0, Y.L7, Math.max(Y.L7 + 2.2, gY(LV.L7[1]) + 1.6), 0.6, 2 * W2, WALL, { top: TRIM });
-  // a balustrade along the front edge of each upper court, either side of its flights (the parapet with lattice
-  // panels the photos show at the head of the stairs)
-  for (const k of ['L4', 'L5', 'L6', 'L7']) {
-    const a = LV[k][0], top = Y[k];
-    // (behind the stele pavilion there is no flight on the axis: the parapet runs through)
-    for (const [t0, t1] of k === 'L4' ? [[-W2 + 0.6, W2 - 0.6]] : [[-W2 + 0.6, -5.6], [5.6, W2 - 0.6]]) {
-      const cuts = k === 'L4' ? [[-14.6, -11.4], [11.4, 14.6]] : k === 'L7' ? [] : [[-21.4, -17.6], [17.6, 21.4]];
-      let segs = [[t0, t1]];
-      for (const [c0, c1] of cuts) segs = segs.flatMap(([u0, u1]) => (c1 <= u0 || c0 >= u1 ? [[u0, u1]] : [[u0, c0], [c1, u1]].filter(([x, y]) => y - x > 0.5)));
-      for (const [u0, u1] of segs) box(a + 0.35, (u0 + u1) / 2, top, top + 0.95, 0.4, u1 - u0, DARKW, { top: TRIM });
-    }
-  }
-
-  // ---- the flights ----
-  // the first: 37 steps from the road, three lanes between four dragon balustrades
-  flight(S, -10, 0, y0, Y.L2, STEPS[0], [[-5.1, 3.2], [0, 6], [5.1, 3.2]], [-8.1, -3.4, 3.4, 8.1], true);
-  // to Bái Đình: 29 steps, the broad flight the satellite shows about 22 m wide, in three lanes
-  flight(S, 20, 26.5, Y.L2, Y.L3, STEPS[1], [[-7.3, 6.6], [0, 7.4], [7.3, 6.6]], [-10.9, -3.7, 3.7, 10.9], false);
-  // the upper flights of 13 steps. Behind Bái Đình the stele pavilion stands against the wall on the axis, and the
-  // satellite shows the way up as two flights either side of it; the next two walls have a flight on the axis
-  // between four dragons and a narrow one near either side
-  const lanes3 = [[-3.4, 2.2], [0, 3.6], [3.4, 2.2]], rails3 = [-5.0, -2.2, 2.2, 5.0];
-  for (const sd of [-1, 1]) flight(S, 47.4, 51, Y.L3, Y.L4, STEPS[2], [[sd * 13, 2.6]], [sd * 11.5, sd * 14.5], false);
-  flight(S, 57.6, 61, Y.L4, Y.L5, STEPS[3], lanes3, rails3, true);
-  flight(S, 67.3, 70.7, Y.L5, Y.L6, STEPS[4], lanes3, rails3, true);
-  for (const sd of [-1, 1]) {
-    flight(S, 57.6, 61, Y.L4, Y.L5, STEPS[3], [[sd * 19.5, 2.4]], [sd * 18.1, sd * 20.9], false);
-    flight(S, 67.3, 70.7, Y.L5, Y.L6, STEPS[4], [[sd * 19.5, 2.4]], [sd * 18.1, sd * 20.9], false);
-  }
-  // up to the palace terrace
-  flight(S, 75.3, 81, Y.L6, Y.L7, STEPS[5], [[0, 9]], [-4.9, 4.9], false);
-  // cast lamp standards on pedestals at the head of the top two flights
-  for (const [s, y, big] of ([[71.9, Y.L6, false], [82.6, Y.L7, true]] as any[])) for (const sd of [-1, 1]) lamp(S, s, sd * (big ? 6.0 : 5.6), y, big);
-
-  // ---- the main gate at the head of the first stair: four tower-capped piers, wrought-iron gates (made in France) ----
-  S.kind = KIND.FLAT; S.base = Y.L2 - LAND_Y;
-  for (const t of [-8.4, -3.6, 3.6, 8.4]) {
-    const big = Math.abs(t) < 5;
-    box(0.4, t, Y.L2, Y.L2 + (big ? 5.6 : 4.8), 1.3, 1.3, WALL, { top: TRIM });
-    box(0.4, t, Y.L2 + (big ? 5.6 : 4.8), Y.L2 + (big ? 6.0 : 5.2), 1.6, 1.6, TRIM);
-    // the stepped, Indian-looking tower cap
-    box(0.4, t, Y.L2 + (big ? 6.0 : 5.2), Y.L2 + (big ? 7.0 : 6.0), 1.1, 1.1, WALL, { taper: 0.7 });
-    box(0.4, t, Y.L2 + (big ? 7.0 : 6.0), Y.L2 + (big ? 8.0 : 6.8), 0.7, 0.7, TRIM, { taper: 0.15 });
-  }
-  box(0.4, 0, Y.L2 + 4.4, Y.L2 + 5.0, 0.8, 6.6, WALL, { top: TRIM }); // the lintel over the middle way
-  S.kind = KIND.PLAIN;
-  for (const [t, w, h] of ([[-6, 3.5, 3.2], [0, 5.9, 4.3], [6, 3.5, 3.2]] as any[])) box(0.4, t, Y.L2, Y.L2 + h, 0.12, w, IRON);
-
-  // ---- Tả / Hữu Tòng Tự: three bays, walled, roofs of flat tiles, an open front to the court ----
-  for (const sd of [-1, 1]) {
-    const s = 14.3, t = sd * 17.1, f = Y.L2 + 0.6;
-    S.kind = KIND.FLAT; S.base = Y.L2 - LAND_Y;
-    box(s, t, Y.L2, f, 17.6, 9.2, TRIM, { topKind: KIND.ROAD });
-    box(s, t + sd * 1.0, f, f + 3.6, 17, 6.6, WALL, { top: TERRA }); // the walled back of the hall
-    for (let k = 0; k < 4; k++) box(s - 8.1 + k * 5.4, t - sd * 3.6, f, f + 3.6, 0.5, 0.5, TRIM); // front pillars
-    box(s, t - sd * 3.6, f + 3.3, f + 3.8, 17, 0.6, TRIM);
-    const p = P(s, t);
-    S.hip(p[0], p[1], 17, 8.6, A, f + 3.7, 2.0, TERRA, { flare: 0.08, over: 0.8, fascia: 0.2, fasciaCol: shade(TERRA, 0.7), ridgeCol: shade(TERRA, 0.75), hips: true });
-  }
-
-  // ---- Bái Đình: two rows of statues each side, facing the axis: elephant and horse at the front, then mandarins
-  // in the inner row, soldiers in the outer ----
-  for (const sd of [-1, 1]) {
-    const face = sd > 0 ? -1 : 1;
-    // rows read off the satellite: inner at t ±10.4, outer at ±15.2, from s 29.6 to 38.6
-    beast(S, 29.6, sd * 15.2, Y.L3, true);
-    beast(S, 29.6, sd * 10.4, Y.L3, false);
-    for (let k = 0; k < 4; k++) {
-      figure(S, 32.0 + k * 2.2, sd * 10.4, Y.L3, face, 1);
-      figure(S, 32.0 + k * 2.2, sd * 15.2, Y.L3, face, 0.82);
-    }
-  }
-
-  // ---- Bi Đình: octagonal, two storeys of pale grey concrete, a large arched opening in each face of both, a
-  // balustrade round the base, two roofs of ardoise; the 3.1 m stele inside (Street View, the user photosphere on the
-  // forecourt) ----
-  {
-    const sp = 45, p = P(sp), rot = A + Math.PI / 8;
-    const PALE = hex('#94918a');
-    let fy = Y.L3;
-    S.kind = KIND.FLAT; S.base = fy - LAND_Y;
-    for (const [rr, h] of ([[6.0, 0.4], [5.4, 0.4], [4.8, 0.4]] as any[])) { S.cyl(p[0], p[1], fy - 0.05, fy + h, rr, rr, 8, TRIM, { rot }); fy += h; }
-    // the balustrade on the lowest step, open on the faces toward and away from the axis walk
-    for (let i = 0; i < 8; i++) {
-      const a0 = rot + (i / 8) * Math.PI * 2, a1 = rot + ((i + 1) / 8) * Math.PI * 2, am = (a0 + a1) / 2;
-      if (Math.abs(Math.cos(am - A)) > 0.9) continue;
-      const yb = Y.L3 + 0.4, R = 5.75;
-      S.beam([p[0] + Math.cos(a0) * R, yb + 0.35, p[1] + Math.sin(a0) * R], [p[0] + Math.cos(a1) * R, yb + 0.35, p[1] + Math.sin(a1) * R], 0.25, 0.7, PALE);
-    }
-    // eight piers at the corners; the large arched openings dark
-    S.cyl(p[0], p[1], fy, fy + 4.3, 3.9, 3.9, 8, VOID, { rot, cap: false });
-    for (let i = 0; i < 8; i++) {
-      const a = rot + (i / 8) * Math.PI * 2, x = p[0] + Math.cos(a) * 4.1, z = p[1] + Math.sin(a) * 4.1;
-      S.box(x, z, fy, fy + 4.3, 0.8, 0.8, a, PALE, { top: TRIM });
-      // the arch heads between the piers, high: the openings fill most of each face
-      const b = a + Math.PI / 8, xm = p[0] + Math.cos(b) * 3.85, zm = p[1] + Math.sin(b) * 3.85;
-      S.box(xm, zm, fy + 3.5, fy + 4.3, 0.4, 2.8, b, PALE);
-    }
-    S.box(p[0], p[1], fy, fy + 0.76, 0.85, 2.1, AV, TRIM); // the stele's plinth and the stele (3.1 × 1.2 m)
-    S.box(p[0], p[1], fy + 0.76, fy + 3.86, 0.3, 1.2, AV, STAT);
-    let ry = fy + 4.3;
-    S.cyl(p[0], p[1], ry, ry + 0.4, 4.6, 4.6, 8, TRIM, { rot }); ry += 0.4;
-    S.kind = KIND.TILE;
-    S.cyl(p[0], p[1], ry, ry + 1.2, 5.6, 3.0, 8, ROOF, { rot }); ry += 1.2;
-    S.kind = KIND.FLAT;
-    S.cyl(p[0], p[1], ry, ry + 2.0, 2.8, 2.8, 8, PALE, { rot, cap: false });
-    // an arched opening in each face of the upper storey, most of its width
-    for (let i = 0; i < 8; i++) { const a = rot + ((i + 0.5) / 8) * Math.PI * 2; S.box(p[0] + Math.cos(a) * 2.6, p[1] + Math.sin(a) * 2.6, ry + 0.25, ry + 1.75, 0.14, 1.6, a, VOID); }
-    ry += 2.0;
-    S.cyl(p[0], p[1], ry, ry + 0.3, 3.3, 3.3, 8, TRIM, { rot }); ry += 0.3;
-    S.kind = KIND.TILE;
-    S.cyl(p[0], p[1], ry, ry + 2.2, 4.3, 0.3, 8, ROOF, { rot }); ry += 2.2;
-    S.kind = KIND.FLAT;
-    S.cyl(p[0], p[1], ry - 0.1, ry + 0.9, 0.35, 0.05, 6, TRIM);
-    // the trụ biểu either side: square shafts on stepped bases, a stupa finial
-    for (const sd of [-1, 1]) obelisk(S, sp + 0.5, sd * 18.5, Y.L3); // the satellite puts them near t ±19
-  }
-
-  // ---- the two concrete flagpoles on the middle of the three upper courts ----
-  S.kind = KIND.FLAT; S.base = Y.L5 - LAND_Y;
-  for (const sd of [-1, 1]) {
-    box(65.9, sd * 8, Y.L5, Y.L5 + 1.2, 1.8, 1.8, TRIM);
-    box(65.9, sd * 8, Y.L5 + 1.2, Y.L5 + 12, 0.5, 0.5, WALL, { taper: 0.55 });
-  }
-
-  palace(S, Y.L7);
-  (S.paved = S.paved || []).push([n0, S.n]); // courts, terraces and stairs: no trees, no houses
-
-  // the mapped outbuildings of the site, outside the precinct (ticket office and stalls at the foot): plain halls
-  for (const ring of OUT) house(S, ring);
-  kiosk(S);
-  S.kind = keep; S.base = 0;
-}
-
-// a flight of n steps from s0 (level ya) to s1 (level yb); lanes [t, width], balustrades at t, dragon or plain
-function flight(S, s0, s1, ya, yb, n, lanes, rails, dragon) {
-  const run = (s1 - s0) / n, rise_ = (yb - ya) / n;
-  S.kind = KIND.FLAT;
-  for (const [t, w] of lanes) for (let k = 0; k < n; k++) {
-    const s = s0 + run * (k + 0.5), top = ya + rise_ * (k + 1);
-    const lo = Math.min(ya, gY(s, t - w / 2), gY(s, t + w / 2)) - 0.6;
-    S.base = lo - LAND_Y;
-    const p = P(s, t);
-    S.box(p[0], p[1], lo, top, run + 0.02, w, A, k % 2 ? PAVE : shade(PAVE, 0.94), { topKind: KIND.ROAD });
-  }
-  for (const t of rails) {
-    const rw = dragon ? 0.75 : 0.45, rh = dragon ? 1.0 : 0.9;
-    // the solid balustrade, bedded to the level below
-    const a = V(s0, t, ya + rh / 2), b = V(s1, t, yb + rh / 2);
-    S.kind = KIND.FLAT;
-    S.beam(a, b, rw, rh, dragon ? CHEEK : TRIM);
-    const lo = Math.min(ya, gY(s0, t)) - 0.5;
-    S.base = lo - LAND_Y;
-    const p0 = P(s0 + (s1 - s0) * 0.5, t);
-    S.box(p0[0], p0[1], lo, ya + (yb - ya) * 0.5, s1 - s0, rw, A, CHEEK);
-    if (!dragon) {
-      for (const [s, yy] of ([[s0, ya], [s1, yb]] as any[])) { const q = P(s, t); S.box(q[0], q[1], yy, yy + 1.4, 0.7, 0.7, A, TRIM, { top: shade(TRIM, 1.1) }); }
-      continue;
-    }
-    // the dragon: its body coiling along the rail in humps, the head rearing at the foot, the tail curling at the top
-    const N = Math.max(4, Math.round((s1 - s0) / 1.6)) * 2;
-    let prev = null;
-    for (let i = 0; i <= N; i++) {
-      const f = i / N, s = s0 + 0.9 + (s1 - s0 - 1.2) * f;
-      const yy = ya + (yb - ya) * ((s - s0) / (s1 - s0)) + rh + 0.15 + 0.55 * Math.abs(Math.sin(f * Math.PI * (N / 4)));
-      const q = V(s, t, yy);
-      if (prev) S.beam(prev, q, 0.42, 0.42, TRIM);
-      prev = q;
-    }
-    const h = P(s0 - 0.3, t), hh = P(s0 - 1.1, t);
-    S.box(h[0], h[1], ya - 0.1, ya + 2.0, 1.4, rw + 0.25, A, CHEEK, { taper: 0.8, top: TRIM });
-    S.box(hh[0], hh[1], ya + 1.5, ya + 2.3, 1.3, rw, A, TRIM); // the head and jaws, looking down the stair
-    S.beam(V(s0 - 0.3, t, ya + 2.0), V(s0 + 0.4, t, ya + 2.8), 0.25, 0.4, TRIM); // the mane
-    const tl = P(s1 - 0.2, t);
-    S.box(tl[0], tl[1], yb, yb + 1.9, 0.8, 0.8, A, CHEEK, { top: TRIM, taper: 0.6 });
-  }
-}
-
-// a standing figure on level y facing across the axis (face: the sign along t): a civil mandarin (k = 1) or a
-// smaller soldier in a helmet (src/landmarks/props.js)
-function figure(S, s, t, y, face, k) {
-  const p = P(s, t);
-  props.mandarin(S, p[0], y, p[1], A + face * Math.PI / 2, { military: k < 1, h: 2.15 * k, col: STAT });
-}
-// an elephant (big) or a horse on level y, facing up the axis
-function beast(S, s, t, y, big) {
-  const p = P(s, t);
-  if (big) props.elephant(S, p[0], y, p[1], A, { col: STAT });
-  else props.horse(S, p[0], y, p[1], A, { col: STAT });
-}
-// a trụ biểu: stepped base, a square shaft tapering, a lotus collar and a stupa-like finial
-function obelisk(S, s, t, y) {
-  const p = P(s, t), box = (y0, y1, w, col, o?) => S.box(p[0], p[1], y0, y1, w, w, A, col, o);
-  S.kind = KIND.FLAT; S.base = y - LAND_Y;
-  box(y, y + 0.6, 3.0, TRIM);
-  box(y + 0.6, y + 2.2, 2.2, WALL, { top: TRIM });
-  box(y + 2.2, y + 11.5, 1.4, WALL, { taper: 0.7 });
-  box(y + 11.5, y + 12.1, 1.5, TRIM);
-  box(y + 12.1, y + 13.2, 1.0, WALL, { taper: 0.75 });
-  S.cyl(p[0], p[1], y + 13.2, y + 15.0, 0.55, 0.04, 8, TRIM);
-}
-
-// Cung Thiên Định on its terrace at level y: plinth, the long body of five rooms (Tả/Hữu trực phòng either end, the
-// three rooms of Khải Thành between), a portico of arched entrances across the front, and the raised square tier
-// over Khải Thành, where the bronze statue stands over the grave. From the satellite the roof is one concentric
-// two-tier roof, about 35.7 m across by 24.1 m up the axis (s 88.4-112.6), an even skirt on all four sides around
-// the raised tier; the portico stands under the front of the main skirt, with no lean-to of its own, and the dark
-// rectangle in front of it is the central stair in the open. The OSM outline (242940960, s 81.5-107.6) is about
-// 5 m short of that up the axis; the 34.5 m width of the plan is kept, its 26.4 m depth is taken with the portico.
-function palace(S, y) {
-  const box = (s, t, y0, y1, ss?, st?, col?, o?) => { const p = P(s, t); S.box(p[0], p[1], y0, y1, ss, st, A, col, o); };
-  const hip = (s, t, w, d, y0, h, o?) => { const p = P(s, t); S.hip(p[0], p[1], w, d, AV, y0, h, ROOF, { flare: 0.3, fascia: 0.3, fasciaCol: DARKW, ridgeCol: RIDGE, hips: true, ...o }); };
-  const rc = 100.5, tc = 0, Wd = 34.5, Dr = 23.0; // the roof's plan (eaves 0.6 further): s 89-112
-  const ps = rc - Dr / 2 + 0.6; // the portico's pillar line, under the front eave
-  const bf = ps + 2.6, bb = rc + Dr / 2 - 0.3, sc = (bf + bb) / 2, D = bb - bf; // the walled body behind it
-  const f = y + 0.9;
-  S.kind = KIND.FLAT; S.base = y - LAND_Y;
-  box(rc - 0.8, tc, y, f, Dr + 3.6, Wd + 1.2, TRIM, { topKind: KIND.ROAD });
-  // the body: grey walls, a pale cornice band round body and portico together
-  box(sc, tc, f, f + 5.2, D, Wd, PALW, { top: ROOF });
-  box((ps - 0.5 + bb + 0.2) / 2, tc, f + 5.2, f + 5.7, bb + 0.2 - ps + 0.5, Wd + 0.4, TRIM);
-  // windows and doors: dark recesses on the front wall (in the shade of the portico) and the sides
-  S.kind = KIND.PLAIN;
-  for (let i = 0; i < 9; i++) { const t = tc + (i - 4) * 3.7; box(bf - 0.02, t, f + 0.4, f + (Math.abs(i - 4) < 3 ? 3.8 : 3.0), 0.1, 1.5, VOID); }
-  for (const sd of [-1, 1]) for (let i = 0; i < 5; i++) box(sc - 8 + i * 4, tc + sd * (Wd / 2 + 0.02), f + 1.0, f + 3.4, 1.4, 0.1, VOID);
-  // the portico: arched entrances between square pillars across the whole front, up to the cornice
-  S.kind = KIND.FLAT;
-  for (let i = 0; i < 9; i++) { const t = tc + (i - 4) * 4.25; box(ps, t, f, f + 5.2, 0.8, 0.8, TRIM); }
-  for (let i = 0; i < 8; i++) { const t = tc + (i - 3.5) * 4.25; box(ps, t, f + 3.9, f + 5.2, 0.6, 3.45, WALL); }
-  // the portico's ceiling under the skirt
-  box((ps + bf) / 2, tc, f + 5.0, f + 5.2, bf - ps, Wd, DARKW);
-  // the main roof, low-pitched ardoise, the skirt even on all four sides
-  hip(rc, tc, Wd, Dr, f + 5.7, 2.1, { over: 0.6 });
-  // Khải Thành: the raised square tier in the middle, a clerestory with dark windows under its own hipped roof
-  const ks = rc + 0.4, kw = 17.6;
-  box(ks, tc, f + 5.7, f + 8.6, kw, kw, WALL, { top: TRIM });
-  S.kind = KIND.PLAIN;
-  for (let i = 0; i < 5; i++) box(ks - kw / 2 - 0.02, tc + (i - 2) * 3.3, f + 7.6, f + 8.3, 0.1, 1.6, VOID);
-  S.kind = KIND.FLAT;
-  hip(ks, tc, kw + 1.4, kw + 0.6, f + 8.6, 2.0, { flare: 0.25, over: 0.5, fasciaCol: TRIM }); // its pale eave outlines the tier from above
-}
-
-// a cast lamp standard on a pedestal at level y: a square pedestal with a cornice, a fluted post, four scrolled arms
-// and a crown (the pair at the head of the palace stair is the larger)
-function lamp(S, s, t, y, big) {
-  const p = P(s, t), k = big ? 1 : 0.75;
-  const bx = (y0, y1, w, col, o?) => S.box(p[0], p[1], y0, y1, w, w, A, col, o);
-  S.kind = KIND.FLAT; S.base = y - LAND_Y;
-  bx(y, y + 0.3, 1.7 * k, TRIM);
-  bx(y + 0.3, y + 2.0 * k, 1.4 * k, WALL, { top: TRIM });
-  bx(y + 2.0 * k, y + 2.2 * k, 1.6 * k, TRIM);
-  const y1 = y + 2.2 * k;
-  S.cyl(p[0], p[1], y1, y1 + 3.2 * k, 0.2 * k, 0.12 * k, 8, IRON, { cap: true });
-  const ya = y1 + 2.7 * k;
-  for (const [ds, dt] of ([[1, 0], [-1, 0], [0, 1], [0, -1]] as any[])) {
-    const q = V(s + ds * 0.7 * k, t + dt * 0.7 * k, ya + 0.25 * k);
-    S.beam([p[0], ya, p[1]], q, 0.08, 0.08, IRON);
-    S.cyl(q[0], q[2], q[1], q[1] + 0.45 * k, 0.16 * k, 0.2 * k, 6, TRIM, { cap: true });
-  }
-  S.cyl(p[0], p[1], y1 + 3.2 * k, y1 + 3.9 * k, 0.28 * k, 0.05, 8, IRON, { cap: true });
-}
-
-// the ticket kiosk at the foot of the first stair (OSM 1330598717, s -14.6..-8.3, t 21.7..28.6): a small timber
-// house on a stepped plinth under a tiled hip roof (Street View from the south-east road). The OSM ring lies half on
-// the model's Đ. Đại Nam, as it does on the satellite, while Street View shows the kiosk's steps at the road's edge:
-// it is moved 5.6 m up the axis to stand off the carriageway (the road here is drawn wider than it is)
-function kiosk(S) {
-  const s = -11.45 + 5.6, t = 25.15, w = 6.3, d = 6.9; // d across the axis
-  const p = P(s, t);
-  let lo = Infinity;
-  for (const ds of [-w / 2, w / 2]) for (const dt of [-d / 2, d / 2]) lo = Math.min(lo, gY(s + ds, t + dt));
-  // the floor four steps above the road at its foot; the hill behind rises over its back
-  const fl = lo + 0.7;
-  S.kind = KIND.FLAT; S.base = lo - 0.4 - LAND_Y;
-  S.box(p[0], p[1], lo - 0.4, fl, w + 0.8, d + 0.8, A, DARKW, { top: PAVE, topKind: KIND.ROAD });
-  S.kind = KIND.TIMBER;
-  S.box(p[0], p[1], fl, fl + 2.6, w - 1.2, d - 1.2, A, WOOD);
-  // a dark cornice band at the counter height, under the deep eave
-  S.kind = KIND.FLAT;
-  S.box(p[0], p[1], fl + 0.85, fl + 1.0, w - 0.8, d - 0.8, A, DARKW);
-  S.kind = KIND.TILE;
-  S.hip(p[0], p[1], d + 0.4, w + 0.4, AV, fl + 2.6, 1.6, TILEB, { flare: 0.4, over: 0.6, hips: true });
-  S.kind = KIND.FLAT;
-}
-
-// the mapped outbuildings of the site, outside the precinct (OSM 1205438742, 1330598711), local frame
-const OUT = [
+const OUTBUILDINGS = [
   [[-32.3, 85.4], [-22.1, 90.4], [-45.2, 140.4], [-55.4, 135.5]],
   [[9.4, 50.4], [9.5, 63.9], [2.9, 63.8], [2.7, 50.5]],
-]; // 1330598717, the ticket kiosk, is drawn by kiosk() below
-function house(S, ring) {
-  const ps = ring.map(([s, t]) => P(s, t));
-  const c = [ps.reduce((a, p) => a + p[0], 0) / 4, ps.reduce((a, p) => a + p[1], 0) / 4];
-  const e0 = Math.hypot(ps[1][0] - ps[0][0], ps[1][1] - ps[0][1]), e1 = Math.hypot(ps[2][0] - ps[1][0], ps[2][1] - ps[1][1]);
-  const a0 = Math.atan2(ps[1][1] - ps[0][1], ps[1][0] - ps[0][0]);
-  const [w, d, a] = e0 >= e1 ? [e0, e1, a0] : [e1, e0, a0 + Math.PI / 2];
-  let lo = Infinity, hi = -Infinity;
-  for (const p of ps) { const g = LAND_Y + rise(p[0], p[1]); lo = Math.min(lo, g); hi = Math.max(hi, g); }
-  S.kind = KIND.FLAT; S.base = lo - 0.5 - LAND_Y;
-  S.box(c[0], c[1], lo - 0.5, hi + 0.4, w + 0.6, d + 0.6, a, DARKW, { topKind: KIND.ROAD });
-  S.box(c[0], c[1], hi + 0.4, hi + 3.2, w, d, a, PALW);
-  S.hip(c[0], c[1], w, d, a, hi + 3.2, Math.min(2.2, d * 0.3), ROOF, { over: 0.6 });
+];
+
+function buildTerracesAndFlights(S, box, y0, levelY) {
+  S.kind = KIND.FLAT;
+  for (const key of Object.keys(LEVELS)) {
+    const [sStart, sEnd] = LEVELS[key], topY = levelY[key];
+    let minG = Infinity;
+    for (let s = sStart; s <= sEnd; s += 3) for (const t of [-HALF_WIDTH, 0, HALF_WIDTH]) minG = Math.min(minG, groundAt(s, t));
+    S.base = minG - 1 - LAND_Y;
+    box((sStart + sEnd) / 2, 0, minG - 1, topY, sEnd - sStart, 2 * HALF_WIDTH, COLORS.wall, { top: COLORS.pave, topKind: KIND.ROAD });
+    if (key !== 'L2') for (const side of [-1, 1]) box(sStart + 0.3, side * (HALF_WIDTH + 7) / 2, topY - 0.4, topY + 0.15, 0.7, HALF_WIDTH - 7, COLORS.trim);
+    for (const side of [-1, 1]) {
+      box((sStart + sEnd) / 2, side * (HALF_WIDTH - 0.3), topY, topY + 1.6, sEnd - sStart, 0.6, COLORS.wall, { top: COLORS.trim });
+      for (let s = sStart + 0.3; s <= sEnd; s += Math.max(3, (sEnd - sStart) / Math.round((sEnd - sStart) / 5))) {
+        box(s, side * (HALF_WIDTH - 0.3), topY, topY + 2.1, 0.9, 0.9, COLORS.darkWall, { top: COLORS.trim });
+      }
+    }
+  }
+
+  // Front wall with iron railing, lower retaining walls, back wall, and upper balustrades
+  for (const side of [-1, 1]) {
+    box(0.3, side * (HALF_WIDTH + 8.4) / 2, levelY.L2, levelY.L2 + 1.0, 0.6, HALF_WIDTH - 8.4, COLORS.wall, { top: COLORS.trim });
+    S.kind = KIND.PLAIN;
+    for (const [ya, yb] of ([[levelY.L2 + 1.0, levelY.L2 + 1.08], [levelY.L2 + 1.86, levelY.L2 + 1.94]] as any[])) {
+      box(0.3, side * (HALF_WIDTH + 8.4) / 2, ya, yb, 0.08, HALF_WIDTH - 8.4, COLORS.iron);
+    }
+    for (let t = 8.9; t < HALF_WIDTH - 0.3; t += 0.45) {
+      box(0.3, side * t, levelY.L2 + 1.0, levelY.L2 + (Math.round(t / 0.45) % 4 ? 1.94 : 2.15), 0.05, 0.05, COLORS.iron);
+    }
+    S.kind = KIND.FLAT;
+  }
+
+  S.kind = KIND.MASONRY;
+  for (const side of [-1, 1]) {
+    const t0 = 10.4, t1 = side > 0 ? 21.2 : HALF_WIDTH;
+    let wallTop = -Infinity;
+    for (const [s0, s1] of ([[-8.4, -4.4], [-4.4, 0]] as any[])) {
+      let maxFront = -Infinity, minG = Infinity;
+      for (let t = t0; t <= t1; t += 2) maxFront = Math.max(maxFront, groundAt(s0, side * t));
+      for (let s = s0; s <= s1; s += 1.15) for (let t = t0; t <= t1; t += 2) minG = Math.min(minG, groundAt(s, side * t));
+      wallTop = Math.max(wallTop, maxFront) + 1.9;
+      S.base = minG - 1 - LAND_Y;
+      box((s0 + s1) / 2, side * (t0 + t1) / 2, minG - 1, wallTop, s1 - s0, t1 - t0, COLORS.stone, { top: COLORS.grass, topKind: KIND.GROUND });
+    }
+  }
+
+  S.kind = KIND.FLAT;
+  box(LEVELS.L7[1] - 0.3, 0, levelY.L7, Math.max(levelY.L7 + 2.2, groundAt(LEVELS.L7[1]) + 1.6), 0.6, 2 * HALF_WIDTH, COLORS.wall, { top: COLORS.trim });
+  for (const key of ['L4', 'L5', 'L6', 'L7']) {
+    const sStart = LEVELS[key][0], topY = levelY[key];
+    for (const [t0, t1] of key === 'L4' ? [[-HALF_WIDTH + 0.6, HALF_WIDTH - 0.6]] : [[-HALF_WIDTH + 0.6, -5.6], [5.6, HALF_WIDTH - 0.6]]) {
+      const cuts = key === 'L4' ? [[-14.6, -11.4], [11.4, 14.6]] : key === 'L7' ? [] : [[-21.4, -17.6], [17.6, 21.4]];
+      let segs = [[t0, t1]];
+      for (const [c0, c1] of cuts) segs = segs.flatMap(([u0, u1]) => (c1 <= u0 || c0 >= u1 ? [[u0, u1]] : [[u0, c0], [c1, u1]].filter(([lo, hi]) => hi - lo > 0.5)));
+      for (const [u0, u1] of segs) box(sStart + 0.35, (u0 + u1) / 2, topY, topY + 0.95, 0.4, u1 - u0, COLORS.darkWall, { top: COLORS.trim });
+    }
+  }
+
+  // Stair flights & top lamp standards
+  drawFlight(S, -10, 0, y0, levelY.L2, STEP_COUNTS[0], [[-5.1, 3.2], [0, 6], [5.1, 3.2]], [-8.1, -3.4, 3.4, 8.1], true);
+  drawFlight(S, 20, 26.5, levelY.L2, levelY.L3, STEP_COUNTS[1], [[-7.3, 6.6], [0, 7.4], [7.3, 6.6]], [-10.9, -3.7, 3.7, 10.9], false);
+  const threeLanes = [[-3.4, 2.2], [0, 3.6], [3.4, 2.2]], fourRails = [-5.0, -2.2, 2.2, 5.0];
+  for (const side of [-1, 1]) drawFlight(S, 47.4, 51, levelY.L3, levelY.L4, STEP_COUNTS[2], [[side * 13, 2.6]], [side * 11.5, side * 14.5], false);
+  drawFlight(S, 57.6, 61, levelY.L4, levelY.L5, STEP_COUNTS[3], threeLanes, fourRails, true);
+  drawFlight(S, 67.3, 70.7, levelY.L5, levelY.L6, STEP_COUNTS[4], threeLanes, fourRails, true);
+  for (const side of [-1, 1]) {
+    drawFlight(S, 57.6, 61, levelY.L4, levelY.L5, STEP_COUNTS[3], [[side * 19.5, 2.4]], [side * 18.1, side * 20.9], false);
+    drawFlight(S, 67.3, 70.7, levelY.L5, levelY.L6, STEP_COUNTS[4], [[side * 19.5, 2.4]], [side * 18.1, side * 20.9], false);
+  }
+  drawFlight(S, 75.3, 81, levelY.L6, levelY.L7, STEP_COUNTS[5], [[0, 9]], [-4.9, 4.9], false);
+  for (const [s, y, isBig] of ([[71.9, levelY.L6, false], [82.6, levelY.L7, true]] as any[])) {
+    for (const side of [-1, 1]) drawLampStandard(S, s, side * (isBig ? 6.0 : 5.6), y, isBig);
+  }
+}
+
+function buildGateCourtAndBiDinh(S, box, levelY) {
+  // Main gate
+  S.kind = KIND.FLAT;
+  S.base = levelY.L2 - LAND_Y;
+  for (const t of [-8.4, -3.6, 3.6, 8.4]) {
+    const isInner = Math.abs(t) < 5;
+    box(0.4, t, levelY.L2, levelY.L2 + (isInner ? 5.6 : 4.8), 1.3, 1.3, COLORS.wall, { top: COLORS.trim });
+    box(0.4, t, levelY.L2 + (isInner ? 5.6 : 4.8), levelY.L2 + (isInner ? 6.0 : 5.2), 1.6, 1.6, COLORS.trim);
+    box(0.4, t, levelY.L2 + (isInner ? 6.0 : 5.2), levelY.L2 + (isInner ? 7.0 : 6.0), 1.1, 1.1, COLORS.wall, { taper: 0.7 });
+    box(0.4, t, levelY.L2 + (isInner ? 7.0 : 6.0), levelY.L2 + (isInner ? 8.0 : 6.8), 0.7, 0.7, COLORS.trim, { taper: 0.15 });
+  }
+  box(0.4, 0, levelY.L2 + 4.4, levelY.L2 + 5.0, 0.8, 6.6, COLORS.wall, { top: COLORS.trim });
+  S.kind = KIND.PLAIN;
+  for (const [t, width, height] of ([[-6, 3.5, 3.2], [0, 5.9, 4.3], [6, 3.5, 3.2]] as any[])) {
+    box(0.4, t, levelY.L2, levelY.L2 + height, 0.12, width, COLORS.iron);
+  }
+
+  // Tả / Hữu Tòng Tự
+  for (const side of [-1, 1]) {
+    const s = 14.3, t = side * 17.1, floorY = levelY.L2 + 0.6;
+    S.kind = KIND.FLAT;
+    S.base = levelY.L2 - LAND_Y;
+    box(s, t, levelY.L2, floorY, 17.6, 9.2, COLORS.trim, { topKind: KIND.ROAD });
+    box(s, t + side * 1.0, floorY, floorY + 3.6, 17, 6.6, COLORS.wall, { top: COLORS.terra });
+    for (let k = 0; k < 4; k++) box(s - 8.1 + k * 5.4, t - side * 3.6, floorY, floorY + 3.6, 0.5, 0.5, COLORS.trim);
+    box(s, t - side * 3.6, floorY + 3.3, floorY + 3.8, 17, 0.6, COLORS.trim);
+    const pt = toWorld2(s, t);
+    S.hip(pt[0], pt[1], 17, 8.6, AXIS_ANG, floorY + 3.7, 2.0, COLORS.terra, { flare: 0.08, over: 0.8, fascia: 0.2, fasciaCol: shade(COLORS.terra, 0.7), ridgeCol: shade(COLORS.terra, 0.75), hips: true });
+  }
+
+  // Bái Đình statues
+  for (const side of [-1, 1]) {
+    const faceSign = side > 0 ? -1 : 1;
+    drawBeast(S, 29.6, side * 15.2, levelY.L3, true);
+    drawBeast(S, 29.6, side * 10.4, levelY.L3, false);
+    for (let k = 0; k < 4; k++) {
+      drawFigure(S, 32.0 + k * 2.2, side * 10.4, levelY.L3, faceSign, 1);
+      drawFigure(S, 32.0 + k * 2.2, side * 15.2, levelY.L3, faceSign, 0.82);
+    }
+  }
+
+  // Bi Đình octagonal stele pavilion & obelisks
+  const steleS = 45, stelePt = toWorld2(steleS), octRot = AXIS_ANG + Math.PI / 8;
+  const paleConc = hex('#94918a');
+  let floorY = levelY.L3;
+  S.kind = KIND.FLAT;
+  S.base = floorY - LAND_Y;
+  for (const [rad, h] of ([[6.0, 0.4], [5.4, 0.4], [4.8, 0.4]] as any[])) {
+    S.cyl(stelePt[0], stelePt[1], floorY - 0.05, floorY + h, rad, rad, 8, COLORS.trim, { rot: octRot });
+    floorY += h;
+  }
+  for (let i = 0; i < 8; i++) {
+    const a0 = octRot + (i / 8) * Math.PI * 2, a1 = octRot + ((i + 1) / 8) * Math.PI * 2, aMid = (a0 + a1) / 2;
+    if (Math.abs(Math.cos(aMid - AXIS_ANG)) > 0.9) continue;
+    const balY = levelY.L3 + 0.4, balRad = 5.75;
+    S.beam([stelePt[0] + Math.cos(a0) * balRad, balY + 0.35, stelePt[1] + Math.sin(a0) * balRad], [stelePt[0] + Math.cos(a1) * balRad, balY + 0.35, stelePt[1] + Math.sin(a1) * balRad], 0.25, 0.7, paleConc);
+  }
+  S.cyl(stelePt[0], stelePt[1], floorY, floorY + 4.3, 3.9, 3.9, 8, COLORS.void, { rot: octRot, cap: false });
+  for (let i = 0; i < 8; i++) {
+    const ang = octRot + (i / 8) * Math.PI * 2;
+    S.box(stelePt[0] + Math.cos(ang) * 4.1, stelePt[1] + Math.sin(ang) * 4.1, floorY, floorY + 4.3, 0.8, 0.8, ang, paleConc, { top: COLORS.trim });
+    const midAng = ang + Math.PI / 8;
+    S.box(stelePt[0] + Math.cos(midAng) * 3.85, stelePt[1] + Math.sin(midAng) * 3.85, floorY + 3.5, floorY + 4.3, 0.4, 2.8, midAng, paleConc);
+  }
+  S.box(stelePt[0], stelePt[1], floorY, floorY + 0.76, 0.85, 2.1, PERP_ANG, COLORS.trim);
+  S.box(stelePt[0], stelePt[1], floorY + 0.76, floorY + 3.86, 0.3, 1.2, PERP_ANG, COLORS.statue);
+  let curY = floorY + 4.3;
+  S.cyl(stelePt[0], stelePt[1], curY, curY + 0.4, 4.6, 4.6, 8, COLORS.trim, { rot: octRot }); curY += 0.4;
+  S.kind = KIND.TILE;
+  S.cyl(stelePt[0], stelePt[1], curY, curY + 1.2, 5.6, 3.0, 8, COLORS.roof, { rot: octRot }); curY += 1.2;
+  S.kind = KIND.FLAT;
+  S.cyl(stelePt[0], stelePt[1], curY, curY + 2.0, 2.8, 2.8, 8, paleConc, { rot: octRot, cap: false });
+  for (let i = 0; i < 8; i++) {
+    const ang = octRot + ((i + 0.5) / 8) * Math.PI * 2;
+    S.box(stelePt[0] + Math.cos(ang) * 2.6, stelePt[1] + Math.sin(ang) * 2.6, curY + 0.25, curY + 1.75, 0.14, 1.6, ang, COLORS.void);
+  }
+  curY += 2.0;
+  S.cyl(stelePt[0], stelePt[1], curY, curY + 0.3, 3.3, 3.3, 8, COLORS.trim, { rot: octRot }); curY += 0.3;
+  S.kind = KIND.TILE;
+  S.cyl(stelePt[0], stelePt[1], curY, curY + 2.2, 4.3, 0.3, 8, COLORS.roof, { rot: octRot }); curY += 2.2;
+  S.kind = KIND.FLAT;
+  S.cyl(stelePt[0], stelePt[1], curY - 0.1, curY + 0.9, 0.35, 0.05, 6, COLORS.trim);
+
+  for (const side of [-1, 1]) drawObelisk(S, steleS + 0.5, side * 18.5, levelY.L3);
+
+  // Concrete flagpoles on L5
+  S.kind = KIND.FLAT;
+  S.base = levelY.L5 - LAND_Y;
+  for (const side of [-1, 1]) {
+    box(65.9, side * 8, levelY.L5, levelY.L5 + 1.2, 1.8, 1.8, COLORS.trim);
+    box(65.9, side * 8, levelY.L5 + 1.2, levelY.L5 + 12, 0.5, 0.5, COLORS.wall, { taper: 0.55 });
+  }
+}
+
+export function build({ S }) {
+  const prevKind = S.kind;
+  const box = (s, t, y0, y1, ss?, st?, col?, opt?) => { const pt = toWorld2(s, t); S.box(pt[0], pt[1], y0, y1, ss, st, AXIS_ANG, col, opt); };
+
+  const y0 = groundAt(-10);
+  let maxTopG = -Infinity;
+  for (let s = LEVELS.L7[0]; s <= LEVELS.L7[1]; s += 1) for (let t = -HALF_WIDTH; t <= HALF_WIDTH; t += 2) maxTopG = Math.max(maxTopG, groundAt(s, t));
+  const riser = Math.max(0.15, Math.min(0.2, (maxTopG - 0.8 - y0) / 127));
+  const levelY: Record<string, number> = {};
+  let curY = y0;
+  ['L2', 'L3', 'L4', 'L5', 'L6', 'L7'].forEach((key, i) => { curY += STEP_COUNTS[i] * riser; levelY[key] = curY; });
+
+  const pavedStart = S.n;
+  buildTerracesAndFlights(S, box, y0, levelY);
+  buildGateCourtAndBiDinh(S, box, levelY);
+  drawPalace(S, levelY.L7);
+  (S.paved = S.paved || []).push([pavedStart, S.n]);
+
+  for (const ring of OUTBUILDINGS) drawOutbuilding(S, ring);
+  drawTicketKiosk(S);
+  S.kind = prevKind;
+  S.base = 0;
+}
+
+function drawFlight(S, s0, s1, ya, yb, stepCount, lanes, rails, hasDragon) {
+  const tread = (s1 - s0) / stepCount, stepRise = (yb - ya) / stepCount;
+  S.kind = KIND.FLAT;
+  for (const [t, width] of lanes) {
+    for (let k = 0; k < stepCount; k++) {
+      const s = s0 + tread * (k + 0.5), topY = ya + stepRise * (k + 1);
+      const minG = Math.min(ya, groundAt(s, t - width / 2), groundAt(s, t + width / 2)) - 0.6;
+      S.base = minG - LAND_Y;
+      const pt = toWorld2(s, t);
+      S.box(pt[0], pt[1], minG, topY, tread + 0.02, width, AXIS_ANG, k % 2 ? COLORS.pave : shade(COLORS.pave, 0.94), { topKind: KIND.ROAD });
+    }
+  }
+  for (const t of rails) {
+    const railW = hasDragon ? 0.75 : 0.45, railH = hasDragon ? 1.0 : 0.9;
+    S.kind = KIND.FLAT;
+    S.beam(toWorld3(s0, t, ya + railH / 2), toWorld3(s1, t, yb + railH / 2), railW, railH, hasDragon ? COLORS.cheek : COLORS.trim);
+    const minG = Math.min(ya, groundAt(s0, t)) - 0.5;
+    S.base = minG - LAND_Y;
+    const midPt = toWorld2(s0 + (s1 - s0) * 0.5, t);
+    S.box(midPt[0], midPt[1], minG, ya + (yb - ya) * 0.5, s1 - s0, railW, AXIS_ANG, COLORS.cheek);
+    if (!hasDragon) {
+      for (const [s, yy] of ([[s0, ya], [s1, yb]] as any[])) {
+        const postPt = toWorld2(s, t);
+        S.box(postPt[0], postPt[1], yy, yy + 1.4, 0.7, 0.7, AXIS_ANG, COLORS.trim, { top: shade(COLORS.trim, 1.1) });
+      }
+      continue;
+    }
+    const segs = Math.max(4, Math.round((s1 - s0) / 1.6)) * 2;
+    let prev = null;
+    for (let i = 0; i <= segs; i++) {
+      const frac = i / segs, s = s0 + 0.9 + (s1 - s0 - 1.2) * frac;
+      const yy = ya + (yb - ya) * ((s - s0) / (s1 - s0)) + railH + 0.15 + 0.55 * Math.abs(Math.sin(frac * Math.PI * (segs / 4)));
+      const cur = toWorld3(s, t, yy);
+      if (prev) S.beam(prev, cur, 0.42, 0.42, COLORS.trim);
+      prev = cur;
+    }
+    const neckPt = toWorld2(s0 - 0.3, t), headPt = toWorld2(s0 - 1.1, t);
+    S.box(neckPt[0], neckPt[1], ya - 0.1, ya + 2.0, 1.4, railW + 0.25, AXIS_ANG, COLORS.cheek, { taper: 0.8, top: COLORS.trim });
+    S.box(headPt[0], headPt[1], ya + 1.5, ya + 2.3, 1.3, railW, AXIS_ANG, COLORS.trim);
+    S.beam(toWorld3(s0 - 0.3, t, ya + 2.0), toWorld3(s0 + 0.4, t, ya + 2.8), 0.25, 0.4, COLORS.trim);
+    const tailPt = toWorld2(s1 - 0.2, t);
+    S.box(tailPt[0], tailPt[1], yb, yb + 1.9, 0.8, 0.8, AXIS_ANG, COLORS.cheek, { top: COLORS.trim, taper: 0.6 });
+  }
+}
+
+function drawFigure(S, s, t, y, faceSign, scale) {
+  const pt = toWorld2(s, t);
+  props.mandarin(S, pt[0], y, pt[1], AXIS_ANG + faceSign * Math.PI / 2, { military: scale < 1, h: 2.15 * scale, col: COLORS.statue });
+}
+
+function drawBeast(S, s, t, y, isElephant) {
+  const pt = toWorld2(s, t);
+  if (isElephant) props.elephant(S, pt[0], y, pt[1], AXIS_ANG, { col: COLORS.statue });
+  else props.horse(S, pt[0], y, pt[1], AXIS_ANG, { col: COLORS.statue });
+}
+
+function drawObelisk(S, s, t, y) {
+  const pt = toWorld2(s, t);
+  const sq = (y0, y1, w, col, opt?) => S.box(pt[0], pt[1], y0, y1, w, w, AXIS_ANG, col, opt);
+  S.kind = KIND.FLAT;
+  S.base = y - LAND_Y;
+  sq(y, y + 0.6, 3.0, COLORS.trim);
+  sq(y + 0.6, y + 2.2, 2.2, COLORS.wall, { top: COLORS.trim });
+  sq(y + 2.2, y + 11.5, 1.4, COLORS.wall, { taper: 0.7 });
+  sq(y + 11.5, y + 12.1, 1.5, COLORS.trim);
+  sq(y + 12.1, y + 13.2, 1.0, COLORS.wall, { taper: 0.75 });
+  S.cyl(pt[0], pt[1], y + 13.2, y + 15.0, 0.55, 0.04, 8, COLORS.trim);
+}
+
+function drawPalace(S, y) {
+  const box = (s, t, y0, y1, ss?, st?, col?, opt?) => { const pt = toWorld2(s, t); S.box(pt[0], pt[1], y0, y1, ss, st, AXIS_ANG, col, opt); };
+  const hip = (s, t, w, d, y0, h, opt?) => {
+    const pt = toWorld2(s, t);
+    S.hip(pt[0], pt[1], w, d, PERP_ANG, y0, h, COLORS.roof, { flare: 0.3, fascia: 0.3, fasciaCol: COLORS.darkWall, ridgeCol: COLORS.ridge, hips: true, ...opt });
+  };
+  const roofCenterS = 100.5, roofW = 34.5, roofD = 23.0;
+  const porticoS = roofCenterS - roofD / 2 + 0.6;
+  const bodyFrontS = porticoS + 2.6, bodyBackS = roofCenterS + roofD / 2 - 0.3;
+  const bodyCenterS = (bodyFrontS + bodyBackS) / 2, bodyDepth = bodyBackS - bodyFrontS;
+  const floorY = y + 0.9;
+
+  S.kind = KIND.FLAT;
+  S.base = y - LAND_Y;
+  box(roofCenterS - 0.8, 0, y, floorY, roofD + 3.6, roofW + 1.2, COLORS.trim, { topKind: KIND.ROAD });
+  box(bodyCenterS, 0, floorY, floorY + 5.2, bodyDepth, roofW, COLORS.palaceWall, { top: COLORS.roof });
+  box((porticoS - 0.5 + bodyBackS + 0.2) / 2, 0, floorY + 5.2, floorY + 5.7, bodyBackS + 0.2 - porticoS + 0.5, roofW + 0.4, COLORS.trim);
+
+  S.kind = KIND.PLAIN;
+  for (let i = 0; i < 9; i++) box(bodyFrontS - 0.02, (i - 4) * 3.7, floorY + 0.4, floorY + (Math.abs(i - 4) < 3 ? 3.8 : 3.0), 0.1, 1.5, COLORS.void);
+  for (const side of [-1, 1]) for (let i = 0; i < 5; i++) box(bodyCenterS - 8 + i * 4, side * (roofW / 2 + 0.02), floorY + 1.0, floorY + 3.4, 1.4, 0.1, COLORS.void);
+
+  S.kind = KIND.FLAT;
+  for (let i = 0; i < 9; i++) box(porticoS, (i - 4) * 4.25, floorY, floorY + 5.2, 0.8, 0.8, COLORS.trim);
+  for (let i = 0; i < 8; i++) box(porticoS, (i - 3.5) * 4.25, floorY + 3.9, floorY + 5.2, 0.6, 3.45, COLORS.wall);
+  box((porticoS + bodyFrontS) / 2, 0, floorY + 5.0, floorY + 5.2, bodyFrontS - porticoS, roofW, COLORS.darkWall);
+  hip(roofCenterS, 0, roofW, roofD, floorY + 5.7, 2.1, { over: 0.6 });
+
+  const khCenterS = roofCenterS + 0.4, khW = 17.6;
+  box(khCenterS, 0, floorY + 5.7, floorY + 8.6, khW, khW, COLORS.wall, { top: COLORS.trim });
+  S.kind = KIND.PLAIN;
+  for (let i = 0; i < 5; i++) box(khCenterS - khW / 2 - 0.02, (i - 2) * 3.3, floorY + 7.6, floorY + 8.3, 0.1, 1.6, COLORS.void);
+  S.kind = KIND.FLAT;
+  hip(khCenterS, 0, khW + 1.4, khW + 0.6, floorY + 8.6, 2.0, { flare: 0.25, over: 0.5, fasciaCol: COLORS.trim });
+}
+
+function drawLampStandard(S, s, t, y, isBig) {
+  const pt = toWorld2(s, t), scale = isBig ? 1 : 0.75;
+  const sq = (y0, y1, w, col, opt?) => S.box(pt[0], pt[1], y0, y1, w, w, AXIS_ANG, col, opt);
+  S.kind = KIND.FLAT;
+  S.base = y - LAND_Y;
+  sq(y, y + 0.3, 1.7 * scale, COLORS.trim);
+  sq(y + 0.3, y + 2.0 * scale, 1.4 * scale, COLORS.wall, { top: COLORS.trim });
+  sq(y + 2.0 * scale, y + 2.2 * scale, 1.6 * scale, COLORS.trim);
+  const postBaseY = y + 2.2 * scale;
+  S.cyl(pt[0], pt[1], postBaseY, postBaseY + 3.2 * scale, 0.2 * scale, 0.12 * scale, 8, COLORS.iron, { cap: true });
+  const armY = postBaseY + 2.7 * scale;
+  for (const [ds, dt] of ([[1, 0], [-1, 0], [0, 1], [0, -1]] as any[])) {
+    const tip = toWorld3(s + ds * 0.7 * scale, t + dt * 0.7 * scale, armY + 0.25 * scale);
+    S.beam([pt[0], armY, pt[1]], tip, 0.08, 0.08, COLORS.iron);
+    S.cyl(tip[0], tip[2], tip[1], tip[1] + 0.45 * scale, 0.16 * scale, 0.2 * scale, 6, COLORS.trim, { cap: true });
+  }
+  S.cyl(pt[0], pt[1], postBaseY + 3.2 * scale, postBaseY + 3.9 * scale, 0.28 * scale, 0.05, 8, COLORS.iron, { cap: true });
+}
+
+function drawTicketKiosk(S) {
+  const s = -11.45 + 5.6, t = 25.15, width = 6.3, depth = 6.9;
+  const pt = toWorld2(s, t);
+  let minG = Infinity;
+  for (const ds of [-width / 2, width / 2]) for (const dt of [-depth / 2, depth / 2]) minG = Math.min(minG, groundAt(s + ds, t + dt));
+  const floorY = minG + 0.7;
+  S.kind = KIND.FLAT;
+  S.base = minG - 0.4 - LAND_Y;
+  S.box(pt[0], pt[1], minG - 0.4, floorY, width + 0.8, depth + 0.8, AXIS_ANG, COLORS.darkWall, { top: COLORS.pave, topKind: KIND.ROAD });
+  S.kind = KIND.TIMBER;
+  S.box(pt[0], pt[1], floorY, floorY + 2.6, width - 1.2, depth - 1.2, AXIS_ANG, COLORS.wood);
+  S.kind = KIND.FLAT;
+  S.box(pt[0], pt[1], floorY + 0.85, floorY + 1.0, width - 0.8, depth - 0.8, AXIS_ANG, COLORS.darkWall);
+  S.kind = KIND.TILE;
+  S.hip(pt[0], pt[1], depth + 0.4, width + 0.4, PERP_ANG, floorY + 2.6, 1.6, COLORS.tileBrown, { flare: 0.4, over: 0.6, hips: true });
+  S.kind = KIND.FLAT;
+}
+
+function drawOutbuilding(S, ring) {
+  const pts = ring.map(([s, t]) => toWorld2(s, t));
+  const center = [pts.reduce((sum, pt) => sum + pt[0], 0) / 4, pts.reduce((sum, pt) => sum + pt[1], 0) / 4];
+  const e0 = Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]), e1 = Math.hypot(pts[2][0] - pts[1][0], pts[2][1] - pts[1][1]);
+  const a0 = Math.atan2(pts[1][1] - pts[0][1], pts[1][0] - pts[0][0]);
+  const [w, d, ang] = e0 >= e1 ? [e0, e1, a0] : [e1, e0, a0 + Math.PI / 2];
+  let minG = Infinity, maxG = -Infinity;
+  for (const pt of pts) { const g = LAND_Y + rise(pt[0], pt[1]); minG = Math.min(minG, g); maxG = Math.max(maxG, g); }
+  S.kind = KIND.FLAT;
+  S.base = minG - 0.5 - LAND_Y;
+  S.box(center[0], center[1], minG - 0.5, maxG + 0.4, w + 0.6, d + 0.6, ang, COLORS.darkWall, { topKind: KIND.ROAD });
+  S.box(center[0], center[1], maxG + 0.4, maxG + 3.2, w, d, ang, COLORS.palaceWall);
+  S.hip(center[0], center[1], w, d, ang, maxG + 3.2, Math.min(2.2, d * 0.3), COLORS.roof, { over: 0.6 });
 }

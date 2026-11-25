@@ -4,398 +4,366 @@ import { rise } from '../../geo/terrain.ts';
 import { bridgeProfiles } from '../../geo/bridges.ts';
 import { glowPoints } from '../../geo/materials.ts';
 
-// ---- Tàng Thư Lâu: the Nguyễn archive of land registers on its island in hồ Học Hải (Thuận Lộc), as restored ----
-//
-// Built 1825-26 under Minh Mạng; used until 1945; after 1975 split into housing; restored by the Huế Monuments
-// Conservation Centre from 2014 (VND 24.8 bn) and opened as an exhibition library in March 2021.
-// Sources and estimates: docs/places/tangthulau.md.
-//  - vi.wikipedia (Tàng Thư lâu): two storeys of brick and stone; lower floor 11 bays (gian), upper floor 7 bays and
-//    2 end bays (chái); island about 45 x 65 m in the middle of Học Hải; one stone bridge to the shore.
-//  - Đại Nam thực lục via kienthuc.net.vn and hue.gov.vn: railings (lan can) all round; the upper floor has many
-//    doors and open railings for air; walls about 0.4 m thick; tile roof; the bridge on the west side.
-//  - vietnamnet / heritagevietnamairlines: plastered brick, terracotta tile roof, golden-yellow walls.
-//  - OSM (data/raw/hue-osm.json): building way 173151284 (building:colour #ffe0a0), 40.0 x 15.1 m; a layer-1 footway
-//    ring (1346839069) about 1.1 m inside the outline: the upper gallery; two flights of steps (1346839061,
-//    1346839062) along the long sides and up the east end to a landing in its middle; island garden 1346839222;
-//    bridge outline 1431132265 (beam bridge, 38.6 x 4.6 m) carrying the service way 372295922; a memorial node
-//    (12458493990) on the north tip of the island.
-// Estimated: the storey heights (ridge kept at the survey's 11.5 m), the gallery width, column and door counts on
-// the short ends, the bridge's piers and parapets, the colours of joinery and tiles, the stele.
-
+// ---- Tàng Thư Lâu: the Nguyễn archive of land registers on its island in hồ Học Hải (Thuận Lộc) ----
+// Built 1825–26 under Minh Mạng; restored 2014–2021. Sources: docs/places/tangthulau.md.
 export const id = 'tangthulau';
 
-// OSM way 173151284, re-framed (REFRAME) to the Google satellite (north up, 0.14 m/px). The image leans: the roof's
-// ridge sits ~1.5 m north-west of the middle of its eaves (~0.44 m of lean per metre of height), so the roof and the
-// terrace edge read 3.4 m and 2.1 m north-west of their footings. Corrected for that, the base stands ~2.2 m north-west
-// and ~1.1 m north-east of this outline, its long axis ~2.3° nearer east-west (bearing ~58°, OSM ~56°). The island,
-// the bridge and the streets round the lake match OSM there, so only the building moves; it keeps the mapped
-// 40.0 x 15.1 m. (The OSM gallery ring and steps the city draws as footways stay where OSM has them.)
-const REFRAME = { dx: -0.4, dz: -2.4, rot: -2.3 * Math.PI / 180 };
+const REFRAME = { dx: -0.4, dz: -2.4, rot: (-2.3 * Math.PI) / 180 };
 const OUTLINE = [[-1326.1, -1324.5], [-1323.2, -1326.4], [-1292.9, -1346.6], [-1288.8, -1340.6], [-1284.4, -1334.1], [-1314.7, -1313.9], [-1317.6, -1311.9]];
-const BRIDGE = [[-1364.3, -1288], [-1331, -1311.8]]; // OSM way 372295922, shore (west) → island
-const STELE = [-1318.5, -1301]; // OSM node 12458493990 (historic=memorial)
-// OSM way 1346839070 (building, 9.8 x 4.3 m) by the archive's north-west side: the satellite shows a low tiled shed under
-// the trees there, so it is drawn single-storey here (the city's survey height of 8 m made it a white two-storey block)
-const SHED = [[-1315, -1346.5], [-1312.5, -1343], [-1320.6, -1337.5], [-1323.1, -1341.1]];
-// The island's trees, in the archive's own frame (u along it toward the stairs, v toward the south-east; metres from
-// its middle) and crown scale: the large shade trees along the north-west side and at the north tip, smaller ones on
-// the south-east court and by the bridge landing, read off the satellite (z19/z20, its ~0.44 m/m lean taken out).
-const TREES = [
-  [-28, -14.5, 1.5], [-18, -15, 1.4], [0, -13.5, 1.3], [9, -14, 1.5], [18, -13, 1.4], [26, -12, 1.6], // north-west side, north tip
-  [-30, -6, 0.9], [29, 4, 0.9], [27, 15, 1.1], [17, 15, 0.8], // west end, east corner and the south-east court
-  [-26, 17, 1.3], [-14, 19, 1.0], [-29, 7, 0.8], // by the bridge landing
+const BRIDGE_ENDS = [[-1364.3, -1288], [-1331, -1311.8]];
+const STELE_POS = [-1318.5, -1301];
+const SHED_RING = [[-1315, -1346.5], [-1312.5, -1343], [-1320.6, -1337.5], [-1323.1, -1341.1]];
+const ISLAND_PROBE = [-1306.8, -1328.3];
+
+const ISLAND_TREES = [
+  [-28, -14.5, 1.5], [-18, -15, 1.4], [0, -13.5, 1.3], [9, -14, 1.5], [18, -13, 1.4], [26, -12, 1.6],
+  [-30, -6, 0.9], [29, 4, 0.9], [27, 15, 1.1], [17, 15, 0.8],
+  [-26, 17, 1.3], [-14, 19, 1.0], [-29, 7, 0.8],
 ];
 
-const C = {
-  wall: hex('#e9c87c'), // golden-yellow lime wash (OSM building:colour #ffe0a0, weathered)
-  wallLo: hex('#d9b56a'),
-  trim: hex('#f1e2b8'), // cornices and pilasters, lighter wash
-  door: hex('#6b2f22'), // lacquered jackfruit-wood leaves
+const COLORS = {
+  wall: hex('#e9c87c'),
+  wallLow: hex('#d9b56a'),
+  trim: hex('#f1e2b8'),
+  door: hex('#6b2f22'),
   doorDark: hex('#3e1f18'),
-  lac: hex('#8e3424'),
-  roof: hex('#6f4a3b'), // weathered terracotta: dark brown on the satellite, not new orange tile
+  roof: hex('#6f4a3b'),
   roofDark: hex('#4c3229'),
   ridge: hex('#ddd2b8'),
   stone: PAL.stone,
-  face: hex('#7f7a6d'), // weathered revetment stone
+  face: hex('#7f7a6d'),
   moss: hex('#5a5e48'),
   coping: hex('#b4ab98'),
-  plaster: hex('#cfc6b2'), // bridge parapets, grey lime plaster
-  court: hex('#a39278'), // the island court: packed earth and worn brick
+  plaster: hex('#cfc6b2'),
+  court: hex('#a39278'),
   brick: hex('#8a6f5c'),
 };
 
-const distSeg = (x, z, a, b) => {
-  const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz || 1;
-  const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / L2));
-  return Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t);
-};
+function segmentDist(x, z, ptA, ptB) {
+  const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], lenSq = dx * dx + dz * dz || 1;
+  const proj = Math.max(0, Math.min(1, ((x - ptA[0]) * dx + (z - ptA[1]) * dz) / lenSq));
+  return Math.hypot(x - ptA[0] - dx * proj, z - ptA[1] - dz * proj);
+}
 
-// The generic road-bridge (geo/city.js: slab, piers, parapets) on the mapped bridge: collapse its triangles so the
-// hand-made one stands on the same deck profile.
-function knockOut(S, n0, a, b, half, yHi) {
-  const P = S.pos, L = Math.hypot(b[0] - a[0], b[1] - a[1]), ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L;
-  const inside = (k) => {
-    const x = P[k] - a[0], y = P[k + 1], z = P[k + 2] - a[1];
+function collapseGenericBridge(S, vertCount, ptA, ptB, halfW, maxY) {
+  const pos = S.pos, len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+  const ux = (ptB[0] - ptA[0]) / len, uz = (ptB[1] - ptA[1]) / len;
+  const inBox = (idx) => {
+    const x = pos[idx] - ptA[0], y = pos[idx + 1], z = pos[idx + 2] - ptA[1];
     const s = x * ux + z * uz, t = -x * uz + z * ux;
-    return s > -0.8 && s < L + 0.8 && Math.abs(t) < half && y > -6 && y < yHi;
+    return s > -0.8 && s < len + 0.8 && Math.abs(t) < halfW && y > -6 && y < maxY;
   };
-  for (let i = 0; i < n0; i += 3) {
-    const k = i * 3;
-    if (!inside(k) || !inside(k + 3) || !inside(k + 6)) continue;
-    for (const j of [k + 3, k + 6]) { P[j] = P[k]; P[j + 1] = P[k + 1]; P[j + 2] = P[k + 2]; }
+  for (let i = 0; i < vertCount; i += 3) {
+    const idx = i * 3;
+    if (!inBox(idx) || !inBox(idx + 3) || !inBox(idx + 6)) continue;
+    for (const j of [idx + 3, idx + 6]) { pos[j] = pos[idx]; pos[j + 1] = pos[idx + 1]; pos[j + 2] = pos[idx + 2]; }
   }
 }
 
-function archive(S, lamps) {
-  const o0 = obb(OUTLINE);
-  let ang = o0.a;
-  if (Math.cos(ang) < 0) ang += Math.PI; // u toward the east end (the stairs)
+function findIslandRing(data) {
+  const poly = (data.ponds || []).find((pl) => pl.length > 1 && pl.slice(1).some((hole) => inRing(ISLAND_PROBE[0], ISLAND_PROBE[1], unflat(hole))));
+  return poly && poly.map(unflat).find((ring, i) => i > 0 && inRing(ISLAND_PROBE[0], ISLAND_PROBE[1], ring));
+}
+
+export function ownWays(data) {
+  const island = findIslandRing(data);
+  if (!island) return () => false;
+  return (road) => !road[1] && (road[0] | 0) >= 4 && unflat(road[2]).every((pt) => inRing(pt[0], pt[1], island));
+}
+
+function buildArchiveBuilding(S, lamps) {
+  const rawBox = obb(OUTLINE);
+  let ang = rawBox.a;
+  if (Math.cos(ang) < 0) ang += Math.PI;
   ang += REFRAME.rot;
-  const o = { ...o0, c: [o0.c[0] + REFRAME.dx, o0.c[1] + REFRAME.dz] };
-  const UX = Math.cos(ang), UZ = Math.sin(ang);
-  const P = (u, v): [number, number] => [o.c[0] + u * UX - v * UZ, o.c[1] + u * UZ + v * UX];
-  const fbox = (u, v, y0, y1, su, sv, col, opts?) => { const p = P(u, v); S.box(p[0], p[1], y0, y1, su, sv, ang, col, opts); };
-  const W = o.w, D = o.d; // 40.0 x 15.1
-  let g = Infinity;
-  for (const [u, v] of ([[-W / 2, -D / 2], [W / 2, -D / 2], [W / 2, D / 2], [-W / 2, D / 2]] as any[])) { const q = P(u, v); g = Math.min(g, LAND_Y + rise(q[0], q[1])); }
-  S.base = g - LAND_Y;
+  const center = [rawBox.c[0] + REFRAME.dx, rawBox.c[1] + REFRAME.dz];
+  const ux = Math.cos(ang), uz = Math.sin(ang);
+  const localPt = (u, v): [number, number] => [center[0] + u * ux - v * uz, center[1] + u * uz + v * ux];
+  const localBox = (u, v, y0, y1, su, sv, col, opts?) => { const pt = localPt(u, v); S.box(pt[0], pt[1], y0, y1, su, sv, ang, col, opts); };
+  const width = rawBox.w, depth = rawBox.d;
 
-  const fl = g + 0.6, fl2 = fl + 4.2; // ground floor, upper floor (the gallery)
-  const LW = W - 1.0, LD = D - 1.0; // lower storey walls, 0.5 m in from the base edge
-  // upper body: 7 bays + 2 chái. The satellite shows its hipped roof about 33.4 x 10.4 m (eave to eave) over an open
-  // terrace (the upper gallery, light plaster with its railing at the edge) about 3.5 m wide all round.
-  const UW = 31.8, UD = 8.8;
-  const eave = fl2 + 3.0, ridgeTop = g + 11.5;
+  let baseG = Infinity;
+  for (const [u, v] of ([[-width / 2, -depth / 2], [width / 2, -depth / 2], [width / 2, depth / 2], [-width / 2, depth / 2]] as any[])) {
+    const pt = localPt(u, v);
+    baseG = Math.min(baseG, LAND_Y + rise(pt[0], pt[1]));
+  }
+  S.base = baseG - LAND_Y;
 
-  // base: stone, the mapped outline
+  const floor1 = baseG + 0.6, floor2 = floor1 + 4.2;
+  const lowerW = width - 1.0, lowerD = depth - 1.0;
+  const upperW = 31.8, upperD = 8.8;
+  const eaveY = floor2 + 3.0, ridgeTopY = baseG + 11.5;
+
+  // Stone base and 11-bay lower storey
   S.kind = KIND.MASONRY;
-  fbox(0, 0, g - 0.3, fl, W, D, shade(C.stone, 0.95), { taper: 0.99, topKind: KIND.ROAD });
-  // ---- lower storey: 11 bays on each long side, a door in each between pilasters; 3 bays on each end ----
-  fbox(0, 0, fl, fl2 - 0.35, LW, LD, C.wall, { top: shade(C.wall, 0.8) });
-  fbox(0, 0, fl, fl + 0.35, LW + 0.12, LD + 0.12, C.wallLo); // plinth band
-  const bay = LW / 11;
+  localBox(0, 0, baseG - 0.3, floor1, width, depth, shade(COLORS.stone, 0.95), { taper: 0.99, topKind: KIND.ROAD });
+  localBox(0, 0, floor1, floor2 - 0.35, lowerW, lowerD, COLORS.wall, { top: shade(COLORS.wall, 0.8) });
+  localBox(0, 0, floor1, floor1 + 0.35, lowerW + 0.12, lowerD + 0.12, COLORS.wallLow);
+  const bayW = lowerW / 11;
   S.kind = KIND.PLAIN;
-  for (const s of [-1, 1]) {
-    for (let i = 0; i <= 11; i++) fbox(-LW / 2 + i * bay, s * (LD / 2 + 0.06), fl, fl2 - 0.35, 0.5, 0.14, C.trim); // pilasters
+  for (const side of [-1, 1]) {
+    for (let i = 0; i <= 11; i++) localBox(-lowerW / 2 + i * bayW, side * (lowerD / 2 + 0.06), floor1, floor2 - 0.35, 0.5, 0.14, COLORS.trim);
     for (let i = 0; i < 11; i++) {
-      const u = -LW / 2 + (i + 0.5) * bay;
-      fbox(u, s * (LD / 2 + 0.03), fl + 0.1, fl + 2.6, 1.5, 0.08, i === 5 ? C.doorDark : C.door); // leaves
-      fbox(u, s * (LD / 2 + 0.05), fl + 2.6, fl + 2.8, 1.8, 0.1, C.trim); // lintel
-      fbox(u, s * (LD / 2 + 0.2), fl - 0.05, fl + 0.12, 1.7, 0.4, shade(C.stone, 1.0)); // threshold step
-      fbox(u, s * (LD / 2 + 0.03), fl + 3.0, fl + 3.55, 1.1, 0.08, C.doorDark); // vent over the door
+      const u = -lowerW / 2 + (i + 0.5) * bayW;
+      localBox(u, side * (lowerD / 2 + 0.03), floor1 + 0.1, floor1 + 2.6, 1.5, 0.08, i === 5 ? COLORS.doorDark : COLORS.door);
+      localBox(u, side * (lowerD / 2 + 0.05), floor1 + 2.6, floor1 + 2.8, 1.8, 0.1, COLORS.trim);
+      localBox(u, side * (lowerD / 2 + 0.2), floor1 - 0.05, floor1 + 0.12, 1.7, 0.4, shade(COLORS.stone, 1.0));
+      localBox(u, side * (lowerD / 2 + 0.03), floor1 + 3.0, floor1 + 3.55, 1.1, 0.08, COLORS.doorDark);
     }
-    const eb = LD / 3;
+    const endBay = lowerD / 3;
     for (let i = 0; i < 3; i++) {
-      const v = -LD / 2 + (i + 0.5) * eb;
-      const p = P(s * (LW / 2 + 0.03), v);
-      S.box(p[0], p[1], fl + 0.9, fl + 2.6, 0.08, 1.3, ang, C.door);
+      const pt = localPt(side * (lowerW / 2 + 0.03), -lowerD / 2 + (i + 0.5) * endBay);
+      S.box(pt[0], pt[1], floor1 + 0.9, floor1 + 2.6, 0.08, 1.3, ang, COLORS.door);
     }
   }
-  // gallery floor slab: a cornice over the lower walls, the deck of the upper gallery
   S.kind = KIND.MASONRY;
-  fbox(0, 0, fl2 - 0.35, fl2, LW + 0.5, LD + 0.5, C.trim, { topKind: KIND.ROAD });
+  localBox(0, 0, floor2 - 0.35, floor2, lowerW + 0.5, lowerD + 0.5, COLORS.trim, { topKind: KIND.ROAD });
 
-  // ---- the upper gallery's railing (lan can thưa): masonry posts with an open rail, left open at the stair landing ----
+  // Upper gallery railing
   const railH = 0.85;
-  S.kind = KIND.MASONRY;
-  const railRun = (u0, v0, u1, v1) => {
-    const L = Math.hypot(u1 - u0, v1 - v0), n = Math.max(1, Math.round(L / 2.4));
-    const a = P(u0, v0), b = P(u1, v1);
-    for (let k = 0; k <= n; k++) { const q = P(u0 + (u1 - u0) * k / n, v0 + (v1 - v0) * k / n); S.box(q[0], q[1], fl2, fl2 + railH + 0.1, 0.32, 0.32, ang, C.trim); }
+  const drawRailRun = (u0, v0, u1, v1) => {
+    const runLen = Math.hypot(u1 - u0, v1 - v0), postCount = Math.max(1, Math.round(runLen / 2.4));
+    const ptA = localPt(u0, v0), ptB = localPt(u1, v1);
+    for (let k = 0; k <= postCount; k++) {
+      const pt = localPt(u0 + ((u1 - u0) * k) / postCount, v0 + ((v1 - v0) * k) / postCount);
+      S.box(pt[0], pt[1], floor2, floor2 + railH + 0.1, 0.32, 0.32, ang, COLORS.trim);
+    }
     S.kind = KIND.PLAIN;
-    S.beam([a[0], fl2 + railH, a[1]], [b[0], fl2 + railH, b[1]], 0.22, 0.12, C.trim);
-    S.beam([a[0], fl2 + 0.12, a[1]], [b[0], fl2 + 0.12, b[1]], 0.22, 0.14, C.trim);
-    for (let k = 0; k < n * 4; k++) { if (k % 4 === 0) continue; const q = P(u0 + (u1 - u0) * k / (n * 4), v0 + (v1 - v0) * k / (n * 4)); S.box(q[0], q[1], fl2 + 0.19, fl2 + railH - 0.06, 0.08, 0.08, ang, shade(C.trim, 0.92)); }
+    S.beam([ptA[0], floor2 + railH, ptA[1]], [ptB[0], floor2 + railH, ptB[1]], 0.22, 0.12, COLORS.trim);
+    S.beam([ptA[0], floor2 + 0.12, ptA[1]], [ptB[0], floor2 + 0.12, ptB[1]], 0.22, 0.14, COLORS.trim);
+    for (let k = 0; k < postCount * 4; k++) {
+      if (k % 4 === 0) continue;
+      const pt = localPt(u0 + ((u1 - u0) * k) / (postCount * 4), v0 + ((v1 - v0) * k) / (postCount * 4));
+      S.box(pt[0], pt[1], floor2 + 0.19, floor2 + railH - 0.06, 0.08, 0.08, ang, shade(COLORS.trim, 0.92));
+    }
     S.kind = KIND.MASONRY;
   };
-  const eu = LW / 2 + 0.1, ev = LD / 2 + 0.1;
-  railRun(-eu, -ev, eu, -ev);
-  railRun(-eu, ev, eu, ev);
-  railRun(-eu, -ev, -eu, ev);
-  railRun(eu, -ev, eu, -1.3);
-  railRun(eu, 1.3, eu, ev);
+  const edgeU = lowerW / 2 + 0.1, edgeV = lowerD / 2 + 0.1;
+  drawRailRun(-edgeU, -edgeV, edgeU, -edgeV);
+  drawRailRun(-edgeU, edgeV, edgeU, edgeV);
+  drawRailRun(-edgeU, -edgeV, -edgeU, edgeV);
+  drawRailRun(edgeU, -edgeV, edgeU, -1.3);
+  drawRailRun(edgeU, 1.3, edgeU, edgeV);
 
-  // ---- upper body: 9 bays (7 + 2 chái) of doors along each side, golden walls, lacquered leaves ----
-  S.kind = KIND.MASONRY;
-  fbox(0, 0, fl2, eave - 0.1, UW, UD, C.wall, { top: shade(C.roof, 0.6) });
-  const ubays = [1, ...Array(7).fill(1.25), 1];
-  const tot = ubays.reduce((a, b) => a + b, 0);
-  const cols = [-UW / 2];
-  for (const b of ubays) cols.push(cols[cols.length - 1] + (b / tot) * UW);
+  // Upper 9-bay body & hipped roof
+  localBox(0, 0, floor2, eaveY - 0.1, upperW, upperD, COLORS.wall, { top: shade(COLORS.roof, 0.6) });
+  const bayWeights = [1, ...Array(7).fill(1.25), 1];
+  const weightSum = bayWeights.reduce((sum, val) => sum + val, 0);
+  const colU = [-upperW / 2];
+  for (const w of bayWeights) colU.push(colU[colU.length - 1] + (w / weightSum) * upperW);
   S.kind = KIND.PLAIN;
-  for (const s of [-1, 1]) {
+  for (const side of [-1, 1]) {
     for (let i = 0; i < 9; i++) {
-      const u = (cols[i] + cols[i + 1]) / 2, w = cols[i + 1] - cols[i];
-      const chai = i === 0 || i === 8;
-      fbox(u, s * (UD / 2 + 0.03), fl2 + (chai ? 0.8 : 0.05), fl2 + 2.3, w * (chai ? 0.45 : 0.62), 0.08, C.door);
-      fbox(u, s * (UD / 2 + 0.04), fl2 + 2.3, fl2 + 2.42, w * 0.7, 0.08, C.trim);
+      const u = (colU[i] + colU[i + 1]) / 2, w = colU[i + 1] - colU[i], isChai = i === 0 || i === 8;
+      localBox(u, side * (upperD / 2 + 0.03), floor2 + (isChai ? 0.8 : 0.05), floor2 + 2.3, w * (isChai ? 0.45 : 0.62), 0.08, COLORS.door);
+      localBox(u, side * (upperD / 2 + 0.04), floor2 + 2.3, floor2 + 2.42, w * 0.7, 0.08, COLORS.trim);
+    }
+    for (let i = 0; i < 2; i++) {
+      const pt = localPt(side * (upperW / 2 + 0.03), (i - 0.5) * upperD * 0.45);
+      S.box(pt[0], pt[1], floor2 + 0.8, floor2 + 2.3, 0.08, 1.2, ang, COLORS.door);
     }
   }
-  for (const s of [-1, 1]) {
-    for (let i = 0; i < 2; i++) { const p = P(s * (UW / 2 + 0.03), (i - 0.5) * UD * 0.45); S.box(p[0], p[1], fl2 + 0.8, fl2 + 2.3, 0.08, 1.2, ang, C.door); }
-  }
-  // pilasters on the upper walls, one on each column line, and a cornice under the eave
   S.kind = KIND.MASONRY;
-  for (const s of [-1, 1]) for (const u of cols) fbox(u, s * (UD / 2 + 0.05), fl2, eave - 0.1, 0.4, 0.12, C.trim);
-  fbox(0, 0, eave - 0.35, eave - 0.1, UW + 0.25, UD + 0.25, C.trim);
+  for (const side of [-1, 1]) for (const u of colU) localBox(u, side * (upperD / 2 + 0.05), floor2, eaveY - 0.1, 0.4, 0.12, COLORS.trim);
+  localBox(0, 0, eaveY - 0.35, eaveY - 0.1, upperW + 0.25, upperD + 0.25, COLORS.trim);
 
-  // ---- roof: one hipped roof over the upper body only (the gallery is an open terrace), terracotta tiles ----
   S.kind = KIND.TIMBER;
   const over = 0.8;
-  // The satellite shows straight hips and plain corners: a slight flare, and the hip ridges end in a short upturn, not
-  // the palace horn (đầu đao)
-  S.hip(o.c[0], o.c[1], UW, UD, ang, eave, ridgeTop - 0.35 - eave, C.roof, { flare: 0.18, over, ridgeCol: C.ridge, fascia: 0.25, fasciaCol: C.roofDark, hips: true, horns: false, segs: 4 });
-  // ridge ornament: a low gourd at the middle and raised ends
+  S.hip(center[0], center[1], upperW, upperD, ang, eaveY, ridgeTopY - 0.35 - eaveY, COLORS.roof, { flare: 0.18, over, ridgeCol: COLORS.ridge, fascia: 0.25, fasciaCol: COLORS.roofDark, hips: true, horns: false, segs: 4 });
   S.kind = KIND.PLAIN;
-  const rl = Math.max(0, (UW + 2 * over) / 2 - ((UD + 2 * over) / 2) * 0.92);
-  const top = ridgeTop - 0.35;
-  for (const s of [-1, 1]) { const p = P(s * rl, 0); S.box(p[0], p[1], top, top + 0.75, 0.6, 0.35, ang, C.ridge); S.box(p[0], p[1], top + 0.75, top + 0.95, 0.4, 0.25, ang, shade(C.ridge, 1.1)); }
-  { const p = P(0, 0); S.cyl(p[0], p[1], top, top + 0.3, 0.35, 0.3, 6, C.ridge); S.cyl(p[0], p[1], top + 0.3, top + 0.6, 0.22, 0.05, 6, C.ridge); }
+  const ridgeHalf = Math.max(0, (upperW + 2 * over) / 2 - ((upperD + 2 * over) / 2) * 0.92);
+  const ridgeBaseY = ridgeTopY - 0.35;
+  for (const side of [-1, 1]) {
+    const pt = localPt(side * ridgeHalf, 0);
+    S.box(pt[0], pt[1], ridgeBaseY, ridgeBaseY + 0.75, 0.6, 0.35, ang, COLORS.ridge);
+    S.box(pt[0], pt[1], ridgeBaseY + 0.75, ridgeBaseY + 0.95, 0.4, 0.25, ang, shade(COLORS.ridge, 1.1));
+  }
+  const midPt = localPt(0, 0);
+  S.cyl(midPt[0], midPt[1], ridgeBaseY, ridgeBaseY + 0.3, 0.35, 0.3, 6, COLORS.ridge);
+  S.cyl(midPt[0], midPt[1], ridgeBaseY + 0.3, ridgeBaseY + 0.6, 0.22, 0.05, 6, COLORS.ridge);
 
-  // ---- the stairs: one flight along each long side, a turn at the corner, up the east end to a landing in the middle ----
+  // Exterior stairs wrapping the east end
   S.kind = KIND.MASONRY;
-  const SW = 1.3, sv = D / 2 + SW / 2; // stair centre line just outside the base
-  const yMid = fl + (fl2 - fl) * 0.5;
-  for (const s of [-1, 1]) {
-    // run A: along the long side toward the east end, ground → corner landing
-    const u0 = W / 2 - 7.6, u1 = W / 2;
-    const nA = 12;
-    for (let k = 0; k < nA; k++) {
-      const u = u0 + (k + 0.5) * (u1 - u0) / nA, y = g + (yMid - g) * (k + 1) / nA;
-      fbox(u, s * sv, g - 0.2, y, (u1 - u0) / nA + 0.02, SW, C.wallLo, { top: shade(C.stone, 1.04), topKind: KIND.ROAD });
+  const stairW = 1.3, stairV = depth / 2 + stairW / 2, midY = floor1 + (floor2 - floor1) * 0.5;
+  for (const side of [-1, 1]) {
+    const u0 = width / 2 - 7.6, u1 = width / 2, stepsA = 12;
+    for (let k = 0; k < stepsA; k++) {
+      const u = u0 + ((k + 0.5) * (u1 - u0)) / stepsA, y = baseG + ((midY - baseG) * (k + 1)) / stepsA;
+      localBox(u, side * stairV, baseG - 0.2, y, (u1 - u0) / stepsA + 0.02, stairW, COLORS.wallLow, { top: shade(COLORS.stone, 1.04), topKind: KIND.ROAD });
     }
-    // corner landing
-    fbox(W / 2 + SW / 2, s * sv, g - 0.2, yMid, SW, SW, C.wallLo, { top: C.stone, topKind: KIND.ROAD });
-    // run B: along the east end toward the middle, corner → gallery
-    const v0 = D / 2, v1 = 1.3, nB = 12;
-    for (let k = 0; k < nB; k++) {
-      const v = v0 - (k + 0.5) * (v0 - v1) / nB, y = yMid + (fl2 - yMid) * (k + 1) / nB;
-      fbox(W / 2 + SW / 2, s * v, g - 0.2, y, SW, (v0 - v1) / nB + 0.02, C.wallLo, { top: shade(C.stone, 1.04), topKind: KIND.ROAD });
+    localBox(width / 2 + stairW / 2, side * stairV, baseG - 0.2, midY, stairW, stairW, COLORS.wallLow, { top: COLORS.stone, topKind: KIND.ROAD });
+    const v0 = depth / 2, v1 = 1.3, stepsB = 12;
+    for (let k = 0; k < stepsB; k++) {
+      const v = v0 - ((k + 0.5) * (v0 - v1)) / stepsB, y = midY + ((floor2 - midY) * (k + 1)) / stepsB;
+      localBox(width / 2 + stairW / 2, side * v, baseG - 0.2, y, stairW, (v0 - v1) / stepsB + 0.02, COLORS.wallLow, { top: shade(COLORS.stone, 1.04), topKind: KIND.ROAD });
     }
-    // outer balustrade: a sloping coping along both runs
     S.kind = KIND.PLAIN;
-    const a0 = P(u0, s * (sv + SW / 2)), a1 = P(u1 + SW, s * (sv + SW / 2));
-    S.beam([a0[0], g + 0.9, a0[1]], [a1[0], yMid + 0.9, a1[1]], 0.2, 0.2, C.trim);
-    const b0 = P(W / 2 + SW, s * (sv + SW / 2)), b1 = P(W / 2 + SW, s * v1);
-    S.beam([b0[0], yMid + 0.9, b0[1]], [b1[0], fl2 + 0.9, b1[1]], 0.2, 0.2, C.trim);
+    const a0 = localPt(u0, side * (stairV + stairW / 2)), a1 = localPt(u1 + stairW, side * (stairV + stairW / 2));
+    S.beam([a0[0], baseG + 0.9, a0[1]], [a1[0], midY + 0.9, a1[1]], 0.2, 0.2, COLORS.trim);
+    const b0 = localPt(width / 2 + stairW, side * (stairV + stairW / 2)), b1 = localPt(width / 2 + stairW, side * v1);
+    S.beam([b0[0], midY + 0.9, b0[1]], [b1[0], floor2 + 0.9, b1[1]], 0.2, 0.2, COLORS.trim);
     S.kind = KIND.MASONRY;
   }
-  // the landing in the middle of the east end
-  fbox(W / 2 + SW / 2, 0, g - 0.2, fl2, SW, 2.6, C.wallLo, { top: C.stone, topKind: KIND.ROAD });
-  fbox(W / 2 + 0.25, 0, fl, fl2 - 0.35, 0.5, 2.6, C.wall); // fills the gap between base and landing
+  localBox(width / 2 + stairW / 2, 0, baseG - 0.2, floor2, stairW, 2.6, COLORS.wallLow, { top: COLORS.stone, topKind: KIND.ROAD });
+  localBox(width / 2 + 0.25, 0, floor1, floor2 - 0.35, 0.5, 2.6, COLORS.wall);
 
-  // night: lanterns hung in the gallery
-  for (const s of [-1, 1]) for (let i = 1; i < 9; i += 2) { const p = P(cols[i], s * (UD / 2 + 0.5)); lamps.push([p[0], eave - 0.6, p[1]]); }
-  return { P, ang, g };
+  for (const side of [-1, 1]) {
+    for (let i = 1; i < 9; i += 2) {
+      const pt = localPt(colU[i], side * (upperD / 2 + 0.5));
+      lamps.push([pt[0], eaveY - 0.6, pt[1]]);
+    }
+  }
+  return localPt;
 }
 
-// The island's paths the model draws itself: the OSM gallery ring and steps (1346839069, 1346839061, 1346839062) and
-// the stubs joining them, all footways on the island; the island court (build) is their ground.
-const islandOf = (data) => {
-  const c = [-1306.8, -1328.3];
-  const poly = (data.ponds || []).find((pl) => pl.length > 1 && pl.slice(1).some((h) => inRing(c[0], c[1], unflat(h))));
-  return poly && poly.map(unflat).find((r, i) => i > 0 && inRing(c[0], c[1], r));
-};
-export function ownWays(data) {
-  const island = islandOf(data);
-  if (!island) return () => false;
-  return (r) => !r[1] && (r[0] | 0) >= 4 && unflat(r[2]).every((p) => inRing(p[0], p[1], island));
-}
-
-function shed(S) {
-  const o = obb(SHED);
-  let g = Infinity;
-  for (const [x, z] of SHED) g = Math.min(g, LAND_Y + rise(x, z));
-  S.base = g - LAND_Y;
+function buildShed(S) {
+  const box = obb(SHED_RING);
+  let baseG = Infinity;
+  for (const [x, z] of SHED_RING) baseG = Math.min(baseG, LAND_Y + rise(x, z));
+  S.base = baseG - LAND_Y;
   S.kind = KIND.MASONRY;
-  S.box(o.c[0], o.c[1], g - 0.2, g + 0.3, o.w, o.d, o.a, shade(C.stone, 0.9));
-  S.box(o.c[0], o.c[1], g + 0.3, g + 2.6, o.w - 0.4, o.d - 0.4, o.a, shade(C.wall, 0.92), { top: C.roofDark });
-  const ux = Math.cos(o.a), uz = Math.sin(o.a);
+  S.box(box.c[0], box.c[1], baseG - 0.2, baseG + 0.3, box.w, box.d, box.a, shade(COLORS.stone, 0.9));
+  S.box(box.c[0], box.c[1], baseG + 0.3, baseG + 2.6, box.w - 0.4, box.d - 0.4, box.a, shade(COLORS.wall, 0.92), { top: COLORS.roofDark });
+  const ux = Math.cos(box.a), uz = Math.sin(box.a);
   S.kind = KIND.PLAIN;
-  for (const s of [-1, 1]) for (const u of [-2.6, 0, 2.6]) { // doors and windows on the long sides
-    const x = o.c[0] + u * ux - s * (o.d / 2 - 0.17) * uz, z = o.c[1] + u * uz + s * (o.d / 2 - 0.17) * ux;
-    S.box(x, z, g + (u === 0 ? 0.35 : 1.1), g + 2.2, u === 0 ? 1.0 : 0.9, 0.06, o.a, C.door);
+  for (const side of [-1, 1]) {
+    for (const u of [-2.6, 0, 2.6]) {
+      const x = box.c[0] + u * ux - side * (box.d / 2 - 0.17) * uz;
+      const z = box.c[1] + u * uz + side * (box.d / 2 - 0.17) * ux;
+      S.box(x, z, baseG + (u === 0 ? 0.35 : 1.1), baseG + 2.2, u === 0 ? 1.0 : 0.9, 0.06, box.a, COLORS.door);
+    }
   }
   S.kind = KIND.TIMBER;
-  S.hip(o.c[0], o.c[1], o.w - 0.4, o.d - 0.4, o.a, g + 2.6, 1.5, C.roof, { over: 0.5, ridgeCol: C.ridge });
+  S.hip(box.c[0], box.c[1], box.w - 0.4, box.d - 0.4, box.a, baseG + 2.6, 1.5, COLORS.roof, { over: 0.5, ridgeCol: COLORS.ridge });
   S.base = 0;
 }
 
-// the island court: packed earth and brick paving round the archive, as the satellite shows it, in place of lawn
-function court(S, island) {
+function buildIslandCourt(S, island) {
   let lo = Infinity, hi = -Infinity;
   for (const [x, z] of island) { const g = LAND_Y + rise(x, z); lo = Math.min(lo, g); hi = Math.max(hi, g); }
-  const c = island.reduce((a, p) => [a[0] + p[0] / island.length, a[1] + p[1] / island.length], [0, 0]);
-  const ring = island.map(([x, z]) => { const d = Math.hypot(x - c[0], z - c[1]) || 1, k = Math.max(0, d - 0.6) / d; return [c[0] + (x - c[0]) * k, c[1] + (z - c[1]) * k]; });
+  const center = island.reduce((acc, pt) => [acc[0] + pt[0] / island.length, acc[1] + pt[1] / island.length], [0, 0]);
+  const insetRing = island.map(([x, z]) => {
+    const dist = Math.hypot(x - center[0], z - center[1]) || 1, frac = Math.max(0, dist - 0.6) / dist;
+    return [center[0] + (x - center[0]) * frac, center[1] + (z - center[1]) * frac];
+  });
   S.base = lo - LAND_Y;
   S.kind = KIND.MASONRY;
-  S.prism(ring, lo - 0.1, hi + 0.06, C.coping, C.court, { topKind: KIND.ROAD });
+  S.prism(insetRing, lo - 0.1, hi + 0.06, COLORS.coping, COLORS.court, { topKind: KIND.ROAD });
   S.base = 0;
 }
 
-// the island's trees join data.trees, so populate plants them with the city's (and off the archive's ground)
-function plant(data, island, P) {
-  if (!Array.isArray(data.trees)) return;
-  const dShore = (x, z) => Math.min(...island.map((a, k) => distSeg(x, z, a, island[(k + 1) % island.length])));
-  TREES.forEach(([u, v, sc], k) => {
-    const [x, z] = P(u, v);
-    if (!inRing(x, z, island) || dShore(x, z) < 1.8) return;
-    data.trees.push(Math.round(x * 10), Math.round(z * 10), Math.round(sc * 10), k % 3 === 1 ? 1 : 0);
-  });
-}
-
-export function build({ data, S, group }) {
-  const n0 = S.n;
-  const lamps = [];
+function buildRevetmentAndBridge(data, S, startVerts, rings, island, isWet) {
   const groundY = (x, z) => LAND_Y + rise(x, z);
 
-  // ---------------- hồ Học Hải and its island (from data.ponds: the basin with the archive's island as a hole) ----------------
-  const c = [-1306.8, -1328.3];
-  const poly = (data.ponds || []).find((pl) => pl.length > 1 && pl.slice(1).some((h) => inRing(c[0], c[1], unflat(h))));
-  if (!poly) throw new Error('hồ Học Hải not found in data.ponds');
-  const rings = poly.map(unflat);
-  const island = rings.find((r, i) => i > 0 && inRing(c[0], c[1], r));
-  const wet = (x, z) => inRing(x, z, rings[0]) && !rings.slice(1).some((h) => inRing(x, z, h));
-
-  // ---------------- revetment: stone facing, moss line and coping round the lake's shore and the island ----------------
   S.kind = KIND.MASONRY;
   for (const ring of [rings[0], island]) {
     for (let i = 0; i < ring.length; i++) {
-      const a = ring[i], b = ring[(i + 1) % ring.length];
-      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-      if (L < 0.3) continue;
-      const ux = (b[0] - a[0]) / L, uz = (b[1] - a[1]) / L, ang = Math.atan2(uz, ux);
+      const ptA = ring[i], ptB = ring[(i + 1) % ring.length], edgeLen = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+      if (edgeLen < 0.3) continue;
+      const ux = (ptB[0] - ptA[0]) / edgeLen, uz = (ptB[1] - ptA[1]) / edgeLen, ang = Math.atan2(uz, ux);
       let nx = -uz, nz = ux;
-      if (!wet((a[0] + b[0]) / 2 + nx * 0.8, (a[1] + b[1]) / 2 + nz * 0.8)) { nx = -nx; nz = -nz; } // into the water
-      const steps = Math.max(1, Math.ceil(L / 18));
-      for (let k = 0; k < steps; k++) {
-        const t = (k + 0.5) / steps, len = L / steps + 0.25;
-        const mx = a[0] + (b[0] - a[0]) * t, mz = a[1] + (b[1] - a[1]) * t;
-        if (distSeg(mx, mz, BRIDGE[0], BRIDGE[1]) < 3) continue; // the bridge abutments stand here
+      if (!isWet((ptA[0] + ptB[0]) / 2 + nx * 0.8, (ptA[1] + ptB[1]) / 2 + nz * 0.8)) { nx = -nx; nz = -nz; }
+      const segs = Math.max(1, Math.ceil(edgeLen / 18));
+      for (let k = 0; k < segs; k++) {
+        const frac = (k + 0.5) / segs, segLen = edgeLen / segs + 0.25;
+        const mx = ptA[0] + (ptB[0] - ptA[0]) * frac, mz = ptA[1] + (ptB[1] - ptA[1]) * frac;
+        if (segmentDist(mx, mz, BRIDGE_ENDS[0], BRIDGE_ENDS[1]) < 3) continue;
         const g = groundY(mx - nx * 1.5, mz - nz * 1.5);
-        const at = (d): [number, number] => [mx + nx * d, mz + nz * d];
-        let q = at(0.12);
-        S.box(q[0], q[1], POND_Y - 0.5, g - 0.02, len, 0.32, ang, C.face);
-        q = at(0.3);
-        S.box(q[0], q[1], POND_Y - 0.2, POND_Y + 0.3, len, 0.06, ang, C.moss);
-        q = at(-0.25);
-        S.box(q[0], q[1], g - 0.12, g + 0.1, len, 0.85, ang, C.coping, { topKind: KIND.ROAD });
+        const shift = (dist): [number, number] => [mx + nx * dist, mz + nz * dist];
+        let pt = shift(0.12);
+        S.box(pt[0], pt[1], POND_Y - 0.5, g - 0.02, segLen, 0.32, ang, COLORS.face);
+        pt = shift(0.3);
+        S.box(pt[0], pt[1], POND_Y - 0.2, POND_Y + 0.3, segLen, 0.06, ang, COLORS.moss);
+        pt = shift(-0.25);
+        S.box(pt[0], pt[1], g - 0.12, g + 0.1, segLen, 0.85, ang, COLORS.coping, { topKind: KIND.ROAD });
       }
     }
   }
 
-  // ---------------- the bridge: brick-and-stone beam bridge on the mapped deck profile ----------------
-  {
-    const road = (data.roads || []).find((r) => r && r[1] && Array.isArray(r[2]) && (() => {
-      const p = unflat(r[2]), p0 = p[0], p1 = p[p.length - 1];
-      return Math.hypot(p0[0] - BRIDGE[0][0], p0[1] - BRIDGE[0][1]) + Math.hypot(p1[0] - BRIDGE[1][0], p1[1] - BRIDGE[1][1]) < 3 ||
-        Math.hypot(p1[0] - BRIDGE[0][0], p1[1] - BRIDGE[0][1]) + Math.hypot(p0[0] - BRIDGE[1][0], p0[1] - BRIDGE[1][1]) < 3;
-    })());
-    const prof = road && bridgeProfiles(data).get(road[2]);
-    const a = BRIDGE[0], b = BRIDGE[1];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const flip = road && Math.hypot(road[2][0] / 10 - a[0], road[2][1] / 10 - a[1]) > 3;
-    const yAt = prof ? (s) => prof.y(flip ? len - s : s) : (s) => LAND_Y + 0.42 + 1.2 * Math.sin(Math.PI * s / len);
-    if (prof) knockOut(S, n0, a, b, 3.4, LAND_Y + 5);
-    const ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len, ang = Math.atan2(uz, ux);
-    const P = (s, t): [number, number] => [a[0] + ux * s - uz * t, a[1] + uz * s + ux * t];
-    const Wd = 4.6, thick = 0.55, n = Math.ceil(len / 1.6);
-    for (let i = 0; i < n; i++) {
-      const s0 = (i * len) / n, s1 = ((i + 1) * len) / n, pa = P(s0, 0), pb = P(s1, 0), y0 = yAt(s0), y1 = yAt(s1);
-      S.kind = KIND.MASONRY;
-      S.beam([pa[0], y0 - thick / 2, pa[1]], [pb[0], y1 - thick / 2, pb[1]], Wd, thick, C.brick);
-      S.kind = KIND.ROAD;
-      S.beam([pa[0], y0 + 0.01, pa[1]], [pb[0], y1 + 0.01, pb[1]], Wd - 0.6, 0.04, shade(C.stone, 1.02));
-      // parapets: solid plastered walls with a coping
-      S.kind = KIND.MASONRY;
-      for (const t of [-Wd / 2 + 0.15, Wd / 2 - 0.15]) {
-        const qa = P(s0, t), qb = P(s1, t);
-        S.beam([qa[0], y0 + 0.35, qa[1]], [qb[0], y1 + 0.35, qb[1]], 0.3, 0.7, C.plaster);
-        S.beam([qa[0], y0 + 0.75, qa[1]], [qb[0], y1 + 0.75, qb[1]], 0.4, 0.1, C.coping);
-      }
-    }
-    // piers: masonry, five spans between the abutments
+  // Beam bridge over hồ Học Hải
+  const bridgeRoad = (data.roads || []).find((road) => road && road[1] && Array.isArray(road[2]) && (() => {
+    const pts = unflat(road[2]), p0 = pts[0], p1 = pts[pts.length - 1];
+    return Math.hypot(p0[0] - BRIDGE_ENDS[0][0], p0[1] - BRIDGE_ENDS[0][1]) + Math.hypot(p1[0] - BRIDGE_ENDS[1][0], p1[1] - BRIDGE_ENDS[1][1]) < 3
+      || Math.hypot(p1[0] - BRIDGE_ENDS[0][0], p1[1] - BRIDGE_ENDS[0][1]) + Math.hypot(p0[0] - BRIDGE_ENDS[1][0], p0[1] - BRIDGE_ENDS[1][1]) < 3;
+  })());
+  const prof = bridgeRoad && bridgeProfiles(data).get(bridgeRoad[2]);
+  const ptA = BRIDGE_ENDS[0], ptB = BRIDGE_ENDS[1], bridgeLen = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+  const isFlipped = bridgeRoad && Math.hypot(bridgeRoad[2][0] / 10 - ptA[0], bridgeRoad[2][1] / 10 - ptA[1]) > 3;
+  const deckYAt = prof ? (s) => prof.y(isFlipped ? bridgeLen - s : s) : (s) => LAND_Y + 0.42 + 1.2 * Math.sin((Math.PI * s) / bridgeLen);
+  if (prof) collapseGenericBridge(S, startVerts, ptA, ptB, 3.4, LAND_Y + 5);
+
+  const ux = (ptB[0] - ptA[0]) / bridgeLen, uz = (ptB[1] - ptA[1]) / bridgeLen, ang = Math.atan2(uz, ux);
+  const bridgePt = (s, t): [number, number] => [ptA[0] + ux * s - uz * t, ptA[1] + uz * s + ux * t];
+  const deckW = 4.6, deckThick = 0.55, segCount = Math.ceil(bridgeLen / 1.6);
+  for (let i = 0; i < segCount; i++) {
+    const s0 = (i * bridgeLen) / segCount, s1 = ((i + 1) * bridgeLen) / segCount;
+    const p0 = bridgePt(s0, 0), p1 = bridgePt(s1, 0), y0 = deckYAt(s0), y1 = deckYAt(s1);
     S.kind = KIND.MASONRY;
-    const spans = 6;
-    for (let i = 1; i < spans; i++) {
-      const s = (i * len) / spans, q = P(s, 0);
-      if (!wet(q[0], q[1])) continue;
-      S.box(q[0], q[1], POND_Y - 1.5, yAt(s) - thick + 0.02, 0.9, Wd - 0.2, ang, shade(C.face, 1.05));
-    }
-    // abutments and the four end posts
-    for (const [s, dir] of ([[0, 1], [len, -1]] as any[])) {
-      const q = P(s + dir * 1.2, 0), y = yAt(s);
-      S.box(q[0], q[1], POND_Y - 1.5, y - thick + 0.02, 2.4, Wd + 0.4, ang, C.face);
-      for (const t of [-Wd / 2 - 0.1, Wd / 2 + 0.1]) {
-        const p = P(s, t);
-        S.box(p[0], p[1], y - 0.2, y + 1.5, 0.55, 0.55, ang, C.plaster, { top: C.coping });
-        S.cyl(p[0], p[1], y + 1.5, y + 1.85, 0.22, 0.08, 6, C.coping);
-      }
-    }
-  }
-
-  // ---------------- the island court, the archive, the shed, the trees ----------------
-  court(S, island);
-  const { P } = archive(S, lamps);
-  shed(S);
-  plant(data, island, P);
-
-  // ---------------- the stele on the north tip of the island ----------------
-  {
-    const [x, z] = STELE, y = groundY(x, z);
-    S.base = y - LAND_Y;
+    S.beam([p0[0], y0 - deckThick / 2, p0[1]], [p1[0], y1 - deckThick / 2, p1[1]], deckW, deckThick, COLORS.brick);
+    S.kind = KIND.ROAD;
+    S.beam([p0[0], y0 + 0.01, p0[1]], [p1[0], y1 + 0.01, p1[1]], deckW - 0.6, 0.04, shade(COLORS.stone, 1.02));
     S.kind = KIND.MASONRY;
-    S.box(x, z, y - 0.1, y + 0.45, 1.6, 1.0, -0.59, C.stone, { topKind: KIND.ROAD });
-    S.box(x, z, y + 0.45, y + 2.0, 1.0, 0.22, -0.59, shade(C.stone, 0.85));
-    S.box(x, z, y + 2.0, y + 2.2, 1.15, 0.3, -0.59, shade(C.stone, 0.9));
+    for (const t of [-deckW / 2 + 0.15, deckW / 2 - 0.15]) {
+      const qa = bridgePt(s0, t), qb = bridgePt(s1, t);
+      S.beam([qa[0], y0 + 0.35, qa[1]], [qb[0], y1 + 0.35, qb[1]], 0.3, 0.7, COLORS.plaster);
+      S.beam([qa[0], y0 + 0.75, qa[1]], [qb[0], y1 + 0.75, qb[1]], 0.4, 0.1, COLORS.coping);
+    }
   }
+  S.kind = KIND.MASONRY;
+  const spanCount = 6;
+  for (let i = 1; i < spanCount; i++) {
+    const s = (i * bridgeLen) / spanCount, pt = bridgePt(s, 0);
+    if (!isWet(pt[0], pt[1])) continue;
+    S.box(pt[0], pt[1], POND_Y - 1.5, deckYAt(s) - deckThick + 0.02, 0.9, deckW - 0.2, ang, shade(COLORS.face, 1.05));
+  }
+  for (const [s, dir] of ([[0, 1], [bridgeLen, -1]] as any[])) {
+    const abutPt = bridgePt(s + dir * 1.2, 0), y = deckYAt(s);
+    S.box(abutPt[0], abutPt[1], POND_Y - 1.5, y - deckThick + 0.02, 2.4, deckW + 0.4, ang, COLORS.face);
+    for (const t of [-deckW / 2 - 0.1, deckW / 2 + 0.1]) {
+      const postPt = bridgePt(s, t);
+      S.box(postPt[0], postPt[1], y - 0.2, y + 1.5, 0.55, 0.55, ang, COLORS.plaster, { top: COLORS.coping });
+      S.cyl(postPt[0], postPt[1], y + 1.5, y + 1.85, 0.22, 0.08, 6, COLORS.coping);
+    }
+  }
+}
+
+export function build({ data, S, group }) {
+  const startVerts = S.n;
+  const lamps = [];
+
+  const poly = (data.ponds || []).find((pl) => pl.length > 1 && pl.slice(1).some((hole) => inRing(ISLAND_PROBE[0], ISLAND_PROBE[1], unflat(hole))));
+  if (!poly) throw new Error('hồ Học Hải not found in data.ponds');
+  const rings = poly.map(unflat);
+  const island = rings.find((ring, i) => i > 0 && inRing(ISLAND_PROBE[0], ISLAND_PROBE[1], ring));
+  const isWet = (x, z) => inRing(x, z, rings[0]) && !rings.slice(1).some((hole) => inRing(x, z, hole));
+
+  buildRevetmentAndBridge(data, S, startVerts, rings, island, isWet);
+  buildIslandCourt(S, island);
+  const localPt = buildArchiveBuilding(S, lamps);
+  buildShed(S);
+
+  if (Array.isArray(data.trees)) {
+    const shoreDist = (x, z) => Math.min(...island.map((pt, k) => segmentDist(x, z, pt, island[(k + 1) % island.length])));
+    ISLAND_TREES.forEach(([u, v, scale], k) => {
+      const [x, z] = localPt(u, v);
+      if (!inRing(x, z, island) || shoreDist(x, z) < 1.8) return;
+      data.trees.push(Math.round(x * 10), Math.round(z * 10), Math.round(scale * 10), k % 3 === 1 ? 1 : 0);
+    });
+  }
+
+  // Memorial stele on the north tip
+  const [steleX, steleZ] = STELE_POS, steleY = LAND_Y + rise(steleX, steleZ);
+  S.base = steleY - LAND_Y;
+  S.kind = KIND.MASONRY;
+  S.box(steleX, steleZ, steleY - 0.1, steleY + 0.45, 1.6, 1.0, -0.59, COLORS.stone, { topKind: KIND.ROAD });
+  S.box(steleX, steleZ, steleY + 0.45, steleY + 2.0, 1.0, 0.22, -0.59, shade(COLORS.stone, 0.85));
+  S.box(steleX, steleZ, steleY + 2.0, steleY + 2.2, 1.15, 0.3, -0.59, shade(COLORS.stone, 0.9));
 
   S.kind = KIND.PLAIN;
   S.base = 0;
   if (lamps.length) {
     const pos = [], col = [];
-    for (const p of lamps) { pos.push(...p); col.push(1, 0.62, 0.3); }
+    for (const pt of lamps) { pos.push(...pt); col.push(1, 0.62, 0.3); }
     const pts = glowPoints(pos, col, 4);
     pts.userData.glow = true;
     pts.userData.landmark = id;
