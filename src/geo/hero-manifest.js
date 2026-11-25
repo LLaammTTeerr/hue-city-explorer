@@ -572,4 +572,18 @@ export const HERO_MODELS = [
     rotY: 2.2217,
     radius: 320,
   },
+  {
+    id: 'kientrung',
+    file: 'kientrung-hero.glb',
+    pos: [-1316.98, 0, -243.15],
+    rotY: -Math.atan2(-0.59674, 0.80243),
+    radius: 340,
+  },
+  {
+    id: 'gahue',
+    file: 'gahue-hero.glb',
+    pos: [-1155.5, 0, 1374.45],
+    rotY: 0,
+    radius: 340,
+  },
 ];

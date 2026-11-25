@@ -113,6 +113,8 @@ const JOBS = [
   ['mangca-hero.glb', IMP.buildMangCaHero],
   ['tayloc-hero.glb', CIV.buildTayLocHero],
   ['thuyquan-hero.glb', IMP.buildThuyQuanHero],
+  ['kientrung-hero.glb', IMP.buildKienTrungHero],
+  ['gahue-hero.glb', CIV.buildGaHueHero],
 ];
 
 const exporter = new GLTFExporter();

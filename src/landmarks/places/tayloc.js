@@ -68,7 +68,7 @@ const W3 = (u, v, y) => { const p = P(u, v); return [p[0], Y0 + y, p[1]]; };
 // (along: 'u' or 'v' forces the ridge's direction)
 function gable(S, u0, u1, v0, v1, a, b, col, over = 0.6, along = null) {
   const keep = S.kind;
-  S.kind = KIND.PLAIN; // sheet, not tile: flat colour, with a ridge cap
+  S.kind = KIND.TILE; // corrugated sheet ribs & weathering, with a ridge cap
   const alongU = along ? along === 'u' : u1 - u0 >= v1 - v0;
   const A = alongU ? [u0 - over, u1 + over] : [v0 - over, v1 + over]; // along the ridge
   const B = alongU ? [v0 - over, v1 + over] : [u0 - over, u1 + over]; // across

@@ -600,8 +600,8 @@ export function buildConHenHero() {
   const y3 = 7.82, ry = 10.88, hw2 = 5.525, hd2 = 4.05;
   // Central golden flaming pearl / lotus gourd finial + flanking ridge dragons on the upper ridge
   parts.push(latheGourd(0, ry + 0.05, 0, 0.95, 0xe8c254));
-  parts.push(...sculptedDragon(-2.1, ry + 0.12, 0, 1, 0.82, 0x3b7a5a));
-  parts.push(...sculptedDragon(2.1, ry + 0.12, 0, -1, 0.82, 0x3b7a5a));
+  parts.push(...sculptedDragon(0, ry + 0.12, 0, 1, 2.4, 0.78));
+  parts.push(...sculptedDragon(0, ry + 0.12, 0, -1, 2.4, 0.78));
   // 4 upturned corner scrolls on both upper and lower roof tiers
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
     parts.push(cornerScroll(sx * hw, y0, sz * hd, sx * 0.65, sz * 0.65, 0.78));
@@ -793,10 +793,10 @@ export function buildTayLocHero() {
   // Central golden lotus-gourd finial & twin emerald ridge dragons along the gate ridge (rotated along z)
   parts.push(latheGourd(0, yR + 0.04, 0, 0.72, 0xf0c848));
   for (const sz of [-1, 1]) {
-    const dr = sculptedDragon(0, 0, 0, sz, 0.58, 0x347854);
+    const dr = sculptedDragon(0, 0, 0, sz, 1.65, 0.58);
     for (const g of dr) {
       g.rotateY(Math.PI / 2);
-      g.translate(0, yR + 0.08, sz * 1.35);
+      g.translate(0, yR + 0.08, 0);
       parts.push(g);
     }
   }
@@ -819,5 +819,37 @@ export function buildTayLocHero() {
     lantern.translate(0.5, 4.02, z);
     parts.push(paint(lantern, 0xf8e2a4));
   }
-  return wrapScene(parts, );
+  return wrapScene(parts, 'tayloc_hero');
+}
+
+// Build Ga Huế hero accent .glb (French-colonial pediment clock crest, parapet urns & heritage forecourt lamps)
+export function buildGaHueHero() {
+  const parts = [];
+  // Ornate brass clock bezel & finial crowning the curved central pediment facing north (z = -5.75, y = 11.45)
+  const rim = new THREE.TorusGeometry(0.92, 0.1, 8, 22);
+  rim.translate(0, 11.35, -5.75);
+  parts.push(paint(rim, 0xd8b454));
+  const dial = new THREE.CylinderGeometry(0.84, 0.84, 0.14, 18);
+  dial.rotateX(Math.PI / 2);
+  dial.translate(0, 11.35, -5.7);
+  parts.push(paint(dial, 0xfbfaf5));
+  parts.push(latheGourd(0, 12.42, -5.6, 0.62, 0xe8c45e));
+  // Classical white-gold neoclassical urn finials along the 2-storey middle block parapet corners
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    parts.push(latheGourd(sx * 9.5, 10.82, sz * 5.5, 0.58, 0xf4f0e8));
+  }
+  // 4 heritage cast-iron forecourt lamp standards flanking the front arrival canopy
+  for (const sx of [-10.5, -4.5, 4.5, 10.5]) {
+    const z = -9.8;
+    const base = new THREE.CylinderGeometry(0.22, 0.3, 0.85, 8);
+    base.translate(sx, 0.425, z);
+    parts.push(paint(base, 0x3a3e42));
+    const pole = new THREE.CylinderGeometry(0.07, 0.11, 3.6, 8);
+    pole.translate(sx, 2.65, z);
+    parts.push(paint(pole, 0x3a3e42));
+    const globe = new THREE.SphereGeometry(0.28, 10, 8);
+    globe.translate(sx, 4.65, z);
+    parts.push(paint(globe, 0xf8ecc8));
+  }
+  return wrapScene(parts, 'gahue_hero');
 }

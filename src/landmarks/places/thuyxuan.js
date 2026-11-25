@@ -86,24 +86,49 @@ export function build({ data, S, group, place }) {
         S.cyl(hp[0], hp[1], y0 + 2.15, y0 + 2.48, 0.28, 0.03, 7, HAT);
       }
 
-      // ---- signature fanned bouquets of dyed incense sticks (bó hương) on bamboo racks ----
-      for (let b = 0; b < 4; b++) {
-        const bu = s - w * 0.36 + b * (w * 0.24);
-        const bv = side * (6.1 + (b % 2) * 1.15);
+      // ---- signature fanned bouquets of dyed incense sticks (bó hương) on tiered bamboo displays ----
+      for (let b = 0; b < 5; b++) {
+        const bu = s - w * 0.42 + b * (w * 0.21);
+        const bv = side * (5.65 + (b % 2) * 1.25);
         const bp = P(bu, bv), by = gY(bp[0], bp[1]) + 0.14;
         const ic = INCENSE[(k * 3 + b + (side > 0 ? 2 : 0)) % INCENSE.length];
-        // wooden stool / stand
-        S.cyl(bp[0], bp[1], by, by + 0.42, 0.18, 0.22, 6, WOOD);
-        // narrow tied bamboo base fanning up into a vivid colored floral dome of incense tips
-        S.cyl(bp[0], bp[1], by + 0.42, by + 0.85, 0.14, 0.42, 8, BAMBOO);
-        S.cyl(bp[0], bp[1], by + 0.82, by + 1.18, 0.42, 0.68, 9, ic);
-        S.cyl(bp[0], bp[1], by + 1.18, by + 1.32, 0.68, 0.48, 9, shade(ic, 1.12));
+        const ic2 = INCENSE[(k * 3 + b + 3) % INCENSE.length];
+        const tier = b % 2 === 0 ? 0.28 : 0.0;
+        // wooden stool / tiered stand
+        S.cyl(bp[0], bp[1], by, by + 0.48 + tier, 0.22, 0.26, 6, WOOD);
+        // narrow tied bamboo base fanning up into a vivid giant floral dome of dyed incense tips
+        S.cyl(bp[0], bp[1], by + 0.48 + tier, by + 1.0 + tier, 0.16, 0.62, 10, BAMBOO);
+        S.cyl(bp[0], bp[1], by + 0.96 + tier, by + 1.48 + tier, 0.62, 1.05, 11, ic);
+        S.cyl(bp[0], bp[1], by + 1.48 + tier, by + 1.68 + tier, 1.05, 0.72, 11, shade(ic, 1.14));
+        // inner contrasting blossom core
+        S.cyl(bp[0], bp[1], by + 1.66 + tier, by + 1.78 + tier, 0.45, 0.2, 9, ic2);
       }
 
       // warm lantern glow under the awning
       const lp = P(s, side * 6.4);
       gp.push(lp[0], y0 + 2.6, lp[1]);
       gc.push(1, 0.84, 0.5);
+    }
+  }
+
+  // ---- overhead festive silk lantern strings crisscrossing Huyền Trân Công Chúa between the incense shops ----
+  {
+    const lanCols = [hex('#e03030'), hex('#f2b705'), hex('#e83e8c'), hex('#17a589'), hex('#7e3ff2'), hex('#f37021')];
+    for (let k = 0; k < 5; k++) {
+      const s = 16 + k * 14;
+      const pL = P(s, -6.2), pR = P(s, 6.2);
+      const yL = gY(pL[0], pL[1]) + 6.4, yR = gY(pR[0], pR[1]) + 6.4;
+      S.kind = KIND.PLAIN;
+      S.beam([pL[0], yL, pL[1]], [pR[0], yR, pR[1]], 0.04, 0.04, DARK);
+      for (let j = 1; j <= 5; j++) {
+        const f = j / 6;
+        const v = -6.2 + f * 12.4;
+        const sag = Math.sin(f * Math.PI) * 0.45;
+        const q = P(s, v), yq = yL + (yR - yL) * f - sag;
+        S.cyl(q[0], q[1], yq - 0.52, yq - 0.06, 0.24, 0.2, 8, lanCols[(k * 2 + j) % lanCols.length]);
+        gp.push(q[0], yq - 0.29, q[1]);
+        gc.push(1, 0.78, 0.42);
+      }
     }
   }
 

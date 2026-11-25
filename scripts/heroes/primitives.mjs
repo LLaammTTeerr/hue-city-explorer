@@ -74,82 +74,101 @@ export function wrapScene(parts, name) {
   return scene;
 }
 
-// Smooth turned pháp lam gourd finial (LatheGeometry)
+// Smooth turned pháp lam gourd finial (LatheGeometry) with lotus-petal base collar & gilded needle tip
 export function latheGourd(x, y, z, scale = 1.0, hexCol = 0xe8c45e) {
   const pts = [
-    [0.01, 0.0], [0.22, 0.08], [0.26, 0.24], [0.15, 0.42],
-    [0.10, 0.50], [0.19, 0.64], [0.16, 0.80], [0.06, 0.96], [0.005, 1.12],
+    [0.01, 0.0], [0.28, 0.04], [0.24, 0.12], [0.30, 0.26], [0.27, 0.36], [0.14, 0.48],
+    [0.10, 0.54], [0.21, 0.68], [0.18, 0.84], [0.07, 1.0], [0.02, 1.18], [0.004, 1.26],
   ].map(([r, h]) => new THREE.Vector2(r * scale, h * scale));
   const g = new THREE.LatheGeometry(pts, 14);
   g.translate(x, y, z);
   return paint(g, hexCol);
 }
 
-// Sculpted undulating imperial dragon (Catmull-Rom 3D spline TubeGeometry + raised crest + curled tail)
+// Sculpted undulating imperial dragon (Catmull-Rom 3D spline TubeGeometry + raised golden crest + horns & flame tail)
 export function sculptedDragon(cx, cy, cz, dirX, span, scale = 1.0) {
   const parts = [];
   const curve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(cx + dirX * 0.55 * scale, cy + 0.68 * scale, cz),
-    new THREE.Vector3(cx + dirX * 1.05 * scale, cy + 0.30 * scale, cz + 0.08 * scale),
-    new THREE.Vector3(cx + dirX * (span * 0.40), cy + 0.72 * scale, cz - 0.06 * scale),
-    new THREE.Vector3(cx + dirX * (span * 0.64), cy + 0.24 * scale, cz + 0.05 * scale),
-    new THREE.Vector3(cx + dirX * (span * 0.85), cy + 0.62 * scale, cz),
-    new THREE.Vector3(cx + dirX * span, cy + 0.88 * scale, cz),
+    new THREE.Vector3(cx + dirX * 0.52 * scale, cy + 0.72 * scale, cz),
+    new THREE.Vector3(cx + dirX * 1.05 * scale, cy + 0.28 * scale, cz + 0.09 * scale),
+    new THREE.Vector3(cx + dirX * (span * 0.40), cy + 0.78 * scale, cz - 0.07 * scale),
+    new THREE.Vector3(cx + dirX * (span * 0.64), cy + 0.24 * scale, cz + 0.06 * scale),
+    new THREE.Vector3(cx + dirX * (span * 0.85), cy + 0.68 * scale, cz),
+    new THREE.Vector3(cx + dirX * span, cy + 0.96 * scale, cz),
   ]);
-  parts.push(paint(new THREE.TubeGeometry(curve, 28, 0.14 * scale, 8, false), 0x3a8c6c));
+  parts.push(paint(new THREE.TubeGeometry(curve, 28, 0.155 * scale, 8, false), 0x3a8c6c));
 
   const crest = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(cx + dirX * 0.48 * scale, cy + 0.88 * scale, cz),
-    new THREE.Vector3(cx + dirX * 0.85 * scale, cy + 0.52 * scale, cz),
-    new THREE.Vector3(cx + dirX * (span * 0.40), cy + 0.90 * scale, cz),
-    new THREE.Vector3(cx + dirX * (span * 0.65), cy + 0.42 * scale, cz),
+    new THREE.Vector3(cx + dirX * 0.46 * scale, cy + 0.94 * scale, cz),
+    new THREE.Vector3(cx + dirX * 0.85 * scale, cy + 0.54 * scale, cz),
+    new THREE.Vector3(cx + dirX * (span * 0.40), cy + 0.96 * scale, cz),
+    new THREE.Vector3(cx + dirX * (span * 0.65), cy + 0.44 * scale, cz),
+    new THREE.Vector3(cx + dirX * (span * 0.92), cy + 0.92 * scale, cz),
   ]);
-  parts.push(paint(new THREE.TubeGeometry(crest, 18, 0.065 * scale, 6, false), 0xe6be4c));
+  parts.push(paint(new THREE.TubeGeometry(crest, 20, 0.072 * scale, 6, false), 0xe6be4c));
 
-  const head = new THREE.SphereGeometry(0.22 * scale, 10, 8);
-  head.scale(1.25, 0.95, 0.9);
-  head.translate(cx + dirX * 0.52 * scale, cy + 0.72 * scale, cz);
-  parts.push(paint(head, 0xe6be4c));
+  // sculpted head + open snout + golden mane horn
+  const head = new THREE.SphereGeometry(0.24 * scale, 10, 8);
+  head.scale(1.3, 0.95, 0.92);
+  head.translate(cx + dirX * 0.50 * scale, cy + 0.76 * scale, cz);
+  parts.push(paint(head, 0xe8c45e));
+
+  const horn = new THREE.ConeGeometry(0.065 * scale, 0.34 * scale, 6);
+  horn.rotateZ(-dirX * 0.55);
+  horn.translate(cx + dirX * 0.66 * scale, cy + 1.02 * scale, cz);
+  parts.push(paint(horn, 0xf2d46e));
+
+  // raised flame tail plume at the far end
+  const tail = new THREE.ConeGeometry(0.12 * scale, 0.36 * scale, 6);
+  tail.rotateZ(dirX * 0.35);
+  tail.translate(cx + dirX * (span + 0.06 * scale), cy + 1.08 * scale, cz);
+  parts.push(paint(tail, 0xe8c45e));
   return parts;
 }
 
-// Curved imperial roof corner scroll (đao mái) — S-curved tube sweeping up from corner eaves
+// Curved imperial roof corner scroll (đao mái) — S-curved tube sweeping up from corner eaves with flared scroll curl
 export function cornerScroll(x, y, z, dx, dz, scale = 1.0) {
   const curve = new THREE.CatmullRomCurve3([
     new THREE.Vector3(x, y, z),
-    new THREE.Vector3(x + dx * 0.45 * scale, y + 0.16 * scale, z + dz * 0.45 * scale),
-    new THREE.Vector3(x + dx * 0.78 * scale, y + 0.52 * scale, z + dz * 0.78 * scale),
-    new THREE.Vector3(x + dx * 0.62 * scale, y + 0.82 * scale, z + dz * 0.62 * scale),
+    new THREE.Vector3(x + dx * 0.46 * scale, y + 0.18 * scale, z + dz * 0.46 * scale),
+    new THREE.Vector3(x + dx * 0.84 * scale, y + 0.58 * scale, z + dz * 0.84 * scale),
+    new THREE.Vector3(x + dx * 0.68 * scale, y + 0.92 * scale, z + dz * 0.68 * scale),
+    new THREE.Vector3(x + dx * 0.52 * scale, y + 0.84 * scale, z + dz * 0.52 * scale),
   ]);
-  return paint(new THREE.TubeGeometry(curve, 14, 0.085 * scale, 7, false), 0xe8c45e);
+  return paint(new THREE.TubeGeometry(curve, 16, 0.095 * scale, 7, false), 0xe8c45e);
 }
 
-// Sculpted ceremonial bronze cauldron / incense urn (Đỉnh đồng) with 3 curved tripod legs & twin loop handles
+// Sculpted ceremonial bronze cauldron / incense urn (Đỉnh đồng) with 3 curved tripod legs, belly band & twin loop handles
 export function bronzeCauldron(cx, cy, cz, scale = 1.0, bodyCol = 0x5c4c36, trimCol = 0x9e8248) {
   const parts = [];
   const pts = [
-    [0.01, 0.25], [0.42, 0.30], [0.62, 0.52], [0.66, 0.88],
-    [0.54, 1.18], [0.60, 1.32], [0.50, 1.36], [0.48, 1.24],
+    [0.01, 0.25], [0.42, 0.30], [0.64, 0.52], [0.68, 0.88],
+    [0.54, 1.18], [0.62, 1.32], [0.50, 1.38], [0.48, 1.24],
   ].map(([r, h]) => new THREE.Vector2(r * scale, h * scale));
   const body = new THREE.LatheGeometry(pts, 16);
   body.translate(cx, cy, cz);
   parts.push(paint(body, bodyCol));
 
-  const rim = new THREE.TorusGeometry(0.56 * scale, 0.055 * scale, 8, 16);
+  const rim = new THREE.TorusGeometry(0.57 * scale, 0.06 * scale, 8, 16);
   rim.rotateX(Math.PI / 2);
   rim.translate(cx, cy + 1.30 * scale, cz);
   parts.push(paint(rim, trimCol));
 
+  const band = new THREE.TorusGeometry(0.67 * scale, 0.042 * scale, 7, 16);
+  band.rotateX(Math.PI / 2);
+  band.translate(cx, cy + 0.82 * scale, cz);
+  parts.push(paint(band, trimCol));
+
   for (let k = 0; k < 3; k++) {
     const a = (k / 3) * Math.PI * 2 + Math.PI / 6;
-    const leg = new THREE.CylinderGeometry(0.08 * scale, 0.06 * scale, 0.50 * scale, 8);
+    const leg = new THREE.CylinderGeometry(0.085 * scale, 0.06 * scale, 0.50 * scale, 8);
     leg.translate(cx + Math.cos(a) * 0.38 * scale, cy + 0.25 * scale, cz + Math.sin(a) * 0.38 * scale);
     parts.push(paint(leg, bodyCol));
   }
   for (const s of [-1, 1]) {
-    const ear = new THREE.TorusGeometry(0.16 * scale, 0.04 * scale, 7, 12, Math.PI * 1.2);
+    const ear = new THREE.TorusGeometry(0.17 * scale, 0.044 * scale, 7, 12, Math.PI * 1.2);
     ear.rotateZ(s < 0 ? Math.PI * 0.4 : -Math.PI * 0.4);
-    ear.translate(cx + s * 0.62 * scale, cy + 1.32 * scale, cz);
+    ear.translate(cx + s * 0.63 * scale, cy + 1.32 * scale, cz);
     parts.push(paint(ear, trimCol));
   }
   return parts;
@@ -225,13 +244,22 @@ export function buildGateWatchtowerHero({ name, upper, lower = null }) {
     parts.push(latheGourd(s * (rl + 0.12), ry - 0.04, 0, 0.56, 0xe8c45e));
   }
   for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-    parts.push(cornerScroll(su * hw, y0 + 0.08, sv * hd, su * 0.52, sv * 0.52, 0.68));
+    parts.push(cornerScroll(su * hw, y0 + 0.08, sv * hd, su * 0.56, sv * 0.56, 0.74));
+    // hanging crimson-gold imperial palace lantern under each upper watchtower corner eave
+    const lx = su * (hw - 0.32), lz = sv * (hd - 0.32);
+    const lantern = new THREE.SphereGeometry(0.16, 8, 7);
+    lantern.scale(1, 1.3, 1);
+    lantern.translate(lx, y0 - 0.34, lz);
+    parts.push(paint(lantern, 0xd93828));
+    const cap = new THREE.CylinderGeometry(0.1, 0.1, 0.08, 7);
+    cap.translate(lx, y0 - 0.14, lz);
+    parts.push(paint(cap, 0xe8c45e));
   }
   if (lower) {
     const lhw = lower.w / 2 + lower.over;
     const lhd = lower.d / 2 + lower.over;
     for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-      parts.push(cornerScroll(su * lhw, lower.y0 + 0.08, sv * lhd, su * 0.58, sv * 0.58, 0.78));
+      parts.push(cornerScroll(su * lhw, lower.y0 + 0.08, sv * lhd, su * 0.62, sv * 0.62, 0.84));
     }
   }
   return wrapScene(parts, name);

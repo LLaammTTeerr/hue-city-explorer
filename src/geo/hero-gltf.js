@@ -60,7 +60,7 @@ function disposeRoot(root) {
 
 export function createHeroLoader(parentGroup, onLoaded = null) {
   const loader = new GLTFLoader();
-  const mat = cityMaterial({ windows: false });
+  const mat = cityMaterial({ windows: false, hero: true });
   const state = new Map(); // id -> 'loading' | 'loaded' | 'failed'
   const roots = new Map();
   const lastUsed = new Map(); // id -> timestamp for LRU eviction on quality.low

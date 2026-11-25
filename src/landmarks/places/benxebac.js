@@ -152,16 +152,34 @@ export function build({ S, group }) {
       for (const dw of [-shD / 2 + 0.6, shD / 2 - 0.6]) box(u, shW + dw, y0, shY, 0.42, 0.42, C.white);
       if (k < 5) lit(LB, u + (shL - 1.6) / 10, shW, shY - 0.08, shY - 0.02, 1.4, 0.3);
     }
+    // painted parking bay stripes on the concrete apron
+    S.kind = KIND.PLAIN;
+    for (let k = 0; k < 12; k++) {
+      box(-35 + k * 5.6, -24.5, y0 + 0.08, y0 + 0.11, 0.18, 12.2, C.white);
+    }
     // parked sleeper buses and minibuses in neat bays across the yard
     const busCols = [hex('#e66824'), hex('#2c62a8'), hex('#d9382a'), hex('#eceae2'), hex('#3d7a5a'), hex('#e66824')];
     const bus = (u, w, angOff, col, len = 11.2, wid = 2.5, h = 3.45) => {
       const p = P(u, w), ba = A + angOff;
+      const fx = Math.cos(ba), fz = Math.sin(ba);
       S.kind = KIND.PLAIN;
-      S.box(p[0], p[1], y0 + 0.35, y0 + h, len, wid, ba, col, { top: C.white });
-      S.box(p[0], p[1], y0 + 1.6, y0 + h - 0.45, len - 0.3, wid + 0.04, ba, C.glass);
-      S.box(p[0], p[1], y0 + h, y0 + h + 0.3, len * 0.4, wid * 0.6, ba, C.white);
+      // lower chassis skirt + main painted coach body
+      S.box(p[0], p[1], y0 + 0.32, y0 + 1.15, len, wid, ba, shade(col, 0.82));
+      S.box(p[0], p[1], y0 + 1.15, y0 + h - 0.18, len, wid, ba, col, { top: C.white });
+      // white livery accent stripe + rounded roof cap
+      S.box(p[0], p[1], y0 + 1.28, y0 + 1.5, len - 0.1, wid + 0.03, ba, C.white);
+      S.box(p[0], p[1], y0 + h - 0.18, y0 + h, len - 0.35, wid - 0.18, ba, C.white, { top: C.white });
+      // tinted passenger window ribbon + deep front windshield + destination board + headlights
+      S.box(p[0], p[1], y0 + 1.65, y0 + h - 0.45, len - 0.35, wid + 0.05, ba, C.glass);
+      S.box(p[0] + fx * (len * 0.49), p[1] + fz * (len * 0.49), y0 + 1.2, y0 + h - 0.38, 0.14, wid - 0.14, ba, hex('#1d2730'));
+      S.box(p[0] + fx * (len * 0.505), p[1] + fz * (len * 0.505), y0 + h - 0.62, y0 + h - 0.42, 0.06, wid * 0.58, ba, hex('#f0c22e'));
+      S.box(p[0] + fx * (len * 0.505), p[1] + fz * (len * 0.505), y0 + 0.65, y0 + 0.92, 0.06, wid * 0.82, ba, hex('#eef3f8'));
+      // twin rooftop AC pods
+      S.box(p[0] - fx * (len * 0.08), p[1] - fz * (len * 0.08), y0 + h, y0 + h + 0.28, len * 0.34, wid * 0.58, ba, hex('#dfe2e5'));
+      S.box(p[0] + fx * (len * 0.22), p[1] + fz * (len * 0.22), y0 + h, y0 + h + 0.22, len * 0.16, wid * 0.52, ba, hex('#cfd4d8'));
+      // wheel arches & tires
       for (const s of [-len * 0.3, len * 0.3]) {
-        S.box(p[0] + Math.cos(ba) * s, p[1] + Math.sin(ba) * s, y0 + 0.08, y0 + 0.8, 0.85, wid + 0.06, ba, hex('#232527'));
+        S.box(p[0] + fx * s, p[1] + fz * s, y0 + 0.06, y0 + 0.88, 0.92, wid + 0.06, ba, hex('#1f2124'));
       }
     };
     for (let k = 0; k < 5; k++) bus(-31 + k * 5.6, 3.0, Math.PI / 2, busCols[k % busCols.length], 8.6, 2.3, 3.0);
