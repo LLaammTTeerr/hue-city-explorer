@@ -26,6 +26,58 @@ const LABEL_PAD_X_PX = 6;
 const LABEL_PAD_Y_PX = 4;
 const PANEL_SELECTORS = ['#places', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card'];
 
+// Street labels: aligned along carriageways when zoomed in, staying out of the opening/far view.
+const STREET_POOL_SIZE = 44;
+const STREET_Y_OFFSET_M = 0.35;
+const STREET_TANGENT_SPAN_M = 10;
+const STREET_MIN_DIST_M = 18;
+const STREET_NEAR_FADE_M = 14;
+const STREET_FADE_FRACTION = 0.25;
+const STREET_MIN_PROJ_PX = 4; // skip roads nearly end-on to the camera
+const STREET_EDGE_MARGIN_PX = 24;
+const STREET_SAME_NAME_PX = 220; // minimum screen distance between repeats of the same street name
+const STREET_PAD_X_PX = 8;
+const STREET_PAD_Y_PX = 5;
+const STREET_EST_CHAR_W_PX = 6.8;
+const STREET_EST_H_PX = 16;
+// Per road class (0 primary/trunk, 1 secondary, 2 tertiary, 3 residential, 4 service):
+// Opening desktop view sits at ~247 m altitude, so all classes stay hidden there and fade in as you zoom down.
+const STREET_MAX_ALT_M = [235, 230, 215, 200, 130];
+const STREET_MAX_DIST_M = [950, 820, 680, 560, 320];
+const STREET_GLOBAL_MAX_ALT_M = 238;
+
+type RawStreetLabel = [string, number, number, number, number, number];
+
+interface StreetAnchor {
+  name: string;
+  cls: number;
+  groundY: number;
+  pos: THREE.Vector3;
+  pos2: THREE.Vector3;
+  estW: number;
+}
+
+interface StreetSlot {
+  el: HTMLDivElement;
+  span: HTMLSpanElement;
+  anchorIdx: number;
+  shown: boolean;
+  lastName: string;
+  lastCls: string;
+  lastTransform: string;
+  lastFade: string;
+}
+
+interface StreetCandidate {
+  idx: number;
+  name: string;
+  cls: number;
+  sx: number;
+  sy: number;
+  angleDeg: number;
+  fade: number;
+}
+
 interface RectBox {
   left: number;
   right: number;
@@ -109,14 +161,49 @@ function overlapsAny(placed: RectBox[], left: number, right: number, top: number
   return false;
 }
 
-// HTML labels pinned to places. Nearer views reveal more of them, and overlapping labels yield to the more important one.
-export function createLabels(root: HTMLElement, data: any, camera: THREE.PerspectiveCamera, onPick: (id: string) => void) {
+// HTML labels pinned to places, plus rotated street labels aligned along roads when zoomed in.
+export function createLabels(
+  root: HTMLElement,
+  data: any,
+  camera: THREE.PerspectiveCamera,
+  onPick: (id: string) => void,
+  rawStreets: RawStreetLabel[] = [],
+) {
+  const streetPool: StreetSlot[] = [];
+  for (let i = 0; i < STREET_POOL_SIZE; i++) {
+    const el = document.createElement('div');
+    el.className = 'label label-street';
+    el.setAttribute('aria-hidden', 'true');
+    const span = document.createElement('span');
+    el.append(span);
+    root.appendChild(el);
+    streetPool.push({ el, span, anchorIdx: -1, shown: false, lastName: '', lastCls: '', lastTransform: '', lastFade: '' });
+  }
+
+  const streetAnchors: StreetAnchor[] = rawStreets.map(([name, xDm, zDm, dxK, dzK, cls]) => {
+    const x = xDm / DECIMETRES_PER_METRE;
+    const z = zDm / DECIMETRES_PER_METRE;
+    const groundY = LAND_Y + rise(x, z);
+    const x2 = x + (dxK / 1000) * STREET_TANGENT_SPAN_M;
+    const z2 = z + (dzK / 1000) * STREET_TANGENT_SPAN_M;
+    const y2 = LAND_Y + rise(x2, z2) + STREET_Y_OFFSET_M;
+    return {
+      name,
+      cls,
+      groundY,
+      pos: new THREE.Vector3(x, groundY + STREET_Y_OFFSET_M, z),
+      pos2: new THREE.Vector3(x2, y2, z2),
+      estW: name.length * STREET_EST_CHAR_W_PX + 10,
+    };
+  });
+
   const items: LabelItem[] = [];
   data.places.forEach((place: any) => items.push(createLabelItem(root, place, false, onPick)));
   data.waterLabels.forEach((place: any) => items.push(createLabelItem(root, place, true, onPick)));
   items.sort((a, b) => a.priority - b.priority);
 
   const projected = new THREE.Vector3();
+  const projected2 = new THREE.Vector3();
   const visited = new Set<string>();
   const panels = PANEL_SELECTORS.map((sel) => document.querySelector<HTMLElement>(sel)).filter(Boolean) as HTMLElement[];
 
@@ -139,6 +226,133 @@ export function createLabels(root: HTMLElement, data: any, camera: THREE.Perspec
       item.height = span.offsetHeight + (item.isWater ? 0 : STEM_HEIGHT_PX - 2);
     }
     isMeasured = true;
+  }
+
+  function updateStreetLabels(width: number, height: number, placed: RectBox[]) {
+    const camX = camera.position.x;
+    const camY = camera.position.y;
+    const camZ = camera.position.z;
+    const camGroundAlt = camY - (LAND_Y + rise(camX, camZ));
+
+    const chosen: StreetCandidate[] = [];
+    if (enabled && streetAnchors.length > 0 && camGroundAlt < STREET_GLOBAL_MAX_ALT_M) {
+      const placedByName = new Map<string, [number, number][]>();
+      for (let i = 0; i < streetAnchors.length && chosen.length < STREET_POOL_SIZE; i++) {
+        const a = streetAnchors[i];
+        const maxAlt = STREET_MAX_ALT_M[a.cls] ?? 95;
+        const alt = camY - a.groundY;
+        if (alt > maxAlt) continue;
+        const maxDist = STREET_MAX_DIST_M[a.cls] ?? 280;
+        const dx = a.pos.x - camX;
+        const dy = a.pos.y - camY;
+        const dz = a.pos.z - camZ;
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq > maxDist * maxDist || distSq < STREET_MIN_DIST_M * STREET_MIN_DIST_M) continue;
+
+        const dist = Math.sqrt(distSq);
+        const fade = Math.min(
+          1,
+          (maxDist - dist) / (maxDist * STREET_FADE_FRACTION),
+          (dist - STREET_MIN_DIST_M) / STREET_NEAR_FADE_M,
+          (maxAlt - alt) / (maxAlt * STREET_FADE_FRACTION),
+        );
+        if (fade < MIN_FADE_ALPHA) continue;
+
+        projected.copy(a.pos).project(camera);
+        if (projected.z >= 1 || projected.z <= -1) continue;
+        const sx = (projected.x * 0.5 + 0.5) * width;
+        const sy = (-projected.y * 0.5 + 0.5) * height;
+        if (sx < STREET_EDGE_MARGIN_PX || sx > width - STREET_EDGE_MARGIN_PX || sy < STREET_EDGE_MARGIN_PX || sy > height - STREET_EDGE_MARGIN_PX) continue;
+
+        projected2.copy(a.pos2).project(camera);
+        if (projected2.z >= 1 || projected2.z <= -1) continue;
+        const sx2 = (projected2.x * 0.5 + 0.5) * width;
+        const sy2 = (-projected2.y * 0.5 + 0.5) * height;
+        const segDx = sx2 - sx;
+        const segDy = sy2 - sy;
+        if (segDx * segDx + segDy * segDy < STREET_MIN_PROJ_PX * STREET_MIN_PROJ_PX) continue;
+
+        let angle = Math.atan2(segDy, segDx);
+        if (angle > Math.PI * 0.5) angle -= Math.PI;
+        else if (angle < -Math.PI * 0.5) angle += Math.PI;
+
+        // Avoid repeating the same street name too close together on screen
+        const sameList = placedByName.get(a.name);
+        if (sameList) {
+          let tooClose = false;
+          for (const [px, py] of sameList) {
+            if ((sx - px) * (sx - px) + (sy - py) * (sy - py) < STREET_SAME_NAME_PX * STREET_SAME_NAME_PX) {
+              tooClose = true;
+              break;
+            }
+          }
+          if (tooClose) continue;
+        }
+
+        const absCos = Math.abs(Math.cos(angle));
+        const absSin = Math.abs(Math.sin(angle));
+        const halfW = (a.estW * absCos + STREET_EST_H_PX * absSin) * 0.5 + STREET_PAD_X_PX;
+        const halfH = (a.estW * absSin + STREET_EST_H_PX * absCos) * 0.5 + STREET_PAD_Y_PX;
+        if (overlapsAny(placed, sx - halfW, sx + halfW, sy - halfH, sy + halfH)) continue;
+
+        placed.push({ left: sx - halfW, right: sx + halfW, top: sy - halfH, bottom: sy + halfH });
+        if (sameList) sameList.push([sx, sy]);
+        else placedByName.set(a.name, [[sx, sy]]);
+        chosen.push({ idx: i, name: a.name, cls: a.cls, sx, sy, angleDeg: (angle * 180) / Math.PI, fade });
+      }
+    }
+
+    // Reuse existing pool slots for anchors that stayed visible so DOM text & transitions stay calm
+    const assigned = new Map<number, StreetCandidate>();
+    for (const cand of chosen) assigned.set(cand.idx, cand);
+    const freeSlots: StreetSlot[] = [];
+    for (const slot of streetPool) {
+      const cand = slot.anchorIdx >= 0 ? assigned.get(slot.anchorIdx) : undefined;
+      if (cand) {
+        assigned.delete(slot.anchorIdx);
+        applyStreetSlot(slot, cand);
+      } else {
+        freeSlots.push(slot);
+      }
+    }
+    let freeIdx = 0;
+    for (const cand of assigned.values()) {
+      applyStreetSlot(freeSlots[freeIdx++], cand);
+    }
+    for (; freeIdx < freeSlots.length; freeIdx++) {
+      const slot = freeSlots[freeIdx];
+      slot.anchorIdx = -1;
+      if (slot.shown) {
+        slot.shown = false;
+        slot.el.classList.remove('show');
+      }
+    }
+  }
+
+  function applyStreetSlot(slot: StreetSlot, cand: StreetCandidate) {
+    slot.anchorIdx = cand.idx;
+    if (slot.lastName !== cand.name) {
+      slot.lastName = cand.name;
+      slot.span.textContent = cand.name;
+    }
+    const clsName = cand.cls <= 1 ? 'label label-street major show' : cand.cls >= 3 ? 'label label-street minor show' : 'label label-street show';
+    if (slot.lastCls !== clsName) {
+      slot.lastCls = clsName;
+      slot.el.className = clsName;
+    } else if (!slot.shown) {
+      slot.el.classList.add('show');
+    }
+    slot.shown = true;
+    const transform = `translate3d(${cand.sx.toFixed(1)}px, ${cand.sy.toFixed(1)}px, 0) rotate(${cand.angleDeg.toFixed(1)}deg)`;
+    if (slot.lastTransform !== transform) {
+      slot.lastTransform = transform;
+      slot.el.style.transform = transform;
+    }
+    const fadeStr = Math.max(0, cand.fade).toFixed(2);
+    if (slot.lastFade !== fadeStr) {
+      slot.lastFade = fadeStr;
+      slot.el.style.setProperty('--fade', fadeStr);
+    }
   }
 
   return {
@@ -219,6 +433,7 @@ export function createLabels(root: HTMLElement, data: any, camera: THREE.Perspec
           if (!item.isWater) item.el.tabIndex = show ? 0 : -1;
         }
       }
+      updateStreetLabels(width, height, placed);
     },
   };
 }

@@ -114,10 +114,15 @@ function updateDynamicLens(camera: THREE.PerspectiveCamera) {
   }
 }
 
-// Map-style camera: drag the ground, wheel/pinch toward the cursor, right-drag or two fingers to turn and tilt.
+// Map-style camera: drag the ground, wheel/pinch toward the cursor, middle-drag (hold scroll wheel) or right-drag to turn and tilt.
 export function createCamera(canvas: HTMLCanvasElement, bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) {
   const camera = new THREE.PerspectiveCamera(CAMERA_CFG.initialFovDeg, innerWidth / innerHeight, CAMERA_CFG.initialNearM, CAMERA_CFG.farPlaneM);
   const controls = new MapControls(camera, canvas);
+  // Match Google Earth / SketchUp: hold scroll wheel (middle-drag) to orbit, Shift + middle-drag to pan,
+  // while keeping left-drag to pan and right-drag to orbit for trackpads and existing users.
+  controls.mouseButtons.MIDDLE = THREE.MOUSE.ROTATE;
+  canvas.addEventListener('mousedown', (event) => { if (event.button === 1) event.preventDefault(); });
+  canvas.addEventListener('auxclick', (event) => { if (event.button === 1) event.preventDefault(); });
   controls.enableDamping = true;
   controls.dampingFactor = CAMERA_CFG.dampingFactor;
   controls.screenSpacePanning = false;
