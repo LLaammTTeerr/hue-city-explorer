@@ -11,10 +11,11 @@ const REFLECT_CFG = {
   maxWidth: 960,
   maxHeight: 540,
   clipBias: 0.02,
-  refreshCadence: 3,
   movePosSqThreshold: 0.04,
   moveQuatDotThreshold: 0.999999,
   nightGlowThreshold: 0.05,
+  fadeStartAltM: 750,
+  fadeEndAltM: 1250,
 } as const;
 
 const FLOW_CFG = {
@@ -51,44 +52,43 @@ function createRiverMesh(geo: THREE.PlaneGeometry, shader: ReturnType<typeof cre
     multisample: 0,
   });
 
-  // Refresh the distorted water reflection every 3rd frame when moving, and skip when the camera is still
-  // during daytime (ripples still animate in the fragment shader). Adaptive quality can also turn it off.
+  // Update the planar water reflection every frame while moving (avoiding multi-frame stutter), skip when the camera
+  // is still in daytime, and fade smoothly to analytic sky reflection at high altitude where Fresnel is negligible.
   const renderMirror = reflector.onBeforeRender;
-  let frameTick = 0;
   let enabled = true;
   let hasFrame = false;
   const lastPos = new THREE.Vector3(Infinity, Infinity, Infinity);
   const lastQuat = new THREE.Quaternion();
 
-  reflector.userData.invalidate = () => { frameTick = 0; hasFrame = false; };
+  reflector.userData.invalidate = () => { hasFrame = false; };
   reflector.userData.setReflection = (on: boolean) => {
     enabled = !!on;
     reflector.material.uniforms.uReflect.value = enabled ? 1 : 0;
-    if (enabled) { frameTick = 0; hasFrame = false; }
+    if (enabled) hasFrame = false;
   };
   reflector.userData.resize = (width: number, height: number, ratioOrRenderer: any = quality.pixelRatio) => {
     const ratio = typeof ratioOrRenderer === 'object' && ratioOrRenderer?.getPixelRatio
       ? ratioOrRenderer.getPixelRatio()
       : ratioOrRenderer;
     reflector.getRenderTarget().setSize(targetWidth(width, ratio), targetHeight(height, ratio));
-    frameTick = 0;
     hasFrame = false;
   };
   reflector.onBeforeRender = function (...args: any[]) {
     if (!enabled) return;
     const cam = args[2];
+    const altFade = 1 - THREE.MathUtils.smoothstep(cam.position.y, REFLECT_CFG.fadeStartAltM, REFLECT_CFG.fadeEndAltM);
+    reflector.material.uniforms.uReflect.value = altFade;
+    if (altFade <= 0.01) return;
     const hasMoved = !hasFrame
       || cam.position.distanceToSquared(lastPos) > REFLECT_CFG.movePosSqThreshold
       || Math.abs(cam.quaternion.dot(lastQuat)) < REFLECT_CFG.moveQuatDotThreshold;
     const isNight = reflector.material.uniforms.uGlow.value > REFLECT_CFG.nightGlowThreshold;
     if (!hasMoved && !isNight) return;
-    if (!hasFrame || frameTick++ % REFLECT_CFG.refreshCadence === 0) {
-      lastPos.copy(cam.position);
-      lastQuat.copy(cam.quaternion);
-      hasFrame = true;
-      reflector.getReflectionCamera(cam).layers.set(0);
-      renderMirror.apply(this, args);
-    }
+    lastPos.copy(cam.position);
+    lastQuat.copy(cam.quaternion);
+    hasFrame = true;
+    reflector.getReflectionCamera(cam).layers.set(0);
+    renderMirror.apply(this, args);
   };
   return reflector;
 }

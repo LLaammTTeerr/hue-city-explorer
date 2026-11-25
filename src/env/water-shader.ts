@@ -126,18 +126,19 @@ export function createWaterShader() {
         vec3 R = reflect( -V, n );
         vec3 sky = mix( uSkyHorizon, uSkyTop, pow( clamp( R.y * 1.6, 0.0, 1.0 ), 0.5 ) );
         vec3 refl = sky;
-        if ( uReflect > 0.5 ) {
+        if ( uReflect > 0.01 ) {
           // the mirror is pushed about more along the line of sight than across it, so lights on the far bank
           // break up into vertical streaks the way they do on real water
           vec2 fwd = normalize( -V.xz + 1e-5 ), side = vec2( -fwd.y, fwd.x );
           vec2 dn = vec2( dot( n.xz, side ) * 0.75, dot( n.xz, fwd ) * 1.7 );
           vec4 uv = vUvR;
           uv.xy += dn * ( 0.085 + uRain * 0.06 ) * uv.w * ( 0.35 + 0.65 * lod );
-          refl = texture2DProj( tDiffuse, uv ).rgb;
+          vec3 planar = texture2DProj( tDiffuse, uv ).rgb;
           // bright reflections (lamps, LEDs) gather on the wavelet crests and fade softly with distance so night streaks stay silky
-          float lum = dot( refl, vec3( 0.299, 0.587, 0.114 ) );
+          float lum = dot( planar, vec3( 0.299, 0.587, 0.114 ) );
           float distAtten = mix( 1.0, smoothstep( 1050.0, 140.0, dist ), uGlow );
-          refl *= 1.0 + smoothstep( 0.48, 1.15, lum ) * clamp( crest, -0.7, 1.0 ) * 0.65 * distAtten;
+          planar *= 1.0 + smoothstep( 0.48, 1.15, lum ) * clamp( crest, -0.7, 1.0 ) * 0.65 * distAtten;
+          refl = mix( sky, planar, uReflect );
         }
         float tone = vnoise( p * 0.004 + 3.0 );
         vec3 body = mix( uDeep, uShallow, clamp( ndv * ndv * 0.55 + tone * 0.35, 0.0, 1.0 ) );
