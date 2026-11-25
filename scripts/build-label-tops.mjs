@@ -10,16 +10,54 @@ import * as THREE from 'three';
 import { buildScene } from './lib/scene.mjs';
 import { modelTops } from './lib/label-tops.mjs';
 
-export async function buildAppScene() {
-  const b = await buildScene({ app: true });
+export async function buildAppScene(opts = {}) {
+  const b = await buildScene({ app: true, ...opts });
   if (b.errors.length) throw new Error('scene build failed: ' + b.errors.join('; '));
   const scene = new THREE.Scene();
   scene.add(b.world.group, b.dyn);
   return { ...b, scene };
 }
 
+function encodePrecomputed(world, boats) {
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const { holes = [], slivers = [] } = world.marks || {};
+  const byRow = new Map();
+  const outHoles = holes.map((h) => {
+    for (const [ci, cj] of h.cells || []) {
+      let s = byRow.get(cj);
+      if (!s) { s = new Set(); byRow.set(cj, s); }
+      s.add(ci);
+    }
+    const flatRects = [];
+    for (const [x0, x1, z0, z1] of h.rects || []) flatRects.push(r2(x0), r2(x1), r2(z0), r2(z1));
+    return [h.c, r2(h.x), r2(h.z), r2(h.area || 0), flatRects];
+  });
+  const holeCells = [];
+  for (const [cj, cols] of byRow) {
+    const xs = [...cols].sort((a, b) => a - b);
+    for (let i = 0; i < xs.length;) {
+      let end = i;
+      while (end + 1 < xs.length && xs[end + 1] === xs[end] + 1) end++;
+      holeCells.push(cj, xs[i], xs[end]);
+      i = end + 1;
+    }
+  }
+  const outSlivers = slivers.map((s) => [
+    s.c,
+    s.pts.flatMap(([x, z]) => [r2(x), r2(z)]),
+    s.ws.map(r2),
+  ]);
+  const boatRoutes = (boats?.routes || []).map(([lane, lo, hi]) => [r2(lane), r2(lo), r2(hi)]);
+  return { holes: outHoles, holeCells, slivers: outSlivers, boatRoutes };
+}
+
 export async function buildLabelTops(file = new URL('../public/data/places.json', import.meta.url)) {
-  const { scene, data, groundY } = await buildAppScene();
+  const { scene, data, groundY, world, boats } = await buildAppScene({ freshPrecompute: true });
+  const hueFile = new URL('../public/data/hue.json', import.meta.url);
+  const rawHue = JSON.parse(fs.readFileSync(hueFile));
+  rawHue.precomputed = encodePrecomputed(world, boats);
+  fs.writeFileSync(hueFile, JSON.stringify(rawHue));
+  console.log('precomputed:', rawHue.precomputed.holes.length, 'holes,', rawHue.precomputed.slivers.length, 'slivers,', rawHue.precomputed.boatRoutes.length, 'boat routes → public/data/hue.json');
   const index = JSON.parse(fs.readFileSync(file));
   const tops = modelTops(scene, data.places, THREE);
   const byId = new Map(data.places.map((p, i) => [p.id, { p, top: tops[i] }]));

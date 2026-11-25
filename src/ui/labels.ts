@@ -212,11 +212,16 @@ export function createLabels(
   let blocked: RectBox[] = [];
   let activeId: string | null = null;
   let isMeasured = false;
+  let dirty = true;
+  let lastW = 0;
+  let lastH = 0;
+  const lastViewProj = new Float32Array(16);
+  const curViewProj = new THREE.Matrix4();
 
   // widths taken with a fallback font are wrong once the web fonts (and their Vietnamese subsets) arrive
   if (document.fonts) {
-    document.fonts.ready.then(() => { isMeasured = false; });
-    document.fonts.addEventListener('loadingdone', () => { isMeasured = false; });
+    document.fonts.ready.then(() => { isMeasured = false; dirty = true; });
+    document.fonts.addEventListener('loadingdone', () => { isMeasured = false; dirty = true; });
   }
 
   function measureLabels() {
@@ -356,19 +361,32 @@ export function createLabels(
   }
 
   return {
-    setEnabled(on: boolean) { enabled = on; root.classList.toggle('off', !on); },
-    setActive(id: string | null) { activeId = id || null; },
-    invalidateLayout() { frameCount = 0; },
+    setEnabled(on: boolean) { enabled = on; dirty = true; root.classList.toggle('off', !on); },
+    setActive(id: string | null) { activeId = id || null; dirty = true; },
+    invalidateLayout() { frameCount = 0; dirty = true; },
     markVisited(id: string) {
       visited.add(id);
       const item = items.find((entry) => entry.place.id === id);
       if (item) item.el.classList.add('seen');
     },
-    remeasure() { isMeasured = false; },
+    remeasure() { isMeasured = false; dirty = true; },
     get visited() { return visited; },
     get anchors() { return items.filter((item) => !item.isWater).map((item) => [item.place.id, item.pos.y]); },
     update(width: number, height: number) {
-      if (!isMeasured) measureLabels();
+      if (!isMeasured) { measureLabels(); dirty = true; }
+      curViewProj.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+      const el = curViewProj.elements;
+      let camMoved = width !== lastW || height !== lastH;
+      if (!camMoved) {
+        for (let i = 0; i < 16; i++) {
+          if (Math.abs(el[i] - lastViewProj[i]) > 1e-6) { camMoved = true; break; }
+        }
+      }
+      if (!dirty && !camMoved) return;
+      dirty = false;
+      lastW = width;
+      lastH = height;
+      for (let i = 0; i < 16; i++) lastViewProj[i] = el[i];
       // keep labels out from under the interface: its panels count as already-placed boxes
       if (frameCount++ % LAYOUT_REFRESH_FRAMES === 0) blocked = collectBlockedRects(panels);
       const placed = blocked.slice();

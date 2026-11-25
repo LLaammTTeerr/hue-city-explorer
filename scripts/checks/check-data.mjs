@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { withTiles } from '../lib/data.mjs';
+import { withTiles, loadData } from '../lib/data.mjs';
 
 const unflat = (r) => { const o = []; for (let i = 0; i + 1 < r.length; i += 2) o.push([r[i] / 10, r[i + 1] / 10]); return o; };
 const inside = ([x, z], poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, zi] = poly[i], [xj, zj] = poly[j]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c; } return c; };
@@ -202,11 +202,11 @@ export function diffData(prev, data, { terrainStep = 2, buildingStep = 3 } = {})
 // command line
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const file = process.argv.find((a, i) => i > 1 && !a.startsWith('--') && process.argv[i - 1] !== '--against') || 'public/data/hue.json';
-  const data = withTiles(JSON.parse(fs.readFileSync(file)), (f) => JSON.parse(fs.readFileSync(path.join(path.dirname(file), f)))); // tiles beside it
+  const data = loadData({ tiles: true, file });
   const { fails, notes } = checkData(data);
   for (const l of [...notes, ...fails]) console.log(l);
   const ai = process.argv.indexOf('--against');
-  if (ai > 0) for (const l of diffData(JSON.parse(fs.readFileSync(process.argv[ai + 1])), data)) console.log(l);
+  if (ai > 0) for (const l of diffData(loadData({ tiles: true, file: process.argv[ai + 1] }), data)) console.log(l);
   console.log(`check:data — ${notes.length}/${notes.length + fails.length} checks passed`);
   process.exit(fails.length ? 1 : 0);
 }

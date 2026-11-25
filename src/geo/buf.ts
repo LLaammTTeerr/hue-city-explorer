@@ -138,17 +138,21 @@ export class Buf {
       const tmp = p1; p1 = p2; p2 = tmp;
       nx = -nx; ny = -ny; nz = -nz;
     }
-    let offset = this.n * 3;
+    const offset = this.n * 3;
     const posArr = this.pos, nrmArr = this.nrm, colArr = this.col;
     const red = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[0]) * 255)));
     const grn = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[1]) * 255)));
     const blu = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[2]) * 255)));
-    for (const vert of [p0, p1, p2]) {
-      posArr[offset] = vert[0]; posArr[offset + 1] = vert[1]; posArr[offset + 2] = vert[2];
-      nrmArr[offset] = nx * 127; nrmArr[offset + 1] = ny * 127; nrmArr[offset + 2] = nz * 127;
-      colArr[offset] = red; colArr[offset + 1] = grn; colArr[offset + 2] = blu;
-      offset += 3;
-    }
+    const nxi = nx * 127, nyi = ny * 127, nzi = nz * 127;
+    posArr[offset] = p0[0]; posArr[offset + 1] = p0[1]; posArr[offset + 2] = p0[2];
+    posArr[offset + 3] = p1[0]; posArr[offset + 4] = p1[1]; posArr[offset + 5] = p1[2];
+    posArr[offset + 6] = p2[0]; posArr[offset + 7] = p2[1]; posArr[offset + 8] = p2[2];
+    nrmArr[offset] = nrmArr[offset + 3] = nrmArr[offset + 6] = nxi;
+    nrmArr[offset + 1] = nrmArr[offset + 4] = nrmArr[offset + 7] = nyi;
+    nrmArr[offset + 2] = nrmArr[offset + 5] = nrmArr[offset + 8] = nzi;
+    colArr[offset] = colArr[offset + 3] = colArr[offset + 6] = red;
+    colArr[offset + 1] = colArr[offset + 4] = colArr[offset + 7] = grn;
+    colArr[offset + 2] = colArr[offset + 5] = colArr[offset + 8] = blu;
     this.knd[this.n] = this.knd[this.n + 1] = this.knd[this.n + 2] = this.kind;
     this.bas[this.n] = this.bas[this.n + 1] = this.bas[this.n + 2] = this.base;
     this.n += 3;

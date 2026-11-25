@@ -1,16 +1,18 @@
 import '@fontsource/be-vietnam-pro/400.css';
 import '@fontsource/be-vietnam-pro/500.css';
 import '@fontsource/be-vietnam-pro/600.css';
-import '@fontsource-variable/fraunces/full.css';
-import '@fontsource-variable/fraunces/full-italic.css';
+import '@fontsource-variable/fraunces/wght.css';
+import '@fontsource-variable/fraunces/wght-italic.css';
 import './ui/style.css';
 
 import * as THREE from 'three';
 import { LAND_Y, quality } from './config.ts';
 import { buildCity, updateDetail } from './geo/city.ts';
 import { createHeroLoader } from './geo/hero-gltf.ts';
-import { releaseAfterUpload, releasedCount } from './geo/release.ts';
+import { releaseAfterUpload, releasedCount, KEEP_GEOMETRY } from './geo/release.ts';
+import { decodeHueBin, decodeTileBin } from './geo/codec.ts';
 import { buildLandmarks } from './landmarks/build.ts';
+import { buildDeferredPlaces } from './landmarks/places/index.ts';
 import { shared } from './geo/materials.ts';
 import { buildSky } from './env/sky.ts';
 import { buildWater } from './env/water.ts';
@@ -138,6 +140,27 @@ async function fetchDataJSON(name: string) {
   const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
   if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
   return res.json();
+}
+
+async function fetchDataBin(name: string): Promise<ArrayBuffer> {
+  const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
+  if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+  const ds = new DecompressionStream('gzip');
+  return new Response(res.body!.pipeThrough(ds)).arrayBuffer();
+}
+
+async function fetchHueData() {
+  const [json, binBuf] = await Promise.all([
+    fetchDataJSON('hue.json'),
+    fetchDataBin('hue.bin').catch(() => null),
+  ]);
+  if (json.meta?.bin && binBuf) {
+    const { h, trees, infill } = decodeHueBin(binBuf);
+    if (json.terrain) json.terrain.h = h;
+    json.trees = trees;
+    json.infill = infill;
+  }
+  return json;
 }
 
 // The post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
@@ -409,7 +432,11 @@ async function streamRemainingTiles(opts: {
 }) {
   const { data, world, leafMats, shadows, sun, syncLeafLook } = opts;
   const tileList = data.meta.tiles || [];
-  const fetchTile = (tile: { f: string }) => fetchDataJSON(tile.f).catch((err) => {
+  const fetchTile = (tile: { f: string }) => (
+    tile.f.endsWith('.bin')
+      ? fetchDataBin(tile.f).then(decodeTileBin)
+      : fetchDataJSON(tile.f)
+  ).catch((err) => {
     console.warn('[hue] tile not loaded', tile.f, err);
     return null;
   });
@@ -446,8 +473,8 @@ async function main() {
   // the place index (~30 kB: names, kinds, positions, counts) comes first: search and the cards need nothing else
   const indexPromise = fetchDataJSON('places.json');
   let renderer = createRenderer();
-  // the geometry bundle (~8 MB) only once the device has shown it can render it, then alongside the index
-  let geometryPromise = renderer ? fetchDataJSON('hue.json') : null;
+  // the geometry bundle (~3 MB) only once the device has shown it can render it, then alongside the index
+  let geometryPromise = renderer ? fetchHueData() : null;
   if (geometryPromise) geometryPromise.catch(() => {}); // a failure is reported where it is awaited, below
   index = await indexPromise;
 
@@ -535,7 +562,7 @@ async function main() {
 
   // no WebGL: the recovery screen, and hue.json is never fetched unless "Retry 3D" gets a renderer
   if (!renderer) renderer = await fallback.recover();
-  data = await (geometryPromise || fetchDataJSON('hue.json'));
+  data = await (geometryPromise || fetchHueData());
   performance.mark('hue:geometry-loaded');
   ui.loaderProgress(LOADER_PROGRESS.geometryLoaded);
   await nextMacrotask();
@@ -549,6 +576,7 @@ async function main() {
   const scene = new THREE.Scene();
 
   const world = buildCity(data);
+  performance.mark('hue:city-built');
   ui.loaderProgress(LOADER_PROGRESS.cityBuilt);
   await nextMacrotask();
 
@@ -564,6 +592,7 @@ async function main() {
   scene.add(world.group, dynamic);
   const lanternGlows: any[] = []; // glow points that landmarks flagged for the per-frame update
   dynamic.traverse((obj) => { if (obj.userData.glow) lanternGlows.push(obj); });
+  performance.mark('hue:landmarks-built');
   ui.loaderProgress(LOADER_PROGRESS.landmarksBuilt);
   await nextMacrotask();
 
@@ -571,6 +600,7 @@ async function main() {
   const water = buildWater(data);
   const rain = buildRain();
   scene.add(sky.mesh, water.mesh, water.ponds, rain.mesh);
+  performance.mark('hue:env-built');
 
   mood = createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl });
   mood.onChange((state: any) => ui.setMood({ rain: state.rainTarget, time: state.timeTarget }));
@@ -598,6 +628,12 @@ async function main() {
   // ---------- labels, look & interactions ----------
   // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
   labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true), data.streetLabels);
+  // Drop raw city arrays from JS heap once all builders and labels have consumed them (sites/gates wait for deferred places).
+  if (!KEEP_GEOMETRY) {
+    for (const k of ['terrain', 'roads', 'medians', 'rails', 'bld', 'infill', 'trees', 'green', 'land', 'ponds', 'pondLv', 'wall', 'iwalls', 'riverLamps', 'moorings', 'streetLabels', 'bridges', 'precomputed']) {
+      delete data[k];
+    }
+  }
   const leafMats = new Set<any>();
   world.group.traverse((obj: any) => {
     if (obj.material?.defines && 'HUE_FOLIAGE' in obj.material.defines) leafMats.add(obj.material);
@@ -781,7 +817,16 @@ async function main() {
     setTimeout(() => { rig.startDrift(); if (!rig.touched) ui.firstHint(); }, DRIFT_START_DELAY_MS);
   }
 
-  const tiles = streamRemainingTiles({ data, world, leafMats, shadows, sun, syncLeafLook: () => setLook(look) });
+  const tiles = Promise.all([
+    streamRemainingTiles({ data, world, leafMats, shadows, sun, syncLeafLook: () => setLook(look) }),
+    buildDeferredPlaces(data, dynamic, replicas).then((meshes) => {
+      if (!KEEP_GEOMETRY) { delete data.sites; delete data.gates; }
+      if (meshes.length) {
+        if (shadows.invalidate) shadows.invalidate();
+        dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
+      }
+    }),
+  ]);
 
   // handle for debugging and automated checks (tiles: resolves once every tile is in the scene)
   window.__hue = {

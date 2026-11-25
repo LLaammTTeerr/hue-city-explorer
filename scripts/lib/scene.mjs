@@ -4,7 +4,7 @@
 // source per place ('place:<id>'). Builder warnings are kept per step (warnings: [step, text]) for check-heights.
 import fs from 'node:fs';
 import * as THREE from 'three';
-import { readTiles, withTiles } from './data.mjs';
+import { readTiles, withTiles, loadData } from './data.mjs';
 
 // the builders read a few browser globals at import time and draw a few canvas textures
 const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => ({ addColorStop() {}, data: new Uint8ClampedArray(4) })), set: (t, k, v) => ((t[k] = v), true) });
@@ -25,7 +25,8 @@ export async function buildScene(opts = {}) {
   const warn0 = console.warn, warnings = [];
   let current = 'city';
   console.warn = (...a) => { warnings.push([current, a.map(String).join(' ')]); };
-  const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
+  const data = loadData({ tiles: false });
+  if (opts.freshPrecompute) delete data.precomputed;
   if (opts.whole) withTiles(data);
   const { initTerrain, groundY } = await import(src('geo/terrain.ts'));
   const { initDistricts } = await import(src('geo/districts.ts'));
@@ -55,9 +56,9 @@ export async function buildScene(opts = {}) {
     else if (world.group.children.length > g) sources.push({ name, range: [S.n, S.n], objs: world.group.children.slice(g) });
   };
   const onPlace = (id, range, k) => sources.push({ name: 'place:' + id, range, objs: dyn.children.slice(k) });
-  buildLandmarks(data, world, dyn, { step, onPlace, finish: !!opts.app }); // the checks read the buffer, not the merged mesh
+  const handles = buildLandmarks(data, world, dyn, { step, onPlace, finish: !!opts.app }); // the checks read the buffer, not the merged mesh
   const tiles = readTiles(data); // the trees and houses the app plants after the first frame, the way it plants them
   step('tiles', () => { for (const t of tiles) world.addTile(t); });
   console.warn = warn0;
-  return { data, tiles, world, S, dyn, sources, errors, warnings, groundY, isLand, ROAD_W: config.ROAD_W, LAND_Y: config.LAND_Y };
+  return { data, tiles, world, S, dyn, sources, errors, warnings, groundY, isLand, ROAD_W: config.ROAD_W, LAND_Y: config.LAND_Y, boats: handles.boats };
 }
