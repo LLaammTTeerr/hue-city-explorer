@@ -103,7 +103,7 @@ class OcclusionPass extends Pass {
             occ += max( 0.0, nv - 0.12 ) / ( 1.0 + l2 / ( R * R ) );
           }
           float ao = 1.0 - clamp( occ / 12.0 * 3.75 * uStrength, 0.0, 0.94 );
-          ao = mix( ao, 1.0, smoothstep( 2600.0, 6500.0, dist ) );
+          ao = mix( ao, 1.0, smoothstep( 1200.0, 3000.0, dist ) );
           gl_FragColor = vec4( ao, ao, ao, 1.0 );
         }`,
     });
@@ -143,7 +143,7 @@ class OcclusionPass extends Pass {
         uniform mat4 uInvProj, uCamWorld;
         uniform float uInk, uNight; uniform vec2 uPx, uInkEdge;
         varying vec2 vUv;
-        float mHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
+        float mHash( vec2 p ) { p = fract( mod( p, 2048.0 ) * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
         float mNoise( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
           return mix( mix( mHash( i ), mHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( mHash( i + vec2( 0.0, 1.0 ) ), mHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ); }
         // view-space position of the depth sample at uv, and a quadrant normal from two edges out of the centre

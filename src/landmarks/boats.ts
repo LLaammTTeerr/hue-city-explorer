@@ -24,7 +24,7 @@ function loftHull(buf: Buf, { x0, x1, n, w, sheer, keel, bands, deck, deckY }: a
   const hullNrm = (x: number, t: number, side: number) => {
     const eps = 1e-3;
     const ptA = hullPt(x, Math.min(1, t + eps), side), ptB = hullPt(x, Math.max(0, t - eps), side);
-    const pxA = hullPt(x + eps, t, side), pxB = hullPt(x - eps, t, side);
+    const pxA = hullPt(Math.min(x1, x + eps), t, side), pxB = hullPt(Math.max(x0, x - eps), t, side);
     const u = [ptA[0] - ptB[0], ptA[1] - ptB[1], ptA[2] - ptB[2]];
     const v = [pxA[0] - pxB[0], pxA[1] - pxB[1], pxA[2] - pxB[2]];
     let nrm = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
@@ -62,40 +62,44 @@ function dragonBoatGeometry() {
   const isLow = quality.low;
 
   loftHull(buf, {
-    x0: -10.2, x1: 10.4, n: isLow ? 8 : 14,
+    x0: -10.2, x1: 10.4, n: isLow ? 10 : 16,
     w: (x: number) => {
-      const u = x >= 0.5 ? (x - 0.5) / 9.9 : (0.5 - x) / 10.7;
-      return Math.max(0.06, 2.12 * Math.pow(Math.max(0, 1 - Math.pow(u, x >= 0.5 ? 2.2 : 3.2)), 0.55));
+      const u = Math.min(1, x >= 0.5 ? (x - 0.5) / 9.9 : (0.5 - x) / 10.7);
+      return 2.12 * Math.pow(Math.max(0, 1 - Math.pow(u, x >= 0.5 ? 2.1 : 2.8)), 0.6);
     },
-    sheer: (x: number) => 0.98 + 0.28 * Math.pow(Math.abs(x) / 10.3, 3),
-    keel: (x: number) => -0.42 + 0.5 * Math.pow(Math.abs(x) / 10.4, 4),
+    sheer: (x: number) => 0.98 + 0.34 * Math.pow(Math.abs(x) / 10.3, 2.6),
+    keel: (x: number) => {
+      const u = Math.min(1, Math.abs(x) / 10.4);
+      return -0.42 + 1.55 * Math.pow(u, 3.4);
+    },
     bands: isLow ? [[0, woodDark], [0.45, wood], [0.86, red], [1, red]] : [[0, woodDark], [0.3, wood], [0.62, wood], [0.86, red], [1, red]],
     deck: hex('#a98a64'),
-    deckY: (x: number) => 0.9 + 0.22 * Math.pow(Math.abs(x) / 10.3, 3),
+    deckY: (x: number) => 0.92 + 0.3 * Math.pow(Math.abs(x) / 10.3, 2.6),
   });
 
+  // cabin & two-tier royal pavilion roof (clerestory + upper roof clear the lower ridge cleanly)
   buf.box(-2.6, 0, 0.95, 2.75, 10.4, 3.3, 0, cream, { top: red });
   for (let x = -7.2; x <= 2.2; x += 1.9) buf.box(x, 0, 0.95, 2.75, 0.24, 3.42, 0, red);
-  buf.hip(-2.6, 0, 11.6, 3.9, 0, 2.75, 0.95, yellow, { flare: 0.28, over: 0.2, ridgeCol: red });
-  buf.box(-2.6, 0, 3.3, 3.75, 4.4, 1.7, 0, green);
-  buf.hip(-2.6, 0, 5.2, 2.3, 0, 3.75, 0.6, yellow, { flare: 0.2 });
+  buf.hip(-2.6, 0, 11.4, 3.85, 0, 2.75, 0.72, yellow, { flare: 0.22, over: 0.18 });
+  buf.box(-2.6, 0, 3.38, 3.92, 5.4, 1.75, 0, green);
+  buf.hip(-2.6, 0, 6.1, 2.35, 0, 3.92, 0.68, yellow, { flare: 0.18, over: 0.12, ridgeCol: red });
 
   // dragon bow & stern tail
-  buf.beam([8.0, 0.95, 0], [9.5, 1.5, 0], 0.46, 0.5, yellow);
-  buf.beam([9.5, 1.5, 0], [10.3, 2.3, 0], 0.4, 0.44, yellow);
-  buf.beam([10.3, 2.3, 0], [11.5, 2.2, 0], 0.5, 0.42, red);
-  buf.beam([11.5, 2.2, 0], [12.0, 2.0, 0], 0.34, 0.26, yellow);
-  buf.beam([10.5, 2.5, 0.16], [9.9, 3.0, 0.34], 0.08, 0.08, yellow);
-  buf.beam([10.5, 2.5, -0.16], [9.9, 3.0, -0.34], 0.08, 0.08, yellow);
-  for (let i = 0; i < 3; i++) buf.beam([8.4 + i * 0.6, 1.3 + i * 0.3, 0], [8.5 + i * 0.6, 1.75 + i * 0.3, 0], 0.07, 0.3, green);
-  buf.beam([10.4, 1.95, 0], [11.7, 1.72, 0], 0.36, 0.16, red);
+  buf.beam([7.6, 1.05, 0], [9.2, 1.55, 0], 0.48, 0.52, yellow);
+  buf.beam([9.2, 1.55, 0], [10.1, 2.28, 0], 0.44, 0.46, yellow);
+  buf.beam([10.0, 2.28, 0], [11.35, 2.22, 0], 0.5, 0.44, red);
+  buf.beam([11.35, 2.22, 0], [11.85, 2.08, 0], 0.34, 0.24, yellow);
+  buf.beam([10.1, 2.02, 0], [11.45, 1.82, 0], 0.38, 0.16, red);
+  buf.beam([10.45, 2.52, 0.15], [9.85, 3.02, 0.32], 0.08, 0.08, yellow);
+  buf.beam([10.45, 2.52, -0.15], [9.85, 3.02, -0.32], 0.08, 0.08, yellow);
+  for (let i = 0; i < 3; i++) buf.beam([8.2 + i * 0.58, 1.32 + i * 0.26, 0], [8.35 + i * 0.58, 1.76 + i * 0.26, 0], 0.08, 0.28, green);
   for (const side of [-1, 1]) {
-    buf.box(10.75, side * 0.24, 2.36, 2.56, 0.18, 0.08, 0, white);
-    buf.box(10.8, side * 0.285, 2.4, 2.52, 0.08, 0.03, 0, dark);
+    buf.box(10.65, side * 0.22, 2.36, 2.54, 0.16, 0.06, 0, white);
+    buf.box(10.7, side * 0.255, 2.4, 2.5, 0.07, 0.03, 0, dark);
   }
-  buf.beam([10.2, 1.85, 0], [10.0, 1.35, 0], 0.18, 0.12, green);
-  buf.beam([-9.4, 0.9, 0], [-11.0, 2.3, 0], 0.44, 0.44, yellow);
-  buf.beam([-11.0, 2.3, 0], [-11.5, 3.3, 0], 0.3, 0.3, red);
+  buf.beam([9.95, 1.98, 0], [9.75, 1.48, 0], 0.2, 0.14, green);
+  buf.beam([-9.2, 1.1, 0], [-10.8, 2.35, 0], 0.42, 0.42, yellow);
+  buf.beam([-10.8, 2.35, 0], [-11.35, 3.3, 0], 0.28, 0.28, red);
   return buf.geometry();
 }
 
@@ -149,26 +153,31 @@ function riverTrack(data: any) {
 }
 
 function sampanGeometry() {
-  const buf = new Buf(160);
-  const wood = hex('#5f4433'), deck = hex('#8a6a4c'), mat = hex('#b89a6a'), matDark = hex('#9a7f55');
+  const buf = new Buf(240);
+  const wood = hex('#5f4433'), deck = hex('#8a6a4c'), mat = hex('#b89a6a'), matDark = hex('#9a7f55'), matIn = hex('#6e583b');
   loftHull(buf, {
-    x0: -4.2, x1: 4.4, n: quality.low ? 5 : 7,
+    x0: -4.2, x1: 4.4, n: quality.low ? 6 : 10,
     w: (x: number) => {
-      const u = x >= 0 ? x / 4.4 : -x / 4.2;
-      return Math.max(0.05, 0.9 * Math.pow(Math.max(0, 1 - Math.pow(u, 2.4)), 0.6));
+      const u = Math.min(1, x >= 0 ? x / 4.4 : -x / 4.2);
+      return 0.9 * Math.pow(Math.max(0, 1 - Math.pow(u, 2.3)), 0.65);
     },
-    sheer: (x: number) => 0.45 + 0.22 * Math.pow(Math.abs(x) / 4.3, 2.5),
-    keel: (x: number) => -0.25 + 0.3 * Math.pow(Math.abs(x) / 4.3, 3),
+    sheer: (x: number) => 0.45 + 0.26 * Math.pow(Math.abs(x) / 4.3, 2.4),
+    keel: (x: number) => {
+      const u = Math.min(1, Math.abs(x) / 4.4);
+      return -0.25 + 0.85 * Math.pow(u, 3.0);
+    },
     bands: [[0, wood], [0.55, wood], [1, wood]],
     deck,
-    deckY: (x: number) => 0.4 + 0.18 * Math.pow(Math.abs(x) / 4.3, 2.5),
+    deckY: (x: number) => 0.42 + 0.22 * Math.pow(Math.abs(x) / 4.3, 2.4),
   });
-  const x0 = -2.2, x1 = 1.2, rad = 0.95;
-  for (let i = 0; i < 5; i++) {
-    const a0 = (i / 5) * Math.PI, a1 = ((i + 1) / 5) * Math.PI;
-    const p0 = [Math.cos(a0) * rad, 0.45 + Math.sin(a0) * rad * 0.95];
-    const p1 = [Math.cos(a1) * rad, 0.45 + Math.sin(a1) * rad * 0.95];
-    buf.quad([x0, p0[1], p0[0]], [x1, p0[1], p0[0]], [x1, p1[1], p1[0]], [x0, p1[1], p1[0]], i % 2 ? mat : matDark, [0, Math.sin((a0 + a1) / 2), Math.cos((a0 + a1) / 2)]);
+  const x0 = -2.1, x1 = 1.2, rad = 0.78, segs = quality.low ? 6 : 8;
+  for (let i = 0; i < segs; i++) {
+    const a0 = (i / segs) * Math.PI, a1 = ((i + 1) / segs) * Math.PI;
+    const p0 = [Math.cos(a0) * rad, 0.42 + Math.sin(a0) * rad * 0.95];
+    const p1 = [Math.cos(a1) * rad, 0.42 + Math.sin(a1) * rad * 0.95];
+    const ny = Math.sin((a0 + a1) / 2), nz = Math.cos((a0 + a1) / 2);
+    buf.quad([x0, p0[1], p0[0]], [x1, p0[1], p0[0]], [x1, p1[1], p1[0]], [x0, p1[1], p1[0]], i % 2 ? mat : matDark, [0, ny, nz]);
+    buf.quad([x0, p1[1], p1[0]], [x1, p1[1], p1[0]], [x1, p0[1], p0[0]], [x0, p0[1], p0[0]], matIn, [0, -ny, -nz]);
   }
   return buf.geometry();
 }
