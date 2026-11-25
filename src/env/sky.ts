@@ -31,14 +31,23 @@ export function buildSky() {
         vec3 col = mix( uHorizon, uTop, pow( smoothstep( 0.0, 0.85, d.y ), 0.68 ) );
         col = mix( col, uBelow, smoothstep( 0.0, -0.55, d.y ) );
         float sd = max( dot( d, uSunDir ), 0.0 );
-        // delicate high clouds that drift slowly above the hills and catch the warm horizon glow
-        if ( d.y > 0.015 ) {
-          vec2 cuv = d.xz / ( d.y + 0.22 ) * 0.85 + vec2( uTime * 0.0045, uTime * 0.0018 );
-          float wisp = fbm( cuv + vec2( fbm( cuv * 1.4 ) * 0.35 ) );
-          float mask = smoothstep( 0.46 - uHaze * 0.14, 0.76 - uHaze * 0.1, wisp )
-                     * smoothstep( 0.02, 0.18, d.y ) * smoothstep( 0.88, 0.26, d.y );
-          vec3 cloudCol = mix( uHorizon * 1.08, uGlow * 1.14, pow( sd, 2.5 ) * 0.65 * ( 1.0 - uHaze * 0.7 ) );
-          col = mix( col, cloudCol, mask * mix( 0.42, 0.26, uHaze ) );
+        // soft painterly cumulus clouds with sunlit warm tops and cool shaded undersides
+        if ( d.y > 0.012 ) {
+          vec2 drift = vec2( uTime * 0.0042, uTime * 0.0016 );
+          vec2 cuv = d.xz / ( d.y + 0.24 ) * 0.78 + drift;
+          float warp = fbm( cuv * 1.35 + vec2( 3.1, 1.7 ) ) * 0.38;
+          float wisp = fbm( cuv + vec2( warp, -warp * 0.6 ) );
+          vec2 sunOff = normalize( uSunDir.xz + vec2( 1e-5 ) ) * 0.075;
+          float wispSun = fbm( cuv - sunOff + vec2( warp, -warp * 0.6 ) );
+          float puff = smoothstep( 0.44 - uHaze * 0.12, 0.74 - uHaze * 0.08, wisp );
+          float mask = puff * smoothstep( 0.015, 0.15, d.y ) * smoothstep( 0.88, 0.24, d.y );
+          float lit = smoothstep( -0.10, 0.16, wisp - wispSun );
+          vec3 cloudTop = mix( mix( uHorizon, vec3( 1.0 ), 0.36 ), uGlow * 1.18, pow( sd, 2.2 ) * 0.72 * ( 1.0 - uHaze * 0.65 ) );
+          vec3 cloudShade = mix( uTop * 0.82, uHorizon * 0.90, 0.55 );
+          vec3 cloudCol = mix( cloudShade, cloudTop, mix( 0.35, 1.0, lit ) );
+          // silver-gold rim near the sun
+          cloudCol += uGlow * pow( sd, 8.0 ) * ( 1.0 - puff * 0.6 ) * 0.32 * uSunDisk * ( 1.0 - uHaze * 0.7 );
+          col = mix( col, cloudCol, mask * mix( 0.58, 0.34, uHaze ) );
         }
         // faint night stars above the horizon mist when the sky is clear
         float nightK = smoothstep( 0.45, 0.15, uSunDisk ) * ( 1.0 - uHaze * 0.85 );

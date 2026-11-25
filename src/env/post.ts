@@ -270,8 +270,8 @@ class OcclusionPass extends Pass {
         uniform sampler2D tColor, tDepth; uniform vec2 uNearFar, uPx; uniform float uFocus, uAperture, uMaxPx;
         varying vec2 vUv;
         float dist( vec2 uv ) { return -perspectiveDepthToViewZ( texture2D( tDepth, uv ).x, uNearFar.x, uNearFar.y ); }
-        // keep foreground miniature softening while easing far-field blur so distant hills read as misty ridges
-        float coc( float d ) { float k = d > uFocus ? 0.58 : 1.0; return clamp( abs( d - uFocus ) / max( uFocus, 1.0 ) * uAperture * k, 0.0, 1.0 ); }
+        // keep a generous sharp focal band around uFocus, softening near foreground and distant background into a miniature tilt-shift
+        float coc( float d ) { float k = d > uFocus ? 0.62 : 1.05; float delta = max( 0.0, abs( d - uFocus ) - uFocus * 0.18 ); return clamp( delta / max( uFocus, 1.0 ) * uAperture * k, 0.0, 1.0 ); }
         void main() {
           vec3 base = texture2D( tColor, vUv ).rgb;
           float d = dist( vUv ), c = coc( d ) * uMaxPx;
