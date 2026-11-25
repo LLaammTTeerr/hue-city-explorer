@@ -8,7 +8,7 @@ const TIER_MAX_DIST_M: Record<number, number> = { 1: 9000, 2: 3000, 3: 1500, 4: 
 // the landmarks of tiers 1-2; the framed views of single places (mostly 30-150 m up) bring the rest in.
 const TIER_MAX_ALT_M: Record<number, number> = { 3: 210, 4: 160 };
 const FADE_FRACTION = 0.2; // the last fifth of a tag's range (distance or height) fades it out
-const STEM_HEIGHT_PX = 14; // .label-place > span sits this far above its anchor (style.css), stem included
+const STEM_HEIGHT_PX = 22; // .label-place > span sits this far above its anchor (style.css), stem included
 const ANCHOR_CLEARANCE_M = 3; // a tag's anchor floats this far above the model
 const DEFAULT_PLACE_HEIGHT_M = 10;
 const WATER_ANCHOR_Y_M = 1;
@@ -24,7 +24,7 @@ const SHOWN_PRIORITY_BONUS = 0.75;
 const NEWCOMER_PAD_PX = 4;
 const LABEL_PAD_X_PX = 6;
 const LABEL_PAD_Y_PX = 4;
-const PANEL_SELECTORS = ['#places', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card'];
+const PANEL_SELECTORS = ['#places', '#plaque', '#search .bar', '#panel', '#tools', '#nav', '#actions', '#card'];
 
 // Street labels: aligned along carriageways when zoomed in, staying out of the opening/far view.
 const STREET_POOL_SIZE = 44;

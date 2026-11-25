@@ -132,7 +132,7 @@ export function createShare({ data, rig, mood, setLook, pick, ui, bounds }: any)
       `t=${round1(target.x)},${round1(target.z)}`,
       `a=${round2(camera.aspect)}`,
       `f=${round1(camera.fov)}`,
-      `m=${moodState.timeTarget}${moodState.rainTarget ? 1 : 0}${moodState.look ? 'i' : 'r'}`,
+      `m=${Math.round(moodState.timeTarget)}${moodState.rainTarget ? 1 : 0}${moodState.look ? 'i' : 'r'}`,
     ];
     if (placeId) parts.push(`p=${encodeURIComponent(placeId)}`);
     return `${location.origin}${location.pathname}?${parts.join('&')}`;
