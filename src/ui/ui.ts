@@ -159,8 +159,14 @@ function bindToolbarEvents(opts: {
   hideCard: () => void;
   nextShot: () => void;
   applyText: () => void;
+  toggleCaptureMenu: (focusFirst?: boolean) => void;
+  closeCaptureMenu: () => void;
+  pickCapturePreset: (preset: string) => void;
 }): void {
-  const { handlers, timeButtons, getLang, getTimeIdx, getCurrentPlace, pickLang, hideCard, nextShot, applyText } = opts;
+  const {
+    handlers, timeButtons, getLang, getTimeIdx, getCurrentPlace, pickLang, hideCard, nextShot, applyText,
+    toggleCaptureMenu, closeCaptureMenu, pickCapturePreset,
+  } = opts;
 
   document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((btn) => {
     btn.addEventListener('click', () => { if (btn.dataset.lang && btn.dataset.lang !== getLang()) pickLang(btn.dataset.lang); });
@@ -172,6 +178,36 @@ function bindToolbarEvents(opts: {
 
   byId('btn-labels').addEventListener('click', () => handlers.labels());
   byId('btn-look').addEventListener('click', () => handlers.look());
+  const captureBtn = byId('btn-capture');
+  const captureMenu = byId('capture-menu');
+  const captureItems = [...captureMenu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
+  captureBtn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    toggleCaptureMenu(event.detail === 0);
+  });
+  captureItems.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      closeCaptureMenu();
+      if (btn.dataset.preset) pickCapturePreset(btn.dataset.preset);
+    });
+  });
+  captureMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopPropagation();
+      closeCaptureMenu();
+      captureBtn.focus();
+      return;
+    }
+    const delta = ({ ArrowUp: -1, ArrowDown: 1 } as Record<string, number>)[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    const cur = captureItems.indexOf(document.activeElement as HTMLButtonElement);
+    captureItems[(cur + delta + captureItems.length) % captureItems.length].focus();
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!captureMenu.hidden && !byId('capture-wrap').contains(event.target as Node)) closeCaptureMenu();
+  });
   byId('btn-about').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
   byId('btn-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
   byId('card-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
@@ -236,6 +272,32 @@ export function createUI(data: any, handlers: any) {
   let mediaGen = 0;
   let openerEl: Element | null = null;
   let timeIdx = 1;
+  let capturePreset = 'screen';
+
+  function refreshCaptureSizes() {
+    document.querySelectorAll<HTMLButtonElement>('#capture-menu [role="menuitem"]').forEach((btn) => {
+      const size = btn.dataset.preset && handlers.captureSize?.(btn.dataset.preset);
+      const small = btn.querySelector('small');
+      if (small) small.textContent = size ? `${size.width}×${size.height}` : '';
+    });
+  }
+
+  function closeCaptureMenu() {
+    const menu = byId('capture-menu');
+    if (menu.hidden) return;
+    menu.hidden = true;
+    byId('btn-capture').setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleCaptureMenu(focusFirst = false) {
+    const menu = byId('capture-menu');
+    const opening = menu.hidden;
+    if (!opening) { closeCaptureMenu(); return; }
+    refreshCaptureSizes();
+    menu.hidden = false;
+    byId('btn-capture').setAttribute('aria-expanded', 'true');
+    if (focusFirst) menu.querySelector<HTMLButtonElement>('[role="menuitem"]')?.focus();
+  }
 
   const pickLocalized = (obj: any): [string, string] => (
     !obj ? ['', lang] : obj[lang] ? [obj[lang], lang] : obj.vi ? [obj.vi, 'vi'] : obj.en ? [obj.en, 'en'] : ['', lang]
@@ -285,7 +347,7 @@ export function createUI(data: any, handlers: any) {
       (btn) => btn.setAttribute('aria-checked', String(btn.dataset.lang === lang)),
     );
     const tooltips: Record<string, string> = {
-      'btn-share': strings.share, 'btn-labels': strings.labels, 'btn-look': strings.look,
+      'btn-capture': strings.capture, 'btn-share': strings.share, 'btn-labels': strings.labels, 'btn-look': strings.look,
       'btn-about': strings.about, 'btn-home': strings.home, 'btn-zin': strings.zoomIn,
       'btn-zout': strings.zoomOut, 'card-close': strings.close, 'about-close': strings.close,
       'btn-rain': rainTip,
@@ -434,6 +496,12 @@ export function createUI(data: any, handlers: any) {
     hideCard,
     nextShot: () => { if (currentPlace) { shotIndex++; fillMedia(stories && stories[currentPlace.id]); } },
     applyText,
+    toggleCaptureMenu,
+    closeCaptureMenu,
+    pickCapturePreset: (preset: string) => {
+      capturePreset = preset;
+      handlers.capture?.(preset);
+    },
   });
 
   applyText();
@@ -447,6 +515,14 @@ export function createUI(data: any, handlers: any) {
     hint,
     hideHint,
     get cardId() { return currentPlace && currentPlace.id; },
+    get capturePreset() { return capturePreset; },
+    closeCaptureMenu,
+    setCapturing(busy: boolean) {
+      const btn = byId<HTMLButtonElement>('btn-capture');
+      btn.classList.toggle('busy', busy);
+      btn.disabled = busy;
+      btn.setAttribute('aria-busy', String(busy));
+    },
     firstHint() { hint(isCoarse() ? strings.hintTouch : strings.hintMouse, HINT_FIRST_MS); },
     setLabels(on: boolean) {
       byId('btn-labels').classList.toggle('on', on);

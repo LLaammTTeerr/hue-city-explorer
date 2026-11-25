@@ -22,6 +22,7 @@ import { createCamera, fromForm } from './camera/controls.ts';
 import { createLabels } from './ui/labels.ts';
 import { createUI } from './ui/ui.ts';
 import { createShare } from './ui/share.ts';
+import { createCapture, type CapturePreset } from './ui/capture.ts';
 import { VIEWS } from './ui/content.ts';
 import { rise } from './geo/terrain.ts';
 import { createFallback } from './ui/fallback.ts';
@@ -223,8 +224,9 @@ function bindCanvasInteractions(opts: {
   syncCard: (id?: string | null) => void;
   toggleLabels: () => void;
   toggleLook: () => void;
+  captureView: () => void;
 }) {
-  const { rig, data, ui, mood, pick, syncCard, toggleLabels, toggleLook } = opts;
+  const { rig, data, ui, mood, pick, syncCard, toggleLabels, toggleLook, captureView } = opts;
   const { camera, controls } = rig;
 
   // Tap / click on the ground near a landmark reveals it.
@@ -281,12 +283,13 @@ function bindCanvasInteractions(opts: {
   addEventListener('keydown', (event) => {
     if (fromForm(event) || event.metaKey || event.ctrlKey || (document.getElementById('about') as HTMLDialogElement).open) return;
     const key = event.key.toLowerCase();
-    if (key === 'escape') { ui.hideCard(); syncCard(null); }
+    if (key === 'escape') { ui.closeCaptureMenu(); ui.hideCard(); syncCard(null); }
     else if (key === 'h' || key === 'home') { rig.goHome(); ui.hideCard(); syncCard(null); }
     else if (key === 'r') mood.setRain(!mood.state.rainTarget);
     else if (key === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
     else if (key === 'l') toggleLabels();
     else if (key === 'v') toggleLook();
+    else if (key === 'p') captureView();
     else if (key === '+' || key === '=') rig.zoomBy(KEYBOARD_ZOOM.inFactor);
     else if (key === '-' || key === '_') rig.zoomBy(KEYBOARD_ZOOM.outFactor);
   });
@@ -451,12 +454,32 @@ async function main() {
   let labels: any;
   let data: any;
   let sharing: any;
+  let captureCtrl: ReturnType<typeof createCapture> | null = null;
+  let isCapturing = false;
   let look = 1; // 1 illustrated (ink line and flat wash), the default, and 0 realistic
   let labelsOn = true;
 
   const whenReady = (fn: (...args: any[]) => any) => (...args: any[]) => (rig ? fn(...args) : undefined);
   const syncCard = (id: string | null = null) => { labels?.setActive?.(id); labels?.invalidateLayout?.(); };
   const toggleLabels = () => { labelsOn = !labelsOn; labels.setEnabled(labelsOn); ui.setLabels(labelsOn); };
+
+  async function runCapture(preset?: CapturePreset) {
+    if (!captureCtrl || captureCtrl.busy) return null;
+    ui.closeCaptureMenu();
+    ui.hint(ui.T.capturing, 0);
+    await nextMacrotask(); // let the button state and hint paint before the synchronous high-res draw
+    try {
+      const result = await captureCtrl.capture(preset ?? (ui.capturePreset as CapturePreset));
+      if (result) {
+        ui.hint(ui.T.captured.replace('{w}', String(result.width)).replace('{h}', String(result.height)), 2800);
+      }
+      return result;
+    } catch (err) {
+      console.error('[hue] capture failed', err);
+      ui.hint(ui.T.captureFailed, 3200);
+      return null;
+    }
+  }
 
   function pick(id: string, fly?: boolean, from?: any) {
     const place = index.places.find((item: any) => item.id === id);
@@ -500,6 +523,8 @@ async function main() {
     rain: whenReady(() => mood.setRain(!mood.state.rainTarget)),
     time: whenReady((idx: number) => mood.setTime(idx)),
     look: whenReady(() => setLook(!look, true)),
+    capture: whenReady((preset?: CapturePreset) => runCapture(preset)),
+    captureSize: (preset: CapturePreset) => captureCtrl?.sizeFor(preset) ?? null,
     share: (id: string | null) => sharing?.share(id),
   });
   performance.mark('hue:search-ready');
@@ -592,6 +617,7 @@ async function main() {
   bindCanvasInteractions({
     rig, data, ui, mood, pick, syncCard, toggleLabels,
     toggleLook: () => setLook(!look, true),
+    captureView: () => { void runCapture(); },
   });
   rig.onInteract(() => ui.hideHint());
 
@@ -643,6 +669,34 @@ async function main() {
     shadows.update(shadowFocus, mood.sunDir, extent);
   }
 
+  function syncGlow() {
+    syncGlowUniforms({ renderer, camera, world, bridge, extraGlows, lanterns, lanternGlows, glow: mood.cur.glow });
+  }
+
+  captureCtrl = createCapture({
+    renderer,
+    scene,
+    camera,
+    post,
+    water,
+    shadows,
+    lowQuality: quality.low,
+    getUsePost: () => usePost,
+    setUsePost: (on) => { usePost = on; },
+    syncGlow,
+    updateShadow,
+    restoreLiveView: () => {
+      resizeBuffers();
+      syncGlow();
+      draw();
+    },
+    getPlaceId: () => ui.cardId || null,
+    onBusy: (busy) => {
+      isCapturing = busy;
+      ui.setCapturing(busy);
+    },
+  });
+
   function step(dt: number) {
     if (pendingResize) {
       const fullResize = pendingResize === RESIZE_FULL;
@@ -672,7 +726,7 @@ async function main() {
     updateShadow();
     sky.mesh.scale.setScalar(camera.far * SKY_FAR_SCALE);
 
-    syncGlowUniforms({ renderer, camera, world, bridge, extraGlows, lanterns, lanternGlows, glow: mood.cur.glow });
+    syncGlow();
 
     if (post) {
       const mist = 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow;
@@ -692,8 +746,10 @@ async function main() {
     const now = performance.now();
     const dt = Math.min(MAX_FRAME_DT_S, (now - lastFrameTime) / 1000);
     lastFrameTime = now;
-    step(dt);
-    adaptive.observe(now);
+    if (!isCapturing) {
+      step(dt);
+      adaptive.observe(now);
+    }
     requestAnimationFrame(tick);
   }
 
@@ -723,7 +779,10 @@ async function main() {
   const tiles = streamRemainingTiles({ data, world, leafMats, shadows, sun, syncLeafLook: () => setLook(look) });
 
   // handle for debugging and automated checks (tiles: resolves once every tile is in the scene)
-  window.__hue = { rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing, tiles, heroes };
+  window.__hue = {
+    rig, mood, data, scene, renderer, world, bridge, pick, step, post, labels, THREE, setLook, shadows, sharing, tiles, heroes,
+    capture: (preset?: CapturePreset, opts?: { download?: boolean }) => captureCtrl?.capture(preset, opts),
+  };
 }
 
 main().catch((err) => {
