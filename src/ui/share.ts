@@ -12,134 +12,194 @@ import * as THREE from 'three';
 import { LAND_Y } from '../config.ts';
 import { rise } from '../geo/terrain.ts';
 
-const VERSION = '1';
-const num = (s) => (typeof s === 'string' && /^-?\d{1,6}(\.\d{1,3})?$/.test(s) ? Number(s) : NaN);
-const r1 = (v) => Math.round(v * 10) / 10;
+const SHARE_VERSION = '1';
+const DECIMETRES_PER_METRE = 10;
+const MIN_ASPECT = 0.2;
+const MAX_ASPECT = 5;
+const MIN_FOV_DEG = 5;
+const MAX_FOV_DEG = 100;
+const BOUNDS_TOLERANCE_M = 0.15;
+const MIN_DIST_MARGIN = 0.95;
+const MAX_DIST_MARGIN = 1.05;
+const COPIED_HINT_MS = 2600;
+const DEFAULT_KEEP_WIDTH = 0.75;
+const MIN_PLACE_KEEP_WIDTH = 0.5;
+const PLACE_NDC_SCALE = 1.1;
+const PLACE_NDC_PAD = 0.15;
+const LENS_SETTLE_ITERATIONS = 4;
+const SHEET_LEFT_MAX_RATIO = 0.25;
+const SHEET_RIGHT_MIN_RATIO = 0.75;
+const SHEET_MIN_STRIP_PX = 60;
+const MIN_DOWNWARD_LOOK_Y = -0.05;
+
+const parseStrictNum = (str: string | null) => (typeof str === 'string' && /^-?\d{1,6}(\.\d{1,3})?$/.test(str) ? Number(str) : NaN);
+const round1 = (val: number) => Math.round(val * 10) / 10;
+const round2 = (val: number) => Math.round(val * 100) / 100;
 
 // Parse and check a query string. Returns null for anything missing, malformed or out of range.
-export function parseShare(search, { places, bounds, minDistance, maxDistance }) {
-  const q = new URLSearchParams(search);
-  if (q.get('v') !== VERSION) return null;
-  const c = (q.get('c') || '').split(',').map(num), t = (q.get('t') || '').split(',').map(num);
-  const a = num(q.get('a')), f = num(q.get('f')), m = q.get('m') || '', p = q.get('p');
-  if (c.length !== 3 || t.length !== 2 || ![...c, ...t, a, f].every(Number.isFinite)) return null;
-  if (!/^[012][01][ir]$/.test(m)) return null;
-  if (a < 0.2 || a > 5 || f < 5 || f > 100) return null;
-  const pos = new THREE.Vector3(c[0], c[1], c[2]), target = new THREE.Vector3(t[0], LAND_Y, t[1]);
-  const tol = 0.15;
-  if (target.x < bounds.minX - tol || target.x > bounds.maxX + tol || target.z < bounds.minZ - tol || target.z > bounds.maxZ + tol) return null;
-  const d = pos.distanceTo(target);
-  if (pos.y <= LAND_Y || d < minDistance * 0.95 || d > maxDistance * 1.05) return null;
-  if (p !== null && !places.some((x) => x.id === p)) return null;
-  return { pos, target, aspect: a, fov: f, time: +m[0], rain: m[1] === '1', ink: m[2] === 'i', place: p };
+export function parseShare(search: string, { places, bounds, minDistance, maxDistance }: any) {
+  const params = new URLSearchParams(search);
+  if (params.get('v') !== SHARE_VERSION) return null;
+  const camCoords = (params.get('c') || '').split(',').map(parseStrictNum);
+  const targetCoords = (params.get('t') || '').split(',').map(parseStrictNum);
+  const aspect = parseStrictNum(params.get('a'));
+  const fov = parseStrictNum(params.get('f'));
+  const moodCode = params.get('m') || '';
+  const placeId = params.get('p');
+
+  if (camCoords.length !== 3 || targetCoords.length !== 2 || ![...camCoords, ...targetCoords, aspect, fov].every(Number.isFinite)) return null;
+  if (!/^[012][01][ir]$/.test(moodCode)) return null;
+  if (aspect < MIN_ASPECT || aspect > MAX_ASPECT || fov < MIN_FOV_DEG || fov > MAX_FOV_DEG) return null;
+
+  const pos = new THREE.Vector3(camCoords[0], camCoords[1], camCoords[2]);
+  const target = new THREE.Vector3(targetCoords[0], LAND_Y, targetCoords[1]);
+  if (
+    target.x < bounds.minX - BOUNDS_TOLERANCE_M || target.x > bounds.maxX + BOUNDS_TOLERANCE_M
+    || target.z < bounds.minZ - BOUNDS_TOLERANCE_M || target.z > bounds.maxZ + BOUNDS_TOLERANCE_M
+  ) return null;
+
+  const dist = pos.distanceTo(target);
+  if (pos.y <= LAND_Y || dist < minDistance * MIN_DIST_MARGIN || dist > maxDistance * MAX_DIST_MARGIN) return null;
+  if (placeId !== null && !places.some((item: any) => item.id === placeId)) return null;
+
+  return { pos, target, aspect, fov, time: +moodCode[0], rain: moodCode[1] === '1', ink: moodCode[2] === 'i', place: placeId };
+}
+
+async function copyToClipboard(url: string) {
+  try { await navigator.clipboard.writeText(url); return true; } catch { /* no permission or no clipboard API */ }
+  const textarea = document.createElement('textarea');
+  textarea.value = url;
+  textarea.setAttribute('readonly', '');
+  textarea.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+  document.body.append(textarea);
+  textarea.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+  textarea.remove();
+  return ok;
+}
+
+function computeKeepWidthFraction(view: any, places: any[]) {
+  if (!view.place) return DEFAULT_KEEP_WIDTH;
+  const place = places.find((item: any) => item.id === view.place);
+  const srcCam = new THREE.PerspectiveCamera(view.fov, view.aspect, 1, 10);
+  srcCam.position.copy(view.pos);
+  srcCam.lookAt(view.target);
+  srcCam.updateMatrixWorld();
+  const px = place.x / DECIMETRES_PER_METRE;
+  const pz = place.z / DECIMETRES_PER_METRE;
+  const ndcX = Math.abs(new THREE.Vector3(px, LAND_Y + rise(px, pz), pz).project(srcCam).x);
+  return Math.min(1, Math.max(MIN_PLACE_KEEP_WIDTH, ndcX * PLACE_NDC_SCALE + PLACE_NDC_PAD));
+}
+
+// On a phone the card is a sheet across the lower half: from the same spot, tip the camera down until the point it
+// centred on sits in the middle of the strip left above the card (its distance, so its size, stays the same).
+function shiftTargetAbovePhoneCard(view: any, camera: THREE.PerspectiveCamera, controls: any, bounds: any) {
+  const cardEl = document.getElementById('card')!;
+  const cardRect = cardEl.getBoundingClientRect();
+  const searchRect = document.getElementById('search')!.getBoundingClientRect();
+  // the card grows to its full height once the stories load, so plan for that height
+  const cardTop = Math.min(cardRect.top, cardRect.bottom - (parseFloat(getComputedStyle(cardEl).maxHeight) || 0));
+  const isFullWidthSheet = cardRect.height > 0
+    && cardRect.left < innerWidth * SHEET_LEFT_MAX_RATIO
+    && cardRect.right > innerWidth * SHEET_RIGHT_MIN_RATIO
+    && cardTop - searchRect.bottom > SHEET_MIN_STRIP_PX;
+  if (!view.place || !isFullWidthSheet) return;
+
+  const goalNdcY = 1 - (searchRect.bottom + cardTop) / innerHeight;
+  const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  const lookDir = view.target.clone().sub(camera.position).normalize().applyAxisAngle(camRight, -Math.atan(goalNdcY * tanHalfFov));
+  const rayDist = (LAND_Y - camera.position.y) / lookDir.y;
+  if (lookDir.y < MIN_DOWNWARD_LOOK_Y && rayDist > controls.minDistance) {
+    controls.target.copy(camera.position).addScaledVector(lookDir, rayDist);
+    controls.target.x = Math.max(bounds.minX, Math.min(bounds.maxX, controls.target.x));
+    controls.target.z = Math.max(bounds.minZ, Math.min(bounds.maxZ, controls.target.z));
+  }
 }
 
 // rig: src/camera/controls.js; mood: src/env/mood.js; setLook(ink); pick(id, fly) opens a card; ui for the feedback.
-export function createShare({ data, rig, mood, setLook, pick, ui, bounds }) {
+export function createShare({ data, rig, mood, setLook, pick, ui, bounds }: any) {
   const { camera, controls } = rig;
 
-  function link(placeId) {
-    const t = controls.target, p = camera.position, s = mood.state;
-    const q = [
-      `v=${VERSION}`,
-      `c=${r1(p.x)},${r1(p.y)},${r1(p.z)}`,
-      `t=${r1(t.x)},${r1(t.z)}`,
-      `a=${(Math.round(camera.aspect * 100) / 100)}`,
-      `f=${r1(camera.fov)}`,
-      `m=${s.timeTarget}${s.rainTarget ? 1 : 0}${s.look ? 'i' : 'r'}`,
+  function link(placeId: string | null) {
+    const target = controls.target;
+    const pos = camera.position;
+    const moodState = mood.state;
+    const parts = [
+      `v=${SHARE_VERSION}`,
+      `c=${round1(pos.x)},${round1(pos.y)},${round1(pos.z)}`,
+      `t=${round1(target.x)},${round1(target.z)}`,
+      `a=${round2(camera.aspect)}`,
+      `f=${round1(camera.fov)}`,
+      `m=${moodState.timeTarget}${moodState.rainTarget ? 1 : 0}${moodState.look ? 'i' : 'r'}`,
     ];
-    if (placeId) q.push(`p=${encodeURIComponent(placeId)}`);
-    return `${location.origin}${location.pathname}?${q.join('&')}`;
-  }
-
-  async function copy(url) {
-    try { await navigator.clipboard.writeText(url); return true; } catch { /* no permission or no clipboard API */ }
-    const ta = document.createElement('textarea');
-    ta.value = url; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-    document.body.append(ta); ta.select();
-    let ok = false;
-    try { ok = document.execCommand('copy'); } catch { /* not supported */ }
-    ta.remove();
-    return ok;
+    if (placeId) parts.push(`p=${encodeURIComponent(placeId)}`);
+    return `${location.origin}${location.pathname}?${parts.join('&')}`;
   }
 
   // The system share sheet where there is one, otherwise the clipboard with a short note.
-  async function share(placeId) {
+  async function share(placeId: string | null) {
     const url = link(placeId);
-    const p = placeId && data.places.find((x) => x.id === placeId);
+    const place = placeId && data.places.find((item: any) => item.id === placeId);
     if (navigator.share) {
-      try { await navigator.share({ title: p ? `${p.n} · Huế` : document.title, url }); return url; } catch (e: any) {
-        if (e && e.name === 'AbortError') return url; // the visitor closed the sheet
+      try {
+        await navigator.share({ title: place ? `${place.n} · Huế` : document.title, url });
+        return url;
+      } catch (err: any) {
+        if (err && err.name === 'AbortError') return url; // the visitor closed the sheet
       }
     }
-    if (await copy(url)) ui.hint(ui.T.copied, 2600);
-    else window.prompt(ui.T?.share || 'Share link', url); // nothing could copy it: show the link in a selectable prompt
+    if (await copyToClipboard(url)) ui.hint(ui.T.copied, COPIED_HINT_MS);
+    else window.prompt(ui.T?.share || 'Share link', url);
     return url;
   }
 
   // On load: if the URL carries a valid view, set the atmosphere and the camera at once (no opening flight) and open
   // the card. Returns the parsed view, or null when the normal opening should play.
   function apply() {
-    const v = parseShare(location.search, { places: data.places, bounds, minDistance: controls.minDistance, maxDistance: controls.maxDistance });
-    if (!v) return null;
-    setLook(v.ink); // not remembered: a shared link does not change the visitor's own choice
-    mood.setTime(v.time);
-    mood.setRain(v.rain);
+    const view = parseShare(location.search, {
+      places: data.places, bounds, minDistance: controls.minDistance, maxDistance: controls.maxDistance,
+    });
+    if (!view) return null;
+
+    setLook(view.ink); // not remembered: a shared link does not change the visitor's own choice
+    mood.setTime(view.time);
+    mood.setRain(view.rain);
     mood.state.time = mood.state.timeTarget; // settled from the first frame, not faded in
     mood.state.rain = mood.state.rainTarget;
     rig.cancelFly();
-    if (v.place) pick(v.place, false); // first, so the camera below can keep clear of the card
-    // Keep the target and the direction and change only the distance, so that what mattered in the frame the link was
-    // made in fits this window: all of its height, and as much of its width as the landmark needs (half of it for a
-    // landmark in the middle, all of it for one near the edge; three quarters of a free view). Matching the whole width
-    // would put a wide desktop view a long way off on a phone, whose lens narrows from the air.
-    let keepW = 0.75;
-    if (v.place) {
-      const p = data.places.find((x) => x.id === v.place);
-      const src = new THREE.PerspectiveCamera(v.fov, v.aspect, 1, 10);
-      src.position.copy(v.pos); src.lookAt(v.target); src.updateMatrixWorld();
-      const x = Math.abs(new THREE.Vector3(p.x / 10, LAND_Y + rise(p.x / 10, p.z / 10), p.z / 10).project(src).x);
-      keepW = Math.min(1, Math.max(0.5, x * 1.1 + 0.15));
-    }
-    const dir = v.pos.clone().sub(v.target), d0 = dir.length();
-    dir.divideScalar(d0);
-    const tv0 = Math.tan(THREE.MathUtils.degToRad(v.fov / 2)), th0 = tv0 * v.aspect;
-    const place = (d) => {
-      controls.target.copy(v.target);
-      camera.position.copy(v.target).addScaledVector(dir, d);
+    if (view.place) pick(view.place, false); // first, so the camera below can keep clear of the card
+
+    const keepWidth = computeKeepWidthFraction(view, data.places);
+    const dir = view.pos.clone().sub(view.target);
+    const origDist = dir.length();
+    dir.divideScalar(origDist);
+    const origTanV = Math.tan(THREE.MathUtils.degToRad(view.fov / 2));
+    const origTanH = origTanV * view.aspect;
+
+    const placeCameraAt = (dist: number) => {
+      controls.target.copy(view.target);
+      camera.position.copy(view.target).addScaledVector(dir, dist);
       camera.lookAt(controls.target);
       camera.updateMatrixWorld();
     };
-    let d = d0;
-    for (let i = 0; i < 4; i++) { // the lens follows the camera height (rig.update), so settle over a few rounds
-      place(d);
-      rig.update(0, false); // sets the lens for this height and aspect
-      const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)), th = tv * camera.aspect;
-      d = Math.max(controls.minDistance, Math.min(controls.maxDistance, d0 * Math.max(1, tv0 / tv, keepW * th0 / th)));
+
+    let dist = origDist;
+    for (let i = 0; i < LENS_SETTLE_ITERATIONS; i++) { // the lens follows the camera height (rig.update), so settle over a few rounds
+      placeCameraAt(dist);
+      rig.update(0, false);
+      const tanV = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const tanH = tanV * camera.aspect;
+      dist = Math.max(controls.minDistance, Math.min(controls.maxDistance, origDist * Math.max(1, origTanV / tanV, keepWidth * origTanH / tanH)));
     }
-    place(d);
+    placeCameraAt(dist);
     rig.update(0, false);
-    // On a phone the card is a sheet across the lower half: from the same spot, tip the camera down until the point it
-    // centred on sits in the middle of the strip left above the card (its distance, so its size, stays the same).
-    const cardEl = document.getElementById('card'), card = cardEl.getBoundingClientRect(), bar = document.getElementById('search').getBoundingClientRect();
-    // the card grows to its full height once the stories load, so plan for that height
-    const cardTop = Math.min(card.top, card.bottom - (parseFloat(getComputedStyle(cardEl).maxHeight) || 0));
-    if (v.place && card.height && card.left < innerWidth * 0.25 && card.right > innerWidth * 0.75 && cardTop - bar.bottom > 60) {
-      const goal = 1 - (bar.bottom + cardTop) / innerHeight; // NDC y of the strip's middle
-      const tv = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-      const look = v.target.clone().sub(camera.position).normalize().applyAxisAngle(right, -Math.atan(goal * tv));
-      const t = (LAND_Y - camera.position.y) / look.y;
-      if (look.y < -0.05 && t > controls.minDistance) {
-        controls.target.copy(camera.position).addScaledVector(look, t);
-        controls.target.x = Math.max(bounds.minX, Math.min(bounds.maxX, controls.target.x));
-        controls.target.z = Math.max(bounds.minZ, Math.min(bounds.maxZ, controls.target.z));
-      }
-    }
+    shiftTargetAbovePhoneCard(view, camera, controls, bounds);
     controls.update();
     rig.update(0); // clamps to the map and above the hills, settles the lens
     rig.leaveOpening(); // no longer the opening view: a resize keeps this view and the drift never starts
-    return v;
+    return view;
   }
 
   return { link, share, apply };

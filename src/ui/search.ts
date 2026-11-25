@@ -4,25 +4,34 @@ import { fromForm } from '../camera/controls.ts';
 // The search box: a map-style bar whose panel lists the places of the model. Nothing is looked up online: the
 // index is the place list in hue.json plus the titles, kinds and summaries of stories.json and the short notes.
 
+const NAME_RANK_SCORES = [60, 85, 100] as const; // substring, word-start, prefix
+const KIND_MATCH_SCORE = 40;
+const TEXT_WORD_START_SCORE = 20;
+const IME_COMPOSING_KEYCODE = 229;
+const SHORT_PLACEHOLDER_BREAKPOINT_PX = 900;
+
 // Fold a string for matching: lower case, no tone or vowel marks, đ as d, punctuation as a space. One output
 // character per input character, so a match found in the folded text marks the same range of the original.
-const foldChar = (c) => {
-  if (c === 'đ' || c === 'Đ') return 'd';
-  const b = c.normalize('NFD')[0].toLowerCase();
-  return /[\p{L}\p{N}]/u.test(b) && b.length === 1 ? b : ' ';
+const foldChar = (ch: string) => {
+  if (ch === 'đ' || ch === 'Đ') return 'd';
+  const base = ch.normalize('NFD')[0].toLowerCase();
+  return /[\p{L}\p{N}]/u.test(base) && base.length === 1 ? base : ' ';
 };
-export const fold = (s) => Array.from(String(s).normalize('NFC'), (c) => (c.length === 1 ? foldChar(c) : ' '.repeat(c.length))).join('');
+export const fold = (str: string) => Array.from(
+  String(str).normalize('NFC'),
+  (ch) => (ch.length === 1 ? foldChar(ch) : ' '.repeat(ch.length)),
+).join('');
 
-// where token t sits in folded text f: start of the text, start of a word, or anywhere; -1 if nowhere
-function findToken(f, t) {
-  if (f.startsWith(t)) return { at: 0, rank: 2 };
-  const w = f.indexOf(' ' + t);
-  if (w >= 0) return { at: w + 1, rank: 1 };
-  const a = f.indexOf(t);
-  return a >= 0 ? { at: a, rank: 0 } : null;
+// where token sits in folded text: start of the text (rank 2), start of a word (rank 1), or anywhere (rank 0); null if nowhere
+function findToken(folded: string, token: string) {
+  if (folded.startsWith(token)) return { at: 0, rank: 2 };
+  const wordPos = folded.indexOf(` ${token}`);
+  if (wordPos >= 0) return { at: wordPos + 1, rank: 1 };
+  const anyPos = folded.indexOf(token);
+  return anyPos >= 0 ? { at: anyPos, rank: 0 } : null;
 }
 
-const ICONS = {
+const ICONS: Record<string, string> = {
   bridge: '<path d="M3 16.5h18M5 16.5c1.5-7 12.5-7 14 0M8.5 16.5v-3.6M12 16.5v-5.2M15.5 16.5v-3.6"/>',
   market: '<path d="M4 10l1.6-4h12.8L20 10M5.5 10v8.5h13V10M4 10h16M10 18.5v-4.5h4v4.5"/>',
   monument: '<path d="M3.5 11c3.2-.4 6.4-2.2 8.5-5.5 2.1 3.3 5.3 5.1 8.5 5.5M6.5 11v7.5M17.5 11v7.5M4 18.5h16M10 18.5v-4h4v4"/>',
@@ -34,219 +43,339 @@ const ICONS = {
   craft: '<path d="M9.5 4.5h5M10.5 4.5v3C7.5 8.7 6 11.1 6 14c0 3.3 2.7 5.5 6 5.5s6-2.2 6-5.5c0-2.9-1.5-5.3-4.5-6.5v-3M7 13.5h10"/>',
   overview: '<circle cx="12" cy="12" r="8.5"/><path d="M15.5 8.500l-2 5-5 2 2-5z"/>',
 };
+
 // filter chips, in the order of STR.filters; null is "all"
 const FILTERS = [null, ['monument', 'area'], ['bridge'], ['market'], ['gate'], ['water', 'island'], ['craft'], ['place']];
 
-export function createSearch(ctx) {
-  // ctx: { places, T(), lang(), stories(), loadStories(), seen, currentId(), pick(id), overview(), clear() }
-  const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
-  const box = $('search'), input = $<HTMLInputElement>('q'), clearBtn = $('q-clear'), toggle = $('q-toggle');
-  const panel = $('panel'), kinds = $('kinds'), results = $('results'), none = $('no-results');
-  const tx = (o) => (o && (o[ctx.lang()] || o.vi || o.en)) || '';
-  let open = false, filter = 0, active = -1, rows = [], shown = null, index = null, indexedStories = null;
+interface SearchEntry {
+  names: string[];
+  kinds: string;
+  text: string;
+}
 
-  // ---- index: folded names, kinds and descriptive text of every place, in both languages ----
-  function buildIndex() {
-    const stories = ctx.stories() || {};
-    indexedStories = ctx.stories();
-    index = new Map();
-    for (const p of ctx.places) {
-      const st = stories[p.id], note = NOTES[p.id] || (p.k === 'gate' ? NOTES.gate : null);
-      const names = [...new Set([p.n, st && st.title && st.title.vi, st && st.title && st.title.en].filter(Boolean))];
-      const kindWords = [ctx.Tof('vi').kinds[p.k], ctx.Tof('en').kinds[p.k], st && st.kind && st.kind.vi, st && st.kind && st.kind.en].filter(Boolean);
-      const text = [note && note.vi, note && note.en, st && st.summary && st.summary.vi, st && st.summary && st.summary.en].filter(Boolean);
-      index.set(p.id, { names: names.map(fold), kinds: fold(kindWords.join(' ')), text: fold(text.join(' ')) });
+function buildSearchIndex(places: any[], stories: Record<string, any>, Tof: (lang: string) => any) {
+  const index = new Map<string, SearchEntry>();
+  for (const place of places) {
+    const story = stories[place.id];
+    const note = NOTES[place.id] || (place.k === 'gate' ? NOTES.gate : null);
+    const names = [...new Set([place.n, story?.title?.vi, story?.title?.en].filter(Boolean))];
+    const kindWords = [Tof('vi').kinds[place.k], Tof('en').kinds[place.k], story?.kind?.vi, story?.kind?.en].filter(Boolean);
+    const text = [note?.vi, note?.en, story?.summary?.vi, story?.summary?.en].filter(Boolean);
+    index.set(place.id, {
+      names: names.map(fold),
+      kinds: fold(kindWords.join(' ')),
+      text: fold(text.join(' ')),
+    });
+  }
+  return index;
+}
+
+function scorePlace(entry: SearchEntry, tokens: string[]) {
+  let total = 0;
+  for (const token of tokens) {
+    let best = 0;
+    for (const foldedName of entry.names) {
+      const match = findToken(foldedName, token);
+      if (match) best = Math.max(best, NAME_RANK_SCORES[match.rank]);
+    }
+    if (best < KIND_MATCH_SCORE && findToken(entry.kinds, token)) best = KIND_MATCH_SCORE;
+    if (!best) {
+      const match = findToken(entry.text, token);
+      if (match && match.rank) best = TEXT_WORD_START_SCORE; // descriptions: whole-word starts only
+    }
+    if (!best) return 0;
+    total += best;
+  }
+  return total;
+}
+
+function createKindIcon(kind: string) {
+  const span = document.createElement('span');
+  span.className = 'ic';
+  span.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[kind] || ICONS.place}</svg>`;
+  return span;
+}
+
+function highlightMatches(name: string, tokens: string[]) {
+  const bold = document.createElement('b');
+  const folded = fold(name);
+  const highlighted = new Array<boolean>(name.length).fill(false);
+  for (const token of tokens) {
+    const match = findToken(folded, token);
+    if (match) {
+      for (let i = match.at; i < match.at + token.length; i++) highlighted[i] = true;
     }
   }
-  function score(p, tokens) {
-    const e = index.get(p.id);
-    let total = 0;
-    for (const t of tokens) {
-      let best = 0;
-      for (const f of e.names) { const m = findToken(f, t); if (m) best = Math.max(best, [60, 85, 100][m.rank]); }
-      if (best < 40 && findToken(e.kinds, t)) best = 40;
-      if (!best) { const m = findToken(e.text, t); if (m && m.rank) best = 20; } // descriptions: whole-word starts only
-      if (!best) return 0;
-      total += best;
+  for (let i = 0; i < name.length;) {
+    let end = i;
+    while (end < name.length && highlighted[end] === highlighted[i]) end++;
+    if (highlighted[i]) {
+      const mark = document.createElement('mark');
+      mark.textContent = name.slice(i, end);
+      bold.append(mark);
+    } else {
+      bold.append(name.slice(i, end));
     }
-    return total;
+    i = end;
+  }
+  return bold;
+}
+
+export function createSearch(ctx: any) {
+  const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+  const box = byId('search');
+  const input = byId<HTMLInputElement>('q');
+  const clearBtn = byId('q-clear');
+  const toggleBtn = byId('q-toggle');
+  const panel = byId('panel');
+  const kindsBar = byId('kinds');
+  const resultsEl = byId('results');
+  const emptyMsgEl = byId('no-results');
+
+  const localize = (obj: any) => (obj && (obj[ctx.lang()] || obj.vi || obj.en)) || '';
+  const displayNameOf = (place: any) => {
+    const story = (ctx.stories() || {})[place.id];
+    return ((ctx.lang() === 'en' && story && localize(story.title)) || place.n).normalize('NFC');
+  };
+
+  let isOpen = false;
+  let activeFilter = 0;
+  let activeRowIdx = -1;
+  let rows: { id: string | null; el: HTMLButtonElement }[] = [];
+  let shownName: string | null = null;
+  let searchIndex: Map<string, SearchEntry> | null = null;
+  let indexedStories: any = null;
+
+  const queryText = () => (shownName !== null && input.value === shownName ? '' : input.value.trim());
+
+  function addRow(id: string | null, kind: string, nameEl: HTMLElement, subtitle: string) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'row';
+    btn.tabIndex = -1;
+    btn.id = `opt-${rows.length}`;
+    btn.setAttribute('role', 'option');
+
+    const textWrap = document.createElement('span');
+    textWrap.className = 'tx';
+    textWrap.append(nameEl);
+    if (subtitle) {
+      const subEl = document.createElement('small');
+      subEl.textContent = subtitle;
+      textWrap.append(subEl);
+    }
+    btn.append(createKindIcon(kind), textWrap);
+    if (id && ctx.seen.has(id)) btn.classList.add('seen');
+    if (id && id === ctx.currentId()) btn.classList.add('current');
+    resultsEl.append(btn);
+    rows.push({ id, el: btn });
   }
 
-  const nameOf = (p) => { const st = (ctx.stories() || {})[p.id]; return ((ctx.lang() === 'en' && st && tx(st.title)) || p.n).normalize('NFC'); };
-  const queryText = () => (shown !== null && input.value === shown ? '' : input.value.trim());
-
-  // ---- rows ----
-  function icon(kind) {
-    const s = document.createElement('span');
-    s.className = 'ic';
-    s.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[kind] || ICONS.place}</svg>`;
-    return s;
-  }
-  function marked(name, tokens) {
-    const el = document.createElement('b');
-    const f = fold(name), on = new Array(name.length).fill(false);
-    for (const t of tokens) { const m = findToken(f, t); if (m) for (let i = m.at; i < m.at + t.length; i++) on[i] = true; }
-    for (let i = 0; i < name.length;) {
-      let j = i;
-      while (j < name.length && on[j] === on[i]) j++;
-      if (on[i]) { const mk = document.createElement('mark'); mk.textContent = name.slice(i, j); el.append(mk); } else el.append(name.slice(i, j));
-      i = j;
-    }
-    return el;
-  }
-  function addRow(id, kind, nameEl, sub) {
-    const b = document.createElement('button');
-    b.type = 'button'; b.className = 'row'; b.tabIndex = -1;
-    b.id = 'opt-' + rows.length;
-    b.setAttribute('role', 'option');
-    const t = document.createElement('span'); t.className = 'tx';
-    t.append(nameEl);
-    if (sub) { const s = document.createElement('small'); s.textContent = sub; t.append(s); }
-    b.append(icon(kind), t);
-    if (id && ctx.seen.has(id)) b.classList.add('seen');
-    if (id && id === ctx.currentId()) b.classList.add('current');
-    results.append(b);
-    rows.push({ id, el: b });
-  }
-  function placeRow(p, tokens) {
-    const T = ctx.T(), st = (ctx.stories() || {})[p.id], note = NOTES[p.id] || (p.k === 'gate' ? NOTES.gate : null);
-    const name = nameOf(p);
-    const parts = [tx(st && st.kind) || T.kinds[p.k] || T.kinds.place];
-    if (name !== p.n.normalize('NFC')) parts.push(p.n);
-    const blurb = tx(st && st.summary) || (note ? note[ctx.lang()] : '');
+  function addPlaceRow(place: any, tokens: string[]) {
+    const strings = ctx.T();
+    const story = (ctx.stories() || {})[place.id];
+    const note = NOTES[place.id] || (place.k === 'gate' ? NOTES.gate : null);
+    const name = displayNameOf(place);
+    const parts = [localize(story && story.kind) || strings.kinds[place.k] || strings.kinds.place];
+    if (name !== place.n.normalize('NFC')) parts.push(place.n);
+    const blurb = localize(story && story.summary) || (note ? note[ctx.lang()] : '');
     if (blurb) parts.push(blurb);
-    addRow(p.id, p.k, marked(name, tokens), parts.join(' · '));
+    addRow(place.id, place.k, highlightMatches(name, tokens), parts.join(' · '));
   }
-  function setActive(i, scroll) {
-    active = i;
-    rows.forEach((r, k) => { r.el.classList.toggle('active', k === i); r.el.setAttribute('aria-selected', String(k === i)); });
-    if (i >= 0 && rows[i]) { input.setAttribute('aria-activedescendant', rows[i].el.id); if (scroll) rows[i].el.scrollIntoView({ block: 'nearest' }); } else input.removeAttribute('aria-activedescendant');
+
+  function setActiveRow(index: number, shouldScroll: boolean) {
+    activeRowIdx = index;
+    rows.forEach((row, idx) => {
+      row.el.classList.toggle('active', idx === index);
+      row.el.setAttribute('aria-selected', String(idx === index));
+    });
+    if (index >= 0 && rows[index]) {
+      input.setAttribute('aria-activedescendant', rows[index].el.id);
+      if (shouldScroll) rows[index].el.scrollIntoView({ block: 'nearest' });
+    } else {
+      input.removeAttribute('aria-activedescendant');
+    }
+  }
+
+  function renderGroupedOverview(tokens: string[]) {
+    const strings = ctx.T();
+    const overviewLabel = document.createElement('b');
+    overviewLabel.textContent = strings.overview;
+    addRow(null, 'overview', overviewLabel, '');
+    rows[0].el.classList.add('ov');
+
+    const byPlaceId = new Map(ctx.places.map((place: any) => [place.id, place]));
+    PLACE_GROUPS.forEach((group, groupIdx) => {
+      const groupPlaces = group.ids.map((id) => byPlaceId.get(id)).filter(Boolean);
+      if (!groupPlaces.length) return;
+      const heading = document.createElement('div');
+      heading.className = 'rgroup';
+      heading.textContent = strings.groups[groupIdx];
+      heading.setAttribute('role', 'presentation');
+      resultsEl.append(heading);
+      groupPlaces.forEach((place) => addPlaceRow(place, tokens));
+    });
   }
 
   function render() {
-    const T = ctx.T();
-    if (!index || indexedStories !== ctx.stories()) buildIndex();
-    const q = queryText(), tokens = fold(q).split(' ').filter(Boolean);
-    results.textContent = ''; rows = [];
-    let message = '';
-    if (!tokens.length && filter === 0) {
-      // nothing asked yet: the whole model, then the short walk through the city in its groups
-      const ov = document.createElement('b'); ov.textContent = T.overview;
-      addRow(null, 'overview', ov, '');
-      rows[0].el.classList.add('ov');
-      const byId = new Map(ctx.places.map((p) => [p.id, p]));
-      PLACE_GROUPS.forEach((g, gi) => {
-        const ps = g.ids.map((id) => byId.get(id)).filter(Boolean);
-        if (!ps.length) return;
-        const h = document.createElement('div'); h.className = 'rgroup'; h.textContent = T.groups[gi]; h.setAttribute('role', 'presentation');
-        results.append(h);
-        ps.forEach((p) => placeRow(p, tokens));
-      });
-    } else {
-      const want = FILTERS[filter];
-      const found = ctx.places.filter((p) => !want || want.includes(p.k)).map((p) => ({ p, s: tokens.length ? score(p, tokens) : 1 })).filter((r) => r.s > 0);
-      found.sort((a, b) => b.s - a.s || a.p.t - b.p.t || a.p.n.localeCompare(b.p.n, 'vi'));
-      found.forEach((r) => placeRow(r.p, tokens));
-      if (!found.length) message = !tokens.length ? T.noneOfKind : T.noResults.replace('{q}', q);
+    const strings = ctx.T();
+    if (!searchIndex || indexedStories !== ctx.stories()) {
+      indexedStories = ctx.stories();
+      searchIndex = buildSearchIndex(ctx.places, indexedStories || {}, ctx.Tof);
     }
-    none.textContent = message; none.hidden = !message;
-    results.hidden = !rows.length;
-    results.scrollTop = 0;
-    setActive(tokens.length && rows.length ? 0 : -1, false);
-    [...kinds.children].forEach((b, i) => b.setAttribute('aria-pressed', String(i === filter)));
+    const query = queryText();
+    const tokens = fold(query).split(' ').filter(Boolean);
+    resultsEl.textContent = '';
+    rows = [];
+    let emptyMessage = '';
+
+    if (!tokens.length && activeFilter === 0) {
+      renderGroupedOverview(tokens);
+    } else {
+      const allowedKinds = FILTERS[activeFilter];
+      const matches = ctx.places
+        .filter((place: any) => !allowedKinds || allowedKinds.includes(place.k))
+        .map((place: any) => ({ place, score: tokens.length ? scorePlace(searchIndex!.get(place.id)!, tokens) : 1 }))
+        .filter((item: any) => item.score > 0);
+      matches.sort((a: any, b: any) => b.score - a.score || a.place.t - b.place.t || a.place.n.localeCompare(b.place.n, 'vi'));
+      matches.forEach((item: any) => addPlaceRow(item.place, tokens));
+      if (!matches.length) emptyMessage = !tokens.length ? strings.noneOfKind : strings.noResults.replace('{q}', query);
+    }
+
+    emptyMsgEl.textContent = emptyMessage;
+    emptyMsgEl.hidden = !emptyMessage;
+    resultsEl.hidden = !rows.length;
+    resultsEl.scrollTop = 0;
+    setActiveRow(tokens.length && rows.length ? 0 : -1, false);
+    [...kindsBar.children].forEach((btn, idx) => btn.setAttribute('aria-pressed', String(idx === activeFilter)));
     clearBtn.hidden = !input.value;
   }
 
-  function setOpen(on) {
-    if (open === on) return;
-    open = on;
-    panel.hidden = !on;
-    box.classList.toggle('open', on);
-    input.setAttribute('aria-expanded', String(on));
-    toggle.setAttribute('aria-expanded', String(on));
-    if (on) { ctx.loadStories(); render(); } else { input.removeAttribute('aria-activedescendant'); }
+  function setOpen(nextOpen: boolean) {
+    if (isOpen === nextOpen) return;
+    isOpen = nextOpen;
+    panel.hidden = !nextOpen;
+    box.classList.toggle('open', nextOpen);
+    input.setAttribute('aria-expanded', String(nextOpen));
+    toggleBtn.setAttribute('aria-expanded', String(nextOpen));
+    if (nextOpen) { ctx.loadStories(); render(); }
+    else input.removeAttribute('aria-activedescendant');
   }
-  function choose(row) {
+
+  function chooseRow(row: { id: string | null; el: HTMLButtonElement } | undefined | null) {
     if (!row) return;
     setOpen(false);
     input.blur();
     // the input is blurred by now, so it is passed as the card's opener: closing the card returns focus here
-    if (row.id) ctx.pick(row.id, input); else { if (shown === null) input.value = ''; clearBtn.hidden = !input.value; ctx.overview(); }
+    if (row.id) {
+      ctx.pick(row.id, input);
+    } else {
+      if (shownName === null) input.value = '';
+      clearBtn.hidden = !input.value;
+      ctx.overview();
+    }
   }
 
-  // ---- filter chips ----
-  FILTERS.forEach((_, i) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.addEventListener('click', () => { filter = i; render(); });
-    kinds.append(b);
+  // ---- filter chips & events ----
+  FILTERS.forEach((_, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.addEventListener('click', () => { activeFilter = idx; render(); });
+    kindsBar.append(btn);
   });
 
-  // ---- wiring ----
-  input.addEventListener('focus', () => { setOpen(true); if (shown !== null && input.value === shown) input.select(); });
-  input.addEventListener('input', () => { if (open) render(); else setOpen(true); });
-  input.addEventListener('keydown', (e) => {
-    if (e.isComposing || e.keyCode === 229) return; // an IME (Telex, VNI) is still composing: its Enter commits the word, not a pick
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (!open) { setOpen(true); return; }
-      if (rows.length) setActive((active + (e.key === 'ArrowDown' ? 1 : -1) + rows.length + (active < 0 && e.key === 'ArrowUp' ? 1 : 0)) % rows.length, true);
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (!open) { setOpen(true); return; }
-      choose(rows[active] || (queryText() ? rows[0] : null));
+  input.addEventListener('focus', () => {
+    setOpen(true);
+    if (shownName !== null && input.value === shownName) input.select();
+  });
+  input.addEventListener('input', () => { if (isOpen) render(); else setOpen(true); });
+  input.addEventListener('keydown', (event) => {
+    if (event.isComposing || event.keyCode === IME_COMPOSING_KEYCODE) return; // IME (Telex, VNI) is still composing
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (!isOpen) { setOpen(true); return; }
+      if (rows.length) {
+        const delta = event.key === 'ArrowDown' ? 1 : -1;
+        const wrapOffset = activeRowIdx < 0 && event.key === 'ArrowUp' ? 1 : 0;
+        setActiveRow((activeRowIdx + delta + rows.length + wrapOffset) % rows.length, true);
+      }
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (!isOpen) { setOpen(true); return; }
+      chooseRow(rows[activeRowIdx] || (queryText() ? rows[0] : null));
     }
   });
-  box.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-    if (!open && document.activeElement !== input) return;
-    e.preventDefault();
+
+  box.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    if (!isOpen && document.activeElement !== input) return;
+    event.preventDefault();
     setOpen(false);
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
-  // a press inside the panel must not take the focus from the box (the panel would close before the click lands)
-  panel.addEventListener('mousedown', (e) => e.preventDefault());
-  results.addEventListener('click', (e) => { const el = (e.target as Element)?.closest('.row'); if (el) choose(rows.find((r) => r.el === el)); });
-  toggle.addEventListener('click', () => { if (open) setOpen(false); else if (matchMedia('(pointer: coarse)').matches) setOpen(true); else input.focus(); });
+
+  // a press inside the panel must not take focus from the box (the panel would close before the click lands)
+  panel.addEventListener('mousedown', (event) => event.preventDefault());
+  resultsEl.addEventListener('click', (event) => {
+    const rowEl = (event.target as Element)?.closest('.row');
+    if (rowEl) chooseRow(rows.find((row) => row.el === rowEl));
+  });
+  toggleBtn.addEventListener('click', () => {
+    if (isOpen) setOpen(false);
+    else if (matchMedia('(pointer: coarse)').matches) setOpen(true);
+    else input.focus();
+  });
   clearBtn.addEventListener('click', () => {
-    const had = shown !== null;
-    input.value = ''; shown = null;
-    if (had) ctx.clear();
+    const hadShown = shownName !== null;
+    input.value = '';
+    shownName = null;
+    if (hadShown) ctx.clear();
     input.focus();
     setOpen(true);
     render();
   });
-  document.addEventListener('pointerdown', (e) => { if (open && !box.contains(e.target as Node)) setOpen(false); }, true);
-  box.addEventListener('focusout', (e) => { if (e.relatedTarget && !box.contains(e.relatedTarget as Node)) setOpen(false); });
-  addEventListener('keydown', (e) => {
-    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey) return;
-    if (fromForm(e) || $<HTMLDialogElement>('about').open) return;
-    e.preventDefault();
+  document.addEventListener('pointerdown', (event) => {
+    if (isOpen && !box.contains(event.target as Node)) setOpen(false);
+  }, true);
+  box.addEventListener('focusout', (event) => {
+    if (event.relatedTarget && !box.contains(event.relatedTarget as Node)) setOpen(false);
+  });
+  addEventListener('keydown', (event) => {
+    if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (fromForm(event) || byId<HTMLDialogElement>('about').open) return;
+    event.preventDefault();
     input.focus();
   });
 
   return {
     // the card's place is written in the box, as a map does; closing the card takes it out again
-    setShown(p) {
-      const was = shown;
-      shown = p ? nameOf(p) : null;
-      if (p) input.value = shown; else if (was !== null && input.value === was) input.value = '';
+    setShown(place: any) {
+      const prevShown = shownName;
+      shownName = place ? displayNameOf(place) : null;
+      if (place) input.value = shownName!;
+      else if (prevShown !== null && input.value === prevShown) input.value = '';
       clearBtn.hidden = !input.value;
-      if (open) render();
+      if (isOpen) render();
     },
     close() { setOpen(false); },
     // language, period or stories changed
-    refresh(current) {
-      const T = ctx.T();
-      input.placeholder = innerWidth < 900 ? T.searchShort : T.search;
-      input.setAttribute('aria-label', T.search);
-      clearBtn.title = T.clear; clearBtn.setAttribute('aria-label', T.clear);
-      toggle.title = T.browse; toggle.setAttribute('aria-label', T.browse);
-      results.setAttribute('aria-label', T.places);
-      kinds.setAttribute('aria-label', T.filterBy);
-      [...kinds.children].forEach((b, i) => { b.textContent = T.filters[i]; });
-      if (current && shown !== null) { const keep = input.value === shown; shown = nameOf(current); if (keep) input.value = shown; }
-      if (open) render();
+    refresh(currentPlace: any) {
+      const strings = ctx.T();
+      input.placeholder = innerWidth < SHORT_PLACEHOLDER_BREAKPOINT_PX ? strings.searchShort : strings.search;
+      input.setAttribute('aria-label', strings.search);
+      clearBtn.title = strings.clear;
+      clearBtn.setAttribute('aria-label', strings.clear);
+      toggleBtn.title = strings.browse;
+      toggleBtn.setAttribute('aria-label', strings.browse);
+      resultsEl.setAttribute('aria-label', strings.places);
+      kindsBar.setAttribute('aria-label', strings.filterBy);
+      [...kindsBar.children].forEach((btn, idx) => { btn.textContent = strings.filters[idx]; });
+      if (currentPlace && shownName !== null) {
+        const keepValue = input.value === shownName;
+        shownName = displayNameOf(currentPlace);
+        if (keepValue) input.value = shownName;
+      }
+      if (isOpen) render();
     },
   };
 }

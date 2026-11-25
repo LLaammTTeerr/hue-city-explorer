@@ -7,6 +7,32 @@ import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 
 const VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4( position.xy, 0.0, 1.0 ); }`;
 
+const POST_CFG = {
+  initialTargetSize: 4,
+  minBufferSize: 2,
+  msaaSamples: 2,
+  defaultFocusM: 800,
+  defaultAperture: 0.6,
+  defaultMaxBlurPx: 8,
+  dofMinMaxBlurPx: 4,
+  dofHeightDivisor: 130,
+  dofSkipCocPx: 0.7,
+  penMinWidthPx: 1.3,
+  penHeightDivisor: 620,
+  bloomInitialStrength: 0.32,
+  bloomRadius: 0.55,
+  bloomThreshold: 1.0,
+  bloomMinEnabledStrength: 0.08,
+  vignetteBase: 0.15,
+  vignetteNightBoost: 0.15,
+  aoInkReduction: 0.3,
+  aoWeatherReduction: 0.35,
+  aoGlowWeight: 0.6,
+  bloomBaseStrength: 0.3,
+  bloomNightBoost: 0.3,
+  bloomInkReduction: 0.55,
+} as const;
+
 // Ambient occlusion from the depth buffer alone (normals are rebuilt from depth, which suits
 // flat-faced buildings), blurred with respect to depth, then multiplied in with a cool tint.
 // The same pass applies a light grade and vignette.
@@ -261,28 +287,29 @@ class OcclusionPass extends Pass {
     this.whiteTex = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
     this.whiteTex.needsUpdate = true;
   }
-  setSize(w, h) {
-    const hw = Math.max(2, Math.ceil(w / 2)), hh = Math.max(2, Math.ceil(h / 2));
-    this.aoRT.setSize(hw, hh);
-    this.blurRT.setSize(hw, hh);
-    this.aoMat.uniforms.uRes.value.set(hw, hh);
-    this.blurMat.uniforms.uRes.value.set(hw, hh);
-    this.compRT.setSize(w, h);
-    this.dofMat.uniforms.uPx.value.set(1 / w, 1 / h);
-    this.dofMat.uniforms.uMaxPx.value = Math.max(4, h / 130);
-    const pen = Math.max(1.3, h / 620); // the pen's width in buffer pixels: about a pixel and a half on screen at any density
-    this.compMat.uniforms.uPx.value.set(pen / w, pen / h);
+  setSize(width: number, height: number) {
+    const halfWidth = Math.max(POST_CFG.minBufferSize, Math.ceil(width / 2));
+    const halfHeight = Math.max(POST_CFG.minBufferSize, Math.ceil(height / 2));
+    this.aoRT.setSize(halfWidth, halfHeight);
+    this.blurRT.setSize(halfWidth, halfHeight);
+    this.aoMat.uniforms.uRes.value.set(halfWidth, halfHeight);
+    this.blurMat.uniforms.uRes.value.set(halfWidth, halfHeight);
+    this.compRT.setSize(width, height);
+    this.dofMat.uniforms.uPx.value.set(1 / width, 1 / height);
+    this.dofMat.uniforms.uMaxPx.value = Math.max(POST_CFG.dofMinMaxBlurPx, height / POST_CFG.dofHeightDivisor);
+    const penWidthPx = Math.max(POST_CFG.penMinWidthPx, height / POST_CFG.penHeightDivisor); // ~1.5 px on screen at any density
+    this.compMat.uniforms.uPx.value.set(penWidthPx / width, penWidthPx / height);
   }
-  render(renderer, writeBuffer, readBuffer) {
+  render(renderer: THREE.WebGLRenderer, writeBuffer: THREE.WebGLRenderTarget, readBuffer: THREE.WebGLRenderTarget) {
     const cam = this.camera;
     if (!this.skipAO) {
-      const tan = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
-      for (const m of [this.aoMat, this.blurMat]) {
-        m.uniforms.tDepth.value = readBuffer.depthTexture;
-        m.uniforms.uNearFar.value.set(cam.near, cam.far);
+      const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+      for (const mat of [this.aoMat, this.blurMat]) {
+        mat.uniforms.tDepth.value = readBuffer.depthTexture;
+        mat.uniforms.uNearFar.value.set(cam.near, cam.far);
       }
-      this.aoMat.uniforms.uTan.value.set(tan * cam.aspect, tan);
-      this.aoMat.uniforms.uProjScale.value = this.aoRT.height / (2 * tan);
+      this.aoMat.uniforms.uTan.value.set(tanHalfFov * cam.aspect, tanHalfFov);
+      this.aoMat.uniforms.uProjScale.value = this.aoRT.height / (2 * tanHalfFov);
       this.aoMat.uniforms.uStrength.value = this.strength;
       this.quad.material = this.aoMat;
       renderer.setRenderTarget(this.aoRT);
@@ -292,47 +319,63 @@ class OcclusionPass extends Pass {
       renderer.setRenderTarget(this.blurRT);
       this.quad.render(renderer);
     }
-    const cu = this.compMat.uniforms;
-    cu.tDiffuse.value = readBuffer.texture;
-    cu.tAO.value = this.skipAO ? this.whiteTex : this.blurRT.texture;
-    cu.tDepth.value = readBuffer.depthTexture;
-    cu.uInvProj.value.copy(cam.projectionMatrixInverse);
-    cu.uCamWorld.value.copy(cam.matrixWorld);
-    cu.uCamPos.value.copy(cam.position);
+    const compUniforms = this.compMat.uniforms;
+    compUniforms.tDiffuse.value = readBuffer.texture;
+    compUniforms.tAO.value = this.skipAO ? this.whiteTex : this.blurRT.texture;
+    compUniforms.tDepth.value = readBuffer.depthTexture;
+    compUniforms.uInvProj.value.copy(cam.projectionMatrixInverse);
+    compUniforms.uCamWorld.value.copy(cam.matrixWorld);
+    compUniforms.uCamPos.value.copy(cam.position);
     this.quad.material = this.compMat;
-    // No pixel can blur when the widest circle of confusion is under the shader's 0.7 px cut-off (the drawn look, or
-    // low over the streets, where the aperture is 0): then the grade goes straight to the output and the focus pass,
-    // a full-screen read and write that would copy it unchanged, is skipped.
-    if (this.aperture * this.dofMat.uniforms.uMaxPx.value < 0.7) {
+    // Skip the full-screen focus pass when the widest circle of confusion is under the shader's 0.7 px cut-off.
+    if (this.aperture * this.dofMat.uniforms.uMaxPx.value < POST_CFG.dofSkipCocPx) {
       renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
       this.quad.render(renderer);
       return;
     }
     renderer.setRenderTarget(this.compRT);
     this.quad.render(renderer);
-    const du = this.dofMat.uniforms;
-    du.tColor.value = this.compRT.texture;
-    du.tDepth.value = readBuffer.depthTexture;
-    du.uNearFar.value.set(cam.near, cam.far);
-    du.uFocus.value = this.focus;
-    du.uAperture.value = this.aperture;
+    const dofUniforms = this.dofMat.uniforms;
+    dofUniforms.tColor.value = this.compRT.texture;
+    dofUniforms.tDepth.value = readBuffer.depthTexture;
+    dofUniforms.uNearFar.value.set(cam.near, cam.far);
+    dofUniforms.uFocus.value = this.focus;
+    dofUniforms.uAperture.value = this.aperture;
     this.quad.material = this.dofMat;
     renderer.setRenderTarget(this.renderToScreen ? null : writeBuffer);
     this.quad.render(renderer);
   }
-  dispose() { this.compRT.dispose(); this.dofMat.dispose(); this.aoRT.dispose(); this.blurRT.dispose(); this.aoMat.dispose(); this.blurMat.dispose(); this.compMat.dispose(); this.quad.dispose(); }
+  dispose() {
+    this.compRT.dispose();
+    this.dofMat.dispose();
+    this.aoRT.dispose();
+    this.blurRT.dispose();
+    this.aoMat.dispose();
+    this.blurMat.dispose();
+    this.compMat.dispose();
+    this.quad.dispose();
+  }
 }
 
 // Desktop render path: scene → occlusion + grade → bloom → tone map.
-export function createPost(renderer, scene, camera) {
+export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
-  size.set(Math.max(2, size.x), Math.max(2, size.y)); // a hidden window can report zero
-  const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: 2, depthTexture: new THREE.DepthTexture(size.x, size.y) });
+  size.set(Math.max(POST_CFG.minBufferSize, size.x), Math.max(POST_CFG.minBufferSize, size.y)); // a hidden window can report zero
+  const target = new THREE.WebGLRenderTarget(size.x, size.y, {
+    type: THREE.HalfFloatType,
+    samples: POST_CFG.msaaSamples,
+    depthTexture: new THREE.DepthTexture(size.x, size.y),
+  });
   const composer = new EffectComposer(renderer, target);
   composer.addPass(new RenderPass(scene, camera));
   const occlusion = new OcclusionPass(camera);
   composer.addPass(occlusion);
-  const bloom = new UnrealBloomPass(new THREE.Vector2(Math.max(2, size.x >> 1), Math.max(2, size.y >> 1)), 0.32, 0.55, 1.0);
+  const bloom = new UnrealBloomPass(
+    new THREE.Vector2(Math.max(POST_CFG.minBufferSize, size.x >> 1), Math.max(POST_CFG.minBufferSize, size.y >> 1)),
+    POST_CFG.bloomInitialStrength,
+    POST_CFG.bloomRadius,
+    POST_CFG.bloomThreshold,
+  );
   composer.addPass(bloom);
   // The canvas has an alpha channel (three always asks for one) over the page's paper colour, so the last pass
   // writes an opaque alpha: whatever went wrong upstream, the page can never show through the model.
@@ -344,32 +387,35 @@ export function createPost(renderer, scene, camera) {
   composer.setSize(size.x, size.y);
   let fast = false;
   return {
-    occlusion, bloom,
+    occlusion,
+    bloom,
     render: () => composer.render(),
     resize() {
       renderer.getDrawingBufferSize(size);
-      const w = Math.max(2, size.x), h = Math.max(2, size.y);
-      composer.setSize(w, h);
-      bloom.setSize(Math.max(2, w >> 1), Math.max(2, h >> 1));
+      const width = Math.max(POST_CFG.minBufferSize, size.x);
+      const height = Math.max(POST_CFG.minBufferSize, size.y);
+      composer.setSize(width, height);
+      bloom.setSize(Math.max(POST_CFG.minBufferSize, width >> 1), Math.max(POST_CFG.minBufferSize, height >> 1));
     },
-    setFast(on) {
+    setFast(on: boolean) {
       fast = !!on;
       occlusion.skipAO = fast;
       if (fast) bloom.enabled = false;
     },
     // night and rain want gentler occlusion and a touch more glow; mist takes the mood's haze colour
-    setMood(glow, rain, mistColor, mist, time) {
-      occlusion.strength = (1 - 0.35 * Math.max(glow * 0.6, rain)) * (1 - 0.3 * occlusion.compMat.uniforms.uInk.value);
-      occlusion.compMat.uniforms.uNight.value = glow;
-      bloom.strength = (0.3 + 0.3 * glow) * (1 - 0.55 * occlusion.compMat.uniforms.uInk.value);
-      bloom.enabled = !fast && bloom.strength >= 0.08;
-      const u = occlusion.compMat.uniforms;
-      u.uVignette.value = 0.15 + 0.15 * glow;
-      u.uMistColor.value.copy(mistColor);
-      u.uMist.value = mist;
-      u.uTime.value = time;
+    setMood(glow: number, rain: number, mistColor: THREE.Color, mist: number, time: number) {
+      const compUniforms = occlusion.compMat.uniforms;
+      const inkValue = compUniforms.uInk.value;
+      occlusion.strength = (1 - POST_CFG.aoWeatherReduction * Math.max(glow * POST_CFG.aoGlowWeight, rain)) * (1 - POST_CFG.aoInkReduction * inkValue);
+      compUniforms.uNight.value = glow;
+      bloom.strength = (POST_CFG.bloomBaseStrength + POST_CFG.bloomNightBoost * glow) * (1 - POST_CFG.bloomInkReduction * inkValue);
+      bloom.enabled = !fast && bloom.strength >= POST_CFG.bloomMinEnabledStrength;
+      compUniforms.uVignette.value = POST_CFG.vignetteBase + POST_CFG.vignetteNightBoost * glow;
+      compUniforms.uMistColor.value.copy(mistColor);
+      compUniforms.uMist.value = mist;
+      compUniforms.uTime.value = time;
     },
-    setFocus(distance, aperture) { occlusion.focus = distance; occlusion.aperture = fast ? 0 : aperture; },
-    setLook(ink) { occlusion.compMat.uniforms.uInk.value = ink; },
+    setFocus(distance: number, aperture: number) { occlusion.focus = distance; occlusion.aperture = fast ? 0 : aperture; },
+    setLook(ink: number) { occlusion.compMat.uniforms.uInk.value = ink; },
   };
 }

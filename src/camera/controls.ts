@@ -3,152 +3,268 @@ import { MapControls } from 'three/addons/controls/MapControls.js';
 import { LAND_Y } from '../config.ts';
 import { rise } from '../geo/terrain.ts';
 
-const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-const smooth = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
-const calm = matchMedia('(prefers-reduced-motion: reduce)');
+const CAMERA_CFG = {
+  initialFovDeg: 36,
+  initialNearM: 1,
+  farPlaneM: 80000,
+  dampingFactor: 0.09,
+  minDistanceM: 28,
+  maxDistanceM: 19000,
+  maxPolarDeg: 86.5,
+  rotateSpeed: 0.55,
+  zoomSpeed: 1.15,
+  panSpeed: 1.0,
+  keyPanSpeed: 22,
+  autoRotateSpeed: 0.07,
+  minClearanceM: 1.7,
+} as const;
+
+const RAY_TERRAIN = {
+  maxDistM: 25000,
+  ceilingOffsetM: 150,
+  minDownSlope: -1e-4,
+  coarseSteps: 48,
+  bisectSteps: 8,
+} as const;
+
+const FLIGHT_CFG = {
+  defaultDurationS: 2.4,
+  homeDurationS: 2.6,
+  zoomDurationS: 0.5,
+  reducedMotionDurationS: 0.001,
+  arcMaxHeightM: 420,
+  arcSpanRatio: 0.16,
+} as const;
+
+const LENS_CFG = {
+  lowAltM: 10,
+  highAltM: 220,
+  baseFovDeg: 46,
+  highFovDeltaDeg: 17,
+  portraitFovScale: 24,
+  fovUpdateEpsDeg: 0.01,
+  nearMinM: 0.6,
+  nearMaxM: 12,
+  nearAltRatio: 0.04,
+  nearUpdateEpsM: 0.05,
+} as const;
+
+const easeInOutCubic = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const smoothstep = (edge0: number, edge1: number, val: number) => {
+  const t = Math.max(0, Math.min(1, (val - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+};
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
 // A key pressed while typing, on a form control or anywhere in the search box belongs to that control, not to the map.
-export const fromForm = (e: Event) => { const t = e.target; return t instanceof HTMLElement && (t.isContentEditable || !!t.closest('input, textarea, select, #search')); };
+export const fromForm = (event: Event) => {
+  const target = event.target;
+  return target instanceof HTMLElement && (target.isContentEditable || !!target.closest('input, textarea, select, #search'));
+};
+
+function intersectTerrain(ray: THREE.Ray, flatHit: THREE.Vector3) {
+  const origin = ray.origin;
+  const dir = ray.direction;
+  const tEnd = Math.min(origin.distanceTo(flatHit), RAY_TERRAIN.maxDistM);
+  const tStart = dir.y < RAY_TERRAIN.minDownSlope ? Math.max(0, (LAND_Y + RAY_TERRAIN.ceilingOffsetM - origin.y) / dir.y) : 0;
+  if (tStart >= tEnd) return flatHit.clone();
+
+  const stepSize = (tEnd - tStart) / RAY_TERRAIN.coarseSteps;
+  let prevT = tStart;
+  for (let i = 1; i <= RAY_TERRAIN.coarseSteps; i++) {
+    const sampleT = tStart + stepSize * i;
+    const px = origin.x + dir.x * sampleT;
+    const py = origin.y + dir.y * sampleT;
+    const pz = origin.z + dir.z * sampleT;
+    if (py <= LAND_Y + rise(px, pz)) {
+      let lo = prevT;
+      let hi = sampleT;
+      for (let j = 0; j < RAY_TERRAIN.bisectSteps; j++) {
+        const mid = (lo + hi) * 0.5;
+        const mx = origin.x + dir.x * mid;
+        const my = origin.y + dir.y * mid;
+        const mz = origin.z + dir.z * mid;
+        if (my <= LAND_Y + rise(mx, mz)) hi = mid;
+        else lo = mid;
+      }
+      const hitX = origin.x + dir.x * hi;
+      const hitZ = origin.z + dir.z * hi;
+      return new THREE.Vector3(hitX, LAND_Y + rise(hitX, hitZ), hitZ);
+    }
+    prevT = sampleT;
+  }
+  return flatHit.clone();
+}
+
+function updateDynamicLens(camera: THREE.PerspectiveCamera) {
+  // wider lens near the ground, longer lens from the air
+  const altitude = Math.max(1, camera.position.y - (LAND_Y + rise(camera.position.x, camera.position.z)));
+  const highFactor = smoothstep(LENS_CFG.lowAltM, LENS_CFG.highAltM, altitude);
+  const portraitBoost = camera.aspect < 1 ? (1 - camera.aspect) * LENS_CFG.portraitFovScale : 0;
+  const targetFov = LENS_CFG.baseFovDeg + portraitBoost * (1 - highFactor) - LENS_CFG.highFovDeltaDeg * highFactor;
+  if (Math.abs(targetFov - camera.fov) > LENS_CFG.fovUpdateEpsDeg) {
+    camera.fov = targetFov;
+    camera.updateProjectionMatrix();
+  }
+  // keep depth precision where the camera is
+  const targetNear = Math.max(LENS_CFG.nearMinM, Math.min(LENS_CFG.nearMaxM, altitude * LENS_CFG.nearAltRatio));
+  if (Math.abs(targetNear - camera.near) > LENS_CFG.nearUpdateEpsM) {
+    camera.near = targetNear;
+    camera.updateProjectionMatrix();
+  }
+}
 
 // Map-style camera: drag the ground, wheel/pinch toward the cursor, right-drag or two fingers to turn and tilt.
-export function createCamera(canvas, bounds) {
-  const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 1, 80000);
+export function createCamera(canvas: HTMLCanvasElement, bounds: { minX: number; maxX: number; minZ: number; maxZ: number }) {
+  const camera = new THREE.PerspectiveCamera(CAMERA_CFG.initialFovDeg, innerWidth / innerHeight, CAMERA_CFG.initialNearM, CAMERA_CFG.farPlaneM);
   const controls = new MapControls(camera, canvas);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.09;
+  controls.dampingFactor = CAMERA_CFG.dampingFactor;
   controls.screenSpacePanning = false;
   controls.zoomToCursor = true;
-  controls.minDistance = 28;
-  controls.maxDistance = 19000;
+  controls.minDistance = CAMERA_CFG.minDistanceM;
+  controls.maxDistance = CAMERA_CFG.maxDistanceM;
   controls.minPolarAngle = 0;
-  controls.maxPolarAngle = THREE.MathUtils.degToRad(86.5);
-  controls.rotateSpeed = 0.55;
-  controls.zoomSpeed = 1.15;
-  controls.panSpeed = 1.0;
-  controls.keyPanSpeed = 22;
-  controls.autoRotateSpeed = 0.07;
-  // arrow keys pan the map, but not while they move a caret, a slider or the search results: the controls listen through a filter
+  controls.maxPolarAngle = THREE.MathUtils.degToRad(CAMERA_CFG.maxPolarDeg);
+  controls.rotateSpeed = CAMERA_CFG.rotateSpeed;
+  controls.zoomSpeed = CAMERA_CFG.zoomSpeed;
+  controls.panSpeed = CAMERA_CFG.panSpeed;
+  controls.keyPanSpeed = CAMERA_CFG.keyPanSpeed;
+  controls.autoRotateSpeed = CAMERA_CFG.autoRotateSpeed;
+
+  // arrow keys pan the map, but not while they move a caret, a slider or the search results
   const keyFilters = new Map();
   controls.listenToKeyEvents({
-    addEventListener: (type: any, fn: any) => { const f = (e: Event) => { if (!fromForm(e)) fn(e); }; keyFilters.set(fn, f); addEventListener(type, f); },
-    removeEventListener: (type: any, fn: any) => { removeEventListener(type, keyFilters.get(fn)); keyFilters.delete(fn); },
+    addEventListener: (type: any, fn: any) => {
+      const wrapped = (event: Event) => { if (!fromForm(event)) fn(event); };
+      keyFilters.set(fn, wrapped);
+      addEventListener(type, wrapped);
+    },
+    removeEventListener: (type: any, fn: any) => {
+      removeEventListener(type, keyFilters.get(fn));
+      keyFilters.delete(fn);
+    },
   } as any);
 
   let home = { pos: new THREE.Vector3(400, 230, -420), target: new THREE.Vector3(0, LAND_Y, 0) };
-  let fly = null;
+  let flight: {
+    p0: THREE.Vector3; t0: THREE.Vector3; p1: THREE.Vector3; t1: THREE.Vector3;
+    progress: number; duration: number; arc: boolean; onDone: (() => void) | null;
+  } | null = null;
   let touched = false;
   // still on the opening view (home, untouched): a resize then re-frames home; any other view is kept as it is
   let opening = true;
-  const listeners = { interact: new Set<() => void>() };
+  const interactListeners = new Set<() => void>();
 
   const markTouched = () => {
     if (!touched) { touched = true; controls.autoRotate = false; }
     opening = false;
-    listeners.interact.forEach((f) => f());
+    interactListeners.forEach((fn) => fn());
   };
-  controls.addEventListener('start', () => { if (fly) fly = null; markTouched(); });
+  controls.addEventListener('start', () => { if (flight) flight = null; markTouched(); });
   canvas.addEventListener('wheel', markTouched, { passive: true });
 
-  const ray = new THREE.Raycaster(), ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), -LAND_Y), hit = new THREE.Vector3();
-  function groundAt(clientX, clientY) {
-    const r = canvas.getBoundingClientRect();
-    ray.setFromCamera(new THREE.Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1), camera);
-    if (!ray.ray.intersectPlane(ground, hit)) return null;
-    const o = ray.ray.origin, d = ray.ray.direction;
-    const tEnd = Math.min(o.distanceTo(hit), 25000);
-    const tStart = d.y < -1e-4 ? Math.max(0, (LAND_Y + 150 - o.y) / d.y) : 0;
-    if (tStart < tEnd) {
-      const steps = 48, dt = (tEnd - tStart) / steps;
-      let prev = tStart;
-      for (let i = 1; i <= steps; i++) {
-        const t = tStart + dt * i;
-        const px = o.x + d.x * t, py = o.y + d.y * t, pz = o.z + d.z * t;
-        if (py <= LAND_Y + rise(px, pz)) {
-          let lo = prev, hi = t;
-          for (let j = 0; j < 8; j++) {
-            const mid = (lo + hi) * 0.5;
-            const mx = o.x + d.x * mid, my = o.y + d.y * mid, mz = o.z + d.z * mid;
-            if (my <= LAND_Y + rise(mx, mz)) hi = mid; else lo = mid;
-          }
-          const fx = o.x + d.x * hi, fz = o.z + d.z * hi;
-          return new THREE.Vector3(fx, LAND_Y + rise(fx, fz), fz);
-        }
-        prev = t;
-      }
-    }
-    return hit.clone();
+  const raycaster = new THREE.Raycaster();
+  const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -LAND_Y);
+  const planeHit = new THREE.Vector3();
+
+  function groundAt(clientX: number, clientY: number) {
+    const rect = canvas.getBoundingClientRect();
+    const ndcX = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const ndcY = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(new THREE.Vector2(ndcX, ndcY), camera);
+    if (!raycaster.ray.intersectPlane(groundPlane, planeHit)) return null;
+    return intersectTerrain(raycaster.ray, planeHit);
   }
 
-  function flyTo(pos, target, { duration = 2.4, arc = true, onDone = null } = {}) {
-    if (calm.matches) { duration = 0.001; arc = false; } // reduced motion: cut to the new view instead of sweeping there
+  function flyTo(pos: THREE.Vector3, target: THREE.Vector3, { duration = FLIGHT_CFG.defaultDurationS, arc = true, onDone = null }: any = {}) {
+    if (reducedMotion.matches) { duration = FLIGHT_CFG.reducedMotionDurationS; arc = false; }
     opening = false; // a place, the overview or any other flight leaves the opening view
-    fly = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos.clone(), t1: target.clone(), t: 0, duration, arc, onDone };
+    flight = {
+      p0: camera.position.clone(),
+      t0: controls.target.clone(),
+      p1: pos.clone(),
+      t1: target.clone(),
+      progress: 0,
+      duration,
+      arc,
+      onDone,
+    };
     controls.autoRotate = false;
   }
 
   function clampView() {
-    const t = controls.target;
-    const cx = Math.max(bounds.minX, Math.min(bounds.maxX, t.x)), cz = Math.max(bounds.minZ, Math.min(bounds.maxZ, t.z));
-    const cy = LAND_Y + rise(cx, cz);
-    if (cx !== t.x || cz !== t.z || t.y !== cy) {
-      const dx = cx - t.x, dz = cz - t.z, dy = cy - t.y;
-      t.set(cx, cy, cz);
-      camera.position.x += dx; camera.position.z += dz; camera.position.y += dy;
+    const target = controls.target;
+    const clampedX = Math.max(bounds.minX, Math.min(bounds.maxX, target.x));
+    const clampedZ = Math.max(bounds.minZ, Math.min(bounds.maxZ, target.z));
+    const clampedY = LAND_Y + rise(clampedX, clampedZ);
+    if (clampedX !== target.x || clampedZ !== target.z || target.y !== clampedY) {
+      const dx = clampedX - target.x;
+      const dy = clampedY - target.y;
+      const dz = clampedZ - target.z;
+      target.set(clampedX, clampedY, clampedZ);
+      camera.position.x += dx;
+      camera.position.y += dy;
+      camera.position.z += dz;
     }
-    const floor = LAND_Y + rise(camera.position.x, camera.position.z) + 1.7; // stay above the hills too
-    if (camera.position.y < floor) camera.position.y = floor;
+    const minY = LAND_Y + rise(camera.position.x, camera.position.z) + CAMERA_CFG.minClearanceM; // stay above the hills too
+    if (camera.position.y < minY) camera.position.y = minY;
   }
 
-  const dir = new THREE.Vector3();
+  const worldDir = new THREE.Vector3();
   return {
-    camera, controls, groundAt,
-    get flying() { return !!fly; },
+    camera,
+    controls,
+    groundAt,
+    get flying() { return !!flight; },
     get touched() { return touched; },
     get opening() { return opening; },
-    onInteract: (f) => listeners.interact.add(f),
-    setHome(pos, target) { home = { pos: pos.clone(), target: target.clone() }; },
+    onInteract: (fn: () => void) => interactListeners.add(fn),
+    setHome(pos: THREE.Vector3, target: THREE.Vector3) { home = { pos: pos.clone(), target: target.clone() }; },
     jumpHome() { camera.position.copy(home.pos); controls.target.copy(home.target); controls.update(); },
-    goHome(duration = 2.6) { flyTo(home.pos, home.target, { duration, onDone: () => { opening = true; } }); },
-    startDrift() { if (!touched && !calm.matches) controls.autoRotate = true; },
+    goHome(duration = FLIGHT_CFG.homeDurationS) { flyTo(home.pos, home.target, { duration, onDone: () => { opening = true; } }); },
+    startDrift() { if (!touched && !reducedMotion.matches) controls.autoRotate = true; },
     // the camera was placed by a shared link (src/ui/share.js): treat it as moved, so resize and drift leave it alone
     leaveOpening() { touched = true; opening = false; controls.autoRotate = false; },
     flyTo,
-    cancelFly() { fly = null; },
-    zoomBy(k) {
+    cancelFly() { flight = null; },
+    zoomBy(scaleFactor: number) {
       if (!controls.enabled) return;
-      const off = camera.position.clone().sub(controls.target).multiplyScalar(k);
-      const len = off.length();
-      if (len < controls.minDistance || len > controls.maxDistance) off.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, len)));
-      flyTo(controls.target.clone().add(off), controls.target, { duration: 0.5, arc: false });
+      const offset = camera.position.clone().sub(controls.target).multiplyScalar(scaleFactor);
+      const len = offset.length();
+      if (len < controls.minDistance || len > controls.maxDistance) {
+        offset.setLength(Math.max(controls.minDistance, Math.min(controls.maxDistance, len)));
+      }
+      flyTo(controls.target.clone().add(offset), controls.target, { duration: FLIGHT_CFG.zoomDurationS, arc: false });
       markTouched();
     },
     // Compass bearing the camera faces, radians clockwise from north.
-    heading() { camera.getWorldDirection(dir); return Math.atan2(dir.x, -dir.z); },
-    update(dt, enabled = true) {
-      if (fly) {
-        fly.t = Math.min(1, fly.t + dt / fly.duration);
-        const k = ease(fly.t);
-        camera.position.lerpVectors(fly.p0, fly.p1, k);
-        controls.target.lerpVectors(fly.t0, fly.t1, k);
-        if (fly.arc) {
-          const span = fly.p0.distanceTo(fly.p1);
-          camera.position.y += Math.sin(Math.PI * k) * Math.min(420, span * 0.16);
+    heading() { camera.getWorldDirection(worldDir); return Math.atan2(worldDir.x, -worldDir.z); },
+    update(dt: number, enabled = true) {
+      if (flight) {
+        flight.progress = Math.min(1, flight.progress + dt / flight.duration);
+        const eased = easeInOutCubic(flight.progress);
+        camera.position.lerpVectors(flight.p0, flight.p1, eased);
+        controls.target.lerpVectors(flight.t0, flight.t1, eased);
+        if (flight.arc) {
+          const span = flight.p0.distanceTo(flight.p1);
+          camera.position.y += Math.sin(Math.PI * eased) * Math.min(FLIGHT_CFG.arcMaxHeightM, span * FLIGHT_CFG.arcSpanRatio);
         }
-        camera.position.y = Math.max(camera.position.y, LAND_Y + rise(camera.position.x, camera.position.z) + 1.7);
+        const minY = LAND_Y + rise(camera.position.x, camera.position.z) + CAMERA_CFG.minClearanceM;
+        camera.position.y = Math.max(camera.position.y, minY);
         camera.lookAt(controls.target);
-        if (fly.t >= 1) { const done = fly.onDone; fly = null; controls.update(); clampView(); if (done) done(); }
+        if (flight.progress >= 1) {
+          const done = flight.onDone;
+          flight = null;
+          controls.update();
+          clampView();
+          if (done) done();
+        }
       } else if (enabled) {
         controls.update(dt);
         clampView();
       }
-      // wider lens near the ground, longer lens from the air
-      const h = Math.max(1, camera.position.y - (LAND_Y + rise(camera.position.x, camera.position.z)));
-      const high = smooth(10, 220, h);
-      const portrait = camera.aspect < 1 ? (1 - camera.aspect) * 24 : 0; // tall screens need more sideways view at boat height
-      const fov = 46 + portrait * (1 - high) - 17 * high; // long lens from the air (flatter, model-like), wide at ground level
-      if (Math.abs(fov - camera.fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
-      // keep depth precision where the camera is
-      const near = Math.max(0.6, Math.min(12, h * 0.04));
-      if (Math.abs(near - camera.near) > 0.05) { camera.near = near; camera.updateProjectionMatrix(); }
+      updateDynamicLens(camera);
     },
   };
 }
