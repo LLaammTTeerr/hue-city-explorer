@@ -1,21 +1,53 @@
 import * as THREE from 'three';
 import type { RgbColor } from '../types.ts';
 
+const DECIMETRES_PER_METRE = 10;
+const DEFAULT_CHUNK_SIZE_M = 1300;
+const ROOF_JOIN_GRID_M = 32;
+const ROOF_ANGLE_TOL_RAD = 0.06;
+const ROOF_HEIGHT_OVERLAP_MARGIN_M = 0.5;
+const ROOF_WALL_OVERLAP_MAX_M = -0.8;
+const ROOF_MIN_ALONG_OVERLAP_M = 0.3;
+const GUTTER_MIN_LEN_M = 0.5;
+const GUTTER_WIDTH_M = 0.5;
+
 // Growable flat-shaded triangle soup with per-vertex colour. Everything static in
 // the scene (buildings, walls, landmarks) is baked through this into a handful of meshes.
-export const hex = (h: THREE.ColorRepresentation): RgbColor => {
-  const c = new THREE.Color(h);
-  return [c.r, c.g, c.b];
+export const hex = (color: THREE.ColorRepresentation): RgbColor => {
+  const parsed = new THREE.Color(color);
+  return [parsed.r, parsed.g, parsed.b];
 };
-export const mix = (a: number[], b: number[], t: number): RgbColor => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-export const shade = (c: number[], k: number): RgbColor => [c[0] * k, c[1] * k, c[2] * k];
+export const mix = (colA: number[], colB: number[], t: number): RgbColor => [
+  colA[0] + (colB[0] - colA[0]) * t,
+  colA[1] + (colB[1] - colA[1]) * t,
+  colA[2] + (colB[2] - colA[2]) * t,
+];
+export const shade = (col: number[], factor: number): RgbColor => [col[0] * factor, col[1] * factor, col[2] * factor];
 
 // What a face is made of. The fragment shader paints the matching surface detail
 // (window bays, roof tiles, brick courses…) so geometry stays light.
-export const KIND = { PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5, ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11, LINE: 12 };
+export const KIND = {
+  PLAIN: 0, FACADE: 1, TILE: 2, FLAT: 3, MASONRY: 4, GROUND: 5,
+  ROAD: 6, TIMBER: 7, CIVIC: 8, GLAZED: 9, COLONIAL: 10, MODERN: 11, LINE: 12,
+};
 // Added to a face's kind: the face is floodlit after dark (riverside facade lighting, issue #21). Kinds stay below it.
 export const KIND_FLOOD = 64;
 
+const lerpPoint3 = (p0: number[], p1: number[], t: number) => [
+  p0[0] + (p1[0] - p0[0]) * t,
+  p0[1] + (p1[1] - p0[1]) * t,
+  p0[2] + (p1[2] - p0[2]) * t,
+];
+
+function buildClipPlanes(clip: any, halfW: number, halfD: number): [number, number, number][] {
+  const planes: [number, number, number][] = [];
+  if (!clip) return planes;
+  if (clip.u0 > -halfW) planes.push([-1, 0, -clip.u0]);
+  if (clip.u1 < halfW) planes.push([1, 0, clip.u1]);
+  if (clip.v0 > -halfD) planes.push([0, -1, -clip.v0]);
+  if (clip.v1 < halfD) planes.push([0, 1, clip.v1]);
+  return planes;
+}
 
 export class Buf {
   static roofLog: any[] | null = null; // an array while scripts/check-roofs.mjs builds the scene: every hip roof drawn
@@ -39,180 +71,188 @@ export class Buf {
   constructor(tris = 4096) {
     this.cap = tris * 3;
     this.n = 0;
-    this.kind = KIND.PLAIN; // applied to faces added from now on
-    this.base = 0; // floor level of what is being built, in metres above the flat city datum (for slopes)
+    this.kind = KIND.PLAIN;
+    this.base = 0;
     this.pos = new Float32Array(this.cap * 3);
     this.nrm = new Int8Array(this.cap * 3);
     this.col = new Uint8Array(this.cap * 3);
     this.knd = new Uint8Array(this.cap);
     this.bas = new Float32Array(this.cap);
   }
+
   grow() {
     this.cap *= 2;
-    const p = new Float32Array(this.cap * 3); p.set(this.pos); this.pos = p;
-    const n = new Int8Array(this.cap * 3); n.set(this.nrm); this.nrm = n;
-    const c = new Uint8Array(this.cap * 3); c.set(this.col); this.col = c;
-    const k = new Uint8Array(this.cap); k.set(this.knd); this.knd = k;
-    const bb = new Float32Array(this.cap); bb.set(this.bas); this.bas = bb;
+    const nextPos = new Float32Array(this.cap * 3); nextPos.set(this.pos); this.pos = nextPos;
+    const nextNrm = new Int8Array(this.cap * 3); nextNrm.set(this.nrm); this.nrm = nextNrm;
+    const nextCol = new Uint8Array(this.cap * 3); nextCol.set(this.col); this.col = nextCol;
+    const nextKnd = new Uint8Array(this.cap); nextKnd.set(this.knd); this.knd = nextKnd;
+    const nextBas = new Float32Array(this.cap); nextBas.set(this.bas); this.bas = nextBas;
   }
+
   // Smooth-shaded triangle with explicit per-vertex normals and colours (used for foliage).
-  smoothTri(v, nrm, cols) {
+  smoothTri(verts: number[][], norms: number[][], cols: number[][]) {
     if (this.n + 3 > this.cap) this.grow();
-    let i = this.n * 3;
+    let offset = this.n * 3;
     for (let k = 0; k < 3; k++) {
-      const l = Math.hypot(nrm[k][0], nrm[k][1], nrm[k][2]) || 1;
-      this.pos[i] = v[k][0]; this.pos[i + 1] = v[k][1]; this.pos[i + 2] = v[k][2];
-      this.nrm[i] = (nrm[k][0] / l) * 127; this.nrm[i + 1] = (nrm[k][1] / l) * 127; this.nrm[i + 2] = (nrm[k][2] / l) * 127;
-      for (let c = 0; c < 3; c++) this.col[i + c] = Math.max(0, Math.min(255, Math.round(Math.sqrt(cols[k][c]) * 255)));
+      const len = Math.hypot(norms[k][0], norms[k][1], norms[k][2]) || 1;
+      this.pos[offset] = verts[k][0];
+      this.pos[offset + 1] = verts[k][1];
+      this.pos[offset + 2] = verts[k][2];
+      this.nrm[offset] = (norms[k][0] / len) * 127;
+      this.nrm[offset + 1] = (norms[k][1] / len) * 127;
+      this.nrm[offset + 2] = (norms[k][2] / len) * 127;
+      for (let ch = 0; ch < 3; ch++) {
+        this.col[offset + ch] = Math.max(0, Math.min(255, Math.round(Math.sqrt(cols[k][ch]) * 255)));
+      }
       this.knd[this.n + k] = this.kind;
       this.bas[this.n + k] = this.base;
-      i += 3;
+      offset += 3;
     }
     this.n += 3;
   }
-  // a, b, c: [x,y,z]. hint: rough outward direction; winding is fixed to match it.
-  tri(a: number[], b: number[], c: number[], col: number[], hint?: number[]) {
+
+  // p0, p1, p2: [x,y,z]. hint: rough outward direction; winding is fixed to match it.
+  tri(p0: number[], p1: number[], p2: number[], col: number[], hint?: number[]) {
     if (this.n + 3 > this.cap) this.grow();
-    let ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
-    let vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
-    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
-    const l = Math.hypot(nx, ny, nz);
-    if (l < 1e-9) return;
-    nx /= l; ny /= l; nz /= l;
+    const ux = p1[0] - p0[0], uy = p1[1] - p0[1], uz = p1[2] - p0[2];
+    const vx = p2[0] - p0[0], vy = p2[1] - p0[1], vz = p2[2] - p0[2];
+    let nx = uy * vz - uz * vy;
+    let ny = uz * vx - ux * vz;
+    let nz = ux * vy - uy * vx;
+    const len = Math.hypot(nx, ny, nz);
+    if (len < 1e-9) return;
+    nx /= len; ny /= len; nz /= len;
     if (hint && nx * hint[0] + ny * hint[1] + nz * hint[2] < 0) {
-      const t = b; b = c; c = t;
+      const tmp = p1; p1 = p2; p2 = tmp;
       nx = -nx; ny = -ny; nz = -nz;
     }
-    let i = this.n * 3;
-    const P = this.pos, N = this.nrm, C = this.col;
-    const r = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[0]) * 255)));
-    const g = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[1]) * 255)));
-    const bl = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[2]) * 255)));
-    for (const v of [a, b, c]) {
-      P[i] = v[0]; P[i + 1] = v[1]; P[i + 2] = v[2];
-      N[i] = nx * 127; N[i + 1] = ny * 127; N[i + 2] = nz * 127;
-      C[i] = r; C[i + 1] = g; C[i + 2] = bl;
-      i += 3;
+    let offset = this.n * 3;
+    const posArr = this.pos, nrmArr = this.nrm, colArr = this.col;
+    const red = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[0]) * 255)));
+    const grn = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[1]) * 255)));
+    const blu = Math.max(0, Math.min(255, Math.round(Math.sqrt(col[2]) * 255)));
+    for (const vert of [p0, p1, p2]) {
+      posArr[offset] = vert[0]; posArr[offset + 1] = vert[1]; posArr[offset + 2] = vert[2];
+      nrmArr[offset] = nx * 127; nrmArr[offset + 1] = ny * 127; nrmArr[offset + 2] = nz * 127;
+      colArr[offset] = red; colArr[offset + 1] = grn; colArr[offset + 2] = blu;
+      offset += 3;
     }
     this.knd[this.n] = this.knd[this.n + 1] = this.knd[this.n + 2] = this.kind;
     this.bas[this.n] = this.bas[this.n + 1] = this.bas[this.n + 2] = this.base;
     this.n += 3;
   }
-  quad(a: number[], b: number[], c: number[], d: number[], col: number[], hint?: number[]) {
-    this.tri(a, b, c, col, hint);
-    this.tri(a, c, d, col, hint);
+
+  quad(p0: number[], p1: number[], p2: number[], p3: number[], col: number[], hint?: number[]) {
+    this.tri(p0, p1, p2, col, hint);
+    this.tri(p0, p2, p3, col, hint);
   }
 
   // Box rotated about Y. (cx,cz) centre, y0..y1, sx along local x, sz along local z.
   box(cx: number, cz: number, y0: number, y1: number, sx: number, sz: number, ang: number, col: number[], { top = col, bottom = false, taper = 1, topKind = null }: Record<string, any> = {}) {
     const ux = Math.cos(ang), uz = Math.sin(ang);
-    const P = (u, v, y, k = 1) => [cx + u * k * ux - v * k * uz, y, cz + u * k * uz + v * k * ux];
-    const hx = sx / 2, hz = sz / 2;
-    const b = [P(-hx, -hz, y0), P(hx, -hz, y0), P(hx, hz, y0), P(-hx, hz, y0)];
-    const t = [P(-hx, -hz, y1, taper), P(hx, -hz, y1, taper), P(hx, hz, y1, taper), P(-hx, hz, y1, taper)];
-    const mid = [cx, (y0 + y1) / 2, cz];
+    const localPt = (u: number, v: number, y: number, scale = 1) => [cx + u * scale * ux - v * scale * uz, y, cz + u * scale * uz + v * scale * ux];
+    const halfX = sx / 2, halfZ = sz / 2;
+    const bot = [localPt(-halfX, -halfZ, y0), localPt(halfX, -halfZ, y0), localPt(halfX, halfZ, y0), localPt(-halfX, halfZ, y0)];
+    const topPts = [localPt(-halfX, -halfZ, y1, taper), localPt(halfX, -halfZ, y1, taper), localPt(halfX, halfZ, y1, taper), localPt(-halfX, halfZ, y1, taper)];
     for (let i = 0; i < 4; i++) {
-      const j = (i + 1) % 4;
-      const m = [(b[i][0] + b[j][0]) / 2 - mid[0], 0.2, (b[i][2] + b[j][2]) / 2 - mid[2]];
-      this.quad(b[i], b[j], t[j], t[i], col, m);
+      const next = (i + 1) % 4;
+      const outHint = [(bot[i][0] + bot[next][0]) / 2 - cx, 0.2, (bot[i][2] + bot[next][2]) / 2 - cz];
+      this.quad(bot[i], bot[next], topPts[next], topPts[i], col, outHint);
     }
-    const k = this.kind;
+    const prevKind = this.kind;
     if (topKind !== null) this.kind = topKind;
-    this.quad(t[0], t[1], t[2], t[3], top, [0, 1, 0]);
-    this.kind = k;
-    if (bottom) this.quad(b[0], b[1], b[2], b[3], col, [0, -1, 0]);
+    this.quad(topPts[0], topPts[1], topPts[2], topPts[3], top, [0, 1, 0]);
+    this.kind = prevKind;
+    if (bottom) this.quad(bot[0], bot[1], bot[2], bot[3], col, [0, -1, 0]);
   }
 
-  // Free 3D beam from a to b with a w × h cross-section.
-  beam(a, b, w, h, col) {
-    const dx = b[0] - a[0], dy = b[1] - a[1], dz = b[2] - a[2];
+  // Free 3D beam from start to end with a width × height cross-section.
+  beam(start: number[], end: number[], width: number, height: number, col: number[]) {
+    const dx = end[0] - start[0], dy = end[1] - start[1], dz = end[2] - start[2];
     const len = Math.hypot(dx, dy, dz);
     if (len < 1e-6) return;
-    const d = [dx / len, dy / len, dz / len];
-    let up = Math.abs(d[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0];
-    // side = d × up, up' = side × d
-    let s = [d[1] * up[2] - d[2] * up[1], d[2] * up[0] - d[0] * up[2], d[0] * up[1] - d[1] * up[0]];
-    const sl = Math.hypot(...s); s = s.map((v) => v / sl);
-    const u = [s[1] * d[2] - s[2] * d[1], s[2] * d[0] - s[0] * d[2], s[0] * d[1] - s[1] * d[0]];
-    const corner = (p, i, j) => [p[0] + s[0] * i * w / 2 + u[0] * j * h / 2, p[1] + s[1] * i * w / 2 + u[1] * j * h / 2, p[2] + s[2] * i * w / 2 + u[2] * j * h / 2];
-    const A = [corner(a, -1, -1), corner(a, 1, -1), corner(a, 1, 1), corner(a, -1, 1)];
-    const B = [corner(b, -1, -1), corner(b, 1, -1), corner(b, 1, 1), corner(b, -1, 1)];
-    const hints = [[-u[0], -u[1], -u[2]], s, u, [-s[0], -s[1], -s[2]]];
-    for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; this.quad(A[i], A[j], B[j], B[i], col, hints[i]); }
-    this.quad(A[0], A[1], A[2], A[3], col, [-d[0], -d[1], -d[2]]);
-    this.quad(B[0], B[1], B[2], B[3], col, d);
+    const dir = [dx / len, dy / len, dz / len];
+    const refUp = Math.abs(dir[1]) > 0.95 ? [1, 0, 0] : [0, 1, 0];
+    let side = [dir[1] * refUp[2] - dir[2] * refUp[1], dir[2] * refUp[0] - dir[0] * refUp[2], dir[0] * refUp[1] - dir[1] * refUp[0]];
+    const sideLen = Math.hypot(side[0], side[1], side[2]);
+    side = side.map((val) => val / sideLen);
+    const up = [side[1] * dir[2] - side[2] * dir[1], side[2] * dir[0] - side[0] * dir[2], side[0] * dir[1] - side[1] * dir[0]];
+    const corner = (pt: number[], su: number, sv: number) => [
+      pt[0] + (side[0] * su * width) / 2 + (up[0] * sv * height) / 2,
+      pt[1] + (side[1] * su * width) / 2 + (up[1] * sv * height) / 2,
+      pt[2] + (side[2] * su * width) / 2 + (up[2] * sv * height) / 2,
+    ];
+    const capA = [corner(start, -1, -1), corner(start, 1, -1), corner(start, 1, 1), corner(start, -1, 1)];
+    const capB = [corner(end, -1, -1), corner(end, 1, -1), corner(end, 1, 1), corner(end, -1, 1)];
+    const hints = [[-up[0], -up[1], -up[2]], side, up, [-side[0], -side[1], -side[2]]];
+    for (let i = 0; i < 4; i++) {
+      const next = (i + 1) % 4;
+      this.quad(capA[i], capA[next], capB[next], capB[i], col, hints[i]);
+    }
+    this.quad(capA[0], capA[1], capA[2], capA[3], col, [-dir[0], -dir[1], -dir[2]]);
+    this.quad(capB[0], capB[1], capB[2], capB[3], col, dir);
   }
 
   // Extrude a ring ([[x,z],...], any winding) from y0 to y1. holes: array of rings.
-  prism(ring, y0, y1, wallCol, topCol = wallCol, { holes = [], top = true, scaleTop = 1, centre = null, topKind = null, parapet = 0 } = {}) {
-    const all = [ring, ...holes];
-    const c = centre || ringCentre(ring);
-    const up = (p) => (scaleTop === 1 ? p : [c[0] + (p[0] - c[0]) * scaleTop, c[1] + (p[1] - c[1]) * scaleTop]);
-    all.forEach((r, ri) => {
-      const s = signedArea(r) > 0 ? 1 : -1;
-      const out = ri === 0 ? s : -s;
-      for (let i = 0, n = r.length; i < n; i++) {
-        const a = r[i], b = r[(i + 1) % n];
-        const tx = b[0] - a[0], tz = b[1] - a[1];
-        if (tx * tx + tz * tz < 1e-6) continue;
-        const ta = up(a), tb = up(b);
-        this.quad([a[0], y0, a[1]], [b[0], y0, b[1]], [tb[0], y1 + parapet, tb[1]], [ta[0], y1 + parapet, ta[1]], wallCol, [tz * out, 0.001, -tx * out]);
-        // inner face of the parapet, so flat roofs read as a tray rather than a lid
-        if (parapet) this.quad([ta[0], y1, ta[1]], [tb[0], y1, tb[1]], [tb[0], y1 + parapet, tb[1]], [ta[0], y1 + parapet, ta[1]], [wallCol[0] * 0.72, wallCol[1] * 0.72, wallCol[2] * 0.72], [-tz * out, 0.001, tx * out]);
+  prism(ring: number[][], y0: number, y1: number, wallCol: number[], topCol = wallCol, { holes = [], top = true, scaleTop = 1, centre = null, topKind = null, parapet = 0 }: Record<string, any> = {}) {
+    const allRings = [ring, ...holes];
+    const center = centre || ringCentre(ring);
+    const scalePt = (pt: number[]) => (scaleTop === 1 ? pt : [center[0] + (pt[0] - center[0]) * scaleTop, center[1] + (pt[1] - center[1]) * scaleTop]);
+    allRings.forEach((curRing, ringIdx) => {
+      const sign = signedArea(curRing) > 0 ? 1 : -1;
+      const outSign = ringIdx === 0 ? sign : -sign;
+      for (let i = 0, len = curRing.length; i < len; i++) {
+        const p0 = curRing[i], p1 = curRing[(i + 1) % len];
+        const edgeX = p1[0] - p0[0], edgeZ = p1[1] - p0[1];
+        if (edgeX * edgeX + edgeZ * edgeZ < 1e-6) continue;
+        const topA = scalePt(p0), topB = scalePt(p1);
+        this.quad([p0[0], y0, p0[1]], [p1[0], y0, p1[1]], [topB[0], y1 + parapet, topB[1]], [topA[0], y1 + parapet, topA[1]], wallCol, [edgeZ * outSign, 0.001, -edgeX * outSign]);
+        if (parapet) {
+          this.quad([topA[0], y1, topA[1]], [topB[0], y1, topB[1]], [topB[0], y1 + parapet, topB[1]], [topA[0], y1 + parapet, topA[1]], shade(wallCol, 0.72), [-edgeZ * outSign, 0.001, edgeX * outSign]);
+        }
       }
     });
-    const keep = this.kind;
+    const prevKind = this.kind;
     if (topKind !== null) this.kind = topKind;
     if (top) {
-      const contour = ring.map((p) => { const q = up(p); return new THREE.Vector2(q[0], q[1]); });
-      const hs = holes.map((h) => h.map((p) => { const q = up(p); return new THREE.Vector2(q[0], q[1]); }));
-      const faces = THREE.ShapeUtils.triangulateShape(contour, hs);
-      const pts = contour.concat(...hs);
-      for (const f of faces) {
-        const a = pts[f[0]], b = pts[f[1]], d = pts[f[2]];
-        this.tri([a.x, y1, a.y], [b.x, y1, b.y], [d.x, y1, d.y], topCol, [0, 1, 0]);
+      const contour = ring.map((pt) => { const scaled = scalePt(pt); return new THREE.Vector2(scaled[0], scaled[1]); });
+      const holeContours = holes.map((hole: number[][]) => hole.map((pt) => { const scaled = scalePt(pt); return new THREE.Vector2(scaled[0], scaled[1]); }));
+      const faces = THREE.ShapeUtils.triangulateShape(contour, holeContours);
+      const pts = contour.concat(...holeContours);
+      for (const face of faces) {
+        const v0 = pts[face[0]], v1 = pts[face[1]], v2 = pts[face[2]];
+        this.tri([v0.x, y1, v0.y], [v1.x, y1, v1.y], [v2.x, y1, v2.y], topCol, [0, 1, 0]);
       }
     }
-    this.kind = keep;
+    this.kind = prevKind;
   }
 
-  // Hip roof on an oriented rectangle. w = long side (along ang), d = short side.
-  // flare > 0 gives the swept, upturned-eave profile of Vietnamese palace roofs.
-  //
-  // With flare the roof is the curved Huế form: each slope is a concave profile (steep at the ridge, shallow at the
-  // eave), the eave line sags in the middle of each side and lifts toward the four corners (mái đao), and with hips
-  // the corner ridges end in upturned horns (đầu đao) and the main ridge in raised ends (kìm nóc).
-  // tip: scale of the plain corner stub drawn when there are no horns (1 default, 0 none, 0.4 a small ornament).
-  // segs: rows from eave to ridge. Default 1 without flare (the plain pyramid-hip), 2 with flare (about the old
-  // cost; mapped houses use this), 3 for decorated palace roofs (flare + hips). Landmarks ask for 4.
-  // clip: { u0, u1, v0, v1 }, any of them, in metres from the centre along w (u) and d (v): the roof is cut back to
-  // that box, for two roofs that meet side by side in a valley (máng xối) rather than run through each other. The
-  // cut side keeps its slope and loses its eave, its upturned corners and their horns; joinRoofs() finds the lines.
-  // Roofs drawn inside fn meet their neighbours in valleys instead of running through them: the hip roofs are held
-  // back, joined (joinRoofs: each cut back to the line between the two walls, a gutter laid along it) and drawn when
-  // fn returns. Index ranges read inside fn therefore do not include the roofs. this.mark is OR'ed into the kind of
-  // each held roof's faces (city.js: the floodlit riverside buildings).
-  joined(fn) {
-    const outer = this._joinQ, q = (this._joinQ = []);
-    try { fn(); } finally { this._joinQ = outer; }
-    const { clips, gutters } = joinRoofs(q);
-    const keepBase = this.base, keepMark = this.mark;
-    q.forEach((r, k) => {
-      this.base = r.base;
-      const n0 = this.n;
-      this.hip(r.cx, r.cz, r.w, r.d, r.ang, r.y0, r.h, r.col, { ...r.opts, clip: clips[k], _now: true });
-      if (r.mark) for (let v = n0; v < this.n; v++) this.knd[v] |= r.mark;
+  joined(fn: () => void) {
+    const outerQueue = this._joinQ;
+    const queue = (this._joinQ = []);
+    try { fn(); } finally { this._joinQ = outerQueue; }
+    const { clips, gutters } = joinRoofs(queue);
+    const keepBase = this.base;
+    const keepMark = this.mark;
+    queue.forEach((roof, idx) => {
+      this.base = roof.base;
+      const startVert = this.n;
+      this.hip(roof.cx, roof.cz, roof.w, roof.d, roof.ang, roof.y0, roof.h, roof.col, { ...roof.opts, clip: clips[idx], _now: true });
+      if (roof.mark) for (let vert = startVert; vert < this.n; vert++) this.knd[vert] |= roof.mark;
     });
-    for (const g of gutters) {
-      const [i, j] = g.roofs, lo = q[i].y0 <= q[j].y0 ? q[i] : q[j];
-      this.base = lo.base;
-      const n0 = this.n;
-      layGutter(this, g, lo.col);
-      if (lo.mark) for (let v = n0; v < this.n; v++) this.knd[v] |= lo.mark;
+    for (const gutter of gutters) {
+      const [idxA, idxB] = gutter.roofs;
+      const lowerRoof = queue[idxA].y0 <= queue[idxB].y0 ? queue[idxA] : queue[idxB];
+      this.base = lowerRoof.base;
+      const startVert = this.n;
+      layGutter(this, gutter, lowerRoof.col);
+      if (lowerRoof.mark) for (let vert = startVert; vert < this.n; vert++) this.knd[vert] |= lowerRoof.mark;
     }
-    this.base = keepBase; this.mark = keepMark;
+    this.base = keepBase;
+    this.mark = keepMark;
     return { clips, gutters };
   }
+
   hip(cx: number, cz: number, w: number, d: number, ang: number, y0: number, h: number, col: number[], opts: Record<string, any> = {}) {
     if (this._joinQ && !opts._now) {
       const { flare = 0, over = 0, hips = false, ridgeCol = null, segs = null, clip = null } = opts;
@@ -220,157 +260,181 @@ export class Buf {
       this._joinQ.push({ cx, cz, w, d, ang, y0, h, col, over, flare, hips, ridgeCol, segs, clip, opts, base: this.base, mark: this.mark || 0 });
       return;
     }
-    // a model's roofs, for the mapped buildings to keep clear of (city.js populate)
     if (this.roofs) this.roofs.push({ cx, cz, w, d, ang, y0, h, over: opts.over || 0 });
-    let { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false, segs = null, horns = null, tip = 1, clip = null, ridge = null } = opts;
+    const { flare = 0, over = 0, ridgeCol = null, fascia = 0, fasciaCol = null, hips = false, glazed = false, segs = null, horns = null, tip = 1, clip = null, ridge = null } = opts;
     const wallW = w, wallD = d;
     w += over * 2; d += over * 2;
-    const keep = this.kind;
+    const prevKind = this.kind;
     this.kind = glazed ? KIND.GLAZED : KIND.TILE;
+
     const ux = Math.cos(ang), uz = Math.sin(ang);
-    const P = (u, v, y) => [cx + u * ux - v * uz, y, cz + u * uz + v * ux];
+    const toWorld = (u: number, v: number, y: number) => [cx + u * ux - v * uz, y, cz + u * uz + v * ux];
     const { hw, hd, rl, rows, cols, gamma, pow } = hipShape(w, d, flare, hips, ridgeCol, segs, ridge);
-    // the cut: half-planes a·(u, v) <= k in the roof's own plan
-    const planes = [];
-    if (clip) {
-      if (clip.u0 > -hw) planes.push([-1, 0, -clip.u0]);
-      if (clip.u1 < hw) planes.push([1, 0, clip.u1]);
-      if (clip.v0 > -hd) planes.push([0, -1, -clip.v0]);
-      if (clip.v1 < hd) planes.push([0, 1, clip.v1]);
-    }
-    const loc = (p) => { const x = p[0] - cx, z = p[2] - cz; return [x * ux + z * uz, -x * uz + z * ux]; };
-    const outBy = (p) => { const [u, v] = loc(p); let m = -Infinity; for (const [a, b, k] of planes) m = Math.max(m, a * u + b * v - k); return m; };
-    const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-    // a convex polygon, cut to the clip (Sutherland-Hodgman), as a fan
-    const poly = (pts, c, hint) => {
-      if (!planes.length) { this.quad(pts[0], pts[1], pts[2], pts[3], c, hint); return; }
-      let ps = pts;
-      for (const [a, b, k] of planes) {
-        const out = [];
-        for (let m = 0; m < ps.length; m++) {
-          const p = ps[m], q = ps[(m + 1) % ps.length], lp = loc(p), lq = loc(q);
-          const dp = a * lp[0] + b * lp[1] - k, dq = a * lq[0] + b * lq[1] - k;
-          if (dp <= 0) out.push(p);
-          if ((dp < 0 && dq > 0) || (dp > 0 && dq < 0)) out.push(lerp(p, q, dp / (dp - dq)));
+    const planes = buildClipPlanes(clip, hw, hd);
+    const toLocal = (pt: number[]) => { const dx = pt[0] - cx, dz = pt[2] - cz; return [dx * ux + dz * uz, -dx * uz + dz * ux]; };
+    const outsideDist = (pt: number[]) => {
+      const [u, v] = toLocal(pt);
+      let maxVal = -Infinity;
+      for (const [pa, pb, pk] of planes) maxVal = Math.max(maxVal, pa * u + pb * v - pk);
+      return maxVal;
+    };
+
+    const emitClippedPoly = (pts: number[][], faceCol: number[], hint: number[]) => {
+      if (!planes.length) { this.quad(pts[0], pts[1], pts[2], pts[3], faceCol, hint); return; }
+      let clipped = pts;
+      for (const [pa, pb, pk] of planes) {
+        const nextPoly: number[][] = [];
+        for (let idx = 0; idx < clipped.length; idx++) {
+          const p0 = clipped[idx], p1 = clipped[(idx + 1) % clipped.length];
+          const l0 = toLocal(p0), l1 = toLocal(p1);
+          const d0 = pa * l0[0] + pb * l0[1] - pk;
+          const d1 = pa * l1[0] + pb * l1[1] - pk;
+          if (d0 <= 0) nextPoly.push(p0);
+          if ((d0 < 0 && d1 > 0) || (d0 > 0 && d1 < 0)) nextPoly.push(lerpPoint3(p0, p1, d0 / (d0 - d1)));
         }
-        ps = out;
-        if (ps.length < 3) return;
+        clipped = nextPoly;
+        if (clipped.length < 3) return;
       }
-      for (let m = 1; m + 1 < ps.length; m++) this.tri(ps[0], ps[m], ps[m + 1], c, hint);
+      for (let idx = 1; idx + 1 < clipped.length; idx++) this.tri(clipped[0], clipped[idx], clipped[idx + 1], faceCol, hint);
     };
-    // a segment cut to the clip, or null
-    const seg = (p, q) => {
+
+    const clipSegment = (p0: number[], p1: number[]) => {
       let t0 = 0, t1 = 1;
-      const lp = loc(p), lq = loc(q);
-      for (const [a, b, k] of planes) {
-        const dp = a * lp[0] + b * lp[1] - k, dq = a * lq[0] + b * lq[1] - k;
-        if (dp > 0 && dq > 0) return null;
-        if (dp > 0) t0 = Math.max(t0, dp / (dp - dq)); else if (dq > 0) t1 = Math.min(t1, dp / (dp - dq));
+      const l0 = toLocal(p0), l1 = toLocal(p1);
+      for (const [pa, pb, pk] of planes) {
+        const d0 = pa * l0[0] + pb * l0[1] - pk;
+        const d1 = pa * l1[0] + pb * l1[1] - pk;
+        if (d0 > 0 && d1 > 0) return null;
+        if (d0 > 0) t0 = Math.max(t0, d0 / (d0 - d1));
+        else if (d1 > 0) t1 = Math.min(t1, d0 / (d0 - d1));
       }
-      return t1 - t0 > 1e-4 ? [lerp(p, q, t0), lerp(p, q, t1)] : null;
+      return t1 - t0 > 1e-4 ? [lerpPoint3(p0, p1, t0), lerpPoint3(p0, p1, t1)] : null;
     };
-    // plan corners (eave and ridge ends) of each side; side i runs from corner i to corner i+1
-    const E = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
-    const R = [[-rl, 0], [rl, 0]];
-    const rOf = [0, 1, 1, 0];
-    // a corner the clip removes stays down: no lift and no horn where the roof meets its neighbour
-    const gone = E.map(([u, v]) => planes.some(([a, b, k]) => a * u + b * v - k > 1e-6));
-    const lift = (i, s) => (flare > 0 && !gone[s < 0.5 ? i : (i + 1) % 4] ? Math.abs(2 * s - 1) ** pow : 0);
-    const hintOf = [P(0, -1, 0.9), P(1, 0, 0.9), P(0, 1, 0.9), P(-1, 0, 0.9)].map((p) => [p[0] - cx, 0.9, p[2] - cz]);
-    // a point on side i: s along the eave (0..1), t from eave (0) to ridge (1)
-    const at = (i, s, t) => {
-      const j = (i + 1) % 4, ei = E[i], ej = E[j], ri = R[rOf[i]], rj = R[rOf[j]];
-      const eu = ei[0] + (ej[0] - ei[0]) * s, ev = ei[1] + (ej[1] - ei[1]) * s;
-      const ru = ri[0] + (rj[0] - ri[0]) * s, rv = ri[1] + (rj[1] - ri[1]) * s;
-      const y = y0 + h * t ** gamma + flare * lift(i, s) * (1 - t) ** 2;
-      return P(eu + (ru - eu) * t, ev + (rv - ev) * t, y);
+
+    const eaveCorners = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
+    const ridgeEnds = [[-rl, 0], [rl, 0]];
+    const ridgeOfSide = [0, 1, 1, 0];
+    const cornerClipped = eaveCorners.map(([u, v]) => planes.some(([pa, pb, pk]) => pa * u + pb * v - pk > 1e-6));
+    const cornerLift = (side: number, frac: number) => (flare > 0 && !cornerClipped[frac < 0.5 ? side : (side + 1) % 4] ? Math.abs(2 * frac - 1) ** pow : 0);
+    const sideHints = [toWorld(0, -1, 0.9), toWorld(1, 0, 0.9), toWorld(0, 1, 0.9), toWorld(-1, 0, 0.9)].map((pt) => [pt[0] - cx, 0.9, pt[2] - cz]);
+
+    const slopeAt = (side: number, fracS: number, fracT: number) => {
+      const next = (side + 1) % 4;
+      const e0 = eaveCorners[side], e1 = eaveCorners[next];
+      const r0 = ridgeEnds[ridgeOfSide[side]], r1 = ridgeEnds[ridgeOfSide[next]];
+      const eu = e0[0] + (e1[0] - e0[0]) * fracS, ev = e0[1] + (e1[1] - e0[1]) * fracS;
+      const ru = r0[0] + (r1[0] - r0[0]) * fracS, rv = r0[1] + (r1[1] - r0[1]) * fracS;
+      const y = y0 + h * fracT ** gamma + flare * cornerLift(side, fracS) * (1 - fracT) ** 2;
+      return toWorld(eu + (ru - eu) * fracT, ev + (rv - ev) * fracT, y);
     };
-    const s0 = this.n;
-    for (let i = 0; i < 4; i++) {
-      const g = [];
-      for (let k = 0; k <= rows; k++) { const row = []; for (let c = 0; c <= cols; c++) row.push(at(i, c / cols, k / rows)); g.push(row); }
-      for (let k = 0; k < rows; k++) for (let c = 0; c < cols; c++) poly([g[k][c], g[k][c + 1], g[k + 1][c + 1], g[k + 1][c]], col, hintOf[i]);
+
+    const slopeStart = this.n;
+    for (let side = 0; side < 4; side++) {
+      const grid: number[][][] = [];
+      for (let row = 0; row <= rows; row++) {
+        const line: number[][] = [];
+        for (let colIdx = 0; colIdx <= cols; colIdx++) line.push(slopeAt(side, colIdx / cols, row / rows));
+        grid.push(line);
+      }
+      for (let row = 0; row < rows; row++) {
+        for (let colIdx = 0; colIdx < cols; colIdx++) {
+          emitClippedPoly([grid[row][colIdx], grid[row][colIdx + 1], grid[row + 1][colIdx + 1], grid[row + 1][colIdx]], col, sideHints[side]);
+        }
+      }
     }
-    const s1 = this.n;
+    const slopeEnd = this.n;
+
     this.kind = KIND.PLAIN;
-    const fc = fasciaCol || [col[0] * 0.7, col[1] * 0.7, col[2] * 0.7];
-    // eave thickness: a fascia band that follows the eave's curve, and under it the dark soffit running back to the
-    // wall line (an old flat lid when there is no overhang to speak of)
+    const resolvedFasciaCol = fasciaCol || shade(col, 0.7);
     if (fascia > 0) {
-      for (let i = 0; i < 4; i++) for (let c = 0; c < cols; c++) {
-        const a = at(i, c / cols, 0), b = at(i, (c + 1) / cols, 0);
-        poly([[a[0], a[1] - fascia, a[2]], [b[0], b[1] - fascia, b[2]], b, a], fc, hintOf[i]);
+      for (let side = 0; side < 4; side++) {
+        for (let colIdx = 0; colIdx < cols; colIdx++) {
+          const p0 = slopeAt(side, colIdx / cols, 0);
+          const p1 = slopeAt(side, (colIdx + 1) / cols, 0);
+          emitClippedPoly([[p0[0], p0[1] - fascia, p0[2]], [p1[0], p1[1] - fascia, p1[2]], p1, p0], resolvedFasciaCol, sideHints[side]);
+        }
       }
     }
     if (flare > 0 && over > 0.3 && (fascia > 0 || over >= 0.8)) {
-      const sc = shade(fc, 0.45);
-      const iw = wallW / 2, id = wallD / 2;
-      const I = [[-iw, -id], [iw, -id], [iw, id], [-iw, id]];
-      for (let i = 0; i < 4; i++) {
-        const j = (i + 1) % 4;
-        for (let c = 0; c < cols; c++) {
-          const s0 = c / cols, s1 = (c + 1) / cols;
-          const a = at(i, s0, 0), b = at(i, s1, 0);
-          const ia = P(I[i][0] + (I[j][0] - I[i][0]) * s0, I[i][1] + (I[j][1] - I[i][1]) * s0, y0);
-          const ib = P(I[i][0] + (I[j][0] - I[i][0]) * s1, I[i][1] + (I[j][1] - I[i][1]) * s1, y0);
-          poly([[a[0], a[1] - fascia, a[2]], [b[0], b[1] - fascia, b[2]], ib, ia], sc, [0, -1, 0]);
+      const soffitCol = shade(resolvedFasciaCol, 0.45);
+      const innerW = wallW / 2, innerD = wallD / 2;
+      const innerCorners = [[-innerW, -innerD], [innerW, -innerD], [innerW, innerD], [-innerW, innerD]];
+      for (let side = 0; side < 4; side++) {
+        const next = (side + 1) % 4;
+        for (let colIdx = 0; colIdx < cols; colIdx++) {
+          const frac0 = colIdx / cols, frac1 = (colIdx + 1) / cols;
+          const p0 = slopeAt(side, frac0, 0), p1 = slopeAt(side, frac1, 0);
+          const in0 = toWorld(innerCorners[side][0] + (innerCorners[next][0] - innerCorners[side][0]) * frac0, innerCorners[side][1] + (innerCorners[next][1] - innerCorners[side][1]) * frac0, y0);
+          const in1 = toWorld(innerCorners[side][0] + (innerCorners[next][0] - innerCorners[side][0]) * frac1, innerCorners[side][1] + (innerCorners[next][1] - innerCorners[side][1]) * frac1, y0);
+          emitClippedPoly([[p0[0], p0[1] - fascia, p0[2]], [p1[0], p1[1] - fascia, p1[2]], in1, in0], soffitCol, [0, -1, 0]);
         }
       }
     } else if (fascia > 0) {
-      const lo = E.map(([u, v]) => P(u, v, y0 - fascia));
-      poly([lo[0], lo[1], lo[2], lo[3]], shade(fc, 0.8), [0, -1, 0]);
+      const lowCorners = eaveCorners.map(([u, v]) => toWorld(u, v, y0 - fascia));
+      emitClippedPoly([lowCorners[0], lowCorners[1], lowCorners[2], lowCorners[3]], shade(resolvedFasciaCol, 0.8), [0, -1, 0]);
     }
+
     if (ridgeCol) {
-      const t = Math.max(0.3, Math.min(0.6, d * 0.035));
-      const r0 = P(R[0][0], 0, y0 + h + t * 0.3), r1 = P(R[1][0], 0, y0 + h + t * 0.3);
-      const rr = rl > 0.3 ? seg(r0, r1) : null;
-      if (rr) {
-        this.beam(rr[0], rr[1], t, t * 1.3, ridgeCol);
-        // kìm nóc: the ridge ends rise a little and curl outward (not where the clip cut the ridge short)
-        if (rows >= 3) for (const [p, sg] of [[r0, -1], [r1, 1]] as [number[], number][]) {
-          if (outBy(p) > 1e-6) continue;
-          const q = [p[0] + ux * sg * t * 1.3, p[1] + t * 0.75, p[2] + uz * sg * t * 1.3];
-          this.beam([p[0] - ux * sg * t * 0.4, p[1], p[2] - uz * sg * t * 0.4], q, t * 0.9, t * 1.1, ridgeCol);
+      const thick = Math.max(0.3, Math.min(0.6, d * 0.035));
+      const r0 = toWorld(ridgeEnds[0][0], 0, y0 + h + thick * 0.3);
+      const r1 = toWorld(ridgeEnds[1][0], 0, y0 + h + thick * 0.3);
+      const clippedRidge = rl > 0.3 ? clipSegment(r0, r1) : null;
+      if (clippedRidge) {
+        this.beam(clippedRidge[0], clippedRidge[1], thick, thick * 1.3, ridgeCol);
+        if (rows >= 3) {
+          for (const [endPt, sign] of [[r0, -1], [r1, 1]] as [number[], number][]) {
+            if (outsideDist(endPt) > 1e-6) continue;
+            const curlTip = [endPt[0] + ux * sign * thick * 1.3, endPt[1] + thick * 0.75, endPt[2] + uz * sign * thick * 1.3];
+            this.beam([endPt[0] - ux * sign * thick * 0.4, endPt[1], endPt[2] - uz * sign * thick * 0.4], curlTip, thick * 0.9, thick * 1.1, ridgeCol);
+          }
         }
       }
-      // the four hip ridges follow the curve of the roof and end in upturned horns at the corners
-      if (hips) for (let i = 0; i < 4; i++) {
-        let prev = null;
-        for (let k = rows; k >= 0; k--) {
-          const p = at(i, 0, k / rows);
-          const q = [p[0], p[1] + t * (k === rows ? 0.3 : 0.45), p[2]];
-          if (prev) { const sg2 = planes.length ? seg(prev, q) : [prev, q]; if (sg2) this.beam(sg2[0], sg2[1], t * 0.8, t, ridgeCol); }
-          prev = q;
-        }
-        if (gone[i]) continue;
-        const e = prev, ox = e[0] - cx, oz = e[2] - cz, ol = Math.hypot(ox, oz) || 1, dx = ox / ol, dz = oz / ol;
-        if (horns ?? (flare > 0 && rows >= 3)) {
-          // đầu đao: a two-piece horn sweeping out along the diagonal and curling up
-          const m = [e[0] + dx * t * 1.6, e[1] + t * 0.8, e[2] + dz * t * 1.6];
-          const tip = [m[0] + dx * t * 1.1, m[1] + t * 1.9, m[2] + dz * t * 1.1];
-          this.beam(e, m, t * 0.7, t * 0.85, ridgeCol);
-          this.beam(m, tip, t * 0.5, t * 0.6, ridgeCol);
-        } else if (tip > 0) {
-          this.beam(e, [e[0] + dx * t * 2.2 * tip, e[1] + t * 1.9 * tip, e[2] + dz * t * 2.2 * tip], t * 0.6, t * 0.7, ridgeCol);
+      if (hips) {
+        for (let side = 0; side < 4; side++) {
+          let prevPt: number[] | null = null;
+          for (let row = rows; row >= 0; row--) {
+            const pt = slopeAt(side, 0, row / rows);
+            const raised = [pt[0], pt[1] + thick * (row === rows ? 0.3 : 0.45), pt[2]];
+            if (prevPt) {
+              const segPts = planes.length ? clipSegment(prevPt, raised) : [prevPt, raised];
+              if (segPts) this.beam(segPts[0], segPts[1], thick * 0.8, thick, ridgeCol);
+            }
+            prevPt = raised;
+          }
+          if (cornerClipped[side] || !prevPt) continue;
+          const ox = prevPt[0] - cx, oz = prevPt[2] - cz;
+          const diagLen = Math.hypot(ox, oz) || 1;
+          const dx = ox / diagLen, dz = oz / diagLen;
+          if (horns ?? (flare > 0 && rows >= 3)) {
+            const midPt = [prevPt[0] + dx * thick * 1.6, prevPt[1] + thick * 0.8, prevPt[2] + dz * thick * 1.6];
+            const tipPt = [midPt[0] + dx * thick * 1.1, midPt[1] + thick * 1.9, midPt[2] + dz * thick * 1.1];
+            this.beam(prevPt, midPt, thick * 0.7, thick * 0.85, ridgeCol);
+            this.beam(midPt, tipPt, thick * 0.5, thick * 0.6, ridgeCol);
+          } else if (tip > 0) {
+            this.beam(prevPt, [prevPt[0] + dx * thick * 2.2 * tip, prevPt[1] + thick * 1.9 * tip, prevPt[2] + dz * thick * 2.2 * tip], thick * 0.6, thick * 0.7, ridgeCol);
+          }
         }
       }
     }
-    // for scripts/check-roofs.mjs: the slope faces, and the eave line and hip ridges as they stand after the clip
+
     if (Buf.roofLog) {
-      const edge = [], hipPts = [];
-      for (let i = 0; i < 4; i++) {
-        const L = Math.hypot(E[(i + 1) % 4][0] - E[i][0], E[(i + 1) % 4][1] - E[i][1]), n = Math.max(2, Math.ceil(L / 0.4));
-        for (let k = 0; k <= n; k++) { const p = at(i, k / n, 0); if (!(outBy(p) > 1e-6)) edge.push(p); }
-        for (let k = 0; k <= 12; k++) { const p = at(i, 0, k / 12); if (!(outBy(p) > 1e-6)) hipPts.push(p); }
+      const edgePts: number[][] = [];
+      const hipPts: number[][] = [];
+      for (let side = 0; side < 4; side++) {
+        const edgeLen = Math.hypot(eaveCorners[(side + 1) % 4][0] - eaveCorners[side][0], eaveCorners[(side + 1) % 4][1] - eaveCorners[side][1]);
+        const steps = Math.max(2, Math.ceil(edgeLen / 0.4));
+        for (let k = 0; k <= steps; k++) { const pt = slopeAt(side, k / steps, 0); if (!(outsideDist(pt) > 1e-6)) edgePts.push(pt); }
+        for (let k = 0; k <= 12; k++) { const pt = slopeAt(side, 0, k / 12); if (!(outsideDist(pt) > 1e-6)) hipPts.push(pt); }
       }
-      Buf.roofLog.push({ buf: this, range: [s0, s1], edge, hips: hipPts, top: y0 + h, site: opts._site || roofSite(), spec: { cx, cz, w: wallW, d: wallD, ang, y0, h, over, clip } });
+      Buf.roofLog.push({ buf: this, range: [slopeStart, slopeEnd], edge: edgePts, hips: hipPts, top: y0 + h, site: opts._site || roofSite(), spec: { cx, cz, w: wallW, d: wallD, ang, y0, h, over, clip } });
     }
-    this.kind = keep;
+    this.kind = prevKind;
   }
 
-  cyl(cx, cz, y0, y1, r0, r1, seg, col, { cap = true, rot = 0 } = {}) {
-    for (let i = 0; i < seg; i++) {
-      const a0 = rot + (i / seg) * Math.PI * 2, a1 = rot + ((i + 1) / seg) * Math.PI * 2;
+  cyl(cx: number, cz: number, y0: number, y1: number, r0: number, r1: number, segs: number, col: number[], { cap = true, rot = 0 } = {}) {
+    for (let i = 0; i < segs; i++) {
+      const a0 = rot + (i / segs) * Math.PI * 2;
+      const a1 = rot + ((i + 1) / segs) * Math.PI * 2;
       const c0 = Math.cos(a0), s0 = Math.sin(a0), c1 = Math.cos(a1), s1 = Math.sin(a1);
       const hint = [c0 + c1, 0.1, s0 + s1];
       this.quad([cx + c0 * r0, y0, cz + s0 * r0], [cx + c1 * r0, y0, cz + s1 * r0], [cx + c1 * r1, y1, cz + s1 * r1], [cx + c0 * r1, y1, cz + s0 * r1], col, hint);
@@ -379,106 +443,117 @@ export class Buf {
   }
 
   geometry() {
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(this.pos.slice(0, this.n * 3), 3));
-    g.setAttribute('normal', new THREE.BufferAttribute(this.nrm.slice(0, this.n * 3), 3, true));
-    g.setAttribute('color', new THREE.BufferAttribute(this.col.slice(0, this.n * 3), 3, true));
-    g.setAttribute('aKind', new THREE.BufferAttribute(this.knd.slice(0, this.n), 1));
-    g.setAttribute('aBase', new THREE.BufferAttribute(this.bas.slice(0, this.n), 1));
-    g.computeBoundingSphere();
-    g.computeBoundingBox();
-    return g;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(this.pos.slice(0, this.n * 3), 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(this.nrm.slice(0, this.n * 3), 3, true));
+    geo.setAttribute('color', new THREE.BufferAttribute(this.col.slice(0, this.n * 3), 3, true));
+    geo.setAttribute('aKind', new THREE.BufferAttribute(this.knd.slice(0, this.n), 1));
+    geo.setAttribute('aBase', new THREE.BufferAttribute(this.bas.slice(0, this.n), 1));
+    geo.computeBoundingSphere();
+    geo.computeBoundingBox();
+    return geo;
   }
 }
 
-export function signedArea(r) {
-  let a = 0;
-  for (let i = 0, n = r.length; i < n; i++) { const p = r[i], q = r[(i + 1) % n]; a += p[0] * q[1] - q[0] * p[1]; }
-  return a / 2;
+export function signedArea(ring: number[][]) {
+  let area2 = 0;
+  for (let i = 0, len = ring.length; i < len; i++) {
+    const p0 = ring[i], p1 = ring[(i + 1) % len];
+    area2 += p0[0] * p1[1] - p1[0] * p0[1];
+  }
+  return area2 / 2;
 }
-export function ringCentre(r: number[][]): [number, number] {
-  let x = 0, z = 0;
-  for (const p of r) { x += p[0]; z += p[1]; }
-  return [x / r.length, z / r.length];
+
+export function ringCentre(ring: number[][]): [number, number] {
+  let sumX = 0, sumZ = 0;
+  for (const pt of ring) { sumX += pt[0]; sumZ += pt[1]; }
+  return [sumX / ring.length, sumZ / ring.length];
 }
+
 // flat decimetre int array → [[x,z],...] in metres
-export function unflat(a: number[]): [number, number][] {
-  const o: [number, number][] = new Array(a.length >> 1); // a stray odd trailing value is dropped, not a RangeError
-  for (let i = 0; i < o.length; i++) o[i] = [a[i * 2] / 10, a[i * 2 + 1] / 10];
-  return o;
+export function unflat(flat: number[]): [number, number][] {
+  const out: [number, number][] = new Array(flat.length >> 1);
+  for (let i = 0; i < out.length; i++) out[i] = [flat[i * 2] / DECIMETRES_PER_METRE, flat[i * 2 + 1] / DECIMETRES_PER_METRE];
+  return out;
 }
-export function obb(points) {
-  const p = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-  const lo = [];
-  for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
-  const up = [];
-  for (let i = p.length - 1; i >= 0; i--) { const q = p[i]; while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
-  const h = lo.slice(0, -1).concat(up.slice(0, -1));
-  let best = null;
-  for (let i = 0; i < h.length; i++) {
-    const a = h[i], b = h[(i + 1) % h.length];
-    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+
+export function obb(points: number[][]) {
+  const sorted = points.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross2d = (orig: number[], a: number[], b: number[]) => (a[0] - orig[0]) * (b[1] - orig[1]) - (a[1] - orig[1]) * (b[0] - orig[0]);
+  const lower: number[][] = [];
+  for (const pt of sorted) { while (lower.length >= 2 && cross2d(lower[lower.length - 2], lower[lower.length - 1], pt) <= 0) lower.pop(); lower.push(pt); }
+  const upper: number[][] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) { const pt = sorted[i]; while (upper.length >= 2 && cross2d(upper[upper.length - 2], upper[upper.length - 1], pt) <= 0) upper.pop(); upper.push(pt); }
+  const hull = lower.slice(0, -1).concat(upper.slice(0, -1));
+  let best: any = null;
+  for (let i = 0; i < hull.length; i++) {
+    const p0 = hull[i], p1 = hull[(i + 1) % hull.length];
+    const len = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]);
     if (len < 1e-6) continue;
-    const ux = (b[0] - a[0]) / len, uz = (b[1] - a[1]) / len;
-    let mnU = Infinity, mxU = -Infinity, mnV = Infinity, mxV = -Infinity;
-    for (const q of h) {
-      const u = q[0] * ux + q[1] * uz, v = -q[0] * uz + q[1] * ux;
-      if (u < mnU) mnU = u; if (u > mxU) mxU = u; if (v < mnV) mnV = v; if (v > mxV) mxV = v;
+    const ux = (p1[0] - p0[0]) / len, uz = (p1[1] - p0[1]) / len;
+    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+    for (const pt of hull) {
+      const u = pt[0] * ux + pt[1] * uz, v = -pt[0] * uz + pt[1] * ux;
+      if (u < minU) minU = u; if (u > maxU) maxU = u; if (v < minV) minV = v; if (v > maxV) maxV = v;
     }
-    const area = (mxU - mnU) * (mxV - mnV);
+    const area = (maxU - minU) * (maxV - minV);
     if (!best || area < best.area) {
-      const cu = (mnU + mxU) / 2, cv = (mnV + mxV) / 2;
-      let w = mxU - mnU, d = mxV - mnV, ang = Math.atan2(uz, ux);
-      if (d > w) { [w, d] = [d, w]; ang += Math.PI / 2; }
-      best = { area, c: [cu * ux - cv * uz, cu * uz + cv * ux], w, d, a: ang };
+      const cu = (minU + maxU) / 2, cv = (minV + maxV) / 2;
+      let width = maxU - minU, depth = maxV - minV, ang = Math.atan2(uz, ux);
+      if (depth > width) { [width, depth] = [depth, width]; ang += Math.PI / 2; }
+      best = { area, c: [cu * ux - cv * uz, cu * uz + cv * ux], w: width, d: depth, a: ang };
     }
   }
   return best;
 }
 
-// even-odd point-in-polygon test; ring is [[x,z],...] (closed or open)
-export const inRing = (x, z, ring) => {
+export const inRing = (x: number, z: number, ring: number[][]) => {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const a = ring[i], b = ring[j];
-    if ((a[1] > z) !== (b[1] > z) && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) inside = !inside;
+    const p0 = ring[i], p1 = ring[j];
+    if ((p0[1] > z) !== (p1[1] > z) && x < ((p1[0] - p0[0]) * (z - p0[1])) / (p1[1] - p0[1]) + p0[0]) inside = !inside;
   }
   return inside;
 };
-// length of a polyline [[x,z],...]
-export function pathLength(pts) { let s = 0; for (let i = 0; i + 1 < pts.length; i++) s += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]); return s; }
-// group items ({x,z}) by grid cell of `size` metres, so each group becomes one cullable mesh
-export function chunked(items, size = 1300) {
-  const map = new Map();
-  for (const it of items) {
-    const key = Math.floor(it.x / size) + ',' + Math.floor(it.z / size);
-    let list = map.get(key);
-    if (!list) map.set(key, (list = []));
-    list.push(it);
+
+export function pathLength(pts: number[][]) {
+  let total = 0;
+  for (let i = 0; i + 1 < pts.length; i++) total += Math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]);
+  return total;
+}
+
+export function chunked<T extends { x: number; z: number }>(items: T[], size = DEFAULT_CHUNK_SIZE_M) {
+  const buckets = new Map<string, T[]>();
+  for (const item of items) {
+    const key = `${Math.floor(item.x / size)},${Math.floor(item.z / size)}`;
+    let list = buckets.get(key);
+    if (!list) buckets.set(key, (list = []));
+    list.push(item);
   }
-  return map.values();
+  return buckets.values();
 }
-// deterministic hash of an index to [0, 1), and a pick from a list by it (the same planting on every load)
-export const rand = (i, salt = 0) => {
-  let h = ((i + 1) * 2654435761 + salt * 40503) >>> 0;
-  h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
-  return (h >>> 0) / 4294967296;
+
+export const rand = (idx: number, salt = 0) => {
+  let hash = ((idx + 1) * 2654435761 + salt * 40503) >>> 0;
+  hash ^= hash >>> 15;
+  hash = Math.imul(hash, 2246822519) >>> 0;
+  hash ^= hash >>> 13;
+  return (hash >>> 0) / 4294967296;
 };
-export const pick = (arr, i, salt = 0) => arr[Math.floor(rand(i, salt) * arr.length) % arr.length];
 
-// where Buf.hip was called from (file:line of its caller and the caller's caller), for scripts/check-roofs.mjs
+export const pick = (arr: any[], idx: number, salt = 0): any => arr[Math.floor(rand(idx, salt) * arr.length) % arr.length];
+
 function roofSite() {
-  return (new Error().stack || '').split('\n').slice(3, 5).map((l) => (l.match(/([\w.-]+\.(?:m?js|ts)):(\d+)/) || []).slice(1).join(':')).filter(Boolean).join(' < ');
+  return (new Error().stack || '')
+    .split('\n')
+    .slice(3, 5)
+    .map((line) => (line.match(/([\w.-]+\.(?:m?js|ts)):(\d+)/) || []).slice(1).join(':'))
+    .filter(Boolean)
+    .join(' < ');
 }
 
-// ---- hip roofs that meet ----
-// The proportions Buf.hip() gives a roof of plan w × d (overhang included): half sizes, half ridge length, rows and
-// columns of the mesh, the concavity of the slope (gamma) and the exponent of the corner lift.
-// ridge: optional ridge half length as a share of the half width (a hip-and-gable roof's long ridge on a near-square
-// plan); left out, the ridge is what the plan leaves once the hips take 0.92 of the half depth.
-export function hipShape(w, d, flare = 0, hips = false, ridgeCol = null, segs = null, ridge = null) {
-  const hw = w / 2, hd = d / 2;
+export function hipShape(width: number, depth: number, flare = 0, hips = false, ridgeCol: any = null, segs: number | null = null, ridge: number | null = null) {
+  const hw = width / 2, hd = depth / 2;
   const rl = ridge == null ? Math.max(0, hw - hd * 0.92) : Math.max(0, Math.min(0.95, ridge)) * hw;
   const rows = Math.max(1, Math.round(segs ?? (flare > 0 && hips && ridgeCol ? 2 : 1)));
   const cols = flare > 0 ? (rows <= 2 ? 2 : rows + 2) : 1;
@@ -486,114 +561,134 @@ export function hipShape(w, d, flare = 0, hips = false, ridgeCol = null, segs = 
   return { hw, hd, rl, rows, cols, gamma, pow: cols > 2 ? 2.2 : 1 };
 }
 
-// Roofs side by side: a double hall (trùng thiềm điệp ốc: a front house and a main house under two parallel roofs),
-// halls joined end to end, a gallery against a hall, neighbouring mapped houses. Each roof is drawn over its own
-// walls plus an overhang, so two of them closer than their two overhangs run through each other: eave into slope,
-// hip ridges and corner horns out through the neighbour. In Huế the two roofs meet in a valley gutter (máng xối)
-// between them. joinRoofs finds every such pair in a list of roofs and returns, per roof, the clip that cuts it back
-// to the line halfway between the two walls (Buf.hip's clip option), and the gutters to lay along those lines.
-// A roof: { cx, cz, w, d, ang, y0, h, over, flare, hips, ridgeCol, segs } as for Buf.hip (w, d the walls).
-// Two roofs join when they are square to each other (within ~3°), stand side by side (their walls overlap along the
-// line by over 0.3 m, and are apart, or overlap by under 0.8 m, across it), their eaves reach past each other and
-// their heights overlap. A roof inside another's plan (the upper tier of a two-tier roof) is never cut.
-export function joinRoofs(roofs) {
-  const n = roofs.length;
-  const clips = roofs.map((r) => (r.clip ? { ...r.clip } : null));
-  const gutters = [];
-  const fr = roofs.map((r) => {
-    const ux = Math.cos(r.ang), uz = Math.sin(r.ang), over = r.over || 0;
-    const sh = hipShape(r.w + over * 2, r.d + over * 2, r.flare || 0, !!r.hips, r.ridgeCol || null, r.segs ?? null, r.opts?.ridge ?? r.ridge ?? null);
-    return { ...r, over, ux, uz, sh, R: Math.hypot(r.w, r.d) / 2 + over };
-  });
-  // the edge a cut leaves on roof r: its height, and the half length of the level stretch (centred on the roof's own
-  // axis) along the cut. axis 0 cuts across u (an end of the roof), 1 across v (a long side); at: |cut| from centre
-  const edge = (r, axis, at) => {
-    const { hw, hd, rl, gamma } = r.sh;
-    const t = axis === 0 ? Math.min(1, Math.max(0, (hw - at) / Math.max(1e-6, hw - rl))) : Math.min(1, Math.max(0, (hd - at) / hd));
-    return { y: r.y0 + r.h * t ** gamma, half: axis === 0 ? hd * (1 - t) : hw - (hw - rl) * t };
-  };
-  const set = (k, key, val, lower) => {
-    const c = clips[k] || (clips[k] = {});
-    c[key] = c[key] === undefined ? val : lower ? Math.max(c[key], val) : Math.min(c[key], val);
-  };
-  // an upper tier: a roof whose walls stand inside another roof's walls, higher up. It joins nothing.
-  const inside = (a, b) => {
-    const dx = a.cx - b.cx, dz = a.cz - b.cz, u = dx * b.ux + dz * b.uz, v = -dx * b.uz + dz * b.ux;
-    const cu = Math.abs(a.ux * b.ux + a.uz * b.uz) > 0.7, aw = (cu ? a.w : a.d) / 2, ad = (cu ? a.d : a.w) / 2;
-    return a.y0 > b.y0 + 0.3 && Math.abs(u) + aw <= b.w / 2 + 0.3 && Math.abs(v) + ad <= b.d / 2 + 0.3;
-  };
-  // the roofs near each one, through a coarse grid (the city's buildings are some two thousand)
-  const G = 32, grid = new Map(), key = (a, b) => a * 65537 + b;
-  fr.forEach((r, k) => {
-    for (let a = Math.floor((r.cx - r.R) / G); a <= Math.floor((r.cx + r.R) / G); a++) for (let b = Math.floor((r.cz - r.R) / G); b <= Math.floor((r.cz + r.R) / G); b++) {
-      const c = key(a, b); (grid.get(c) || grid.set(c, []).get(c)).push(k);
+function findNearbyRoofs(frames: any[]) {
+  const grid = new Map<number, number[]>();
+  const cellKey = (gx: number, gz: number) => gx * 65537 + gz;
+  frames.forEach((roof, idx) => {
+    for (let gx = Math.floor((roof.cx - roof.R) / ROOF_JOIN_GRID_M); gx <= Math.floor((roof.cx + roof.R) / ROOF_JOIN_GRID_M); gx++) {
+      for (let gz = Math.floor((roof.cz - roof.R) / ROOF_JOIN_GRID_M); gz <= Math.floor((roof.cz + roof.R) / ROOF_JOIN_GRID_M); gz++) {
+        const key = cellKey(gx, gz);
+        const list = grid.get(key) || [];
+        if (!grid.has(key)) grid.set(key, list);
+        list.push(idx);
+      }
     }
   });
-  const near = fr.map((r, k) => {
-    const out = new Set<number>();
-    for (let a = Math.floor((r.cx - r.R) / G); a <= Math.floor((r.cx + r.R) / G); a++) for (let b = Math.floor((r.cz - r.R) / G); b <= Math.floor((r.cz + r.R) / G); b++) {
-      for (const j of grid.get(key(a, b)) || []) if (j !== k && Math.hypot(fr[j].cx - r.cx, fr[j].cz - r.cz) <= r.R + fr[j].R) out.add(j);
+  return frames.map((roof, idx) => {
+    const found = new Set<number>();
+    for (let gx = Math.floor((roof.cx - roof.R) / ROOF_JOIN_GRID_M); gx <= Math.floor((roof.cx + roof.R) / ROOF_JOIN_GRID_M); gx++) {
+      for (let gz = Math.floor((roof.cz - roof.R) / ROOF_JOIN_GRID_M); gz <= Math.floor((roof.cz + roof.R) / ROOF_JOIN_GRID_M); gz++) {
+        for (const other of grid.get(cellKey(gx, gz)) || []) {
+          if (other !== idx && Math.hypot(frames[other].cx - roof.cx, frames[other].cz - roof.cz) <= roof.R + frames[other].R) found.add(other);
+        }
+      }
     }
-    return [...out].sort((x, y) => x - y);
+    return [...found].sort((a, b) => a - b);
   });
-  const tier = fr.map((a, i) => near[i].some((j) => inside(a, fr[j])));
-  for (let i = 0; i < n; i++) for (const j of near[i]) {
-    if (j <= i || tier[i] || tier[j]) continue;
-    const A = fr[i], B = fr[j];
-    let da = (B.ang - A.ang) % (Math.PI / 2);
-    if (da > Math.PI / 4) da -= Math.PI / 2; else if (da < -Math.PI / 4) da += Math.PI / 2;
-    if (Math.abs(da) > 0.06) continue;
-    if (Math.min(A.y0 + A.h, B.y0 + B.h) < Math.max(A.y0, B.y0) - 0.5) continue;
-    // B's walls in A's frame
-    const dx = B.cx - A.cx, dz = B.cz - A.cz;
-    const bc = [dx * A.ux + dz * A.uz, -dx * A.uz + dz * A.ux];
-    const cu = Math.abs(B.ux * A.ux + B.uz * A.uz) > 0.7; // B's u runs along A's u
-    const bh = cu ? [B.w / 2, B.d / 2] : [B.d / 2, B.w / 2];
-    const ah = [A.w / 2, A.d / 2];
-    let best = null;
-    for (const ax of [0, 1]) {
-      const o = 1 - ax;
-      const gap = Math.abs(bc[ax]) - ah[ax] - bh[ax];
-      const along = Math.min(ah[o], bc[o] + bh[o]) - Math.max(-ah[o], bc[o] - bh[o]);
-      if (gap > -0.8 && gap < A.over + B.over && along > 0.3 && (!best || gap > best.gap)) best = { ax, gap };
-    }
-    if (!best) continue;
-    const { ax } = best, sg = Math.sign(bc[ax]) || 1;
-    const m = sg * (ah[ax] + best.gap / 2); // the line, in A's frame
-    set(i, ax === 0 ? (sg > 0 ? 'u1' : 'u0') : sg > 0 ? 'v1' : 'v0', m, sg < 0);
-    // the same line in B's frame: B keeps the side away from A
-    const nA = ax === 0 ? [A.ux, A.uz] : [-A.uz, A.ux]; // A's axis, in the world
-    const px = A.cx + nA[0] * m, pz = A.cz + nA[1] * m;
-    const bAxis = cu ? ax : 1 - ax;
-    const bv = bAxis === 0 ? [B.ux, B.uz] : [-B.uz, B.ux];
-    const dot = (nA[0] * bv[0] + nA[1] * bv[1]) * sg; // > 0: B lies on the + side of its axis from the line
-    const q = (px - B.cx) * bv[0] + (pz - B.cz) * bv[1];
-    set(j, bAxis === 0 ? (dot > 0 ? 'u0' : 'u1') : dot > 0 ? 'v0' : 'v1', q, dot > 0);
-    // the gutter: along the line, over the stretch where both cut edges are level
-    const ea = edge(A, ax, Math.abs(m)), eb = edge(B, bAxis, Math.abs(q));
-    const tA = [-nA[1], nA[0]];
-    const aC = (A.cx - px) * tA[0] + (A.cz - pz) * tA[1], bC = (B.cx - px) * tA[0] + (B.cz - pz) * tA[1]; // the centres along it
-    const lo = Math.max(aC - ea.half, bC - eb.half), hi = Math.min(aC + ea.half, bC + eb.half);
-    if (hi - lo > 0.5) {
-      gutters.push({ a: [px + tA[0] * lo, pz + tA[1] * lo], b: [px + tA[0] * hi, pz + tA[1] * hi], top: Math.max(ea.y, eb.y) - 0.04, bottom: Math.min(ea.y, eb.y) - 0.3, roofs: [i, j] });
+}
+
+export function joinRoofs(roofs: any[]) {
+  const count = roofs.length;
+  const clips = roofs.map((roof) => (roof.clip ? { ...roof.clip } : null));
+  const gutters: any[] = [];
+  const frames = roofs.map((roof) => {
+    const ux = Math.cos(roof.ang), uz = Math.sin(roof.ang), over = roof.over || 0;
+    const shape = hipShape(roof.w + over * 2, roof.d + over * 2, roof.flare || 0, !!roof.hips, roof.ridgeCol || null, roof.segs ?? null, roof.opts?.ridge ?? roof.ridge ?? null);
+    return { ...roof, over, ux, uz, sh: shape, R: Math.hypot(roof.w, roof.d) / 2 + over };
+  });
+
+  const cutEdge = (roof: any, axis: number, dist: number) => {
+    const { hw, hd, rl, gamma } = roof.sh;
+    const t = axis === 0 ? Math.min(1, Math.max(0, (hw - dist) / Math.max(1e-6, hw - rl))) : Math.min(1, Math.max(0, (hd - dist) / hd));
+    return { y: roof.y0 + roof.h * t ** gamma, half: axis === 0 ? hd * (1 - t) : hw - (hw - rl) * t };
+  };
+  const setClip = (idx: number, key: string, val: number, isLower: boolean) => {
+    const clip = clips[idx] || (clips[idx] = {});
+    clip[key] = clip[key] === undefined ? val : isLower ? Math.max(clip[key], val) : Math.min(clip[key], val);
+  };
+  const isUpperTierOf = (upper: any, lower: any) => {
+    const dx = upper.cx - lower.cx, dz = upper.cz - lower.cz;
+    const u = dx * lower.ux + dz * lower.uz, v = -dx * lower.uz + dz * lower.ux;
+    const parallel = Math.abs(upper.ux * lower.ux + upper.uz * lower.uz) > 0.7;
+    const halfW = (parallel ? upper.w : upper.d) / 2, halfD = (parallel ? upper.d : upper.w) / 2;
+    return upper.y0 > lower.y0 + 0.3 && Math.abs(u) + halfW <= lower.w / 2 + 0.3 && Math.abs(v) + halfD <= lower.d / 2 + 0.3;
+  };
+
+  const nearby = findNearbyRoofs(frames);
+  const isUpperTier = frames.map((roof, idx) => nearby[idx].some((otherIdx) => isUpperTierOf(roof, frames[otherIdx])));
+
+  for (let i = 0; i < count; i++) {
+    for (const j of nearby[i]) {
+      if (j <= i || isUpperTier[i] || isUpperTier[j]) continue;
+      const roofA = frames[i], roofB = frames[j];
+      let deltaAng = (roofB.ang - roofA.ang) % (Math.PI / 2);
+      if (deltaAng > Math.PI / 4) deltaAng -= Math.PI / 2;
+      else if (deltaAng < -Math.PI / 4) deltaAng += Math.PI / 2;
+      if (Math.abs(deltaAng) > ROOF_ANGLE_TOL_RAD) continue;
+      if (Math.min(roofA.y0 + roofA.h, roofB.y0 + roofB.h) < Math.max(roofA.y0, roofB.y0) - ROOF_HEIGHT_OVERLAP_MARGIN_M) continue;
+
+      const dx = roofB.cx - roofA.cx, dz = roofB.cz - roofA.cz;
+      const bInA = [dx * roofA.ux + dz * roofA.uz, -dx * roofA.uz + dz * roofA.ux];
+      const parallel = Math.abs(roofB.ux * roofA.ux + roofB.uz * roofA.uz) > 0.7;
+      const halfB = parallel ? [roofB.w / 2, roofB.d / 2] : [roofB.d / 2, roofB.w / 2];
+      const halfA = [roofA.w / 2, roofA.d / 2];
+
+      let bestJoin: { axis: number; gap: number } | null = null;
+      for (const axis of [0, 1]) {
+        const ortho = 1 - axis;
+        const gap = Math.abs(bInA[axis]) - halfA[axis] - halfB[axis];
+        const alongOverlap = Math.min(halfA[ortho], bInA[ortho] + halfB[ortho]) - Math.max(-halfA[ortho], bInA[ortho] - halfB[ortho]);
+        if (gap > ROOF_WALL_OVERLAP_MAX_M && gap < roofA.over + roofB.over && alongOverlap > ROOF_MIN_ALONG_OVERLAP_M && (!bestJoin || gap > bestJoin.gap)) {
+          bestJoin = { axis, gap };
+        }
+      }
+      if (!bestJoin) continue;
+
+      const { axis } = bestJoin;
+      const sign = Math.sign(bInA[axis]) || 1;
+      const cutA = sign * (halfA[axis] + bestJoin.gap / 2);
+      setClip(i, axis === 0 ? (sign > 0 ? 'u1' : 'u0') : sign > 0 ? 'v1' : 'v0', cutA, sign < 0);
+
+      const normA = axis === 0 ? [roofA.ux, roofA.uz] : [-roofA.uz, roofA.ux];
+      const px = roofA.cx + normA[0] * cutA, pz = roofA.cz + normA[1] * cutA;
+      const axisB = parallel ? axis : 1 - axis;
+      const normB = axisB === 0 ? [roofB.ux, roofB.uz] : [-roofB.uz, roofB.ux];
+      const dot = (normA[0] * normB[0] + normA[1] * normB[1]) * sign;
+      const cutB = (px - roofB.cx) * normB[0] + (pz - roofB.cz) * normB[1];
+      setClip(j, axisB === 0 ? (dot > 0 ? 'u0' : 'u1') : dot > 0 ? 'v0' : 'v1', cutB, dot > 0);
+
+      const edgeA = cutEdge(roofA, axis, Math.abs(cutA));
+      const edgeB = cutEdge(roofB, axisB, Math.abs(cutB));
+      const tanA = [-normA[1], normA[0]];
+      const centerA = (roofA.cx - px) * tanA[0] + (roofA.cz - pz) * tanA[1];
+      const centerB = (roofB.cx - px) * tanA[0] + (roofB.cz - pz) * tanA[1];
+      const lo = Math.max(centerA - edgeA.half, centerB - edgeB.half);
+      const hi = Math.min(centerA + edgeA.half, centerB + edgeB.half);
+      if (hi - lo > GUTTER_MIN_LEN_M) {
+        gutters.push({
+          a: [px + tanA[0] * lo, pz + tanA[1] * lo],
+          b: [px + tanA[0] * hi, pz + tanA[1] * hi],
+          top: Math.max(edgeA.y, edgeB.y) - 0.04,
+          bottom: Math.min(edgeA.y, edgeB.y) - 0.3,
+          roofs: [i, j],
+        });
+      }
     }
   }
   return { clips, gutters };
 }
 
-// A valley gutter from joinRoofs, as a dark trough between the two cut edges.
-export function layGutter(S, g, col) {
-  const keep = S.kind;
-  S.kind = KIND.PLAIN;
-  const y = (g.top + g.bottom) / 2, hgt = Math.max(0.1, g.top - g.bottom);
-  S.beam([g.a[0], y, g.a[1]], [g.b[0], y, g.b[1]], 0.5, hgt, shade(col, 0.55));
-  S.kind = keep;
+export function layGutter(buf: Buf, gutter: any, col: number[]) {
+  const prevKind = buf.kind;
+  buf.kind = KIND.PLAIN;
+  const midY = (gutter.top + gutter.bottom) / 2;
+  const height = Math.max(0.1, gutter.top - gutter.bottom);
+  buf.beam([gutter.a[0], midY, gutter.a[1]], [gutter.b[0], midY, gutter.b[1]], GUTTER_WIDTH_M, height, shade(col, 0.55));
+  buf.kind = prevKind;
 }
 
-// Draw a set of hip roofs that may stand side by side, joined in valleys: each entry is
-// { cx, cz, w, d, ang, y0, h, col, ...Buf.hip options }.
-export function joinedRoofs(S, list) {
-  return S.joined(() => {
-    for (const { cx, cz, w, d, ang, y0, h, col, ...o } of list) S.hip(cx, cz, w, d, ang, y0, h, col, o);
+export function joinedRoofs(buf: Buf, list: any[]) {
+  return buf.joined(() => {
+    for (const { cx, cz, w, d, ang, y0, h, col, ...opts } of list) buf.hip(cx, cz, w, d, ang, y0, h, col, opts);
   });
 }
