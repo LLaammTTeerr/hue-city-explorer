@@ -13,7 +13,7 @@ const HINT_LABELS_OFF_MS = 4200;
 const ZOOM_IN_FACTOR = 0.6;
 const ZOOM_OUT_FACTOR = 1.6;
 const TIME_OF_DAY_COUNT = 3;
-const TIME_NIGHT_INDEX = 2;
+const TIME_NIGHT_THRESHOLD = 1.55;
 const BREAKPOINT_NARROW_PX = 720;
 const BREAKPOINT_MID_PX = 900;
 const THEME_COLOR_NIGHT = '#1d1727';
@@ -208,6 +208,10 @@ function bindToolbarEvents(opts: {
   document.addEventListener('pointerdown', (event) => {
     if (!captureMenu.hidden && !byId('capture-wrap').contains(event.target as Node)) closeCaptureMenu();
   });
+  const searchInput = byId<HTMLInputElement>('q');
+  const syncSearchHasQ = () => byId('search').classList.toggle('has-q', searchInput.value.trim().length > 0);
+  searchInput.addEventListener('input', syncSearchHasQ);
+  byId('q-clear').addEventListener('click', syncSearchHasQ);
   byId('btn-about').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
   byId('btn-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
   byId('card-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
@@ -222,13 +226,15 @@ function bindToolbarEvents(opts: {
   byId('card-shot').addEventListener('click', nextShot);
   byId('btn-rain').addEventListener('click', () => handlers.rain());
 
+  const timeSlider = byId<HTMLInputElement>('time-slider');
+  timeSlider.addEventListener('input', () => handlers.time(parseFloat(timeSlider.value)));
   timeButtons.forEach((btn) => btn.addEventListener('click', () => handlers.time(+btn.dataset.time!)));
   byId('seg-time').addEventListener('keydown', (event) => {
     const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
     if (!delta) return;
     event.preventDefault();
     event.stopPropagation();
-    const nextIdx = (getTimeIdx() + delta + TIME_OF_DAY_COUNT) % TIME_OF_DAY_COUNT;
+    const nextIdx = (Math.round(getTimeIdx()) + delta + TIME_OF_DAY_COUNT) % TIME_OF_DAY_COUNT;
     handlers.time(nextIdx);
     timeButtons[nextIdx].focus();
   });
@@ -245,7 +251,7 @@ function bindToolbarEvents(opts: {
 
 export function createUI(data: any, handlers: any) {
   let lang = (store.get('hue-lang') || (navigator.language || 'vi').slice(0, 2)) === 'vi' ? 'vi' : 'en';
-  const liveIds = new Set(['search', 'card']);
+  const liveIds = new Set(['top-left', 'card']);
   const behindLoader = [...document.body.children].filter(
     (el) => el.id !== 'loader' && el.tagName !== 'SCRIPT' && !liveIds.has(el.id),
   ) as HTMLElement[];
@@ -353,18 +359,27 @@ export function createUI(data: any, handlers: any) {
       'btn-rain': rainTip,
     };
     document.querySelectorAll<HTMLButtonElement>('#seg-time button').forEach((btn) => {
-      const tip = strings.times[+btn.dataset.time!];
+      const idx = +btn.dataset.time!;
+      const tip = strings.times[idx];
+      btn.textContent = strings.timesShort[idx];
       btn.title = tip;
       btn.setAttribute('aria-label', tip);
     });
+    byId('time-slider').setAttribute('aria-label', strings.timeOfDay);
     for (const [id, tip] of Object.entries(tooltips)) {
       byId(id).title = tip;
       byId(id).setAttribute('aria-label', tip);
     }
 
+    byId('plaque-sub').textContent = strings.plaqueSub;
+    const formatCount = (val: number) => val.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
+    const totalBuildings = (data.meta.counts?.buildings || 0) + (data.meta.counts?.infill || 0);
+    byId('stat-buildings').textContent = formatCount(totalBuildings);
+    byId('stat-places').textContent = formatCount(data.places.length);
+    byId('stat-coords').textContent = `${origin.lat.toFixed(2)}°N`;
+
     byId('attrib').textContent = strings.attrib;
     byId('about-title').textContent = strings.aboutTitle;
-    const formatCount = (val: number) => val.toLocaleString(lang === 'vi' ? 'vi-VN' : 'en-US');
     byId('about-body').innerHTML = strings.aboutBody
       .replace('{buildings}', formatCount(data.meta.counts.buildings))
       .replace('{infill}', formatCount(data.meta.counts.infill));
@@ -466,6 +481,7 @@ export function createUI(data: any, handlers: any) {
       btn.classList.toggle('active', key === id);
       if (seen.has(key)) btn.classList.add('seen');
     });
+    byId('search').classList.toggle('has-q', byId<HTMLInputElement>('q').value.trim().length > 0);
   }
 
   function hideCard() {
@@ -478,6 +494,7 @@ export function createUI(data: any, handlers: any) {
     openerEl = null;
     document.body.classList.remove('has-card');
     listButtons.forEach((btn) => btn.classList.remove('active'));
+    byId('search').classList.toggle('has-q', byId<HTMLInputElement>('q').value.trim().length > 0);
   }
 
   const timeButtons = [...document.querySelectorAll<HTMLButtonElement>('#seg-time button')];
@@ -534,9 +551,11 @@ export function createUI(data: any, handlers: any) {
       byId('btn-look').setAttribute('aria-pressed', String(!!isInk));
     },
     setMood({ rain, time }: { rain: boolean | number; time: number }) {
-      document.body.dataset.time = String(time);
+      const isNight = time >= TIME_NIGHT_THRESHOLD;
+      const snappedIdx = Math.max(0, Math.min(2, Math.round(time)));
+      document.body.dataset.time = isNight ? '2' : String(snappedIdx);
       const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-      if (themeMeta) themeMeta.content = time === TIME_NIGHT_INDEX ? THEME_COLOR_NIGHT : THEME_COLOR_DAY;
+      if (themeMeta) themeMeta.content = isNight ? THEME_COLOR_NIGHT : THEME_COLOR_DAY;
       const rainTip = rain ? strings.rainOn : strings.rain;
       const rainBtn = byId('btn-rain');
       rainBtn.setAttribute('aria-pressed', String(!!rain));
@@ -544,8 +563,10 @@ export function createUI(data: any, handlers: any) {
       rainBtn.title = rainTip;
       rainBtn.setAttribute('aria-label', rainTip);
       timeIdx = time;
+      const slider = byId<HTMLInputElement>('time-slider');
+      if (Math.abs(parseFloat(slider.value) - time) > 0.005) slider.value = String(time);
       timeButtons.forEach((btn) => {
-        const active = +btn.dataset.time! === time;
+        const active = +btn.dataset.time! === snappedIdx;
         btn.setAttribute('aria-checked', String(active));
         btn.tabIndex = active ? 0 : -1;
       });

@@ -309,7 +309,7 @@ function bindCanvasInteractions(opts: {
     if (key === 'escape') { ui.closeCaptureMenu(); ui.hideCard(); syncCard(null); }
     else if (key === 'h' || key === 'home') { rig.goHome(); ui.hideCard(); syncCard(null); }
     else if (key === 'r') mood.setRain(!mood.state.rainTarget);
-    else if (key === 'n') mood.setTime((mood.state.timeTarget + 1) % 3);
+    else if (key === 'n') mood.setTime((Math.round(mood.state.timeTarget) + 1) % 3);
     else if (key === 'l') toggleLabels();
     else if (key === 'v') toggleLook();
     else if (key === 'p') captureView();
