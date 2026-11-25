@@ -1,3 +1,4 @@
+import { addEmissiveStripMesh, addGlowPointCloud } from '../helpers.js';
 import { KIND, Buf, hex, shade, obb, inRing } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
@@ -243,18 +244,8 @@ export function build({ data, S, group, THREE }) {
   wall(S, site, yAt, [[P(cu - 6.6, gv), P(cu + 6.6, gv)], [P(SIDE_GATE[0] - 2.75, SIDE_GATE[1]), P(SIDE_GATE[0] + 2.75, SIDE_GATE[1])]], lamp);
 
   // ---------------- night ----------------
-  if (lamps.length) {
-    const pts = glowPoints(lamps, lampCol, 4.5);
-    pts.userData.glow = true;
-    pts.userData.landmark = id;
-    group.add(pts);
-  }
-  if (L.n) {
-    const m = new THREE.Mesh(L.geometry(), lightMaterial(0xffc879, 1.1));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
-  }
+  addGlowPointCloud(group, lamps, lampCol, 4.5, id);
+  addEmissiveStripMesh(group, L, 0xffc879, 1.1, id);
   if (S.n - n0 > 3 * 40000) console.warn('tudam: heavy model', (S.n - n0) / 3);
   S.kind = KIND.PLAIN;
   S.base = 0;

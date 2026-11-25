@@ -1,3 +1,4 @@
+import { addGlowPointCloud } from '../helpers.js';
 import * as THREE from 'three';
 import { KIND, Buf, hex, shade, rand, pick, inRing } from '../../geo/buf.js';
 import { LAND_Y, ROAD_W, roadWidth } from '../../config.js';
@@ -986,12 +987,7 @@ export function build({ data, S, group, place }) {
   };
   addLit(L.warm, 0xffb060, 0.5);
   GLOW.forEach((col, k) => addLit(L.sign[k], col, 1.15));
-  if (gp.length) {
-    const pts = glowPoints(gp, gc, 2.2);
-    pts.userData.glow = true;
-    pts.userData.landmark = id;
-    group.add(pts);
-  }
+  addGlowPointCloud(group, gp, gc, 2.2, id);
   S.kind = KIND.PLAIN;
   S.base = 0;
 }

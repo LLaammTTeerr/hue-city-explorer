@@ -103,7 +103,9 @@ hue_city_explorer/
   - `createLocalFrame(ox, oz, angle)` for local `(u, v) → [x, z]` transforms and oriented `box` / `cyl` placement
   - `isFootprintClearOfStreets(...)` for oriented street-clearance checks
   - `addEmissiveStripMesh(group, buf, hex, boost, id)` and `addGlowPointCloud(group, pos, col, size, id)` for night lighting
+  - `addIntercityBus(S, cx, cz, groundY, headingRad, bodyColor, opts)` for parked intercity coaches
   - `hash2D(a, b)` and `createPrng(seed)` for deterministic procedural variation (never `Math.random()`)
+  - In `scripts/heroes/primitives.mjs`: use `dragonPearlCrest(...)` and `fourCornerScrolls(...)` instead of hand-assembling ridge finials and four-corner scroll sets
 - **Prefer descriptive identifiers over single-letter abbreviations** in module APIs and exports:
   - Constants: `UPPER_SNAKE_CASE` (e.g. `LAND_Y`, `ROAD_BRIDGE_DECK_Y`, `PALETTE`)
   - Functions & builders: `camelCase` verb phrases (`buildLotus`, `createLocalFrame`, `groundHeightAt`)

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { KIND, hex, shade } from '../geo/buf.js';
 import { LAND_Y } from '../config.js';
 import { rise } from '../geo/terrain.js';
 import { lightMaterial, glowPoints } from '../geo/materials.js';
@@ -90,4 +91,36 @@ export function addGlowPointCloud(group, positions, colors, size, landmarkId) {
   points.userData.landmark = landmarkId;
   group.add(points);
   return points;
+}
+
+const BUS_WHITE = hex('#efefef');
+const BUS_GLASS = hex('#2f3b45');
+const BUS_WINDSHIELD = hex('#1d2730');
+const BUS_SIGN = hex('#f0c22e');
+const BUS_HEADLIGHT = hex('#eef3f8');
+const BUS_AC_REAR = hex('#dfe2e5');
+const BUS_AC_FRONT = hex('#cfd4d8');
+const BUS_TIRE = hex('#1f2124');
+
+/**
+ * Draws a detailed Vietnamese intercity sleeper coach (livery stripe, panoramic windshield,
+ * destination LED board, headlights, twin rooftop AC pods, and tires) into static buffer `S`.
+ */
+export function addIntercityBus(S, cx, cz, groundY, headingRad, bodyColor, { length = 11.4, width = 2.55, height = 3.5 } = {}) {
+  const fx = Math.cos(headingRad);
+  const fz = Math.sin(headingRad);
+  S.kind = KIND.PLAIN;
+  S.box(cx, cz, groundY + 0.32, groundY + 1.16, length, width, headingRad, shade(bodyColor, 0.82));
+  S.box(cx, cz, groundY + 1.16, groundY + height - 0.18, length, width, headingRad, bodyColor, { top: BUS_WHITE });
+  S.box(cx, cz, groundY + 1.28, groundY + 1.5, length - 0.1, width + 0.03, headingRad, BUS_WHITE);
+  S.box(cx, cz, groundY + height - 0.18, groundY + height, length - 0.35, width - 0.18, headingRad, BUS_WHITE, { top: BUS_WHITE });
+  S.box(cx, cz, groundY + 1.65, groundY + height - 0.45, length - 0.35, width + 0.05, headingRad, BUS_GLASS);
+  S.box(cx + fx * (length * 0.49), cz + fz * (length * 0.49), groundY + 1.2, groundY + height - 0.38, 0.14, width - 0.14, headingRad, BUS_WINDSHIELD);
+  S.box(cx + fx * (length * 0.505), cz + fz * (length * 0.505), groundY + height - 0.62, groundY + height - 0.42, 0.06, width * 0.58, headingRad, BUS_SIGN);
+  S.box(cx + fx * (length * 0.505), cz + fz * (length * 0.505), groundY + 0.65, groundY + 0.92, 0.06, width * 0.82, headingRad, BUS_HEADLIGHT);
+  S.box(cx - fx * (length * 0.08), cz - fz * (length * 0.08), groundY + height, groundY + height + 0.28, length * 0.35, width * 0.58, headingRad, BUS_AC_REAR);
+  S.box(cx + fx * (length * 0.23), cz + fz * (length * 0.23), groundY + height, groundY + height + 0.22, length * 0.16, width * 0.52, headingRad, BUS_AC_FRONT);
+  for (const offset of [-length * 0.3, length * 0.3]) {
+    S.box(cx + fx * offset, cz + fz * offset, groundY + 0.06, groundY + 0.88, 0.92, width + 0.06, headingRad, BUS_TIRE);
+  }
 }
