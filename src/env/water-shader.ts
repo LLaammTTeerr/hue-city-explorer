@@ -141,8 +141,20 @@ export function createWaterShader() {
           refl = mix( sky, planar, uReflect );
         }
         float tone = vnoise( p * 0.004 + 3.0 );
-        vec3 body = mix( uDeep, uShallow, clamp( ndv * ndv * 0.55 + tone * 0.35, 0.0, 1.0 ) );
-        vec3 col = mix( body, refl, fres * mix( 0.74, 0.7, uRain ) ); // the river keeps some of its own jade under the sky it mirrors
+        // luminous jade shallows along the riverbanks and islets, deep emerald-teal in the channel
+        float bankDist = abs( fl.y ) + ( vnoise( p * 0.018 + 4.1 ) - 0.5 ) * 28.0;
+        float shallowBand = wf * smoothstep( 62.0, 162.0, bankDist );
+        float bodyMix = clamp( ndv * ndv * 0.52 + tone * 0.28 + shallowBand * 0.58, 0.0, 1.0 );
+        vec3 shallowCol = mix( uShallow, uShallow * vec3( 0.94, 1.14, 1.08 ), shallowBand * ( 1.0 - 0.7 * uGlow ) );
+        vec3 body = mix( uDeep, shallowCol, bodyMix );
+        vec3 col = mix( body, refl, fres * mix( 0.72, 0.68, uRain ) ); // the river keeps some of its own jade under the sky it mirrors
+
+        // gentle animated shoreline ripples near the banks
+        float shoreZone = wf * smoothstep( 104.0, 174.0, bankDist );
+        float shoreWave = sin( bankDist * 0.55 - uTime * 1.15 + vnoise( p * 0.06 ) * 4.8 );
+        float shoreFoam = smoothstep( 0.76, 0.96, shoreWave ) * shoreZone * smoothstep( 920.0, 90.0, dist ) * ( 1.0 - uRain * 0.55 );
+        vec3 foamCol = mix( mix( uShallow, vec3( 1.0 ), 0.68 ), uSkyHorizon, 0.3 );
+        col = mix( col, foamCol, shoreFoam * mix( 0.22, 0.09, uGlow ) );
 
         // sun path: a broad path of light, broken by the wavelets into sharp glints close by
         float sd = max( dot( R, uSunDir ), 0.0 );
@@ -156,9 +168,10 @@ export function createWaterShader() {
         if ( uLook > 0.5 ) {
           // drawn water: calm watercolor jade wash with soft mirrored sky/bridges and fine elongated pen-and-wash strokes
           float washTone = vnoise( p * 0.009 + 1.7 ) * 0.65 + vnoise( p * 0.032 - 2.3 ) * 0.35;
-          vec3 washW = mix( uShallow, uDeep, 0.25 + 0.35 * washTone ) * mix( 1.08, 0.96, uGlow );
-          float reflW = mix( 0.48, 0.62, uGlow ) * fres;
+          vec3 washW = mix( shallowCol, uDeep, 0.22 + 0.35 * washTone * ( 1.0 - 0.55 * shallowBand ) ) * mix( 1.08, 0.96, uGlow );
+          float reflW = mix( 0.45, 0.6, uGlow ) * fres;
           vec3 drawn = mix( washW, refl, reflW );
+          drawn = mix( drawn, foamCol, shoreFoam * mix( 0.36, 0.16, uGlow ) );
           vec3 camFwd = -vec3( viewMatrix[ 0 ][ 2 ], viewMatrix[ 1 ][ 2 ], viewMatrix[ 2 ][ 2 ] );
           vec3 camUp = vec3( viewMatrix[ 0 ][ 1 ], viewMatrix[ 1 ][ 1 ], viewMatrix[ 2 ][ 1 ] );
           vec2 viewFwd = normalize( camFwd.xz + camUp.xz + 1e-5 );

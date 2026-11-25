@@ -759,7 +759,8 @@ async function main() {
     syncGlow();
 
     if (post) {
-      const mist = 0.5 + 0.45 * mood.state.rain + 0.1 * mood.cur.glow;
+      const morningMist = (1 - THREE.MathUtils.smoothstep(mood.state.time, 0, 0.85)) * 0.52;
+      const mist = 0.38 + morningMist + 0.45 * mood.state.rain + 0.1 * mood.cur.glow;
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, mist, elapsedTime);
       // focus on what the camera is looking at; near the ground everything is sharp, illustrated look is sharp throughout
       const focusDist = camera.position.distanceTo(controls.target);

@@ -164,11 +164,14 @@ class OcclusionPass extends Pass {
             float dist = length( ray );
             inkDist = dist;
             // how much of the sight line runs inside the low mist layer: almost none looking straight down, a lot along the river
-            const float TOP = 30.0;
+            const float TOP = 26.0;
             float inLayer = uCamPos.y > TOP ? ( TOP - min( wp.y, TOP ) ) / max( -ray.y / max( dist, 1e-4 ), 0.02 ) : dist * clamp( ( TOP - min( wp.y, uCamPos.y ) ) / TOP, 0.0, 1.0 );
             inLayer = min( inLayer, dist );
-            float drift = 0.55 + 0.45 * mNoise( wp.xz * 0.0019 + vec2( uTime * 0.008, uTime * 0.003 ) );
-            float m = ( 1.0 - exp( -inLayer * 0.0021 ) ) * drift * uMist;
+            float n1 = mNoise( wp.xz * 0.0018 + vec2( uTime * 0.009, uTime * 0.003 ) );
+            float n2 = mNoise( wp.xz * 0.0052 - vec2( uTime * 0.005, -uTime * 0.006 ) );
+            float drift = 0.42 + 0.58 * ( n1 * 0.65 + n2 * 0.35 );
+            float riverBias = 1.0 - smoothstep( 0.8, 12.0, wp.y );
+            float m = ( 1.0 - exp( -inLayer * 0.0022 ) ) * drift * mix( 0.70, 1.32, riverBias ) * uMist;
             col = mix( col, uMistColor, clamp( m, 0.0, 0.82 ) );
           }
           // grade: sunlit architectural maquette contrast in realistic look, warm sunlit faces against cool slate-indigo shade
