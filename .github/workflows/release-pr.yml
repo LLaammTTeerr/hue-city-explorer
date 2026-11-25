@@ -1,0 +1,89 @@
+name: Release PR
+
+# On every push to main, open or update a rolling release pull request (branch release/next)
+# that bumps package.json / package-lock.json and prepends a CHANGELOG.md section for all
+# unreleased commits since the latest vX.Y.Z tag. Merging the PR triggers release.yml.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump override (auto inspects commits since last tag)'
+        required: false
+        default: auto
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+jobs:
+  release-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Optional: store a fine-grained PAT (Contents + Pull requests: Read and write) as
+          # RELEASE_BOT_TOKEN so PRs opened/updated by this workflow automatically run check.yml.
+          token: ${{ secrets.RELEASE_BOT_TOKEN || github.token }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Prepare release bump
+        id: prep
+        run: |
+          bump="${{ inputs.bump || 'auto' }}"
+          node scripts/prepare-release.mjs --bump "$bump" --notes-out /tmp/release-notes.md
+
+      - name: Verify changelog version check
+        if: steps.prep.outputs.skipped != 'true'
+        run: npm run check:version
+
+      - name: Push release branch and open or update PR
+        if: steps.prep.outputs.skipped != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_BOT_TOKEN || github.token }}
+          VERSION: ${{ steps.prep.outputs.version }}
+          PREV_VERSION: ${{ steps.prep.outputs.prev_version }}
+          BUMP: ${{ steps.prep.outputs.bump }}
+          COMMITS: ${{ steps.prep.outputs.commits }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B release/next
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore(release): v${VERSION}"
+          git push --force origin release/next
+
+          {
+            echo "Automated release PR bumping **v${PREV_VERSION} → v${VERSION}** (${BUMP} bump from ${COMMITS} unreleased commit(s) on \`main\`)."
+            echo ""
+            echo "Merging this PR triggers [\`release.yml\`](.github/workflows/release.yml) to tag \`v${VERSION}\` and publish the GitHub release."
+            echo ""
+            echo "---"
+            echo ""
+            cat /tmp/release-notes.md
+          } > /tmp/pr-body.md
+
+          TITLE="chore(release): v${VERSION}"
+          PR_NUMBER=$(gh pr list --head release/next --base main --state open --json number --jq '.[0].number // empty')
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" --title "$TITLE" --body-file /tmp/pr-body.md
+            echo "Updated release PR #${PR_NUMBER} -> ${TITLE}"
+          else
+            gh pr create --base main --head release/next --title "$TITLE" --body-file /tmp/pr-body.md
+          fi
