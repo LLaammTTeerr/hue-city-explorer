@@ -1,4 +1,4 @@
-import { KIND, hex, shade, unflat, inRing, obb } from '../../geo/buf.ts';
+import { KIND, hex, shade, unflat, inRing, obb, distToSegment } from '../../geo/buf.ts';
 import { LAND_Y, POND_Y, PAL } from '../../config.ts';
 import { rise } from '../../geo/terrain.ts';
 import { bridgeProfiles } from '../../geo/bridges.ts';
@@ -38,12 +38,6 @@ const COLORS = {
   court: hex('#a39278'),
   brick: hex('#8a6f5c'),
 };
-
-function segmentDist(x, z, ptA, ptB) {
-  const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], lenSq = dx * dx + dz * dz || 1;
-  const proj = Math.max(0, Math.min(1, ((x - ptA[0]) * dx + (z - ptA[1]) * dz) / lenSq));
-  return Math.hypot(x - ptA[0] - dx * proj, z - ptA[1] - dz * proj);
-}
 
 function collapseGenericBridge(S, vertCount, ptA, ptB, halfW, maxY) {
   const pos = S.pos, len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
@@ -267,7 +261,7 @@ function buildRevetmentAndBridge(data, S, startVerts, rings, island, isWet) {
       for (let k = 0; k < segs; k++) {
         const frac = (k + 0.5) / segs, segLen = edgeLen / segs + 0.25;
         const mx = ptA[0] + (ptB[0] - ptA[0]) * frac, mz = ptA[1] + (ptB[1] - ptA[1]) * frac;
-        if (segmentDist(mx, mz, BRIDGE_ENDS[0], BRIDGE_ENDS[1]) < 3) continue;
+        if (distToSegment(mx, mz, BRIDGE_ENDS[0], BRIDGE_ENDS[1]) < 3) continue;
         const g = groundY(mx - nx * 1.5, mz - nz * 1.5);
         const shift = (dist): [number, number] => [mx + nx * dist, mz + nz * dist];
         let pt = shift(0.12);
@@ -343,7 +337,7 @@ export function build({ data, S, group }) {
   buildShed(S);
 
   if (Array.isArray(data.trees)) {
-    const shoreDist = (x, z) => Math.min(...island.map((pt, k) => segmentDist(x, z, pt, island[(k + 1) % island.length])));
+    const shoreDist = (x, z) => Math.min(...island.map((pt, k) => distToSegment(x, z, pt, island[(k + 1) % island.length])));
     ISLAND_TREES.forEach(([u, v, scale], k) => {
       const [x, z] = localPt(u, v);
       if (!inRing(x, z, island) || shoreDist(x, z) < 1.8) return;

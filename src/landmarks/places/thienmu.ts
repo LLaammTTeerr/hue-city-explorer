@@ -162,13 +162,12 @@ function makeWallBuilders(S, courtY) {
 
 // ---------------- terrain, banks & perimeter walls ----------------
 
-function buildGroundAndWalls(ctx, hkRing) {
-  const { data, S, THREE, courtY, onStreet, rubbleWall, archedGate } = ctx;
+function buildPlateauAndBanks(ctx, hkRing) {
+  const { S, THREE, courtY, onStreet } = ctx;
   const loc = hkRing.map((pt) => toLocal(pt[0], pt[1]));
   const negPlane = ([a, b, c]): [number, number, number] => [-a, -b, -c];
   const westPlane = halfPlaneThrough(WEST_BROW[0], WEST_BROW[1], [0, 0]);
   const frontPlane: [number, number, number] = [0, 1, FRONT_BROW_V];
-  const planeDist = (plane, u, v) => plane[0] * u + plane[1] * v - plane[2];
   const levelRing = clipHalfPlane(clipHalfPlane(loc, ...westPlane), ...frontPlane);
   const distToLevel = (u, v) => {
     let best = Infinity;
@@ -250,8 +249,13 @@ function buildGroundAndWalls(ctx, hkRing) {
     }
   }
   S.noCover.push([bankStart, S.n]);
+  return { loc, westPlane, frontPlane, levelRing, bankPieces, bankY, apron, outwardNormal };
+}
 
-  // precinct wall on the court's edge + front balustrade + gates
+function buildPrecinctWallAndGates(ctx, terrain) {
+  const { S, courtY, rubbleWall, archedGate } = ctx;
+  const { westPlane, levelRing, apron } = terrain;
+  const planeDist = (plane, u, v) => plane[0] * u + plane[1] * v - plane[2];
   const gatePts = [];
   const ccwLevel = signedArea(levelRing.map(([u, v]) => toWorld(u, v))) > 0;
   const sideGateLoc = [toLocal(SIDE_GATES[0][0], SIDE_GATES[0][1]), toLocal(SIDE_GATES[1][0], SIDE_GATES[1][1])];
@@ -332,8 +336,13 @@ function buildGroundAndWalls(ctx, hkRing) {
       gatePts.push(toLocal(gatePt[0], gatePt[1]));
     }
   }
+  return gatePts;
+}
 
-  // low rubble walls at the roads
+function buildRoadWalls(ctx, terrain) {
+  const { rubbleWall } = ctx;
+  const { loc, westPlane, frontPlane, bankY, apron, outwardNormal } = terrain;
+  const planeDist = (plane, u, v) => plane[0] * u + plane[1] * v - plane[2];
   const roadWall = (pa, pb, outFn, isKerb = false) => {
     const ptA = toWorld(pa[0], pa[1]), ptB = toWorld(pb[0], pb[1]);
     const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], len = Math.hypot(dx, dz);
@@ -386,7 +395,13 @@ function buildGroundAndWalls(ctx, hkRing) {
     const outer = apron[0].outer;
     for (let k = 0; k + 1 < outer.length; k++) roadWall(outer[k], outer[k + 1], outwardNormal, true);
   }
-  return { levelRing, bankPieces, bankY, gatePts };
+}
+
+function buildGroundAndWalls(ctx, hkRing) {
+  const terrain = buildPlateauAndBanks(ctx, hkRing);
+  const gatePts = buildPrecinctWallAndGates(ctx, terrain);
+  buildRoadWalls(ctx, terrain);
+  return { levelRing: terrain.levelRing, bankPieces: terrain.bankPieces, bankY: terrain.bankY, gatePts };
 }
 
 // ---------------- stair, river landing, Phước Duyên tower ----------------

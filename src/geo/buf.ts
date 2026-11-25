@@ -507,7 +507,7 @@ export function obb(points: number[][]) {
   return best;
 }
 
-export const inRing = (x: number, z: number, ring: number[][]) => {
+export const inRing = (x: number, z: number, ring: number[][]): boolean => {
   let inside = false;
   for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
     const p0 = ring[i], p1 = ring[j];
@@ -515,6 +515,12 @@ export const inRing = (x: number, z: number, ring: number[][]) => {
   }
   return inside;
 };
+
+export function distToSegment(x: number, z: number, ptA: number[], ptB: number[]): number {
+  const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], lenSq = dx * dx + dz * dz;
+  const proj = lenSq ? Math.max(0, Math.min(1, ((x - ptA[0]) * dx + (z - ptA[1]) * dz) / lenSq)) : 0;
+  return Math.hypot(x - ptA[0] - dx * proj, z - ptA[1] - dz * proj);
+}
 
 export function pathLength(pts: number[][]) {
   let total = 0;

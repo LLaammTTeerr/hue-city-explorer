@@ -21,15 +21,14 @@ const THEME_COLOR_DAY = '#f5efe2';
 const HEADING_TENTHS_FACTOR = 1800;
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+const setVisible = (id: string, visible: boolean) => { byId(id).hidden = !visible; };
 
-// storage can throw outright (blocked cookies, some private modes, sandboxed frames); the language choice is only a nicety
 const store = {
   get(key: string) { try { return localStorage.getItem(key); } catch { return null; } },
   set(key: string, val: string) { try { localStorage.setItem(key, val); } catch { /* not kept */ } },
 };
 
-// story data is hand-edited: only web links become a src or an href
-function parseWebUrl(rawUrl: string | undefined) {
+function parseWebUrl(rawUrl: string | undefined): URL | null {
   if (!rawUrl) return null;
   try {
     const parsed = new URL(rawUrl, location.href);
@@ -39,7 +38,7 @@ function parseWebUrl(rawUrl: string | undefined) {
   }
 }
 
-function formatPlaceCoords(place: { x: number; z: number }, origin: { lat: number; lon: number }) {
+function formatPlaceCoords(place: { x: number; z: number }, origin: { lat: number; lon: number }): string {
   const lat = origin.lat - place.z / DECIMETRES_PER_METRE / METRES_PER_DEG_LAT;
   const lon = origin.lon + place.x / DECIMETRES_PER_METRE / (Math.cos((origin.lat * Math.PI) / 180) * METRES_PER_DEG_LON_EQ);
   return `${lat.toFixed(4)}° N · ${lon.toFixed(4)}° E`;
@@ -84,11 +83,132 @@ function createHintController() {
   return { hint, hideHint };
 }
 
+function renderCardDetails(
+  place: any,
+  story: any,
+  lang: string,
+  strings: any,
+  origin: { lat: number; lon: number },
+  pickLocalized: (obj: any) => [string, string],
+  setTextWithLang: (el: HTMLElement, text: string, textLang?: string) => void,
+): void {
+  const note = NOTES[place.id] || (place.k === 'gate' ? NOTES.gate : null);
+
+  const kind = pickLocalized(story && story.kind);
+  if (kind[0]) setTextWithLang(byId('card-kind'), ...kind);
+  else setTextWithLang(byId('card-kind'), strings.kinds[place.k] || strings.kinds.place);
+
+  const title = lang === 'en' && story && pickLocalized(story.title);
+  if (title && title[0]) setTextWithLang(byId('card-name'), ...title);
+  else setTextWithLang(byId('card-name'), place.n, 'vi');
+
+  setTextWithLang(byId('card-when'), ...pickLocalized(story && story.when));
+  setVisible('card-when', !!(story && story.when));
+
+  const summary = pickLocalized(story && story.summary);
+  if (summary[0]) setTextWithLang(byId('card-note'), ...summary);
+  else setTextWithLang(byId('card-note'), note ? note[lang] : '');
+
+  const storyEl = byId('card-story');
+  storyEl.textContent = '';
+  const [storyText, storyLang] = pickLocalized(story && story.story);
+  for (const para of storyText.split(/\n\s*\n/)) {
+    if (!para.trim()) continue;
+    const paragraphEl = document.createElement('p');
+    setTextWithLang(paragraphEl, para.trim(), storyLang);
+    storyEl.append(paragraphEl);
+  }
+  setVisible('card-story', storyEl.childElementCount > 0);
+
+  const factsEl = byId('card-facts');
+  factsEl.textContent = '';
+  for (const fact of (story && story.facts) || []) {
+    const dt = document.createElement('dt');
+    const dd = document.createElement('dd');
+    setTextWithLang(dt, ...pickLocalized(fact.label));
+    setTextWithLang(dd, ...pickLocalized(fact.value));
+    factsEl.append(dt, dd);
+  }
+  setVisible('card-facts', factsEl.childElementCount > 0);
+
+  const sourcesEl = byId('card-sources');
+  sourcesEl.textContent = '';
+  const sourceList = (story && story.sources) || [];
+  if (sourceList.length) {
+    sourcesEl.append(`${strings.sources}: `);
+    sourceList.forEach((source: any, idx: number) => {
+      const url = parseWebUrl(source.url);
+      const linkNode: HTMLAnchorElement | HTMLSpanElement = url
+        ? Object.assign(document.createElement('a'), { href: url.href, target: '_blank', rel: 'noopener' })
+        : document.createElement('span');
+      linkNode.textContent = source.title || (url ? url.hostname : '');
+      sourcesEl.append(linkNode, idx < sourceList.length - 1 ? ' · ' : '');
+    });
+  }
+  setVisible('card-sources', sourceList.length > 0);
+  byId('card-meta').textContent = formatPlaceCoords(place, origin);
+}
+
+function bindToolbarEvents(opts: {
+  handlers: any;
+  timeButtons: HTMLButtonElement[];
+  getLang: () => string;
+  getTimeIdx: () => number;
+  getCurrentPlace: () => any;
+  pickLang: (nextLang: string) => void;
+  hideCard: () => void;
+  nextShot: () => void;
+  applyText: () => void;
+}): void {
+  const { handlers, timeButtons, getLang, getTimeIdx, getCurrentPlace, pickLang, hideCard, nextShot, applyText } = opts;
+
+  document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((btn) => {
+    btn.addEventListener('click', () => { if (btn.dataset.lang && btn.dataset.lang !== getLang()) pickLang(btn.dataset.lang); });
+  });
+  new ResizeObserver(([entry]) => {
+    const heightPx = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+    document.documentElement.style.setProperty('--tools-h', `${heightPx}px`);
+  }).observe(byId('tools'));
+
+  byId('btn-labels').addEventListener('click', () => handlers.labels());
+  byId('btn-look').addEventListener('click', () => handlers.look());
+  byId('btn-about').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
+  byId('btn-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
+  byId('card-share').addEventListener('click', () => handlers.share(getCurrentPlace()?.id));
+  byId('attrib').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
+  byId('about-close').addEventListener('click', () => byId<HTMLDialogElement>('about').close());
+  byId('about').addEventListener('click', (event) => { if (event.target === byId('about')) byId<HTMLDialogElement>('about').close(); });
+  byId('osm-only').addEventListener('change', (event) => handlers.osmOnly((event.target as HTMLInputElement).checked));
+  byId('btn-home').addEventListener('click', () => handlers.home());
+  byId('btn-zin').addEventListener('click', () => handlers.zoom(ZOOM_IN_FACTOR));
+  byId('btn-zout').addEventListener('click', () => handlers.zoom(ZOOM_OUT_FACTOR));
+  byId('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
+  byId('card-shot').addEventListener('click', nextShot);
+  byId('btn-rain').addEventListener('click', () => handlers.rain());
+
+  timeButtons.forEach((btn) => btn.addEventListener('click', () => handlers.time(+btn.dataset.time!)));
+  byId('seg-time').addEventListener('keydown', (event) => {
+    const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const nextIdx = (getTimeIdx() + delta + TIME_OF_DAY_COUNT) % TIME_OF_DAY_COUNT;
+    handlers.time(nextIdx);
+    timeButtons[nextIdx].focus();
+  });
+
+  let isNarrow = innerWidth <= BREAKPOINT_NARROW_PX;
+  let isMid = innerWidth < BREAKPOINT_MID_PX;
+  addEventListener('resize', () => {
+    if (isNarrow === (innerWidth <= BREAKPOINT_NARROW_PX) && isMid === (innerWidth < BREAKPOINT_MID_PX)) return;
+    isNarrow = innerWidth <= BREAKPOINT_NARROW_PX;
+    isMid = innerWidth < BREAKPOINT_MID_PX;
+    applyText();
+  });
+}
+
 export function createUI(data: any, handlers: any) {
   let lang = (store.get('hue-lang') || (navigator.language || 'vi').slice(0, 2)) === 'vi' ? 'vi' : 'en';
-  // until the scene is ready the interface behind the loader is out of reach, for the keyboard too. The search box and
-  // the card are the exception: they stand above the loader (body.loading in style.css) and work from the place
-  // index alone, so a visitor can look a place up while the city is still downloading.
   const liveIds = new Set(['search', 'card']);
   const behindLoader = [...document.body.children].filter(
     (el) => el.id !== 'loader' && el.tagName !== 'SCRIPT' && !liveIds.has(el.id),
@@ -115,18 +235,16 @@ export function createUI(data: any, handlers: any) {
   let shotIndex = 0;
   let mediaGen = 0;
   let openerEl: Element | null = null;
+  let timeIdx = 1;
 
-  // text in the interface language, or the other one when it is missing: [text, language of that text]
   const pickLocalized = (obj: any): [string, string] => (
     !obj ? ['', lang] : obj[lang] ? [obj[lang], lang] : obj.vi ? [obj.vi, 'vi'] : obj.en ? [obj.en, 'en'] : ['', lang]
   );
-  // write text and mark a fallback with its own language, so a screen reader pronounces it by the right rules
   const setTextWithLang = (el: HTMLElement, text: string, textLang = lang) => {
     el.textContent = text;
     if (textLang !== lang) el.lang = textLang;
     else el.removeAttribute('lang');
   };
-  const setVisible = (id: string, visible: boolean) => { byId(id).hidden = !visible; };
 
   const search = createSearch({
     places: data.places,
@@ -137,7 +255,7 @@ export function createUI(data: any, handlers: any) {
     loadStories: () => loadStories(),
     seen,
     currentId: () => currentPlace && currentPlace.id,
-    pick: (id: string, from: any) => handlers.pick(id, true, from),
+    pick: (id: string, from: HTMLElement) => handlers.pick(id, true, from),
     overview: () => handlers.overview(),
     clear: () => { hideCard(); handlers.cardClosed(); },
   });
@@ -198,7 +316,6 @@ export function createUI(data: any, handlers: any) {
     if (currentPlace) fillCard(currentPlace);
   }
 
-  // Stories, facts and picture references live in data/stories.json, fetched the first time a card opens.
   function loadStories() {
     if (stories || storiesAsked) return;
     storiesAsked = true;
@@ -260,63 +377,9 @@ export function createUI(data: any, handlers: any) {
   }
 
   function fillCard(place: any) {
-    const note = NOTES[place.id] || (place.k === 'gate' ? NOTES.gate : null);
     const story = stories && stories[place.id];
-
-    const kind = pickLocalized(story && story.kind);
-    if (kind[0]) setTextWithLang(byId('card-kind'), ...kind);
-    else setTextWithLang(byId('card-kind'), strings.kinds[place.k] || strings.kinds.place);
-
-    const title = lang === 'en' && story && pickLocalized(story.title);
-    if (title && title[0]) setTextWithLang(byId('card-name'), ...title);
-    else setTextWithLang(byId('card-name'), place.n, 'vi'); // the place's own (Vietnamese) name
-
-    setTextWithLang(byId('card-when'), ...pickLocalized(story && story.when));
-    setVisible('card-when', !!(story && story.when));
-
-    const summary = pickLocalized(story && story.summary);
-    if (summary[0]) setTextWithLang(byId('card-note'), ...summary);
-    else setTextWithLang(byId('card-note'), note ? note[lang] : '');
-
-    const storyEl = byId('card-story');
-    storyEl.textContent = '';
-    const [storyText, storyLang] = pickLocalized(story && story.story);
-    for (const para of storyText.split(/\n\s*\n/)) {
-      if (!para.trim()) continue;
-      const paragraphEl = document.createElement('p');
-      setTextWithLang(paragraphEl, para.trim(), storyLang);
-      storyEl.append(paragraphEl);
-    }
-    setVisible('card-story', storyEl.childElementCount > 0);
-
-    const factsEl = byId('card-facts');
-    factsEl.textContent = '';
-    for (const fact of (story && story.facts) || []) {
-      const dt = document.createElement('dt');
-      const dd = document.createElement('dd');
-      setTextWithLang(dt, ...pickLocalized(fact.label));
-      setTextWithLang(dd, ...pickLocalized(fact.value));
-      factsEl.append(dt, dd);
-    }
-    setVisible('card-facts', factsEl.childElementCount > 0);
-
-    const sourcesEl = byId('card-sources');
-    sourcesEl.textContent = '';
-    const sourceList = (story && story.sources) || [];
-    if (sourceList.length) {
-      sourcesEl.append(`${strings.sources}: `);
-      sourceList.forEach((source: any, idx: number) => {
-        const url = parseWebUrl(source.url);
-        const linkNode: HTMLAnchorElement | HTMLSpanElement = url
-          ? Object.assign(document.createElement('a'), { href: url.href, target: '_blank', rel: 'noopener' })
-          : document.createElement('span');
-        linkNode.textContent = source.title || (url ? url.hostname : '');
-        sourcesEl.append(linkNode, idx < sourceList.length - 1 ? ' · ' : '');
-      });
-    }
-    setVisible('card-sources', sourceList.length > 0);
+    renderCardDetails(place, story, lang, strings, origin, pickLocalized, setTextWithLang);
     fillMedia(story);
-    byId('card-meta').textContent = formatPlaceCoords(place, origin);
   }
 
   function showCard(id: string, from: Element | null = document.activeElement) {
@@ -355,63 +418,25 @@ export function createUI(data: any, handlers: any) {
     listButtons.forEach((btn) => btn.classList.remove('active'));
   }
 
-  // ---- toolbar & dialog wiring ----
-  function pickLang(nextLang: string) {
-    lang = nextLang;
-    store.set('hue-lang', lang);
-    applyText();
-    handlers.lang(lang);
-  }
-
-  document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((btn) => {
-    btn.addEventListener('click', () => { if (btn.dataset.lang && btn.dataset.lang !== lang) pickLang(btn.dataset.lang); });
-  });
-  // On phones the compass stacks under the tool column; publish its real height so the CSS never guesses it.
-  new ResizeObserver(([entry]) => {
-    const heightPx = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
-    document.documentElement.style.setProperty('--tools-h', `${heightPx}px`);
-  }).observe(byId('tools'));
-
-  byId('btn-labels').addEventListener('click', () => handlers.labels());
-  byId('btn-look').addEventListener('click', () => handlers.look());
-  byId('btn-about').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
-  byId('btn-share').addEventListener('click', () => handlers.share(currentPlace && currentPlace.id));
-  byId('card-share').addEventListener('click', () => handlers.share(currentPlace && currentPlace.id));
-  byId('attrib').addEventListener('click', () => byId<HTMLDialogElement>('about').showModal());
-  byId('about-close').addEventListener('click', () => byId<HTMLDialogElement>('about').close());
-  byId('about').addEventListener('click', (event) => { if (event.target === byId('about')) byId<HTMLDialogElement>('about').close(); });
-  byId('osm-only').addEventListener('change', (event) => handlers.osmOnly((event.target as HTMLInputElement).checked));
-  byId('btn-home').addEventListener('click', () => handlers.home());
-  byId('btn-zin').addEventListener('click', () => handlers.zoom(ZOOM_IN_FACTOR));
-  byId('btn-zout').addEventListener('click', () => handlers.zoom(ZOOM_OUT_FACTOR));
-  byId('card-close').addEventListener('click', () => { hideCard(); handlers.cardClosed(); });
-  byId('card-shot').addEventListener('click', () => { if (currentPlace) { shotIndex++; fillMedia(stories && stories[currentPlace.id]); } });
-  byId('btn-rain').addEventListener('click', () => handlers.rain());
-
   const timeButtons = [...document.querySelectorAll<HTMLButtonElement>('#seg-time button')];
-  timeButtons.forEach((btn) => btn.addEventListener('click', () => handlers.time(+btn.dataset.time!)));
-  // a radio group: one stop in the tab order, arrow keys move the choice
-  let timeIdx = 1;
-  byId('seg-time').addEventListener('keydown', (event) => {
-    const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
-    if (!delta) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const nextIdx = (timeIdx + delta + TIME_OF_DAY_COUNT) % TIME_OF_DAY_COUNT;
-    handlers.time(nextIdx);
-    timeButtons[nextIdx].focus();
+  bindToolbarEvents({
+    handlers,
+    timeButtons,
+    getLang: () => lang,
+    getTimeIdx: () => timeIdx,
+    getCurrentPlace: () => currentPlace,
+    pickLang: (nextLang) => {
+      lang = nextLang;
+      store.set('hue-lang', lang);
+      applyText();
+      handlers.lang(lang);
+    },
+    hideCard,
+    nextShot: () => { if (currentPlace) { shotIndex++; fillMedia(stories && stories[currentPlace.id]); } },
+    applyText,
   });
 
   applyText();
-  // the short wordings (phone) and the placeholder follow the window across its breakpoints
-  let isNarrow = innerWidth <= BREAKPOINT_NARROW_PX;
-  let isMid = innerWidth < BREAKPOINT_MID_PX;
-  addEventListener('resize', () => {
-    if (isNarrow === (innerWidth <= BREAKPOINT_NARROW_PX) && isMid === (innerWidth < BREAKPOINT_MID_PX)) return;
-    isNarrow = innerWidth <= BREAKPOINT_NARROW_PX;
-    isMid = innerWidth < BREAKPOINT_MID_PX;
-    applyText();
-  });
 
   let lastHeadingDeg = NaN;
   return {
@@ -433,7 +458,7 @@ export function createUI(data: any, handlers: any) {
       byId('btn-look').setAttribute('aria-pressed', String(!!isInk));
     },
     setMood({ rain, time }: { rain: boolean | number; time: number }) {
-      document.body.dataset.time = String(time); // the sheets turn to dark lacquer once the lights are on (style.css)
+      document.body.dataset.time = String(time);
       const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
       if (themeMeta) themeMeta.content = time === TIME_NIGHT_INDEX ? THEME_COLOR_NIGHT : THEME_COLOR_DAY;
       const rainTip = rain ? strings.rainOn : strings.rain;
@@ -450,7 +475,7 @@ export function createUI(data: any, handlers: any) {
       });
     },
     setHeading(rad: number) {
-      const deg = Math.round((-rad * HEADING_TENTHS_FACTOR) / Math.PI) / 10; // tenths of a degree; no style write while the view holds still
+      const deg = Math.round((-rad * HEADING_TENTHS_FACTOR) / Math.PI) / 10;
       if (deg !== lastHeadingDeg) {
         lastHeadingDeg = deg;
         byId('needle').style.transform = `rotate(${deg}deg)`;
@@ -462,7 +487,7 @@ export function createUI(data: any, handlers: any) {
       document.body.classList.remove('loading');
       behindLoader.forEach((el) => { el.inert = false; });
     },
-    lock, // the loader back over the interface (a retried start after the 2D fallback)
+    lock,
     applyText,
   };
 }

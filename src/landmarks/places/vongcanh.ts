@@ -1,4 +1,4 @@
-import { KIND, hex, shade } from '../../geo/buf.ts';
+import { KIND, hex, shade, inRing, distToSegment } from '../../geo/buf.ts';
 import { LAND_Y } from '../../config.ts';
 import { rise } from '../../geo/terrain.ts';
 import { glowPoints } from '../../geo/materials.ts';
@@ -81,21 +81,6 @@ const COLORS = {
 
 const groundY = (x, z) => LAND_Y + rise(x, z);
 
-function pointInPoly(ring, x, z) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, zi] = ring[i], [xj, zj] = ring[j];
-    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
-function segmentDist(x, z, ptA, ptB) {
-  const dx = ptB[0] - ptA[0], dz = ptB[1] - ptA[1], lenSq = dx * dx + dz * dz;
-  const proj = lenSq ? Math.max(0, Math.min(1, ((x - ptA[0]) * dx + (z - ptA[1]) * dz) / lenSq)) : 0;
-  return Math.hypot(x - ptA[0] - dx * proj, z - ptA[1] - dz * proj);
-}
-
 function hash2(i, k) {
   const val = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
   return val - Math.floor(val);
@@ -123,7 +108,7 @@ const COURT_TANGENTS = (() => {
   ]);
 })();
 
-const inCourt = (x, z, pad = 0) => Math.hypot(x - COURT_DISC_CENTER[0], z - COURT_DISC_CENTER[1]) < COURT_RADIUS + pad || pointInPoly([COURT_TANGENTS[0], COURT_TIP, COURT_TANGENTS[1]], x, z);
+const inCourt = (x, z, pad = 0) => Math.hypot(x - COURT_DISC_CENTER[0], z - COURT_DISC_CENTER[1]) < COURT_RADIUS + pad || inRing(x, z, [COURT_TANGENTS[0], COURT_TIP, COURT_TANGENTS[1]]);
 const inGarden = (x, z, pad = 0) => GARDEN_LOBES.some((lobe) => lobeMetric(lobe, x, z, GARDEN_PATH_W + pad) < 1);
 const inApron = (x, z, pad = 0) => {
   const [[cx, cz], len, depth, ang] = APRON_SPEC, dx = x - cx, dz = z - cz;
@@ -391,7 +376,7 @@ function populatePineForest(data) {
   const openZones: [[number, number], number][] = [[TOWER_POS as [number, number], 4.5], [DECK_SPEC[0], 7], [REST_SPEC[0], 7.5]];
   const isClear = (x, z, pad) => inCourt(x, z, 1 + pad) || inGarden(x, z, 1 + pad) || inApron(x, z, 1.5 + pad)
     || openZones.some(([center, rad]) => Math.hypot(x - center[0], z - center[1]) < rad + pad)
-    || WALKS.some(([w, , pts]) => pts.some((pt, k) => k + 1 < pts.length && segmentDist(x, z, pt, pts[k + 1]) < w / 2 + 0.9 + pad));
+    || WALKS.some(([w, , pts]) => pts.some((pt, k) => k + 1 < pts.length && distToSegment(x, z, pt, pts[k + 1]) < w / 2 + 0.9 + pad));
 
   const trees = data.trees, counts = data.meta && data.meta.counts;
   for (let i = trees.length / 4 - 1; i >= 0; i--) {
@@ -402,7 +387,7 @@ function populatePineForest(data) {
       if (counts && counts.treesNear != null && i < counts.treesNear) counts.treesNear--;
       continue;
     }
-    if (pointInPoly(FOREST_RING, x, z) && hash2(i, 9) < 0.9) trees[i * 4 + 3] = 3;
+    if (inRing(x, z, FOREST_RING) && hash2(i, 9) < 0.9) trees[i * 4 + 3] = 3;
   }
 
   const existing = [];
@@ -416,7 +401,7 @@ function populatePineForest(data) {
     for (let x = -2942; x < -2350; x += 8) {
       idx++;
       const px = x + (hash2(idx, 1) - 0.5) * 6, pz = z + (hash2(idx, 2) - 0.5) * 6;
-      if (!pointInPoly(FOREST_RING, px, pz) || rise(px, pz) < 1 || hash2(idx, 3) < 0.2 || isClear(px, pz, 0.6)) continue;
+      if (!inRing(px, pz, FOREST_RING) || rise(px, pz) < 1 || hash2(idx, 3) < 0.2 || isClear(px, pz, 0.6)) continue;
       if (existing.some(([hx, hz]) => Math.abs(hx - px) < 4 && Math.abs(hz - pz) < 4)) continue;
       added.push(Math.round(px * 10), Math.round(pz * 10), 9 + Math.floor(hash2(idx, 4) * 6), 3);
     }

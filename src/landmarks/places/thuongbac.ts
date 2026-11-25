@@ -1,4 +1,4 @@
-import { KIND, Buf, hex, shade, unflat } from '../../geo/buf.ts';
+import { KIND, Buf, hex, shade, unflat, inRing } from '../../geo/buf.ts';
 import { LAND_Y } from '../../config.ts';
 import { rise } from '../../geo/terrain.ts';
 import { lightMaterial, glowPoints } from '../../geo/materials.ts';
@@ -44,15 +44,6 @@ const HEDGE_COL = hex('#3f6a34');
 const COUPLET_COL = hex('#d8b24a');
 const LANTERN_COL = [1.0, 0.74, 0.38];
 
-function pointInRing(ring, x, z) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    const [xi, zi] = ring[i], [xj, zj] = ring[j];
-    if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
-  }
-  return inside;
-}
-
 function octCircumradius(apothem) {
   return apothem / Math.cos(Math.PI / 8);
 }
@@ -71,7 +62,7 @@ function buildCourtAndBase(data, S, center, at, frontAng, groundY, courtY, baseT
   const courtPoly = (data?.green || [])
     .filter(([kind]) => kind === 'paved')
     .map(([, poly]) => unflat(poly[0]))
-    .find((ring) => pointInRing(ring, courtProbe[0], courtProbe[1]));
+    .find((ring) => inRing(courtProbe[0], courtProbe[1], ring));
   if (courtPoly) {
     const courtTop = Math.max(...courtPoly.map(([x, z]) => LAND_Y + rise(x, z))) + COURT_RISE;
     S.kind = KIND.MASONRY;

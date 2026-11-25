@@ -102,45 +102,41 @@ function groundExtreme(u0: number, u1: number, v0: number, v1: number, reduceFn:
   return acc;
 }
 
-// build the three altar tiers, railings, stairs, incense stands, burner and pit
-function buildAltarTiers(S, footY: number, minG: number, tier1Y: number, tier2Y: number, tier3Y: number) {
-  const startVert = S.n;
-  S.base = tier1Y - LAND_Y;
-  S.kind = KIND.GROUND;
-
-  if (footY > minG + 0.15) {
-    const skirtHalf = TIER1_HALF + 0.6;
-    const slope = 2.2;
-    const rows = 8;
-    const step = 3;
-    const ring: [number, number][] = [];
-    for (const [u0, v0, du, dv] of [[-skirtHalf, -skirtHalf, 1, 0], [skirtHalf, -skirtHalf, 0, 1], [skirtHalf, skirtHalf, -1, 0], [-skirtHalf, skirtHalf, 0, -1]] as [number, number, number, number][]) {
-      const segLen = (2 * skirtHalf) / Math.round((2 * skirtHalf) / step);
-      for (let dist = 0; dist < 2 * skirtHalf - 0.01; dist += segLen) ring.push([u0 + du * dist, v0 + dv * dist]);
-    }
-    const profiles = ring.map(([uPos, vPos]) => {
-      const scaleOut = (dist: number): [number, number] => {
-        const factor = (skirtHalf + dist) / skirtHalf;
-        return [uPos * factor, vPos * factor];
-      };
-      let run = 0;
-      while (run < 60 && footY - run / slope > groundY(...scaleOut(run)) - 0.3) run += 0.25;
-      return Array.from({ length: rows + 1 }, (_, rowIdx) => {
-        const dist = (run * rowIdx) / rows;
-        const uv = scaleOut(dist);
-        const pt = toWorld(uv[0], uv[1]);
-        const gy = groundY(uv[0], uv[1]) - 0.3;
-        const y = rowIdx === rows ? Math.min(footY, gy) : Math.max(footY - dist / slope, gy);
-        return [pt[0], Math.min(footY, y), pt[1]];
-      });
-    });
-    for (let i = 0; i < profiles.length; i++) {
-      const pA = profiles[i];
-      const pB = profiles[(i + 1) % profiles.length];
-      for (let j = 0; j < rows; j++) S.quad(pA[j], pB[j], pB[j + 1], pA[j + 1], COLORS.bank, [0, 1, 0]);
-    }
+function buildAltarEmbankment(S, footY: number, minG: number) {
+  if (footY <= minG + 0.15) return;
+  const skirtHalf = TIER1_HALF + 0.6;
+  const slope = 2.2;
+  const rows = 8;
+  const step = 3;
+  const ring: [number, number][] = [];
+  for (const [u0, v0, du, dv] of [[-skirtHalf, -skirtHalf, 1, 0], [skirtHalf, -skirtHalf, 0, 1], [skirtHalf, skirtHalf, -1, 0], [-skirtHalf, skirtHalf, 0, -1]] as [number, number, number, number][]) {
+    const segLen = (2 * skirtHalf) / Math.round((2 * skirtHalf) / step);
+    for (let dist = 0; dist < 2 * skirtHalf - 0.01; dist += segLen) ring.push([u0 + du * dist, v0 + dv * dist]);
   }
+  const profiles = ring.map(([uPos, vPos]) => {
+    const scaleOut = (dist: number): [number, number] => {
+      const factor = (skirtHalf + dist) / skirtHalf;
+      return [uPos * factor, vPos * factor];
+    };
+    let run = 0;
+    while (run < 60 && footY - run / slope > groundY(...scaleOut(run)) - 0.3) run += 0.25;
+    return Array.from({ length: rows + 1 }, (_, rowIdx) => {
+      const dist = (run * rowIdx) / rows;
+      const uv = scaleOut(dist);
+      const pt = toWorld(uv[0], uv[1]);
+      const gy = groundY(uv[0], uv[1]) - 0.3;
+      const y = rowIdx === rows ? Math.min(footY, gy) : Math.max(footY - dist / slope, gy);
+      return [pt[0], Math.min(footY, y), pt[1]];
+    });
+  });
+  for (let i = 0; i < profiles.length; i++) {
+    const pA = profiles[i];
+    const pB = profiles[(i + 1) % profiles.length];
+    for (let j = 0; j < rows; j++) S.quad(pA[j], pB[j], pB[j + 1], pA[j + 1], COLORS.bank, [0, 1, 0]);
+  }
+}
 
+function buildAltarTerraces(S, footY: number, tier1Y: number, tier2Y: number, tier3Y: number) {
   // lowest tier (ground + four L-shaped lawns + axial walks)
   S.kind = KIND.MASONRY;
   const tier1Start = S.n;
@@ -198,8 +194,9 @@ function buildAltarTiers(S, footY: number, minG: number, tier1Y: number, tier2Y:
       frameBox(S, Math.cos(angle) * radius, Math.sin(angle) * radius, tier3Y - 0.05, tier3Y + 0.22, 0.7, 0.7, shade(COLORS.stone, 1.05));
     }
   }
+}
 
-  // railings on all three tiers
+function buildAltarRailingsAndStairs(S, footY: number, tier1Y: number, tier2Y: number, tier3Y: number) {
   const drawPost = (uPos: number, vPos: number, y: number, height: number, col: number[]) => {
     S.kind = KIND.MASONRY;
     frameBox(S, uPos, vPos, y, y + height, 0.62, 0.62, col);
@@ -296,6 +293,16 @@ function buildAltarTiers(S, footY: number, minG: number, tier1Y: number, tier2Y:
     frameBox(S, -68 + du, -68 + dv, tier1Y, tier1Y + 0.35, width, depth, COLORS.stone);
   }
   frameBox(S, -68, -68, tier1Y, tier1Y + 0.07, 1.8, 1.8, COLORS.dark);
+}
+
+// build the three altar tiers, railings, stairs, incense stands, burner and pit
+function buildAltarTiers(S, footY: number, minG: number, tier1Y: number, tier2Y: number, tier3Y: number) {
+  const startVert = S.n;
+  S.base = tier1Y - LAND_Y;
+  S.kind = KIND.GROUND;
+  buildAltarEmbankment(S, footY, minG);
+  buildAltarTerraces(S, footY, tier1Y, tier2Y, tier3Y);
+  buildAltarRailingsAndStairs(S, footY, tier1Y, tier2Y, tier3Y);
   (S.paved = S.paved || []).push([startVert, S.n]);
 }
 

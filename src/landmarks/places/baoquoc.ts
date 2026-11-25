@@ -142,8 +142,7 @@ function drawGableU(S, u0: number, u1: number, v0: number, v1: number, y0: numbe
 
 type GlowFn = (uPos: number, vPos: number, y: number, col?: number[]) => void;
 
-// 15-step stair, path from road, tam quan triple gate, forecourt, terrace, and main hall
-function buildAxisComplex(S, addGlow: GlowFn) {
+function buildApproachAndTamQuan(S, addGlow: GlowFn) {
   const [gateLo, gateHi] = terrainSpan(GATE_U - GATE_D / 2, GATE_U + GATE_D / 2, AXIS_CENTER_V - GATE_W / 2, AXIS_CENTER_V + GATE_W / 2);
   const stepRise = 0.15;
   const stepTread = 0.35;
@@ -247,8 +246,10 @@ function buildAxisComplex(S, addGlow: GlowFn) {
     addGlow(GATE_U + 1.2, pillarV, gateY + 4.95);
   }
   addGlow(GATE_U + GATE_D / 2 + 0.6, AXIS_CENTER_V, gateY + 3.4);
+  return { footU, openU, openV, gateY, pavedStart };
+}
 
-  // sloping forecourt from gate to terrace
+function buildForecourtAndUpperTerrace(S, gateY: number, addGlow: GlowFn) {
   const courtV0 = 36.5;
   const courtV1 = 54.5;
   const terraceEdgeU = 64;
@@ -277,7 +278,6 @@ function buildAxisComplex(S, addGlow: GlowFn) {
   S.kind = KIND.MASONRY;
   for (let i = 0; i + 1 < courtUs.length; i++) S.beam(toWorld3(courtUs[i], AXIS_CENTER_V, courtYs[i] + 0.02), toWorld3(courtUs[i + 1], AXIS_CENTER_V, courtYs[i + 1] + 0.02), 2.2, 0.06, shade(COLORS.stone, 1.05));
 
-  // upper terrace, balustrade, lantern pillars, stone lions, and main hall
   const forecourtTopY = courtYs[courtYs.length - 1];
   const [terraceLo, terraceHi] = terrainSpan(31, terraceEdgeU, 31, 59);
   const terraceY = Math.max(forecourtTopY + 0.9, terraceHi + 0.1);
@@ -303,8 +303,10 @@ function buildAxisComplex(S, addGlow: GlowFn) {
     frameBox(S, terraceEdgeU + 2.2, AXIS_CENTER_V + side * 5.4, forecourtTopY + 0.5, forecourtTopY + 1.2, 0.6, 0.9, COLORS.lionWhite);
     for (const potV of [-14, -10, 10, 14]) if (Math.sign(potV) === side) frameCyl(S, terraceEdgeU - 1.6, AXIS_CENTER_V + potV, terraceY, terraceY + 0.5, 0.35, 0.45, 6, COLORS.potRed, { cap: true });
   }
+  return terraceY;
+}
 
-  // main hall (chánh điện) and front hall (tiền đường)
+function buildMainHall(S, terraceY: number, pavedStart: number, addGlow: GlowFn) {
   const hallBack = 24.6;
   const hallFront = 45.4;
   const hallW = 18;
@@ -350,6 +352,13 @@ function buildAxisComplex(S, addGlow: GlowFn) {
     frameCyl(S, hallFront + 0.1, AXIS_CENTER_V + dv, plinthY + 2.4, plinthY + 2.95, 0.22, 0.22, 6, COLORS.lanternWhite);
     addGlow(hallFront + 0.1, AXIS_CENTER_V + dv, plinthY + 2.7, [1, 0.9, 0.7]);
   }
+}
+
+// 15-step stair, path from road, tam quan triple gate, forecourt, terrace, and main hall
+function buildAxisComplex(S, addGlow: GlowFn) {
+  const { footU, openU, openV, gateY, pavedStart } = buildApproachAndTamQuan(S, addGlow);
+  const terraceY = buildForecourtAndUpperTerrace(S, gateY, addGlow);
+  buildMainHall(S, terraceY, pavedStart, addGlow);
   return { footU, openU, openV };
 }
 

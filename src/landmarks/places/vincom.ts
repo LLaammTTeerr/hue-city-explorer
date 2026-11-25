@@ -3,6 +3,7 @@ import { KIND, Buf, hex, shade } from '../../geo/buf.ts';
 import { LAND_Y } from '../../config.ts';
 import { rise } from '../../geo/terrain.ts';
 import { lightMaterial } from '../../geo/materials.ts';
+import { addPalmTree } from '../helpers.ts';
 
 // Vincom Plaza Huế + Meliá Vinpearl Huế, 50A Hùng Vương (ngã sáu Hùng Vương, south bank). See docs/places/vincom.md.
 //
@@ -436,7 +437,7 @@ function buildWestYard(S) {
   }
   S.box(538.6, 625, yardGroundY, yardGroundY + 3.2, 4.0, 5.0, 0, COLORS.grey, { top: COLORS.roof });
   for (const [x, z, height] of ([[523.6, 618.6, 9.2], [523.2, 628.4, 10.4], [524.2, 637.4, 8.6], [536.8, 634.2, 9.6]] as any[])) {
-    drawPalm(S, [x, z], yardGroundY, height);
+    addPalmTree(S, [x, z], yardGroundY, height, { frondCount: 8, trunkBottomR: 0.24, trunkTopR: 0.17, midReach: 1.6, tipReach: 3.2, angleOffset: height, restoreKind: true });
   }
 }
 
@@ -496,21 +497,6 @@ export function build({ S, group }) {
   }
   S.kind = KIND.PLAIN;
   S.base = 0;
-}
-
-function drawPalm(S, pos, y, height) {
-  S.kind = KIND.TIMBER;
-  const trunk = hex('#8a7a62'), frond = hex('#4f7a3a');
-  S.cyl(pos[0], pos[1], y, y + height, 0.24, 0.17, 6, trunk, { cap: false });
-  const top = [pos[0] + 0.25, y + height, pos[1]];
-  for (let i = 0; i < 8; i++) {
-    const ang = (i / 8) * Math.PI * 2 + height, dx = Math.cos(ang), dz = Math.sin(ang);
-    const mid = [top[0] + dx * 1.6, top[1] + 0.45, top[2] + dz * 1.6];
-    const tip = [top[0] + dx * 3.2, top[1] - 0.9, top[2] + dz * 3.2];
-    S.beam(top, mid, 0.7, 0.08, frond);
-    S.beam(mid, tip, 0.55, 0.06, shade(frond, 0.9));
-  }
-  S.kind = KIND.PLAIN;
 }
 
 function drawStrip(buf, face, faceNorm, u1, y1, u2, y2, thickness, out, col) {

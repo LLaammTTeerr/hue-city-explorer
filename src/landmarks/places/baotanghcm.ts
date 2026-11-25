@@ -1,5 +1,5 @@
-import { addEmissiveStripMesh } from '../helpers.ts';
-import { KIND, Buf, hex, shade } from '../../geo/buf.ts';
+import { addEmissiveStripMesh, addPalmTree } from '../helpers.ts';
+import { KIND, Buf, hex, shade, inRing } from '../../geo/buf.ts';
 import { LAND_Y } from '../../config.ts';
 import { rise } from '../../geo/terrain.ts';
 import { glowPoints } from '../../geo/materials.ts';
@@ -23,16 +23,6 @@ const COLORS = {
   red: hex('#b8262b'), gold: hex('#d8b24a'), pot: hex('#9c5a48'), cream: hex('#ece4d2'),
   rubble: hex('#8a877e'), render: hex('#d2b65a'), iron: hex('#26342c'), soffit: hex('#fbfaf6'),
 };
-
-function pointInRing(x, z, ring) {
-  let inside = false;
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    if (ring[i][1] > z !== ring[j][1] > z && x < ((ring[j][0] - ring[i][0]) * (z - ring[i][1])) / (ring[j][1] - ring[i][1]) + ring[i][0]) {
-      inside = !inside;
-    }
-  }
-  return inside;
-}
 
 function buildFrontGardenAndDrive(data, S, pt, box, rectRing, frontAng, y0) {
   const plazaOutline = [[-46, -1], [-20, -32], [23, -27], [23, 4.2], [30.0, 4.2], [30.0, 40], [15, 43], [-9, 26]].map(([a, b]) => pt(a, b));
@@ -61,7 +51,7 @@ function buildFrontGardenAndDrive(data, S, pt, box, rectRing, frontAng, y0) {
   S.cyl(fountainCenter[0], fountainCenter[1], y0 + 1.8, y0 + 2.3, 0.12, 0.1, 6, COLORS.cream);
 
   for (const [a, b] of ([[26.8, -24], [26.8, -18.5], [26.8, -13], [26.6, -8.6], [25.4, -5.6], [23.9, -3.8], [23.9, 3.8]] as any[])) {
-    drawPalm(S, pt(a, b), y0 + 0.35, 10 + ((b * 7) % 3 + 3) % 3);
+    addPalmTree(S, pt(a, b), y0 + 0.35, 10 + ((b * 7) % 3 + 3) % 3, { trunkColor: COLORS.trunk, frondColor: COLORS.palm });
   }
   for (let b = -25.5; b <= -6; b += 3.2) {
     const potPt = pt(bedEnd - 2.0, b);
@@ -173,7 +163,7 @@ function buildBoundaryWallAndKiosk(data, S, pt, frontDir, acrossDir, frontAng, y
     for (let dist = 8, k = 0; dist <= 116; dist += 3.4, k++) {
       const offset = [2.8, 5.6, 8.6][k % 3];
       const treePt = offsetInward(wallPt(dist), offset);
-      if (pointInRing(treePt[0], treePt[1], plaza)) continue;
+      if (inRing(treePt[0], treePt[1], plaza)) continue;
       data.trees.push(Math.round(treePt[0] * 10), Math.round(treePt[1] * 10), 11 + ((k * 7) % 5), [0, 1, 4][(k * 2) % 3]);
     }
     for (const [a, b, height] of ([[-44, -9, 12], [-50, -16, 13], [-38, -18, 11]] as any[])) {
@@ -189,7 +179,7 @@ function buildBoundaryWallAndKiosk(data, S, pt, frontDir, acrossDir, frontAng, y
     const nearCount = data.meta?.counts?.infillNear ?? infill.length / stride;
     let nearKept = 0;
     for (let i = 0; i < infill.length / stride; i++) {
-      if (pointInRing(infill[i * stride] / 10, infill[i * stride + 1] / 10, groundsRing)) continue;
+      if (inRing(infill[i * stride] / 10, infill[i * stride + 1] / 10, groundsRing)) continue;
       if (i < nearCount) nearKept++;
       for (let j = 0; j < stride; j++) kept.push(infill[i * stride + j]);
     }
@@ -434,19 +424,6 @@ export function build({ data, S, group }) {
   addEmissiveStripMesh(group, lightBuf, 0xffd9a0, 0.9, id);
   S.kind = KIND.PLAIN;
   S.base = 0;
-}
-
-function drawPalm(S, pos, y, height) {
-  S.kind = KIND.TIMBER;
-  S.cyl(pos[0], pos[1], y, y + height, 0.22, 0.16, 6, COLORS.trunk, { cap: false });
-  const top = [pos[0] + 0.25, y + height, pos[1]];
-  for (let i = 0; i < 7; i++) {
-    const ang = (i / 7) * Math.PI * 2, dx = Math.cos(ang), dz = Math.sin(ang);
-    const mid = [top[0] + dx * 1.5, top[1] + 0.45, top[2] + dz * 1.5];
-    const tip = [top[0] + dx * 3.0, top[1] - 0.9, top[2] + dz * 3.0];
-    S.beam(top, mid, 0.7, 0.08, COLORS.palm);
-    S.beam(mid, tip, 0.55, 0.06, shade(COLORS.palm, 0.9));
-  }
 }
 
 function drawTopiary(S, pos, y, height) {

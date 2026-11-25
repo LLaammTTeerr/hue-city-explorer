@@ -307,8 +307,8 @@ function dressShopfront(ctx, origin, tan, fwd, width, height, floorY, key, { awn
 
 // ---------------- landmark sections ----------------
 
-function buildSignatureLandmarks(ctx) {
-  const { S, lights, later, lines, replaced, sigLot, lotAt, lotPt, takeLot, buildBody, buildBlock, buildTube, lotFront, facesOf, plantTree } = ctx;
+function buildVtsAndCornerSignatures(ctx) {
+  const { S, lights, later, lines, replaced, sigLot, buildBody, buildBlock, facesOf } = ctx;
 
   // 1. Steel-and-timber bar on Võ Thị Sáu
   const barLot = sigLot('vts', 274, 289, 1, STREET_SETBACK, [12, 10, 8, 7]);
@@ -415,6 +415,10 @@ function buildSignatureLandmarks(ctx) {
       }
     });
   }
+}
+
+function buildChuVanAnSignatures(ctx) {
+  const { S, lights, later, lines, sigLot, lotAt, lotPt, takeLot, buildBody, buildTube, lotFront, plantTree } = ctx;
 
   // 5. Chu Văn An north of the lane mouth: Burger Ngon / salmon hotel, white café box, timber café & white gate
   const salmonLot = sigLot('cva', 106.5, 119, -1, STREET_SETBACK, [12, 10, 8]);
@@ -535,6 +539,11 @@ function buildSignatureLandmarks(ctx) {
   }
   const backBlockLot = sigLot('cva', 330, 340.6, -1, STREET_SETBACK + 7.5, [10, 8, 6]);
   if (backBlockLot) buildTube(backBlockLot, 11, [hex('#eceae4')], 5, false);
+}
+
+function buildSignatureLandmarks(ctx) {
+  buildVtsAndCornerSignatures(ctx);
+  buildChuVanAnSignatures(ctx);
 }
 
 function buildPavedLane(ctx) {
@@ -839,6 +848,68 @@ function buildStreetFurnitureAndPavements(ctx) {
   S.kind = KIND.PLAIN;
 }
 
+function buildTubeHouseRows(ctx, makeLot) {
+  const { allRoads, inside, keyOf, deepestLot, buildTube } = ctx;
+  const fillRow = (pts, { set, st = null, back = 0, keyBase }) => {
+    const walls = st ? STREET_STYLE[st].walls : SIDE_WALLS;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const ptA = pts[i], ptB = pts[i + 1], len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+      const tan = [(ptB[0] - ptA[0]) / len, (ptB[1] - ptA[1]) / len];
+      for (const side of [-1, 1]) {
+        const fwd = [tan[1] * side, -tan[0] * side];
+        let cursor = 0.4, lotIdx = 0;
+        while (cursor < len - 3.8) {
+          const key = keyBase + Math.round(ptA[0] * 7 + ptA[1] * 13) * 4 + (side > 0 ? 1 : 0) + lotIdx * 9973;
+          lotIdx++;
+          const width = 4 + rand(key, 40) * 1.6;
+          if (cursor + width > len - 0.4) break;
+          const midU = cursor + width / 2;
+          const origin = [ptA[0] + tan[0] * midU - fwd[0] * set, ptA[1] + tan[1] * midU - fwd[1] * set];
+          const fitted = deepestLot(makeLot(origin, tan, fwd, width, 1), st ? [8 + rand(key, 41) * 6, 10, 8, 6, 4.5] : [10, 8, 6, 4.5]);
+          if (!fitted) { cursor += 1.0; continue; }
+          const roll = rand(key, 42);
+          const floors = st ? (roll < 0.15 ? 2 : roll < 0.5 ? 3 : roll < 0.82 ? 4 : 5) : (roll < 0.35 ? 2 : roll < 0.8 ? 3 : 4);
+          const built = buildTube(fitted, key, walls, floors, !!st);
+          if (st) ctx.lotFront(fitted, built.h, built.gy, key, { st });
+          let depthAcc = fitted.d;
+          for (let backIdx = 0; backIdx < back; backIdx++) {
+            const backOrigin = [origin[0] - fwd[0] * depthAcc, origin[1] - fwd[1] * depthAcc];
+            const backLot = deepestLot(makeLot(backOrigin, tan, fwd, width, 1), [10, 8, 6, 4.5]);
+            if (!backLot) break;
+            buildTube(backLot, key + 17 * (backIdx + 1), walls, 2 + Math.floor(rand(key, 80 + backIdx) * 3), false);
+            depthAcc += backLot.d;
+          }
+          cursor += width;
+        }
+      }
+    }
+  };
+  for (const key of STREET_KEYS) fillRow(STREETS[key], { set: STREET_SETBACK, st: key, back: 2, keyBase: 300000 });
+  for (const road of allRoads) {
+    if (road.c < 3 || road.c > 4 || !road.pts.some((pt) => inside(pt[0], pt[1]))) continue;
+    const isLane = nearestOnPolyline(LANE, ...(road.pts[0] as [number, number])).d < 0.8 && nearestOnPolyline(LANE, ...(road.pts[road.pts.length - 1] as [number, number])).d < 0.8;
+    if (keyOf(road.pts[Math.floor(road.pts.length / 2)]) || isLane) continue;
+    fillRow(road.pts, { set: road.half + 0.6, back: 1, keyBase: 500000 });
+  }
+}
+
+function buildMappedShopfronts(ctx, data, rings) {
+  const { inside, facesOf } = ctx;
+  rings.forEach(({ ring, bi }) => {
+    if (!ring.some((pt) => inside(pt[0], pt[1]))) return;
+    const rec = data.bld[bi], height = (rec[5] || rec[1] || 70) / 10;
+    for (const edge of facesOf(ring)) {
+      if (!edge.street || !inside(edge.o[0], edge.o[1]) || edge.st.d > 10) continue;
+      const floorY = LAND_Y + Math.max(rise(edge.p[0], edge.p[1]), rise(edge.q[0], edge.q[1]));
+      const shops = Math.max(1, Math.round(edge.len / 6.5)), shopW = edge.len / shops;
+      for (let j = 0; j < shops; j++) {
+        const shopU = -edge.len / 2 + shopW * (j + 0.5);
+        ctx.deferFront(offsetPt(edge.o, edge.t, edge.f, shopU, 0.02), edge.t, edge.f, shopW - 0.1, height, floorY, 200000 + bi * 16 + j, { gap: edge.st.d - HALF_STREET - 0.3, st: edge.st.k });
+      }
+    }
+  });
+}
+
 export function build({ data, S, group, place }) {
   const cx = place ? place.x : 673.2, cz = place ? place.z : -89.6;
   const inside = (x, z) => Math.hypot(x - cx, z - cz) < QUARTER_RADIUS;
@@ -1023,64 +1094,8 @@ export function build({ data, S, group, place }) {
   buildSignatureLandmarks(ctx);
   buildPavedLane(ctx);
   buildCorners(ctx);
-
-  // tube-house rows along the three streets and side roads
-  const fillRow = (pts, { set, st = null, back = 0, keyBase }) => {
-    const walls = st ? STREET_STYLE[st].walls : SIDE_WALLS;
-    for (let i = 0; i + 1 < pts.length; i++) {
-      const ptA = pts[i], ptB = pts[i + 1], len = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
-      const tan = [(ptB[0] - ptA[0]) / len, (ptB[1] - ptA[1]) / len];
-      for (const side of [-1, 1]) {
-        const fwd = [tan[1] * side, -tan[0] * side];
-        let cursor = 0.4, lotIdx = 0;
-        while (cursor < len - 3.8) {
-          const key = keyBase + Math.round(ptA[0] * 7 + ptA[1] * 13) * 4 + (side > 0 ? 1 : 0) + lotIdx * 9973;
-          lotIdx++;
-          const width = 4 + rand(key, 40) * 1.6;
-          if (cursor + width > len - 0.4) break;
-          const midU = cursor + width / 2;
-          const origin = [ptA[0] + tan[0] * midU - fwd[0] * set, ptA[1] + tan[1] * midU - fwd[1] * set];
-          const fitted = deepestLot(makeLot(origin, tan, fwd, width, 1), st ? [8 + rand(key, 41) * 6, 10, 8, 6, 4.5] : [10, 8, 6, 4.5]);
-          if (!fitted) { cursor += 1.0; continue; }
-          const roll = rand(key, 42);
-          const floors = st ? (roll < 0.15 ? 2 : roll < 0.5 ? 3 : roll < 0.82 ? 4 : 5) : (roll < 0.35 ? 2 : roll < 0.8 ? 3 : 4);
-          const built = buildTube(fitted, key, walls, floors, !!st);
-          if (st) ctx.lotFront(fitted, built.h, built.gy, key, { st });
-          let depthAcc = fitted.d;
-          for (let backIdx = 0; backIdx < back; backIdx++) {
-            const backOrigin = [origin[0] - fwd[0] * depthAcc, origin[1] - fwd[1] * depthAcc];
-            const backLot = deepestLot(makeLot(backOrigin, tan, fwd, width, 1), [10, 8, 6, 4.5]);
-            if (!backLot) break;
-            buildTube(backLot, key + 17 * (backIdx + 1), walls, 2 + Math.floor(rand(key, 80 + backIdx) * 3), false);
-            depthAcc += backLot.d;
-          }
-          cursor += width;
-        }
-      }
-    }
-  };
-  for (const key of STREET_KEYS) fillRow(STREETS[key], { set: STREET_SETBACK, st: key, back: 2, keyBase: 300000 });
-  for (const road of allRoads) {
-    if (road.c < 3 || road.c > 4 || !road.pts.some((pt) => inside(pt[0], pt[1]))) continue;
-    const isLane = nearestOnPolyline(LANE, ...(road.pts[0] as [number, number])).d < 0.8 && nearestOnPolyline(LANE, ...(road.pts[road.pts.length - 1] as [number, number])).d < 0.8;
-    if (keyOf(road.pts[Math.floor(road.pts.length / 2)]) || isLane) continue;
-    fillRow(road.pts, { set: road.half + 0.6, back: 1, keyBase: 500000 });
-  }
-
-  // shopfronts on kept mapped buildings
-  rings.forEach(({ ring, bi }) => {
-    if (!ring.some((pt) => inside(pt[0], pt[1]))) return;
-    const rec = data.bld[bi], height = (rec[5] || rec[1] || 70) / 10;
-    for (const edge of facesOf(ring)) {
-      if (!edge.street || !inside(edge.o[0], edge.o[1]) || edge.st.d > 10) continue;
-      const floorY = LAND_Y + Math.max(rise(edge.p[0], edge.p[1]), rise(edge.q[0], edge.q[1]));
-      const shops = Math.max(1, Math.round(edge.len / 6.5)), shopW = edge.len / shops;
-      for (let j = 0; j < shops; j++) {
-        const shopU = -edge.len / 2 + shopW * (j + 0.5);
-        ctx.deferFront(offsetPt(edge.o, edge.t, edge.f, shopU, 0.02), edge.t, edge.f, shopW - 0.1, height, floorY, 200000 + bi * 16 + j, { gap: edge.st.d - HALF_STREET - 0.3, st: edge.st.k });
-      }
-    }
-  });
+  buildTubeHouseRows(ctx, makeLot);
+  buildMappedShopfronts(ctx, data, rings);
 
   // deferred dressing + street furniture (excluded from S.noCover)
   const dressStart = S.n;

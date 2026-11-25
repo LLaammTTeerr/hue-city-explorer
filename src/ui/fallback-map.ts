@@ -25,7 +25,24 @@ const MINOR_LABEL_MAX_MPP = 3.5;
 const WATER_LABEL_MAX_MPP = 6;
 const WALL_STROKE_PX = 1.6;
 
-function ringToSvgPath(ring: number[]) {
+interface MapMarker {
+  place: any;
+  group: SVGGElement;
+  circle: SVGCircleElement;
+  label: SVGTextElement;
+  x: number;
+  z: number;
+}
+
+interface MapViewState {
+  centerX: number;
+  centerZ: number;
+  metresPerPx: number;
+  selectedId: string | null;
+  hasMoved: boolean;
+}
+
+function ringToSvgPath(ring: number[]): string {
   let pathData = '';
   for (let i = 0; i < ring.length; i += 2) {
     pathData += `${i ? 'L' : 'M'}${ring[i]} ${ring[i + 1]}`;
@@ -33,7 +50,7 @@ function ringToSvgPath(ring: number[]) {
   return `${pathData}Z`;
 }
 
-function appendPolysLayer(svg: SVGSVGElement, polys: number[][][], className: string) {
+function appendPolysLayer(svg: SVGSVGElement, polys: number[][][], className: string): SVGPathElement {
   const pathEl = document.createElementNS(SVG_NS, 'path');
   pathEl.setAttribute('d', polys.map((poly) => poly.map(ringToSvgPath).join('')).join(''));
   pathEl.setAttribute('class', className);
@@ -41,19 +58,12 @@ function appendPolysLayer(svg: SVGSVGElement, polys: number[][][], className: st
   return pathEl;
 }
 
-// A 2D SVG plan of the place points over the land (water is the background), north up, in metres.
-export function buildFallbackMap(opts: {
-  index: any;
-  ui: any;
-  onPick: ((id: string) => void) | null;
-  isFlatActive: () => boolean;
-}) {
-  const { index, ui, onPick, isFlatActive } = opts;
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.id = 'map2d';
-  svg.setAttribute('role', 'img');
-  svg.setAttribute('hidden', '');
-
+function buildMapLayers(
+  svg: SVGSVGElement,
+  index: any,
+  state: MapViewState,
+  onPick: ((id: string) => void) | null,
+): { waterLayer: SVGGElement; markers: MapMarker[] } {
   const mapData = index.map || {};
   appendPolysLayer(svg, mapData.land || [], 'land');
   appendPolysLayer(svg, mapData.wall || [], 'wall');
@@ -69,10 +79,8 @@ export function buildFallbackMap(opts: {
   }
   svg.append(waterLayer);
 
-  let hasMoved = false;
-  const markers: { place: any; group: SVGGElement; circle: SVGCircleElement; label: SVGTextElement; x: number; z: number }[] = [];
+  const markers: MapMarker[] = [];
   const markerLayer = document.createElementNS(SVG_NS, 'g');
-  // biggest tier last, so the main landmarks draw over the minor ones
   for (const place of [...index.places].sort((a, b) => b.t - a.t)) {
     const group = document.createElementNS(SVG_NS, 'g');
     group.setAttribute('class', `pt t${place.t} k-${place.k}`);
@@ -83,102 +91,28 @@ export function buildFallbackMap(opts: {
     title.textContent = place.n;
     group.append(title, circle, label);
     group.addEventListener('click', (event) => {
-      if (!hasMoved) { event.stopPropagation(); onPick?.(place.id); }
+      if (!state.hasMoved) { event.stopPropagation(); onPick?.(place.id); }
     });
     markerLayer.append(group);
     markers.push({ place, group, circle, label, x: place.x / DECIMETRES_PER_METRE, z: place.z / DECIMETRES_PER_METRE });
   }
   svg.append(markerLayer);
-  svg.addEventListener('click', () => { if (!hasMoved && ui?.cardId) ui.hideCard(); });
-  document.getElementById('labels')!.before(svg);
+  return { waterLayer, markers };
+}
 
-  // ---- view: centre (centerX, centerZ) in metres and metresPerPx ----
-  let centerX = 0;
-  let centerZ = 0;
-  let metresPerPx = INITIAL_METRES_PER_PX;
-  let selectedId: string | null = null;
-
-  function applyView() {
-    const width = svg.clientWidth || innerWidth;
-    const height = svg.clientHeight || innerHeight;
-    svg.setAttribute('viewBox', `${centerX - (width / 2) * metresPerPx} ${centerZ - (height / 2) * metresPerPx} ${width * metresPerPx} ${height * metresPerPx}`);
-    for (const marker of markers) {
-      const isMajor = marker.place.t === 1;
-      const isSelected = marker.place.id === selectedId;
-      const radius = isSelected ? MARKER_RADIUS_PX.selected : isMajor ? MARKER_RADIUS_PX.tier1 : marker.place.t === 2 ? MARKER_RADIUS_PX.tier2 : MARKER_RADIUS_PX.default;
-      marker.circle.setAttribute('cx', String(marker.x));
-      marker.circle.setAttribute('cy', String(marker.z));
-      marker.circle.setAttribute('r', String(radius * metresPerPx));
-      marker.circle.setAttribute('stroke-width', String(MARKER_STROKE_PX * metresPerPx));
-      const showLabel = isSelected || isMajor || (marker.place.t === 2 && metresPerPx < TIER2_LABEL_MAX_MPP) || metresPerPx < MINOR_LABEL_MAX_MPP;
-      marker.label.style.display = showLabel ? '' : 'none';
-      marker.label.setAttribute('x', String(marker.x + LABEL_OFFSET_X_PX * metresPerPx));
-      marker.label.setAttribute('y', String(marker.z + LABEL_OFFSET_Y_PX * metresPerPx));
-      marker.label.setAttribute('font-size', String((isMajor || isSelected ? LABEL_FONT_LARGE_PX : LABEL_FONT_SMALL_PX) * metresPerPx));
-      marker.label.setAttribute('stroke-width', String(LABEL_STROKE_PX * metresPerPx));
-      marker.group.classList.toggle('on', isSelected);
-    }
-    for (const textEl of [...waterLayer.children] as SVGTextElement[]) {
-      textEl.setAttribute('x', textEl.dataset.x!);
-      textEl.setAttribute('y', textEl.dataset.z!);
-      textEl.setAttribute('font-size', String(LABEL_FONT_LARGE_PX * metresPerPx));
-      textEl.style.display = textEl.classList.contains('t1') || metresPerPx < WATER_LABEL_MAX_MPP ? '' : 'none';
-    }
-    svg.querySelector('.wall')?.setAttribute('stroke-width', String(WALL_STROKE_PX * metresPerPx));
-  }
-
-  function fit() {
-    const xs = markers.map((marker) => marker.x);
-    const zs = markers.map((marker) => marker.z);
-    const minX = Math.min(...xs);
-    const maxX = Math.max(...xs);
-    const minZ = Math.min(...zs);
-    const maxZ = Math.max(...zs);
-    centerX = (minX + maxX) / 2;
-    centerZ = (minZ + maxZ) / 2;
-    const width = svg.clientWidth || innerWidth;
-    const height = svg.clientHeight || innerHeight;
-    metresPerPx = Math.max(
-      (maxX - minX) / Math.max(FIT_MIN_VIEW_PX, width - FIT_PAD_X_PX),
-      (maxZ - minZ) / Math.max(FIT_MIN_VIEW_PX, height - FIT_PAD_Y_PX),
-    );
-    applyView();
-  }
-
-  function focusOn(id: string) {
-    const marker = markers.find((item) => item.place.id === id);
-    selectedId = id;
-    if (marker) {
-      metresPerPx = Math.min(metresPerPx, FOCUS_MAX_METRES_PER_PX);
-      // keep the point clear of the card: on a wide window the card is on the left, on a phone at the bottom
-      const width = svg.clientWidth || innerWidth;
-      const height = svg.clientHeight || innerHeight;
-      const offsetX = width > WIDE_BREAKPOINT_PX ? Math.min(CARD_OFFSET_MAX_PX, width / 4) : 0;
-      const offsetZ = width > WIDE_BREAKPOINT_PX ? 0 : -height / 5;
-      centerX = marker.x - offsetX * metresPerPx;
-      centerZ = marker.z - offsetZ * metresPerPx;
-    }
-    applyView();
-  }
-
-  function zoomAt(clientX: number, clientY: number, scaleFactor: number) {
-    const rect = svg.getBoundingClientRect();
-    const worldX = centerX + (clientX - rect.left - rect.width / 2) * metresPerPx;
-    const worldZ = centerZ + (clientY - rect.top - rect.height / 2) * metresPerPx;
-    const nextMpp = Math.max(MIN_METRES_PER_PX, Math.min(MAX_METRES_PER_PX, metresPerPx * scaleFactor));
-    centerX = worldX + (centerX - worldX) * (nextMpp / metresPerPx);
-    centerZ = worldZ + (centerZ - worldZ) * (nextMpp / metresPerPx);
-    metresPerPx = nextMpp;
-    applyView();
-  }
-
-  // ---- pan and zoom: drag, wheel, two-finger pinch ----
+function bindMapInteractions(
+  svg: SVGSVGElement,
+  state: MapViewState,
+  applyView: () => void,
+  zoomAt: (clientX: number, clientY: number, scaleFactor: number) => void,
+  isFlatActive: () => boolean,
+): void {
   const pointers = new Map<number, { x: number; y: number }>();
   let pinchDist = 0;
 
   svg.addEventListener('pointerdown', (event) => {
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (pointers.size === 1) hasMoved = false;
+    if (pointers.size === 1) state.hasMoved = false;
     if (pointers.size === 2) {
       const [first, second] = [...pointers.values()];
       pinchDist = Math.hypot(first.x - second.x, first.y - second.y);
@@ -191,15 +125,15 @@ export function buildFallbackMap(opts: {
     if (pointers.size === 1) {
       const dx = event.clientX - prev.x;
       const dy = event.clientY - prev.y;
-      if (!hasMoved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
-      if (!hasMoved) svg.setPointerCapture(event.pointerId);
-      hasMoved = true;
-      centerX -= dx * metresPerPx;
-      centerZ -= dy * metresPerPx;
+      if (!state.hasMoved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+      if (!state.hasMoved) svg.setPointerCapture(event.pointerId);
+      state.hasMoved = true;
+      state.centerX -= dx * state.metresPerPx;
+      state.centerZ -= dy * state.metresPerPx;
     }
     pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (pointers.size === 2) {
-      hasMoved = true;
+      state.hasMoved = true;
       const [first, second] = [...pointers.values()];
       const dist = Math.hypot(first.x - second.x, first.y - second.y);
       if (pinchDist > 0 && dist > 0) zoomAt((first.x + second.x) / 2, (first.y + second.y) / 2, pinchDist / dist);
@@ -218,12 +152,112 @@ export function buildFallbackMap(opts: {
     zoomAt(event.clientX, event.clientY, scale);
   }, { passive: false });
   addEventListener('resize', () => { if (isFlatActive()) applyView(); });
+}
+
+// A 2D SVG plan of the place points over the land (water is the background), north up, in metres.
+export function buildFallbackMap(opts: {
+  index: any;
+  ui: any;
+  onPick: ((id: string) => void) | null;
+  isFlatActive: () => boolean;
+}) {
+  const { index, ui, onPick, isFlatActive } = opts;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.id = 'map2d';
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('hidden', '');
+
+  const state: MapViewState = {
+    centerX: 0,
+    centerZ: 0,
+    metresPerPx: INITIAL_METRES_PER_PX,
+    selectedId: null,
+    hasMoved: false,
+  };
+
+  const { waterLayer, markers } = buildMapLayers(svg, index, state, onPick);
+  svg.addEventListener('click', () => { if (!state.hasMoved && ui?.cardId) ui.hideCard(); });
+  document.getElementById('labels')!.before(svg);
+
+  function applyView() {
+    const width = svg.clientWidth || innerWidth;
+    const height = svg.clientHeight || innerHeight;
+    const mpp = state.metresPerPx;
+    svg.setAttribute('viewBox', `${state.centerX - (width / 2) * mpp} ${state.centerZ - (height / 2) * mpp} ${width * mpp} ${height * mpp}`);
+    for (const marker of markers) {
+      const isMajor = marker.place.t === 1;
+      const isSelected = marker.place.id === state.selectedId;
+      const radius = isSelected ? MARKER_RADIUS_PX.selected : isMajor ? MARKER_RADIUS_PX.tier1 : marker.place.t === 2 ? MARKER_RADIUS_PX.tier2 : MARKER_RADIUS_PX.default;
+      marker.circle.setAttribute('cx', String(marker.x));
+      marker.circle.setAttribute('cy', String(marker.z));
+      marker.circle.setAttribute('r', String(radius * mpp));
+      marker.circle.setAttribute('stroke-width', String(MARKER_STROKE_PX * mpp));
+      const showLabel = isSelected || isMajor || (marker.place.t === 2 && mpp < TIER2_LABEL_MAX_MPP) || mpp < MINOR_LABEL_MAX_MPP;
+      marker.label.style.display = showLabel ? '' : 'none';
+      marker.label.setAttribute('x', String(marker.x + LABEL_OFFSET_X_PX * mpp));
+      marker.label.setAttribute('y', String(marker.z + LABEL_OFFSET_Y_PX * mpp));
+      marker.label.setAttribute('font-size', String((isMajor || isSelected ? LABEL_FONT_LARGE_PX : LABEL_FONT_SMALL_PX) * mpp));
+      marker.label.setAttribute('stroke-width', String(LABEL_STROKE_PX * mpp));
+      marker.group.classList.toggle('on', isSelected);
+    }
+    for (const textEl of [...waterLayer.children] as SVGTextElement[]) {
+      textEl.setAttribute('x', textEl.dataset.x!);
+      textEl.setAttribute('y', textEl.dataset.z!);
+      textEl.setAttribute('font-size', String(LABEL_FONT_LARGE_PX * mpp));
+      textEl.style.display = textEl.classList.contains('t1') || mpp < WATER_LABEL_MAX_MPP ? '' : 'none';
+    }
+    svg.querySelector('.wall')?.setAttribute('stroke-width', String(WALL_STROKE_PX * mpp));
+  }
+
+  function fit() {
+    const xs = markers.map((marker) => marker.x);
+    const zs = markers.map((marker) => marker.z);
+    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    const minZ = Math.min(...zs), maxZ = Math.max(...zs);
+    state.centerX = (minX + maxX) / 2;
+    state.centerZ = (minZ + maxZ) / 2;
+    const width = svg.clientWidth || innerWidth;
+    const height = svg.clientHeight || innerHeight;
+    state.metresPerPx = Math.max(
+      (maxX - minX) / Math.max(FIT_MIN_VIEW_PX, width - FIT_PAD_X_PX),
+      (maxZ - minZ) / Math.max(FIT_MIN_VIEW_PX, height - FIT_PAD_Y_PX),
+    );
+    applyView();
+  }
+
+  function focusOn(id: string) {
+    const marker = markers.find((item) => item.place.id === id);
+    state.selectedId = id;
+    if (marker) {
+      state.metresPerPx = Math.min(state.metresPerPx, FOCUS_MAX_METRES_PER_PX);
+      const width = svg.clientWidth || innerWidth;
+      const height = svg.clientHeight || innerHeight;
+      const offsetX = width > WIDE_BREAKPOINT_PX ? Math.min(CARD_OFFSET_MAX_PX, width / 4) : 0;
+      const offsetZ = width > WIDE_BREAKPOINT_PX ? 0 : -height / 5;
+      state.centerX = marker.x - offsetX * state.metresPerPx;
+      state.centerZ = marker.z - offsetZ * state.metresPerPx;
+    }
+    applyView();
+  }
+
+  function zoomAt(clientX: number, clientY: number, scaleFactor: number) {
+    const rect = svg.getBoundingClientRect();
+    const worldX = state.centerX + (clientX - rect.left - rect.width / 2) * state.metresPerPx;
+    const worldZ = state.centerZ + (clientY - rect.top - rect.height / 2) * state.metresPerPx;
+    const nextMpp = Math.max(MIN_METRES_PER_PX, Math.min(MAX_METRES_PER_PX, state.metresPerPx * scaleFactor));
+    state.centerX = worldX + (state.centerX - worldX) * (nextMpp / state.metresPerPx);
+    state.centerZ = worldZ + (state.centerZ - worldZ) * (nextMpp / state.metresPerPx);
+    state.metresPerPx = nextMpp;
+    applyView();
+  }
+
+  bindMapInteractions(svg, state, applyView, zoomAt, isFlatActive);
 
   return {
     svg,
     fit,
     focusOn,
-    select(id: string | null) { selectedId = id; applyView(); },
+    select(id: string | null) { state.selectedId = id; applyView(); },
     zoom: (factor: number) => zoomAt(innerWidth / 2, innerHeight / 2, factor),
   };
 }

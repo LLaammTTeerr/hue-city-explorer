@@ -134,6 +134,55 @@ const BUS_AC_REAR: RgbColor = hex('#dfe2e5');
 const BUS_AC_FRONT: RgbColor = hex('#cfd4d8');
 const BUS_TIRE: RgbColor = hex('#1f2124');
 
+export interface PalmTreeOptions {
+  frondCount?: number;
+  trunkBottomR?: number;
+  trunkTopR?: number;
+  midReach?: number;
+  tipReach?: number;
+  angleOffset?: number;
+  trunkColor?: RgbColor;
+  frondColor?: RgbColor;
+  restoreKind?: boolean;
+}
+
+const DEFAULT_PALM_TRUNK: RgbColor = hex('#8a7a62');
+const DEFAULT_PALM_FROND: RgbColor = hex('#4f7a3a');
+
+/**
+ * Draws a slightly leaning royal/street palm with drooping fronds into static buffer `S`.
+ */
+export function addPalmTree(
+  S: Buf,
+  pos: Vec2 | number[],
+  y: number,
+  height: number,
+  {
+    frondCount = 7,
+    trunkBottomR = 0.22,
+    trunkTopR = 0.16,
+    midReach = 1.5,
+    tipReach = 3.0,
+    angleOffset = 0,
+    trunkColor = DEFAULT_PALM_TRUNK,
+    frondColor = DEFAULT_PALM_FROND,
+    restoreKind = false,
+  }: PalmTreeOptions = {},
+): void {
+  S.kind = KIND.TIMBER;
+  S.cyl(pos[0], pos[1], y, y + height, trunkBottomR, trunkTopR, 6, trunkColor, { cap: false });
+  const top = [pos[0] + 0.25, y + height, pos[1]];
+  for (let i = 0; i < frondCount; i++) {
+    const ang = (i / frondCount) * Math.PI * 2 + angleOffset;
+    const dx = Math.cos(ang), dz = Math.sin(ang);
+    const mid = [top[0] + dx * midReach, top[1] + 0.45, top[2] + dz * midReach];
+    const tip = [top[0] + dx * tipReach, top[1] - 0.9, top[2] + dz * tipReach];
+    S.beam(top, mid, 0.7, 0.08, frondColor);
+    S.beam(mid, tip, 0.55, 0.06, shade(frondColor, 0.9));
+  }
+  if (restoreKind) S.kind = KIND.PLAIN;
+}
+
 export interface IntercityBusOptions {
   length?: number;
   width?: number;
