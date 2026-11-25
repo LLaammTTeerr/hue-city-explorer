@@ -10,6 +10,7 @@ import { LAND_Y, quality } from './config.ts';
 import { buildCity, updateDetail } from './geo/city.ts';
 import { createHeroLoader } from './geo/hero-gltf.ts';
 import { releaseAfterUpload, releasedCount, KEEP_GEOMETRY } from './geo/release.ts';
+import { decodeHueBin, decodeTileBin } from './geo/codec.ts';
 import { buildLandmarks } from './landmarks/build.ts';
 import { shared } from './geo/materials.ts';
 import { buildSky } from './env/sky.ts';
@@ -138,6 +139,27 @@ async function fetchDataJSON(name: string) {
   const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
   if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
   return res.json();
+}
+
+async function fetchDataBin(name: string): Promise<ArrayBuffer> {
+  const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
+  if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+  const ds = new DecompressionStream('gzip');
+  return new Response(res.body!.pipeThrough(ds)).arrayBuffer();
+}
+
+async function fetchHueData() {
+  const [json, binBuf] = await Promise.all([
+    fetchDataJSON('hue.json'),
+    fetchDataBin('hue.bin').catch(() => null),
+  ]);
+  if (json.meta?.bin && binBuf) {
+    const { h, trees, infill } = decodeHueBin(binBuf);
+    if (json.terrain) json.terrain.h = h;
+    json.trees = trees;
+    json.infill = infill;
+  }
+  return json;
 }
 
 // The post-processing targets are multisampled float buffers, so cap total pixels on big hi-dpi windows; the cap stops
@@ -409,7 +431,11 @@ async function streamRemainingTiles(opts: {
 }) {
   const { data, world, leafMats, shadows, sun, syncLeafLook } = opts;
   const tileList = data.meta.tiles || [];
-  const fetchTile = (tile: { f: string }) => fetchDataJSON(tile.f).catch((err) => {
+  const fetchTile = (tile: { f: string }) => (
+    tile.f.endsWith('.bin')
+      ? fetchDataBin(tile.f).then(decodeTileBin)
+      : fetchDataJSON(tile.f)
+  ).catch((err) => {
     console.warn('[hue] tile not loaded', tile.f, err);
     return null;
   });
@@ -446,8 +472,8 @@ async function main() {
   // the place index (~30 kB: names, kinds, positions, counts) comes first: search and the cards need nothing else
   const indexPromise = fetchDataJSON('places.json');
   let renderer = createRenderer();
-  // the geometry bundle (~8 MB) only once the device has shown it can render it, then alongside the index
-  let geometryPromise = renderer ? fetchDataJSON('hue.json') : null;
+  // the geometry bundle (~3 MB) only once the device has shown it can render it, then alongside the index
+  let geometryPromise = renderer ? fetchHueData() : null;
   if (geometryPromise) geometryPromise.catch(() => {}); // a failure is reported where it is awaited, below
   index = await indexPromise;
 
@@ -535,7 +561,7 @@ async function main() {
 
   // no WebGL: the recovery screen, and hue.json is never fetched unless "Retry 3D" gets a renderer
   if (!renderer) renderer = await fallback.recover();
-  data = await (geometryPromise || fetchDataJSON('hue.json'));
+  data = await (geometryPromise || fetchHueData());
   performance.mark('hue:geometry-loaded');
   ui.loaderProgress(LOADER_PROGRESS.geometryLoaded);
   await nextMacrotask();

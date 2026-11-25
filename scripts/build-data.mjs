@@ -2820,7 +2820,7 @@ const tileList = (() => {
   let ti = treesOut.length / 4, ii = infillOut.length / 8;
   return keys.map((k) => {
     const [tr, trN] = nearFirst(treesTiles.get(k) || [], 4), [inf, infN] = nearFirst(infillTiles.get(k) || [], 8);
-    const tile = { f: 'tiles/' + k + '.json', c: centre(k).map(q), trees: tr.length / 4, infill: inf.length / 8, body: { i0: [ti, ii], treesNear: trN, infillNear: infN, trees: tr, infill: inf } };
+    const tile = { f: 'tiles/' + k + '.bin', c: centre(k).map(q), trees: tr.length / 4, infill: inf.length / 8, body: { i0: [ti, ii], treesNear: trN, infillNear: infN, trees: tr, infill: inf } };
     ti += tile.trees; ii += tile.infill;
     return tile;
   });
@@ -2955,17 +2955,28 @@ const out = {
   waterLabels: water_labels,
   streetLabels,
 };
-const previous = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT)) : null;
+const { encodeHueBin, encodeTileBin } = await import('../src/geo/codec.ts');
+const { loadData: loadPrevData } = await import('./lib/data.mjs');
+const previous = fs.existsSync(OUT) ? loadPrevData({ tiles: false, file: OUT }) : null;
 fs.mkdirSync('public/data', { recursive: true });
-fs.writeFileSync(OUT, JSON.stringify(out));
-console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB', '| extent m', Math.round(MAXX - MINX), 'x', Math.round(MAXZ - MINZ));
+const hueBinGz = zlib.gzipSync(encodeHueBin(terrain ? terrain.h : [], infillOut.length || treesOut.length ? treesOut : [], infillOut), { level: 9 });
+fs.writeFileSync('public/data/hue.bin', hueBinGz);
+const outDisk = {
+  ...out,
+  meta: { ...out.meta, bin: 'hue.bin' },
+  terrain: terrain ? { ...terrain, h: [] } : terrain,
+  trees: [],
+  infill: [],
+};
+fs.writeFileSync(OUT, JSON.stringify(outDisk));
+console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB + hue.bin', (hueBinGz.length / 1e6).toFixed(2), 'MB | extent m', Math.round(MAXX - MINX), 'x', Math.round(MAXZ - MINZ));
 fs.rmSync(TILE_DIR, { recursive: true, force: true }); // a tile no longer in the list must not linger
 fs.mkdirSync(TILE_DIR, { recursive: true });
-for (const t of tileList) fs.writeFileSync('public/data/' + t.f, JSON.stringify(t.body));
+for (const t of tileList) fs.writeFileSync('public/data/' + t.f, zlib.gzipSync(encodeTileBin(t.body), { level: 9 }));
 {
   const size = (f) => fs.statSync(f).size, gz = (f) => zlib.gzipSync(fs.readFileSync(f)).length;
   const files = tileList.map((t) => 'public/data/' + t.f);
-  console.log('wrote', files.length, 'tiles in', TILE_DIR, (files.reduce((s2, f) => s2 + size(f), 0) / 1e6).toFixed(2), 'MB (' + (files.reduce((s2, f) => s2 + gz(f), 0) / 1e6).toFixed(2), 'MB gzip) | first frame', OUT, (size(OUT) / 1e6).toFixed(2), 'MB (' + (gz(OUT) / 1e6).toFixed(2), 'MB gzip):', treesOut.length / 4, 'of', trees.length / 4, 'trees,', infillOut.length / 8, 'of', infill.length / 8, 'houses');
+  console.log('wrote', files.length, 'binary tiles in', TILE_DIR, (files.reduce((s2, f) => s2 + size(f), 0) / 1e6).toFixed(2), 'MB | first frame', OUT, (size(OUT) / 1e6).toFixed(2), 'MB (' + (gz(OUT) / 1e6).toFixed(2), 'MB gzip) + hue.bin', (hueBinGz.length / 1e6).toFixed(2), 'MB:', treesOut.length / 4, 'of', trees.length / 4, 'trees,', infillOut.length / 8, 'of', infill.length / 8, 'houses');
 }
 // ---- the place index: what search, the cards and the About dialog need, small enough to arrive before the city ----
 // The app reads it first, so the search box works while hue.json downloads, and the 2D fallback (no WebGL) never

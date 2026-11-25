@@ -10,9 +10,11 @@
 import fs from 'node:fs';
 import '../lib/scene.mjs'; // the browser stand-ins the builders need at import time
 
+import { loadData } from '../lib/data.mjs';
+
 const root = new URL('../../', import.meta.url);
 const list = process.argv.includes('--list');
-const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
+const data = loadData({ tiles: false });
 // plain node has no import.meta.glob: hand places/index.js the replicas (their deck ends shape the roads), as scene.mjs does
 globalThis.__hueReplicas = {};
 for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.ts') && f !== 'index.ts'))

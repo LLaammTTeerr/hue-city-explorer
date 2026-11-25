@@ -4,7 +4,7 @@
 // source per place ('place:<id>'). Builder warnings are kept per step (warnings: [step, text]) for check-heights.
 import fs from 'node:fs';
 import * as THREE from 'three';
-import { readTiles, withTiles } from './data.mjs';
+import { readTiles, withTiles, loadData } from './data.mjs';
 
 // the builders read a few browser globals at import time and draw a few canvas textures
 const ctx2d = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => ({ addColorStop() {}, data: new Uint8ClampedArray(4) })), set: (t, k, v) => ((t[k] = v), true) });
@@ -25,7 +25,7 @@ export async function buildScene(opts = {}) {
   const warn0 = console.warn, warnings = [];
   let current = 'city';
   console.warn = (...a) => { warnings.push([current, a.map(String).join(' ')]); };
-  const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
+  const data = loadData({ tiles: false });
   if (opts.freshPrecompute) delete data.precomputed;
   if (opts.whole) withTiles(data);
   const { initTerrain, groundY } = await import(src('geo/terrain.ts'));
