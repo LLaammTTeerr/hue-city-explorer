@@ -1,0 +1,229 @@
+import * as THREE from 'three';
+import { LAND_Y, POND_Y, PAL } from '../config.ts';
+import { landMaterial } from './materials.ts';
+
+// Height of the ground above the flat city floor, from the bundled grid (see scripts/build-data.mjs §9).
+// Most of Huế is flat and reads zero; the hills in the west and south-west, and Hà Khê under chùa Thiên Mụ, rise.
+let T = null;
+
+export function initTerrain(data) {
+  const t = data.terrain;
+  if (!t) return;
+  const h = new Float32Array(t.h.length);
+  for (let i = 0; i < h.length; i++) h[i] = t.h[i] / 10;
+  T = { x0: t.x0 / 10, z0: t.z0 / 10, step: t.step, nx: t.nx, nz: t.nz, h, cover: t.cover };
+  carveLakes(data);
+}
+
+// The bare 25 m lattice, interpolated on the same triangles the terrain mesh is built from.
+function coarse(x, z) {
+  const gx = (x - T.x0) / T.step, gz = (z - T.z0) / T.step;
+  if (gx < 0 || gz < 0 || gx >= T.nx - 1 || gz >= T.nz - 1) return 0;
+  const i = Math.floor(gx), j = Math.floor(gz), fx = gx - i, fz = gz - j;
+  const k = j * T.nx + i;
+  const h00 = T.h[k], h10 = T.h[k + 1], h01 = T.h[k + T.nx], h11 = T.h[k + T.nx + 1];
+  if (h00 === 0 && h10 === 0 && h01 === 0 && h11 === 0) return 0;
+  return fx > fz ? h00 + (h10 - h00) * fx + (h11 - h10) * fz : h00 + (h11 - h01) * fx + (h01 - h00) * fz;
+}
+
+// Lakes in the hills. The lattice holds its nodes inside a lake at the water's level and its shore nodes no lower,
+// but a lake is seldom wider than a cell or two: every triangle that reaches from a wet node to a shore node rose
+// over the water and buried it (44 % of all hill-lake water, 64 % of hồ Lưu Khiêm at lăng Tự Đức). The cells a lake
+// crosses are drawn on a finer lattice (SUB × SUB per cell, 5 m) whose nodes inside the water stand just under its
+// surface and whose nodes on the very shore stand at it; the land around keeps its height.
+const SUB = 5, BED = 0.2, LIP = 3;
+let carve = null; // fine node key → { h, lv, wet }
+let cells = null; // cell index → (SUB + 1)² heights
+const pipR = (x, z, r) => { let c = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[i], b = r[j]; if ((a[1] > z) !== (b[1] > z) && x < ((b[0] - a[0]) * (z - a[1])) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+const segD = (x, z, r) => { let m = Infinity; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const a = r[j], b = r[i], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); m = Math.min(m, Math.hypot(x - a[0] - dx * t, z - a[1] - dz * t)); } return m; };
+function carveLakes(data) {
+  carve = new Map(); cells = new Map();
+  const fs = T.step / SUB, FW = (T.nx - 1) * SUB + 1, FH = (T.nz - 1) * SUB + 1;
+  (data.ponds || []).forEach((poly, pi) => {
+    const lv = ((data.pondLv && data.pondLv[pi]) || 0) / 10;
+    if (!(lv > 0)) return;
+    const rings = poly.map((r) => { const o = []; for (let i = 0; i < r.length; i += 2) o.push([r[i] / 10, r[i + 1] / 10]); return o; });
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const p of rings[0]) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); }
+    const i0 = Math.max(0, Math.floor((x0 - LIP - T.x0) / fs)), i1 = Math.min(FW - 1, Math.ceil((x1 + LIP - T.x0) / fs));
+    const j0 = Math.max(0, Math.floor((z0 - LIP - T.z0) / fs)), j1 = Math.min(FH - 1, Math.ceil((z1 + LIP - T.z0) / fs));
+    for (let fj = j0; fj <= j1; fj++) for (let fi = i0; fi <= i1; fi++) {
+      const x = T.x0 + fi * fs, z = T.z0 + fj * fs;
+      const wet = pipR(x, z, rings[0]) && !rings.slice(1).some((r) => pipR(x, z, r));
+      let target;
+      if (wet) target = lv - BED;
+      else if (rings.some((r) => segD(x, z, r) < LIP)) target = lv; // the waterline itself
+      else continue;
+      const key = fj * FW + fi, prev = carve.get(key), b = prev ? prev.h : coarse(x, z);
+      if (b <= target) continue;
+      carve.set(key, { h: target, lv, wet: wet || (prev ? prev.wet : false) });
+    }
+  });
+  // every cell that holds a carved node, or has one on its edge or corner, is drawn fine, so no seam opens
+  for (const key of carve.keys()) {
+    const fi = key % FW, fj = (key - fi) / FW, ci = Math.floor(fi / SUB), cj = Math.floor(fj / SUB);
+    for (const i of fi % SUB ? [ci] : [ci - 1, ci]) for (const j of fj % SUB ? [cj] : [cj - 1, cj]) {
+      if (i < 0 || j < 0 || i >= T.nx - 1 || j >= T.nz - 1) continue;
+      const k = j * T.nx + i;
+      if (cells.has(k)) continue;
+      const a = new Float32Array((SUB + 1) * (SUB + 1));
+      for (let s = 0; s <= SUB; s++) for (let r = 0; r <= SUB; r++) {
+        const c = carve.get((j * SUB + s) * FW + i * SUB + r);
+        a[s * (SUB + 1) + r] = c ? c.h : coarse(T.x0 + (i * SUB + r) * fs, T.z0 + (j * SUB + s) * fs);
+      }
+      cells.set(k, a);
+    }
+  }
+}
+
+// Rise in metres at (x, z). Interpolates on the same triangles the terrain mesh is built from.
+export function rise(x, z) {
+  if (!T) return 0;
+  const gx = (x - T.x0) / T.step, gz = (z - T.z0) / T.step;
+  if (gx < 0 || gz < 0 || gx >= T.nx - 1 || gz >= T.nz - 1) return 0;
+  const a = cells && cells.get(Math.floor(gz) * T.nx + Math.floor(gx));
+  if (!a) return coarse(x, z);
+  const sx = (gx - Math.floor(gx)) * SUB, sz = (gz - Math.floor(gz)) * SUB;
+  const r = Math.min(SUB - 1, Math.floor(sx)), s = Math.min(SUB - 1, Math.floor(sz)), fx = sx - r, fz = sz - s, k = s * (SUB + 1) + r;
+  const h00 = a[k], h10 = a[k + 1], h01 = a[k + SUB + 1], h11 = a[k + SUB + 2];
+  return fx > fz ? h00 + (h10 - h00) * fx + (h11 - h10) * fz : h00 + (h11 - h01) * fx + (h01 - h00) * fz;
+}
+export const groundY = (x, z) => LAND_Y + rise(x, z); // used by scripts/check-heights.mjs
+// Surface of still-water body i: city ponds lie a little below the streets; lakes in the hills stand at their own
+// level, flush with the ground the terrain holds flat around them.
+export const pondY = (data, i) => { const lv = ((data.pondLv && data.pondLv[i]) || 0) / 10; return lv > 0 ? LAND_Y + lv + 0.08 : POND_Y; };
+// the same for any point known to be on still water: a hill lake's own level where the fine lattice has wet nodes (the shore lip is land)
+export const waterY = (x, z) => {
+  if (T && carve && carve.size) {
+    const fs = T.step / SUB, FW = (T.nx - 1) * SUB + 1, fi = Math.round((x - T.x0) / fs), fj = Math.round((z - T.z0) / fs);
+    for (let d = 0; d <= 1; d++) for (let dj = -d; dj <= d; dj++) for (let di = -d; di <= d; di++) {
+      const c = carve.get((fj + dj) * FW + fi + di);
+      if (c && c.wet) return LAND_Y + c.lv + 0.08;
+    }
+  }
+  const r = rise(x, z);
+  return r > 0 ? LAND_Y + r + 0.08 : POND_Y;
+};
+// lowest ground under a footprint, so buildings on a slope are bedded in rather than left floating
+export function baseUnder(ring) {
+  let m = Infinity;
+  for (const p of ring) m = Math.min(m, rise(p[0], p[1]));
+  return m === Infinity ? 0 : m;
+}
+
+// Split a polyline finely where it crosses raised ground, so roads follow the slope.
+export function drape(pts, maxLen = 7) {
+  if (!T) return pts;
+  let hilly = false;
+  const checkStep = T.step * 0.5;
+  for (let i = 0; i < pts.length && !hilly; i++) {
+    if (rise(pts[i][0], pts[i][1]) > 0) { hilly = true; break; }
+    if (i + 1 < pts.length) {
+      const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const n = len > T.step ? Math.ceil(len / checkStep) : 2;
+      for (let k = 1; k < n; k++) {
+        if (rise(a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n) > 0) { hilly = true; break; }
+      }
+    }
+  }
+  if (!hilly) return pts;
+  const out = [pts[0]];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1];
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / maxLen));
+    for (let k = 1; k <= n; k++) out.push([a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n]);
+  }
+  return out;
+}
+
+// The raised ground as its own mesh, laid over the flat slab (only cells that actually rise are built).
+export function buildTerrainMesh() {
+  if (!T) return null;
+  const { nx, nz, step, h, cover } = T;
+  const index = new Int32Array(nx * nz).fill(-1);
+  const pos = [], col = [], idx = [];
+  const land = new THREE.Color(PAL.land);
+  const greens = [null, PAL.green.park, PAL.green.wood, PAL.green.grass, PAL.green.farm, PAL.green.cemetery, PAL.green.pitch, PAL.green.sacred, PAL.green.paved].map((c) => (c ? new THREE.Color(c) : land));
+  // The mesh stands 3 cm proud of the slab where the ground rises, so it wins the depth test there. A node that does
+  // not rise (the rim of every hill, where a drawn cell meets the plain slab) sinks 3 cm under it instead: the mesh
+  // then dives into the slab along a shallow crease rather than ending in a 3 cm step on the lattice lines, which the
+  // ink's depth edges drew straight through the roads and greens laid over it (they write no depth).
+  const LIFT = 0.03, lift = (k) => (h[k] > 0 ? LIFT : -LIFT);
+  // the same offset across a coarse cell, on its own triangles, so a fine cell's edge nodes stay on its plain neighbour's edge
+  const liftIn = (i, j, fx, fz) => {
+    const k = j * nx + i, l00 = lift(k), l10 = lift(k + 1), l01 = lift(k + nx), l11 = lift(k + nx + 1);
+    return fx > fz ? l00 + (l10 - l00) * fx + (l11 - l10) * fz : l00 + (l11 - l01) * fx + (l01 - l00) * fz;
+  };
+  const vert = (i, j) => {
+    const k = j * nx + i;
+    if (index[k] >= 0) return index[k];
+    index[k] = pos.length / 3;
+    pos.push(T.x0 + i * step, LAND_Y + h[k] + lift(k), T.z0 + j * step);
+    const c = greens[+cover[k] || 0];
+    col.push(c.r, c.g, c.b);
+    return index[k];
+  };
+  // a fine node: a corner of the coarse lattice is the coarse vertex itself (its height is the same), so fine and
+  // plain cells share their edges
+  const fine = new Map(), FW = (nx - 1) * SUB + 1, fs = step / SUB;
+  const fvert = (i, j, r, s, y) => {
+    const fi = i * SUB + r, fj = j * SUB + s;
+    if (fi % SUB === 0 && fj % SUB === 0 && !carve.has(fj * FW + fi)) return vert(fi / SUB, fj / SUB);
+    const key = fj * FW + fi;
+    let v = fine.get(key);
+    if (v !== undefined) return v;
+    v = pos.length / 3;
+    fine.set(key, v);
+    pos.push(T.x0 + fi * fs, LAND_Y + y + liftIn(i, j, r / SUB, s / SUB), T.z0 + fj * fs);
+    const c = greens[+cover[Math.round(fj / SUB) * nx + Math.round(fi / SUB)] || 0];
+    col.push(c.r, c.g, c.b);
+    return v;
+  };
+  for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const k = j * nx + i;
+    if (h[k] === 0 && h[k + 1] === 0 && h[k + nx] === 0 && h[k + nx + 1] === 0) continue;
+    const sub = cells.get(k);
+    if (sub) {
+      const v = (r, s) => fvert(i, j, r, s, sub[s * (SUB + 1) + r]);
+      for (let s = 0; s < SUB; s++) for (let r = 0; r < SUB; r++) {
+        const a = v(r, s), b = v(r + 1, s), c = v(r + 1, s + 1), d = v(r, s + 1);
+        idx.push(a, c, b, a, d, c);
+      }
+      continue;
+    }
+    const a = vert(i, j), b = vert(i + 1, j), c = vert(i + 1, j + 1), d = vert(i, j + 1);
+    idx.push(a, c, b, a, d, c);
+  }
+  if (!idx.length) return null;
+  // where raised ground reaches the edge of the slab, close it with a cut face down to the flat floor (a model's sawn edge)
+  {
+    const earth = new THREE.Color('#8a7a62');
+    const wall = (i0, j0, i1, j1) => {
+      const k0 = j0 * nx + i0, k1 = j1 * nx + i1;
+      if (h[k0] === 0 && h[k1] === 0) return;
+      // the quad twice, once per winding, each on vertices of its own: shared vertices would sum the two facings'
+      // normals to zero and the cut face would light as NaN
+      const base = pos.length / 3;
+      for (let s = 0; s < 2; s++) for (const [i, j, k] of [[i0, j0, k0], [i1, j1, k1]]) {
+        pos.push(T.x0 + i * step, LAND_Y + h[k] + lift(k), T.z0 + j * step); col.push(earth.r, earth.g, earth.b);
+        pos.push(T.x0 + i * step, LAND_Y - 0.5, T.z0 + j * step); col.push(earth.r * 0.8, earth.g * 0.8, earth.b * 0.8);
+      }
+      const b2 = base + 4;
+      idx.push(base, base + 1, base + 2, base + 2, base + 1, base + 3, b2, b2 + 2, b2 + 1, b2 + 2, b2 + 3, b2 + 1); // both windings
+    };
+    for (let i = 0; i < nx - 1; i++) { wall(i, 0, i + 1, 0); wall(i, nz - 1, i + 1, nz - 1); }
+    for (let j = 0; j < nz - 1; j++) { wall(0, j, 0, j + 1); wall(nx - 1, j, nx - 1, j + 1); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  const mat = landMaterial(0xffffff, true);
+  mat.vertexColors = true;
+  const mesh = new THREE.Mesh(g, mat);
+  mesh.receiveShadow = true;
+  mesh.castShadow = true;
+  mesh.name = 'terrain';
+  return mesh;
+}

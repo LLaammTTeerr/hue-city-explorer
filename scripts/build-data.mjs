@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import pc from 'polygon-clipping';
 import zlib from 'node:zlib';
-import { LANDINGS as CONHEN_LANDINGS } from '../src/landmarks/conhen-landings.js';
+import { LANDINGS as CONHEN_LANDINGS } from '../src/landmarks/conhen-landings.ts';
 
 const RAW = 'data/raw/hue-osm.json';
 const OUT = 'public/data/hue.json';
@@ -521,7 +521,7 @@ const TT_WAY = 174759688; // the truss spans; modelled by hand
 // Ways a place file draws itself, at the alignment and width the satellite shows. Laid here too, each one showed
 // twice, the generic pale ribbon 5-15 m off the place's own walk (đồi Vọng Cảnh: OSM's older winding trails 1075018788
 // and the top of 1473264466 under the redrawn stairs, the court's rings under its paved court). They are left out of
-// the roads and the mask; the place file keeps its own walks clear of trees. Vọng Cảnh: src/landmarks/places/vongcanh.js
+// the roads and the mask; the place file keeps its own walks clear of trees. Vọng Cảnh: src/landmarks/places/vongcanh.ts
 const HAND_WAYS = new Set([
   1075018785, 1075018786, 1075018787, 1075018788, 1075018789, 1075018790, 1075018791,
   1200924922, 1200924923, 1200924924, 1200924925, 1200924926, 1200924927, 1200924928, 1200924929, 1200924930,
@@ -546,7 +546,7 @@ const CLEAR_OF = [19381147];
 const CLEAR_PAD = 0.3;
 // Parts of a monument that stand out beyond its mapped outline, as sectors [relation, radius, from, to] (metres from
 // the outline's centre; bearings in radians, 0 = north, clockwise): at Hổ Quyền the king's stand and its two stairs
-// reach 28 m out on the north arc (src/landmarks/places/hoquyen.js, placed from the satellite), where the same way
+// reach 28 m out on the north arc (src/landmarks/places/hoquyen.ts, placed from the satellite), where the same way
 // passed 26 m out.
 const CLEAR_SECTORS = [[19381147, 28.5, -0.6, 0.32]];
 const outerRing = (id) => { const e = get('relation', id); const rs = e ? elementRings(e) : []; return rs.sort((a, b) => Math.abs(ringArea(b)) - Math.abs(ringArea(a)))[0]; };
@@ -909,16 +909,16 @@ const thienMu = ringOf(205794912);
 const towerC = (() => { const r = ringOf(205795043); return r ? centroid(r) : null; })();
 const thienMuSmall = [];
 const SPECIAL = { 205795043: 'phuocduyen', 172657562: 'ngomon', 218427614: 'kydai', 531031566: 'thaihoa', 531031520: 'phuvanlau', 239568224: 'nghenhluong', 172641246: 'markethall',
-  // named places that get their own model instead of a generic extrusion (src/landmarks/civic.js)
+  // named places that get their own model instead of a generic extrusion (src/landmarks/civic.ts)
   175063593: 'gahue', 118792054: 'phucam', 1172894102: 'dcct', 1172897446: 'andinh', 771244228: 'dieude', 771244225: 'dieudeGate',
   172657564: 'hienlam', 749331141: 'vincom', 172802373: 'tuphuong',
-  // the terminal halls of the two intercity bus stations (src/landmarks/places/benxebac.js, benxenam.js; issue #71)
+  // the terminal halls of the two intercity bus stations (src/landmarks/places/benxebac.ts, benxenam.js; issue #71)
   1435288831: 'benxebac', 260244336: 'benxenam',
-  // AEON MALL Huế (src/landmarks/places/aeon.js; issue #71), past the old east edge at 107.613 E
+  // AEON MALL Huế (src/landmarks/places/aeon.ts; issue #71), past the old east edge at 107.613 E
   1575540652: 'aeon' };
 const special = {};
 // The southern sites (royal tombs, đàn Nam Giao, hồ Thủy Tiên, Thiên An): everything mapped inside each circle is
-// handed to the site's own model (src/landmarks/tombs.js, south.js) instead of being extruded as an ordinary building.
+// handed to the site's own model (src/landmarks/tombs.ts, south.js) instead of being extruded as an ordinary building.
 const SITE_DEFS = [
   ['tuduc', 'Lăng Tự Đức', -2440, 3980, 330, 2, 16], ['dongkhanh', 'Lăng Đồng Khánh', -2045, 4360, 280, 3, 12],
   ['thieutri', 'Lăng Thiệu Trị', -1740, 5750, 380, 2, 14], ['minhmang', 'Lăng Minh Mạng', -2180, 8975, 480, 1, 18],
@@ -943,7 +943,7 @@ const sites = {};
 }
 // Vincom Plaza's lot runs west of its building (way 749331141) to Kiệt 26 Hà Nội (way 39418018): the basement car-park
 // ramp, palms and an open forecourt, all unmapped (Street View on Hà Nội). No generated house or tree is kept on that
-// strip, from the Hà Nội pavement south to the first mapped house (way 732290038); src/landmarks/places/vincom.js draws
+// strip, from the Hà Nội pavement south to the first mapped house (way 732290038); src/landmarks/places/vincom.ts draws
 // the ramp and palms. The houses and trees are still laid out and dropped only when written (see cleared()), so the
 // shared dice roll as before and the rest of the city is unchanged.
 const keepClear = [];
@@ -1499,7 +1499,7 @@ const houseH = (cx, cz, w, d, ang, rule) => {
   return Math.max(3.4, Math.min(m - 1.2, 18)) + (rule % 1) * 0.4;
 };
 const BLOCK = WATER | GREEN | ROAD | BLD | NOBUILD;
-// Generated houses are drawn with roofs wider than their walls (src/geo/city.js, buildInfill: hip eaves 0.9 m modern,
+// Generated houses are drawn with roofs wider than their walls (src/geo/city.ts, buildInfill: hip eaves 0.9 m modern,
 // 1.8 m Indochine, 2.4 m timber, in total across). Each house reserves its walls plus half its eaves on every side and a
 // small gap, and is tested exactly against every house already placed (separating axes on the two rectangles), not
 // only on the 2 m grid, where two turned rectangles could overlap by a metre. INFILL_PAD is mirrored in city.js.
@@ -1726,7 +1726,7 @@ if (TC) {
   console.log('tree cover:', heritage.length, 'heritage rings,', trees.length / 4 - before, 'trees planted from WorldCover (', ring, 'in the rings )');
 }
 // Open lawns kept clear of the generated trees after planting (a filter, so the dice of every other tree are kept).
-// Bắc Khuyết Đài (src/landmarks/places/tuphuong.js) faces Đặng Thái Thân across an open lawn: the satellite and the
+// Bắc Khuyết Đài (src/landmarks/places/tuphuong.ts) faces Đặng Thái Thân across an open lawn: the satellite and the
 // Street View panoramas from the moat bridge show grass and lamp posts between the bastion's outer face and the moat,
 // no trees. The band 24 m out from the outer face, 1 m past each corner: the face is the edge of the Imperial City
 // wall (way 531016856) nearest the pavilion (way 172802373), and out is away from the pavilion.
@@ -1775,7 +1775,7 @@ console.log('trees', trees.length / 4);
 // =====================================================================
 // The bridges of the Kinh thành: every bridge way inside the citadel (over Ngự Hà, the lakes and the palace moats) or
 // over the moat in front of one of its gates (the gate bridges stand 10-75 m out from the gate building) is marked
-// bridge = 2, so that they are all drawn with the one masonry vaulted bridge of the citadel (src/geo/citadel-bridge.js)
+// bridge = 2, so that they are all drawn with the one masonry vaulted bridge of the citadel (src/geo/citadel-bridge.ts)
 // instead of the modern deck on piers. Bridges with their own model keep it (city.js leaves those out).
 const GATE_BRIDGE_R = 90;
 // footbridges drawn by hand on their own lakes, on the generic profile (landmarks/places/tangthulau.js, tinhtam.js): kept off
@@ -1898,7 +1898,7 @@ for (const [id, n, x, z, , tier, h] of SITE_DEFS) addPlace(id, n, [x, z], tier, 
 { const m = get('node', 4603986390); addPlace('vongcanh', 'Đồi Vọng Cảnh', m ? proj(m) : [-2641.6, 4524.1], 3, 'place', 12); }
 addPlace('ngubinh', 'Núi Ngự Bình', [770, 2990], 2, 'place', 20); // the summit (16.4419 N, 107.5961 E); moved onto the highest ground in §9
 { const m = get('node', 5299153429); const c = m ? proj(m) : [-675, 879]; special.biaquochoc = { c: [q(c[0]), q(c[1])], ring: [], name: 'Bia Quốc Học' }; addPlace('biaquochoc', 'Bia Quốc Học', c, 2, 'monument', 14); }
-addPlace('golim', 'Cầu gỗ lim', [-168.5, 374.8], 3, 'bridge', 5); // the ironwood walkway (midpoint from src/landmarks/boardwalk.js)
+addPlace('golim', 'Cầu gỗ lim', [-168.5, 374.8], 3, 'bridge', 5); // the ironwood walkway (midpoint from src/landmarks/boardwalk.ts)
 addPlace('thienmu', 'Chùa Thiên Mụ', wayCentre(205795043), 1, 'monument', 26);
 addPlace('ndchieu', 'Phố đi bộ Nguyễn Đình Chiểu', wayCentre(39418535), 2, 'place', 8);
 addPlace('nguyenhoang', 'Cầu Nguyễn Hoàng', wayCentre(1431136610), 2, 'bridge', 14);
@@ -1994,7 +1994,7 @@ const nearBridge = (x, z, m) => {
 // new median) does not move every sampan on the river: 579897935 is where the shared stream stood here before the
 // tapering medians, so the moorings, and everything drawn after them, stay as they were.
 // Nor off a pier or jetty (OSM man_made=pier: Nghênh Lương Đình's jetty, ...), nor at Cồn Hến's landings, where its own
-// model ties up the clam boats (src/landmarks/conhen-landings.js): a generic sampan there ran into the steps or a boat.
+// model ties up the clam boats (src/landmarks/conhen-landings.ts): a generic sampan there ran into the steps or a boat.
 const pierSegs = [];
 for (const w of piers) for (let i = 0; i + 1 < w.length; i++) pierSegs.push([w[i], w[i + 1]]);
 const nearPier = (x, z, m) => {
@@ -2133,7 +2133,7 @@ let nFlood = 0;
   // 2. walkway lights every 16 m along the OSM footways, paths and lanes within 70 m of the bank
   let nWalk = 0;
   for (const r of roads) {
-    if (r.bridge || r.c < 3) continue; // the main streets are lit by the street lamps (src/geo/city.js)
+    if (r.bridge || r.c < 3) continue; // the main streets are lit by the street lamps (src/geo/city.ts)
     const reach = r.c === 5 ? 70 : 30;
     let s = 8, side = 1;
     for (let i = 0; i + 1 < r.pts.length; i++) {
@@ -2546,14 +2546,14 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     // length; where its grade changes by more than GRADE_BREAK from one stretch to the next, the grid nodes under the
     // middle are moved toward the line between its neighbours. The ground itself moves, so the road, the houses along
     // it (seated on the same ground) and the terrain stay one surface. Water, lakes, banks and the Citadel are locked;
-    // bridges keep their own deck (src/geo/bridges.js).
+    // bridges keep their own deck (src/geo/bridges.ts).
     {
       const GRADE_BREAK = 0.08, SHARP = 0.15, PASSES = 40;
       const tri = (x, z) => {
         const gx = (x - GX0) / STEP, gz = (z - GZ0) / STEP, i = Math.floor(gx), j = Math.floor(gz), fx = gx - i, fz = gz - j;
         if (i < 0 || j < 0 || i >= nx - 1 || j >= nz - 1) return null;
         const k = j * nx + i;
-        // the client's triangles (src/geo/terrain.js coarse): split along the 00-11 diagonal
+        // the client's triangles (src/geo/terrain.ts coarse): split along the 00-11 diagonal
         return fx > fz ? [[k, 1 - fx], [k + 1, fx - fz], [k + nx + 1, fz]] : [[k, 1 - fz], [k + nx, fz - fx], [k + nx + 1, fx]];
       };
       const yAt = (t) => t.reduce((s, [k, w]) => s + h[k] * w, 0);
@@ -2613,9 +2613,9 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     // are held at one level, the median of what they read, or the city floor where the pad meets a locked bank. Its
     // access roads and the houses round it are seated on the same ground. Places in the hills (any node over PAD_HILL)
     // are left as they are: those models are built on their slopes.
-    // Bridges keep their own deck too: a road bridge's deck is level across (src/geo/bridges.js reads only the ground
+    // Bridges keep their own deck too: a road bridge's deck is level across (src/geo/bridges.ts reads only the ground
     // at its two ends), so the nodes round each end are held level the same way and the street it lands on does not
-    // tilt under it. Rail bridges carry their deck flat at LAND_Y + 0.5 (src/geo/city.js, places/bachho.js) with the
+    // tilt under it. Rail bridges carry their deck flat at LAND_Y + 0.5 (src/geo/city.ts, places/bachho.js) with the
     // track at grade beyond, so the ground where a rail bridge lands stays at the city floor.
     {
       const PAD_R = 60, PAD_HILL = 3, LANDING = 25, RAIL_END = 35;
@@ -2654,7 +2654,7 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
     // lowest tier is 0.84 m above near-level ground on every side, and the raster's smoothed knoll under it (4 m
     // higher under the altar than on the west, the pine canopy read as ground on the north) put a grassed bank round
     // the tier and sank the trees. So the nodes inside the precinct, squared to its frame (centre, turn off the
-    // compass, u east-north-east, v south-south-east, in metres; src/landmarks/places/<id>.js), are held at the
+    // compass, u east-north-east, v south-south-east, in metres; src/landmarks/places/<id>.ts), are held at the
     // median of the ring of nodes just outside it, and the ground meets the streets round it where it did before.
     {
       const PRECINCTS = [{ id: 'namgiao', c: [-676.2, 3455.6], turn: 13.1, u: [-136, 136], v: [-142, 257], ring: 40 }];
@@ -2746,10 +2746,10 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
       console.log('  error: bare', stat(err.bare), '| surface', stat(err.surface), '| calibrated', stat(err.calibrated), '| model', stat(err.model));
     }
     const probe = (x, z) => { const i = Math.round((x - GX0) / STEP), j = Math.round((z - GZ0) / STEP); return h[j * nx + i].toFixed(1); };
-    // The river: the model draws the city LAND_Y above the water (src/config.js). The laser measures both.
+    // The river: the model draws the city LAND_Y above the water (src/config.ts). The laser measures both.
     if (river !== null) {
-      const drawn = +(/LAND_Y = ([\d.]+)/.exec(fs.readFileSync('src/config.js', 'utf8')) || [])[1];
-      console.log('city floor', floor.toFixed(2), 'm asl, river', river.toFixed(2), 'm: the city stands', (floor - river).toFixed(2), 'm above the water | drawn', drawn, Math.abs(drawn - (floor - river)) > 0.3 ? '<-- set LAND_Y in src/config.js' : '(agrees)');
+      const drawn = +(/LAND_Y = ([\d.]+)/.exec(fs.readFileSync('src/config.ts', 'utf8')) || [])[1];
+      console.log('city floor', floor.toFixed(2), 'm asl, river', river.toFixed(2), 'm: the city stands', (floor - river).toFixed(2), 'm above the water | drawn', drawn, Math.abs(drawn - (floor - river)) > 0.3 ? '<-- set LAND_Y in src/config.ts' : '(agrees)');
     }
     console.log('terrain', nx + 'x' + nz, 'floor', floor.toFixed(1), 'm asl | lifted nodes', lifted, '| peak rise', peak.toFixed(1), 'm | Thiên Mụ', towerC ? probe(towerC[0], towerC[1]) : '-', '| raw DEM there', towerC ? demAt(towerC[0], towerC[1]).toFixed(1) : '-');
   }
@@ -2759,8 +2759,8 @@ let pondLv = ponds.map(() => 0); // metres above the city floor at which each st
 // split: trees and infill houses for the first frame, the rest in tiles
 // =====================================================================
 // Trees and infill houses are two thirds of the bundle. hue.json keeps the ones the opening view shows (the ground in
-// front of the home camera, src/main.js homeView, out to the trees' draw distance) and the ones a place builder reads
-// or edits (any src/landmarks/places/*.js that mentions data.trees or data.infill: every record within PLACE_REACH, or
+// front of the home camera, src/main.ts homeView, out to the trees' draw distance) and the ones a place builder reads
+// or edits (any src/landmarks/places/*.ts that mentions data.trees or data.infill: every record within PLACE_REACH, or
 // the file's own `export const dataReach`, of that place's point, so the builder sees exactly what it saw with the whole
 // set; check-tiles proves it). The rest go to coarse square tiles, public/data/tiles/<col>_<row>.json, which the app
 // fetches after the first frame, nearest to the opening view first, and plants through the same builders (city.js addTile). Each tile is near-water first like
@@ -2785,7 +2785,7 @@ const splitTest = (() => {
     return along > -250 && along < 3600 && across < Math.max(0, along) * 0.5 + 250;
   });
   const dir = 'src/landmarks/places/';
-  const readers = fs.readdirSync(dir).filter((f) => f.endsWith('.js') && f !== 'index.js').map((f) => fs.readFileSync(dir + f, 'utf8'))
+  const readers = fs.readdirSync(dir).filter((f) => f.endsWith('.ts') && f !== 'index.ts').map((f) => fs.readFileSync(dir + f, 'utf8'))
     .filter((s) => /data\.(trees|infill)\b/.test(s))
     .map((s) => [(s.match(/export const id = '([^']+)'/) || [])[1], +(s.match(/export const dataReach = (\d+)/) || [])[1] || PLACE_REACH]).filter(([id]) => id);
   const spots = readers.map(([id, r]) => [places.find((p) => p.id.normalize('NFC') === id.normalize('NFC')), r]).filter(([p]) => p).map(([p, r]) => [p.x / 10, p.z / 10, r]);

@@ -18,11 +18,11 @@ const STEP_MAX = 0.35; // m between deck and street across the carriageway
 const showAll = process.argv.includes('--all');
 
 const { data, world, S, errors, groundY } = await buildScene();
-const { bridgeProfiles, subPath } = await import('../../src/geo/bridges.js');
-const { placeDeckEnds, replaced } = await import('../../src/landmarks/places/index.js');
-const { ownRoads: giaHoiRoads } = await import('../../src/landmarks/places/giahoi.js');
-const { thuyTienBridgeRoads } = await import('../../src/landmarks/thuytien.js');
-const { roadWidth } = await import('../../src/config.js');
+const { bridgeProfiles, subPath } = await import('../../src/geo/bridges.ts');
+const { placeDeckEnds, replaced } = await import('../../src/landmarks/places/index.ts');
+const { ownRoads: giaHoiRoads } = await import('../../src/landmarks/places/giahoi.ts');
+const { thuyTienBridgeRoads } = await import('../../src/landmarks/thuytien.ts');
+const { roadWidth } = await import('../../src/config.ts');
 const unflat = (f) => { const p = []; for (let i = 0; i + 1 < f.length; i += 2) p.push([f[i] / 10, f[i + 1] / 10]); return p; };
 
 // ---- the joints: { name, p (on the axis at the end), u (out of the deck), hwPave, hwCar }

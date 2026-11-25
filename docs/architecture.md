@@ -8,9 +8,11 @@ A human-friendly map of the codebase so you can find any feature, landmark, shad
 
 ```text
 hue_city_explorer/
-├── src/                        # Browser app (Three.js + Vite, zero runtime backend)
-│   ├── main.js                 # App bootstrap, WebGL renderer, tile streaming & frame loop
-│   ├── config.js               # Global constants (LAND_Y, road widths, palettes, mood presets)
+├── src/                        # Browser app (TypeScript + Three.js + Vite, zero runtime backend)
+│   ├── main.ts                 # App bootstrap, WebGL renderer, tile streaming & frame loop
+│   ├── types.ts                # Shared core TypeScript interfaces (HueData, PlaceModule, Vec2, RgbColor)
+│   ├── env.d.ts                # Ambient Vite, build-define, and polygon-clipping type declarations
+│   ├── config.ts               # Global constants (LAND_Y, road widths, palettes, mood presets)
 │   ├── camera/
 │   │   └── controls.js         # OrbitControls, smooth flyTo(), keyboard & touch navigation
 │   ├── env/                    # Atmosphere, lighting, water & post-processing
@@ -109,7 +111,8 @@ hue_city_explorer/
 - **Prefer descriptive identifiers over single-letter abbreviations** in module APIs and exports:
   - Constants: `UPPER_SNAKE_CASE` (e.g. `LAND_Y`, `ROAD_BRIDGE_DECK_Y`, `PALETTE`)
   - Functions & builders: `camelCase` verb phrases (`buildLotus`, `createLocalFrame`, `groundHeightAt`)
-  - Files: `kebab-case.js` (`street-life.js`, `city-surface.js`, `hero-manifest.js`); place files match their `hue.json` slug (`places/<id>.js`).
+  - Files: `kebab-case.ts` (`street-life.ts`, `city-surface.ts`, `hero-manifest.ts`); place files match their `hue.json` slug (`places/<id>.ts`).
+- **Erasable TypeScript (`erasableSyntaxOnly: true`)**: all `src/**/*.ts` files use native Node-strippable TypeScript so both Vite and `node scripts/checks/*.mjs` execute `src/` directly with zero extra runtime. Verify types anytime with `npm run check:types` (`tsc --noEmit`).
 - **One place, one file**: every landmark replica lives in `src/landmarks/places/<slug>.js` and exports `id` + `build({ data, S, group, place, THREE })`. Shared geometry kits live in `src/landmarks/` (`helpers.js`, `props.js`, `enclosure.js`, `tombs.js`, `citadel.js`).
 - **Keep `S.kind` and `S.base` clean**: always reset `S.kind = KIND.PLAIN; S.base = 0;` at the end of a builder (or restore the previous `S.kind` inside helper functions).
 

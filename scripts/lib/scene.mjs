@@ -1,4 +1,4 @@
-// The whole scene built headless through the same buildLandmarks (src/landmarks/build.js) src/main.js calls, for the
+// The whole scene built headless through the same buildLandmarks (src/landmarks/build.ts) src/main.ts calls, for the
 // geometry checks (check-burial, check-overlap, check-heights, check-joints). Each step remembers the faces it added
 // to the shared static buffer (range) and the objects it added to the dynamic group (objs); the replicas come out one
 // source per place ('place:<id>'). Builder warnings are kept per step (warnings: [step, text]) for check-heights.
@@ -18,7 +18,7 @@ Object.assign(globalThis, {
 const root = new URL('../../', import.meta.url);
 const src = (p) => new URL('src/' + p, root).href;
 
-// opts.app: also merge the static buffer into its 'structures' mesh as src/main.js does, so build-label-tops.mjs sees
+// opts.app: also merge the static buffer into its 'structures' mesh as src/main.ts does, so build-label-tops.mjs sees
 // the scene the browser sees (the geometry checks read the buffer instead).
 // opts.whole: build from one data set with every tile merged in (check-tiles compares that with the app's way)
 export async function buildScene(opts = {}) {
@@ -27,19 +27,19 @@ export async function buildScene(opts = {}) {
   console.warn = (...a) => { warnings.push([current, a.map(String).join(' ')]); };
   const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
   if (opts.whole) withTiles(data);
-  const { initTerrain, groundY } = await import(src('geo/terrain.js'));
-  const { initDistricts } = await import(src('geo/districts.js'));
+  const { initTerrain, groundY } = await import(src('geo/terrain.ts'));
+  const { initDistricts } = await import(src('geo/districts.ts'));
   initTerrain(data);
   initDistricts(data);
-  // the per-place replicas (src/landmarks/places/*.js): plain node has no import.meta.glob, so hand them to
+  // the per-place replicas (src/landmarks/places/*.ts): plain node has no import.meta.glob, so hand them to
   // places/index.js before any builder asks for them, as check-heights does
   globalThis.__hueReplicas = {};
-  for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.js') && f !== 'index.js'))
+  for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.ts') && f !== 'index.ts'))
     globalThis.__hueReplicas[f] = await import(src('landmarks/places/' + f));
-  const city = await import(src('geo/city.js'));
-  const config = await import(src('config.js'));
-  const { landTest } = await import(src('landmarks/boats.js'));
-  const { buildLandmarks } = await import(src('landmarks/build.js'));
+  const city = await import(src('geo/city.ts'));
+  const config = await import(src('config.ts'));
+  const { landTest } = await import(src('landmarks/boats.ts'));
+  const { buildLandmarks } = await import(src('landmarks/build.ts'));
   const isLand = landTest(data, { ponds: true });
 
   const world = city.buildCity(data);

@@ -9,8 +9,8 @@
 // Run: npm run check:boats  (--all lists every hit)
 import * as THREE from 'three';
 import { buildScene } from '../lib/scene.mjs';
-import { makeObstacles } from '../../src/geo/clearance.js';
-import { buildBoats } from '../../src/landmarks/boats.js';
+import { makeObstacles } from '../../src/geo/clearance.ts';
+import { buildBoats } from '../../src/landmarks/boats.ts';
 
 const DT = 0.5; // seconds between tested fleet poses (≤ 2.5 m of travel at the fleet's top speed)
 const showAll = process.argv.includes('--all');

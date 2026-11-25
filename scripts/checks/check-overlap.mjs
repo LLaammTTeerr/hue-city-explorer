@@ -8,8 +8,8 @@
 // areas count only what interpenetrates by more than DEEP (see below), so faces that merely touch add nothing.
 // Run: npm run check:overlap   (--all also lists what stays under the limits)
 import { buildScene } from '../lib/scene.mjs';
-import { owns as dainoiOwns } from '../../src/landmarks/places/dainoi.js';
-import { placeOwns } from '../../src/landmarks/places/index.js';
+import { owns as dainoiOwns } from '../../src/landmarks/places/dainoi.ts';
+import { placeOwns } from '../../src/landmarks/places/index.ts';
 
 const TOL = 0.5; // a face this far inside the carriageway's edge counts (kerbs, gate piers at the edge pass)
 const ROAD_LO = 0.15, ROAD_HI = 5.0; // above this the face is overhead (an arch, a roof over the street)

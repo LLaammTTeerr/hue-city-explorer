@@ -13,7 +13,7 @@ const showAll = process.argv.includes('--all');
 
 // ---- the scene, built through buildLandmarks as src/main.js builds it (scripts/lib/scene.mjs) ----
 const { data, sources, S, errors, warnings, groundY } = await buildScene();
-const { rise } = await import(src('geo/terrain.js'));
+const { rise } = await import(src('geo/terrain.ts'));
 
 // every vertex of the landmark models: the faces each landmark step added to the merged buffer and the objects it
 // added, minus the Citadel rampart, the city's own buildings, houses and trees (populate) and the moving things

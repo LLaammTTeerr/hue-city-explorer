@@ -16,7 +16,7 @@ const CELL = 0.25, ERODE = 0.5, TOL = 0.15;
 const showAll = process.argv.includes('--all');
 const t0 = Date.now();
 
-const { Buf } = await import(new URL('../../src/geo/buf.js', import.meta.url).href);
+const { Buf } = await import(new URL('../../src/geo/buf.ts', import.meta.url).href);
 Buf.roofLog = [];
 const { S, sources, errors } = await buildScene();
 const roofs = Buf.roofLog;

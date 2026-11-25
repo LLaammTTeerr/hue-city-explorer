@@ -1,9 +1,9 @@
-// Fast fixture test for the bridge-to-street joining step (src/geo/joints.js): real road ends from the bundle
+// Fast fixture test for the bridge-to-street joining step (src/geo/joints.ts): real road ends from the bundle
 // (scripts/fixtures/joints-real.json) go through bridgeJoints / handDeckJoints, and each end's result must match the
 // recorded one within 1 cm. No scene is built, so it runs in milliseconds; check:joints is the city-wide check.
 // Run: npm run test:joints
 import fs from 'node:fs';
-import { bridgeJoints, handDeckJoints } from '../../src/geo/joints.js';
+import { bridgeJoints, handDeckJoints } from '../../src/geo/joints.ts';
 
 const fx = JSON.parse(fs.readFileSync(new URL('../fixtures/joints-real.json', import.meta.url)));
 const TOL = 0.01; // m
