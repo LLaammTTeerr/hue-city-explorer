@@ -33,313 +33,435 @@ import { ridgeDragons, ridgeGourd } from '../ornaments.ts';
 export const id = 'baotangcovat';
 
 // the hall's mapped outline (OSM 695810710, main rectangle only), model metres
-const HALL = [[-731.0, -290.6], [-713.0, -266.3], [-745.2, -242.7], [-763.5, -267.3]];
-// the museum grounds (OSM 695810697); the back (Đinh Công Tráng) runs from GROUNDS[3] to GROUNDS[0]
-const GROUNDS = [[-689.2, -347.4], [-642.3, -282.0], [-741.5, -209.5], [-792.9, -270.2]];
+const HALL_OUTLINE = [[-731.0, -290.6], [-713.0, -266.3], [-745.2, -242.7], [-763.5, -267.3]];
+// the museum grounds (OSM 695810697); the back (Đinh Công Tráng) runs from GROUNDS_RING[3] to GROUNDS_RING[0]
+const GROUNDS_RING = [[-689.2, -347.4], [-642.3, -282.0], [-741.5, -209.5], [-792.9, -270.2]];
+const PLATFORM_LEN = 35.7;
+const PLATFORM_DEPTH = 28;
+const PLATFORM_HEIGHT = 1.1;
+const GATE_WIDTH = 6.0;
+const ANNEX_PAVILIONS: [number, number, number][] = [[29.5, -24.8, 9.6], [41.4, -24.8, 9.6], [-29.0, -24.8, 10.2]];
 
-const TILE = hex('#c28e3c'), TILE2 = hex('#a87832'), RIDGE = hex('#e5cc7e');
-const WOOD = hex('#6f4a2e'), WOOD_D = hex('#4a3020'), WOOD_L = hex('#8a6240');
-const STONE = PAL.stone, BRICK = hex('#a5715a'), OCHRE = hex('#d6ae5e'), CREAM = hex('#efe4c8'), IRON = hex('#2c2a26');
-const BRONZE = hex('#4f5446'), GLASS = hex('#2c3a40');
-const RENDER = hex('#c9a55a'), REDTIN = hex('#8a3b33'), GREENTIN = hex('#6f8a6a'), BTILE = hex('#7a4a36');
-const MOSS = hex('#8c8a72'), CONCRETE = hex('#6c6e66'), WIRE = hex('#3a3c3a'), FINIAL = hex('#4a4a44');
-const gY = (x, z) => LAND_Y + rise(x, z);
+const COLORS = {
+  tile: hex('#c28e3c'),
+  tileDark: hex('#a87832'),
+  ridge: hex('#e5cc7e'),
+  wood: hex('#6f4a2e'),
+  woodDark: hex('#4a3020'),
+  woodLight: hex('#8a6240'),
+  stone: PAL.stone,
+  brick: hex('#a5715a'),
+  ochre: hex('#d6ae5e'),
+  cream: hex('#efe4c8'),
+  iron: hex('#2c2a26'),
+  bronze: hex('#4f5446'),
+  glass: hex('#2c3a40'),
+  render: hex('#c9a55a'),
+  redTin: hex('#8a3b33'),
+  greenTin: hex('#6f8a6a'),
+  brownTile: hex('#7a4a36'),
+  moss: hex('#8c8a72'),
+  concrete: hex('#6c6e66'),
+  wire: hex('#3a3c3a'),
+  finial: hex('#4a4a44'),
+};
 
-export function build({ data, S }) {
-  const c = HALL.reduce((a, p) => [a[0] + p[0] / 4, a[1] + p[1] / 4], [0, 0]);
+const groundY = (x, z) => LAND_Y + rise(x, z);
+
+function createHallFrame(S) {
+  const center = HALL_OUTLINE.reduce((acc, pt) => [acc[0] + pt[0] / 4, acc[1] + pt[1] / 4], [0, 0]);
   // u along the front (east-north-east), v toward the front (south-south-east, to Lê Trực)
-  const ex = HALL[1][0] - HALL[2][0], ez = HALL[1][1] - HALL[2][1], el = Math.hypot(ex, ez);
-  const ux = ex / el, uz = ez / el, ang = Math.atan2(uz, ux);
-  const P = (u, v): [number, number] => [c[0] + u * ux - v * uz, c[1] + u * uz + v * ux];
-  const y0 = gY(c[0], c[1]);
-  const box = (u, v, ya, yb, w, d, col, o?) => { const q = P(u, v); S.box(q[0], q[1], ya, yb, w, d, ang, col, o); };
-  const hip = (u, v, w, d, ya, h, col, o?) => { const q = P(u, v); S.hip(q[0], q[1], w, d, ang, ya, h, col, { flare: 0.45, fascia: 0.26, fasciaCol: WOOD_D, hips: true, glazed: true, segs: 4, ridgeCol: RIDGE, ...o }); };
-  const cyl = (u, v, ya, yb, r0, r1, n, col, o?) => { const q = P(u, v); S.cyl(q[0], q[1], ya, yb, r0, r1, n, col, { rot: ang, ...o }); };
-  S.base = y0 - LAND_Y;
+  const edgeX = HALL_OUTLINE[1][0] - HALL_OUTLINE[2][0];
+  const edgeZ = HALL_OUTLINE[1][1] - HALL_OUTLINE[2][1];
+  const edgeLen = Math.hypot(edgeX, edgeZ);
+  const axisX = edgeX / edgeLen;
+  const axisZ = edgeZ / edgeLen;
+  const angle = Math.atan2(axisZ, axisX);
+  const toWorld = (localU, localV): [number, number] => [center[0] + localU * axisX - localV * axisZ, center[1] + localU * axisZ + localV * axisX];
+  const box = (localU, localV, yMin, yMax, width, depth, color, opts?) => {
+    const pos = toWorld(localU, localV);
+    S.box(pos[0], pos[1], yMin, yMax, width, depth, angle, color, opts);
+  };
+  const hip = (localU, localV, width, depth, yBase, riseH, color, opts?) => {
+    const pos = toWorld(localU, localV);
+    S.hip(pos[0], pos[1], width, depth, angle, yBase, riseH, color, {
+      flare: 0.45, fascia: 0.26, fasciaCol: COLORS.woodDark, hips: true, glazed: true, segs: 4, ridgeCol: COLORS.ridge, ...opts,
+    });
+  };
+  const cyl = (localU, localV, yMin, yMax, r0, r1, sides, color, opts?) => {
+    const pos = toWorld(localU, localV);
+    S.cyl(pos[0], pos[1], yMin, yMax, r0, r1, sides, color, { rot: angle, ...opts });
+  };
+  return { center, axisX, axisZ, angle, toWorld, box, hip, cyl };
+}
 
-  // where the axis meets the front fence (the gate)
-  let gateV = 44;
-  {
-    const [a, b] = [GROUNDS[1], GROUNDS[2]], dx = b[0] - a[0], dz = b[1] - a[1];
-    const vx = -uz, vz = ux, den = vx * dz - vz * dx;
-    if (Math.abs(den) > 1e-6) gateV = ((a[0] - c[0]) * dz - (a[1] - c[1]) * dx) / den;
-  }
+function buildMainHallAndCourt(S, frame, baseY, gateV) {
+  const { toWorld, box, hip, cyl, angle } = frame;
+  const plinthY = baseY + PLATFORM_HEIGHT;
 
   // ---- the front court: a brick path on the axis from the gate to the steps (paved: no trees on it) ----
-  const L = 35.7, D = 28, pt = 1.1, yp = y0 + pt;
-  const paved0 = S.n;
+  const pavedStart = S.n;
   S.kind = KIND.MASONRY;
-  box(0, (D / 2 + 1.8 + gateV) / 2, y0 - 0.2, y0 + 0.24, 5.0, gateV - D / 2 - 1.8, BRICK, { topKind: KIND.ROAD });
-  box(0, D / 2 + 3.2, y0 - 0.2, y0 + 0.24, 22, 3.2, shade(BRICK, 0.95), { topKind: KIND.ROAD }); // apron before the steps
-  box(0, 0, y0 - 0.2, y0 + 0.22, L + 3.0, D + 2.6, shade(STONE, 0.9), { topKind: KIND.ROAD }); // pavement round the platform
-  (S.paved = S.paved || []).push([paved0, S.n]);
+  box(0, (PLATFORM_DEPTH / 2 + 1.8 + gateV) / 2, baseY - 0.2, baseY + 0.24, 5.0, gateV - PLATFORM_DEPTH / 2 - 1.8, COLORS.brick, { topKind: KIND.ROAD });
+  box(0, PLATFORM_DEPTH / 2 + 3.2, baseY - 0.2, baseY + 0.24, 22, 3.2, shade(COLORS.brick, 0.95), { topKind: KIND.ROAD }); // apron before the steps
+  box(0, 0, baseY - 0.2, baseY + 0.22, PLATFORM_LEN + 3.0, PLATFORM_DEPTH + 2.6, shade(COLORS.stone, 0.9), { topKind: KIND.ROAD }); // pavement round the platform
+  (S.paved = S.paved || []).push([pavedStart, S.n]);
 
   // ---- the platform: 35.7 x 28 m, 1.1 m, faced in stone; three flights on the front ----
-  box(0, 0, y0 - 0.3, yp, L, D, STONE, { taper: 0.99, topKind: KIND.ROAD });
-  box(0, 0, yp - 0.12, yp, L + 0.2, D + 0.2, shade(STONE, 1.08), { topKind: KIND.ROAD }); // the coping
-  const steps = 6, sd = 0.32;
-  for (const [u, w] of ([[0, 7.8], [-12.6, 3.4], [12.6, 3.4]] as any[])) {
-    for (let k = 1; k <= steps; k++) box(u, D / 2 + sd * (k - 0.5), y0 - 0.2, yp - (pt / (steps + 1)) * k, w, sd, shade(STONE, 1.04), { topKind: KIND.ROAD });
-    for (const s of [-1, 1]) box(u + s * (w / 2 + 0.25), D / 2 + (steps * sd) / 2, y0 - 0.2, yp - 0.1, 0.5, steps * sd, shade(STONE, 0.92)); // the cheek walls
+  box(0, 0, baseY - 0.3, plinthY, PLATFORM_LEN, PLATFORM_DEPTH, COLORS.stone, { taper: 0.99, topKind: KIND.ROAD });
+  box(0, 0, plinthY - 0.12, plinthY, PLATFORM_LEN + 0.2, PLATFORM_DEPTH + 0.2, shade(COLORS.stone, 1.08), { topKind: KIND.ROAD }); // the coping
+  const stepCount = 6;
+  const stepTread = 0.32;
+  for (const [flightU, flightW] of [[0, 7.8], [-12.6, 3.4], [12.6, 3.4]]) {
+    for (let k = 1; k <= stepCount; k++) {
+      box(flightU, PLATFORM_DEPTH / 2 + stepTread * (k - 0.5), baseY - 0.2, plinthY - (PLATFORM_HEIGHT / (stepCount + 1)) * k, flightW, stepTread, shade(COLORS.stone, 1.04), { topKind: KIND.ROAD });
+    }
+    for (const side of [-1, 1]) {
+      box(flightU + side * (flightW / 2 + 0.25), PLATFORM_DEPTH / 2 + (stepCount * stepTread) / 2, baseY - 0.2, plinthY - 0.1, 0.5, stepCount * stepTread, shade(COLORS.stone, 0.92)); // the cheek walls
+    }
   }
 
   // ---- the double house: front house (tiền điện) 7 bays + 2 chái, rear house (chính điện) 5 bays + 2 double chái ----
   // both nine spans wide; the front house is the shallower, the rear house carries the high two-tier roof
-  const span = 3.7, W = span * 9; // 33.3 m between the corner columns
-  const vF = 7.9, dF = 10.6; // front house centre and depth (column lines)
-  const vR = -5.9, dR = 15.0; // rear house
-  const eaveF = yp + 3.0, eaveR = yp + 3.3;
+  const baySpan = 3.7;
+  const hallW = baySpan * 9; // 33.3 m between the corner columns
+  const frontV = 7.9;
+  const frontD = 10.6; // front house centre and depth (column lines)
+  const rearV = -5.9;
+  const rearD = 15.0; // rear house
+  const frontEaveY = plinthY + 3.0;
+  const rearEaveY = plinthY + 3.3;
 
   // the walls: bare lim panels (doors and lattice) between the columns, set in from the verandah on the front
   S.kind = KIND.TIMBER;
-  box(0, vF - 1.0, yp, eaveF, W - 1.2, dF - 2.6, WOOD, { top: TILE2 });
-  box(0, vR, yp, eaveR, W - 0.4, dR - 0.6, shade(WOOD, 0.92), { top: TILE2 });
+  box(0, frontV - 1.0, plinthY, frontEaveY, hallW - 1.2, frontD - 2.6, COLORS.wood, { top: COLORS.tileDark });
+  box(0, rearV, plinthY, rearEaveY, hallW - 0.4, rearD - 0.6, shade(COLORS.wood, 0.92), { top: COLORS.tileDark });
   // the front: a door leaf in each of the seven bays, a glazed lattice transom over it; the chái closed
   S.kind = KIND.PLAIN;
-  const fz = vF - 1.0 + (dF - 2.6) / 2 + 0.04;
+  const frontFaceV = frontV - 1.0 + (frontD - 2.6) / 2 + 0.04;
   for (let i = -3; i <= 3; i++) {
-    box(i * span, fz, yp, yp + 2.35, span - 0.7, 0.08, WOOD_D);
-    box(i * span, fz + 0.01, yp + 2.45, yp + 2.85, span - 0.6, 0.08, WOOD_L);
-    box(i * span, fz + 0.02, yp + 2.52, yp + 2.78, span - 1.0, 0.08, GLASS);
+    box(i * baySpan, frontFaceV, plinthY, plinthY + 2.35, baySpan - 0.7, 0.08, COLORS.woodDark);
+    box(i * baySpan, frontFaceV + 0.01, plinthY + 2.45, plinthY + 2.85, baySpan - 0.6, 0.08, COLORS.woodLight);
+    box(i * baySpan, frontFaceV + 0.02, plinthY + 2.52, plinthY + 2.78, baySpan - 1.0, 0.08, COLORS.glass);
   }
   // the verandah: ten free columns on stone bases along the front (the eave line), beam over them
   for (let i = 0; i <= 9; i++) {
-    const u = (i - 4.5) * span;
-    cyl(u, vF + dF / 2 - 0.4, yp, yp + 0.22, 0.38, 0.34, 6, shade(STONE, 0.95), { cap: false });
-    cyl(u, vF + dF / 2 - 0.4, yp + 0.22, eaveF, 0.2, 0.18, 7, WOOD, { cap: false });
+    const colU = (i - 4.5) * baySpan;
+    cyl(colU, frontV + frontD / 2 - 0.4, plinthY, plinthY + 0.22, 0.38, 0.34, 6, shade(COLORS.stone, 0.95), { cap: false });
+    cyl(colU, frontV + frontD / 2 - 0.4, plinthY + 0.22, frontEaveY, 0.2, 0.18, 7, COLORS.wood, { cap: false });
   }
   S.kind = KIND.TIMBER;
-  box(0, vF + dF / 2 - 0.4, eaveF - 0.32, eaveF, W + 0.4, 0.3, WOOD_D);
+  box(0, frontV + frontD / 2 - 0.4, frontEaveY - 0.32, frontEaveY, hallW + 0.4, 0.3, COLORS.woodDark);
   S.kind = KIND.PLAIN;
-  box(0, vF + dF / 2 - 1.2, eaveF - 0.3, eaveF - 0.22, W, 1.9, shade(WOOD, 0.55), { bottom: true }); // verandah ceiling
+  box(0, frontV + frontD / 2 - 1.2, frontEaveY - 0.3, frontEaveY - 0.22, hallW, 1.9, shade(COLORS.wood, 0.55), { bottom: true }); // verandah ceiling
 
   // ---- the roofs: three tiers of yellow glazed tiles (front house; rear house skirt; rear house upper roof) ----
-  // front house: from the eave to its own ridge, its back running under the rear house's skirt
-  // the hip ends reach out past the platform: the eaves measure about 39.5 m on the satellite (and the OSM outline)
-  const ends = 3.7;
-  // in two tiers (as seen from Lê Trực): the lower skirt, a pale plastered band (cổ diêm), then the upper slope
-  const wF = W + 0.2 + ends, dF2 = dF + 0.7, inF = 2.2;
-  hip(0, vF + 0.35, wF, dF2, eaveF, 1.7, TILE, { over: 1.25, ridgeCol: null });
+  const endOver = 3.7;
+  const frontRoofW = hallW + 0.2 + endOver;
+  const frontRoofD = frontD + 0.7;
+  const frontInset = 2.2;
+  hip(0, frontV + 0.35, frontRoofW, frontRoofD, frontEaveY, 1.7, COLORS.tile, { over: 1.25, ridgeCol: null });
   S.kind = KIND.MASONRY;
-  box(0, vF + 0.35, eaveF + 0.75, eaveF + 1.35, wF - 2 * inF, dF2 - 2 * inF, CREAM, { top: TILE2 });
+  box(0, frontV + 0.35, frontEaveY + 0.75, frontEaveY + 1.35, frontRoofW - 2 * frontInset, frontRoofD - 2 * frontInset, COLORS.cream, { top: COLORS.tileDark });
   S.kind = KIND.PLAIN;
-  hip(0, vF + 0.35, wF - 2 * inF, dF2 - 2 * inF, eaveF + 1.3, 1.0, TILE, { over: 0.6, flare: 0.35 });
+  hip(0, frontV + 0.35, frontRoofW - 2 * frontInset, frontRoofD - 2 * frontInset, frontEaveY + 1.3, 1.0, COLORS.tile, { over: 0.6, flare: 0.35 });
   // rear house: the lower skirt round all four sides, a short upright wall, then the high hipped roof
-  hip(0, vR, W + 0.2 + ends, dR, eaveR, 1.2, TILE2, { over: 1.3, flare: 0.3, ridgeCol: null });
+  hip(0, rearV, hallW + 0.2 + endOver, rearD, rearEaveY, 1.2, COLORS.tileDark, { over: 1.3, flare: 0.3, ridgeCol: null });
   S.kind = KIND.TIMBER;
-  box(0, vR, eaveR + 1.05, eaveR + 2.0, W - 7.4, dR - 5.2, WOOD_D, { top: TILE2 });
-  const yU = eaveR + 1.95, hU = yp + 7.9 - yU; // ridge 9.0 m above the court (city survey)
-  hip(0, vR, W - 7.4, dR - 5.2, yU, hU, TILE, { over: 1.15, flare: 0.5 });
+  box(0, rearV, rearEaveY + 1.05, rearEaveY + 2.0, hallW - 7.4, rearD - 5.2, COLORS.woodDark, { top: COLORS.tileDark });
+  const upperBaseY = rearEaveY + 1.95;
+  const upperRoofH = plinthY + 7.9 - upperBaseY; // ridge 9.0 m above the court (city survey)
+  hip(0, rearV, hallW - 7.4, rearD - 5.2, upperBaseY, upperRoofH, COLORS.tile, { over: 1.15, flare: 0.5 });
   // the valley gutter between the two houses
   S.kind = KIND.PLAIN;
-  box(0, vR + dR / 2 + 0.15, eaveF + 0.15, eaveF + 0.35, W + 0.6 + ends, 0.5, shade(TILE2, 0.7));
+  box(0, rearV + rearD / 2 + 0.15, frontEaveY + 0.15, frontEaveY + 0.35, hallW + 0.6 + endOver, 0.5, shade(COLORS.tileDark, 0.7));
   // the main ridge: ornate lưỡng long chầu nhật (twin dragons facing the sun) + gourd on front ridge
-  const ridgeY = yU + hU;
-  ridgeDragons(S, P(0, vR), ridgeY + 0.08, ang, { span: 7.4, scale: 1.0 });
-  const yRF = eaveF + 2.3;
-  const fC = P(0, vF + 0.35);
-  ridgeGourd(S, fC[0], fC[1], yRF + 0.06, 0.9, RIDGE);
+  const ridgeY = upperBaseY + upperRoofH;
+  ridgeDragons(S, toWorld(0, rearV), ridgeY + 0.08, angle, { span: 7.4, scale: 1.0 });
+  const frontRidgeY = frontEaveY + 2.3;
+  const frontCenter = toWorld(0, frontV + 0.35);
+  ridgeGourd(S, frontCenter[0], frontCenter[1], frontRidgeY + 0.06, 0.9, COLORS.ridge);
+}
 
+function buildGateTicketHouseAndFence(data, S, frame, gateV) {
+  const { center, axisX, axisZ, toWorld, box, hip, cyl } = frame;
   // ---- the gate on Lê Trực: two tall ochre piers with cream caps and a lotus finial, iron leaves folded back ----
-  const gw = 6.0;
-  {
-    S.base = 0;
-    const g = P(0, gateV), yg = gY(g[0], g[1]);
-    S.base = yg - LAND_Y;
-    for (const s of [-1, 1]) {
-      S.kind = KIND.MASONRY;
-      box(s * (gw / 2 + 0.55), gateV, yg - 0.3, yg + 3.6, 1.1, 1.1, OCHRE, { top: CREAM });
-      S.kind = KIND.PLAIN;
-      box(s * (gw / 2 + 0.55), gateV, yg + 3.6, yg + 3.85, 1.35, 1.35, CREAM);
-      cyl(s * (gw / 2 + 0.55), gateV, yg + 3.85, yg + 4.15, 0.42, 0.5, 8, FINIAL, { cap: false }); // the lotus finial
-      cyl(s * (gw / 2 + 0.55), gateV, yg + 4.15, yg + 4.65, 0.5, 0.08, 8, FINIAL);
-      // the open iron leaves folded back inside
-      box(s * (gw / 2 - 0.1), gateV - 1.4, yg, yg + 2.2, 0.08, 2.6, IRON);
-    }
+  S.base = 0;
+  const gatePos = toWorld(0, gateV);
+  const gateGroundY = groundY(gatePos[0], gatePos[1]);
+  S.base = gateGroundY - LAND_Y;
+  for (const side of [-1, 1]) {
+    S.kind = KIND.MASONRY;
+    box(side * (GATE_WIDTH / 2 + 0.55), gateV, gateGroundY - 0.3, gateGroundY + 3.6, 1.1, 1.1, COLORS.ochre, { top: COLORS.cream });
+    S.kind = KIND.PLAIN;
+    box(side * (GATE_WIDTH / 2 + 0.55), gateV, gateGroundY + 3.6, gateGroundY + 3.85, 1.35, 1.35, COLORS.cream);
+    cyl(side * (GATE_WIDTH / 2 + 0.55), gateV, gateGroundY + 3.85, gateGroundY + 4.15, 0.42, 0.5, 8, COLORS.finial, { cap: false }); // the lotus finial
+    cyl(side * (GATE_WIDTH / 2 + 0.55), gateV, gateGroundY + 4.15, gateGroundY + 4.65, 0.5, 0.08, 8, COLORS.finial);
+    // the open iron leaves folded back inside
+    box(side * (GATE_WIDTH / 2 - 0.1), gateV - 1.4, gateGroundY, gateGroundY + 2.2, 0.08, 2.6, COLORS.iron);
   }
 
   // ---- the ticket house beside the gate (south-west of it, in the fence line): ochre walls, two tiers of brown tile ----
-  const TH = { u: -(gw / 2 + 1.1 + 0.9 + 1.9), v: gateV - 1.5, w: 3.8, d: 3.6 };
-  {
-    const q = P(TH.u, TH.v), yt = gY(q[0], q[1]);
-    S.base = yt - LAND_Y;
-    S.kind = KIND.MASONRY;
-    box(TH.u, TH.v, yt - 0.3, yt + 0.3, TH.w + 0.4, TH.d + 0.4, STONE);
-    box(TH.u, TH.v, yt + 0.3, yt + 3.1, TH.w, TH.d, RENDER, { top: TILE2 });
-    for (const a of [-1, 1]) for (const b of [-1, 1]) box(TH.u + a * (TH.w / 2 - 0.1), TH.v + b * (TH.d / 2 - 0.1), yt + 0.3, yt + 3.1, 0.24, 0.24, WOOD_D); // corner posts
-    S.kind = KIND.PLAIN;
-    box(TH.u + 0.7, TH.v + TH.d / 2 + 0.03, yt + 0.3, yt + 2.5, 1.2, 0.06, WOOD_D); // the door, facing the street
-    box(TH.u - 0.9, TH.v + TH.d / 2 + 0.03, yt + 1.0, yt + 2.3, 1.0, 0.06, CREAM); // the notice board by the window
-    S.kind = KIND.TILE;
-    hip(TH.u, TH.v, TH.w, TH.d, yt + 3.1, 0.9, BTILE, { over: 1.05, flare: 0.15, hips: false, glazed: false, ridgeCol: null, segs: 2 });
-    S.kind = KIND.MASONRY;
-    box(TH.u, TH.v, yt + 3.85, yt + 4.35, 2.3, 2.0, RENDER, { top: TILE2 });
-    S.kind = KIND.TILE;
-    hip(TH.u, TH.v, 2.3, 2.0, yt + 4.3, 0.7, BTILE, { over: 0.4, flare: 0.2, hips: false, glazed: false, ridgeCol: null, segs: 2 });
-    // small merlon blocks at the corners of the upper tier, as on the real roof
-    S.kind = KIND.MASONRY;
-    for (const a of [-1, 1]) for (const b of [-1, 1]) box(TH.u + a * 1.2, TH.v + b * 1.05, yt + 4.3, yt + 4.75, 0.3, 0.3, RENDER, { top: TILE2 });
-    // a dark name board over the door, a cream notice panel beside it, and a low balustrade stub either side
-    S.kind = KIND.PLAIN;
-    box(TH.u + 0.7, TH.v + TH.d / 2 + 0.04, yt + 2.55, yt + 2.9, 1.3, 0.06, WOOD_D);
-    box(TH.u + 0.7, TH.v + TH.d / 2 + 0.07, yt + 2.62, yt + 2.82, 0.9, 0.04, CREAM);
-    S.kind = KIND.MASONRY;
-    for (const a of [-1, 1]) box(TH.u + a * (TH.w / 2 + 0.9), TH.v + TH.d / 2 + 0.2, yt - 0.1, yt + 0.95, 1.2, 0.35, STONE, { top: shade(STONE, 1.15) });
+  const ticketHouse = { u: -(GATE_WIDTH / 2 + 1.1 + 0.9 + 1.9), v: gateV - 1.5, w: 3.8, d: 3.6 };
+  const ticketPos = toWorld(ticketHouse.u, ticketHouse.v);
+  const ticketY = groundY(ticketPos[0], ticketPos[1]);
+  S.base = ticketY - LAND_Y;
+  S.kind = KIND.MASONRY;
+  box(ticketHouse.u, ticketHouse.v, ticketY - 0.3, ticketY + 0.3, ticketHouse.w + 0.4, ticketHouse.d + 0.4, COLORS.stone);
+  box(ticketHouse.u, ticketHouse.v, ticketY + 0.3, ticketY + 3.1, ticketHouse.w, ticketHouse.d, COLORS.render, { top: COLORS.tileDark });
+  for (const signU of [-1, 1]) {
+    for (const signV of [-1, 1]) {
+      box(ticketHouse.u + signU * (ticketHouse.w / 2 - 0.1), ticketHouse.v + signV * (ticketHouse.d / 2 - 0.1), ticketY + 0.3, ticketY + 3.1, 0.24, 0.24, COLORS.woodDark); // corner posts
+    }
   }
-  const thRing = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([a, b]) => P(TH.u + a * (TH.w / 2 + 0.3), TH.v + b * (TH.d / 2 + 0.3)));
+  S.kind = KIND.PLAIN;
+  box(ticketHouse.u + 0.7, ticketHouse.v + ticketHouse.d / 2 + 0.03, ticketY + 0.3, ticketY + 2.5, 1.2, 0.06, COLORS.woodDark); // the door, facing the street
+  box(ticketHouse.u - 0.9, ticketHouse.v + ticketHouse.d / 2 + 0.03, ticketY + 1.0, ticketY + 2.3, 1.0, 0.06, COLORS.cream); // the notice board by the window
+  S.kind = KIND.TILE;
+  hip(ticketHouse.u, ticketHouse.v, ticketHouse.w, ticketHouse.d, ticketY + 3.1, 0.9, COLORS.brownTile, { over: 1.05, flare: 0.15, hips: false, glazed: false, ridgeCol: null, segs: 2 });
+  S.kind = KIND.MASONRY;
+  box(ticketHouse.u, ticketHouse.v, ticketY + 3.85, ticketY + 4.35, 2.3, 2.0, COLORS.render, { top: COLORS.tileDark });
+  S.kind = KIND.TILE;
+  hip(ticketHouse.u, ticketHouse.v, 2.3, 2.0, ticketY + 4.3, 0.7, COLORS.brownTile, { over: 0.4, flare: 0.2, hips: false, glazed: false, ridgeCol: null, segs: 2 });
+  // small merlon blocks at the corners of the upper tier, as on the real roof
+  S.kind = KIND.MASONRY;
+  for (const signU of [-1, 1]) {
+    for (const signV of [-1, 1]) box(ticketHouse.u + signU * 1.2, ticketHouse.v + signV * 1.05, ticketY + 4.3, ticketY + 4.75, 0.3, 0.3, COLORS.render, { top: COLORS.tileDark });
+  }
+  // a dark name board over the door, a cream notice panel beside it, and a low balustrade stub either side
+  S.kind = KIND.PLAIN;
+  box(ticketHouse.u + 0.7, ticketHouse.v + ticketHouse.d / 2 + 0.04, ticketY + 2.55, ticketY + 2.9, 1.3, 0.06, COLORS.woodDark);
+  box(ticketHouse.u + 0.7, ticketHouse.v + ticketHouse.d / 2 + 0.07, ticketY + 2.62, ticketY + 2.82, 0.9, 0.04, COLORS.cream);
+  S.kind = KIND.MASONRY;
+  for (const side of [-1, 1]) box(ticketHouse.u + side * (ticketHouse.w / 2 + 0.9), ticketHouse.v + ticketHouse.d / 2 + 0.2, ticketY - 0.1, ticketY + 0.95, 1.2, 0.35, COLORS.stone, { top: shade(COLORS.stone, 1.15) });
+  const ticketRing = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([signU, signV]) => toWorld(ticketHouse.u + signU * (ticketHouse.w / 2 + 0.3), ticketHouse.v + signV * (ticketHouse.d / 2 + 0.3)));
 
   // ---- the fence round the grounds ----
-  // the street fronts (Lê Trực, Đinh Tiên Hoàng, and the unseen south-west side alike): a weathered grey balustrade
-  // under an iron railing, between ochre piers; the back on Đinh Công Tráng: a grey concrete wall about 2.6 m high
-  // (its top at a street-level eye, car pano) with a wire fence on posts above it, but only behind the red annex and
-  // the south-west pavilion; from the north-east pavilions to the Đinh Tiên Hoàng corner the back is the front's
-  // balustrade again (car pano at that junction). The mapped grounds less the side streets OSM draws into them.
-  {
-    S.base = 0;
-    const front = { h: 2.0, plinth: 1.15, rail: true, t: 0.34, every: 3.0, postW: 0.5, postUp: 0.25, wall: MOSS, cap: shade(MOSS, 1.12), postCol: OCHRE, iron: IRON, pierW: 1.1, pierUp: 1.4 };
-    const WH = 2.6, BACK_U = 23.5; // wall height; the wall ends here along u (between the annex and the NE pavilions)
-    const back = { h: WH, rail: false, t: 0.3, every: 3.2, postW: 0.34, postUp: 0.04, wall: CONCRETE, cap: shade(CONCRETE, 1.12) };
-    // OSM draws the back of the grounds to the kerb of Đinh Công Tráng; the wall stands behind a pavement about 2.5 m
-    // wide (the street pano), 6 m from the street's middle, so the back edge is brought in 2.1 m toward the hall
-    const inV = (p): [number, number] => [p[0] - uz * 2.1, p[1] + ux * 2.1];
-    const yard = [inV(GROUNDS[0]), GROUNDS[1], GROUNDS[2], inV(GROUNDS[3])];
-    const g = P(0, gateV), ring = offStreets(data, yard), n = ring.length;
-    const B0 = yard[3], B1 = yard[0], bl = Math.hypot(B1[0] - B0[0], B1[1] - B0[1]), bx = (B1[0] - B0[0]) / bl, bz = (B1[1] - B0[1]) / bl;
-    const isBack = (a, b) => Math.abs(((a[0] + b[0]) / 2 - B0[0]) * bz - ((a[1] + b[1]) / 2 - B0[1]) * bx) < 5;
-    // split the back edges where they cross u = BACK_U, so the wall stops there and the balustrade takes over
-    const uOf = (p) => (p[0] - c[0]) * ux + (p[1] - c[1]) * uz;
-    const pts = [];
-    for (let i = 0; i < n; i++) {
-      const a = ring[i], b = ring[(i + 1) % n];
-      pts.push(a);
-      const ua = uOf(a) - BACK_U, ub = uOf(b) - BACK_U;
-      if (isBack(a, b) && ua * ub < 0) { const t = ua / (ua - ub); pts.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
-    }
-    const m = pts.length;
-    const tag = pts.map((p, i) => { const q = pts[(i + 1) % m]; return isBack(p, q) && (uOf(p) + uOf(q)) / 2 < BACK_U; });
-    const s0 = tag.findIndex((t, i) => t !== tag[(i + m - 1) % m]), runs = [];
-    if (s0 < 0) runs.push({ back: tag[0], pts, closed: true });
-    else for (let k = 0, cur = null; k < m; k++) {
-      const i = (s0 + k) % m;
-      if (!cur || cur.back !== tag[i]) { cur = { back: tag[i], pts: [pts[i]], closed: false }; runs.push(cur); }
-      cur.pts.push(pts[(i + 1) % m]);
-    }
-    for (const r of runs) {
-      if (!r.back) { fence(S, r.pts, front, { closed: r.closed, openings: [[g[0], g[1], 4.1]], solid: [thRing] }); continue; }
-      fence(S, r.pts, back, { closed: r.closed });
-      // the wire fence on the wall: posts every 2.8 m leaning out at the top, four wires
-      for (let i = 0; i + 1 < r.pts.length; i++) {
-        const a = r.pts[i], b = r.pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        if (len < 0.5) continue;
-        const ang2 = Math.atan2(b[1] - a[1], b[0] - a[0]), nx = -(b[1] - a[1]) / len, nz = (b[0] - a[0]) / len;
-        const out = (c[0] - a[0]) * nx + (c[1] - a[1]) * nz > 0 ? -1 : 1; // away from the hall, toward the street
-        const nb = Math.max(1, Math.round(len / 2.8));
-        for (let k = 0; k <= nb; k++) {
-          const px = a[0] + ((b[0] - a[0]) * k) / nb, pz = a[1] + ((b[1] - a[1]) * k) / nb, y = gY(px, pz) + WH;
-          S.base = y - WH - LAND_Y;
-          S.kind = KIND.PLAIN;
-          S.box(px, pz, y, y + 1.45, 0.07, 0.07, ang2, WIRE);
-          S.beam([px, y + 1.4, pz], [px + nx * out * 0.35, y + 1.85, pz + nz * out * 0.35], 0.05, 0.05, WIRE);
-        }
-        const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2, y = gY(mx, mz) + WH;
-        for (const h of [0.45, 0.9, 1.35]) S.box(mx, mz, y + h, y + h + 0.03, len, 0.03, ang2, WIRE);
-        S.box(mx + nx * out * 0.3, mz + nz * out * 0.3, y + 1.78, y + 1.81, len, 0.03, ang2, WIRE);
-      }
+  S.base = 0;
+  const frontFenceSpec = { h: 2.0, plinth: 1.15, rail: true, t: 0.34, every: 3.0, postW: 0.5, postUp: 0.25, wall: COLORS.moss, cap: shade(COLORS.moss, 1.12), postCol: COLORS.ochre, iron: COLORS.iron, pierW: 1.1, pierUp: 1.4 };
+  const backWallH = 2.6;
+  const backSplitU = 23.5; // wall height; the wall ends here along u (between the annex and the NE pavilions)
+  const backWallSpec = { h: backWallH, rail: false, t: 0.3, every: 3.2, postW: 0.34, postUp: 0.04, wall: COLORS.concrete, cap: shade(COLORS.concrete, 1.12) };
+  // OSM draws the back of the grounds to the kerb of Đinh Công Tráng; the wall stands behind a pavement about 2.5 m
+  // wide (the street pano), 6 m from the street's middle, so the back edge is brought in 2.1 m toward the hall
+  const insetBackPt = (pt): [number, number] => [pt[0] - axisZ * 2.1, pt[1] + axisX * 2.1];
+  const yardPoly = [insetBackPt(GROUNDS_RING[0]), GROUNDS_RING[1], GROUNDS_RING[2], insetBackPt(GROUNDS_RING[3])];
+  const fenceRing = offStreets(data, yardPoly);
+  const backStart = yardPoly[3];
+  const backEnd = yardPoly[0];
+  const backLen = Math.hypot(backEnd[0] - backStart[0], backEnd[1] - backStart[1]);
+  const backDirX = (backEnd[0] - backStart[0]) / backLen;
+  const backDirZ = (backEnd[1] - backStart[1]) / backLen;
+  const isBackEdge = (ptA, ptB) => Math.abs(((ptA[0] + ptB[0]) / 2 - backStart[0]) * backDirZ - ((ptA[1] + ptB[1]) / 2 - backStart[1]) * backDirX) < 5;
+  // split the back edges where they cross u = backSplitU, so the wall stops there and the balustrade takes over
+  const localUOf = (pt) => (pt[0] - center[0]) * axisX + (pt[1] - center[1]) * axisZ;
+  const splitPts = [];
+  for (let i = 0; i < fenceRing.length; i++) {
+    const ptA = fenceRing[i];
+    const ptB = fenceRing[(i + 1) % fenceRing.length];
+    splitPts.push(ptA);
+    const diffA = localUOf(ptA) - backSplitU;
+    const diffB = localUOf(ptB) - backSplitU;
+    if (isBackEdge(ptA, ptB) && diffA * diffB < 0) {
+      const frac = diffA / (diffA - diffB);
+      splitPts.push([ptA[0] + (ptB[0] - ptA[0]) * frac, ptA[1] + (ptB[1] - ptA[1]) * frac]);
     }
   }
+  const splitCount = splitPts.length;
+  const isConcreteWall = splitPts.map((pt, i) => {
+    const nextPt = splitPts[(i + 1) % splitCount];
+    return isBackEdge(pt, nextPt) && (localUOf(pt) + localUOf(nextPt)) / 2 < backSplitU;
+  });
+  const firstChange = isConcreteWall.findIndex((val, i) => val !== isConcreteWall[(i + splitCount - 1) % splitCount]);
+  const fenceRuns = [];
+  if (firstChange < 0) {
+    fenceRuns.push({ back: isConcreteWall[0], pts: splitPts, closed: true });
+  } else {
+    for (let k = 0, currRun = null; k < splitCount; k++) {
+      const i = (firstChange + k) % splitCount;
+      if (!currRun || currRun.back !== isConcreteWall[i]) {
+        currRun = { back: isConcreteWall[i], pts: [splitPts[i]], closed: false };
+        fenceRuns.push(currRun);
+      }
+      currRun.pts.push(splitPts[(i + 1) % splitCount]);
+    }
+  }
+  for (const run of fenceRuns) {
+    if (!run.back) {
+      fence(S, run.pts, frontFenceSpec, { closed: run.closed, openings: [[gatePos[0], gatePos[1], 4.1]], solid: [ticketRing] });
+      continue;
+    }
+    fence(S, run.pts, backWallSpec, { closed: run.closed });
+    // the wire fence on the wall: posts every 2.8 m leaning out at the top, four wires
+    for (let i = 0; i + 1 < run.pts.length; i++) {
+      const ptA = run.pts[i];
+      const ptB = run.pts[i + 1];
+      const segLen = Math.hypot(ptB[0] - ptA[0], ptB[1] - ptA[1]);
+      if (segLen < 0.5) continue;
+      const segAngle = Math.atan2(ptB[1] - ptA[1], ptB[0] - ptA[0]);
+      const normX = -(ptB[1] - ptA[1]) / segLen;
+      const normZ = (ptB[0] - ptA[0]) / segLen;
+      const outSign = (center[0] - ptA[0]) * normX + (center[1] - ptA[1]) * normZ > 0 ? -1 : 1; // away from the hall, toward the street
+      const bayCount = Math.max(1, Math.round(segLen / 2.8));
+      for (let k = 0; k <= bayCount; k++) {
+        const postX = ptA[0] + ((ptB[0] - ptA[0]) * k) / bayCount;
+        const postZ = ptA[1] + ((ptB[1] - ptA[1]) * k) / bayCount;
+        const wallTopY = groundY(postX, postZ) + backWallH;
+        S.base = wallTopY - backWallH - LAND_Y;
+        S.kind = KIND.PLAIN;
+        S.box(postX, postZ, wallTopY, wallTopY + 1.45, 0.07, 0.07, segAngle, COLORS.wire);
+        S.beam([postX, wallTopY + 1.4, postZ], [postX + normX * outSign * 0.35, wallTopY + 1.85, postZ + normZ * outSign * 0.35], 0.05, 0.05, COLORS.wire);
+      }
+      const midX = (ptA[0] + ptB[0]) / 2;
+      const midZ = (ptA[1] + ptB[1]) / 2;
+      const midTopY = groundY(midX, midZ) + backWallH;
+      for (const wireH of [0.45, 0.9, 1.35]) S.box(midX, midZ, midTopY + wireH, midTopY + wireH + 0.03, segLen, 0.03, segAngle, COLORS.wire);
+      S.box(midX + normX * outSign * 0.3, midZ + normZ * outSign * 0.3, midTopY + 1.78, midTopY + 1.81, segLen, 0.03, segAngle, COLORS.wire);
+    }
+  }
+}
 
+function buildAnnexesAndExhibits(S, frame, baseY) {
+  const { center, toWorld, box, hip, cyl } = frame;
   // ---- the buildings behind and beside the hall (OSM 695810709 and 695810708, set on the satellite) ----
-  S.base = y0 - LAND_Y;
+  S.base = baseY - LAND_Y;
   // the court between the hall and the rear annex: paved (no trees, no mapped house drawn over it)
-  const paved1 = S.n;
+  const rearPavedStart = S.n;
   S.kind = KIND.MASONRY;
-  box(0, -17.3, y0 - 0.2, y0 + 0.24, 37.5, 4.2, shade(STONE, 0.9), { topKind: KIND.ROAD });
-  S.paved.push([paved1, S.n]);
+  box(0, -17.3, baseY - 0.2, baseY + 0.24, 37.5, 4.2, shade(COLORS.stone, 0.9), { topKind: KIND.ROAD });
+  S.paved.push([rearPavedStart, S.n]);
+
   // the rear annex: a long ochre hall, eaves about 36.7 x 12.5 m, under a two-tier red corrugated-metal roof: a broad
   // lean-to lower roof, a narrow vented clerestory band, a low upper roof (proportions from the Đinh Công Tráng pano)
-  {
-    const v = -25.45, w = 34.9, d = 10.7, ye = y0 + 3.6, wi = w - 6, di = d - 5.4;
-    S.kind = KIND.MASONRY;
-    box(0, v, y0 - 0.2, y0 + 0.35, w + 0.4, d + 0.4, shade(STONE, 0.85));
-    box(0, v, y0 + 0.35, ye, w, d, RENDER, { top: TILE2 });
-    S.kind = KIND.PLAIN;
-    for (let i = -6; i <= 6; i++) box(i * 2.6, v + d / 2 + 0.04, y0 + 0.9, y0 + 3.1, 1.3, 0.06, WOOD_D); // doors on the court side
-    S.kind = KIND.TILE;
-    hip(0, v, w, d, ye, 2.15, REDTIN, { over: 1.0, flare: 0.05, glazed: false, ridgeCol: null, fasciaCol: CREAM, fascia: 0.2 });
-    S.kind = KIND.MASONRY;
-    box(0, v, ye + 1.0, ye + 1.95, wi, di, RENDER, { top: TILE2 });
-    S.kind = KIND.PLAIN;
-    for (let i = -11; i <= 11; i++) for (const sg of [-1, 1]) box(i * 1.2, v + sg * (di / 2 + 0.03), ye + 1.45, ye + 1.65, 0.5, 0.06, shade(RENDER, 0.45)); // the vents in the band
-    S.kind = KIND.TILE;
-    const yu = ye + 1.9, hu = 1.2;
-    hip(0, v, wi, di, yu, hu, REDTIN, { over: 0.7, flare: 0.05, glazed: false, ridgeCol: shade(REDTIN, 0.8), fasciaCol: CREAM, fascia: 0.2 });
-    // the ridge: a sun disc at the middle, a dragon finial at each end
-    S.kind = KIND.PLAIN;
-    const ry = yu + hu, re = (wi - di) / 2;
-    cyl(0, v, ry, ry + 0.75, 0.35, 0.3, 8, FINIAL);
-    for (const s2 of [-1, 1]) {
-      const a = P(s2 * re, v), b = P(s2 * (re - 0.6), v), t = P(s2 * (re - 1.1), v);
-      S.beam([a[0], ry, a[1]], [b[0], ry + 1.0, b[1]], 0.22, 0.3, FINIAL);
-      S.beam([b[0], ry + 1.0, b[1]], [t[0], ry + 0.75, t[1]], 0.18, 0.26, FINIAL);
+  const annexV = -25.45;
+  const annexW = 34.9;
+  const annexD = 10.7;
+  const annexEaveY = baseY + 3.6;
+  const clerestoryW = annexW - 6;
+  const clerestoryD = annexD - 5.4;
+  S.kind = KIND.MASONRY;
+  box(0, annexV, baseY - 0.2, baseY + 0.35, annexW + 0.4, annexD + 0.4, shade(COLORS.stone, 0.85));
+  box(0, annexV, baseY + 0.35, annexEaveY, annexW, annexD, COLORS.render, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  for (let i = -6; i <= 6; i++) box(i * 2.6, annexV + annexD / 2 + 0.04, baseY + 0.9, baseY + 3.1, 1.3, 0.06, COLORS.woodDark); // doors on the court side
+  S.kind = KIND.TILE;
+  hip(0, annexV, annexW, annexD, annexEaveY, 2.15, COLORS.redTin, { over: 1.0, flare: 0.05, glazed: false, ridgeCol: null, fasciaCol: COLORS.cream, fascia: 0.2 });
+  S.kind = KIND.MASONRY;
+  box(0, annexV, annexEaveY + 1.0, annexEaveY + 1.95, clerestoryW, clerestoryD, COLORS.render, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  for (let i = -11; i <= 11; i++) {
+    for (const faceSign of [-1, 1]) {
+      box(i * 1.2, annexV + faceSign * (clerestoryD / 2 + 0.03), annexEaveY + 1.45, annexEaveY + 1.65, 0.5, 0.06, shade(COLORS.render, 0.45)); // the vents in the band
     }
   }
+  S.kind = KIND.TILE;
+  const upperRoofY = annexEaveY + 1.9;
+  const upperRoofH = 1.2;
+  hip(0, annexV, clerestoryW, clerestoryD, upperRoofY, upperRoofH, COLORS.redTin, { over: 0.7, flare: 0.05, glazed: false, ridgeCol: shade(COLORS.redTin, 0.8), fasciaCol: COLORS.cream, fascia: 0.2 });
+  // the ridge: a sun disc at the middle, a dragon finial at each end
+  S.kind = KIND.PLAIN;
+  const annexRidgeY = upperRoofY + upperRoofH;
+  const ridgeEndU = (clerestoryW - clerestoryD) / 2;
+  cyl(0, annexV, annexRidgeY, annexRidgeY + 0.75, 0.35, 0.3, 8, COLORS.finial);
+  for (const side of [-1, 1]) {
+    const ptA = toWorld(side * ridgeEndU, annexV);
+    const ptB = toWorld(side * (ridgeEndU - 0.6), annexV);
+    const ptTip = toWorld(side * (ridgeEndU - 1.1), annexV);
+    S.beam([ptA[0], annexRidgeY, ptA[1]], [ptB[0], annexRidgeY + 1.0, ptB[1]], 0.22, 0.3, COLORS.finial);
+    S.beam([ptB[0], annexRidgeY + 1.0, ptB[1]], [ptTip[0], annexRidgeY + 0.75, ptTip[1]], 0.18, 0.26, COLORS.finial);
+  }
+
   // the small brown-tiled pavilions beyond the annex's ends: two to the north-east, one to the south-west
-  for (const [u, v, w] of ([[29.5, -24.8, 9.6], [41.4, -24.8, 9.6], [-29.0, -24.8, 10.2]] as any[])) {
-    const ye = y0 + 3.6;
+  for (const [pavU, pavV, pavW] of ANNEX_PAVILIONS) {
+    const pavEaveY = baseY + 3.6;
     S.kind = KIND.MASONRY;
-    box(u, v, y0 - 0.2, y0 + 0.35, w + 0.4, w + 0.4, shade(STONE, 0.85));
-    box(u, v, y0 + 0.35, ye, w, w, RENDER, { top: TILE2 });
+    box(pavU, pavV, baseY - 0.2, baseY + 0.35, pavW + 0.4, pavW + 0.4, shade(COLORS.stone, 0.85));
+    box(pavU, pavV, baseY + 0.35, pavEaveY, pavW, pavW, COLORS.render, { top: COLORS.tileDark });
     S.kind = KIND.TILE;
-    hip(u, v, w, w, ye, 1.0, BTILE, { over: 0.8, flare: 0.35, glazed: false, ridgeCol: null, segs: 3 });
+    hip(pavU, pavV, pavW, pavW, pavEaveY, 1.0, COLORS.brownTile, { over: 0.8, flare: 0.35, glazed: false, ridgeCol: null, segs: 3 });
     S.kind = KIND.MASONRY;
-    box(u, v, ye + 0.85, ye + 1.4, w - 3.6, w - 3.6, RENDER, { top: TILE2 });
+    box(pavU, pavV, pavEaveY + 0.85, pavEaveY + 1.4, pavW - 3.6, pavW - 3.6, COLORS.render, { top: COLORS.tileDark });
     S.kind = KIND.TILE;
-    hip(u, v, w - 3.6, w - 3.6, ye + 1.35, 1.5, BTILE, { over: 0.6, flare: 0.4, glazed: false, ridgeCol: shade(BTILE, 0.8), segs: 3 });
+    hip(pavU, pavV, pavW - 3.6, pavW - 3.6, pavEaveY + 1.35, 1.5, COLORS.brownTile, { over: 0.6, flare: 0.4, glazed: false, ridgeCol: shade(COLORS.brownTile, 0.8), segs: 3 });
   }
+
   // the long shed north-east of the hall, square to it: ochre walls under a green metal gable roof, about 34 x 11.3 m at the eaves
-  {
-    const u = 37.6, v = 2.1, w = 10.3, L = 33.0, ye = y0 + 3.4, rh = 2.4, o = 0.5;
-    S.kind = KIND.MASONRY;
-    box(u, v, y0 - 0.2, y0 + 0.3, w + 0.3, L + 0.3, shade(STONE, 0.85));
-    box(u, v, y0 + 0.3, ye, w, L, RENDER, { top: TILE2 });
-    S.kind = KIND.PLAIN;
-    for (let i = -5; i <= 5; i++) box(u - w / 2 - 0.04, v + i * 2.9, y0 + 1.2, y0 + 2.6, 0.06, 1.4, GLASS); // windows to the hall
-    const W3 = (uu, vv, y) => { const q = P(uu, vv); return [q[0], y, q[1]]; };
-    const v0 = v - L / 2 - o, v1 = v + L / 2 + o, yl = ye - o * (rh / (w / 2));
-    S.kind = KIND.TILE;
-    for (const s2 of [-1, 1]) {
-      const n = P(s2, 0), cn = [n[0] - c[0], 1.6, n[1] - c[1]];
-      S.quad(W3(u + s2 * (w / 2 + o), v0, yl), W3(u + s2 * (w / 2 + o), v1, yl), W3(u, v1, ye + rh), W3(u, v0, ye + rh), shade(GREENTIN, s2 < 0 ? 1 : 0.94), cn);
-    }
-    S.kind = KIND.MASONRY;
-    for (const [vv, sg] of ([[v - L / 2, -1], [v + L / 2, 1]] as any[])) {
-      const n = P(0, sg);
-      S.tri(W3(u - w / 2, vv, ye), W3(u + w / 2, vv, ye), W3(u, vv, ye + rh), RENDER, [n[0] - c[0], 0, n[1] - c[1]]);
-    }
+  const shedU = 37.6;
+  const shedV = 2.1;
+  const shedW = 10.3;
+  const shedL = 33.0;
+  const shedEaveY = baseY + 3.4;
+  const shedRoofH = 2.4;
+  const shedOver = 0.5;
+  S.kind = KIND.MASONRY;
+  box(shedU, shedV, baseY - 0.2, baseY + 0.3, shedW + 0.3, shedL + 0.3, shade(COLORS.stone, 0.85));
+  box(shedU, shedV, baseY + 0.3, shedEaveY, shedW, shedL, COLORS.render, { top: COLORS.tileDark });
+  S.kind = KIND.PLAIN;
+  for (let i = -5; i <= 5; i++) box(shedU - shedW / 2 - 0.04, shedV + i * 2.9, baseY + 1.2, baseY + 2.6, 0.06, 1.4, COLORS.glass); // windows to the hall
+  const shedPt3 = (localU, localV, y) => {
+    const pos = toWorld(localU, localV);
+    return [pos[0], y, pos[1]];
+  };
+  const shedV0 = shedV - shedL / 2 - shedOver;
+  const shedV1 = shedV + shedL / 2 + shedOver;
+  const shedLowY = shedEaveY - shedOver * (shedRoofH / (shedW / 2));
+  S.kind = KIND.TILE;
+  for (const side of [-1, 1]) {
+    const normPt = toWorld(side, 0);
+    const slopeNorm = [normPt[0] - center[0], 1.6, normPt[1] - center[1]];
+    S.quad(shedPt3(shedU + side * (shedW / 2 + shedOver), shedV0, shedLowY), shedPt3(shedU + side * (shedW / 2 + shedOver), shedV1, shedLowY), shedPt3(shedU, shedV1, shedEaveY + shedRoofH), shedPt3(shedU, shedV0, shedEaveY + shedRoofH), shade(COLORS.greenTin, side < 0 ? 1 : 0.94), slopeNorm);
+  }
+  S.kind = KIND.MASONRY;
+  for (const [endV, endSign] of [[shedV - shedL / 2, -1], [shedV + shedL / 2, 1]]) {
+    const normPt = toWorld(0, endSign);
+    S.tri(shedPt3(shedU - shedW / 2, endV, shedEaveY), shedPt3(shedU + shedW / 2, endV, shedEaveY), shedPt3(shedU, endV, shedEaveY + shedRoofH), COLORS.render, [normPt[0] - center[0], 0, normPt[1] - center[1]]);
   }
 
   // ---- outdoor exhibits in the front court: two bronze cauldrons on stone plinths flanking the path, and a row of
   //      stone pieces (mortars, a stele, column bases) on the lawn either side ----
-  S.base = y0 - LAND_Y;
-  for (const s of [-1, 1]) {
-    const u = s * 6.5, v = D / 2 + 11;
+  S.base = baseY - LAND_Y;
+  for (const side of [-1, 1]) {
+    const cauldronU = side * 6.5;
+    const cauldronV = PLATFORM_DEPTH / 2 + 11;
     S.kind = KIND.MASONRY;
-    box(u, v, y0 - 0.2, y0 + 0.55, 2.0, 2.0, STONE);
+    box(cauldronU, cauldronV, baseY - 0.2, baseY + 0.55, 2.0, 2.0, COLORS.stone);
     S.kind = KIND.PLAIN;
-    cyl(u, v, y0 + 0.55, y0 + 0.75, 0.55, 0.62, 10, BRONZE, { cap: false });
-    cyl(u, v, y0 + 0.75, y0 + 1.55, 0.95, 0.82, 12, BRONZE);
-    cyl(u, v, y0 + 1.5, y0 + 1.62, 1.0, 1.0, 12, shade(BRONZE, 1.2));
-    for (const k of [-1, 1]) box(u + k * 0.85, v, y0 + 1.55, y0 + 2.0, 0.12, 0.5, BRONZE); // the ear handles
+    cyl(cauldronU, cauldronV, baseY + 0.55, baseY + 0.75, 0.55, 0.62, 10, COLORS.bronze, { cap: false });
+    cyl(cauldronU, cauldronV, baseY + 0.75, baseY + 1.55, 0.95, 0.82, 12, COLORS.bronze);
+    cyl(cauldronU, cauldronV, baseY + 1.5, baseY + 1.62, 1.0, 1.0, 12, shade(COLORS.bronze, 1.2));
+    for (const handleSide of [-1, 1]) box(cauldronU + handleSide * 0.85, cauldronV, baseY + 1.55, baseY + 2.0, 0.12, 0.5, COLORS.bronze); // the ear handles
     // stone pieces on the lawn
     for (let j = 0; j < 3; j++) {
-      const uu = s * (13 + j * 3.2), vv = D / 2 + 8.5;
+      const pieceU = side * (13 + j * 3.2);
+      const pieceV = PLATFORM_DEPTH / 2 + 8.5;
       S.kind = KIND.MASONRY;
-      box(uu, vv, y0 - 0.1, y0 + 0.35, 1.3, 1.3, shade(STONE, 0.95));
+      box(pieceU, pieceV, baseY - 0.1, baseY + 0.35, 1.3, 1.3, shade(COLORS.stone, 0.95));
       S.kind = KIND.PLAIN;
-      if (j === 1) box(uu, vv, y0 + 0.35, y0 + 1.9, 0.9, 0.25, shade(STONE, 0.78), { top: shade(STONE, 0.7) }); // a stele
-      else cyl(uu, vv, y0 + 0.35, y0 + 0.95, 0.5, 0.42, 8, shade(STONE, 0.72)); // a stone mortar / column base
+      if (j === 1) box(pieceU, pieceV, baseY + 0.35, baseY + 1.9, 0.9, 0.25, shade(COLORS.stone, 0.78), { top: shade(COLORS.stone, 0.7) }); // a stele
+      else cyl(pieceU, pieceV, baseY + 0.35, baseY + 0.95, 0.5, 0.42, 8, shade(COLORS.stone, 0.72)); // a stone mortar / column base
     }
   }
+}
+
+export function build({ data, S }) {
+  const frame = createHallFrame(S);
+  const baseY = groundY(frame.center[0], frame.center[1]);
+  S.base = baseY - LAND_Y;
+
+  // where the axis meets the front fence (the gate)
+  let gateV = 44;
+  const [frontA, frontB] = [GROUNDS_RING[1], GROUNDS_RING[2]];
+  const frontDX = frontB[0] - frontA[0];
+  const frontDZ = frontB[1] - frontA[1];
+  const fwdX = -frame.axisZ;
+  const fwdZ = frame.axisX;
+  const denom = fwdX * frontDZ - fwdZ * frontDX;
+  if (Math.abs(denom) > 1e-6) gateV = ((frontA[0] - frame.center[0]) * frontDZ - (frontA[1] - frame.center[1]) * frontDX) / denom;
+
+  buildMainHallAndCourt(S, frame, baseY, gateV);
+  buildGateTicketHouseAndFence(data, S, frame, gateV);
+  buildAnnexesAndExhibits(S, frame, baseY);
+
   S.kind = KIND.PLAIN;
   S.base = 0;
 }

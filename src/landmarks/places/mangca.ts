@@ -22,288 +22,455 @@ import { streetTest } from '../enclosure.ts';
 export const id = 'mangca';
 
 // the fort's wall band (from data.wall[1] and data.wall[2]; metres, x east, z south)
-const BAND_NE = [[-1444.1, -2341.8], [-1291.1, -2533.8], [-1255.3, -2457.3], [-1094.5, -2452.4], [-1092.0, -2451.9], [-1089.9, -2450.6], [-1088.3, -2448.6], [-1087.5, -2446.3], [-1087.6, -2443.8], [-1128.1, -2288.1], [-1064.2, -2239.1], [-1061.4, -2236.0], [-1059.9, -2232.0], [-1059.8, -2227.9], [-1061.2, -2223.9], [-1064.0, -2220.7], [-1067.6, -2218.7], [-1174.7, -2182.2], [-1180.1, -2197.7], [-1081.2, -2231.4], [-1146.8, -2281.7], [-1106.6, -2436.3], [-1248.4, -2440.7], [-1253.6, -2441.3], [-1258.6, -2442.9], [-1263.3, -2445.3], [-1267.4, -2448.6], [-1270.8, -2452.5], [-1273.4, -2457.1], [-1294.8, -2502.8], [-1431.1, -2331.7]];
+const BAND_NE = [
+  [-1444.1, -2341.8], [-1291.1, -2533.8], [-1255.3, -2457.3], [-1094.5, -2452.4], [-1092.0, -2451.9],
+  [-1089.9, -2450.6], [-1088.3, -2448.6], [-1087.5, -2446.3], [-1087.6, -2443.8], [-1128.1, -2288.1],
+  [-1064.2, -2239.1], [-1061.4, -2236.0], [-1059.9, -2232.0], [-1059.8, -2227.9], [-1061.2, -2223.9],
+  [-1064.0, -2220.7], [-1067.6, -2218.7], [-1174.7, -2182.2], [-1180.1, -2197.7], [-1081.2, -2231.4],
+  [-1146.8, -2281.7], [-1106.6, -2436.3], [-1248.4, -2440.7], [-1253.6, -2441.3], [-1258.6, -2442.9],
+  [-1263.3, -2445.3], [-1267.4, -2448.6], [-1270.8, -2452.5], [-1273.4, -2457.1], [-1294.8, -2502.8],
+  [-1431.1, -2331.7],
+];
 const BAND_SW = [[-1299.9, -2156.9], [-1190.8, -2194.1], [-1185.5, -2178.6], [-1294.5, -2141.4]];
-const FORT_IN = [-1250, -2330]; // a point inside the fort, to tell the outer faces from the inner
+const FORT_INTERIOR = [-1250, -2330]; // a point inside the fort, to tell the outer faces from the inner
 
-const FORT_H = 5.10; // wall walk above the ground
-const PARAPET_H = 1.0, PARAPET_T = 1.2; // estimates, a little lower than the Citadel's
-const EMBRASURES = 21; // the 21 gun emplacements
-const EMB_W = 0.9, SILL = 0.4;
-const STAIR_W = 3.35, STAIRS = 6;
+const FORT_HEIGHT = 5.10; // wall walk above the ground
+const PARAPET_H = 1.0;
+const PARAPET_T = 1.2; // estimates, a little lower than the Citadel's
+const EMBRASURE_COUNT = 21; // the 21 gun emplacements
+const EMBRASURE_W = 0.9;
+const EMBRASURE_SILL = 0.4;
+const STAIR_WIDTH = 3.35;
+const STAIR_COUNT = 6;
 
 // Trấn Bình Môn: OSM footprint (way 367959083), and the gate's axis (cầu Mang Cá starts at its outer mouth)
-const GT = [0.589, 0.808], GN = [0.808, -0.589]; // along the wall (towards the south-east); out of the Citadel (north-east)
+const GATE_TANGENT = [0.589, 0.808];
+const GATE_NORMAL = [0.808, -0.589]; // along the wall (towards the south-east); out of the Citadel (north-east)
 const GATE_RING_OSM = [[-1453.2, -2161.6], [-1442.4, -2169.5], [-1451.7, -2182.2], [-1463.1, -2197.9], [-1474.1, -2190.3], [-1462.5, -2174.4]];
-const GATE_C_OSM = [-1458.2, -2179.9];
+const GATE_CENTER_OSM = [-1458.2, -2179.9];
 // The satellite (zoom 20, 0.14 m/px) puts the block's long roof 6 m north-west of the OSM footprint along the wall, while
 // across the wall they agree to about 1.5 m and cầu Mang Cá, the moat and the wall to 1-2 m in the same frame: the bridge
 // axis meets the roof about 72% of the way from its north-west end, not near its middle. A lean of the image would
 // shift the roof across the wall as much as along it, and it does not, so the block is moved, and the passage stays on
 // the bridge's axis.
-const SHIFT = 6.0;
-const GATE_RING = GATE_RING_OSM.map(([x, z]) => [x - GT[0] * SHIFT, z - GT[1] * SHIFT]);
-const GATE_C = [GATE_C_OSM[0] - GT[0] * SHIFT, GATE_C_OSM[1] - GT[1] * SHIFT];
-const GATE_HALF_D = 6.7, WALL_OUTER = 10.3, AXIS = 2.0 + SHIFT; // inner face, the Citadel wall's outer face, axis offset (m)
+const GATE_SHIFT = 6.0;
+const GATE_RING = GATE_RING_OSM.map(([x, z]) => [x - GATE_TANGENT[0] * GATE_SHIFT, z - GATE_TANGENT[1] * GATE_SHIFT]);
+const GATE_CENTER = [GATE_CENTER_OSM[0] - GATE_TANGENT[0] * GATE_SHIFT, GATE_CENTER_OSM[1] - GATE_TANGENT[1] * GATE_SHIFT];
+const GATE_HALF_DEPTH = 6.7;
+const WALL_OUTER_DIST = 10.3;
+const AXIS_OFFSET = 2.0 + GATE_SHIFT; // inner face, the Citadel wall's outer face, axis offset (m)
 
-export function build({ S, data }) {
-  const brick = shade(PAL.brick, 0.86), damp = hex('#3a3833'), dark = hex('#46443e'), relaid = hex('#655e57'), lichen = hex('#4a4d3e');
-  const walk = PAL.moss, ivy = hex('#34482a'), ivy2 = hex('#4a5e34');
-  const y0 = LAND_Y - 0.5, yW = LAND_Y + FORT_H;
-  const bands = [BAND_NE, BAND_SW];
-  const inBand = (x, z) => bands.some((r) => inRing(x, z, r));
-  const crossings = (ax, az, bx, bz) => {
-    let c = 0;
-    for (const r of bands) for (let i = 0; i < r.length; i++) {
-      const p = r[i], q = r[(i + 1) % r.length];
-      const d1 = (bx - ax) * (p[1] - az) - (bz - az) * (p[0] - ax), d2 = (bx - ax) * (q[1] - az) - (bz - az) * (q[0] - ax);
-      if ((d1 > 0) === (d2 > 0)) continue;
-      const d3 = (q[0] - p[0]) * (az - p[1]) - (q[1] - p[1]) * (ax - p[0]), d4 = (q[0] - p[0]) * (bz - p[1]) - (q[1] - p[1]) * (bx - p[0]);
-      if ((d3 > 0) !== (d4 > 0)) c++;
-    }
-    return c;
-  };
+const FORT_TREES: [number, number, number][] = [
+  [-1474, -2206, 12], [-1486, -2190, 11], [-1442, -2154, 12], [-1430, -2142, 13],
+  [-1420, -2130, 11], [-1492, -2220, 12], [-1412, -2215, 13], [-1395, -2245, 12],
+  [-1365, -2280, 14], [-1320, -2315, 13], [-1270, -2340, 12], [-1220, -2355, 13],
+  [-1180, -2310, 12], [-1155, -2260, 13], [-1245, -2245, 12], [-1310, -2225, 11],
+];
 
-  // ---- the fort's walls ----
-  const n0 = S.n;
-  S.kind = KIND.MASONRY;
-  const edges = [];
-  for (const r of bands) {
-    S.prism(r, y0, yW, brick, walk, { topKind: KIND.GROUND });
-    for (let i = 0; i < r.length; i++) {
-      const a = r[i], b = r[(i + 1) % r.length];
-      const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
-      if (len < 0.4) continue;
-      const ux = dx / len, uz = dz / len, mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
-      let nx = uz, nz = -ux;
-      if (inBand(mx + nx * 0.6, mz + nz * 0.6)) { nx = -nx; nz = -nz; }
-      const outer = len > 17 || len < 6 ? crossings(mx + nx * 2, mz + nz * 2, FORT_IN[0], FORT_IN[1]) > 0 : null; // the band's ends (15-17 m) are neither
-      edges.push({ a, b, len, ux, uz, nx, nz, outer, ang: Math.atan2(dz, dx) });
-    }
-  }
-  for (const e of edges) if (e.len >= 1.5) weather(S, e, y0, yW, { damp, dark, relaid, lichen }, Math.round(e.a[0] * 7 + e.a[1] * 13));
-
-  // parapet on the outer edges, with the 21 embrasures shared out over the long faces by length
-  const outerLong = edges.filter((e) => e.outer && e.len > 25);
-  const total = outerLong.reduce((s, e) => s + e.len, 0);
-  const share = outerLong.map((e) => (EMBRASURES * e.len) / total);
-  const count = share.map(Math.floor);
-  for (let left = EMBRASURES - count.reduce((s, c) => s + c, 0); left > 0; left--) {
-    let k = 0; for (let j = 1; j < share.length; j++) if (share[j] - count[j] > share[k] - count[k]) k = j;
-    count[k]++; share[k] = count[k];
-  }
-  const pcol = shade(brick, 0.92), cap = shade(brick, 1.12);
-  for (const e of edges) {
-    if (!e.outer) continue;
-    const cx0 = e.a[0] - e.nx * (PARAPET_T / 2), cz0 = e.a[1] - e.nz * (PARAPET_T / 2);
-    const run = (s0, s1, h1) => { if (s1 - s0 > 0.05) { const sm = (s0 + s1) / 2; S.box(cx0 + e.ux * sm, cz0 + e.uz * sm, yW - 0.05, h1, s1 - s0, PARAPET_T, e.ang, pcol, { top: cap }); } };
-    const k = count[outerLong.indexOf(e)] || 0, ext = e.len < 3 ? 0.3 : 0.7;
-    if (!k) { run(-ext, e.len + ext, yW + PARAPET_H); continue; }
-    const step = e.len / (k + 1);
-    let s = -ext;
-    for (let j = 1; j <= k; j++) {
-      const c = j * step;
-      run(s, c - EMB_W / 2, yW + PARAPET_H);
-      run(c - EMB_W / 2, c + EMB_W / 2, yW + SILL);
-      s = c + EMB_W / 2;
-    }
-    run(s, e.len + ext, yW + PARAPET_H);
-  }
-  S.kind = KIND.PLAIN;
-  (S.noCover = S.noCover || []).push([n0, S.n]); // the walk is planted ground, as on the Citadel's rampart
-
-  // six flights of steps up the inner face (positions estimated: the middle of the six longest inner faces)
-  S.kind = KIND.MASONRY;
-  const stepCol = shade(PAL.brickLight, 0.9), tread = 0.36, rise = 0.3;
-  const nSteps = Math.ceil(FORT_H / rise);
-  for (const e of edges.filter((q) => q.outer === false && q.len > 40).sort((p, q) => q.len - p.len).slice(0, STAIRS)) {
-    const run = nSteps * tread, s0 = e.len / 2 - run / 2;
-    const ox = e.a[0] + e.nx * (STAIR_W / 2 + 0.02), oz = e.a[1] + e.nz * (STAIR_W / 2 + 0.02);
-    for (let j = 0; j < nSteps; j++) {
-      const s = s0 + (j + 0.5) * tread, top = Math.min(yW, LAND_Y + (j + 1) * rise);
-      S.box(ox + e.ux * s, oz + e.uz * s, LAND_Y - 0.2, top, tread + 0.02, STAIR_W, e.ang, j % 2 ? stepCol : shade(stepCol, 0.94), { top: shade(stepCol, 1.08) });
-    }
-    // a low side wall on the open side of the flight
-    const sx = ox + e.nx * (STAIR_W / 2 + 0.2), sz = oz + e.nz * (STAIR_W / 2 + 0.2), sm = s0 + run / 2;
-    S.box(sx + e.ux * sm, sz + e.uz * sm, LAND_Y - 0.2, LAND_Y + 0.5, run, 0.4, e.ang, dark, { top: shade(dark, 1.2), taper: 1 });
-  }
-
-  // ---- Trường Định môn: the ruined gate in the south flank ----
-  // OSM maps an 11 m breach between the two pieces, and a lane runs through it: the 2 m passage and its 3 m arch are
-  // gone. What is drawn: the broken wall ends, stepping down into the breach, the stump of each jamb, and fallen brick.
-  // The lane OSM maps through it crosses a metre off the breach's middle, towards the south-west end, so
-  // each piece is laid only where its footprint stays off the carriageway: the rubble lies either side of the lane.
-  {
-    const A = [(BAND_SW[1][0] + BAND_SW[2][0]) / 2, (BAND_SW[1][1] + BAND_SW[2][1]) / 2]; // end of the south-west piece
-    const B = [(BAND_NE[17][0] + BAND_NE[18][0]) / 2, (BAND_NE[17][1] + BAND_NE[18][1]) / 2]; // end of the north-east piece
-    const gx = B[0] - A[0], gz = B[1] - A[1], gl = Math.hypot(gx, gz), ux = gx / gl, uz = gz / gl, ang = Math.atan2(gz, gx);
-    const depth = Math.hypot(BAND_SW[2][0] - BAND_SW[1][0], BAND_SW[2][1] - BAND_SW[1][1]);
-    const nx = -uz, nz = ux; // across the wall
-    const ruin = shade(brick, 1.05);
-    const street = streetTest(data, A, 40);
-    // a box (centre x, z; length l along the wall, width w across it; turned by ang) clear of the lane, 0.3 m to spare
-    const clear = (x, z, l, w, a = ang) => {
-      const ca = Math.cos(a), sa = Math.sin(a);
-      for (const [p, q] of ([[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0, 0]] as any[])) if (street(x + ca * p * l - sa * q * w, z + sa * p * l + ca * q * w, 0.3)) return false;
-      return true;
-    };
-    S.kind = KIND.MASONRY;
-    for (const [end, dir] of ([[A, 1], [B, -1]] as any[])) {
-      // the broken end: three steps of masonry reaching into the breach, each lower, in slices across the wall
-      for (let j = 0; j < 3; j++) for (let k = 0; k < 3; k++) {
-        const reach = 0.7 + j * 0.7, v = -depth / 2 + (k + 0.5) * (depth / 3);
-        const h = LAND_Y + FORT_H * (0.78 - j * 0.22) - rand(j * 5 + k + dir * 11, 31) * 0.9;
-        const u = dir * (reach - 0.35);
-        if (!clear(end[0] + ux * u + nx * v, end[1] + uz * u + nz * v, 0.72, depth / 3 + 0.04)) continue;
-        S.box(end[0] + ux * u + nx * v, end[1] + uz * u + nz * v, y0, h, 0.72, depth / 3 + 0.04, ang, j ? shade(ruin, 0.95 - j * 0.04) : ruin, { top: walk });
-      }
-      // the jamb's stump, lime-faced, where the passage once ran
-      const u = dir * 2.4;
-      if (clear(end[0] + ux * u, end[1] + uz * u, 0.8, 2.2)) S.box(end[0] + ux * u, end[1] + uz * u, y0, LAND_Y + 1.1 + rand(dir + 3, 32) * 0.6, 0.8, 2.2, ang, hex('#8d877a'), { top: shade(walk, 0.9) });
-    }
-    S.kind = KIND.PLAIN;
-    const c = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
-    for (let k = 0; k < 9; k++) { // fallen brick along the foot of the breach, clear of the lane
-      const side = k % 2 ? 1 : -1, u = side * (3.2 + rand(k, 13) * 1.6), v = (rand(k, 14) - 0.5) * (depth + 2);
-      const bl = 0.6 + rand(k, 16) * 0.8, bw = 0.5 + rand(k, 17) * 0.6;
-      if (!clear(c[0] + ux * u + nx * v, c[1] + uz * u + nz * v, Math.hypot(bl, bw), Math.hypot(bl, bw))) continue;
-      S.box(c[0] + ux * u + nx * v, c[1] + uz * u + nz * v, LAND_Y - 0.1, LAND_Y + 0.2 + rand(k, 15) * 0.4, 0.6 + rand(k, 16) * 0.8, 0.5 + rand(k, 17) * 0.6, ang + rand(k, 18), dark);
-    }
-  }
-
-  // ---- Trấn Bình Môn ----
-  {
-    const gTop = LAND_Y + WALL_H;
-    S.kind = KIND.MASONRY; // brick courses, as on the Citadel wall either side
-    S.prism(GATE_RING, LAND_Y - 0.4, gTop, brick, walk, { topKind: KIND.GROUND });
-    for (let i = 0; i < GATE_RING.length; i++) {
-      const a = GATE_RING[i], b = GATE_RING[(i + 1) % GATE_RING.length];
-      const dx = b[0] - a[0], dz = b[1] - a[1], len = Math.hypot(dx, dz);
-      let nx = dz / len, nz = -dx / len;
-      if (inRing(a[0] + dx / 2 + nx * 0.5, a[1] + dz / 2 + nz * 0.5, GATE_RING)) { nx = -nx; nz = -nz; }
-      if (len > 1.5) weather(S, { a, len, ux: dx / len, uz: dz / len, nx, nz }, LAND_Y - 0.4, gTop, { damp, dark, relaid, lichen }, 31 + i);
-    }
-    S.kind = KIND.PLAIN;
-    const ax = GATE_C[0] + GT[0] * AXIS, az = GATE_C[1] + GT[1] * AXIS;
-    // the passage's two mouths: on the gate block's city face, and on the Citadel wall's outer face over the bridge
-    archway(S, ax - GN[0] * (GATE_HALF_D + 0.03), az - GN[1] * (GATE_HALF_D + 0.03), [-GN[0], -GN[1]], GT);
-    archway(S, ax + GN[0] * (WALL_OUTER + 0.03), az + GN[1] * (WALL_OUTER + 0.03), GN, GT);
-
-    // the old building on top, abandoned: stained lime wash, empty window and door openings, a cement-tile roof. The
-    // satellite shows one long grey roof over the whole gate block, about 36 x 10 m with square-cut ends and a ridge
-    // down its length: a pitched roof closed by gables, no hips. No source shows its ornament, so none is drawn.
-    const bw = 34.4, bd = 8.4, bh = 3.5, ang = Math.atan2(GT[1], GT[0]);
-    const bx = GATE_C[0], bz = GATE_C[1];
-    const wash = hex('#cdc3ab'), roof = hex('#7a5948'), streak = mix(wash, hex('#78705e'), 0.4);
-    S.kind = KIND.COLONIAL;
-    S.box(bx, bz, gTop, gTop + bh, bw, bd, ang, wash, { top: shade(wash, 0.85) });
-    S.kind = KIND.PLAIN;
-    S.box(bx, bz, gTop, gTop + 0.7, bw + 0.08, bd + 0.08, ang, shade(wash, 0.72)); // weathered plinth
-    S.box(bx, bz, gTop + bh - 0.25, gTop + bh, bw + 0.24, bd + 0.24, ang, shade(wash, 1.06)); // cornice band
-    const NW = 11; // tall colonial window/door bays with pale frames
-    for (const sd of [-1, 1]) for (let j = 0; j < NW; j++) {
-      const s = -bw / 2 + 1.5 + j * ((bw - 3) / (NW - 1)), door = j === (NW - 1) / 2;
-      const ox = bx + GT[0] * s + GN[0] * sd * (bd / 2 + 0.03), oz = bz + GT[1] * s + GN[1] * sd * (bd / 2 + 0.03);
-      S.box(ox, oz, gTop + (door ? 0.05 : 0.85), gTop + (door ? 2.65 : 2.55), door ? 1.4 : 1.15, 0.08, ang, hex('#2a2622'));
-      S.box(ox + GN[0] * sd * 0.02, oz + GN[1] * sd * 0.02, gTop + (door ? 2.65 : 2.55), gTop + (door ? 2.85 : 2.72), door ? 1.65 : 1.35, 0.08, ang, shade(wash, 1.08));
-      // rain streaks from the eaves down the wash between the openings
-      if (j < NW - 1 && rand(j * 3 + sd, 41) < 0.45) {
-        const s2 = s + (bw - 3) / (NW - 1) / 2 + (rand(j, 42) - 0.5), w = 0.22 + rand(j + sd, 43) * 0.35, y1 = gTop + bh - 0.25, y0 = y1 - 0.5 - rand(j, 44) * 1.0;
-        const px = bx + GT[0] * s2 + GN[0] * sd * (bd / 2 + 0.04), pz = bz + GT[1] * s2 + GN[1] * sd * (bd / 2 + 0.04);
-        S.quad([px - GT[0] * w / 2, y0, pz - GT[1] * w / 2], [px + GT[0] * w / 2, y0, pz + GT[1] * w / 2], [px + GT[0] * w / 2, y1, pz + GT[1] * w / 2], [px - GT[0] * w / 2, y1, pz - GT[1] * w / 2], streak, [GN[0] * sd, 0, GN[1] * sd]);
-      }
-    }
-    gable(S, [bx, bz], bw, bd, ang, gTop + bh, 2.3, roof, wash, 0.75);
-
-    // lush trees flanking Trấn Bình Môn and inside the fort compound (matching Google Satellite canopy)
-    if (Array.isArray(data.trees)) {
-      const tPts = [
-        [-1474, -2206, 12], [-1486, -2190, 11], [-1442, -2154, 12], [-1430, -2142, 13],
-        [-1420, -2130, 11], [-1492, -2220, 12], [-1412, -2215, 13], [-1395, -2245, 12],
-        [-1365, -2280, 14], [-1320, -2315, 13], [-1270, -2340, 12], [-1220, -2355, 13],
-        [-1180, -2310, 12], [-1155, -2260, 13], [-1245, -2245, 12], [-1310, -2225, 11],
-      ];
-      for (const [tx, tz, sc] of tPts) data.trees.push(Math.round(tx * 10), Math.round(tz * 10), sc, 1);
-    }
-
-    // overgrowth: shrubs along the gate's top and creepers down its city face
-    S.kind = KIND.PLAIN;
-    for (let k = 0; k < 14; k++) {
-      const s = (rand(k, 21) - 0.5) * 32, v = (rand(k, 22) - 0.5) * 11;
-      if (Math.abs(v) < bd / 2 + 1 && Math.abs(s) < bw / 2 + 1) continue;
-      const px = GATE_C[0] + GT[0] * s + GN[0] * v, pz = GATE_C[1] + GT[1] * s + GN[1] * v, r = 0.9 + rand(k, 23) * 1.4;
-      S.cyl(px, pz, gTop - 0.1, gTop + r * 1.3, r, r * 0.45, 6, mix(ivy, ivy2, rand(k, 24)), { rot: rand(k, 25) * 3 });
-    }
-    // creepers down the city face: clumps of hanging strands of uneven length, thinning out downwards
-    for (let k = 0; k < 9; k++) {
-      const s0 = (rand(k, 26) - 0.5) * 32, w = 1.2 + rand(k, 27) * 2.5;
-      if (Math.abs(s0 - AXIS) < 2.5 + w / 2) continue;
-      const n = 3 + Math.floor(w / 0.6);
-      for (let m = 0; m < n; m++) {
-        const s = s0 - w / 2 + (m + 0.5) * (w / n), sw = (w / n) * (0.7 + rand(k * 7 + m, 45) * 0.5);
-        const len = (1 - Math.abs((m + 0.5) / n - 0.5) * 1.2) * (1.5 + rand(k, 28) * 4) * (0.6 + rand(k * 7 + m, 46) * 0.6);
-        const px = GATE_C[0] + GT[0] * s - GN[0] * (GATE_HALF_D + 0.08 + m * 0.002), pz = GATE_C[1] + GT[1] * s - GN[1] * (GATE_HALF_D + 0.08 + m * 0.002);
-        const h = gTop - len, tip = sw * 0.25;
-        S.quad([px - GT[0] * tip, h, pz - GT[1] * tip], [px + GT[0] * tip, h, pz + GT[1] * tip], [px + GT[0] * sw / 2, gTop + 0.1, pz + GT[1] * sw / 2], [px - GT[0] * sw / 2, gTop + 0.1, pz - GT[1] * sw / 2], mix(ivy, ivy2, rand(k * 7 + m, 29)), [-GN[0], 0, -GN[1]]);
-      }
-    }
-  }
-  S.kind = KIND.PLAIN;
-}
+const FORT_BRICK = shade(PAL.brick, 0.86);
+const BUILDING_WASH = hex('#cdc3ab');
+const COLORS = {
+  brick: FORT_BRICK,
+  damp: hex('#3a3833'),
+  dark: hex('#46443e'),
+  relaid: hex('#655e57'),
+  lichen: hex('#4a4d3e'),
+  walk: PAL.moss,
+  ivy: hex('#34482a'),
+  ivyLight: hex('#4a5e34'),
+  parapet: shade(FORT_BRICK, 0.92),
+  parapetCap: shade(FORT_BRICK, 1.12),
+  step: shade(PAL.brickLight, 0.9),
+  jambLime: hex('#8d877a'),
+  wash: BUILDING_WASH,
+  roof: hex('#7a5948'),
+  washStreak: mix(BUILDING_WASH, hex('#78705e'), 0.4),
+  openingDark: hex('#2a2622'),
+  archMouth: hex('#1d1b18'),
+  doorWood: hex('#4a3524'),
+};
 
 // a wall face as it reads today: a damp foot, lichen and soot streaks from the top down, relaid patches
-function weather(S, e, y0, y1, c, seed) {
-  const off = 0.04, { a, len, ux, uz, nx, nz } = e;
-  const face = (s0, s1, h0, h1, col) => {
-    const x0 = a[0] + ux * s0 + nx * off, z0 = a[1] + uz * s0 + nz * off, x1 = a[0] + ux * s1 + nx * off, z1 = a[1] + uz * s1 + nz * off;
-    S.quad([x0, h0, z0], [x1, h0, z1], [x1, h1, z1], [x0, h1, z0], col, [nx, 0.001, nz]);
+function buildWallWeathering(S, edge, y0, y1, seed) {
+  const proud = 0.04;
+  const { a: startPt, len, ux, uz, nx, nz } = edge;
+  const addQuad = (s0, s1, h0, h1, color) => {
+    const x0 = startPt[0] + ux * s0 + nx * proud;
+    const z0 = startPt[1] + uz * s0 + nz * proud;
+    const x1 = startPt[0] + ux * s1 + nx * proud;
+    const z1 = startPt[1] + uz * s1 + nz * proud;
+    S.quad([x0, h0, z0], [x1, h0, z1], [x1, h1, z1], [x0, h1, z0], color, [nx, 0.001, nz]);
   };
-  const H = y1 - LAND_Y;
-  face(0, len, y0, LAND_Y + 0.6 + rand(seed, 1) * 0.5, c.damp);
-  for (let s = rand(seed, 2) * 6; s < len - 1; s += 4 + rand(seed + s, 3) * 7) {
-    const w = Math.min(len - s, 1.5 + rand(seed + s, 4) * 4.5), k = rand(seed + s, 5);
-    if (k < 0.55) face(s, s + w, LAND_Y + 0.6 + rand(seed + s, 6) * (H - 2), y1, mix(c.dark, c.lichen, rand(seed + s, 7) * 0.7));
-    else if (k < 0.8) { const h = LAND_Y + 1.0 + rand(seed + s, 8) * (H - 3); face(s, Math.min(len, s + w * 1.5), h, h + 1.0 + rand(seed + s, 9) * 1.8, c.relaid); }
+  const faceH = y1 - LAND_Y;
+  addQuad(0, len, y0, LAND_Y + 0.6 + rand(seed, 1) * 0.5, COLORS.damp);
+  for (let pos = rand(seed, 2) * 6; pos < len - 1; pos += 4 + rand(seed + pos, 3) * 7) {
+    const patchW = Math.min(len - pos, 1.5 + rand(seed + pos, 4) * 4.5);
+    const roll = rand(seed + pos, 5);
+    if (roll < 0.55) {
+      addQuad(pos, pos + patchW, LAND_Y + 0.6 + rand(seed + pos, 6) * (faceH - 2), y1, mix(COLORS.dark, COLORS.lichen, rand(seed + pos, 7) * 0.7));
+    } else if (roll < 0.8) {
+      const botY = LAND_Y + 1.0 + rand(seed + pos, 8) * (faceH - 3);
+      addQuad(pos, Math.min(len, pos + patchW * 1.5), botY, botY + 1.0 + rand(seed + pos, 9) * 1.8, COLORS.relaid);
+    }
   }
 }
 
 // a 2 m passage under a 3 m round arch, seen on a wall face: a lime-washed surround, the dark mouth, and the rotting
-// wooden doors set back in it. p: foot of the opening on the face; n: the face's outward normal; t: along the face.
-function archway(S, px, pz, n, t) {
-  const W = 2, H = 3, spring = H - W / 2;
-  const shape = (half, top, off) => { // rectangle up to the springing, then a half circle
-    const pts = [[-half, 0], [half, 0], [half, spring]];
-    for (let k = 1; k < 8; k++) { const th = (k / 8) * Math.PI; pts.push([Math.cos(th) * half, spring + Math.sin(th) * (top - spring)]); }
-    pts.push([-half, spring]);
-    return pts.map(([u, v]) => [px + t[0] * u + n[0] * off, LAND_Y + v, pz + t[1] * u + n[1] * off]);
+// wooden doors set back in it. (posX, posZ): foot of the opening on the face; normal: outward normal; tangent: along face.
+function buildArchway(S, posX, posZ, normal, tangent) {
+  const openW = 2;
+  const openH = 3;
+  const springH = openH - openW / 2;
+  const archPoly = (halfW, topH, outOff) => { // rectangle up to the springing, then a half circle
+    const pts = [[-halfW, 0], [halfW, 0], [halfW, springH]];
+    for (let k = 1; k < 8; k++) {
+      const theta = (k / 8) * Math.PI;
+      pts.push([Math.cos(theta) * halfW, springH + Math.sin(theta) * (topH - springH)]);
+    }
+    pts.push([-halfW, springH]);
+    return pts.map(([along, height]) => [posX + tangent[0] * along + normal[0] * outOff, LAND_Y + height, posZ + tangent[1] * along + normal[1] * outOff]);
   };
-  const ctr = (pts): [number, number, number] => [pts.reduce((s, p) => s + p[0], 0) / pts.length, LAND_Y + spring * 0.7, pts.reduce((s, p) => s + p[2], 0) / pts.length];
-  const fill = (pts, col) => { const c = ctr(pts); for (let i = 0; i < pts.length; i++) S.tri(c, pts[i], pts[(i + 1) % pts.length], col, [n[0], 0, n[1]]); };
-  fill(shape(W / 2 + 0.45, H + 0.45, 0.02), hex('#8d877a')); // the surround
-  fill(shape(W / 2, H, 0.05), hex('#1d1b18')); // the mouth
-  const door = hex('#4a3524');
-  for (const sd of [-1, 1]) { // two leaves, one sagging open
-    const u0 = sd * (W / 2 - 0.08), u1 = sd * (sd > 0 ? 0.15 : 0.02);
-    const q = (u, v, o): [number, number, number] => [px + t[0] * u + n[0] * o, LAND_Y + v, pz + t[1] * u + n[1] * o];
-    S.quad(q(u0, 0.05, 0.07), q(u1, 0.05, sd > 0 ? 0.35 : 0.07), q(u1, spring - 0.1, sd > 0 ? 0.35 : 0.07), q(u0, spring - 0.1, 0.07), sd > 0 ? shade(door, 0.8) : door, [n[0], 0, n[1]]);
+  const centerOf = (pts): [number, number, number] => [
+    pts.reduce((acc, pt) => acc + pt[0], 0) / pts.length,
+    LAND_Y + springH * 0.7,
+    pts.reduce((acc, pt) => acc + pt[2], 0) / pts.length,
+  ];
+  const fillFan = (pts, color) => {
+    const hub = centerOf(pts);
+    for (let i = 0; i < pts.length; i++) S.tri(hub, pts[i], pts[(i + 1) % pts.length], color, [normal[0], 0, normal[1]]);
+  };
+  fillFan(archPoly(openW / 2 + 0.45, openH + 0.45, 0.02), COLORS.jambLime); // the surround
+  fillFan(archPoly(openW / 2, openH, 0.05), COLORS.archMouth); // the mouth
+  for (const side of [-1, 1]) { // two leaves, one sagging open
+    const u0 = side * (openW / 2 - 0.08);
+    const u1 = side * (side > 0 ? 0.15 : 0.02);
+    const leafPt = (along, height, outOff): [number, number, number] => [posX + tangent[0] * along + normal[0] * outOff, LAND_Y + height, posZ + tangent[1] * along + normal[1] * outOff];
+    S.quad(
+      leafPt(u0, 0.05, 0.07),
+      leafPt(u1, 0.05, side > 0 ? 0.35 : 0.07),
+      leafPt(u1, springH - 0.1, side > 0 ? 0.35 : 0.07),
+      leafPt(u0, springH - 0.1, 0.07),
+      side > 0 ? shade(COLORS.doorWood, 0.8) : COLORS.doorWood,
+      [normal[0], 0, normal[1]],
+    );
   }
 }
 
-// a pitched roof with its ridge along ang over walls len x wid, the gable ends closed in the wall colour
-function gable(S, c, len, wid, ang, y0, h, roofCol, wallCol, over) {
-  const ux = Math.cos(ang), uz = Math.sin(ang);
-  const P = (u, v, y): [number, number, number] => [c[0] + u * ux - v * uz, y, c[1] + u * uz + v * ux];
-  const hl = len / 2 + over, hw = wid / 2 + over, ye = y0 - (h * over) / (wid / 2);
-  const keep = S.kind;
+// a pitched roof with its ridge along angle over walls length x width, the gable ends closed in the wall colour
+function buildGableRoof(S, center, length, width, angle, y0, riseH, roofCol, wallCol, overhang) {
+  const cosAng = Math.cos(angle);
+  const sinAng = Math.sin(angle);
+  const ptAt = (localU, localV, y): [number, number, number] => [center[0] + localU * cosAng - localV * sinAng, y, center[1] + localU * sinAng + localV * cosAng];
+  const halfL = length / 2 + overhang;
+  const halfW = width / 2 + overhang;
+  const eaveY = y0 - (riseH * overhang) / (width / 2);
+  const keepKind = S.kind;
   S.kind = KIND.TILE;
-  S.quad(P(-hl, -hw, ye), P(hl, -hw, ye), P(hl, 0, y0 + h), P(-hl, 0, y0 + h), roofCol, [uz, 0.9, -ux]);
-  S.quad(P(-hl, hw, ye), P(hl, hw, ye), P(hl, 0, y0 + h), P(-hl, 0, y0 + h), roofCol, [-uz, 0.9, ux]);
+  S.quad(ptAt(-halfL, -halfW, eaveY), ptAt(halfL, -halfW, eaveY), ptAt(halfL, 0, y0 + riseH), ptAt(-halfL, 0, y0 + riseH), roofCol, [sinAng, 0.9, -cosAng]);
+  S.quad(ptAt(-halfL, halfW, eaveY), ptAt(halfL, halfW, eaveY), ptAt(halfL, 0, y0 + riseH), ptAt(-halfL, 0, y0 + riseH), roofCol, [-sinAng, 0.9, cosAng]);
   S.kind = KIND.PLAIN;
-  for (const sd of [-1, 1]) { // the roof's underside at the gable overhangs, and the gables
-    S.tri(P(sd * (len / 2), -wid / 2, y0), P(sd * (len / 2), wid / 2, y0), P(sd * (len / 2), 0, y0 + h), wallCol, [sd * ux, 0, sd * uz]);
-    S.quad(P(sd * hl, -hw, ye - 0.15), P(sd * hl, 0, y0 + h - 0.15), P(sd * hl, 0, y0 + h), P(sd * hl, -hw, ye), shade(roofCol, 0.8), [sd * ux, 0, sd * uz]);
-    S.quad(P(sd * hl, 0, y0 + h - 0.15), P(sd * hl, hw, ye - 0.15), P(sd * hl, hw, ye), P(sd * hl, 0, y0 + h), shade(roofCol, 0.8), [sd * ux, 0, sd * uz]);
+  for (const side of [-1, 1]) { // the roof's underside at the gable overhangs, and the gables
+    S.tri(ptAt(side * (length / 2), -width / 2, y0), ptAt(side * (length / 2), width / 2, y0), ptAt(side * (length / 2), 0, y0 + riseH), wallCol, [side * cosAng, 0, side * sinAng]);
+    S.quad(ptAt(side * halfL, -halfW, eaveY - 0.15), ptAt(side * halfL, 0, y0 + riseH - 0.15), ptAt(side * halfL, 0, y0 + riseH), ptAt(side * halfL, -halfW, eaveY), shade(roofCol, 0.8), [side * cosAng, 0, side * sinAng]);
+    S.quad(ptAt(side * halfL, 0, y0 + riseH - 0.15), ptAt(side * halfL, halfW, eaveY - 0.15), ptAt(side * halfL, halfW, eaveY), ptAt(side * halfL, 0, y0 + riseH), shade(roofCol, 0.8), [side * cosAng, 0, side * sinAng]);
   }
-  S.beam(P(-hl, 0, y0 + h + 0.05), P(hl, 0, y0 + h + 0.05), 0.35, 0.25, shade(roofCol, 0.85));
-  S.kind = keep;
+  S.beam(ptAt(-halfL, 0, y0 + riseH + 0.05), ptAt(halfL, 0, y0 + riseH + 0.05), 0.35, 0.25, shade(roofCol, 0.85));
+  S.kind = keepKind;
+}
+
+function buildFortRampartsAndStairs(S, baseY, wallWalkY) {
+  const bands = [BAND_NE, BAND_SW];
+  const inBand = (x, z) => bands.some((ring) => inRing(x, z, ring));
+  const countCrossings = (ax, az, bx, bz) => {
+    let hits = 0;
+    for (const ring of bands) {
+      for (let i = 0; i < ring.length; i++) {
+        const ptA = ring[i];
+        const ptB = ring[(i + 1) % ring.length];
+        const d1 = (bx - ax) * (ptA[1] - az) - (bz - az) * (ptA[0] - ax);
+        const d2 = (bx - ax) * (ptB[1] - az) - (bz - az) * (ptB[0] - ax);
+        if ((d1 > 0) === (d2 > 0)) continue;
+        const d3 = (ptB[0] - ptA[0]) * (az - ptA[1]) - (ptB[1] - ptA[1]) * (ax - ptA[0]);
+        const d4 = (ptB[0] - ptA[0]) * (bz - ptA[1]) - (ptB[1] - ptA[1]) * (bx - ptA[0]);
+        if ((d3 > 0) !== (d4 > 0)) hits++;
+      }
+    }
+    return hits;
+  };
+
+  // ---- the fort's walls ----
+  const coverStart = S.n;
+  S.kind = KIND.MASONRY;
+  const edges = [];
+  for (const ring of bands) {
+    S.prism(ring, baseY, wallWalkY, COLORS.brick, COLORS.walk, { topKind: KIND.GROUND });
+    for (let i = 0; i < ring.length; i++) {
+      const ptA = ring[i];
+      const ptB = ring[(i + 1) % ring.length];
+      const dx = ptB[0] - ptA[0];
+      const dz = ptB[1] - ptA[1];
+      const len = Math.hypot(dx, dz);
+      if (len < 0.4) continue;
+      const ux = dx / len;
+      const uz = dz / len;
+      const mx = (ptA[0] + ptB[0]) / 2;
+      const mz = (ptA[1] + ptB[1]) / 2;
+      let nx = uz;
+      let nz = -ux;
+      if (inBand(mx + nx * 0.6, mz + nz * 0.6)) {
+        nx = -nx;
+        nz = -nz;
+      }
+      const outer = len > 17 || len < 6 ? countCrossings(mx + nx * 2, mz + nz * 2, FORT_INTERIOR[0], FORT_INTERIOR[1]) > 0 : null; // the band's ends (15-17 m) are neither
+      edges.push({ a: ptA, b: ptB, len, ux, uz, nx, nz, outer, ang: Math.atan2(dz, dx) });
+    }
+  }
+  for (const edge of edges) {
+    if (edge.len >= 1.5) buildWallWeathering(S, edge, baseY, wallWalkY, Math.round(edge.a[0] * 7 + edge.a[1] * 13));
+  }
+
+  // parapet on the outer edges, with the 21 embrasures shared out over the long faces by length
+  const outerLong = edges.filter((edge) => edge.outer && edge.len > 25);
+  const totalOuterLen = outerLong.reduce((acc, edge) => acc + edge.len, 0);
+  const exactShares = outerLong.map((edge) => (EMBRASURE_COUNT * edge.len) / totalOuterLen);
+  const edgeCounts = exactShares.map(Math.floor);
+  for (let remaining = EMBRASURE_COUNT - edgeCounts.reduce((acc, cnt) => acc + cnt, 0); remaining > 0; remaining--) {
+    let bestIdx = 0;
+    for (let j = 1; j < exactShares.length; j++) {
+      if (exactShares[j] - edgeCounts[j] > exactShares[bestIdx] - edgeCounts[bestIdx]) bestIdx = j;
+    }
+    edgeCounts[bestIdx]++;
+    exactShares[bestIdx] = edgeCounts[bestIdx];
+  }
+  for (const edge of edges) {
+    if (!edge.outer) continue;
+    const baseX = edge.a[0] - edge.nx * (PARAPET_T / 2);
+    const baseZ = edge.a[1] - edge.nz * (PARAPET_T / 2);
+    const addSeg = (s0, s1, topY) => {
+      if (s1 - s0 > 0.05) {
+        const midS = (s0 + s1) / 2;
+        S.box(baseX + edge.ux * midS, baseZ + edge.uz * midS, wallWalkY - 0.05, topY, s1 - s0, PARAPET_T, edge.ang, COLORS.parapet, { top: COLORS.parapetCap });
+      }
+    };
+    const embCount = edgeCounts[outerLong.indexOf(edge)] || 0;
+    const cornerExt = edge.len < 3 ? 0.3 : 0.7;
+    if (!embCount) {
+      addSeg(-cornerExt, edge.len + cornerExt, wallWalkY + PARAPET_H);
+      continue;
+    }
+    const step = edge.len / (embCount + 1);
+    let cursor = -cornerExt;
+    for (let j = 1; j <= embCount; j++) {
+      const centerS = j * step;
+      addSeg(cursor, centerS - EMBRASURE_W / 2, wallWalkY + PARAPET_H);
+      addSeg(centerS - EMBRASURE_W / 2, centerS + EMBRASURE_W / 2, wallWalkY + EMBRASURE_SILL);
+      cursor = centerS + EMBRASURE_W / 2;
+    }
+    addSeg(cursor, edge.len + cornerExt, wallWalkY + PARAPET_H);
+  }
+  S.kind = KIND.PLAIN;
+  (S.noCover = S.noCover || []).push([coverStart, S.n]); // the walk is planted ground, as on the Citadel's rampart
+
+  // six flights of steps up the inner face (positions estimated: the middle of the six longest inner faces)
+  S.kind = KIND.MASONRY;
+  const tread = 0.36;
+  const stepRise = 0.3;
+  const stepCount = Math.ceil(FORT_HEIGHT / stepRise);
+  for (const edge of edges.filter((item) => item.outer === false && item.len > 40).sort((a, b) => b.len - a.len).slice(0, STAIR_COUNT)) {
+    const runLen = stepCount * tread;
+    const startS = edge.len / 2 - runLen / 2;
+    const baseX = edge.a[0] + edge.nx * (STAIR_WIDTH / 2 + 0.02);
+    const baseZ = edge.a[1] + edge.nz * (STAIR_WIDTH / 2 + 0.02);
+    for (let j = 0; j < stepCount; j++) {
+      const alongS = startS + (j + 0.5) * tread;
+      const topY = Math.min(wallWalkY, LAND_Y + (j + 1) * stepRise);
+      S.box(baseX + edge.ux * alongS, baseZ + edge.uz * alongS, LAND_Y - 0.2, topY, tread + 0.02, STAIR_WIDTH, edge.ang, j % 2 ? COLORS.step : shade(COLORS.step, 0.94), { top: shade(COLORS.step, 1.08) });
+    }
+    // a low side wall on the open side of the flight
+    const cheekX = baseX + edge.nx * (STAIR_WIDTH / 2 + 0.2);
+    const cheekZ = baseZ + edge.nz * (STAIR_WIDTH / 2 + 0.2);
+    const midS = startS + runLen / 2;
+    S.box(cheekX + edge.ux * midS, cheekZ + edge.uz * midS, LAND_Y - 0.2, LAND_Y + 0.5, runLen, 0.4, edge.ang, COLORS.dark, { top: shade(COLORS.dark, 1.2), taper: 1 });
+  }
+}
+
+function buildTruongDinhRuins(data, S, baseY) {
+  // ---- Trường Định môn: the ruined gate in the south flank ----
+  const endSW = [(BAND_SW[1][0] + BAND_SW[2][0]) / 2, (BAND_SW[1][1] + BAND_SW[2][1]) / 2];
+  const endNE = [(BAND_NE[17][0] + BAND_NE[18][0]) / 2, (BAND_NE[17][1] + BAND_NE[18][1]) / 2];
+  const gapX = endNE[0] - endSW[0];
+  const gapZ = endNE[1] - endSW[1];
+  const gapLen = Math.hypot(gapX, gapZ);
+  const dirX = gapX / gapLen;
+  const dirZ = gapZ / gapLen;
+  const angle = Math.atan2(gapZ, gapX);
+  const wallDepth = Math.hypot(BAND_SW[2][0] - BAND_SW[1][0], BAND_SW[2][1] - BAND_SW[1][1]);
+  const normX = -dirZ;
+  const normZ = dirX; // across the wall
+  const ruinBrick = shade(COLORS.brick, 1.05);
+  const isStreet = streetTest(data, endSW, 40);
+  // a box (centre x, z; length len along the wall, width wid across it; turned by boxAngle) clear of the lane, 0.3 m to spare
+  const isClearOfLane = (x, z, len, wid, boxAngle = angle) => {
+    const cosA = Math.cos(boxAngle);
+    const sinA = Math.sin(boxAngle);
+    for (const [fx, fz] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0, 0]]) {
+      if (isStreet(x + cosA * fx * len - sinA * fz * wid, z + sinA * fx * len + cosA * fz * wid, 0.3)) return false;
+    }
+    return true;
+  };
+  S.kind = KIND.MASONRY;
+  for (const [endPt, dirSign] of [[endSW, 1], [endNE, -1]] as any[]) {
+    // the broken end: three steps of masonry reaching into the breach, each lower, in slices across the wall
+    for (let j = 0; j < 3; j++) {
+      for (let k = 0; k < 3; k++) {
+        const reach = 0.7 + j * 0.7;
+        const offsetV = -wallDepth / 2 + (k + 0.5) * (wallDepth / 3);
+        const topY = LAND_Y + FORT_HEIGHT * (0.78 - j * 0.22) - rand(j * 5 + k + dirSign * 11, 31) * 0.9;
+        const offsetU = dirSign * (reach - 0.35);
+        const bx = endPt[0] + dirX * offsetU + normX * offsetV;
+        const bz = endPt[1] + dirZ * offsetU + normZ * offsetV;
+        if (!isClearOfLane(bx, bz, 0.72, wallDepth / 3 + 0.04)) continue;
+        S.box(bx, bz, baseY, topY, 0.72, wallDepth / 3 + 0.04, angle, j ? shade(ruinBrick, 0.95 - j * 0.04) : ruinBrick, { top: COLORS.walk });
+      }
+    }
+    // the jamb's stump, lime-faced, where the passage once ran
+    const jambU = dirSign * 2.4;
+    if (isClearOfLane(endPt[0] + dirX * jambU, endPt[1] + dirZ * jambU, 0.8, 2.2)) {
+      S.box(endPt[0] + dirX * jambU, endPt[1] + dirZ * jambU, baseY, LAND_Y + 1.1 + rand(dirSign + 3, 32) * 0.6, 0.8, 2.2, angle, COLORS.jambLime, { top: shade(COLORS.walk, 0.9) });
+    }
+  }
+  S.kind = KIND.PLAIN;
+  const breachCenter = [(endSW[0] + endNE[0]) / 2, (endSW[1] + endNE[1]) / 2];
+  for (let k = 0; k < 9; k++) { // fallen brick along the foot of the breach, clear of the lane
+    const side = k % 2 ? 1 : -1;
+    const offsetU = side * (3.2 + rand(k, 13) * 1.6);
+    const offsetV = (rand(k, 14) - 0.5) * (wallDepth + 2);
+    const pieceL = 0.6 + rand(k, 16) * 0.8;
+    const pieceW = 0.5 + rand(k, 17) * 0.6;
+    const bx = breachCenter[0] + dirX * offsetU + normX * offsetV;
+    const bz = breachCenter[1] + dirZ * offsetU + normZ * offsetV;
+    if (!isClearOfLane(bx, bz, Math.hypot(pieceL, pieceW), Math.hypot(pieceL, pieceW))) continue;
+    S.box(bx, bz, LAND_Y - 0.1, LAND_Y + 0.2 + rand(k, 15) * 0.4, pieceL, pieceW, angle + rand(k, 18), COLORS.dark);
+  }
+}
+
+function buildTranBinhMonGate(data, S) {
+  // ---- Trấn Bình Môn ----
+  const gateTopY = LAND_Y + WALL_H;
+  S.kind = KIND.MASONRY; // brick courses, as on the Citadel wall either side
+  S.prism(GATE_RING, LAND_Y - 0.4, gateTopY, COLORS.brick, COLORS.walk, { topKind: KIND.GROUND });
+  for (let i = 0; i < GATE_RING.length; i++) {
+    const ptA = GATE_RING[i];
+    const ptB = GATE_RING[(i + 1) % GATE_RING.length];
+    const dx = ptB[0] - ptA[0];
+    const dz = ptB[1] - ptA[1];
+    const len = Math.hypot(dx, dz);
+    let nx = dz / len;
+    let nz = -dx / len;
+    if (inRing(ptA[0] + dx / 2 + nx * 0.5, ptA[1] + dz / 2 + nz * 0.5, GATE_RING)) {
+      nx = -nx;
+      nz = -nz;
+    }
+    if (len > 1.5) buildWallWeathering(S, { a: ptA, len, ux: dx / len, uz: dz / len, nx, nz }, LAND_Y - 0.4, gateTopY, 31 + i);
+  }
+  S.kind = KIND.PLAIN;
+  const axisX = GATE_CENTER[0] + GATE_TANGENT[0] * AXIS_OFFSET;
+  const axisZ = GATE_CENTER[1] + GATE_TANGENT[1] * AXIS_OFFSET;
+  // the passage's two mouths: on the gate block's city face, and on the Citadel wall's outer face over the bridge
+  buildArchway(S, axisX - GATE_NORMAL[0] * (GATE_HALF_DEPTH + 0.03), axisZ - GATE_NORMAL[1] * (GATE_HALF_DEPTH + 0.03), [-GATE_NORMAL[0], -GATE_NORMAL[1]], GATE_TANGENT);
+  buildArchway(S, axisX + GATE_NORMAL[0] * (WALL_OUTER_DIST + 0.03), axisZ + GATE_NORMAL[1] * (WALL_OUTER_DIST + 0.03), GATE_NORMAL, GATE_TANGENT);
+
+  // the old building on top, abandoned: stained lime wash, empty window and door openings, a cement-tile roof.
+  const bldW = 34.4;
+  const bldD = 8.4;
+  const bldH = 3.5;
+  const bldAngle = Math.atan2(GATE_TANGENT[1], GATE_TANGENT[0]);
+  const bldX = GATE_CENTER[0];
+  const bldZ = GATE_CENTER[1];
+  S.kind = KIND.COLONIAL;
+  S.box(bldX, bldZ, gateTopY, gateTopY + bldH, bldW, bldD, bldAngle, COLORS.wash, { top: shade(COLORS.wash, 0.85) });
+  S.kind = KIND.PLAIN;
+  S.box(bldX, bldZ, gateTopY, gateTopY + 0.7, bldW + 0.08, bldD + 0.08, bldAngle, shade(COLORS.wash, 0.72)); // weathered plinth
+  S.box(bldX, bldZ, gateTopY + bldH - 0.25, gateTopY + bldH, bldW + 0.24, bldD + 0.24, bldAngle, shade(COLORS.wash, 1.06)); // cornice band
+  const bayCount = 11; // tall colonial window/door bays with pale frames
+  for (const side of [-1, 1]) {
+    for (let j = 0; j < bayCount; j++) {
+      const alongS = -bldW / 2 + 1.5 + j * ((bldW - 3) / (bayCount - 1));
+      const isDoor = j === (bayCount - 1) / 2;
+      const openX = bldX + GATE_TANGENT[0] * alongS + GATE_NORMAL[0] * side * (bldD / 2 + 0.03);
+      const openZ = bldZ + GATE_TANGENT[1] * alongS + GATE_NORMAL[1] * side * (bldD / 2 + 0.03);
+      S.box(openX, openZ, gateTopY + (isDoor ? 0.05 : 0.85), gateTopY + (isDoor ? 2.65 : 2.55), isDoor ? 1.4 : 1.15, 0.08, bldAngle, COLORS.openingDark);
+      S.box(openX + GATE_NORMAL[0] * side * 0.02, openZ + GATE_NORMAL[1] * side * 0.02, gateTopY + (isDoor ? 2.65 : 2.55), gateTopY + (isDoor ? 2.85 : 2.72), isDoor ? 1.65 : 1.35, 0.08, bldAngle, shade(COLORS.wash, 1.08));
+      // rain streaks from the eaves down the wash between the openings
+      if (j < bayCount - 1 && rand(j * 3 + side, 41) < 0.45) {
+        const streakS = alongS + (bldW - 3) / (bayCount - 1) / 2 + (rand(j, 42) - 0.5);
+        const streakW = 0.22 + rand(j + side, 43) * 0.35;
+        const yTop = gateTopY + bldH - 0.25;
+        const yBot = yTop - 0.5 - rand(j, 44) * 1.0;
+        const px = bldX + GATE_TANGENT[0] * streakS + GATE_NORMAL[0] * side * (bldD / 2 + 0.04);
+        const pz = bldZ + GATE_TANGENT[1] * streakS + GATE_NORMAL[1] * side * (bldD / 2 + 0.04);
+        S.quad(
+          [px - GATE_TANGENT[0] * streakW / 2, yBot, pz - GATE_TANGENT[1] * streakW / 2],
+          [px + GATE_TANGENT[0] * streakW / 2, yBot, pz + GATE_TANGENT[1] * streakW / 2],
+          [px + GATE_TANGENT[0] * streakW / 2, yTop, pz + GATE_TANGENT[1] * streakW / 2],
+          [px - GATE_TANGENT[0] * streakW / 2, yTop, pz - GATE_TANGENT[1] * streakW / 2],
+          COLORS.washStreak,
+          [GATE_NORMAL[0] * side, 0, GATE_NORMAL[1] * side],
+        );
+      }
+    }
+  }
+  buildGableRoof(S, [bldX, bldZ], bldW, bldD, bldAngle, gateTopY + bldH, 2.3, COLORS.roof, COLORS.wash, 0.75);
+
+  // lush trees flanking Trấn Bình Môn and inside the fort compound (matching Google Satellite canopy)
+  if (Array.isArray(data.trees)) {
+    for (const [treeX, treeZ, scale] of FORT_TREES) data.trees.push(Math.round(treeX * 10), Math.round(treeZ * 10), scale, 1);
+  }
+
+  // overgrowth: shrubs along the gate's top and creepers down its city face
+  S.kind = KIND.PLAIN;
+  for (let k = 0; k < 14; k++) {
+    const alongS = (rand(k, 21) - 0.5) * 32;
+    const acrossV = (rand(k, 22) - 0.5) * 11;
+    if (Math.abs(acrossV) < bldD / 2 + 1 && Math.abs(alongS) < bldW / 2 + 1) continue;
+    const px = GATE_CENTER[0] + GATE_TANGENT[0] * alongS + GATE_NORMAL[0] * acrossV;
+    const pz = GATE_CENTER[1] + GATE_TANGENT[1] * alongS + GATE_NORMAL[1] * acrossV;
+    const shrubR = 0.9 + rand(k, 23) * 1.4;
+    S.cyl(px, pz, gateTopY - 0.1, gateTopY + shrubR * 1.3, shrubR, shrubR * 0.45, 6, mix(COLORS.ivy, COLORS.ivyLight, rand(k, 24)), { rot: rand(k, 25) * 3 });
+  }
+  // creepers down the city face: clumps of hanging strands of uneven length, thinning out downwards
+  for (let k = 0; k < 9; k++) {
+    const clumpS = (rand(k, 26) - 0.5) * 32;
+    const clumpW = 1.2 + rand(k, 27) * 2.5;
+    if (Math.abs(clumpS - AXIS_OFFSET) < 2.5 + clumpW / 2) continue;
+    const strandCount = 3 + Math.floor(clumpW / 0.6);
+    for (let strandIdx = 0; strandIdx < strandCount; strandIdx++) {
+      const alongS = clumpS - clumpW / 2 + (strandIdx + 0.5) * (clumpW / strandCount);
+      const strandW = (clumpW / strandCount) * (0.7 + rand(k * 7 + strandIdx, 45) * 0.5);
+      const strandLen = (1 - Math.abs((strandIdx + 0.5) / strandCount - 0.5) * 1.2) * (1.5 + rand(k, 28) * 4) * (0.6 + rand(k * 7 + strandIdx, 46) * 0.6);
+      const px = GATE_CENTER[0] + GATE_TANGENT[0] * alongS - GATE_NORMAL[0] * (GATE_HALF_DEPTH + 0.08 + strandIdx * 0.002);
+      const pz = GATE_CENTER[1] + GATE_TANGENT[1] * alongS - GATE_NORMAL[1] * (GATE_HALF_DEPTH + 0.08 + strandIdx * 0.002);
+      const botY = gateTopY - strandLen;
+      const tipHalf = strandW * 0.25;
+      S.quad(
+        [px - GATE_TANGENT[0] * tipHalf, botY, pz - GATE_TANGENT[1] * tipHalf],
+        [px + GATE_TANGENT[0] * tipHalf, botY, pz + GATE_TANGENT[1] * tipHalf],
+        [px + GATE_TANGENT[0] * strandW / 2, gateTopY + 0.1, pz + GATE_TANGENT[1] * strandW / 2],
+        [px - GATE_TANGENT[0] * strandW / 2, gateTopY + 0.1, pz - GATE_TANGENT[1] * strandW / 2],
+        mix(COLORS.ivy, COLORS.ivyLight, rand(k * 7 + strandIdx, 29)),
+        [-GATE_NORMAL[0], 0, -GATE_NORMAL[1]],
+      );
+    }
+  }
+}
+
+export function build({ S, data }) {
+  const baseY = LAND_Y - 0.5;
+  const wallWalkY = LAND_Y + FORT_HEIGHT;
+
+  buildFortRampartsAndStairs(S, baseY, wallWalkY);
+  buildTruongDinhRuins(data, S, baseY);
+  buildTranBinhMonGate(data, S);
+
+  S.kind = KIND.PLAIN;
 }
