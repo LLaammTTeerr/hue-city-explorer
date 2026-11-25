@@ -29,85 +29,83 @@ export const quality = (() => {
 
 // Colours are authored in sRGB and converted to linear once.
 export const PAL = {
-  land: '#ccc09d',
-  bank: '#8d8574',
+  land: '#d5cab0',
+  bank: '#968d7a',
   base: '#5e554c',
-  green: { park: '#9cb070', wood: '#829e5e', grass: '#acb97f', farm: '#bcc086', cemetery: '#b8b498', pitch: '#94b26f', sacred: '#c9bc93', paved: '#b9b4aa' },
-  // carriageways in the asphalt grey of the cầu Trường Tiền deck (PAL.deck), minor streets a shade lighter; footways
-  // stay pale paving (issue #15)
-  road: ['#76716e', '#787370', '#7b7673', '#807b77', '#8f8a84', '#e5dbc4'],
-  casing: '#ede4d0',
+  green: { park: '#92ae68', wood: '#729454', grass: '#a3b874', farm: '#b8be7e', cemetery: '#b8b498', pitch: '#8eb068', sacred: '#cfc198', paved: '#c3bdb1' },
+  // carriageways in crisp slate-asphalt with clean pale stone kerbs so warm roofs pop
+  road: ['#6d6a6c', '#706d6f', '#747173', '#7a7778', '#8a8682', '#ebe2ce'],
+  casing: '#f2ead8',
   // a divided road's median (issue #15): turf inside a pale grey stone kerb, low clipped shrubs on it
-  median: '#8fa865',
-  medianKerb: '#d2d0cb',
-  shrubs: ['#5d7f45', '#53763f', '#68894b', '#4c6c3a'],
+  median: '#89a65e',
+  medianKerb: '#dcd9d2',
+  shrubs: ['#557c42', '#4c733c', '#638849', '#456838'],
   rail: '#544c58',
-  ballast: '#b9ad9a',
-  // weathered clay rather than new tile: old roofs in Huế have had a century of rain
-  roofs: ['#9e4a36', '#8c4232', '#a65c43', '#93503c', '#84453a', '#9a5540', '#8a4b3a', '#a05a44', '#96503c', '#7a4a3c', '#6f5a50', '#8a8378', '#77604f', '#7f8a8c', '#863f35'].map(hex),
-  walls: ['#ead9b4', '#efe2c4', '#e3cc98', '#ecd9ae', '#dfd9c4', '#e6cdb8', '#e4d0a2', '#f0e4c8', '#e2c98c', '#d3d8c4', '#cfd8dc', '#e3c7b4', '#d6c092', '#c9cfba', '#dcbc92', '#e0c27e', '#d9b874'].map(hex),
-  concrete: ['#dad3c5', '#e1dbd0', '#d4cdbf', '#ddd6c8'].map(hex),
+  ballast: '#bfb39f',
+  // sun-baked terracotta & weathered clay tiles with warm hue separation against ivory walls
+  roofs: ['#b8543a', '#a64a34', '#c26245', '#ae543c', '#9c4b39', '#b45c42', '#a2503b', '#bc6448', '#ad573e', '#8c5240', '#7a6256', '#928b80', '#866b58', '#839094', '#9e4638'].map(hex),
+  walls: ['#f3e4c4', '#f7ecd4', '#ecd7a6', '#f2e1bc', '#e8e2ce', '#eed8c2', '#eddab0', '#f6ecd4', '#ebd49c', '#dde2ce', '#d8e1e4', '#ecd3bf', '#e2cca0', '#d5dbc6', '#e6c89e', '#e9cc8c', '#e2c282'].map(hex),
+  concrete: ['#e2dcd0', '#e8e3d8', '#dcd5c8', '#e5dfd2'].map(hex),
   // the three building families (see scripts/build-data.mjs §4b)
-  indochine: ['#e6c676', '#ddb863', '#ecd391', '#e2c06c', '#efdcab', '#dfb65e', '#e8caa0'].map(hex), // lime-wash ochres
-  indochineRoof: ['#a9523c', '#a04c38', '#ae5a42', '#994834'].map(hex), // Marseille tile
-  tradWall: ['#6a4737', '#5c3e31', '#74503c', '#7d4335', '#654a3c'].map(hex), // jackfruit-wood panels
-  tradRoof: ['#6d5a4d', '#77604f', '#62564c', '#7a6654', '#5f5f52'].map(hex), // old liệt tiles, weathered
-  thatch: ['#b9a56c', '#ad9860', '#c2ae78', '#a38f5c'].map(hex), // rice-straw roofs
-  thatchWall: ['#b9a07a', '#a98f6c', '#c4ab86', '#8f755a'].map(hex), // earth and bamboo walls
-  pastel: ['#eef0ea', '#e4ebe6', '#dfe9ee', '#f1e9d8', '#e9dfd9', '#e6edd9', '#f3efe6', '#d9e4e6', '#efe0c9', '#e7e7e7'].map(hex),
-  metalRoof: ['#5c7f9c', '#4f6f8c', '#8c3f3a', '#6c8f86', '#9aa3a8'].map(hex), // painted sheet roofs
+  indochine: ['#f0d182', '#e7c36e', '#f4dc9e', '#eccb7a', '#f6e4b8', '#e8c16a', '#f0d4aa'].map(hex), // warm lime-wash ochres
+  indochineRoof: ['#be5a3e', '#b25138', '#c66446', '#a84b34'].map(hex), // sunlit Marseille tile
+  tradWall: ['#724d3b', '#634334', '#7c5640', '#86493a', '#6e5040'].map(hex), // jackfruit-wood panels
+  tradRoof: ['#7a6354', '#846a58', '#6e5f54', '#88705c', '#6a6859'].map(hex), // old liệt tiles, weathered
+  thatch: ['#c3af74', '#b8a368', '#ccb880', '#ae9962'].map(hex), // rice-straw roofs
+  thatchWall: ['#c4aa84', '#b59a74', '#cfb690', '#997e62'].map(hex), // earth and bamboo walls
+  pastel: ['#f2f4ee', '#eaf0ec', '#e5eef2', '#f6efe0', '#efe6e0', '#ecf2e0', '#f7f4ec', '#e1ebed', '#f4e6d0', '#ededed'].map(hex),
+  metalRoof: ['#5a82a2', '#4c7191', '#98433c', '#699288', '#a0aaaf'].map(hex), // painted sheet roofs
   // roof families read from the satellite scene (scripts/fetch-roofs.py; index = family: 1 red tile, 2 blue sheet,
   // 3 pale concrete or light sheet, 4 grey concrete or weathered tile)
   roofFamily: [null,
-    ['#a14d38', '#93463a', '#a8583f', '#8c4434', '#9b5240', '#b05f44'],
-    ['#5c7f9c', '#4f6f8c', '#6a8aa3', '#58788f'],
-    ['#dcd8cf', '#e3e0d8', '#d4d0c6', '#e8e4da'],
-    ['#9a958c', '#8a867f', '#a5a097', '#7f7b74', '#77706a']].map((f) => f && f.map(hex)),
-  whitewash: ['#f3f1ea', '#eeece4', '#f6f3ec', '#ebe9e2', '#f1eee5', '#e9e7e0'].map(hex), // the Lê Lợi ward (issue #5)
-  modernWall: ['#e2ddd1', '#d9d5cd', '#e5decb', '#d3d8dc'].map(hex),
-  imperialRoof: hex('#dca024'),
-  imperialRoof2: hex('#c68a1e'),
-  jadeRoof: hex('#378a68'),
-  lacquer: hex('#a13124'),
-  stone: hex('#b9ae99'),
-  brick: hex('#625e57'), // the Citadel's aged brick and stone: grey with the warmth gone out of it
-  brickLight: hex('#7a746b'),
-  moss: hex('#72764f'),
-  templeWall: hex('#deb85e'),
-  templeRoof: hex('#8f4634'),
-  church: hex('#b9b3a8'),
-  slate: hex('#5f5a60'),
-  glass: hex('#a9bccb'),
-  steel: hex('#e4e7e8'),
-  steelDark: hex('#b9c0c4'),
-  pier: hex('#b3a792'),
+    ['#b8543a', '#a84c3c', '#c26144', '#9e4836', '#b25942', '#c8684a'],
+    ['#5a82a2', '#4c7191', '#698da8', '#567a94'],
+    ['#e4e0d8', '#ebe8e0', '#dcd8ce', '#f0ece2'],
+    ['#a39e95', '#938f88', '#aea9a0', '#88847d', '#807972']].map((f) => f && f.map(hex)),
+  whitewash: ['#f7f5ee', '#f2f0e8', '#faf7f0', '#f0eee6', '#f5f2e9', '#eeece4'].map(hex), // the Lê Lợi ward (issue #5)
+  modernWall: ['#e8e3d8', '#e0dcd4', '#ebe4d3', '#dae0e4'].map(hex),
+  imperialRoof: hex('#e6a824'),
+  imperialRoof2: hex('#cf911e'),
+  jadeRoof: hex('#34946e'),
+  lacquer: hex('#aa3325'),
+  stone: hex('#c3b8a2'),
+  brick: hex('#666159'), // the Citadel's aged brick and stone
+  brickLight: hex('#827b72'),
+  moss: hex('#767e52'),
+  templeWall: hex('#e6c064'),
+  templeRoof: hex('#a24e38'),
+  church: hex('#c2bcb0'),
+  slate: hex('#635e64'),
+  glass: hex('#aac0d0'),
+  steel: hex('#e9eced'),
+  steelDark: hex('#bec5c9'),
+  pier: hex('#bcb09a'),
   deck: hex('#6f6a68'),
-  marketWall: hex('#efd9a0'),
-  marketRoof: hex('#a34e3a'),
+  marketWall: hex('#f5e0a8'),
+  marketRoof: hex('#b8563e'),
 };
 
 // Lighting / atmosphere presets. SUN_DIR points from the scene toward the light.
 // hemiI is the hemisphere fill on its own (phones); where the sky is an environment light (src/env/ibl.js) the fill
 // drops to hemiEnv and the sky adds envI, so shade is modelled by the sky rather than lifted flat.
 export const MOODS = {
-  // Morning: soft humid Huế dawn light from the east, emerald-jade Perfume River, warm mist on the hills.
+  // Morning: crisp humid Huế dawn light from the east, luminous jade Perfume River, drifting morning mist.
   day: {
-    skyTop: '#9cb3cb', skyHorizon: '#f1e8d9', skyBelow: '#c8c3ba', sunGlow: '#ffebd0', fog: '#eae3d6', fogDensity: 0.000048,
-    sunColor: '#ffeed2', sunI: 2.7, hemiSky: '#dce6f4', hemiGround: '#b6a389', hemiI: 1.48, shadow: 0.64,
-    waterDeep: '#195f58', waterShallow: '#549b87', glow: 0, rain: 0, hemiEnv: 0.5, envI: 0.85, exposure: 1.02, sunDisk: 1,
+    skyTop: '#8da9cb', skyHorizon: '#f4ece0', skyBelow: '#cec8be', sunGlow: '#ffefd6', fog: '#ede8dd', fogDensity: 0.000042,
+    sunColor: '#fff1d8', sunI: 2.95, hemiSky: '#d8e6f8', hemiGround: '#b29e84', hemiI: 1.38, shadow: 0.74,
+    waterDeep: '#145a5c', waterShallow: '#48b09c', glow: 0, rain: 0, hemiEnv: 0.42, envI: 0.78, exposure: 1.03, sunDisk: 1,
   },
-  // Golden hour, the opening mood: a low amber sun up-river and a rose-violet haze (tím Huế) in the shade and the
-  // distance; the Hương carries the light through the spans of Trường Tiền.
+  // Golden hour, the opening mood: sunlit architectural maquette — warm low sun, crisp cool-tinted shadows, emerald-teal river.
   afternoon: {
-    skyTop: '#8a9aca', skyHorizon: '#eccbac', skyBelow: '#cfb6a8', sunGlow: '#ffc47c', fog: '#e6d6da', fogDensity: 0.00011,
-    sunColor: '#ffd29d', sunI: 2.85, hemiSky: '#d4c8ea', hemiGround: '#968370', hemiI: 1.5, shadow: 0.78,
-    waterDeep: '#22585c', waterShallow: '#47827c', glow: 0, rain: 0, hemiEnv: 0.48, envI: 0.98, exposure: 1.06, sunDisk: 1,
+    skyTop: '#8095ca', skyHorizon: '#f2d3b2', skyBelow: '#d6bea8', sunGlow: '#ffc982', fog: '#eadccf', fogDensity: 0.000082,
+    sunColor: '#ffd6a2', sunI: 3.15, hemiSky: '#ced0ee', hemiGround: '#8e7c6a', hemiI: 1.36, shadow: 0.86,
+    waterDeep: '#184e57', waterShallow: '#3f968e', glow: 0, rain: 0, hemiEnv: 0.40, envI: 0.86, exposure: 1.06, sunDisk: 1,
   },
   // Lights on (Lên đèn): imperial Tím Huế twilight — deep indigo-violet river and plum-rose horizon glow.
   night: {
-    skyTop: '#141536', skyHorizon: '#7c548c', skyBelow: '#282144', sunGlow: '#dc8094', fog: '#48386a', fogDensity: 0.000115,
-    sunColor: '#abaee8', sunI: 0.78, hemiSky: '#7d82c6', hemiGround: '#433554', hemiI: 1.32, shadow: 0.5,
-    waterDeep: '#141a43', waterShallow: '#333772', glow: 1, rain: 0, hemiEnv: 0.95, envI: 0.6, exposure: 1.06, sunDisk: 0.25,
+    skyTop: '#141536', skyHorizon: '#7c548c', skyBelow: '#282144', sunGlow: '#dc8094', fog: '#48386a', fogDensity: 0.00011,
+    sunColor: '#abaee8', sunI: 0.78, hemiSky: '#7d82c6', hemiGround: '#433554', hemiI: 1.32, shadow: 0.52,
+    waterDeep: '#131942', waterShallow: '#313672', glow: 1, rain: 0, hemiEnv: 0.92, envI: 0.58, exposure: 1.06, sunDisk: 0.25,
   },
   // Mưa rào: the light goes slate-violet, the far bank sinks into the rain
   rain: {
