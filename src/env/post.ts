@@ -102,7 +102,7 @@ class OcclusionPass extends Pass {
             float nv = dot( N, v ) * inversesqrt( l2 + 1e-4 );
             occ += max( 0.0, nv - 0.12 ) / ( 1.0 + l2 / ( R * R ) );
           }
-          float ao = 1.0 - clamp( occ / 12.0 * 3.35 * uStrength, 0.0, 0.92 );
+          float ao = 1.0 - clamp( occ / 12.0 * 3.75 * uStrength, 0.0, 0.94 );
           ao = mix( ao, 1.0, smoothstep( 2600.0, 6500.0, dist ) );
           gl_FragColor = vec4( ao, ao, ao, 1.0 );
         }`,
@@ -131,7 +131,7 @@ class OcclusionPass extends Pass {
     });
     this.compMat = new THREE.ShaderMaterial({
       uniforms: {
-        tDiffuse: { value: null }, tAO: { value: null }, tDepth: { value: null }, uTint: { value: new THREE.Color(0.34, 0.31, 0.44) }, uVignette: { value: 0.15 },
+        tDiffuse: { value: null }, tAO: { value: null }, tDepth: { value: null }, uTint: { value: new THREE.Color(0.28, 0.30, 0.45) }, uVignette: { value: 0.14 },
         uInvProj: { value: new THREE.Matrix4() }, uCamWorld: { value: new THREE.Matrix4() }, uCamPos: { value: new THREE.Vector3() },
         uMistColor: { value: new THREE.Color(1, 1, 1) }, uMist: { value: 0.5 }, uTime: { value: 0 },
         uInk: { value: 0 }, uPx: { value: new THREE.Vector2() }, uInkEdge: { value: new THREE.Vector2(0.0004, 0.0016) }, uNight: { value: 0 },
@@ -171,14 +171,14 @@ class OcclusionPass extends Pass {
             float m = ( 1.0 - exp( -inLayer * 0.0021 ) ) * drift * uMist;
             col = mix( col, uMistColor, clamp( m, 0.0, 0.82 ) );
           }
-          // grade: photographic tonal separation in realistic look, warm highlights against cool Huế shade
+          // grade: sunlit architectural maquette contrast in realistic look, warm sunlit faces against cool slate-indigo shade
           float l = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
-          col = mix( vec3( l ), col, mix( 1.12, 1.05, uInk ) );
+          col = mix( vec3( l ), col, mix( 1.16, 1.05, uInk ) );
           // apply the gentle S-curve only inside [0, 1] so HDR glints (> 1) never invert channels
           vec3 base01 = clamp( col, 0.0, 1.0 );
           vec3 curved = base01 * base01 * ( 3.0 - 2.0 * base01 );
-          col = col + ( curved - base01 ) * mix( 0.28, 0.22, uInk );
-          col *= mix( vec3( 0.94, 0.96, 1.04 ), vec3( 1.07, 1.01, 0.92 ), smoothstep( 0.06, 0.72, l ) );
+          col = col + ( curved - base01 ) * mix( 0.32, 0.22, uInk );
+          col *= mix( vec3( 0.92, 0.96, 1.06 ), vec3( 1.08, 1.02, 0.91 ), smoothstep( 0.08, 0.72, l ) );
           vec2 q = vUv - 0.5;
           if ( uInk > 0.01 ) {
             // The illustrated look. Wash: pigment let down with a little paper, with the tooth of the sheet in it.
