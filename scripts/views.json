@@ -218,5 +218,26 @@
     "look": "real",
     "time": 1,
     "camera": { "pos": [-1056, 60, 2548], "target": [-1056, 2.6, 2547.9] }
+  },
+  "dap-da-island-bridge": {
+    "note": "North of Đập Đá, west of Nguyễn Sinh Cung: the wooden bridge (way 369554389) to Cù lao nhân tạo Nguyễn Sinh Cung and the riverside lanes beside it (shared link c=670.8,233.1,-528.2 t=627.2,-588.4 a=1.55 f=29 m=10r).",
+    "viewport": [1395, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [670.8, 233.1, -528.2], "target": [627.2, 2.6, -588.4] }
+  },
+  "giahoi-east-joint": {
+    "note": "East end of cầu Gia Hội where the twin bridge carriageways meet the approaches into Chi Lăng and Bạch Đằng (shared link c=47.7,113.4,-555.7 t=34.5,-579.8 a=1.55 f=38 m=10r).",
+    "viewport": [1395, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [47.7, 113.4, -555.7], "target": [34.5, 2.6, -579.8] }
+  },
+  "ngomon-forecourt-paths": {
+    "note": "Ngọ Môn front arches and forecourt from above cầu Ngoại Kim Thủy (shared link c=-1009.9,12.4,165.1 t=-1033.6,136.4 a=1.55 f=46 m=10r).",
+    "viewport": [1395, 900],
+    "look": "real",
+    "time": 1,
+    "camera": { "pos": [-1009.9, 12.4, 165.1], "target": [-1033.6, 2.6, 136.4] }
   }
 }
