@@ -399,6 +399,7 @@ body[data-time='2'] .time-ticks button[aria-checked='true'] { color: #f6e6c8; bo
   color: var(--ink);
 }
 #hint.show { opacity: 1; transform: translate(-50%, 0); }
+body.has-card #hint { opacity: 0; pointer-events: none; }
 
 /* ---------- place card ---------- */
 #card {

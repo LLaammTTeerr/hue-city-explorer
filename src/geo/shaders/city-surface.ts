@@ -28,10 +28,15 @@ uniform float uWet;
 uniform vec3 uSunDir;
 uniform float uSunI;
 uniform float uLook;
-float hueHash( vec2 p ) { p = fract( p * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
+float hueHash( vec2 p ) { p = fract( mod( p, 2048.0 ) * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
+float hueHashI( vec2 i ) {
+  uvec2 q = uvec2( ivec2( i ) ) * uvec2( 1597334673u, 3812015801u );
+  uint n = ( q.x ^ q.y ) * 1597334673u;
+  return float( n >> 8 ) * ( 1.0 / 16777216.0 );
+}
 float hueNoiseRaw( vec2 p ) {
   vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
-  return mix( mix( hueHash( i ), hueHash( i + vec2( 1.0, 0.0 ) ), f.x ), mix( hueHash( i + vec2( 0.0, 1.0 ) ), hueHash( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
+  return mix( mix( hueHashI( i ), hueHashI( i + vec2( 1.0, 0.0 ) ), f.x ), mix( hueHashI( i + vec2( 0.0, 1.0 ) ), hueHashI( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
 }
 // the drawn look lays flat washes: weathering and mottling settle most of the way to their middle tone
 float hueNoise( vec2 p ) { return mix( hueNoiseRaw( p ), 0.5, uLook * 0.78 ); }
