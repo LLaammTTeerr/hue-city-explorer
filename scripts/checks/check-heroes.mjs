@@ -1,7 +1,7 @@
-// Integrity check for self-hosted hero .glb assets and src/geo/hero-manifest.js.
+// Integrity check for self-hosted hero .glb assets and src/geo/hero-manifest.ts.
 import fs from 'node:fs';
 import path from 'node:path';
-import { HERO_MODELS } from '../../src/geo/hero-manifest.js';
+import { HERO_MODELS } from '../../src/geo/hero-manifest.ts';
 
 const MODELS_DIR = path.resolve(new URL('../../public/data/models', import.meta.url).pathname);
 const MAX_SINGLE_KB = 500;

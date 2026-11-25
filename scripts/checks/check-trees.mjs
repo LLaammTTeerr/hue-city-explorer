@@ -13,8 +13,8 @@ const list = process.argv.includes('--list');
 const SLACK = 0.1;
 const t0 = performance.now();
 const { world } = await buildScene();
-const { CROWN_ROAD } = await import(new URL('../../src/geo/city.js', import.meta.url).href);
-const { CELL } = await import(new URL('../../src/geo/junctions.js', import.meta.url).href);
+const { CROWN_ROAD } = await import(new URL('../../src/geo/city.ts', import.meta.url).href);
+const { CELL } = await import(new URL('../../src/geo/junctions.ts', import.meta.url).href);
 const { cw, paved = [], holeCells } = world.marks;
 
 const G = 16, grid = new Map();

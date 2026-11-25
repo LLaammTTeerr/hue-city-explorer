@@ -15,10 +15,10 @@ const list = process.argv.includes('--list');
 const data = JSON.parse(fs.readFileSync(new URL('public/data/hue.json', root)));
 // plain node has no import.meta.glob: hand places/index.js the replicas (their deck ends shape the roads), as scene.mjs does
 globalThis.__hueReplicas = {};
-for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.js') && f !== 'index.js'))
+for (const f of fs.readdirSync(new URL('src/landmarks/places/', root)).filter((f) => f.endsWith('.ts') && f !== 'index.ts'))
   globalThis.__hueReplicas[f] = await import(new URL('src/landmarks/places/' + f, root).href);
-const city = await import(new URL('src/geo/city.js', root).href);
-const { nearHole, continues, HOLE_MAX, PAR_DEG } = await import(new URL('src/geo/junctions.js', root).href);
+const city = await import(new URL('src/geo/city.ts', root).href);
+const { nearHole, continues, HOLE_MAX, PAR_DEG } = await import(new URL('src/geo/junctions.ts', root).href);
 const t0 = performance.now();
 const world = city.buildCity(data);
 const ms = performance.now() - t0;

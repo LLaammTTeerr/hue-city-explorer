@@ -35,7 +35,7 @@ try {
     git('worktree', 'add', '--detach', tree, sha);
     symlinkSync(path.resolve('node_modules'), path.join(tree, 'node_modules'));
   }
-  if (!readFileSync(path.join(tree, 'src/main.js'), 'utf8').includes("has('still')"))
+  if (!readFileSync(path.join(tree, 'src/main.ts'), 'utf8').includes("has('still')"))
     console.warn(`warning: ${ref} (${sha}) predates ?still; its frames run in real time and will not line up`);
   console.log(`building base ${ref} (${sha}) and head ${head}`);
   run('npx', ['vite', 'build', '--outDir', path.join(tree, 'dist'), '--emptyOutDir', '--logLevel', 'error'], tree);

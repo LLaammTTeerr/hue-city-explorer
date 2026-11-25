@@ -14,7 +14,8 @@
     "check:trees": "node scripts/checks/check-trees.mjs",
     "check:boats": "node scripts/checks/check-boats.mjs",
     "check:data": "node scripts/checks/check-data.mjs",
-    "check": "npm run check:version && npm run check:heroes && npm run check:data && npm run check:heights && npm run check:burial && npm run check:overlap && npm run check:joints && npm run check:roofs && npm run test:joints && npm run check:markings && npm run check:labels && npm run check:tiles && npm run check:boats && npm run check:trees",
+    "check:types": "tsc --noEmit",
+    "check": "npm run check:types && npm run check:version && npm run check:heroes && npm run check:data && npm run check:heights && npm run check:burial && npm run check:overlap && npm run check:joints && npm run check:roofs && npm run test:joints && npm run check:markings && npm run check:labels && npm run check:tiles && npm run check:boats && npm run check:trees",
     "check:heroes": "node scripts/checks/check-heroes.mjs",
     "shot": "node scripts/shot.mjs",
     "compare": "node scripts/compare.mjs",
@@ -34,6 +35,8 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2",
     "vite": "^8.3.8"
   }
 }

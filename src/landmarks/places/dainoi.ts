@@ -1,0 +1,468 @@
+// Hoàng thành · Đại Nội: the Imperial City as a whole, as it stands in 2026. This file draws its two rings of
+// wall (Hoàng thành outside, Tử Cấm Thành inside), the Đông and Tây Khuyết Đài, Cửa Hòa Bình, the Tả Vu and
+// Hữu Vu halls, the covered galleries that are left around the Forbidden City, and Đại Cung Môn, drawn whole as
+// it stood before 1947 (places being rebuilt are drawn finished). Its single buildings (Ngọ Môn, Thái Hòa, the
+// temples, ...) belong to their own place files.
+//
+// Sources: OpenStreetMap (walls, building outlines, cached in data/raw); vi/en Wikipedia "Hoàng thành Huế" /
+// "Imperial City of Huế"; dtinews (Tử Cấm Thành wall dimensions); baovanhoa.vn, khamphahue.com.vn, huengaynay.vn
+// (Đại Cung Môn: 5 bays, 3 doors, yellow glazed roof; docs/places/daicungmon.md); vinwonders / vietnamplus
+// (Tả/Hữu Vu, glazed corridors).
+// Confirmed: Hoàng thành wall ~600 m a side, brick, ~4 m high, ~1 m thick, four gates, khuyết đài at the middle of
+// the sides; Đông Khuyết Đài restored (2023); Tử Cấm Thành wall 3.72 m high, 0.72 m thick, ~1,230 m round;
+// Đại Cung Môn built 1833, burnt 1947, being rebuilt from 2026; Tả/Hữu Vu glazed yellow, corridors glazed green.
+// Estimates: the form of the khuyết đài pavilions, Cửa Hòa Bình's upper storey, the Tả/Hữu Vu section (drawn as
+// a pair of parallel halls), gallery widths, Đại Cung Môn's section, heights and hip-and-gable roof, the missing
+// Tử Cấm Thành wall lines (east, south-east, west).
+//
+// Geometry is hard-coded in the Imperial City's own frame: u across (towards Thái Miếu), v towards Ngọ Môn,
+// metres from data.imperial's centre.
+import { KIND, hex, shade, unflat, obb } from '../../geo/buf.ts';
+import { gateAxis, rectRing, inRing } from '../../geo/gates.ts';
+import { LAND_Y, PAL } from '../../config.ts';
+import { pavilion } from '../citadel.ts';
+import { OUTER, INNER, BAC_KHUYET_DAI, wallRun } from '../hoangthanh.ts';
+
+export const id = 'dainoi';
+
+// Tử Cấm Thành wall lines OSM leaves out (u, v)
+const INNER_ADD = [
+  [[170, -23], [170.5, 41], [172, 100]], // east side
+  [[67, 99], [172, 100]], // south-east, from Tả Vu's corridor to the corner
+  [[-175, -202], [-174.4, -175], [-174.2, -159], [-171, -47]], // west side, through Tây An Môn (TAY_AN), facing Trường An Môn
+];
+
+// Tây An Môn, the Forbidden City's west gate, across the lane from Trường Sanh's Trường An Môn (places/truongsanh.js):
+// centre (u, v), width along the wall, depth through it. Street-level photos (2024) show it standing: one round-arched
+// passage with an iron grille, grey plaster over brick, recessed panels and a plaque 西安門 over the arch, a cornice and
+// a raised middle parapet. Its sizes are estimates from those photos, scaled by the 3.72 m wall beside it.
+const TAY_AN = { u: -174.3, v: -167, w: 8.6, d: 2.6 };
+
+// covered galleries: centre line (u, v), width between the post lines, and optionally { over, butt, glaze }: how far
+// the roof's eave runs past the posts (0.8 by default), butt when the line starts at another building's face, where
+// the roof stops at that face instead of running its eave into it, and glaze for the green glazed corridors beside
+// Đại Cung Môn and the Vu halls (sourced). The rest are old tile, dark weathered grey-brown on the satellite (2025).
+const GALLERIES: any[] = [
+  [[[-41, 100.5], [-13.5, 100.5]], 5, { glaze: true }], // Đại Cung Môn's flanking corridors
+  [[[13.5, 99.5], [40, 99.5]], 5, { glaze: true }],
+  [[[-51, 63.5], [-23, 63.5]], 4.5, { glaze: true }], // in front of the Vu halls
+  [[[22.6, 62], [40, 62]], 4.5, { butt: true, glaze: true }], // from the face of Cần Chánh's platform plinth (u 22.45; places/canchanh.js)
+  [[[-33.5, -90], [-33.5, 40]], 6], // the long corridors either side of the inner courts
+  [[[28.5, -14], [30.5, 29]], 6],
+  [[[22.6, 33], [34, 33]], 8, { butt: true }], // the wide end in front of Điện Cần Chánh's east side, from its plinth face
+  [[[28, -91], [28, -14]], 6],
+  // Tả Trường Lang, as OSM maps it (way 531031529): a narrow corridor, 3.5 m to the eaves, whose east leg runs
+  // along the back of Duyệt Thị Đường (places/duyetthi.js), its eave stopping at the theatre's roof line
+  [[[31.3, -51], [90.5, -51], [91.85, 22.2]], 2.4, { over: 0.45 }],
+  [[[80, -53], [80, -61]], 4], // its spur to Thái Bình Lâu
+  [[[-171, -46], [-38, -46]], 6], // Hữu Trường Lang
+  [[[-169, -32], [-169, -6]], 5],
+];
+
+// the Imperial City's frame, set once build() has run
+let frame = null;
+
+// True for a mapped building this model draws itself (a gallery or a Vu hall): every corner lies within a gallery's
+// strip or a hall's plan. city.js's buildBuildings leaves these out; its own cover test misses L-shaped galleries,
+// whose middle falls in the court they wrap.
+export function owns(ring) {
+  if (!frame) return false;
+  const { C, ca, sa } = frame;
+  const inStrip = ([u, v]) => GALLERIES.some(([line, w]) => line.slice(1).some(([ub, vb], i) => {
+    const [ua, va] = line[i], lu = ub - ua, lv = vb - va, len = Math.hypot(lu, lv);
+    const s = ((u - ua) * lu + (v - va) * lv) / len, t = Math.abs((u - ua) * lv - (v - va) * lu) / len;
+    return s > -3.5 && s < len + 3.5 && t < w / 2 + 2.5;
+  })) || VU.some(([u0, u1, v0, v1]) => u > u0 - 2 && u < u1 + 2 && v > v0 - 2 && v < v1 + 2);
+  return ring.every(([x, z]) => { const dx = x - C[0], dz = z - C[1]; return inStrip([dx * ca + dz * sa, -dx * sa + dz * ca]); });
+}
+
+const VU = [[35, 54, 66, 95], [-52, -33, 67.5, 97.5]]; // Tả Vu, Hữu Vu: u0, u1, v0, v1
+
+// the wider cross-roofed pavilions where the long corridors end, meet or cross another path (satellite, 2025): centre
+// (u, v); about 9 m along the corridor and 8.5 m across it
+const KNUCKLES = [[-33.5, -89], [-33.5, -46], [-33.5, -11], [-33.5, 37], [28, -89], [28, -50], [28.4, -13]];
+const KN = { along: 9, across: 8.5 };
+
+// the colour of the galleries' roofs: weathered old tile, and the dulled green glaze where it is glazed
+const TILE_OLD = hex('#57574f'), GLAZE_OLD = hex('#3f5e50');
+
+// A round-arched opening through a masonry wall, drawn as true curves: the two spandrels on each face, from the
+// springing to yTop, and the soffit. P(a, y, b) maps the gate's frame (a through the wall, b across the opening,
+// centred) to the world; nA and nB are the world directions of +a and +b.
+function archOpening(S, P, nA, nB, R, ys, yTop, depth, col, n = 24) {
+  const arc = (k, r = R) => { const t = (Math.PI * k) / n; return [r * Math.cos(t), ys + r * Math.sin(t)]; }; // b, y
+  for (const f of [-1, 1]) {
+    const a = (f * depth) / 2, hint = [nA[0] * f, 0, nA[2] * f];
+    for (const s of [-1, 1]) {
+      const corner = P(a, yTop, s * R);
+      for (let k = 0; k < n / 2; k++) {
+        const [b0, y0] = arc(s > 0 ? k : n - k), [b1, y1] = arc(s > 0 ? k + 1 : n - k - 1);
+        S.tri(corner, P(a, y0, b0), P(a, y1, b1), col, hint);
+      }
+      if (yTop > ys + R + 1e-3) S.tri(corner, P(a, ys + R, 0), P(a, yTop, 0), col, hint);
+    }
+  }
+  for (let k = 0; k < n; k++) {
+    const [b0, y0] = arc(k), [b1, y1] = arc(k + 1), bm = (b0 + b1) / 2, ym = (y0 + y1) / 2 - ys;
+    const hint = [-bm * nB[0], -ym, -bm * nB[2]];
+    S.quad(P(-depth / 2, y0, b0), P(depth / 2, y0, b0), P(depth / 2, y1, b1), P(-depth / 2, y1, b1), col, hint);
+  }
+}
+
+// A moulded band (archivolt) round an arch head on one face: radii R..R + band, standing t proud of the face at a0
+// (f: which way the face looks along a), carried down to yFoot as two flat strips.
+function archivolt(S, P, nA, nB, R, band, ys, yFoot, a0, f, t, col, n = 24) {
+  const a1 = a0 + f * t, out = [nA[0] * f, 0, nA[2] * f];
+  const pt = (k, r) => { const th = (Math.PI * k) / n; return [r * Math.cos(th), ys + r * Math.sin(th)]; };
+  for (let k = 0; k < n; k++) {
+    const [bi0, yi0] = pt(k, R), [bi1, yi1] = pt(k + 1, R), [bo0, yo0] = pt(k, R + band), [bo1, yo1] = pt(k + 1, R + band);
+    S.quad(P(a1, yi0, bi0), P(a1, yo0, bo0), P(a1, yo1, bo1), P(a1, yi1, bi1), col, out);
+    const th = (Math.PI * (k + 0.5)) / n, rad = [Math.cos(th) * nB[0], Math.sin(th), Math.cos(th) * nB[2]];
+    S.quad(P(a0, yo0, bo0), P(a1, yo0, bo0), P(a1, yo1, bo1), P(a0, yo1, bo1), col, rad);
+    S.quad(P(a0, yi0, bi0), P(a1, yi0, bi0), P(a1, yi1, bi1), P(a0, yi1, bi1), col, rad.map((c) => -c));
+  }
+  if (yFoot < ys) for (const s of [-1, 1]) {
+    const bi = s * R, bo = s * (R + band), side = [nB[0] * s, 0, nB[2] * s];
+    S.quad(P(a1, yFoot, bi), P(a1, yFoot, bo), P(a1, ys, bo), P(a1, ys, bi), col, out);
+    S.quad(P(a0, yFoot, bo), P(a1, yFoot, bo), P(a1, ys, bo), P(a0, ys, bo), col, side);
+    S.quad(P(a0, yFoot, bi), P(a1, yFoot, bi), P(a1, ys, bi), P(a0, ys, bi), col, side.map((c) => -c));
+  }
+}
+
+export function build({ data, S }) {
+  if (!data.imperial) return;
+  const C = [data.imperial.c[0] / 10, data.imperial.c[1] / 10], A = data.imperial.a / 1000;
+  const ca = Math.cos(A), sa = Math.sin(A);
+  frame = { C, ca, sa };
+  const W = (u, v): [number, number] => [C[0] + u * ca - v * sa, C[1] + u * sa + v * ca];
+  const L = ([x, z]) => { const dx = x - C[0], dz = z - C[1]; return [dx * ca + dz * sa, -dx * sa + dz * ca]; };
+  const Y = LAND_Y, keep = S.kind;
+
+  // ---- walls -----------------------------------------------------------------------------------------------
+  // they stop at the gates' footprints (the gate models carry the passage) and at Ngọ Môn's whole box
+  const clear = [];
+  for (const g of data.gates || []) if (g.k !== 'citadel') { const t = gateAxis(g, C); clear.push(rectRing(t.cx, t.cz, t.w + 0.3, Math.max(t.d, 4) + 0.3, t.a)); }
+  { const p = W(TAY_AN.u, TAY_AN.v); clear.push(rectRing(p[0], p[1], TAY_AN.d + 0.2, TAY_AN.w + 0.2, A)); }
+  if (data.special && data.special.ngomon) { const o = obb(unflat(data.special.ngomon.ring)); clear.push(rectRing(o.c[0], o.c[1], o.w + 0.4, o.d + 0.4, o.a)); }
+  const outer = OUTER, inner = INNER;
+  // Bắc Khuyết Đài's three outer sides are places/tuphuong.js's: it draws that wall with the bastion's paving and
+  // balustrade on top (hoangthanh.js)
+  // (a stretch of mapped wall lies on one of those sides: both its ends within a metre of it)
+  const onSide = (p, [qa, qb]) => {
+    const lx = qb[0] - qa[0], lz = qb[1] - qa[1], len = Math.hypot(lx, lz);
+    const s = ((p[0] - qa[0]) * lx + (p[1] - qa[1]) * lz) / len, t = ((p[0] - qa[0]) * lz - (p[1] - qa[1]) * lx) / len;
+    return s > -1 && s < len + 1 && Math.abs(t) < 1;
+  };
+  const bastion = (a, b) => BAC_KHUYET_DAI.some((q, i) => i > 0 && onSide(a, [BAC_KHUYET_DAI[i - 1], q]) && onSide(b, [BAC_KHUYET_DAI[i - 1], q]));
+  const wallLine = (pts, k) => {
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (len < 0.3 || bastion(a, b)) continue;
+      const n = Math.max(1, Math.ceil(len / 0.4)), runs = [];
+      let from = null;
+      for (let j = 0; j <= n; j++) {
+        const t = j / n, out = !clear.some((r) => inRing(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, r));
+        if (out && from === null) from = t;
+        if ((!out || j === n) && from !== null) { runs.push([from, out ? t : (j - 1) / n]); from = null; }
+      }
+      for (const [t0, t1] of runs) {
+        const whole = t0 === 0 && t1 === 1;
+        if (!whole && len * (t1 - t0) < 0.6) continue;
+        const at = (t): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+        wallRun(S, at(t0), at(t1), k, whole ? [1, 1] : [0, 0]);
+      }
+    }
+  };
+  for (const flat of data.iwalls || []) {
+    const pts = unflat(flat), loc = pts.map(L);
+    wallLine(pts, loc.every(([u, v]) => Math.abs(u) < 200 && Math.abs(v) < 215) ? inner : outer);
+  }
+  for (const line of INNER_ADD) wallLine(line.map(([u, v]) => W(u, v)), inner);
+
+  // ---- Tây An Môn: an arched masonry gate in the west wall of the Forbidden City ------------------------------
+  {
+    const { u: gu, v: gv, w: gw, d: gd } = TAY_AN;
+    const g = (u, v, y0, y1, su, sv, col, o?) => { const p = W(gu + u, gv + v); S.box(p[0], p[1], y0, y1, su, sv, A, col, o); };
+    // lime plaster gone grey, streaked black with mould (photos 2024); cool so it stays grey under the warm light
+    const PL = hex('#7c888d'), PL_DK = hex('#5a656a'), MOULD = hex('#30373a'), ARCH = 3.0, SPRING = 2.9, CROWN = 4.4, H = 5.3;
+    const R = ARCH / 2, nA = [ca, 0, sa], nB = [-sa, 0, ca];
+    const P = (a, y, b) => { const q = W(gu + a, gv + b); return [q[0], y, q[1]]; };
+    S.kind = KIND.FLAT; // lime plaster over the brick, not bare courses
+    const pier = (gw - ARCH) / 2;
+    for (const s of [-1, 1]) g(0, s * (ARCH / 2 + pier / 2), Y - 0.2, Y + H, gd, pier, PL);
+    g(0, 0, Y + CROWN, Y + H, gd, ARCH, PL); // over the arch
+    archOpening(S, P, nA, nB, R, Y + SPRING, Y + CROWN, gd, PL); // the round head of the arch
+    for (const f of [-1, 1]) {
+      const a0 = f * (gd / 2);
+      // the moulded archivolt round the arch, down to the impost, with an impost block each side
+      archivolt(S, P, nA, nB, R, 0.3, Y + SPRING, Y + SPRING - 0.25, a0, f, 0.1, PL_DK);
+      for (const s of [-1, 1]) g(f * (gd / 2 + 0.07), s * (R + 0.25), Y + SPRING - 0.4, Y + SPRING - 0.2, 0.14, 0.7, PL_DK);
+      // pilasters at the outer corners and either side of the arch, each with a recessed panel
+      for (const s of [-1, 1]) for (const [bc, bw] of ([[gw / 2 - 0.3, 0.6], [R + 0.75, 0.5]] as any[])) {
+        g(f * (gd / 2 + 0.05), s * bc, Y + 0.5, Y + H - 0.55, 0.1, bw, PL);
+        g(f * (gd / 2 + 0.1), s * bc, Y + 1.0, Y + SPRING - 0.6, 0.02, bw * 0.55, PL_DK);
+      }
+      g(f * (gd / 2 + 0.05), 0, Y + H - 0.55, Y + H - 0.3, 0.1, gw - 0.2, PL_DK); // a frieze band under the cornice
+      // mould: black streaks down from the cornice and the damp foot of the wall
+      for (const [b, w, dy] of ([[-3.9, 0.35, 2.2], [-2.6, 0.2, 1.4], [-1.05, 0.25, 0.9], [0.6, 0.3, 0.6], [2.3, 0.25, 1.8], [3.7, 0.4, 2.6]] as any[])) {
+        g(f * (gd / 2 + 0.12), b * f, Y + H - 0.3 - dy, Y + H - 0.3, 0.02, w, MOULD);
+      }
+      for (const s of [-1, 1]) g(f * (gd / 2 + 0.13), s * (ARCH / 2 + pier / 2), Y + 0.5, Y + 1.0, 0.02, pier, shade(MOULD, 1.2));
+    }
+    // plinth, recessed panels and the plaque on both faces
+    for (const f of [-1, 1]) {
+      const fu = f * (gd / 2 + 0.03);
+      for (const s of [-1, 1]) {
+        g(f * (gd / 2 + 0.06), s * (ARCH / 2 + pier / 2), Y - 0.2, Y + 0.5, 0.12, pier + 0.1, PL_DK);
+        g(fu, s * (ARCH / 2 + pier / 2 + 0.2), Y + 1.2, Y + 3.4, 0.06, pier * 0.45, PL_DK);
+      }
+      g(fu, 0, Y + CROWN + 0.15, Y + H - 0.6, 0.06, 2.4, shade(PL, 0.62)); // the plaque
+    }
+    // cornice, then the parapet in two stepped tiers: low end parapets ending in scrolls, a middle step, and the
+    // raised middle parapet with its own cornice and the name board 西安門
+    g(0, 0, Y + H, Y + H + 0.25, gd + 0.5, gw + 0.4, PL_DK, { bottom: true });
+    g(0, 0, Y + H + 0.25, Y + H + 1.35, gd - 0.4, 3.6, PL);
+    g(0, 0, Y + H + 1.35, Y + H + 1.55, gd, 4.2, PL_DK, { bottom: true });
+    for (const s of [-1, 1]) {
+      g(0, s * 2.15, Y + H + 0.25, Y + H + 1.0, gd - 0.4, 0.7, PL); // the middle step
+      g(0, s * 2.15, Y + H + 1.0, Y + H + 1.12, gd - 0.2, 0.9, PL_DK, { bottom: true });
+      g(0, s * (gw / 2 - 1.1), Y + H + 0.25, Y + H + 0.62, gd - 0.4, 1.6, PL); // the low end parapet
+      // its scroll: a curl rising at the outer end
+      for (const [db, y0, y1, w] of ([[0, 0.62, 0.8, 0.5], [0.12, 0.8, 0.95, 0.3], [0.05, 0.95, 1.05, 0.22]] as any[])) {
+        g(0, s * (gw / 2 - 0.25 - db), Y + H + y0, Y + H + y1, gd - 0.5, w, PL_DK);
+      }
+    }
+    for (const f of [-1, 1]) g(f * ((gd - 0.4) / 2 + 0.03), 0, Y + H + 0.45, Y + H + 1.15, 0.06, 2.6, shade(PL, 0.62)); // the name board 西安門
+    // the iron grille in the passage
+    S.kind = KIND.TIMBER;
+    const grille = hex('#2b2a28');
+    for (let k = 0; k <= 8; k++) { const q = W(gu, gv - ARCH / 2 + 0.15 + (k * (ARCH - 0.3)) / 8); S.cyl(q[0], q[1], Y, Y + SPRING + 0.4, 0.025, 0.025, 4, grille); }
+    for (const y of [0.15, 1.6, SPRING + 0.35]) g(0, 0, Y + y, Y + y + 0.06, 0.06, ARCH - 0.2, grille);
+  }
+
+  // ---- the old trees along the lane outside the west wall, on the wall side (street photos, 2024) ------------------
+  if (Array.isArray(data.trees)) {
+    let k = 0;
+    for (let v = -196; v < -50; v += 11) {
+      if (Math.abs(v - TAY_AN.v) < 7) continue; // clear of the gate
+      const p = W(-175 + ((v + 202) * 4) / 155 - 4.2, v);
+      data.trees.push(Math.round(p[0] * 10), Math.round(p[1] * 10), 13 + (k++ % 4), 1); // scale 1.3-1.6, kind 1: old shade tree
+    }
+  }
+
+  // ---- Đông and Tây Khuyết Đài: raised bastions at the middle of the east and west sides -------------------
+  for (const sg of [1, -1]) {
+    const c = W(sg * 330, 2);
+    S.kind = KIND.MASONRY;
+    S.box(c[0], c[1], Y - 0.2, Y + 3.6, 22, 76, A, shade(outer.body, 0.95), { topKind: KIND.ROAD });
+    // a ramp up from the inside of the wall
+    const r = W(sg * 312, 30);
+    S.box(r[0], r[1], Y - 0.2, Y + 1.8, 5, 16, A, shade(PAL.stone, 0.9), { topKind: KIND.ROAD });
+    if (sg > 0) {
+      // Đông Khuyết Đài, rebuilt in 2023: a lookout pavilion on the bastion
+      const p = W(331, -4);
+      pavilion(S, p[0], p[1], 14, 14, A, Y + 3.6, { tiers: 2, wallH: 2.8, roof: PAL.imperialRoof, platform: 0.5, colonnade: true });
+    } else {
+      // Tây Khuyết Đài: only the stone base of its pavilion is left (estimate)
+      const p = W(-330, 8);
+      S.kind = KIND.MASONRY;
+      S.box(p[0], p[1], Y + 3.6, Y + 4.2, 13, 13, A, shade(PAL.stone, 0.8), { topKind: KIND.ROAD });
+    }
+  }
+
+  // ---- Cửa Hòa Bình, the north gate: a plastered masonry gateway with one round-arched passage through the wall,
+  // a moulded archivolt, pilasters, a cornice and a plaque, and a small storey on top (estimates: sizes, the storey) ---
+  {
+    const g = (u, v, y0, y1, su, sv, col, o?) => { const p = W(u, v); S.box(p[0], p[1], y0, y1, su, sv, A, col, o); };
+    const uc = 37, vc = -283, D = 8.4, BW = 14.8, R = 1.8, YS = Y + 2.3, TOP = Y + 4.6;
+    const PL = hex('#878c8c'), PL_DK = hex('#62696a'), MOULD = hex('#383d3e');
+    // the passage runs along v, across the wall: a = v (through), b = u (across)
+    const P = (a, y, b) => { const q = W(uc + b, vc + a); return [q[0], y, q[1]]; }, nA = [-sa, 0, ca], nB = [ca, 0, sa];
+    S.kind = KIND.FLAT;
+    const pier = (BW - 2 * R) / 2;
+    for (const s of [-1, 1]) g(uc + s * (R + pier / 2), vc, Y - 0.2, TOP, pier, D, PL);
+    g(uc, vc, YS + R, TOP, 2 * R, D, PL); // over the arch
+    archOpening(S, P, nA, nB, R, YS, YS + R, D, PL);
+    for (const f of [-1, 1]) {
+      const a0 = f * (D / 2), at = (u, dv, y0, y1, su, t, col) => g(uc + u, vc + f * (D / 2 + dv), y0, y1, su, t, col);
+      archivolt(S, P, nA, nB, R, 0.35, YS, Y + 0.4, a0, f, 0.12, PL_DK);
+      for (const s of [-1, 1]) {
+        at(s * (R + pier / 2), 0.06, Y - 0.2, Y + 0.4, pier, 0.12, PL_DK); // plinth
+        at(s * (BW / 2 - 0.35), 0.06, Y + 0.4, TOP - 0.5, 0.7, 0.12, PL); // corner pilasters
+        at(s * (R + pier / 2 + 0.2), 0.04, Y + 1.0, Y + 3.4, pier * 0.42, 0.08, PL_DK); // recessed panels
+        at(s * (R + pier / 2 - 0.9), 0.14, TOP - 0.3 - 1.6, TOP - 0.3, 0.3, 0.02, MOULD); // mould streaks
+        at(s * (BW / 2 - 0.9), 0.14, Y + 0.4, Y + 1.0, 1.0, 0.02, MOULD);
+      }
+      at(0, 0.06, TOP - 0.5, TOP - 0.25, BW, 0.12, PL_DK); // frieze band
+      at(0, 0.05, YS + R + 0.4, TOP - 0.6, 2.2, 0.08, shade(PL, 0.6)); // the plaque
+    }
+    g(uc, vc, TOP - 0.25, TOP, BW + 0.4, D + 0.4, PL_DK); // cornice
+    S.kind = KIND.TILE;
+    g(uc, vc, TOP, TOP + 0.3, BW + 0.2, D + 0.8, outer.cap);
+    const p = W(uc, vc);
+    pavilion(S, p[0], p[1], 8, 5, A, TOP + 0.3, { wallH: 2.2, roof: PAL.imperialRoof, over: 1.1, steps: false });
+  }
+
+  // ---- Tả Vu and Hữu Vu: each a pair of parallel halls under yellow glazed roofs, long along v ---------------
+  for (const [u0, u1, v0, v1] of VU) {
+    const um = (u0 + u1) / 2, vm = (v0 + v1) / 2, len = v1 - v0 - 3.4, half = (u1 - u0 - 3.4) / 2;
+    const base = W(um, vm);
+    S.kind = KIND.MASONRY;
+    S.box(base[0], base[1], Y - 0.2, Y + 0.6, len + 3.4, u1 - u0, A + Math.PI / 2, PAL.stone, { topKind: KIND.ROAD });
+    for (const s of [-0.5, 0.5]) {
+      const p = W(um + s * half, vm);
+      pavilion(S, p[0], p[1], len, half, A + Math.PI / 2, Y + 0.6, { wallH: 3.6, roof: PAL.imperialRoof, over: 1.0, steps: false });
+    }
+  }
+
+  // ---- covered galleries: red posts, low parapet, old tile roofs (green glaze by Đại Cung Môn) ----------------
+  const post = PAL.lacquer, floor = shade(PAL.stone, 0.95);
+  for (const [line, w, { over = 0.8, butt = false, glaze = false } = {}] of GALLERIES) {
+    for (let i = 0; i + 1 < line.length; i++) {
+      const [ua, va] = line[i], [ub, vb] = line[i + 1];
+      const lu = ub - ua, lv = vb - va, len = Math.hypot(lu, lv), du = lu / len, dv = lv / len;
+      const a = W(ua, va), b = W(ub, vb), ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
+      const m = W((ua + ub) / 2, (va + vb) / 2);
+      // laps the next leg at an elbow
+      const ext = i + 2 < line.length || i > 0 ? w / 2 : 0;
+      S.kind = KIND.MASONRY;
+      S.box(m[0], m[1], Y - 0.2, Y + 0.45, len + ext, w + 0.6, ang, floor, { topKind: KIND.ROAD });
+      S.kind = KIND.TIMBER;
+      const n = Math.max(1, Math.round(len / 3.2));
+      for (let k = 0; k <= n; k++) {
+        const t = k / n, cu = ua + lu * t, cv = va + lv * t;
+        for (const s of [-1, 1]) {
+          const q = W(cu - dv * s * (w / 2 - 0.3), cv + du * s * (w / 2 - 0.3));
+          S.cyl(q[0], q[1], Y + 0.45, Y + 3.1, 0.16, 0.15, 6, post);
+        }
+      }
+      for (const s of [-1, 1]) {
+        const p0 = W(ua - dv * s * (w / 2 - 0.3), va + du * s * (w / 2 - 0.3)), p1 = W(ub - dv * s * (w / 2 - 0.3), vb + du * s * (w / 2 - 0.3));
+        S.beam([p0[0], Y + 3.0, p0[1]], [p1[0], Y + 3.0, p1[1]], 0.22, 0.3, shade(post, 0.85));
+      }
+      // a butted start: the roof is shortened there by its overhang, so its eave ends at the line's first point
+      const cut = butt && i === 0 ? over : 0, r = W((ua + ub) / 2 + du * cut / 2, (va + vb) / 2 + dv * cut / 2);
+      S.hip(r[0], r[1], len + ext - cut, w, ang, Y + 3.1, Math.min(1.9, w * 0.32), glaze ? GLAZE_OLD : TILE_OLD, { over, glazed: glaze });
+    }
+  }
+  // the knuckle pavilions: a wider bay on four corner posts under two crossed roofs, a little above the corridors'
+  for (const [ku, kv] of KNUCKLES) {
+    const c = W(ku, kv), angL = A + Math.PI / 2; // the long corridors run along v
+    S.kind = KIND.MASONRY;
+    S.box(c[0], c[1], Y - 0.2, Y + 0.47, KN.along + 0.6, KN.across + 0.6, angL, floor, { topKind: KIND.ROAD });
+    S.kind = KIND.TIMBER;
+    for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+      const q = W(ku + su * (KN.across / 2 - 0.3), kv + sv * (KN.along / 2 - 0.3));
+      S.cyl(q[0], q[1], Y + 0.47, Y + 3.4, 0.19, 0.18, 6, post);
+    }
+    for (const s of [-1, 1]) {
+      const a = W(ku + s * (KN.across / 2 - 0.3), kv - KN.along / 2 + 0.3), b = W(ku + s * (KN.across / 2 - 0.3), kv + KN.along / 2 - 0.3);
+      S.beam([a[0], Y + 3.3, a[1]], [b[0], Y + 3.3, b[1]], 0.24, 0.32, shade(post, 0.85));
+    }
+    S.hip(c[0], c[1], KN.along, KN.across, angL, Y + 3.4, 2.3, TILE_OLD, { over: 0.9 });
+    S.hip(c[0], c[1], KN.across, KN.along * 0.7, A, Y + 3.4, 2.0, TILE_OLD, { over: 0.9 });
+  }
+
+  // ---- Đại Cung Môn, as it stood before 1947 (docs/places/daicungmon.md) ----------------------------------------
+  // Minh Mạng's gate of 1833 into the Forbidden City: one storey, 5 bays (5 gian) on the old foundation, 6 × 4 lacquered
+  // columns, 3 doors in the middle bays (the middle one the emperor's), the end bays panelled; the front, toward Thái
+  // Hòa, all red lacquer and gilt, its panels "one poem, one picture"; a hip-and-gable roof of yellow glazed tiles with
+  // enamel (pháp lam) figures on the ridge and mosaic gable panels; boards "Đại Cung Môn" in front, "Càn Thành Cung"
+  // behind. The front faces +v. Bay count, doors, finish, tiles and ridge work are sourced; the section, heights and
+  // roof form are estimates.
+  {
+    const box = (u, v, y0, y1, w, d, col, o?) => { const p = W(u, v); S.box(p[0], p[1], y0, y1, w, d, A, col, o); };
+    const P3 = (u, y, v) => { const p = W(u, v); return [p[0], y, p[1]]; };
+    const RED = hex('#9a2a1e'), RED_DK = hex('#6e1f17'), GOLD = hex('#d2a43c'), STONE = hex('#9b998f');
+    const WALLC = hex('#c9a36a'), IVORY = hex('#e6dcc4'), RIDGE = hex('#f1d77a');
+    const ENAMEL = [hex('#2f6aa3'), hex('#3d8a5c'), hex('#d8b23a'), hex('#e6dcc4')];
+    const vc = 100.5, FL = Y + 0.7;
+    // the foundation (brick, Thanh stone coping) and its front and back steps
+    S.kind = KIND.MASONRY;
+    box(0, vc, Y - 0.2, FL - 0.15, 27, 11.5, shade(PAL.stone, 0.85), { topKind: KIND.ROAD });
+    box(0, vc, FL - 0.17, FL, 27.3, 11.8, shade(STONE, 1.08), { topKind: KIND.ROAD });
+    for (const sv of [1, -1]) for (let k = 1; k <= 3; k++) {
+      box(0, vc + sv * (5.75 + 0.3 * k), Y - 0.2, FL - 0.2 * k, 8, 0.3, shade(PAL.stone, 0.9), { topKind: KIND.ROAD });
+    }
+    // columns on the old bases: 5 bays across (4.4 m), 3 deep (2.7 m)
+    const cu = [-11, -6.6, -2.2, 2.2, 6.6, 11], cv = [96.5, 99.2, 101.9, 104.6];
+    const CH = 4.2; // floor to the eave plate
+    S.kind = KIND.TIMBER;
+    for (const u of cu) for (const v of cv) {
+      const p = W(u, v), inner = v > 97 && v < 104 && Math.abs(u) < 10; // the inner rows rise to the upper plates
+      S.box(p[0], p[1], FL, FL + 0.25, 0.75, 0.75, A, shade(STONE, 1.08)); // chân tảng
+      S.cyl(p[0], p[1], FL + 0.25, FL + CH + (inner ? 0.9 : 0), 0.24, 0.22, 8, RED, { cap: false });
+      S.cyl(p[0], p[1], FL + 2.0, FL + 2.25, 0.245, 0.24, 8, GOLD, { cap: false });
+    }
+    const yE = FL + CH - 0.15;
+    for (const v of [cv[0], cv[3]]) S.beam(P3(cu[0], yE, v), P3(cu[5], yE, v), 0.3, 0.36, RED_DK);
+    for (const u of [cu[0], cu[5]]) S.beam(P3(u, yE, cv[0]), P3(u, yE, cv[3]), 0.3, 0.36, RED_DK);
+    for (const v of [cv[1], cv[2]]) S.beam(P3(cu[1], FL + CH + 0.7, v), P3(cu[4], FL + CH + 0.7, v), 0.28, 0.34, RED_DK);
+    // the door screen on the front inner row: 3 doors in the middle bays, the middle one taller; panelled end bays.
+    // Behind it the gate passage; the back row stands open to the court.
+    const sv = cv[2];
+    for (let i = 0; i < 5; i++) {
+      const u0 = cu[i] + 0.26, u1 = cu[i + 1] - 0.26, w = u1 - u0, uc = (u0 + u1) / 2, door = i > 0 && i < 4;
+      const dh = i === 2 ? 3.2 : 2.9;
+      if (door) {
+        box(uc, sv, FL, FL + dh, w * 0.62, 0.16, shade(RED, 0.75)); // the two leaves
+        box(uc, sv + 0.09, FL, FL + dh, 0.05, 0.04, RED_DK);
+        for (const s of [-1, 1]) for (const y of [0.9, 1.6, 2.3]) box(uc + s * w * 0.155, sv + 0.1, FL + y, FL + y + 0.12, w * 0.24, 0.03, GOLD); // gilt studs in rows
+        for (const s of [-1, 1]) box(uc + s * (w * 0.405), sv, FL, FL + dh, w * 0.19, 0.14, RED); // the fixed side panels
+        box(uc, sv, FL + dh, FL + CH - 0.25, w, 0.14, RED_DK);
+      } else {
+        box(uc, sv, FL, FL + CH - 0.25, w, 0.16, RED);
+        // liên ba panels, "nhất thi nhất họa": a gilt poem panel over a painted one
+        for (const [y0, y1, c] of ([[1.0, 1.9, ENAMEL[0]], [2.1, 3.0, GOLD]] as any[])) box(uc, sv + 0.09, FL + y0, FL + y1, w * 0.7, 0.03, c);
+      }
+      box(uc, sv + 0.09, FL + CH - 0.75, FL + CH - 0.45, w, 0.04, GOLD); // the gilt rail of the transom
+    }
+    // the gable walls between the outer columns at the ends
+    for (const s of [-1, 1]) box(s * 11, (cv[0] + cv[3]) / 2, FL, FL + CH - 0.25, 0.3, cv[3] - cv[0], WALLC);
+    // the name boards under the eaves, over the middle bay: Đại Cung Môn in front, Càn Thành Cung behind
+    box(0, cv[3] + 0.2, yE - 1.0, yE - 0.25, 2.6, 0.12, RED_DK);
+    box(0, cv[3] + 0.28, yE - 0.92, yE - 0.33, 2.3, 0.04, GOLD);
+    box(0, cv[0] - 0.2, yE - 1.0, yE - 0.25, 2.6, 0.12, RED_DK);
+    box(0, cv[0] - 0.28, yE - 0.92, yE - 0.33, 2.3, 0.04, GOLD);
+    // a dark lid under the roof (seen through the doors and from under the eaves)
+    box(0, vc, FL + CH - 0.3, FL + CH - 0.1, 22, 8.1, shade(RED_DK, 0.6), { bottom: true });
+
+    // ---- the roof: a hip roof with a small gable (ô hồi) high on each end, yellow glazed tiles ----
+    S.kind = KIND.PLAIN;
+    const rw = 22, rd = cv[3] - cv[0], over = 1.6, rh = 3.1, y0 = FL + CH;
+    { const p = W(0, vc); S.hip(p[0], p[1], rw, rd, A, y0, rh, PAL.imperialRoof, { flare: 0.5, fascia: 0.3, fasciaCol: RED_DK, ridgeCol: RIDGE, hips: true, glazed: true, segs: 3, over }); }
+    // the gable: the side slopes carried on past the hip's top to a vertical triangle with a mosaic medallion
+    const hw = rw / 2 + over, hd = rd / 2 + over, rl = Math.max(0, hw - hd * 0.92), yR = y0 + rh;
+    const gT = 0.38, gu = rl + (hw - rl) * gT, gv = hd * gT, gy = yR - rh * gT;
+    for (const s of [-1, 1]) {
+      const nrm = [s * ca, 0, s * sa];
+      S.tri(P3(s * gu, gy, vc - gv), P3(s * gu, gy, vc + gv), P3(s * gu, yR, vc), IVORY, nrm);
+      S.kind = KIND.GLAZED;
+      for (const t of [-1, 1]) {
+        const a = P3(s * (rl - 0.2), yR + 0.05, vc), b = P3(s * (gu + 0.35), yR + 0.05, vc);
+        const c = P3(s * (gu + 0.35), gy - 0.02, vc + t * (gv + 0.1)), d = P3(s * (rl - 0.2), gy - 0.02, vc + t * (gv + 0.1));
+        S.quad(a, b, c, d, PAL.imperialRoof, [0, 1, 0]);
+        S.beam(P3(s * gu, gy + 0.02, vc + t * gv), P3(s * (gu + 0.35), yR + 0.06, vc), 0.18, 0.16, RIDGE); // the barge edge
+      }
+      S.kind = KIND.PLAIN;
+      const m = W(s * (gu + 0.04), vc);
+      S.box(m[0], m[1], gy + 0.25, gy + 0.85, 0.05, 0.6, A, ENAMEL[(s + 1) / 2]);
+    }
+    // the ridge work: a flaming pearl (hỏa châu) at the middle, enamel dragons and curled ridge ends (kìm)
+    S.beam(P3(-(gu + 0.3), yR + 0.18, vc), P3(gu + 0.3, yR + 0.18, vc), 0.34, 0.36, RIDGE);
+    const yr = yR + 0.36;
+    S.cyl(...W(0, vc), yr, yr + 0.22, 0.28, 0.2, 8, GOLD);
+    S.cyl(...W(0, vc), yr + 0.22, yr + 0.85, 0.3, 0.05, 8, GOLD);
+    for (const s of [-1, 1]) {
+      let prev = null;
+      for (let k = 0; k <= 6; k++) {
+        const q = P3(s * (0.7 + k * 0.4), yr + 0.18 + 0.2 * Math.sin(k * 1.3) + (k === 0 ? 0.3 : 0), vc);
+        if (prev) S.beam(prev, q, 0.18, 0.2, k < 2 ? GOLD : ENAMEL[1]);
+        prev = q;
+      }
+      S.beam(P3(s * (gu + 0.1), yr - 0.1, vc), P3(s * (gu + 0.45), yr + 0.6, vc), 0.24, 0.24, ENAMEL[1]);
+      S.beam(P3(s * (gu + 0.45), yr + 0.6, vc), P3(s * (gu + 0.15), yr + 0.95, vc), 0.2, 0.2, ENAMEL[1]);
+    }
+  }
+  S.kind = keep;
+}
