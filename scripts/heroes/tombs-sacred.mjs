@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {
   paint, wrapScene, latheGourd, sculptedDragon, cornerScroll,
-  bronzeCauldron, sculptedCross, armillarySphere,
+  bronzeCauldron, sculptedCross, armillarySphere, dragonPearlCrest, fourCornerScrolls,
 } from './primitives.mjs';
 
 // Build Chùa Thiên Mụ (Phước Duyên Tower) hero accent .glb (local frame centered on tower C, y above tower base)
@@ -27,20 +27,10 @@ export function buildThienMuHero() {
 export function buildKhaiDinhHero() {
   const parts = [];
   const ridgeY = 14.92, eaveY = 12.92, lowEaveY = 10.02;
-  // Sculpted khảm sành sứ flaming sun & twin dragons on Cung Thiên Định's Khải Thành crest
-  const pearl = new THREE.SphereGeometry(0.44, 14, 10);
-  pearl.scale(1, 1.18, 0.45);
-  pearl.translate(0, ridgeY + 0.65, 0);
-  parts.push(paint(pearl, 0xe86834));
-  parts.push(latheGourd(0, ridgeY + 0.02, 0, 0.46, 0xe8c45e));
-  parts.push(...sculptedDragon(0, ridgeY, 0, 1, 3.6, 1.05));
-  parts.push(...sculptedDragon(0, ridgeY, 0, -1, 3.6, 1.05));
+  parts.push(...dragonPearlCrest(0, ridgeY, 0, 3.6, 1.05, { pearlRadius: 0.44, pearlCol: 0xe86834, gourdScale: 0.46 }));
   for (const s of [-1, 1]) parts.push(latheGourd(s * 4.4, ridgeY - 0.06, 0, 0.8, 0xd9c9a8));
-  // 4 upper corner scrolls on Khải Thành + 4 lower corner scrolls on Cung Thiên Định
-  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-    parts.push(cornerScroll(su * 9.8, eaveY, sv * 9.4, su * 0.72, sv * 0.72, 1.1));
-    parts.push(cornerScroll(su * 17.6, lowEaveY, sv * 11.8, su * 0.75, sv * 0.75, 1.2));
-  }
+  parts.push(...fourCornerScrolls(0, eaveY, 0, 9.8, 9.4, 1.1));
+  parts.push(...fourCornerScrolls(0, lowEaveY, 0, 17.6, 11.8, 1.2, 0.75));
   return wrapScene(parts, );
 }
 
@@ -50,23 +40,14 @@ export function buildKhaiDinhHero() {
 export function buildTuDucHero() {
   const parts = [];
   const zMain = 4.83, zFront = -7.25, rMain = 7.52, rFront = 6.72, eaveY = 4.9;
-  const pearl = new THREE.SphereGeometry(0.42, 14, 10);
-  pearl.scale(1, 1.15, 0.45);
-  pearl.translate(0, rMain + 0.62, zMain);
-  parts.push(paint(pearl, 0xea6434));
-  parts.push(latheGourd(0, rMain + 0.02, zMain, 0.45, 0xe8c45e));
-  parts.push(...sculptedDragon(0, rMain, zMain, 1, 4.6, 1.05));
-  parts.push(...sculptedDragon(0, rMain, zMain, -1, 4.6, 1.05));
+  parts.push(...dragonPearlCrest(0, rMain, zMain, 4.6, 1.05, { pearlRadius: 0.42, gourdScale: 0.45 }));
   for (const s of [-1, 1]) {
     parts.push(latheGourd(s * 8.2, rMain - 0.06, zMain, 0.85, 0xe8c45e));
     parts.push(latheGourd(s * 9.6, rFront - 0.06, zFront, 0.75, 0xe8c45e));
   }
   parts.push(latheGourd(0, rFront + 0.02, zFront, 0.9, 0xe8c45e));
-  // 4 corner scrolls on main roof + 4 on front roof
-  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-    parts.push(cornerScroll(su * 16.0, eaveY, zMain + sv * 8.0, su * 0.72, sv * 0.72, 1.05));
-    parts.push(cornerScroll(su * 16.0, eaveY - 0.15, zFront + sv * 5.6, su * 0.72, sv * 0.72, 0.95));
-  }
+  parts.push(...fourCornerScrolls(0, eaveY, zMain, 16.0, 8.0, 1.05));
+  parts.push(...fourCornerScrolls(0, eaveY - 0.15, zFront, 16.0, 5.6, 0.95));
   return wrapScene(parts, );
 }
 

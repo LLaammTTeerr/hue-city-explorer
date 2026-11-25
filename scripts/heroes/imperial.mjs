@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import {
   paint, wrapScene, latheGourd, sculptedDragon, cornerScroll,
-  bronzeCauldron, sculptedCross, armillarySphere,
+  bronzeCauldron, sculptedCross, armillarySphere, dragonPearlCrest, fourCornerScrolls,
 } from './primitives.mjs';
 
 // Build Ngọ Môn hero accent .glb (local frame: u along +X, v along +Z, y = height above LAND_Y)
@@ -14,13 +14,7 @@ export function buildNgoMonHero() {
   const ridgeY = 6.14 + 3.1 + 3.2 * 0.34 + 3.1 * 0.85 + 3.2 + 0.06;
 
   // 1. Sculpted flaming sun / pearl & twin curved dragons (Lưỡng Long Chầu Nhật) on Lầu Ngũ Phụng's main yellow ridge
-  const pearl = new THREE.SphereGeometry(0.42, 14, 10);
-  pearl.scale(1, 1.15, 0.45);
-  pearl.translate(0, ridgeY + 0.62, vc);
-  parts.push(paint(pearl, 0xea6434));
-  parts.push(latheGourd(0, ridgeY + 0.02, vc, 0.45, 0xe8c45e));
-  parts.push(...sculptedDragon(0, ridgeY, vc, 1, 4.4, 1.12));
-  parts.push(...sculptedDragon(0, ridgeY, vc, -1, 4.4, 1.12));
+  parts.push(...dragonPearlCrest(0, ridgeY, vc, 4.4, 1.12, { pearlRadius: 0.42, gourdScale: 0.45 }));
 
   // 2. Smooth turned golden pháp lam gourds on the ridge ends & corner scrolls (đao mái) of Lầu Ngũ Phụng
   const uHalf = (17.6 * 0.9 / 2 + 1.05 * 0.9) * 0.6;
@@ -31,11 +25,7 @@ export function buildNgoMonHero() {
   const eu = 17.6 * 0.9 / 2 + 1.05 * 0.9;
   const ev = 12.4 * 0.8 / 2 + 1.05 * 0.9;
   const eaveY = 6.14 + 3.1 + 3.2 * 0.34 + 3.1 * 0.85;
-  for (const su of [-1, 1]) {
-    for (const sv of [-1, 1]) {
-      parts.push(cornerScroll(su * eu, eaveY + 0.12, vc + sv * ev, su * 0.72, sv * 0.72, 1.15));
-    }
-  }
+  parts.push(...fourCornerScrolls(0, eaveY + 0.12, vc, eu, ev, 1.15));
 
   // 3. Sculpted golden gourds on the 4 green side & wing pavilions
   const wingV = (3.6 + 10.0 + (14.8 - 12.05)) / 2; // matches ngomon.js wing hall center v
@@ -54,18 +44,9 @@ export function buildThaiHoaHero() {
   const parts = [];
   // Matches thaihoa.js: FL = 2.35, yd1 = 2.35 + 6.4 = 8.75, upH = 2.95, ridgeY = 11.78, iVc = -9.6
   const vc = -9.6, ridgeY = 2.35 + 6.4 + 2.95 + 0.08, eaveY = 2.35 + 6.4;
-  const pearl = new THREE.SphereGeometry(0.46, 14, 10);
-  pearl.scale(1, 1.15, 0.45);
-  pearl.translate(0, ridgeY + 0.68, vc);
-  parts.push(paint(pearl, 0xea6434));
-  parts.push(latheGourd(0, ridgeY + 0.02, vc, 0.48, 0xe8c45e));
-  parts.push(...sculptedDragon(0, ridgeY, vc, 1, 5.2, 1.15));
-  parts.push(...sculptedDragon(0, ridgeY, vc, -1, 5.2, 1.15));
+  parts.push(...dragonPearlCrest(0, ridgeY, vc, 5.2, 1.15, { pearlRadius: 0.46, gourdScale: 0.48 }));
   for (const s of [-1, 1]) parts.push(latheGourd(s * 11.8, ridgeY - 0.08, vc, 0.85, 0xe8c45e));
-  // 4 curved đao mái corner scrolls on the upper hip roof
-  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-    parts.push(cornerScroll(su * 17.3, eaveY + 0.14, vc + sv * 7.8, su * 0.72, sv * 0.72, 1.2));
-  }
+  parts.push(...fourCornerScrolls(0, eaveY + 0.14, vc, 17.3, 7.8, 1.2));
   return wrapScene(parts, );
 }
 
@@ -634,16 +615,7 @@ export function buildThuyQuanHero() {
 // Build Điện Kiến Trung hero accent .glb (Indochine-Baroque palace ridge dragons & forecourt bronze cauldrons)
 export function buildKienTrungHero() {
   const parts = [];
-  const yMain = 14.35;
-  // Flaming sun pearl & twin sculpted dragons on the central yellow-glazed ridge
-  const pearl = new THREE.SphereGeometry(0.44, 14, 10);
-  pearl.scale(1, 1.15, 0.45);
-  pearl.translate(0, yMain + 0.65, 0);
-  parts.push(paint(pearl, 0xea6434));
-  parts.push(latheGourd(0, yMain + 0.02, 0, 0.48, 0xe8c45e));
-  parts.push(...sculptedDragon(0, yMain, 0, 1, 4.8, 1.1));
-  parts.push(...sculptedDragon(0, yMain, 0, -1, 4.8, 1.1));
-  // Ceremonial bronze cauldrons flanking the grand forecourt stair
+  parts.push(...dragonPearlCrest(0, 14.35, 0, 4.8, 1.1, { pearlRadius: 0.44, gourdScale: 0.48 }));
   for (const su of [-1, 1]) {
     parts.push(...bronzeCauldron(su * 6.5, 0.05, 16.5, 0.92));
   }

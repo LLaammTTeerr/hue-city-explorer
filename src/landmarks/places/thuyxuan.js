@@ -1,9 +1,7 @@
-import * as THREE from 'three';
 import { KIND, Buf, hex, shade, rand } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
-import { rise } from '../../geo/terrain.js';
-import { lightMaterial, glowPoints } from '../../geo/materials.js';
 import { streetTest } from '../enclosure.js';
+import { groundHeightAt, isFootprintClearOfStreets, addEmissiveStripMesh, addGlowPointCloud } from '../helpers.js';
 
 // Làng hương Thủy Xuân (Huyền Trân Công Chúa street, on the way to Lăng Tự Đức): Huế's 700-year-old
 // incense-making craft village, famous for roadside shophouses lined with fanned bouquets of brightly dyed
@@ -24,15 +22,9 @@ const BAMBOO = hex('#c9b078'), WOOD = hex('#5c3d28'), DARK = hex('#2c221d'), PAV
 
 export function build({ data, S, group, place }) {
   const cx = place ? place.x : -2797.7, cz = place ? place.z : 3833.0;
-  const gY = (x, z) => LAND_Y + rise(x, z);
+  const gY = groundHeightAt;
   const onStreet = streetTest(data, [cx, cz], 120);
-  const clearBox = (x, z, l, w) => {
-    const ux = T[0], uz = T[1], nx = N[0], nz = N[1];
-    for (const [a, b] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0, 0]]) {
-      if (onStreet(x + ux * a * l + nx * b * w, z + uz * a * l + nz * b * w, 1.0)) return false;
-    }
-    return true;
-  };
+  const clearBox = (x, z, l, w) => isFootprintClearOfStreets(onStreet, x, z, T, N, l, w, 1.0);
   const P = (s, v) => [A0[0] + T[0] * s + N[0] * v, A0[1] + T[1] * s + N[1] * v];
 
   const LB = new Buf(256);
@@ -166,18 +158,8 @@ export function build({ data, S, group, place }) {
     }
   }
 
-  if (LB.n) {
-    const m = new THREE.Mesh(LB.geometry(), lightMaterial(0xffd088, 0.85));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
-  }
-  if (gp.length) {
-    const pts = glowPoints(gp, gc, 3.0);
-    pts.userData.glow = true;
-    pts.userData.landmark = id;
-    group.add(pts);
-  }
+  addEmissiveStripMesh(group, LB, 0xffd088, 0.85, id);
+  addGlowPointCloud(group, gp, gc, 3.0, id);
   S.kind = KIND.PLAIN;
   S.base = 0;
 }

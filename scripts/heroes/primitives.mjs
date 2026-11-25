@@ -224,6 +224,30 @@ export function armillarySphere(cx, cy, cz, scale = 1.0) {
   return parts;
 }
 
+// Reusable imperial ridge crest: flaming sun pearl (hỏa châu) + gourd base + twin flanking dragons (Lưỡng Long Chầu Nhật)
+export function dragonPearlCrest(cx, ridgeY, cz, span, scale = 1.0, { pearlRadius = 0.42, pearlCol = 0xea6434, gourdScale = null } = {}) {
+  const parts = [];
+  const pearl = new THREE.SphereGeometry(pearlRadius, 14, 10);
+  pearl.scale(1, 1.15, 0.45);
+  pearl.translate(cx, ridgeY + pearlRadius * 1.48, cz);
+  parts.push(paint(pearl, pearlCol));
+  parts.push(latheGourd(cx, ridgeY + 0.02, cz, gourdScale ?? pearlRadius * 1.08, 0xe8c45e));
+  parts.push(...sculptedDragon(cx, ridgeY, cz, 1, span, scale));
+  parts.push(...sculptedDragon(cx, ridgeY, cz, -1, span, scale));
+  return parts;
+}
+
+// Four symmetric upturned roof corner scrolls (đao mái) around (cx, eaveY, cz)
+export function fourCornerScrolls(cx, eaveY, cz, halfW, halfD, scale = 1.0, flare = 0.72) {
+  const parts = [];
+  for (const su of [-1, 1]) {
+    for (const sv of [-1, 1]) {
+      parts.push(cornerScroll(cx + su * halfW, eaveY, cz + sv * halfD, su * flare, sv * flare, scale));
+    }
+  }
+  return parts;
+}
+
 // Shared parameterized builder for the 10 Kinh Thành Citadel Gates (exact per-gate watchtower dimensions)
 export function buildGateWatchtowerHero({ name, upper, lower = null }) {
   const parts = [];
@@ -233,18 +257,12 @@ export function buildGateWatchtowerHero({ name, upper, lower = null }) {
   const rl = Math.max(0.4, hw - hd * 0.92);
   const dragonSpan = Math.min(2.4, Math.max(1.15, rl * 0.9));
 
-  const pearl = new THREE.SphereGeometry(0.26, 12, 8);
-  pearl.scale(1, 1.15, 0.45);
-  pearl.translate(0, ry + 0.42, 0);
-  parts.push(paint(pearl, 0xea6434));
-  parts.push(latheGourd(0, ry + 0.02, 0, 0.42, 0xe8c45e));
-  parts.push(...sculptedDragon(0, ry, 0, 1, dragonSpan, 0.65));
-  parts.push(...sculptedDragon(0, ry, 0, -1, dragonSpan, 0.65));
+  parts.push(...dragonPearlCrest(0, ry, 0, dragonSpan, 0.65, { pearlRadius: 0.26, gourdScale: 0.42 }));
   for (const s of [-1, 1]) {
     parts.push(latheGourd(s * (rl + 0.12), ry - 0.04, 0, 0.56, 0xe8c45e));
   }
+  parts.push(...fourCornerScrolls(0, y0 + 0.08, 0, hw, hd, 0.74, 0.56));
   for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-    parts.push(cornerScroll(su * hw, y0 + 0.08, sv * hd, su * 0.56, sv * 0.56, 0.74));
     // hanging crimson-gold imperial palace lantern under each upper watchtower corner eave
     const lx = su * (hw - 0.32), lz = sv * (hd - 0.32);
     const lantern = new THREE.SphereGeometry(0.16, 8, 7);
@@ -256,11 +274,7 @@ export function buildGateWatchtowerHero({ name, upper, lower = null }) {
     parts.push(paint(cap, 0xe8c45e));
   }
   if (lower) {
-    const lhw = lower.w / 2 + lower.over;
-    const lhd = lower.d / 2 + lower.over;
-    for (const su of [-1, 1]) for (const sv of [-1, 1]) {
-      parts.push(cornerScroll(su * lhw, lower.y0 + 0.08, sv * lhd, su * 0.62, sv * 0.62, 0.84));
-    }
+    parts.push(...fourCornerScrolls(0, lower.y0 + 0.08, 0, lower.w / 2 + lower.over, lower.d / 2 + lower.over, 0.84, 0.62));
   }
   return wrapScene(parts, name);
 }

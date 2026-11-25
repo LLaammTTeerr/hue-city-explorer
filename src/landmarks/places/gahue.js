@@ -1,3 +1,4 @@
+import { addEmissiveStripMesh } from '../helpers.js';
 import { KIND, Buf, hex, shade } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
 import { rise } from '../../geo/terrain.js';
@@ -424,12 +425,7 @@ export function build({ data, S, group, THREE }) {
   pts.userData.glow = true;
   pts.userData.landmark = id;
   group.add(pts);
-  if (L.n) {
-    const m = new THREE.Mesh(L.geometry(), lightMaterial(0xffd08a, 0.9));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
-  }
+  addEmissiveStripMesh(group, L, 0xffd08a, 0.9, id);
   S.kind = KIND.PLAIN;
   S.base = 0;
 }

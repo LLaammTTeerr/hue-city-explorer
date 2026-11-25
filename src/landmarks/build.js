@@ -1,12 +1,8 @@
 import { populate, finishStructures } from '../geo/city.js';
 import { buildTruongTien } from './truongtien.js';
-import { buildCitadel, buildMarket, buildThienMu } from './citadel.js';
+import { buildCitadel } from './citadel.js';
 import { buildBoats, buildLanterns } from './boats.js';
-import { buildNguyenHoang, buildQuocHocGate } from './more.js';
 import { buildCivic } from './civic.js';
-import { buildSouth } from './south.js';
-import { buildTombs } from './tombs.js';
-import { buildBiaQuocHoc } from './memorial.js';
 import { buildBoardwalk } from './boardwalk.js';
 import { buildRiverLights } from './riverlights.js';
 import { buildLotus, buildTraffic, buildStreetLife } from './life.js';
@@ -41,17 +37,10 @@ export function buildLandmarks(data, world, group, { step = (name, run) => run()
   };
   const bridge = run('truongtien', () => buildTruongTien(data, S, group));
   const citadel = run('citadel', () => buildCitadel(data, S, group));
-  run('market', () => buildMarket(data, S, group));
-  run('thienmu', () => buildThienMu(data, S, group));
-  const extraGlows = run('nguyenhoang', () => buildNguyenHoang(data, S, group));
-  run('quochocgate', () => buildQuocHocGate(data, S));
   run('civic', () => buildCivic(data, S));
-  run('biaquochoc', () => buildBiaQuocHoc(data, S));
   run('boardwalk', () => buildBoardwalk(data, S, group));
   run('riverlights', () => buildRiverLights(data, S, group)); // lamps along the Hương's banks and walkways (issue #21)
   const floating = run('floating', () => buildFloatingRestaurants(data, S, group)); // nhà hàng nổi Sông Hương, the lotus by Trường Tiền
-  run('south', () => buildSouth(data, S));
-  run('tombs', () => buildTombs(data, S));
   const replicas = run('replicas', () => buildPlaces(data, S, group, onPlace)); // per-place replica models in src/landmarks/places/
   run('courtyard', () => buildCourtyard(data, S)); // bronze cannons and cauldrons of the Imperial City's courts (courtyard.js)
   run('populate', () => populate(world, data)); // buildings, houses and trees, kept off the ground the landmark models cover
@@ -61,5 +50,5 @@ export function buildLandmarks(data, world, group, { step = (name, run) => run()
   run('lotus', () => buildLotus(data, group));
   const traffic = run('traffic', () => buildTraffic(data, group));
   const street = run('street', () => buildStreetLife(data, group));
-  return { bridge, citadel, extraGlows, floating, replicas, boats, lanterns, traffic, street };
+  return { bridge, citadel, extraGlows: [], floating, replicas, boats, lanterns, traffic, street };
 }
