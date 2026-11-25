@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Buf, KIND, hex, unflat, obb, ringCentre } from './buf.ts';
+import { CellGrid } from './cellgrid.ts';
 import { cityMaterial, landMaterial } from './materials.ts';
 import { initDistricts } from './districts.ts';
 import { LAND_Y, WALL_H, PAL } from '../config.ts';
@@ -216,11 +217,10 @@ export function buildCity(data: any) {
 }
 
 function coverOf(structures: any) {
-  const cells = new Set<number>();
-  const tallCells = new Set<number>();
+  const COVER = 1, TALL = 2; // cell flags: covered by something standing at least 0.7 m clear of the ground; 2.2 m
+  const grid = new CellGrid();
   const pos = structures.pos;
   const skipRanges = [structures.wallRange || [0, 0], ...(structures.noCover || [])];
-  const cellKey = (ix: number, iz: number) => (ix + 32768) * 65536 + (iz + 32768);
 
   for (let i = 0; i < structures.n; i += 3) {
     if (skipRanges.some(([from, to]: [number, number]) => i >= from && i < to)) continue;
@@ -248,8 +248,7 @@ function coverOf(structures: any) {
           const l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / det;
           const l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / det;
           if (l1 > -0.02 && l2 > -0.02 && 1 - l1 - l2 > -0.02) {
-            cells.add(cellKey(ix, iz));
-            if (clearance >= 2.2) tallCells.add(cellKey(ix, iz));
+            grid.set(ix, iz, clearance >= 2.2 ? COVER | TALL : COVER);
             break;
           }
         }
@@ -260,13 +259,13 @@ function coverOf(structures: any) {
   const clearings: ClearingBox[] = structures.clearings || [];
   if (clearings.length) {
     return {
-      hit: (x: number, z: number) => cells.has(cellKey(Math.floor(x), Math.floor(z))) || inClearing(clearings, x, z),
-      hitTall: (x: number, z: number) => tallCells.has(cellKey(Math.floor(x), Math.floor(z))) || inClearing(clearings, x, z),
+      hit: (x: number, z: number) => (grid.at(x, z) & COVER) !== 0 || inClearing(clearings, x, z),
+      hitTall: (x: number, z: number) => (grid.at(x, z) & TALL) !== 0 || inClearing(clearings, x, z),
     };
   }
   return {
-    hit: (x: number, z: number) => cells.has(cellKey(Math.floor(x), Math.floor(z))),
-    hitTall: (x: number, z: number) => tallCells.has(cellKey(Math.floor(x), Math.floor(z))),
+    hit: (x: number, z: number) => (grid.at(x, z) & COVER) !== 0,
+    hitTall: (x: number, z: number) => (grid.at(x, z) & TALL) !== 0,
   };
 }
 

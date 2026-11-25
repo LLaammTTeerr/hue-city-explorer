@@ -73,6 +73,14 @@ const SIDE_WALLS = ['#e4d8bd', '#c9c4b8', '#e6e2d8', '#d6cbb5', '#bfc6c4'].map(h
 
 // ---------------- pure 2D geometry helpers ----------------
 
+// [x0, z0, x1, z1] of a point list, and whether (x, z) lies within pad of it: a cheap test before an exact one
+function boxOf(pts) {
+  let x0 = Infinity, z0 = Infinity, x1 = -Infinity, z1 = -Infinity;
+  for (const pt of pts) { x0 = Math.min(x0, pt[0]); z0 = Math.min(z0, pt[1]); x1 = Math.max(x1, pt[0]); z1 = Math.max(z1, pt[1]); }
+  return [x0, z0, x1, z1];
+}
+const inBox = (box, x, z, pad) => x >= box[0] - pad && x <= box[2] + pad && z >= box[1] - pad && z <= box[3] + pad;
+
 function nearestOnPolyline(pts, x, z) {
   let best = null;
   for (let i = 0; i + 1 < pts.length; i++) {
@@ -936,7 +944,7 @@ export function build({ data, S, group, place }) {
     if (road[1]) continue;
     const pts = [];
     for (let i = 0; i < road[2].length; i += 2) pts.push([road[2][i] / 10, road[2][i + 1] / 10]);
-    if (pts.some((pt) => Math.hypot(pt[0] - cx, pt[1] - cz) < QUARTER_RADIUS + 60)) allRoads.push({ c: road[0], half: roadWidth(road) / 2, pts });
+    if (pts.some((pt) => Math.hypot(pt[0] - cx, pt[1] - cz) < QUARTER_RADIUS + 60)) allRoads.push({ c: road[0], half: roadWidth(road) / 2, pts, box: boxOf(pts) });
   }
   const onRoad = (x, z, pad = 0.3) => allRoads.some((road) => road.c <= 4 && nearestOnPolyline(road.pts, x, z).d < road.half + pad);
 
@@ -946,7 +954,7 @@ export function build({ data, S, group, place }) {
     for (let k = 0; k < rec[0].length; k += 2) ring.push([rec[0][k] / 10, rec[0][k + 1] / 10]);
     const role = Object.keys(REPLACE_MARKS).find((key) => !replaced[key] && inRing(REPLACE_MARKS[key][0], REPLACE_MARKS[key][1], ring));
     if (role) replaced[role] = ring;
-    else if (ring.some((pt) => Math.hypot(pt[0] - cx, pt[1] - cz) < QUARTER_RADIUS + 30)) rings.push({ ring, bi: bldIdx });
+    else if (ring.some((pt) => Math.hypot(pt[0] - cx, pt[1] - cz) < QUARTER_RADIUS + 30)) rings.push({ ring, bi: bldIdx, box: boxOf(ring) });
   });
 
   const rects = [], polys = [];
@@ -957,8 +965,8 @@ export function build({ data, S, group, place }) {
   const blocked = (x, z) => !inside(x, z)
     || rects.some((rect) => inRect(rect, x, z))
     || polys.some((poly) => inRing(x, z, poly))
-    || rings.some((entry) => inRing(x, z, entry.ring))
-    || allRoads.some((road) => nearestOnPolyline(road.pts, x, z).d < road.half + 0.4)
+    || rings.some((entry) => inBox(entry.box, x, z, 0) && inRing(x, z, entry.ring))
+    || allRoads.some((road) => inBox(road.box, x, z, road.half + 0.4) && nearestOnPolyline(road.pts, x, z).d < road.half + 0.4)
     || streetOf(x, z).d < STREET_SETBACK - 0.1
     || nearestOnPolyline(LANE, x, z).d < LANE_HALF - 0.05;
 

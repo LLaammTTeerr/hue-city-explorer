@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Buf, hex, unflat, inRing } from '../geo/buf.ts';
+import { Buf, hex, unflat, ringTest } from '../geo/buf.ts';
 import { cityMaterial, lightMaterial, shared } from '../geo/materials.ts';
 import { quality } from '../config.ts';
 import { makeObstacles } from '../geo/clearance.ts';
@@ -521,26 +521,26 @@ export function buildLanterns(data: any, group: THREE.Group) {
 // Dry land: inside a land polygon and outside its holes (and, with ponds, outside every pond).
 export function landTest(data: any, { ponds: withPonds = false } = {}) {
   const isValidRing = (arr: any) => Array.isArray(arr) && arr.length >= 6;
-  const polys: { rings: [number, number][][]; x0: number; x1: number; z0: number; z1: number }[] = [];
+  const polys: { outer: (x: number, z: number) => boolean; holes: ((x: number, z: number) => boolean)[]; x0: number; x1: number; z0: number; z1: number }[] = [];
   for (const poly of (data && data.land) || []) {
     if (!Array.isArray(poly) || !isValidRing(poly[0])) continue;
     const rings = poly.filter(isValidRing).map(unflat);
     let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
     for (const pt of rings[0]) { x0 = Math.min(x0, pt[0]); x1 = Math.max(x1, pt[0]); z0 = Math.min(z0, pt[1]); z1 = Math.max(z1, pt[1]); }
-    polys.push({ rings, x0, x1, z0, z1 });
+    polys.push({ outer: ringTest(rings[0]), holes: rings.slice(1).map((ring) => ringTest(ring)), x0, x1, z0, z1 });
   }
-  const ponds: [number, number][][] = [];
+  const ponds: ((x: number, z: number) => boolean)[] = [];
   if (withPonds) {
     for (const poly of (data && data.ponds) || []) {
-      if (Array.isArray(poly) && isValidRing(poly[0])) ponds.push(unflat(poly[0]));
+      if (Array.isArray(poly) && isValidRing(poly[0])) ponds.push(ringTest(unflat(poly[0])));
     }
   }
   return (x: number, z: number) => {
     let onDryLand = false;
     for (const poly of polys) {
       if (x < poly.x0 || x > poly.x1 || z < poly.z0 || z > poly.z1) continue;
-      if (inRing(x, z, poly.rings[0]) && !poly.rings.slice(1).some((hole) => inRing(x, z, hole))) { onDryLand = true; break; }
+      if (poly.outer(x, z) && !poly.holes.some((hole) => hole(x, z))) { onDryLand = true; break; }
     }
-    return onDryLand && !ponds.some((ring) => inRing(x, z, ring));
+    return onDryLand && !ponds.some((pond) => pond(x, z));
   };
 }

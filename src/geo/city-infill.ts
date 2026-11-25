@@ -129,6 +129,19 @@ function collectInfillParts(records: number[], baseIdx: number, start: number, e
   return parts;
 }
 
+// A geometry of its own (for per-chunk instanced attributes) on the same vertex attributes: they are uploaded once
+// and shared, where clone() would copy them, upload them again per chunk, and need their arrays still in memory.
+function sharedCopy(geo: THREE.BufferGeometry) {
+  const out = new THREE.BufferGeometry();
+  for (const [name, attr] of Object.entries(geo.attributes)) out.setAttribute(name, attr);
+  if (geo.index) out.setIndex(geo.index);
+  if (!geo.boundingBox) geo.computeBoundingBox();
+  if (!geo.boundingSphere) geo.computeBoundingSphere();
+  out.boundingBox = geo.boundingBox!.clone();
+  out.boundingSphere = geo.boundingSphere!.clone();
+  return out;
+}
+
 // Illustrated infill houses (instanced).
 // Records arrive with the near-water ones first (layer 0, river reflection); the rest go on layer 1.
 export function infillPlanter(group: THREE.Group, off: any = null) {
@@ -149,7 +162,7 @@ export function infillPlanter(group: THREE.Group, off: any = null) {
 
   function addInstanced(geo: THREE.BufferGeometry, mat: THREE.Material, list: any[], layer: number, castShadow = true, isDetail = false) {
     if (!list.length) return;
-    const geom = geo === geos.wall ? geo.clone() : geo;
+    const geom = geo === geos.wall ? sharedCopy(geo) : geo;
     if (geo === geos.wall) {
       geom.setAttribute('aBase', new THREE.InstancedBufferAttribute(Float32Array.from(list, (entry) => entry[2] || 0), 1));
       geom.setAttribute('aStyle', new THREE.InstancedBufferAttribute(Float32Array.from(list, (entry) => entry[3] || 0), 1));

@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { LAND_Y, quality } from './config.ts';
 import { buildCity, updateDetail } from './geo/city.ts';
 import { createHeroLoader } from './geo/hero-gltf.ts';
+import { releaseAfterUpload, releasedCount } from './geo/release.ts';
 import { buildLandmarks } from './landmarks/build.ts';
 import { shared } from './geo/materials.ts';
 import { buildSky } from './env/sky.ts';
@@ -419,6 +420,7 @@ async function streamRemainingTiles(opts: {
     if (!body) continue;
     await nextMacrotask();
     const meshes = (world as any).addTile(body);
+    for (const mesh of meshes) releaseAfterUpload(mesh);
     for (const mesh of meshes) {
       if (mesh.material?.defines && 'HUE_FOLIAGE' in mesh.material.defines && !leafMats.has(mesh.material)) {
         leafMats.add(mesh.material);
@@ -554,7 +556,8 @@ async function main() {
   // every landmark, populate and the moving things, in the sequence the geometry checks build too (src/landmarks/build.js)
   const { bridge, citadel, extraGlows, floating, replicas, boats, lanterns, traffic, street } = buildLandmarks(data, world, dynamic);
   const { hemi, sun, shadows, ibl } = setupLighting(scene, renderer);
-  const heroes = createHeroLoader(dynamic, () => {
+  const heroes = createHeroLoader(dynamic, (_id, root) => {
+    releaseAfterUpload(root);
     if (shadows?.invalidate) shadows.invalidate();
     else if (sun?.shadow) sun.shadow.needsUpdate = true;
   });
@@ -644,6 +647,7 @@ async function main() {
   canvas.addEventListener('webglcontextlost', (event) => { event.preventDefault(); console.warn('[hue] WebGL context lost'); });
   canvas.addEventListener('webglcontextrestored', () => {
     console.warn('[hue] WebGL context restored');
+    if (releasedCount()) { location.reload(); return; } // the vertex data was dropped after upload: rebuild from scratch
     if (ibl) ibl.invalidate();
     shadows.invalidate();
     water.mesh.userData.invalidate?.();
@@ -761,6 +765,7 @@ async function main() {
   // a shared view (?v=1…, src/ui/share.js) replaces the opening: atmosphere, camera and card are set before the first draw
   sharing = createShare({ data, rig, mood, setLook, pick, ui, bounds: cameraBounds });
   const sharedView = sharing.apply();
+  releaseAfterUpload(scene); // vertex arrays leave JS memory once they are on the GPU (geo/release.js)
   step(0); // update mood, detail, lights, shadows and compile shaders before the curtain lifts
   console.debug(`[hue] ready in ${Math.round(performance.now() - startTime)} ms`);
   ui.loaderProgress(LOADER_PROGRESS.done);
