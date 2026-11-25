@@ -94,12 +94,16 @@ Other params (`?look=`) are not carried into a shared link; a shared link's look
 
 The app's version is `version` in `package.json`, following [Semantic Versioning](https://semver.org/) as [`CHANGELOG.md`](../CHANGELOG.md) defines it for this project (major: a new edition; minor: new places, features or data; patch: fixes only). The build stamps it, with the short commit hash, into the About dialog.
 
-Not every PR needs a release. To cut one:
+Releases are automated with two workflows:
 
-1. In a PR, raise `version` in `package.json` (`npm version minor --no-git-tag-version`, or `patch` / `major`) and add a `## X.Y.Z (date)` section at the top of `CHANGELOG.md`, listing the PRs since the last release. `npm run check:version` fails until the section exists.
-2. Merge the PR. `.github/workflows/release.yml` sees a version with no tag, tags the merge commit `vX.Y.Z` and publishes a GitHub release whose notes are that changelog section.
+1. **`.github/workflows/release-pr.yml`** runs on every push to `main` (and via manual `workflow_dispatch` with an optional `patch` / `minor` / `major` override). It runs `scripts/prepare-release.mjs` to inspect all commits since the latest `vX.Y.Z` tag, computes the next semver version (`feat:` / `Add ...` → minor, `BREAKING CHANGE` / `!:` → major, everything else → patch), updates `package.json`, `package-lock.json` and `CHANGELOG.md`, and opens or updates a single rolling pull request (`chore(release): vX.Y.Z` on branch `release/next`).
+2. **`.github/workflows/release.yml`** runs when that release PR is merged to `main`: it sees a version with no tag, tags the merge commit `vX.Y.Z` and publishes a GitHub release whose notes are that changelog section.
 
-Tags are never made by hand, and a tag that exists is never moved.
+To let the bot open PRs and automatically trigger `check.yml` on them:
+- Enable **Settings → Actions → General → Workflow permissions → "Allow GitHub Actions to create and approve pull requests"**.
+- Optionally add a fine-grained PAT (with **Contents** and **Pull requests** read/write) as the repository secret `RELEASE_BOT_TOKEN` so bot-pushed PRs trigger the required `check` workflow without a manual close/reopen.
+
+You can preview what the next release PR would contain locally with `node scripts/prepare-release.mjs --dry-run`. Tags are never made by hand, and a tag that exists is never moved.
 
 ## Deploy
 
