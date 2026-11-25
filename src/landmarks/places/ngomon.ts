@@ -26,6 +26,23 @@ const toWorld = (localU, localV): [number, number] => [
   GATE_CENTER[0] + localU * AXIS_COS - localV * AXIS_SIN,
   GATE_CENTER[1] + localU * AXIS_SIN + localV * AXIS_COS,
 ];
+const toLocal = (x, z): [number, number] => {
+  const dx = x - GATE_CENTER[0], dz = z - GATE_CENTER[1];
+  return [dx * AXIS_COS + dz * AXIS_SIN, -dx * AXIS_SIN + dz * AXIS_COS];
+};
+// OSM's tunnel/forecourt footways through Ngọ Môn and the Giáp gates are offset 0.5-1.2 m from the squared, shifted
+// masonry base (BASE_SHIFT), so they cut diagonally through the arch walls and run off-centre down the paved forecourt.
+export function ownWays() {
+  return (r: any) => {
+    if (!Array.isArray(r) || (r[0] | 0) !== 5 || r[1] || !Array.isArray(r[2]) || r[2].length < 4) return false;
+    const f = r[2];
+    for (let i = 0; i + 1 < f.length; i += 2) {
+      const [u, v] = toLocal(f[i] / 10, f[i + 1] / 10);
+      if (Math.abs(u) >= 12 || v <= -17 || v >= 29) return false;
+    }
+    return true;
+  };
+}
 const toPoint3 = (localU, localV, y) => {
   const pos = toWorld(localU, localV);
   return [pos[0], y, pos[1]];

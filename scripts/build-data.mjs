@@ -609,7 +609,16 @@ for (const e of els) {
   // a closed road (access=no: the dirt track into Trấn Bình Đài, and its way on through Trấn Bình Môn's 2 m passage)
   // is laid at the service width, without kerbs; its bridge keeps its class
   const c = kiet ? 4 : t.highway === 'unclassified' && t.access === 'no' && !tagged ? ROAD_CLASS.service : ROAD_CLASS[t.highway];
-  for (const line of clipLine(e.geometry.map(proj))) {
+  // Way 369554391 (north of Đập Đá, west of Nguyễn Sinh Cung): its 55 m dead-end tail runs along the bare riverbank,
+  // overhanging the water and leading nowhere, while its first segment feeds way 369554393 and bridge 369554389 to
+  // Cù lao nhân tạo Nguyễn Sinh Cung. Drop 369554391 and extend 369554393 to Nguyễn Sinh Cung as one continuous lane.
+  if (e.id === 369554391) continue;
+  let rawPts = e.geometry.map(proj);
+  if (e.id === 369554393) {
+    const feeder = get('way', 369554391);
+    if (feeder?.geometry?.length >= 2) rawPts = [...rawPts, proj(feeder.geometry[0])];
+  }
+  for (const line of clipLine(rawPts)) {
     const pts = clearMonuments(line, c);
     if (pts !== line) nCleared++;
     // the bridge's own carriageways are not laid (nguyenhoang.js models the deck), but their ground stays road in
@@ -688,7 +697,7 @@ let nDivided = 0;
 divided.forEach((r, ri) => {
   const D = [];
   walkLine(r.pts, (px, pz, tx, tz) => { const t = twinAt(ri, px, pz, tx, tz); if (t) D.push(t.dist); });
-  if (D.length < 3 || r.pts.some(nearMarket)) return;
+  if (D.length < 3 || (!r.bridge && r.pts.some(nearMarket))) return;
   D.sort((a, b) => a - b);
   r.w = Math.max(4.5, Math.min(ONEWAY_W[r.c], D[Math.floor(D.length * 0.3)] - MEDIAN_MIN));
   nDivided++;

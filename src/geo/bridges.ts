@@ -356,7 +356,7 @@ function makeProfile(pts: number[][], len: number, roadClass: number, riseM: num
 
   let bump = baseBump;
   const breaks = span ? [...span] : [];
-  if (roadClass <= 3 && !span && (!arches || zone)) {
+  if (roadClass <= 5 && !span && (!arches || zone)) {
     const rampLen = Math.min(LAND_RAMP, len * 0.2);
     const streetY = (pt: number[]) => LAND_Y + STREET + rise(pt[0], pt[1]) + (rise(pt[0], pt[1]) > 0 ? 0.12 : 0);
     const diff0 = streetY(p0) - base(0) - baseBump(0);
