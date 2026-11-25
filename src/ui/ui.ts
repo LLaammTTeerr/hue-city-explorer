@@ -229,6 +229,9 @@ function bindToolbarEvents(opts: {
   const timeSlider = byId<HTMLInputElement>('time-slider');
   timeSlider.addEventListener('input', () => handlers.time(parseFloat(timeSlider.value)));
   timeButtons.forEach((btn) => btn.addEventListener('click', () => handlers.time(+btn.dataset.time!)));
+  document.querySelectorAll<HTMLButtonElement>('#seg-season button').forEach((btn) => {
+    btn.addEventListener('click', () => handlers.season?.(+btn.dataset.season!));
+  });
   byId('seg-time').addEventListener('keydown', (event) => {
     const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
     if (!delta) return;
@@ -364,6 +367,14 @@ export function createUI(data: any, handlers: any) {
       btn.textContent = strings.timesShort[idx];
       btn.title = tip;
       btn.setAttribute('aria-label', tip);
+    });
+    byId('seg-season').setAttribute('aria-label', strings.seasonLabel);
+    document.querySelectorAll<HTMLButtonElement>('#seg-season button').forEach((btn) => {
+      const idx = +btn.dataset.season!;
+      const label = strings.seasons[idx];
+      btn.textContent = label;
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
     });
     byId('time-slider').setAttribute('aria-label', strings.timeOfDay);
     for (const [id, tip] of Object.entries(tooltips)) {
@@ -550,7 +561,7 @@ export function createUI(data: any, handlers: any) {
       byId('btn-look').classList.toggle('on', !!isInk);
       byId('btn-look').setAttribute('aria-pressed', String(!!isInk));
     },
-    setMood({ rain, time }: { rain: boolean | number; time: number }) {
+    setMood({ rain, time, season }: { rain: boolean | number; time: number; season?: number }) {
       const isNight = time >= TIME_NIGHT_THRESHOLD;
       const snappedIdx = Math.max(0, Math.min(2, Math.round(time)));
       document.body.dataset.time = isNight ? '2' : String(snappedIdx);
@@ -570,6 +581,13 @@ export function createUI(data: any, handlers: any) {
         btn.setAttribute('aria-checked', String(active));
         btn.tabIndex = active ? 0 : -1;
       });
+      if (typeof season === 'number') {
+        document.querySelectorAll<HTMLButtonElement>('#seg-season button').forEach((btn) => {
+          const active = +btn.dataset.season! === season;
+          btn.setAttribute('aria-checked', String(active));
+          btn.tabIndex = active ? 0 : -1;
+        });
+      }
     },
     setHeading(rad: number) {
       const deg = Math.round((-rad * HEADING_TENTHS_FACTOR) / Math.PI) / 10;

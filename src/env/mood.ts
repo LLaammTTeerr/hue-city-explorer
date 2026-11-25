@@ -30,8 +30,8 @@ for (const [name, moodDef] of Object.entries(MOODS)) {
 
 // Two independent dials: time of day (0 morning → 1 afternoon → 2 evening) and rain (0..1).
 export function createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl = null }: any) {
-  // the model opens at golden hour (1); 0 is the morning, 2 the evening
-  const state = { time: 1, rain: 0, timeTarget: 1, rainTarget: 0, showerEnds: 0, look: 0 }; // look: 0 realistic, 1 illustrated
+  // the model opens at golden hour (1) in Summer (season 1); seasons: 0 Spring/Tết, 1 Summer, 2 Autumn, 3 Winter
+  const state = { time: 1, rain: 0, timeTarget: 1, rainTarget: 0, showerEnds: 0, look: 0, season: 1, spring: 0, autumn: 0, winter: 0 }; // look: 0 realistic, 1 illustrated
   const cur: Record<string, any> = {};
   for (const key of COLOR_KEYS) cur[key] = new THREE.Color();
 
@@ -133,6 +133,7 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl =
     sunDir,
     onChange: (fn: (state: any) => void) => listeners.add(fn),
     setTime(index: number) { state.timeTarget = Math.max(0, Math.min(2, index)); emit(); },
+    setSeason(index: number) { state.season = Math.max(0, Math.min(3, Math.round(index))); emit(); },
     // A shower passes on its own unless the visitor ends it first.
     setRain(on: boolean, seconds = MOOD_CFG.defaultShowerSeconds) {
       state.rainTarget = on ? 1 : 0;
@@ -151,6 +152,12 @@ export function createMood({ scene, renderer, sun, hemi, sky, water, rain, ibl =
       );
       state.time = approach(state.time, state.timeTarget, MOOD_CFG.timeLerpRate);
       state.rain = approach(state.rain, state.rainTarget, state.rainTarget ? MOOD_CFG.rainStartRate : MOOD_CFG.rainClearRate);
+      state.spring = approach(state.spring, state.season === 0 ? 1 : 0, 2.2);
+      state.autumn = approach(state.autumn, state.season === 2 ? 1 : 0, 2.2);
+      state.winter = approach(state.winter, state.season === 3 ? 1 : 0, 2.2);
+      shared.uSpring.value = state.spring;
+      shared.uAutumn.value = state.autumn;
+      shared.uWinter.value = state.winter;
       sky.uniforms.uTime.value = time;
       for (const waterUniforms of water.sets) waterUniforms.uTime.value = time;
       rain.uniforms.uTime.value = time;
