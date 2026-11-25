@@ -1,8 +1,6 @@
-import * as THREE from 'three';
 import { KIND, Buf, hex, shade, unflat } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
-import { rise } from '../../geo/terrain.js';
-import { lightMaterial } from '../../geo/materials.js';
+import { groundHeightAt, addEmissiveStripMesh } from '../helpers.js';
 
 // Bến xe phía Nam, 97 An Dương Vương: the southern intercity bus station of Công ty CP Bến xe Huế (issue #71).
 // See docs/places/benxenam.md.
@@ -64,7 +62,7 @@ export function build({ data, S, group }) {
   const L = best.L, D = 2 * ((best.m[0] - c[0]) * n[0] + (best.m[1] - c[1]) * n[1]);
   const P = (u, v) => [c[0] + t[0] * u + n[0] * v, c[1] + t[1] * u + n[1] * v];
   const a = Math.atan2(t[1], t[0]), an = Math.atan2(n[1], n[0]);
-  const y0 = LAND_Y + rise(c[0], c[1]);
+  const y0 = groundHeightAt(c[0], c[1]);
   const box = (u, v, ya, yb, su, sv, col, o) => { const p = P(u, v); S.box(p[0], p[1], ya, yb, su, sv, a, col, o); };
 
   const LB = new Buf(512), WB = new Buf(512), BB = new Buf(64); // night: canopy lamps, warm windows, the blue sign
@@ -221,11 +219,7 @@ export function build({ data, S, group }) {
   }
 
   for (const [B, col, boost] of [[LB, 0xf2f6ff, 1.2], [WB, 0xffd9a0, 0.9], [BB, 0xe8f0ff, 1.3]]) {
-    if (!B.n) continue;
-    const m = new THREE.Mesh(B.geometry(), lightMaterial(col, boost));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
+    addEmissiveStripMesh(group, B, col, boost, id);
   }
   S.kind = KIND.PLAIN;
   S.base = 0;

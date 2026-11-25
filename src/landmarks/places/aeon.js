@@ -1,8 +1,6 @@
-import * as THREE from 'three';
 import { KIND, Buf, hex, shade, unflat, signedArea, inRing } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
-import { rise } from '../../geo/terrain.js';
-import { lightMaterial } from '../../geo/materials.js';
+import { groundHeightAt, addEmissiveStripMesh } from '../helpers.js';
 
 // AEON MALL Huế, 8 Võ Nguyên Giáp (An Vân Dương), opened 16 September 2024 (ceremony 21 September), issue #71.
 // See docs/places/aeon.md.
@@ -68,7 +66,7 @@ export function build({ data, S, group }) {
   const UV = R.map((p) => [(p[0] - o[0]) * T[0] + (p[1] - o[1]) * T[1], (p[0] - o[0]) * W[0] + (p[1] - o[1]) * W[1]]);
   const angOf = (du, dv) => Math.atan2(T[1] * du + W[1] * dv, T[0] * du + W[0] * dv); // a u-v direction as a scene angle
   const aT = angOf(1, 0);
-  const y0 = LAND_Y + rise(o[0], o[1]);
+  const y0 = groundHeightAt(o[0], o[1]);
   const box = (u, v, ya, yb, su, sv, col, opt) => { const p = P(u, v); S.box(p[0], p[1], ya, yb, su, sv, aT, col, opt); };
   const vmax = Math.max(...UV.map((p) => p[1])), vmin = Math.min(...UV.map((p) => p[1])), umax = Math.max(...UV.map((p) => p[0]));
   // the two straight front faces either side of the arc: the long arm's (u = uW) and the short arm's (v = vN)
@@ -304,11 +302,7 @@ export function build({ data, S, group }) {
   }
 
   for (const [B, col, boost] of [[LB, 0xffe2b0, 1.0], [MB, 0xff4fb0, 1.4], [GB, 0xfff1c8, 0.85]]) {
-    if (!B.n) continue;
-    const m = new THREE.Mesh(B.geometry(), lightMaterial(col, boost));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
+    addEmissiveStripMesh(group, B, col, boost, id);
   }
   S.kind = KIND.PLAIN;
   S.base = 0;

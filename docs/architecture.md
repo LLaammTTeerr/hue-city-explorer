@@ -93,3 +93,21 @@ hue_city_explorer/
 | Tune lighting, SSAO, or water | `src/config.js`, `src/env/post.js`, `src/env/water.js` | `npm run build && node scripts/shot.mjs --view truong-tien-river-level` |
 | Edit animated traffic, pedestrians, or lotus | `src/landmarks/life/{traffic,street-life,lotus}.js` | `npm run check && npm run build` |
 | Update label pin heights after changing a roof | `scripts/build-label-tops.mjs` | `node scripts/build-label-tops.mjs && npm run check:labels` |
+
+---
+
+## Naming & Code Conventions
+
+- **Use shared helpers instead of duplicating boilerplate** — import from `src/landmarks/helpers.js`:
+  - `groundHeightAt(x, z)` instead of inline `const gY = (x, z) => LAND_Y + rise(x, z)`
+  - `createLocalFrame(ox, oz, angle)` for local `(u, v) → [x, z]` transforms and oriented `box` / `cyl` placement
+  - `isFootprintClearOfStreets(...)` for oriented street-clearance checks
+  - `addEmissiveStripMesh(group, buf, hex, boost, id)` and `addGlowPointCloud(group, pos, col, size, id)` for night lighting
+  - `hash2D(a, b)` and `createPrng(seed)` for deterministic procedural variation (never `Math.random()`)
+- **Prefer descriptive identifiers over single-letter abbreviations** in module APIs and exports:
+  - Constants: `UPPER_SNAKE_CASE` (e.g. `LAND_Y`, `ROAD_BRIDGE_DECK_Y`, `PALETTE`)
+  - Functions & builders: `camelCase` verb phrases (`buildLotus`, `createLocalFrame`, `groundHeightAt`)
+  - Files: `kebab-case.js` (`street-life.js`, `city-surface.js`, `hero-manifest.js`); place files match their `hue.json` slug (`places/<id>.js`).
+- **One place, one file**: every landmark replica lives in `src/landmarks/places/<slug>.js` and exports `id` + `build({ data, S, group, place, THREE })`. Shared geometry kits live in `src/landmarks/` (`helpers.js`, `props.js`, `enclosure.js`, `tombs.js`, `citadel.js`).
+- **Keep `S.kind` and `S.base` clean**: always reset `S.kind = KIND.PLAIN; S.base = 0;` at the end of a builder (or restore the previous `S.kind` inside helper functions).
+

@@ -1,9 +1,7 @@
-import * as THREE from 'three';
-import { KIND, Buf, hex, shade, rand } from '../../geo/buf.js';
+import { KIND, Buf, hex, rand } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
-import { rise } from '../../geo/terrain.js';
-import { lightMaterial, glowPoints } from '../../geo/materials.js';
 import { streetTest } from '../enclosure.js';
+import { groundHeightAt, isFootprintClearOfStreets, addEmissiveStripMesh, addGlowPointCloud } from '../helpers.js';
 
 // Làng đúc đồng Phường Đúc (Bùi Thị Xuân street, south bank of the Perfume River): Huế's 400-year-old
 // royal bronze-casting village (casters of the Nine Dynastic Urns and Thiên Mụ's Great Bell). Features
@@ -28,15 +26,10 @@ const C = {
 
 export function build({ data, S, group, place }) {
   const cx = place ? place.x : -2729.0, cz = place ? place.z : 1730.1;
-  const gY = (x, z) => LAND_Y + rise(x, z);
+  const gY = groundHeightAt;
   const onStreet = streetTest(data, [cx, cz], 120);
   const P = (u, v) => [O[0] + T[0] * u + N[0] * v, O[1] + T[1] * u + N[1] * v];
-  const clearBox = (x, z, l, w) => {
-    for (const [a, b] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0, 0]]) {
-      if (onStreet(x + T[0] * a * l + N[0] * b * w, z + T[1] * a * l + N[1] * b * w, 1.2)) return false;
-    }
-    return true;
-  };
+  const clearBox = (x, z, l, w) => isFootprintClearOfStreets(onStreet, x, z, T, N, l, w, 1.2);
 
   // helper: draw a cast bronze temple bell (đại hồng chung) or tripod urn (đỉnh đồng)
   const bronzeBell = (x, z, y, sc = 1) => {
@@ -180,18 +173,8 @@ export function build({ data, S, group, place }) {
     }
   }
 
-  if (LB.n) {
-    const m = new THREE.Mesh(LB.geometry(), lightMaterial(0xff9c4a, 0.9));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
-  }
-  if (gp.length) {
-    const pts = glowPoints(gp, gc, 3.2);
-    pts.userData.glow = true;
-    pts.userData.landmark = id;
-    group.add(pts);
-  }
+  addEmissiveStripMesh(group, LB, 0xff9c4a, 0.9, id);
+  addGlowPointCloud(group, gp, gc, 3.2, id);
   S.kind = KIND.PLAIN;
   S.base = 0;
 }

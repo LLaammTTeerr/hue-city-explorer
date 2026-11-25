@@ -1,9 +1,7 @@
-import * as THREE from 'three';
 import { KIND, Buf, hex, shade, rand } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
-import { rise } from '../../geo/terrain.js';
-import { lightMaterial, glowPoints } from '../../geo/materials.js';
 import { streetTest } from '../enclosure.js';
+import { groundHeightAt, isFootprintClearOfStreets, addEmissiveStripMesh, addGlowPointCloud } from '../helpers.js';
 
 // Làng tranh Sình (Lại Ân village, Phú Mậu, near the Perfume River): Huế's 400-year-old woodblock
 // folk-painting village. Features a traditional Huế nhà rường tiled-roof artisan workshop (like artisan
@@ -27,17 +25,12 @@ const PRINTS = ['#d43b2f', '#e5b13a', '#2e5d8c', '#3c8556', '#e8dfd0', '#c45b33'
 
 export function build({ data, S, group, place }) {
   const px0 = place ? place.x : -1215.1, pz0 = place ? place.z : -5845.1;
-  const gY = (x, z) => LAND_Y + rise(x, z);
+  const gY = groundHeightAt;
   const onStreet = streetTest(data, [px0, pz0], 140);
   // frame aligned to the village lane (nearly E-W / N-S)
   const ANG = 0.08;
   const U = [Math.cos(ANG), Math.sin(ANG)], V = [-U[1], U[0]];
-  const clearBox = (x, z, l, w) => {
-    for (const [a, b] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5], [0, 0]]) {
-      if (onStreet(x + U[0] * a * l + V[0] * b * w, z + U[1] * a * l + V[1] * b * w, 0.8)) return false;
-    }
-    return true;
-  };
+  const clearBox = (x, z, l, w) => isFootprintClearOfStreets(onStreet, x, z, U, V, l, w, 0.8);
   // find the nearest clear courtyard site around the village center (keeping off the mapped lanes)
   let cx = px0, cz = pz0, found = false;
   let compL = 22, compW = 18;
@@ -185,18 +178,8 @@ export function build({ data, S, group, place }) {
     }
   }
 
-  if (LB.n) {
-    const m = new THREE.Mesh(LB.geometry(), lightMaterial(0xffd28c, 0.8));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
-  }
-  if (gp.length) {
-    const pts = glowPoints(gp, gc, 3.0);
-    pts.userData.glow = true;
-    pts.userData.landmark = id;
-    group.add(pts);
-  }
+  addEmissiveStripMesh(group, LB, 0xffd28c, 0.8, id);
+  addGlowPointCloud(group, gp, gc, 3.0, id);
   S.kind = KIND.PLAIN;
   S.base = 0;
 }

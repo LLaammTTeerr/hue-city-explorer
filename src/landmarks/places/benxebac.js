@@ -1,8 +1,6 @@
-import * as THREE from 'three';
 import { KIND, Buf, hex, shade } from '../../geo/buf.js';
 import { LAND_Y } from '../../config.js';
-import { rise } from '../../geo/terrain.js';
-import { lightMaterial } from '../../geo/materials.js';
+import { groundHeightAt, addEmissiveStripMesh } from '../helpers.js';
 
 // Bến xe phía Bắc, 132 Lý Thái Tổ (An Hòa): the northern intercity bus station of Công ty CP Bến xe Huế (issue #71).
 // See docs/places/benxebac.md.
@@ -32,7 +30,7 @@ const C = {
 
 export function build({ S, group }) {
   const P = (u, w) => [O[0] + T[0] * u + W[0] * w, O[1] + T[1] * u + W[1] * w];
-  const y0 = LAND_Y + rise(...P(10, 3));
+  const y0 = groundHeightAt(...P(10, 3));
   const box = (u, w, ya, yb, su, sw, col, o) => { const p = P(u, w); S.box(p[0], p[1], ya, yb, su, sw, A, col, o); };
   const LB = new Buf(256), WB = new Buf(512), BB = new Buf(64), RB = new Buf(128); // canopy lamps, windows, blue sign, red letters
   const lit = (B, u, w, ya, yb, su, sw) => { const p = P(u, w); B.box(p[0], p[1], ya, yb, su, sw, A, [1, 1, 1], { top: [1, 1, 1], bottom: true }); };
@@ -195,11 +193,7 @@ export function build({ S, group }) {
   }
 
   for (const [B, col, boost] of [[LB, 0xf2f6ff, 1.2], [WB, 0xffd9a0, 0.9], [BB, 0xe8f0ff, 1.3], [RB, 0xff3040, 1.6]]) {
-    if (!B.n) continue;
-    const m = new THREE.Mesh(B.geometry(), lightMaterial(col, boost));
-    m.renderOrder = 19;
-    m.userData.landmark = id;
-    group.add(m);
+    addEmissiveStripMesh(group, B, col, boost, id);
   }
   S.kind = KIND.PLAIN;
   S.base = 0;
