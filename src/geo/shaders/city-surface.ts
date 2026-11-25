@@ -39,8 +39,11 @@ float hueHashI( vec2 i ) {
   return float( n >> 8 ) * ( 1.0 / 16777216.0 );
 }
 float hueNoiseRaw( vec2 p ) {
+  float fw = max( fwidth( p.x ), fwidth( p.y ) );
+  if ( fw > 1.2 ) return 0.5;
   vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
-  return mix( mix( hueHashI( i ), hueHashI( i + vec2( 1.0, 0.0 ) ), f.x ), mix( hueHashI( i + vec2( 0.0, 1.0 ) ), hueHashI( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
+  float n = mix( mix( hueHashI( i ), hueHashI( i + vec2( 1.0, 0.0 ) ), f.x ), mix( hueHashI( i + vec2( 0.0, 1.0 ) ), hueHashI( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
+  return mix( n, 0.5, smoothstep( 0.35, 1.2, fw ) );
 }
 // the drawn look lays flat washes: weathering and mottling settle most of the way to their middle tone
 float hueNoise( vec2 p ) { return mix( hueNoiseRaw( p ), 0.5, uLook * 0.78 ); }

@@ -228,8 +228,13 @@ export function landMaterial(color, turf = false, bank = false) {
           uint n = ( q.x ^ q.y ) * 1597334673u;
           return float( n >> 8 ) * ( 1.0 / 16777216.0 );
         }
-        float lNoiseRaw( vec2 p ) { vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
-          return ( mix( mix( lHashI( i ), lHashI( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHashI( i + vec2( 0.0, 1.0 ) ), lHashI( i + vec2( 1.0, 1.0 ) ), f.x ), f.y ) ); }
+        float lNoiseRaw( vec2 p ) {
+          float fw = max( fwidth( p.x ), fwidth( p.y ) );
+          if ( fw > 1.2 ) return 0.5;
+          vec2 i = floor( p ), f = fract( p ); f = f * f * ( 3.0 - 2.0 * f );
+          float n = mix( mix( lHashI( i ), lHashI( i + vec2( 1.0, 0.0 ) ), f.x ), mix( lHashI( i + vec2( 0.0, 1.0 ) ), lHashI( i + vec2( 1.0, 1.0 ) ), f.x ), f.y );
+          return mix( n, 0.5, smoothstep( 0.35, 1.2, fw ) );
+        }
         // the drawn look lays flat washes: tonal drift settles most of the way to its middle
         float lNoise( vec2 p ) { return mix( lNoiseRaw( p ), 0.5, uLook * 0.78 ); }`,
       )
