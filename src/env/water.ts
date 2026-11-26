@@ -7,11 +7,11 @@ import { createWaterShader } from './water-shader.ts';
 
 const DECIMETRES_PER_METRE = 10;
 const REFLECT_CFG = {
-  scale: 0.5,
+  scale: 0.35,
   maxWidth: 960,
   maxHeight: 540,
   clipBias: 0.0005,
-  multisample: 4,
+  multisample: 0,
   movePosSqThreshold: 1e-6,
   moveQuatDotThreshold: 0.999999995,
   moveFovThreshold: 1e-4,
