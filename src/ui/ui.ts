@@ -175,6 +175,10 @@ function bindToolbarEvents(opts: {
     const heightPx = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
     document.documentElement.style.setProperty('--tools-h', `${heightPx}px`);
   }).observe(byId('tools'));
+  new ResizeObserver(([entry]) => {
+    const heightPx = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+    document.documentElement.style.setProperty('--actions-h', `${heightPx}px`);
+  }).observe(byId('actions'));
 
   byId('btn-labels').addEventListener('click', () => handlers.labels());
   byId('btn-look').addEventListener('click', () => handlers.look());

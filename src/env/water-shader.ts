@@ -141,20 +141,21 @@ export function createWaterShader() {
           refl = mix( sky, planar, uReflect );
         }
         float tone = vnoise( p * 0.004 + 3.0 );
-        // luminous jade shallows along the riverbanks and islets, deep emerald-teal in the channel
-        float bankDist = abs( fl.y ) + ( vnoise( p * 0.018 + 4.1 ) - 0.5 ) * 28.0;
-        float shallowBand = wf * smoothstep( 62.0, 162.0, bankDist );
-        float bodyMix = clamp( ndv * ndv * 0.52 + tone * 0.28 + shallowBand * 0.58, 0.0, 1.0 );
-        vec3 shallowCol = mix( uShallow, uShallow * vec3( 0.94, 1.14, 1.08 ), shallowBand * ( 1.0 - 0.7 * uGlow ) );
+        // subtle jade shallows near the banks, blending organically into the deeper emerald-teal channel
+        float bankNoise = ( vnoise( p * 0.012 + 4.1 ) - 0.5 ) * 55.0 + ( vnoise( p * 0.031 - 1.7 ) - 0.5 ) * 22.0;
+        float bankDist = abs( fl.y ) + bankNoise;
+        float shallowBand = wf * smoothstep( 110.0, 230.0, bankDist );
+        float bodyMix = clamp( ndv * ndv * 0.54 + tone * 0.30 + shallowBand * 0.22, 0.0, 1.0 );
+        vec3 shallowCol = mix( uShallow, uShallow * vec3( 0.97, 1.05, 1.02 ), shallowBand * ( 1.0 - 0.7 * uGlow ) );
         vec3 body = mix( uDeep, shallowCol, bodyMix );
         vec3 col = mix( body, refl, fres * mix( 0.72, 0.68, uRain ) ); // the river keeps some of its own jade under the sky it mirrors
 
         // gentle animated shoreline ripples near the banks
-        float shoreZone = wf * smoothstep( 104.0, 174.0, bankDist );
+        float shoreZone = wf * smoothstep( 155.0, 215.0, bankDist );
         float shoreWave = sin( bankDist * 0.55 - uTime * 1.15 + vnoise( p * 0.06 ) * 4.8 );
-        float shoreFoam = smoothstep( 0.76, 0.96, shoreWave ) * shoreZone * smoothstep( 920.0, 90.0, dist ) * ( 1.0 - uRain * 0.55 );
+        float shoreFoam = smoothstep( 0.78, 0.96, shoreWave ) * shoreZone * smoothstep( 920.0, 90.0, dist ) * ( 1.0 - uRain * 0.55 );
         vec3 foamCol = mix( mix( uShallow, vec3( 1.0 ), 0.68 ), uSkyHorizon, 0.3 );
-        col = mix( col, foamCol, shoreFoam * mix( 0.22, 0.09, uGlow ) );
+        col = mix( col, foamCol, shoreFoam * mix( 0.10, 0.04, uGlow ) );
 
         // sun path: a broad path of light, broken by the wavelets into sharp glints close by
         float sd = max( dot( R, uSunDir ), 0.0 );
