@@ -95,13 +95,12 @@ vec3 hueRoomC = vec3( 1.0 ); // the room seen through a lit window
   // the leaf cards (aKind 2, see PART in foliage.js) carry the atlas, a grey pattern whose mean is about 0.45 (linear):
   // bring it back to 1, so a crown shows its own colour rather than a third of it
   if ( vKind > 1.5 ) diffuseColor.rgb *= 2.2;
-  // leaf clumps: two scales of mottling plus a hemisphere crown gradient (warm sunlit top → cool deep-green underside)
-  float leafA = hueNoise( vWPos.xz * 1.9 + vWPos.y * 1.3 );
-  float leafB = hueNoise( vWPos.xz * 6.0 - vWPos.y * 4.0 );
-  float leafC = hueNoise( vWPos.xz * 13.0 + vWPos.y * 9.0 );
-  float leaf = leafA * 0.5 + leafB * 0.3 + leafC * 0.2;
+  // velvety maquette canopy mottling + hemisphere crown gradient (warm sunlit top → cool deep-green underside)
+  float leafA = hueNoise( vWPos.xz * 1.4 + vWPos.y * 1.1 );
+  float leafB = hueNoise( vWPos.xz * 4.2 - vWPos.y * 3.0 );
+  float leaf = leafA * 0.65 + leafB * 0.35;
   float crownTop = smoothstep( -0.35, 0.78, hueN.y );
-  diffuseColor.rgb *= ( 0.62 + 0.74 * leaf ) * mix( 0.84, 1.12, crownTop );
+  diffuseColor.rgb *= ( 0.80 + 0.38 * leaf ) * mix( 0.82, 1.14, crownTop );
   // sunlit crown tops go warmer and yellower, shaded undersides and hollows go cooler teal-green
   float sunWarm = clamp( leaf * 0.65 + crownTop * 0.45, 0.0, 1.0 );
   diffuseColor.rgb = mix( diffuseColor.rgb * vec3( 0.74, 0.91, 1.06 ), diffuseColor.rgb * vec3( 1.15, 1.09, 0.78 ), smoothstep( 0.28, 0.78, sunWarm ) );

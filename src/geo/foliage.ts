@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { hex, shade, chunked, rand, pick } from './buf.ts';
-import { cityMaterial, enc, foliageDepthMaterial, patch } from './materials.ts';
+import { cityMaterial, enc, foliageDepthMaterial } from './materials.ts';
 import { rise } from './terrain.ts';
 import { LAND_Y, quality } from '../config.ts';
 import { lodAdd } from './lod.ts';
 import { inCitadel, inHills } from './districts.ts';
-import { createLeafAtlas, LEAF_UV, SOLID_UV } from './foliage-atlas.ts';
+import { SOLID_UV } from './foliage-atlas.ts';
 
 // Trees are built from leaf-cluster cards gathered into clumps on forked limbs, lit with rounded "puffball" normals
 // so each crown shades as one soft mass, cut out by an alpha texture.
@@ -107,45 +107,39 @@ function addLimb(soup: TreeSoup, start: number[], end: number[], r0: number, r1:
   }
 }
 
-function addLeafCard(soup: TreeSoup, center: number[], normal: number[], roll: number, halfU: number, halfV: number, uvRect: readonly number[], lightFn: (pt: number[]) => [number[], number], tint?: number[], flip = false, upVec: number[] | null = null) {
-  let tangent: number[];
-  if (upVec) {
-    tangent = norm3(cross3(upVec, normal));
-  } else {
-    tangent = cross3(normal, [0, 1, 0]);
-    if (Math.hypot(tangent[0], tangent[1], tangent[2]) < 0.1) tangent = [1, 0, 0];
-    tangent = norm3(tangent);
-  }
-  const bitangent = upVec ? norm3(cross3(normal, tangent)) : cross3(normal, tangent);
-  const cosR = Math.cos(roll), sinR = Math.sin(roll);
-  const axisU = [tangent[0] * cosR + bitangent[0] * sinR, tangent[1] * cosR + bitangent[1] * sinR, tangent[2] * cosR + bitangent[2] * sinR];
-  const axisV = [bitangent[0] * cosR - tangent[0] * sinR, bitangent[1] * cosR - tangent[1] * sinR, bitangent[2] * cosR - tangent[2] * sinR];
-  const corner = (su: number, sv: number) => add3(add3(center, axisU, su * halfU), axisV, sv * halfV);
-  const pts = [corner(-1, -1), corner(1, -1), corner(1, 1), corner(-1, 1)];
-  const [u0, v0, u1, v1] = uvRect;
-  const eps = 0.004;
-  const ua = flip ? u1 - eps : u0 + eps;
-  const ub = flip ? u0 + eps : u1 - eps;
-  const uvs = [[ua, v0 + eps], [ub, v0 + eps], [ub, v1 - eps], [ua, v1 - eps]];
-  const lit = pts.map(lightFn);
-  soup.quad(pts[0], pts[1], pts[2], pts[3], lit.map((entry) => entry[0]), uvs, lit.map((entry) => entry[1]), tint);
-}
+const LOBE_ICO_HI = new THREE.IcosahedronGeometry(1, 1); // 80 tris — smooth architectural-maquette puffball
+const LOBE_ICO_LO = new THREE.IcosahedronGeometry(1, 0); // 20 tris — crisp low-poly puffball for mobile / minor lobes
 
-function addCrownCore(soup: TreeSoup, center: number[], sx: number, sy: number, sz: number, lum = [0.36, 0.38, 0.34]) {
-  const oct = new THREE.OctahedronGeometry(1, 0);
-  const arr = oct.attributes.position.array;
+// Sculpted organic puffball lobe: gently deformed icosahedron with blended crown+lobe puffball normals
+// so every tree canopy reads as a crisp, smooth-shaded architectural maquette mass with zero alpha shimmer.
+function addMaquetteLobe(
+  soup: TreeSoup,
+  center: number[],
+  rx: number,
+  ry: number,
+  rz: number,
+  lightFn: (pt: number[]) => [number[], number],
+  opts: { tint?: number[]; detail?: number; seed?: number; flatBottom?: number } = {},
+) {
+  const { tint, detail = 1, seed = 1, flatBottom = 0.22 } = opts;
+  const src = detail >= 1 ? LOBE_ICO_HI : LOBE_ICO_LO;
+  const arr = src.attributes.position.array;
+  const deform = (x: number, y: number, z: number) => {
+    const bump = 1 + 0.09 * Math.sin(x * 3.7 + seed * 1.9) * Math.cos(z * 3.3 - seed * 2.3) + 0.06 * Math.sin(y * 4.1 + seed * 3.1);
+    const yf = y < 0 ? y * (1 - flatBottom) : y;
+    return [center[0] + x * rx * bump, center[1] + yf * ry * bump, center[2] + z * rz * bump];
+  };
   for (let i = 0; i < arr.length; i += 9) {
-    const verts = [0, 1, 2].map((k) => [center[0] + arr[i + k * 3] * sx, center[1] + arr[i + k * 3 + 1] * sy, center[2] + arr[i + k * 3 + 2] * sz]);
-    soup.tri(verts, verts.map((pt) => [pt[0] - center[0], pt[1] - center[1] + 0.3 * sy, pt[2] - center[2]]), [SOLID_UV, SOLID_UV, SOLID_UV], lum, undefined, PART.CORE);
+    const verts = [0, 1, 2].map((k) => deform(arr[i + k * 3], arr[i + k * 3 + 1], arr[i + k * 3 + 2]));
+    const lit = verts.map(lightFn);
+    soup.tri(verts, lit.map((e) => e[0]), [SOLID_UV, SOLID_UV, SOLID_UV], lit.map((e) => e[1]), tint, PART.CORE);
   }
 }
 
-// Lightweight 8-triangle solid puffball crown for distant/zoomed-out trees (> 1.7 km).
-// Uses SOLID_UV (no alpha-test overdraw) and PART.LEAF (matches foliage shading, wind sway, and ink crown mask).
+// Lightweight 20-triangle solid puffball crown for distant/zoomed-out trees (> 1.7 km).
 function farCrownGeometry(center: number[], radii: number[], tint = [1, 1, 1]) {
   const soup = new TreeSoup();
-  const oct = new THREE.OctahedronGeometry(1, 0);
-  const arr = oct.attributes.position.array;
+  const arr = LOBE_ICO_LO.attributes.position.array;
   for (let i = 0; i < arr.length; i += 9) {
     const verts = [0, 1, 2].map((k) => [
       center[0] + arr[i + k * 3] * radii[0],
@@ -154,60 +148,44 @@ function farCrownGeometry(center: number[], radii: number[], tint = [1, 1, 1]) {
     ]);
     const norms = [0, 1, 2].map((k) => norm3([arr[i + k * 3], arr[i + k * 3 + 1] + 0.45, arr[i + k * 3 + 2]]));
     const lums = [0, 1, 2].map((k) => 0.56 + 0.44 * smooth01((arr[i + k * 3 + 1] + 0.75) / 1.6));
-    soup.tri(verts, norms, [SOLID_UV, SOLID_UV, SOLID_UV], lums, tint, PART.LEAF);
+    soup.tri(verts, norms, [SOLID_UV, SOLID_UV, SOLID_UV], lums, tint, PART.CORE);
   }
   return soup.geometry();
 }
 
-function crownLight(crownCenter: number[], crownRadii: number[], clumpCenter: number[], clumpWeight = 0.45) {
+function crownLight(crownCenter: number[], crownRadii: number[], clumpCenter: number[], clumpWeight = 0.48) {
   return (pt: number[]): [number[], number] => {
     const fromCrown = sub3(pt, crownCenter);
     const fromClump = sub3(pt, clumpCenter);
     const crownNrm = norm3([fromCrown[0] / crownRadii[0], fromCrown[1] / crownRadii[1] + 0.45, fromCrown[2] / crownRadii[2]]);
-    const clumpNrm = norm3([fromClump[0], fromClump[1] + 0.25, fromClump[2]]);
+    const clumpNrm = norm3([fromClump[0], fromClump[1] + 0.28, fromClump[2]]);
     const blendedNrm = norm3(lerp3(crownNrm, clumpNrm, clumpWeight));
     const heightGlow = smooth01((fromCrown[1] / crownRadii[1] + 0.75) / 1.6);
     const outerReach = Math.min(1, Math.hypot(fromCrown[0] / crownRadii[0], fromCrown[1] / crownRadii[1], fromCrown[2] / crownRadii[2]));
-    return [blendedNrm, (0.52 + 0.5 * heightGlow) * (0.8 + 0.3 * outerReach)];
+    return [blendedNrm, (0.56 + 0.48 * heightGlow) * (0.82 + 0.24 * outerReach)];
   };
-}
-
-function addClump(soup: TreeSoup, rnd: () => number, center: number[], radius: number, cardCount: number, uvRect: readonly number[], lightFn: (pt: number[]) => [number[], number], opts: Record<string, any> = {}) {
-  const { tint, squash = 1, sizeK = 1.3, capTilt = 0.35 } = opts;
-  const baseYaw = rnd() * Math.PI;
-  for (let j = 0; j < cardCount; j++) {
-    const isCap = j === cardCount - 1 && cardCount > 1;
-    let normal: number[];
-    if (isCap) {
-      normal = norm3([Math.cos(baseYaw) * capTilt, 1, Math.sin(baseYaw) * capTilt]);
-    } else {
-      const ang = baseYaw + (j / Math.max(1, cardCount - 1)) * Math.PI + (rnd() - 0.5) * 0.3;
-      normal = norm3([Math.cos(ang), (rnd() - 0.3) * 0.5, Math.sin(ang)]);
-    }
-    const offset = [(rnd() - 0.5) * radius * 0.35, (isCap ? 0.18 : (rnd() - 0.5) * 0.2) * radius * squash, (rnd() - 0.5) * radius * 0.35];
-    const halfSize = radius * sizeK * (0.92 + rnd() * 0.2);
-    const cardTint = typeof tint === 'function' ? tint(isCap, j) : tint;
-    addLeafCard(soup, add3(center, offset), normal, rnd() * Math.PI * 2, halfSize, halfSize * (isCap ? 1 : squash), uvRect, lightFn, cardTint, rnd() < 0.5);
-  }
 }
 
 function spreadingGeometry(low: boolean) {
   const soup = new TreeSoup();
   const rnd = makeRng(11);
-  const fork = [0.03, -0.62, 0.02];
-  addLimb(soup, [0, -1.78, 0], fork, 0.16, 0.085, 4);
-  const origin = [0, 0.18, 0], radii = [1.05, 0.7, 1.05];
-  const clumps: [number[], number][] = [];
-  for (let k = 0; k < 3; k++) {
-    const ang = (k / 3) * Math.PI * 2 + 0.4 + (rnd() - 0.5) * 0.5;
-    const rad = 0.58 + rnd() * 0.14;
-    const center = [Math.cos(ang) * rad, rnd() * 0.22, Math.sin(ang) * rad];
-    addLimb(soup, fork, [center[0] * 0.72, center[1] - 0.24, center[2] * 0.72], 0.07, 0.035, 3);
-    clumps.push([center, 0.52 + rnd() * 0.1]);
+  const fork = [0.03, -0.64, 0.02];
+  addLimb(soup, [0, -1.78, 0], fork, 0.16, 0.09, 5);
+  const origin = [0, 0.18, 0], radii = [1.05, 0.72, 1.05];
+  const d = low ? 0 : 1;
+  const lobes: [number[], number, number][] = [];
+  for (let k = 0; k < 4; k++) {
+    const ang = (k / 4) * Math.PI * 2 + 0.35 + (rnd() - 0.5) * 0.42;
+    const rad = 0.50 + rnd() * 0.14;
+    const center = [Math.cos(ang) * rad, -0.02 + rnd() * 0.22, Math.sin(ang) * rad];
+    if (k < 3) addLimb(soup, fork, [center[0] * 0.72, center[1] - 0.22, center[2] * 0.72], 0.07, 0.035, 4);
+    const r = 0.52 + rnd() * 0.1;
+    lobes.push([center, r, r * 0.78]);
   }
-  clumps.push([[0.05, 0.46, -0.04], 0.52]);
-  addCrownCore(soup, [0, 0.12, 0], 0.5, 0.34, 0.5);
-  for (const [center, rad] of clumps) addClump(soup, rnd, center, rad, low ? 2 : 3, LEAF_UV.broad, crownLight(origin, radii, center));
+  lobes.push([[0.04, 0.42, -0.04], 0.58, 0.46]);
+  lobes.forEach(([center, rx, ry], idx) => {
+    addMaquetteLobe(soup, center, rx, ry, rx, crownLight(origin, radii, center), { detail: d, seed: idx + 1 });
+  });
   return soup.geometry();
 }
 
@@ -223,34 +201,39 @@ function banyanGeometry(low: boolean) {
     const rad = 0.1 + rnd() * 0.04;
     addLimb(soup, [Math.cos(ang) * rad, -1.79, Math.sin(ang) * rad], [Math.cos(ang) * 0.05, -0.95, Math.sin(ang) * 0.05], 0.022, 0.014, 3);
   }
-  const origin = [0, -0.02, 0], radii = [1.1, 0.5, 1.1];
-  const clumps: [number[], number][] = [];
+  const origin = [0, -0.02, 0], radii = [1.12, 0.52, 1.12];
+  const d = low ? 0 : 1;
   const limbCount = low ? 5 : 6;
   for (let k = 0; k < limbCount; k++) {
-    const ang = (k / limbCount) * Math.PI * 2 + (rnd() - 0.5) * 0.4;
-    const rad = 0.6 + rnd() * 0.16;
-    const center = [Math.cos(ang) * rad, -0.12 + rnd() * 0.16, Math.sin(ang) * rad];
+    const ang = (k / limbCount) * Math.PI * 2 + (rnd() - 0.5) * 0.35;
+    const rad = 0.58 + rnd() * 0.14;
+    const center = [Math.cos(ang) * rad, -0.1 + rnd() * 0.14, Math.sin(ang) * rad];
     addLimb(soup, fork, [center[0] * 0.75, center[1] - 0.18, center[2] * 0.75], 0.05, 0.026, 3);
-    clumps.push([center, 0.42 + rnd() * 0.08]);
+    const r = 0.44 + rnd() * 0.08;
+    addMaquetteLobe(soup, center, r, r * 0.64, r, crownLight(origin, radii, center), { detail: d, seed: k + 10, flatBottom: 0.32 });
   }
-  clumps.push([[0.12, 0.26, -0.08], 0.46], [[-0.2, 0.2, 0.18], 0.42]);
-  addCrownCore(soup, [0, -0.02, 0], 0.66, 0.28, 0.66);
-  for (const [center, rad] of clumps) addClump(soup, rnd, center, rad, low ? 2 : 3, LEAF_UV.broad, crownLight(origin, radii, center), { squash: 0.85 });
+  addMaquetteLobe(soup, [0.1, 0.22, -0.06], 0.56, 0.36, 0.56, crownLight(origin, radii, [0.1, 0.22, -0.06]), { detail: d, seed: 21, flatBottom: 0.28 });
+  addMaquetteLobe(soup, [-0.22, 0.16, 0.16], 0.48, 0.32, 0.48, crownLight(origin, radii, [-0.22, 0.16, 0.16]), { detail: d, seed: 22, flatBottom: 0.28 });
   return soup.geometry();
 }
 
 function uprightGeometry(low: boolean) {
   const soup = new TreeSoup();
-  const rnd = makeRng(29);
-  const fork = [0.02, -0.55, 0];
-  addLimb(soup, [0, -1.78, 0], fork, 0.12, 0.08, 4);
-  const origin = [0, 0.35, 0], radii = [0.8, 1.0, 0.8];
-  const clumps: [number[], number][] = [[[0.26, -0.05, 0.08], 0.45], [[-0.24, 0.3, -0.1], 0.46], [[0.08, 0.68, 0.14], 0.42]];
-  if (!low) clumps.push([[-0.06, 1.0, -0.06], 0.32]);
-  addLimb(soup, fork, [0.2, -0.2, 0.06], 0.06, 0.035, 3);
-  addLimb(soup, fork, [-0.12, 0.42, -0.05], 0.065, 0.03, 3);
-  addCrownCore(soup, [0, 0.32, 0], 0.32, 0.5, 0.32);
-  for (const [center, rad] of clumps) addClump(soup, rnd, center, rad, low ? 2 : 3, LEAF_UV.broad, crownLight(origin, radii, center));
+  const fork = [0.02, -0.58, 0];
+  addLimb(soup, [0, -1.78, 0], fork, 0.12, 0.08, 5);
+  const origin = [0, 0.35, 0], radii = [0.78, 1.0, 0.78];
+  const d = low ? 0 : 1;
+  addLimb(soup, fork, [0.18, -0.2, 0.06], 0.06, 0.035, 3);
+  addLimb(soup, fork, [-0.12, 0.38, -0.05], 0.065, 0.03, 3);
+  const lobes: [number[], number, number][] = [
+    [[0.22, -0.06, 0.1], 0.48, 0.44],
+    [[-0.2, 0.24, -0.1], 0.5, 0.48],
+    [[0.08, 0.64, 0.12], 0.45, 0.46],
+    [[-0.04, 0.96, -0.04], 0.34, 0.38],
+  ];
+  lobes.forEach(([center, rx, ry], idx) => {
+    addMaquetteLobe(soup, center, rx, ry, rx, crownLight(origin, radii, center), { detail: d, seed: idx + 30 });
+  });
   return soup.geometry();
 }
 
@@ -259,50 +242,44 @@ function flamboyantGeometry(low: boolean) {
   const rnd = makeRng(53);
   const fork = [0, -0.85, 0];
   const flameBark = [0.4, 0.33, 0.27];
-  addLimb(soup, [0, -1.78, 0], fork, 0.13, 0.1, 4, flameBark);
-  const origin = [0, 0.05, 0], radii = [1.15, 0.55, 1.15];
+  addLimb(soup, [0, -1.78, 0], fork, 0.13, 0.1, 5, flameBark);
+  const origin = [0, 0.05, 0], radii = [1.14, 0.54, 1.14];
+  const d = low ? 0 : 1;
   const count = low ? 4 : 5;
-  const clumps: number[][] = [];
   for (let k = 0; k < count; k++) {
-    const ang = (k / count) * Math.PI * 2 + (rnd() - 0.5) * 0.4;
-    const rad = 0.62 + rnd() * 0.15;
-    const center = [Math.cos(ang) * rad, -0.08 + rnd() * 0.16, Math.sin(ang) * rad];
+    const ang = (k / count) * Math.PI * 2 + (rnd() - 0.5) * 0.35;
+    const rad = 0.58 + rnd() * 0.14;
+    const center = [Math.cos(ang) * rad, -0.1 + rnd() * 0.12, Math.sin(ang) * rad];
     if (k < 3) addLimb(soup, fork, [center[0] * 0.8, center[1] - 0.12, center[2] * 0.8], 0.075, 0.035, 3, flameBark);
-    clumps.push(center);
+    // lower green foliage pad
+    addMaquetteLobe(soup, center, 0.48, 0.24, 0.48, crownLight(origin, radii, center, 0.35), { detail: d, seed: k + 40, tint: FLAME_LEAF, flatBottom: 0.38 });
+    // upper crimson-orange blossom dome
+    const topC = [center[0] * 0.95, center[1] + 0.16, center[2] * 0.95];
+    const bloomTint = k % 2 === 0 ? FLAME_FLOWER : FLAME_FLOWER2;
+    addMaquetteLobe(soup, topC, 0.44, 0.22, 0.44, crownLight(origin, radii, topC, 0.3), { detail: d, seed: k + 50, tint: bloomTint, flatBottom: 0.35 });
   }
-  addCrownCore(soup, [0, -0.05, 0], 0.72, 0.24, 0.72, [0.22, 0.26, 0.2]);
-  const pickTint = (isCap: boolean, j: number) => (isCap || (j === 0 && rnd() < 0.6) ? (rnd() < 0.5 ? FLAME_FLOWER : FLAME_FLOWER2) : FLAME_LEAF);
-  for (const center of clumps) {
-    addClump(soup, rnd, center, 0.48, low ? 2 : 3, LEAF_UV.frond, crownLight(origin, radii, center, 0.3), { tint: pickTint, squash: 0.72, sizeK: 1.25, capTilt: 0.3 });
-  }
-  addLeafCard(soup, [0, 0.24, 0], norm3([0.1, 1, -0.05]), rnd() * 6.28, 0.62, 0.62, LEAF_UV.broad, crownLight(origin, radii, [0, 0.2, 0], 0.2), FLAME_FLOWER);
+  addMaquetteLobe(soup, [0, 0.22, 0], 0.56, 0.26, 0.56, crownLight(origin, radii, [0, 0.22, 0], 0.25), { detail: d, seed: 60, tint: FLAME_FLOWER, flatBottom: 0.32 });
   return soup.geometry();
 }
 
 function willowGeometry(low: boolean) {
   const soup = new TreeSoup();
   const rnd = makeRng(71);
-  const top = [0.32, -0.25, 0];
-  addLimb(soup, [0, -1.78, 0], [0.12, -1.0, 0], 0.11, 0.09, 4);
-  addLimb(soup, [0.12, -1.0, 0], top, 0.09, 0.07, 4);
-  const origin = [0.32, 0.1, 0], radii = [0.9, 0.9, 0.9];
-  addLimb(soup, top, [0.75, 0.25, 0.2], 0.05, 0.025, 3);
-  addLimb(soup, top, [0.0, 0.32, -0.25], 0.05, 0.025, 3);
-  addClump(soup, rnd, [0.34, 0.32, 0], 0.42, low ? 1 : 2, LEAF_UV.willow, crownLight(origin, radii, [0.34, 0.32, 0]), { capTilt: 0.6 });
-  const curtainCount = low ? 6 : 9;
-  for (let k = 0; k < curtainCount; k++) {
-    const ang = (k / curtainCount) * Math.PI * 2 + (rnd() - 0.5) * 0.3;
-    const rad = 0.5 + rnd() * 0.22;
-    const hang = 0.62 + rnd() * 0.28;
-    const yTop = 0.42 + rnd() * 0.12;
-    const center = [origin[0] + Math.cos(ang) * rad, yTop - hang, origin[2] + Math.sin(ang) * rad];
-    const normal = norm3([Math.cos(ang), 0.22, Math.sin(ang)]);
-    const lightFn = (pt: number[]): [number[], number] => {
-      const delta = sub3(pt, origin);
-      const nrm = norm3([delta[0], 0.35 + (pt[1] - center[1]) * 0.3, delta[2]]);
-      return [nrm, (0.5 + 0.5 * smooth01((pt[1] + 1.1) / 1.7)) * 0.95];
-    };
-    addLeafCard(soup, center, normal, 0, 0.36 + rnd() * 0.1, hang, LEAF_UV.willow, lightFn, [1, 1, 1], rnd() < 0.5, [0, 1, 0]);
+  const top = [0.3, -0.26, 0];
+  addLimb(soup, [0, -1.78, 0], [0.12, -1.0, 0], 0.11, 0.09, 5);
+  addLimb(soup, [0.12, -1.0, 0], top, 0.09, 0.07, 5);
+  const origin = [0.32, 0.08, 0], radii = [0.9, 0.9, 0.9];
+  const d = low ? 0 : 1;
+  addLimb(soup, top, [0.7, 0.22, 0.18], 0.05, 0.025, 3);
+  addLimb(soup, top, [0.02, 0.28, -0.22], 0.05, 0.025, 3);
+  // Sculpted weeping dome + elongated drooping foliage curtains around the perimeter
+  addMaquetteLobe(soup, [0.32, 0.36, 0], 0.62, 0.42, 0.62, crownLight(origin, radii, [0.32, 0.36, 0]), { detail: d, seed: 70 });
+  const drapes = low ? 4 : 6;
+  for (let k = 0; k < drapes; k++) {
+    const ang = (k / drapes) * Math.PI * 2 + (rnd() - 0.5) * 0.28;
+    const rad = 0.48 + rnd() * 0.16;
+    const center = [origin[0] + Math.cos(ang) * rad, -0.14 - rnd() * 0.14, origin[2] + Math.sin(ang) * rad];
+    addMaquetteLobe(soup, center, 0.26, 0.58 + rnd() * 0.14, 0.26, crownLight(origin, radii, center, 0.4), { detail: 0, seed: k + 75, flatBottom: 0.05 });
   }
   return soup.geometry();
 }
@@ -311,25 +288,19 @@ function pineGeometry(low: boolean) {
   const soup = new TreeSoup();
   const rnd = makeRng(47);
   const pineBark = [0.42, 0.31, 0.25];
-  const mid = [0.09, -0.35, 0.02], top = [0.03, 0.95, -0.02];
-  addLimb(soup, [0, -1.78, 0], mid, 0.08, 0.06, 4, pineBark);
+  const mid = [0.08, -0.35, 0.02], top = [0.03, 0.95, -0.02];
+  addLimb(soup, [0, -1.78, 0], mid, 0.08, 0.06, 5, pineBark);
   addLimb(soup, mid, top, 0.06, 0.03, 4, pineBark);
-  const tiers = low ? [[0.3, 0.8], [0.72, 0.58]] : [[0.16, 0.86], [0.46, 0.78], [0.74, 0.62], [0.98, 0.4]];
-  tiers.forEach(([y, rad], k) => {
-    const ang = k * 2.3 + rnd() * 0.6;
-    const ox = Math.cos(ang) * 0.2, oz = Math.sin(ang) * 0.2;
+  const origin = [0.05, 0.55, 0], radii = [0.88, 0.68, 0.88];
+  const d = low ? 0 : 1;
+  const tiers = low ? [[0.24, 0.78, 0.26], [0.7, 0.56, 0.24]] : [[0.14, 0.84, 0.24], [0.44, 0.72, 0.24], [0.72, 0.56, 0.22], [0.96, 0.36, 0.2]];
+  tiers.forEach(([y, rad, h], k) => {
+    const ang = k * 2.3 + rnd() * 0.5;
+    const ox = Math.cos(ang) * 0.14, oz = Math.sin(ang) * 0.14;
     const trunkPt = lerp3(mid, top, (y + 0.35) / 1.3);
     const center = [trunkPt[0] + ox, y, trunkPt[2] + oz];
-    if (k < tiers.length - 2) addLimb(soup, [center[0] - ox, y - 0.06, center[2] - oz], [center[0] + ox * 2.2, y - 0.02, center[2] + oz * 2.2], 0.025, 0.012, 3, pineBark);
-    const lightFn = (pt: number[]): [number[], number] => {
-      const delta = sub3(pt, center);
-      return [norm3([delta[0] * 0.8, 0.9, delta[2] * 0.8]), 0.5 + 0.5 * smooth01((pt[1] - center[1] + 0.12) / 0.24) * (0.75 + 0.25 * y)];
-    };
-    addLeafCard(soup, [center[0], center[1] + 0.03, center[2]], norm3([0.05, 1, 0.04]), rnd() * 6.28, rad, rad, LEAF_UV.pine, lightFn, [1, 1, 1]);
-    for (let j = 0; j < (low ? 1 : 2); j++) {
-      const crossAng = ang + (j * Math.PI) / 2;
-      addLeafCard(soup, [center[0], center[1] - 0.04, center[2]], norm3([Math.cos(crossAng), 0.55, Math.sin(crossAng)]), 0, rad * 0.95, rad * 0.36, LEAF_UV.pine, lightFn, [0.9, 0.92, 0.9], false, [0, 1, 0]);
-    }
+    if (k < tiers.length - 2) addLimb(soup, [center[0] - ox, y - 0.06, center[2] - oz], [center[0] + ox * 2.0, y - 0.02, center[2] + oz * 2.0], 0.025, 0.012, 3, pineBark);
+    addMaquetteLobe(soup, center, rad, h, rad, crownLight(origin, radii, center, 0.42), { detail: d, seed: k + 90, flatBottom: 0.45 });
   });
   return soup.geometry();
 }
@@ -338,31 +309,27 @@ function palmGeometry(low: boolean) {
   const soup = new TreeSoup();
   const palmBark = [0.5, 0.46, 0.4];
   const mid = [0.06, -0.55, 0], top = [0.02, 0.62, 0];
-  addLimb(soup, [0, -1.78, 0], mid, 0.045, 0.038, 3, palmBark);
-  addLimb(soup, mid, top, 0.038, 0.03, 3, palmBark);
+  addLimb(soup, [0, -1.78, 0], mid, 0.048, 0.04, 4, palmBark);
+  addLimb(soup, mid, top, 0.04, 0.032, 4, palmBark);
   const frondCount = low ? 7 : 8;
   const segs = low ? 2 : 3;
-  const [u0, v0, u1, v1] = LEAF_UV.palm;
   for (let i = 0; i < frondCount; i++) {
     const ang = (i / frondCount) * Math.PI * 2 + (i % 2) * 0.2;
     const lift = 0.55 - (i % 3) * 0.18;
     const dir = [Math.cos(ang), 0, Math.sin(ang)];
     const side = [-dir[2], 0, dir[0]];
     const pointAt = (t: number) => [top[0] + dir[0] * 0.98 * t, top[1] + lift * 0.9 * t - (0.55 + lift * 0.4) * t * t, top[2] + dir[2] * 0.98 * t];
-    const widthAt = (t: number) => 0.06 + 0.24 * Math.sin(Math.PI * Math.min(1, t * 1.05));
+    const widthAt = (t: number) => 0.05 + 0.18 * Math.sin(Math.PI * Math.min(1, t * 1.05));
     for (let k = 0; k < segs; k++) {
       const t0 = k / segs, t1 = (k + 1) / segs;
       const p0 = pointAt(t0), p1 = pointAt(t1);
       const w0 = widthAt(t0), w1 = widthAt(t1);
       const nrm = norm3([dir[0] * 0.35, 1, dir[2] * 0.35]);
-      const va = v0 + (v1 - v0) * t0, vb = v0 + (v1 - v0) * t1;
-      const droop = (pt: number[], w: number, sgn: number) => [pt[0] + side[0] * w * sgn, pt[1] - w * 0.25, pt[2] + side[2] * w * sgn];
-      soup.quad(
-        droop(p0, w0, -1), droop(p0, w0, 1), droop(p1, w1, 1), droop(p1, w1, -1),
-        [nrm, nrm, nrm, nrm],
-        [[u0 + 0.004, va], [u1 - 0.004, va], [u1 - 0.004, vb], [u0 + 0.004, vb]],
-        [0.68 + 0.3 * t0, 0.68 + 0.3 * t0, 0.68 + 0.3 * t1, 0.68 + 0.3 * t1],
-      );
+      const droop = (pt: number[], w: number, sgn: number) => [pt[0] + side[0] * w * sgn, pt[1] - w * 0.28, pt[2] + side[2] * w * sgn];
+      const q0 = droop(p0, w0, -1), q1 = droop(p0, w0, 1), q2 = droop(p1, w1, 1), q3 = droop(p1, w1, -1);
+      const lums = [0.68 + 0.3 * t0, 0.68 + 0.3 * t0, 0.68 + 0.3 * t1, 0.68 + 0.3 * t1];
+      soup.quad(q0, q1, q2, q3, [nrm, nrm, nrm, nrm], [SOLID_UV, SOLID_UV, SOLID_UV, SOLID_UV], lums, undefined, PART.CORE);
+      soup.quad(q3, q2, q1, q0, [nrm, nrm, nrm, nrm], [SOLID_UV, SOLID_UV, SOLID_UV, SOLID_UV], lums.map((v) => v * 0.8), undefined, PART.CORE);
     }
   }
   return soup.geometry();
@@ -418,34 +385,16 @@ function buildWaterProximityLookup(data: any) {
   };
 }
 
-function createFoliageMaterial(tex: THREE.CanvasTexture) {
-  const mat = cityMaterial({ foliage: true, map: tex, alphaTest: 0.42, side: THREE.DoubleSide });
-  mat.alphaToCoverage = true;
-  const baseCompile = mat.onBeforeCompile;
-  mat.onBeforeCompile = (shader: any, ...rest: any[]) => {
-    (baseCompile as any)(shader, ...rest);
-    shader.fragmentShader = patch(shader.fragmentShader).replace(
-      '#include <normal_fragment_begin>',
-      'float faceDirection = 1.0;\nvec3 normal = normalize( vNormal );\nvec3 nonPerturbedNormal = normal;',
-    ).src;
-    shader.fragmentShader = patch(shader.fragmentShader).replace('#include <alphatest_fragment>', `
-      #ifdef USE_MAP
-      {
-        vec2 hueTx = vMapUv * 1024.0;
-        float hueMip = 0.5 * log2( max( 1.0, max( dot( dFdx( hueTx ), dFdx( hueTx ) ), dot( dFdy( hueTx ), dFdy( hueTx ) ) ) ) );
-        diffuseColor.a *= 1.0 + hueMip * 0.3;
-      }
-      #endif
-      #include <alphatest_fragment>`).src;
-  };
-  mat.customProgramCacheKey = () => 'hue-foliage-cards-3';
+function createFoliageMaterial() {
+  // Pure solid sculpted maquette canopies: zero alpha-cutout shimmer, zero alpha-test overdraw, crisp shadows.
+  const mat = cityMaterial({ foliage: true, side: THREE.FrontSide });
+  mat.customProgramCacheKey = () => 'hue-foliage-maquette-1';
   return mat;
 }
 
 export function treePlanter(data: any, group: THREE.Group, off: any = null, lift: any = null) {
-  const tex = createLeafAtlas();
-  const mat = createFoliageMaterial(tex);
-  const depthMat = foliageDepthMaterial({ map: tex, alphaTest: 0.4, side: THREE.DoubleSide });
+  const mat = createFoliageMaterial();
+  const depthMat = foliageDepthMaterial({});
   const low = quality.low;
   const geos: Record<string, THREE.BufferGeometry> = {
     spreading: spreadingGeometry(low),
