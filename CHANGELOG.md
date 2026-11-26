@@ -8,6 +8,39 @@ Each release of the Huế explorer, newest first. Version numbers follow [Semant
 
 The version shown in the app's About dialog (ⓘ) is the one below, with the commit it was built from.
 
+## 1.2.0 (2026-11-26)
+
+### Added
+- **models**: Sculpted multi-lobe maquette foliage (Track 1) (#126)
+- Add middle-drag orbit controls and rotated street name labels (#111)
+- Capture current view at full resolution (#110)
+- **landmarks**: Polish all 83 models, global shaders, 83/83 hero GLBs & alignment fixes (#106)
+
+### Changed
+- **render,foliage**: Restore 56 fps and full resolution during panning (#130)
+- 3D Stage 4C: diorama tilt-shift depth-of-field and painterly sky clouds (#125)
+- 3D Stage 4B: seasonal Hue modes (Spring, Summer, Autumn, Winter) (#123)
+- 3D Stage 3: painterly foliage crown shading and sepia-ink watercolor mode (#121)
+- 3D Stage 2: Perfume River jade shallows, bank ripples, and morning mist (#120)
+- 3D Stage 1: sunlit maquette palette, lighting contrast, and AO grade (#119)
+- Redesign UI with translucent frosted-glass HUD and time-of-day slider (#117)
+- Automate rolling semantic version release PR workflow (#114)
+- Precompute junctions/boats, binary data codec, lazy places, and runtime wins (#113)
+- Free mesh arrays after GPU upload and cut build hotspots (#112)
+- Decompose builders, extract constants, and clean up TypeScript across src/ (#109)
+- Full TypeScript migration of src/ (#108)
+- Clean architecture — prune dead builders, modularize life & shaders, organize scripts/ (#107)
+- **render**: Optimize WebGL render pipeline & add 4-tier adaptive quality (#105)
+- **heroes**: Indexed Uint8 GLB compression (-77%), modular builder, check:heroes, LRU & Vite code-splitting (#104)
+
+### Fixed
+- **render,water**: 4x MSAA and 5-tap reflection filter to stop bridge flicker (#129)
+- **ui,water**: Fix card/actions overlap, river shallow stripe, and bridge reflection (#127)
+- **render,boats**: Band-limit far procedural noise, calm distant SSAO, and fix dragon boat/sampan geometry (#124)
+- **roads**: Fix class 4-5 bridge joints, Gia Hoi east notch, dead-end riverbank road, and Ngo Mon footways (#122)
+- **shaders,ui**: Prevent far-origin hash precision overflow and card/hint overlap (#118)
+- **render**: Eliminate zoomed-out flickering and cut overview lag (#116)
+
 ## 1.1.0 (2026-11-24)
 
 Full hero ornament coverage across all 83 Huế landmarks via self-hosted lazy-loaded `.glb` assets, with zero startup bundle increase and zero external network requests.
