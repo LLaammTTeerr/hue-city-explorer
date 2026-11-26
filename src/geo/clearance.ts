@@ -15,7 +15,9 @@ const cellKey = (x, z) => (x + 32768) * 65536 + (z + 32768);
 // rise above the waterline, lie below top and (with keep) pass keep(x0, z0, x1, z1) are kept. Ground and water sheets
 // (wider than 400 m) are left out: the boats' own water and the land are not obstacles here.
 export function makeObstacles({ top = Infinity, keep = null } = {}) {
-  const tri = [], tags = [], grid = new Map();
+  let tri = new Float32Array(1 << 20);
+  let triLen = 0;
+  const tags = [], grid = new Map();
   return {
     add(v, tag = null, o = 0) {
       let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity, y0 = Infinity, y1 = -Infinity;
@@ -26,7 +28,13 @@ export function makeObstacles({ top = Infinity, keep = null } = {}) {
       if (y1 < WATERLINE || y0 > top || x1 - x0 > 400 || z1 - z0 > 400 || !(x1 >= x0)) return;
       if (keep && !keep(x0, z0, x1, z1)) return;
       const i = tags.length;
-      for (let k = o; k < o + 9; k++) tri.push(v[k]);
+      if (triLen + 9 > tri.length) {
+        const next = new Float32Array(tri.length * 2);
+        next.set(tri);
+        tri = next;
+      }
+      for (let k = 0; k < 9; k++) tri[triLen + k] = v[o + k];
+      triLen += 9;
       tags.push(tag);
       for (let x = Math.floor(x0 / G); x <= Math.floor(x1 / G); x++) for (let z = Math.floor(z0 / G); z <= Math.floor(z1 / G); z++) {
         const k = cellKey(x, z);
