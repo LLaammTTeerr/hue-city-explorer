@@ -11,7 +11,7 @@ const REFLECT_CFG = {
   maxWidth: 960,
   maxHeight: 540,
   clipBias: 0.0005,
-  multisample: 2,
+  multisample: 4,
   movePosSqThreshold: 1e-6,
   moveQuatDotThreshold: 0.999999995,
   moveFovThreshold: 1e-4,
@@ -47,13 +47,16 @@ function createRiverMesh(geo: THREE.PlaneGeometry, shader: ReturnType<typeof cre
 
   const targetWidth = (w: number, ratio: number) => Math.max(2, Math.min(REFLECT_CFG.maxWidth, Math.round(w * ratio * REFLECT_CFG.scale)));
   const targetHeight = (h: number, ratio: number) => Math.max(2, Math.min(REFLECT_CFG.maxHeight, Math.round(h * ratio * REFLECT_CFG.scale)));
+  const initW = targetWidth(innerWidth, quality.pixelRatio);
+  const initH = targetHeight(innerHeight, quality.pixelRatio);
   const reflector: any = new Reflector(geo, {
     shader,
-    textureWidth: targetWidth(innerWidth, quality.pixelRatio),
-    textureHeight: targetHeight(innerHeight, quality.pixelRatio),
+    textureWidth: initW,
+    textureHeight: initH,
     clipBias: REFLECT_CFG.clipBias,
     multisample: REFLECT_CFG.multisample,
   });
+  reflector.material.uniforms.uReflPx.value.set(1 / initW, 1 / initH);
 
   // Update the planar water reflection every frame while moving (avoiding multi-frame stutter), skip when the camera
   // is still in daytime, and fade smoothly to analytic sky reflection at high altitude where Fresnel is negligible.
@@ -76,7 +79,10 @@ function createRiverMesh(geo: THREE.PlaneGeometry, shader: ReturnType<typeof cre
     const ratio = typeof ratioOrRenderer === 'object' && ratioOrRenderer?.getPixelRatio
       ? ratioOrRenderer.getPixelRatio()
       : ratioOrRenderer;
-    reflector.getRenderTarget().setSize(targetWidth(width, ratio), targetHeight(height, ratio));
+    const rw = targetWidth(width, ratio);
+    const rh = targetHeight(height, ratio);
+    reflector.getRenderTarget().setSize(rw, rh);
+    reflector.material.uniforms.uReflPx.value.set(1 / rw, 1 / rh);
     hasFrame = false;
   };
   reflector.onBeforeRender = function (...args: any[]) {
