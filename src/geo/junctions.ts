@@ -1,6 +1,7 @@
 // Junctions: where carriageways meet, the junction box is plain asphalt.
 // junctionHoles() finds enclosed patches; markingGuard() says where a road's markings may run;
 // slivers() finds narrow unwalkable pavement strips; asphaltTest() checks if a point sits on asphalt.
+import { CellGrid } from './cellgrid.ts';
 
 export const HOLE_MAX = 150; // m²: an enclosed patch smaller than this is part of the junction, not an island
 export const ISLAND_MIN = 10; // m²: an enclosed patch beside a slip road is a traffic island from this size up
@@ -394,13 +395,26 @@ export function slivers(roads: any[]) {
 
 export function asphaltTest(ribbons: { L: number[][]; R: number[][] }[], holeCells: Set<number>) {
   const triGrid = new Map<number, [number[], number[], number[]][]>();
+  const coarse = new CellGrid();
+  const invShift = 1 / 1048576;
+  const cellsPerCoarse = ASPHALT_GRID_M / CELL; // 16 half-metre cells per 8 m coarse cell
+  for (const key of holeCells) {
+    const ci = Math.round(key * invShift);
+    const cj = key - ci * 1048576;
+    coarse.set(Math.floor(ci / cellsPerCoarse), Math.floor(cj / cellsPerCoarse), 2);
+  }
   for (const { L, R } of ribbons) {
     for (let i = 0; i + 1 < L.length; i++) {
       const tris: [number[], number[], number[]][] = [[L[i], R[i], R[i + 1]], [L[i], R[i + 1], L[i + 1]]];
       for (const tri of tris) {
-        const xs = [tri[0][0], tri[1][0], tri[2][0]], zs = [tri[0][1], tri[1][1], tri[2][1]];
-        for (let gx = Math.floor(Math.min(...xs) / ASPHALT_GRID_M); gx <= Math.floor(Math.max(...xs) / ASPHALT_GRID_M); gx++) {
-          for (let gz = Math.floor(Math.min(...zs) / ASPHALT_GRID_M); gz <= Math.floor(Math.max(...zs) / ASPHALT_GRID_M); gz++) {
+        const p0 = tri[0], p1 = tri[1], p2 = tri[2];
+        const minX = p0[0] < p1[0] ? (p0[0] < p2[0] ? p0[0] : p2[0]) : (p1[0] < p2[0] ? p1[0] : p2[0]);
+        const maxX = p0[0] > p1[0] ? (p0[0] > p2[0] ? p0[0] : p2[0]) : (p1[0] > p2[0] ? p1[0] : p2[0]);
+        const minZ = p0[1] < p1[1] ? (p0[1] < p2[1] ? p0[1] : p2[1]) : (p1[1] < p2[1] ? p1[1] : p2[1]);
+        const maxZ = p0[1] > p1[1] ? (p0[1] > p2[1] ? p0[1] : p2[1]) : (p1[1] > p2[1] ? p1[1] : p2[1]);
+        for (let gx = Math.floor(minX / ASPHALT_GRID_M); gx <= Math.floor(maxX / ASPHALT_GRID_M); gx++) {
+          for (let gz = Math.floor(minZ / ASPHALT_GRID_M); gz <= Math.floor(maxZ / ASPHALT_GRID_M); gz++) {
+            coarse.set(gx, gz, 1);
             const key = cellKey(gx, gz);
             const bucket = triGrid.get(key);
             if (bucket) bucket.push(tri); else triGrid.set(key, [tri]);
@@ -415,6 +429,29 @@ export function asphaltTest(ribbons: { L: number[][]; R: number[][] }[], holeCel
     const d3 = (p0[0] - p2[0]) * (z - p2[1]) - (p0[1] - p2[1]) * (x - p2[0]);
     return (d1 >= 0 && d2 >= 0 && d3 >= 0) || (d1 <= 0 && d2 <= 0 && d3 <= 0);
   };
-  return (x: number, z: number) => holeCells.has(cellKey(Math.floor(x / CELL), Math.floor(z / CELL)))
-    || (triGrid.get(cellKey(Math.floor(x / ASPHALT_GRID_M), Math.floor(z / ASPHALT_GRID_M))) || []).some((tri) => inTri(tri, x, z));
+  const test = ((x: number, z: number) => {
+    const gx = Math.floor(x / ASPHALT_GRID_M), gz = Math.floor(z / ASPHALT_GRID_M);
+    const flags = coarse.get(gx, gz);
+    if (!flags) return false;
+    if ((flags & 2) && holeCells.has(cellKey(Math.floor(x / CELL), Math.floor(z / CELL)))) return true;
+    if (flags & 1) {
+      const bucket = triGrid.get(cellKey(gx, gz));
+      if (bucket) {
+        for (let i = 0; i < bucket.length; i++) if (inTri(bucket[i], x, z)) return true;
+      }
+    }
+    return false;
+  }) as ((x: number, z: number) => boolean) & { near: (x: number, z: number, r: number) => boolean };
+
+  test.near = (x: number, z: number, r: number) => {
+    const gx0 = Math.floor((x - r) / ASPHALT_GRID_M), gx1 = Math.floor((x + r) / ASPHALT_GRID_M);
+    const gz0 = Math.floor((z - r) / ASPHALT_GRID_M), gz1 = Math.floor((z + r) / ASPHALT_GRID_M);
+    for (let gx = gx0; gx <= gx1; gx++) {
+      for (let gz = gz0; gz <= gz1; gz++) {
+        if (coarse.get(gx, gz)) return true;
+      }
+    }
+    return false;
+  };
+  return test;
 }

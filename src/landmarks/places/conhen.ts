@@ -1,4 +1,4 @@
-import { KIND, hex, shade, inRing, rand, signedArea } from '../../geo/buf.ts';
+import { KIND, hex, shade, inRing, ringTest, rand, signedArea } from '../../geo/buf.ts';
 import { LAND_Y, roadWidth } from '../../config.ts';
 import { rise } from '../../geo/terrain.ts';
 import { pavilion } from '../citadel.ts';
@@ -95,7 +95,7 @@ function buildBanksAndLandings(S, shoreNormals, shoreAt) {
   }
 }
 
-function buildShrinesAndFields(S, shoreAt, shoreDist, nearRoad, nearHouse, reserved) {
+function buildShrinesAndFields(S, shoreAt, shoreDist, nearRoad, nearHouse, reserved, inShore, inVillage) {
   S.kind = KIND.PLAIN;
   for (const [x, z] of ([[372, -1000], [579, -1350], [440, -598], [366, -1760], [470, -2020]] as any[])) {
     const info = shoreAt(x, z);
@@ -117,7 +117,7 @@ function buildShrinesAndFields(S, shoreAt, shoreDist, nearRoad, nearHouse, reser
     for (let z = -2180; z < -1480; z += 18) {
       const x1 = x + 8, z1 = z + 17, cx = x + 4, cz = z + 8.5;
       const samplePts = [[x, z], [x1, z], [x1, z1], [x, z1], [cx, cz]];
-      if (!samplePts.every(([u, v]) => inRing(u, v, SHORE) && !inRing(u, v, VILLAGE) && shoreDist(u, v) > 5)) continue;
+      if (!samplePts.every(([u, v]) => inShore(u, v) && !inVillage(u, v) && shoreDist(u, v) > 5)) continue;
       if (samplePts.some(([u, v]) => nearRoad(u, v, 1.5) || nearHouse(u, v, 2.5))) continue;
       if (nearHouse(cx, cz, 6)) continue;
       const cropRoll = rand(plotIdx++, 11), y = groundY(cx, cz);
@@ -135,7 +135,7 @@ function buildShrinesAndFields(S, shoreAt, shoreDist, nearRoad, nearHouse, reser
   S.kind = KIND.PLAIN;
 }
 
-function populateIslandTrees(data, S, grid, shoreAt, shoreDist, inReserved) {
+function populateIslandTrees(data, S, grid, shoreAt, shoreDist, inReserved, inShore, inVillage) {
   const isOpen = (x, z) => { const cell = grid.at(x, z); return cell === FREE || cell === WOOD || cell === KEEP; };
   let bankIdx = 0;
   for (let i = 0; i < SHORE.length; i++) {
@@ -171,7 +171,7 @@ function populateIslandTrees(data, S, grid, shoreAt, shoreDist, inReserved) {
       const frac = s / edgeLen, sx = ptA[0] + (ptB[0] - ptA[0]) * frac, sz = ptA[1] + (ptB[1] - ptA[1]) * frac;
       const info = shoreAt(sx, sz), inset = 0.6 + rand(edgeIdx, 62) * 1.2;
       const x = sx - info.n[0] * inset, z = sz - info.n[1] * inset;
-      if (!inRing(x, z, SHORE) || inReserved(x, z, 1.5) || !isOpen(x, z)) continue;
+      if (!inShore(x, z) || inReserved(x, z, 1.5) || !isOpen(x, z)) continue;
       const scale = fitCrown(x, z, 1.4 + rand(edgeIdx, 63) * 0.5, 0.9);
       if (scale) pushTree(x, z, scale, rand(edgeIdx, 64) < 0.4 ? 1 : 0);
     }
@@ -184,8 +184,8 @@ function populateIslandTrees(data, S, grid, shoreAt, shoreDist, inReserved) {
       const prob = cell === WOOD ? 0.16 : cell === KEEP ? 0.05 : 0.07;
       if (rand(seed, 65) > prob) continue;
       const jx = x + (rand(seed, 66) - 0.5) * 1.4, jz = z + (rand(seed, 67) - 0.5) * 1.4;
-      if (!inRing(jx, jz, SHORE) || shoreDist(jx, jz) < 1.8 || !isOpen(jx, jz) || inReserved(jx, jz, 1)) continue;
-      if (!inRing(jx, jz, VILLAGE) && cell === WOOD && shoreDist(jx, jz) > 14 && rand(seed, 68) < 0.85) continue;
+      if (!inShore(jx, jz) || shoreDist(jx, jz) < 1.8 || !isOpen(jx, jz) || inReserved(jx, jz, 1)) continue;
+      if (!inVillage(jx, jz) && cell === WOOD && shoreDist(jx, jz) > 14 && rand(seed, 68) < 0.85) continue;
       const scale = fitCrown(jx, jz, (cell === KEEP ? 0.7 : cell === WOOD ? 1.15 : 1.0) + rand(seed, 69) * 0.55, cell === FREE ? 0.6 : 0.7);
       if (scale) pushTree(jx, jz, scale, rand(seed, 70) < 0.45 ? 1 : 0);
     }
@@ -194,6 +194,8 @@ function populateIslandTrees(data, S, grid, shoreAt, shoreDist, inReserved) {
 
 export function build({ data, S }) {
   const winding = signedArea(SHORE) > 0 ? 1 : -1;
+  const inShore = ringTest(SHORE);
+  const inVillage = ringTest(VILLAGE);
   const shoreNormals = SHORE.map((pt, i) => {
     const prev = SHORE[(i + SHORE.length - 1) % SHORE.length], next = SHORE[(i + 1) % SHORE.length];
     let nx = 0, nz = 0;
@@ -206,21 +208,36 @@ export function build({ data, S }) {
     return [nx / len, nz / len];
   });
 
+  const shoreSegs = SHORE.map((ptA, i) => {
+    const ptB = SHORE[(i + 1) % SHORE.length];
+    const tx = ptB[0] - ptA[0], tz = ptB[1] - ptA[1], lenSq = tx * tx + tz * tz, len = Math.sqrt(lenSq) || 1;
+    return { ax: ptA[0], az: ptA[1], tx, tz, invLenSq: 1 / (lenSq || 1), nx: (tz * winding) / len, nz: (-tx * winding) / len, ux: tx / len, uz: tz / len };
+  });
+
   const shoreAt = (x, z) => {
-    let best = null;
-    for (let i = 0; i < SHORE.length; i++) {
-      const ptA = SHORE[i], ptB = SHORE[(i + 1) % SHORE.length];
-      const tx = ptB[0] - ptA[0], tz = ptB[1] - ptA[1], lenSq = tx * tx + tz * tz;
-      const proj = Math.max(0, Math.min(1, ((x - ptA[0]) * tx + (z - ptA[1]) * tz) / lenSq));
-      const px = ptA[0] + tx * proj, pz = ptA[1] + tz * proj, dist = Math.hypot(px - x, pz - z);
-      if (!best || dist < best.d) {
-        const len = Math.sqrt(lenSq);
-        best = { d: dist, p: [px, pz], n: [(tz * winding) / len, (-tx * winding) / len], t: [tx / len, tz / len] };
-      }
+    let bestSq = Infinity, bestPx = 0, bestPz = 0, bestSeg = shoreSegs[0];
+    for (let i = 0; i < shoreSegs.length; i++) {
+      const s = shoreSegs[i];
+      let proj = ((x - s.ax) * s.tx + (z - s.az) * s.tz) * s.invLenSq;
+      if (proj < 0) proj = 0; else if (proj > 1) proj = 1;
+      const px = s.ax + s.tx * proj, pz = s.az + s.tz * proj;
+      const dx = px - x, dz = pz - z, dSq = dx * dx + dz * dz;
+      if (dSq < bestSq) { bestSq = dSq; bestPx = px; bestPz = pz; bestSeg = s; }
     }
-    return best;
+    return { d: Math.sqrt(bestSq), p: [bestPx, bestPz], n: [bestSeg.nx, bestSeg.nz], t: [bestSeg.ux, bestSeg.uz] };
   };
-  const shoreDist = (x, z) => shoreAt(x, z).d;
+  const shoreDist = (x, z) => {
+    let bestSq = Infinity;
+    for (let i = 0; i < shoreSegs.length; i++) {
+      const s = shoreSegs[i];
+      let proj = ((x - s.ax) * s.tx + (z - s.az) * s.tz) * s.invLenSq;
+      if (proj < 0) proj = 0; else if (proj > 1) proj = 1;
+      const dx = s.ax + s.tx * proj - x, dz = s.az + s.tz * proj - z;
+      const dSq = dx * dx + dz * dz;
+      if (dSq < bestSq) bestSq = dSq;
+    }
+    return Math.sqrt(bestSq);
+  };
 
   buildBanksAndLandings(S, shoreNormals, shoreAt);
 
@@ -229,7 +246,10 @@ export function build({ data, S }) {
     const pts = road[2];
     if (!pts) continue;
     let onIsland = false;
-    for (let i = 0; i < pts.length; i += 2) if (inRing(pts[i] / 10, pts[i + 1] / 10, SHORE)) { onIsland = true; break; }
+    for (let i = 0; i < pts.length; i += 2) {
+      const rx = pts[i] / 10, rz = pts[i + 1] / 10;
+      if (rx >= 350 && rx <= 585 && rz >= -2190 && rz <= -560 && inShore(rx, rz)) { onIsland = true; break; }
+    }
     if (onIsland) roads.push({ w: roadWidth(road), pts });
   }
   const nearRoad = (x, z, margin) => roads.some(({ w, pts }) => {
@@ -243,10 +263,14 @@ export function build({ data, S }) {
   });
   const mapped = [];
   for (const bld of data.bld || []) {
-    const flat = bld[0], pts = [];
-    for (let i = 0; i < flat.length; i += 2) pts.push([flat[i] / 10, flat[i + 1] / 10]);
-    const cx = pts.reduce((sum, pt) => sum + pt[0], 0) / pts.length, cz = pts.reduce((sum, pt) => sum + pt[1], 0) / pts.length;
-    if (inRing(cx, cz, SHORE)) mapped.push(pts);
+    const flat = bld[0];
+    const x0 = flat[0] / 10, z0 = flat[1] / 10;
+    if (x0 < 330 || x0 > 610 || z0 < -2210 || z0 > -540) continue;
+    const pts = [];
+    let sx = 0, sz = 0;
+    for (let i = 0; i < flat.length; i += 2) { const px = flat[i] / 10, pz = flat[i + 1] / 10; pts.push([px, pz]); sx += px; sz += pz; }
+    const cx = sx / pts.length, cz = sz / pts.length;
+    if (inShore(cx, cz)) mapped.push(pts);
   }
   const houses = mapped.map((pts) => {
     const cx = pts.reduce((sum, pt) => sum + pt[0], 0) / pts.length, cz = pts.reduce((sum, pt) => sum + pt[1], 0) / pts.length;
@@ -257,7 +281,7 @@ export function build({ data, S }) {
   const inReserved = (x, z, margin = 0) => reserved.some(([x0, z0, x1, z1]) => x > x0 - margin && x < x1 + margin && z > z0 - margin && z < z1 + margin);
 
   buildChuaPhapHai(S, reserved);
-  buildShrinesAndFields(S, shoreAt, shoreDist, nearRoad, nearHouse, reserved);
+  buildShrinesAndFields(S, shoreAt, shoreDist, nearRoad, nearHouse, reserved, inShore, inVillage);
 
   const grid = makeGrid({ shore: SHORE, village: VILLAGE, roads, mapped, reserved });
   setPieces(S, grid);
@@ -269,14 +293,14 @@ export function build({ data, S }) {
   if (sink) {
     for (let i = 0; i + 7 < infill.length; i += 8) {
       const x = infill[i] / 10, z = infill[i + 1] / 10;
-      if (x < 330 || x > 610 || z < -2200 || z > -540 || !inRing(x, z, SHORE)) continue;
+      if (x < 330 || x > 610 || z < -2200 || z > -540 || !inShore(x, z)) continue;
       infill[i] = Math.round(sink[0] * 10);
       infill[i + 1] = Math.round(sink[1] * 10);
       infill[i + 2] = infill[i + 3] = 1;
     }
   }
 
-  populateIslandTrees(data, S, grid, shoreAt, shoreDist, inReserved);
+  populateIslandTrees(data, S, grid, shoreAt, shoreDist, inReserved, inShore, inVillage);
   flushLamps();
   S.kind = KIND.PLAIN;
   return null;

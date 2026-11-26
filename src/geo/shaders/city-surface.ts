@@ -47,6 +47,17 @@ float hueNoiseRaw( vec2 p ) {
 }
 // the drawn look lays flat washes: weathering and mottling settle most of the way to their middle tone
 float hueNoise( vec2 p ) { return mix( hueNoiseRaw( p ), 0.5, uLook * 0.78 ); }
+// Analytic screen-space anti-aliased step and band-limited 50% stripe (prevents Moiré chatter on facades, shutters & lattices).
+float aaStep( float edge, float x ) {
+  float w = max( fwidth( x ) * 0.75, 1e-4 );
+  return smoothstep( edge - w, edge + w, x );
+}
+float aaStripe( float phase ) {
+  float fw = fwidth( phase );
+  float wave = abs( fract( phase ) - 0.5 );
+  float s = smoothstep( 0.25 - fw * 0.65, 0.25 + fw * 0.65, wave );
+  return mix( s, 0.5, smoothstep( 0.28, 0.68, fw ) );
+}
 // The room behind a pane (interior mapping): p is the place in the bay (0..1 across and up), d the sight line as
 // (along the wall, up, into the wall), size the bay in metres. The ray is run to the back wall, a side wall, the floor
 // or the ceiling of a box as wide and tall as the bay, so the room shifts behind the glass as the camera moves.
@@ -178,14 +189,17 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   if ( colonial ) {
     vec2 q = vec2( ( f.x - 0.5 ) * 2.9, ( f.y - 0.6 ) * 3.4 );
     float hw = 0.5, hs = hw + 0.15;
-    float win = max( step( abs( q.x ), hw ) * step( 0.13, f.y ) * step( f.y, 0.6 ), step( length( q ), hw ) * step( 0.6, f.y ) );
-    float sur = max( step( abs( q.x ), hs ) * step( 0.1, f.y ) * step( f.y, 0.6 ), step( length( q ), hs ) * step( 0.6, f.y ) );
+    float upperArch = aaStep( 0.6, f.y );
+    float lowerRect = ( 1.0 - aaStep( hw, abs( q.x ) ) ) * aaStep( 0.13, f.y ) * ( 1.0 - upperArch );
+    float win = max( lowerRect, ( 1.0 - aaStep( hw, length( q ) ) ) * upperArch );
+    float surRect = ( 1.0 - aaStep( hs, abs( q.x ) ) ) * aaStep( 0.1, f.y ) * ( 1.0 - upperArch );
+    float sur = max( surRect, ( 1.0 - aaStep( hs, length( q ) ) ) * upperArch );
     float upper = step( 0.5, cell.y );
-    float shutter = step( hs, abs( q.x ) ) * step( abs( q.x ), hs + 0.4 ) * step( 0.13, f.y ) * step( f.y, 0.62 ) * upper;
+    float shutter = aaStep( hs, abs( q.x ) ) * ( 1.0 - aaStep( hs + 0.4, abs( q.x ) ) ) * aaStep( 0.13, f.y ) * ( 1.0 - aaStep( 0.62, f.y ) ) * upper;
     vec3 trim = vec3( 0.95, 0.92, 0.84 );
-    vec3 louvre = ( bay < 0.72 ? vec3( 0.15, 0.33, 0.26 ) : vec3( 0.2, 0.31, 0.4 ) ) * ( 0.76 + 0.24 * step( 0.5, fract( f.y * 26.0 ) ) );
+    vec3 louvre = ( bay < 0.72 ? vec3( 0.15, 0.33, 0.26 ) : vec3( 0.2, 0.31, 0.4 ) ) * ( 0.76 + 0.24 * aaStripe( f.y * 26.0 ) );
     vec3 glass = mix( vec3( 0.05, 0.06, 0.08 ), vec3( 0.2, 0.27, 0.33 ), smoothstep( 0.15, 0.7, f.y ) );
-    glass *= 1.0 - 0.55 * ( 1.0 - smoothstep( 0.0, 0.035, abs( q.x ) ) );
+    glass *= 1.0 - 0.55 * ( 1.0 - smoothstep( 0.0, max( 0.035, fwidth( q.x ) ), abs( q.x ) ) );
     glass *= 1.0 - 0.45 * smoothstep( 0.52, 0.72, f.y );
     // at street level the arches open onto a shaded arcade
     glass = mix( mix( vec3( 0.06, 0.05, 0.05 ), vec3( 0.16, 0.12, 0.09 ), smoothstep( 0.0, 0.6, f.y ) ), glass, upper );
@@ -193,18 +207,18 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
     col = mix( col, louvre, shutter );
     col = mix( col, glass, win );
     // string course at every floor, a pilaster every third bay, a darker plinth
-    col = mix( col, trim, 1.0 - smoothstep( 0.05, 0.07, f.y ) );
-    col = mix( col, trim * 0.97, step( mod( cell.x, 3.0 ), 0.5 ) * ( 1.0 - smoothstep( 0.06, 0.08, f.x ) ) );
-    col = mix( col, base * 0.7, ( 1.0 - upper ) * ( 1.0 - win ) * ( 1.0 - smoothstep( 0.1, 0.12, f.y ) ) * step( 0.07, f.y ) );
+    col = mix( col, trim, 1.0 - aaStep( 0.06, f.y ) );
+    col = mix( col, trim * 0.97, step( mod( cell.x, 3.0 ), 0.5 ) * ( 1.0 - aaStep( 0.07, f.x ) ) );
+    col = mix( col, base * 0.7, ( 1.0 - upper ) * ( 1.0 - win ) * ( 1.0 - aaStep( 0.11, f.y ) ) * aaStep( 0.07, f.y ) );
     hueGlass = win * upper * detail;
     hueLit = win * step( seed, mix( litP * 1.4, litP, upper ) ) * litK;
   } else if ( modern ) {
     if ( cell.y < 0.5 ) {
       // a glazed front under a sign board
-      float open = smoothstep( 0.03, 0.05, f.x ) * smoothstep( 0.97, 0.95, f.x ) * step( 0.03, f.y ) * step( f.y, 0.7 );
+      float open = aaStep( 0.04, f.x ) * ( 1.0 - aaStep( 0.96, f.x ) ) * aaStep( 0.03, f.y ) * ( 1.0 - aaStep( 0.7, f.y ) );
       vec3 g = mix( vec3( 0.07, 0.09, 0.11 ), vec3( 0.3, 0.39, 0.45 ), f.y );
-      g *= 1.0 - 0.5 * ( 1.0 - smoothstep( 0.0, 0.02, abs( f.x - 0.5 ) ) );
-      float sign = step( 0.74, f.y ) * step( f.y, 0.94 ) * step( 0.3, bay );
+      g *= 1.0 - 0.5 * ( 1.0 - smoothstep( 0.0, max( 0.02, fwidth( f.x ) ), abs( f.x - 0.5 ) ) );
+      float sign = aaStep( 0.74, f.y ) * ( 1.0 - aaStep( 0.94, f.y ) ) * step( 0.3, bay );
       vec3 signCol = bay < 0.48 ? vec3( 0.72, 0.13, 0.1 ) : bay < 0.64 ? vec3( 0.1, 0.3, 0.58 ) : bay < 0.8 ? vec3( 0.93, 0.74, 0.12 ) : vec3( 0.9, 0.9, 0.88 );
       col = mix( col, g, open );
       col = mix( col, signCol, sign );
@@ -212,49 +226,49 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
       hueLit = open * step( seed, 0.4 ) * 0.7;
     } else {
       float balc = step( bay, 0.3 );
-      float band = step( 0.36, f.y ) * step( f.y, 0.8 ) * smoothstep( 0.02, 0.04, f.x ) * smoothstep( 0.98, 0.96, f.x );
+      float band = aaStep( 0.36, f.y ) * ( 1.0 - aaStep( 0.8, f.y ) ) * aaStep( 0.03, f.x ) * ( 1.0 - aaStep( 0.97, f.x ) );
       vec3 glass = mix( vec3( 0.08, 0.13, 0.17 ), vec3( 0.4, 0.55, 0.66 ), smoothstep( 0.36, 0.8, f.y ) );
-      glass *= 1.0 - 0.5 * ( 1.0 - smoothstep( 0.0, 0.018, abs( f.x - 0.5 ) ) );
+      glass *= 1.0 - 0.5 * ( 1.0 - smoothstep( 0.0, max( 0.018, fwidth( f.x ) ), abs( f.x - 0.5 ) ) );
       // balcony bays: a recessed door behind a slab and a rail
-      float recess = step( 0.1, f.x ) * step( f.x, 0.9 ) * step( 0.07, f.y ) * step( f.y, 0.84 );
+      float recess = aaStep( 0.1, f.x ) * ( 1.0 - aaStep( 0.9, f.x ) ) * aaStep( 0.07, f.y ) * ( 1.0 - aaStep( 0.84, f.y ) );
       vec3 rc = mix( vec3( 0.1, 0.11, 0.12 ), vec3( 0.26, 0.33, 0.38 ), smoothstep( 0.3, 0.84, f.y ) );
-      float rail = step( 0.07, f.y ) * step( f.y, 0.33 ) * step( 0.06, f.x ) * step( f.x, 0.94 );
-      rc = mix( rc, base * 1.08, rail * ( 0.55 + 0.45 * step( 0.5, fract( f.x * 12.0 ) ) ) );
+      float rail = aaStep( 0.07, f.y ) * ( 1.0 - aaStep( 0.33, f.y ) ) * aaStep( 0.06, f.x ) * ( 1.0 - aaStep( 0.94, f.x ) );
+      rc = mix( rc, base * 1.08, rail * ( 0.55 + 0.45 * aaStripe( f.x * 12.0 ) ) );
       float win = mix( band, recess, balc );
       col = mix( col, mix( glass, rc, balc ), win );
-      col = mix( col, base * 1.12, balc * step( f.y, 0.07 ) );
+      col = mix( col, base * 1.12, balc * ( 1.0 - aaStep( 0.07, f.y ) ) );
       // an air-conditioner under some windows
-      float ac = ( 1.0 - balc ) * step( 0.62, seed ) * step( 0.7, f.x ) * step( f.x, 0.9 ) * step( 0.12, f.y ) * step( f.y, 0.27 );
-      col = mix( col, vec3( 0.78, 0.79, 0.78 ) * ( 0.8 + 0.2 * step( 0.5, fract( f.y * 30.0 ) ) ), ac );
-      col *= 1.0 - 0.1 * ( 1.0 - smoothstep( 0.0, 0.03, f.y ) );
+      float ac = ( 1.0 - balc ) * step( 0.62, seed ) * aaStep( 0.7, f.x ) * ( 1.0 - aaStep( 0.9, f.x ) ) * aaStep( 0.12, f.y ) * ( 1.0 - aaStep( 0.27, f.y ) );
+      col = mix( col, vec3( 0.78, 0.79, 0.78 ) * ( 0.8 + 0.2 * aaStripe( f.y * 30.0 ) ), ac );
+      col *= 1.0 - 0.1 * ( 1.0 - aaStep( 0.03, f.y ) );
       hueGlass = win * ( 1.0 - balc * rail ) * detail;
       hueLit = win * step( seed, litP ) * litK * ( 1.0 - balc * rail );
     }
   } else if ( cell.y < 0.5 && !civic ) {
     // street level: a shopfront or doorway under an awning
-    float open = smoothstep( 0.1, 0.14, f.x ) * smoothstep( 0.9, 0.86, f.x ) * smoothstep( 0.02, 0.05, f.y ) * smoothstep( 0.72, 0.68, f.y );
-    float awn = smoothstep( 0.04, 0.08, f.x ) * smoothstep( 0.96, 0.92, f.x ) * smoothstep( 0.7, 0.73, f.y ) * smoothstep( 0.86, 0.83, f.y );
+    float open = aaStep( 0.12, f.x ) * ( 1.0 - aaStep( 0.88, f.x ) ) * aaStep( 0.035, f.y ) * ( 1.0 - aaStep( 0.7, f.y ) );
+    float awn = aaStep( 0.06, f.x ) * ( 1.0 - aaStep( 0.94, f.x ) ) * aaStep( 0.715, f.y ) * ( 1.0 - aaStep( 0.845, f.y ) );
     vec3 awnCol = bay < 0.25 ? vec3( 0.55, 0.16, 0.12 ) : bay < 0.5 ? vec3( 0.14, 0.32, 0.42 ) : bay < 0.75 ? vec3( 0.72, 0.56, 0.2 ) : vec3( 0.2, 0.38, 0.26 );
-    awnCol *= 0.85 + 0.3 * step( 0.5, fract( uv.x * 9.0 ) );
+    awnCol *= 0.85 + 0.3 * aaStripe( uv.x * 9.0 );
     vec3 inside = mix( vec3( 0.05, 0.045, 0.045 ), vec3( 0.2, 0.15, 0.11 ), smoothstep( 0.0, 0.7, f.y ) * 0.6 );
     col = mix( col, inside, open * step( 0.22, bay ) );
     col = mix( col, awnCol, awn * step( 0.4, bay ) );
     hueLit = open * step( 0.22, bay ) * step( seed, 0.36 ) * 0.7;
     hueHgt -= 0.2 * open * step( 0.22, bay ) * detail;
   } else {
-    float inX = smoothstep( 0.23, 0.26, f.x ) * smoothstep( 0.77, 0.74, f.x );
-    float inY = smoothstep( 0.3, 0.33, f.y ) * smoothstep( 0.8, 0.77, f.y );
+    float inX = aaStep( 0.245, f.x ) * ( 1.0 - aaStep( 0.755, f.x ) );
+    float inY = aaStep( 0.315, f.y ) * ( 1.0 - aaStep( 0.785, f.y ) );
     float win = inX * inY;
-    float frame = smoothstep( 0.18, 0.21, f.x ) * smoothstep( 0.82, 0.79, f.x ) * smoothstep( 0.25, 0.28, f.y ) * smoothstep( 0.85, 0.82, f.y );
-    float sill = smoothstep( 0.15, 0.18, f.x ) * smoothstep( 0.85, 0.82, f.x ) * smoothstep( 0.2, 0.22, f.y ) * smoothstep( 0.27, 0.25, f.y );
+    float frame = aaStep( 0.195, f.x ) * ( 1.0 - aaStep( 0.805, f.x ) ) * aaStep( 0.265, f.y ) * ( 1.0 - aaStep( 0.835, f.y ) );
+    float sill = aaStep( 0.165, f.x ) * ( 1.0 - aaStep( 0.835, f.x ) ) * aaStep( 0.21, f.y ) * ( 1.0 - aaStep( 0.26, f.y ) );
     // glass picks up a little sky toward its top edge; mullion down the middle
     vec3 glass = mix( vec3( 0.06, 0.08, 0.11 ), vec3( 0.26, 0.36, 0.46 ), smoothstep( 0.3, 0.8, f.y ) );
-    glass *= 1.0 - 0.6 * ( 1.0 - smoothstep( 0.0, 0.02, abs( f.x - 0.5 ) ) );
+    glass *= 1.0 - 0.6 * ( 1.0 - smoothstep( 0.0, max( 0.02, fwidth( f.x ) ), abs( f.x - 0.5 ) ) );
     // some windows keep their shutters closed
     float shut = step( 0.74, seed );
     vec3 shutCol = bay < 0.33 ? vec3( 0.17, 0.33, 0.27 ) : bay < 0.66 ? vec3( 0.2, 0.3, 0.4 ) : vec3( 0.36, 0.23, 0.15 );
-    shutCol *= 0.8 + 0.2 * step( 0.5, fract( f.y * 22.0 ) );
-    col = mix( col, base * 1.14, ( frame - win ) * 0.9 );
+    shutCol *= 0.8 + 0.2 * aaStripe( f.y * 22.0 );
+    col = mix( col, base * 1.14, clamp( frame - win, 0.0, 1.0 ) * 0.9 );
     col = mix( col, base * 0.62, sill );
     // the opening is recessed: the lintel and one jamb throw a shadow onto the glass
     float reveal = max( smoothstep( 0.7, 0.78, f.y ), 1.0 - smoothstep( 0.26, 0.33, f.x ) );
@@ -263,7 +277,7 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
     col = mix( col, mix( glass, shutCol, shut ), win );
     hueGlass = win * ( 1.0 - shut ) * detail;
     // floor line
-    col *= 1.0 - 0.14 * ( 1.0 - smoothstep( 0.0, 0.035, f.y ) );
+    col *= 1.0 - 0.14 * ( 1.0 - aaStep( 0.03, f.y ) );
     hueLit = win * ( 1.0 - shut ) * step( seed, litP ) * litK;
   }
   diffuseColor.rgb = mix( base * 0.9, col, detail );
@@ -387,9 +401,9 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   float u = dot( vWPos.xz, t ) / 2.5;
   float f = fract( u );
   float detail = ( 1.0 - smoothstep( 0.2, 0.7, fwidth( u ) * 2.0 ) ) * step( 0.5, hueWall );
-  float column = 1.0 - smoothstep( 0.05, 0.08, abs( f - 0.5 ) );
-  float panel = smoothstep( 0.1, 0.13, abs( f - 0.5 ) ) * ( 1.0 - smoothstep( 0.42, 0.45, abs( f - 0.5 ) ) );
-  float lattice = step( 0.5, fract( vWPos.y * 2.2 ) ) * step( 0.5, fract( u * 6.0 ) );
+  float column = 1.0 - aaStep( 0.065, abs( f - 0.5 ) );
+  float panel = aaStep( 0.115, abs( f - 0.5 ) ) * ( 1.0 - aaStep( 0.435, abs( f - 0.5 ) ) );
+  float lattice = aaStripe( vWPos.y * 2.2 ) * aaStripe( u * 6.0 );
   vec3 base = diffuseColor.rgb;
   vec3 col = mix( base, base * 0.52 + vec3( 0.02, 0.012, 0.0 ) * lattice, panel );
   col = mix( col, base * 1.25 + vec3( 0.06, 0.03, 0.0 ), column );
@@ -440,12 +454,14 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   #endif
 }
 {
-  // relief to normal: the height's screen-space slope, laid back into the surface
+  // relief to normal: the height's screen-space slope, laid back into the surface and damped when pixels span > 15 cm
   vec3 hdx = dFdx( vWPos ), hdy = dFdy( vWPos );
+  float hpx = length( hdx ) + length( hdy );
+  float hFade = 1.0 - smoothstep( 0.12, 0.42, hpx );
   vec3 hr1 = cross( hdy, hueN ), hr2 = cross( hueN, hdx );
   float hdet = dot( hdx, hr1 );
-  vec3 hgrad = sign( hdet ) * ( dFdx( hueHgt ) * hr1 + dFdy( hueHgt ) * hr2 );
-  hgrad *= min( 1.0, 1.4 * abs( hdet ) / ( length( hgrad ) + 1e-6 ) );
+  vec3 hgrad = sign( hdet ) * ( dFdx( hueHgt ) * hr1 + dFdy( hueHgt ) * hr2 ) * hFade;
+  hgrad *= min( 1.0, 0.95 * abs( hdet ) / ( length( hgrad ) + 1e-6 ) );
   hueNp = normalize( abs( hdet ) * hueNp - hgrad + 1e-6 * hueN );
 }
 #endif

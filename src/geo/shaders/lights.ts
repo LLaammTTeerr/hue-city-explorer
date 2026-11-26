@@ -41,8 +41,9 @@ export function createLightMaterials(shared) {
         vec4 mv = modelViewMatrix * vec4( position, 1.0 );
         gl_Position = projectionMatrix * mv;
         float px = uSize * uScale / max( 1.0, -mv.z );
-        vFade = clamp( px / 2.4, 0.16, 1.0 );
-        gl_PointSize = clamp( px, 2.4, 110.0 );
+        float nearCalm = 1.0 / ( 1.0 + max( 0.0, px - 18.0 ) * 0.065 );
+        vFade = clamp( px / 2.6, 0.16, 1.0 ) * nearCalm;
+        gl_PointSize = clamp( px, 2.6, 36.0 );
       }`,
     fragmentShader: `
       varying vec3 vCol; varying float vFade; uniform float uGlow, uBoost; uniform vec3 uTint;

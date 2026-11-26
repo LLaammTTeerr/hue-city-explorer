@@ -10,7 +10,7 @@ import { LAND_Y, quality } from './config.ts';
 import { buildCity, updateDetail } from './geo/city.ts';
 import { createHeroLoader } from './geo/hero-gltf.ts';
 import { releaseAfterUpload, releasedCount, KEEP_GEOMETRY } from './geo/release.ts';
-import { decodeHueBin, decodeTileBin } from './geo/codec.ts';
+import { hydrateHueData, decodeTileBin } from './geo/codec.ts';
 import { buildLandmarks } from './landmarks/build.ts';
 import { buildDeferredPlaces } from './landmarks/places/index.ts';
 import { shared } from './geo/materials.ts';
@@ -31,7 +31,9 @@ import { rise } from './geo/terrain.ts';
 import { createFallback } from './ui/fallback.ts';
 
 const DECIMETRES_PER_METRE = 10;
-const MAX_POST_PIXELS = 2.0e6;
+const MAX_POST_PIXELS = 3.7e6;
+const TILE_PREFETCH_CONCURRENCY = 6;
+const TILE_FRAME_BUDGET_MS = 6;
 const CAMERA_BOUNDS_INSET_M = 250;
 const SUN_SHADOW_RADIUS = 2.4;
 const SKY_FAR_SCALE = 0.9;
@@ -135,30 +137,74 @@ function createRenderer() {
   return null;
 }
 
-async function fetchDataJSON(name: string) {
-  const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
+declare const __APP_VERSION__: string | undefined;
+declare const __APP_COMMIT__: string | undefined;
+declare const __DATA_CACHE_NAME__: string | undefined;
+
+const DATA_CACHE_NAME = typeof __DATA_CACHE_NAME__ !== 'undefined'
+  ? __DATA_CACHE_NAME__
+  : `hue-data-${typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '0'}-${typeof __APP_COMMIT__ !== 'undefined' ? __APP_COMMIT__ || 'local' : 'dev'}`;
+let dataCachePromise: Promise<Cache | null> | null = null;
+
+function openDataCache(): Promise<Cache | null> {
+  if (!dataCachePromise) {
+    dataCachePromise = (typeof caches !== 'undefined' && caches.open)
+      ? caches.open(DATA_CACHE_NAME).catch(() => null)
+      : Promise.resolve(null);
+  }
+  return dataCachePromise;
+}
+
+function pruneStaleDataCaches() {
+  if (typeof caches === 'undefined' || !caches.keys) return;
+  caches.keys().then((keys) => {
+    for (const key of keys) {
+      if (key.startsWith('hue-data-') && key !== DATA_CACHE_NAME) caches.delete(key).catch(() => {});
+    }
+  }).catch(() => {});
+}
+
+async function fetchCachedResponse(name: string, prestarted?: Promise<Response | null> | null): Promise<Response> {
+  const url = `${import.meta.env.BASE_URL}data/${name}`;
+  const cache = await openDataCache();
+  if (cache) {
+    const hit = await cache.match(url).catch(() => undefined);
+    if (hit && hit.ok) return hit;
+  }
+  const preRes = prestarted ? await prestarted : null;
+  const res = (preRes && preRes.ok) ? preRes : await fetch(url);
   if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+  if (cache) {
+    try { cache.put(url, res.clone()).catch(() => {}); } catch { /* body locked or quota full */ }
+  }
+  return res;
+}
+
+function consumeEarlyFetch(key: 'places' | 'hueJson' | 'hueBin'): Promise<Response | null> | null {
+  const early = (window as any).__hueEarlyFetch;
+  if (!early || !early[key]) return null;
+  const p = early[key];
+  early[key] = null;
+  return p;
+}
+
+async function fetchDataJSON(name: string, prestarted?: Promise<Response | null> | null) {
+  const res = await fetchCachedResponse(name, prestarted);
   return res.json();
 }
 
-async function fetchDataBin(name: string): Promise<ArrayBuffer> {
-  const res = await fetch(`${import.meta.env.BASE_URL}data/${name}`);
-  if (!res.ok) throw new Error(`${name}: HTTP ${res.status}`);
+async function fetchDataBin(name: string, prestarted?: Promise<Response | null> | null): Promise<ArrayBuffer> {
+  const res = await fetchCachedResponse(name, prestarted);
   const ds = new DecompressionStream('gzip');
   return new Response(res.body!.pipeThrough(ds)).arrayBuffer();
 }
 
 async function fetchHueData() {
   const [json, binBuf] = await Promise.all([
-    fetchDataJSON('hue.json'),
-    fetchDataBin('hue.bin').catch(() => null),
+    fetchDataJSON('hue.json', consumeEarlyFetch('hueJson')),
+    fetchDataBin('hue.bin', consumeEarlyFetch('hueBin')).catch(() => null),
   ]);
-  if (json.meta?.bin && binBuf) {
-    const { h, trees, infill } = decodeHueBin(binBuf);
-    if (json.terrain) json.terrain.h = h;
-    json.trees = trees;
-    json.infill = infill;
-  }
+  if (json.meta?.bin && binBuf) hydrateHueData(json, binBuf);
   return json;
 }
 
@@ -430,12 +476,33 @@ async function streamRemainingTiles(opts: {
     console.warn('[hue] tile not loaded', tile.f, err);
     return null;
   });
-  let nextTile = tileList.length ? fetchTile(tileList[0]) : null;
+
+  // Bounded-concurrency prefetch window keeps HTTP/2 pipes saturated while planting strictly nearest-first.
+  const inflight = new Array<Promise<any> | null>(tileList.length).fill(null);
+  let nextFetchIdx = 0;
+  const pumpPrefetch = () => {
+    while (nextFetchIdx < tileList.length && nextFetchIdx < currentPlantIdx + TILE_PREFETCH_CONCURRENCY) {
+      inflight[nextFetchIdx] = fetchTile(tileList[nextFetchIdx]);
+      nextFetchIdx++;
+    }
+  };
+  let currentPlantIdx = 0;
+  pumpPrefetch();
+
+  let sliceStartMs = performance.now();
+  await nextMacrotask();
+  sliceStartMs = performance.now();
+
   for (let i = 0; i < tileList.length; i++) {
-    const body = await nextTile;
-    nextTile = i + 1 < tileList.length ? fetchTile(tileList[i + 1]) : null; // download the next one while this one is planted
+    currentPlantIdx = i;
+    pumpPrefetch();
+    const body = await inflight[i];
+    inflight[i] = null;
     if (!body) continue;
-    await nextMacrotask();
+    if (performance.now() - sliceStartMs > TILE_FRAME_BUDGET_MS) {
+      await nextMacrotask();
+      sliceStartMs = performance.now();
+    }
     const meshes = (world as any).addTile(body);
     for (const mesh of meshes) releaseAfterUpload(mesh);
     for (const mesh of meshes) {
@@ -452,6 +519,7 @@ async function streamRemainingTiles(opts: {
     dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
   }
   performance.mark('hue:tiles-loaded');
+  setTimeout(pruneStaleDataCaches, 2000);
 }
 
 let ui: any = null;
@@ -461,7 +529,7 @@ let fallback: any = null;
 async function main() {
   const startTime = performance.now();
   // the place index (~30 kB: names, kinds, positions, counts) comes first: search and the cards need nothing else
-  const indexPromise = fetchDataJSON('places.json');
+  const indexPromise = fetchDataJSON('places.json', consumeEarlyFetch('places'));
   let renderer = createRenderer();
   // the geometry bundle (~3 MB) only once the device has shown it can render it, then alongside the index
   let geometryPromise = renderer ? fetchHueData() : null;
@@ -794,6 +862,7 @@ async function main() {
   // a shared view (?v=1…, src/ui/share.js) replaces the opening: atmosphere, camera and card are set before the first draw
   sharing = createShare({ data, rig, mood, setLook, pick, ui, bounds: cameraBounds });
   const sharedView = sharing.apply();
+  if (post?.ready) await post.ready;
   releaseAfterUpload(scene); // vertex arrays leave JS memory once they are on the GPU (geo/release.js)
   step(0); // update mood, detail, lights, shadows and compile shaders before the curtain lifts
   console.debug(`[hue] ready in ${Math.round(performance.now() - startTime)} ms`);

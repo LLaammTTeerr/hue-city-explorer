@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
 
 const VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4( position.xy, 0.0, 1.0 ); }`;
@@ -10,7 +11,7 @@ const VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position =
 const POST_CFG = {
   initialTargetSize: 4,
   minBufferSize: 2,
-  msaaSamples: 2,
+  msaaSamples: 4,
   defaultFocusM: 800,
   defaultAperture: 0.6,
   defaultMaxBlurPx: 8,
@@ -388,11 +389,31 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
   const output = new OutputPass();
   output.material.fragmentShader = output.material.fragmentShader.replace(/\}\s*$/, '\tgl_FragColor.a = 1.0;\n}');
   composer.addPass(output);
+  // Post-tonemap SMAA (Ultra search range: up to 64 px along shallow bridge chords & rooflines, with local contrast
+  // adaptation so 4x MSAA + HDR bloom edges resolve smoothly without blurring surface detail).
+  const smaa: any = new SMAAPass();
+  smaa._materialEdges.defines.SMAA_THRESHOLD = '0.04';
+  smaa._materialEdges.needsUpdate = true;
+  smaa._materialWeights.defines.SMAA_MAX_SEARCH_STEPS = '32';
+  smaa._materialWeights.needsUpdate = true;
+  smaa._materialBlend.fragmentShader = smaa._materialBlend.fragmentShader.replace(
+    /gl_FragColor\s*=\s*SMAANeighborhoodBlendingPS\([^;]+\);/,
+    'gl_FragColor = vec4( SMAANeighborhoodBlendingPS( vUv, vOffset, tColor, tDiffuse ).rgb, 1.0 );',
+  );
+  smaa._materialBlend.needsUpdate = true;
+  const decodeImg = (tex: THREE.Texture | undefined) => {
+    const img = tex?.image as HTMLImageElement | undefined;
+    if (!img || typeof img.decode !== 'function') return Promise.resolve();
+    return img.decode().then(() => { tex!.needsUpdate = true; }, () => {});
+  };
+  const ready = Promise.all([decodeImg(smaa._areaTexture), decodeImg(smaa._searchTexture)]).then(() => {});
+  composer.addPass(smaa);
   // The composer multiplies by its own pixel ratio; we hand it device pixels already, so pin that to 1.
   composer.setPixelRatio(1);
   composer.setSize(size.x, size.y);
   let fast = false;
   return {
+    ready,
     occlusion,
     bloom,
     render: () => composer.render(),
