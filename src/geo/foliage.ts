@@ -21,7 +21,7 @@ const WATER_SEARCH_RADII_M = [10, 18, 26] as const;
 const FORECOURT_DEFAULT_RADIUS_M = 46;
 const FORECOURT_IDS = ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'];
 const TREE_LOD_DIST_M = 3600;
-const TREE_FAR_LOD_DIST_M = 1700;
+const TREE_FAR_LOD_DIST_M = 850;
 const TREE_TYPES = ['spreading', 'upright', 'flamboyant', 'willow', 'pine', 'palm', 'banyan'] as const;
 
 const PART = { WOOD: 0, CORE: 1, LEAF: 2 } as const;
@@ -107,8 +107,7 @@ function addLimb(soup: TreeSoup, start: number[], end: number[], r0: number, r1:
   }
 }
 
-const LOBE_ICO_HI = new THREE.IcosahedronGeometry(1, 1); // 80 tris — smooth architectural-maquette puffball
-const LOBE_ICO_LO = new THREE.IcosahedronGeometry(1, 0); // 20 tris — crisp low-poly puffball for mobile / minor lobes
+const LOBE_ICO_LO = new THREE.IcosahedronGeometry(1, 0); // 20 tris — crisp sculpted puffball lobe (smooth-shaded via analytical puffball normals)
 
 // Sculpted organic puffball lobe: gently deformed icosahedron with blended crown+lobe puffball normals
 // so every tree canopy reads as a crisp, smooth-shaded architectural maquette mass with zero alpha shimmer.
@@ -121,9 +120,8 @@ function addMaquetteLobe(
   lightFn: (pt: number[]) => [number[], number],
   opts: { tint?: number[]; detail?: number; seed?: number; flatBottom?: number } = {},
 ) {
-  const { tint, detail = 1, seed = 1, flatBottom = 0.22 } = opts;
-  const src = detail >= 1 ? LOBE_ICO_HI : LOBE_ICO_LO;
-  const arr = src.attributes.position.array;
+  const { tint, seed = 1, flatBottom = 0.22 } = opts;
+  const arr = LOBE_ICO_LO.attributes.position.array;
   const deform = (x: number, y: number, z: number) => {
     const bump = 1 + 0.09 * Math.sin(x * 3.7 + seed * 1.9) * Math.cos(z * 3.3 - seed * 2.3) + 0.06 * Math.sin(y * 4.1 + seed * 3.1);
     const yf = y < 0 ? y * (1 - flatBottom) : y;

@@ -10,7 +10,7 @@ const VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position =
 const POST_CFG = {
   initialTargetSize: 4,
   minBufferSize: 2,
-  msaaSamples: 4,
+  msaaSamples: 2,
   defaultFocusM: 800,
   defaultAperture: 0.6,
   defaultMaxBlurPx: 8,

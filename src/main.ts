@@ -96,7 +96,7 @@ const ADAPTIVE_QUALITY = {
   initialDetailReachHighM: 1500,
   tiers: [
     { minPixelRatio: 1.0, pixelRatioStep: 0.25 },
-    { minPixelRatio: 0.85, pixelRatioStep: 0.2 },
+    { minPixelRatio: 1.0, pixelRatioStep: 0.2 },
   ],
 } as const;
 
