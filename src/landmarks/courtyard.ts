@@ -58,38 +58,57 @@ function overlapsSpot(spot, ax, az, bx, bz, cx, cz) {
 // the floor under (x, z) within r of it and the highest face of a model in the column above it
 function surveySpots(S, spots) {
   const pos = S.pos;
+  const spotCount = spots.length;
+  const baseGs = new Float64Array(spotCount);
+  let allMinX = Infinity, allMaxX = -Infinity, allMinZ = Infinity, allMaxZ = -Infinity;
+  for (let j = 0; j < spotCount; j++) {
+    const s = spots[j];
+    baseGs[j] = groundY(s.x, s.z);
+    if (s.x - s.r < allMinX) allMinX = s.x - s.r;
+    if (s.x + s.r > allMaxX) allMaxX = s.x + s.r;
+    if (s.z - s.r < allMinZ) allMinZ = s.z - s.r;
+    if (s.z + s.r > allMaxZ) allMaxZ = s.z + s.r;
+  }
   const results = spots.map(() => ({ floor: -Infinity, top: -Infinity, faces: null as [number, number, boolean][] | null }));
   for (let i = 0; i < S.n; i += 3) {
     const base = i * 3;
-    const ax = pos[base], ay = pos[base + 1], az = pos[base + 2];
-    const bx = pos[base + 3], by = pos[base + 4], bz = pos[base + 5];
-    const cx = pos[base + 6], cy = pos[base + 7], cz = pos[base + 8];
-    const x0 = Math.min(ax, bx, cx), x1 = Math.max(ax, bx, cx);
-    const z0 = Math.min(az, bz, cz), z1 = Math.max(az, bz, cz);
+    const ax = pos[base], az = pos[base + 2];
+    const bx = pos[base + 3], bz = pos[base + 5];
+    const cx = pos[base + 6], cz = pos[base + 8];
+    const x0 = ax < bx ? (ax < cx ? ax : cx) : (bx < cx ? bx : cx);
+    if (x0 > allMaxX) continue;
+    const x1 = ax > bx ? (ax > cx ? ax : cx) : (bx > cx ? bx : cx);
+    if (x1 < allMinX) continue;
+    const z0 = az < bz ? (az < cz ? az : cz) : (bz < cz ? bz : cz);
+    if (z0 > allMaxZ) continue;
+    const z1 = az > bz ? (az > cz ? az : cz) : (bz > cz ? bz : cz);
+    if (z1 < allMinZ) continue;
+
+    const ay = pos[base + 1], by = pos[base + 4], cy = pos[base + 7];
     const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
     const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay);
     const nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
     const isLevel = ny > 1e-6 && ny > FLOOR_NORMAL_COS * Math.hypot(nx, ny, nz);
-    spots.forEach((spot, j) => {
-      if (x1 < spot.x - spot.r || x0 > spot.x + spot.r || z1 < spot.z - spot.r || z0 > spot.z + spot.r) return;
-      if (!overlapsSpot(spot, ax, az, bx, bz, cx, cz)) return;
+    const minY = Math.min(ay, by, cy), maxY = Math.max(ay, by, cy);
+    for (let j = 0; j < spotCount; j++) {
+      const spot = spots[j];
+      if (x1 < spot.x - spot.r || x0 > spot.x + spot.r || z1 < spot.z - spot.r || z0 > spot.z + spot.r) continue;
+      if (!overlapsSpot(spot, ax, az, bx, bz, cx, cz)) continue;
       const entry = results[j];
-      const baseG = groundY(spot.x, spot.z);
       if (isLevel) {
         const weights = bary(spot.x, spot.z, ax, az, bx, bz, cx, cz);
         if (weights) {
           const hitY = weights[0] * ay + weights[1] * by + weights[2] * cy;
-          if (hitY < baseG + 3) entry.floor = Math.max(entry.floor, hitY);
+          if (hitY < baseGs[j] + 3 && hitY > entry.floor) entry.floor = hitY;
         }
-        (entry.faces = entry.faces || []).push([Math.min(ay, by, cy), Math.max(ay, by, cy), true]);
+        (entry.faces = entry.faces || []).push([minY, maxY, true]);
       } else {
-        (entry.faces = entry.faces || []).push([Math.min(ay, by, cy), Math.max(ay, by, cy), false]);
+        (entry.faces = entry.faces || []).push([minY, maxY, false]);
       }
-    });
+    }
   }
   return results.map((entry, j) => {
-    const baseG = groundY(spots[j].x, spots[j].z);
-    const floor = entry.floor > -Infinity ? entry.floor : baseG;
+    const floor = entry.floor > -Infinity ? entry.floor : baseGs[j];
     const block = (entry.faces || []).filter(([lo, hi, isLevel]) => hi > floor + (isLevel ? 0.08 : 0.2) && lo < floor + spots[j].h);
     return { floor, hit: block.length > 0, block };
   });

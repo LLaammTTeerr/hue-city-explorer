@@ -134,14 +134,18 @@ export function createWaterShader() {
           vec2 dn = vec2( dot( n.xz, side ) * 0.75, dot( n.xz, fwd ) * 1.7 );
           vec4 uv = vUvR;
           uv.xy += dn * ( 0.085 + uRain * 0.06 ) * uv.w * ( 0.35 + 0.65 * lod );
-          // soften the reflection with a 5-tap filter so thin bridge trusses never strobe in the half-res mirror
-          vec2 rp = uReflPx * uv.w * ( 0.85 + 0.55 * smoothstep( 250.0, 1400.0, dist ) + 0.45 * uRain );
+          // soften the reflection with a 9-tap tent filter so thin diagonal bridge trusses and LEDs stay silky in the mirror
+          vec2 rp = uReflPx * uv.w * ( 0.95 + 0.55 * smoothstep( 250.0, 1400.0, dist ) + 0.45 * uRain );
           vec3 planar = (
-            texture2DProj( tDiffuse, uv ).rgb * 0.36
-            + texture2DProj( tDiffuse, uv + vec4(  rp.x,  rp.y, 0.0, 0.0 ) ).rgb * 0.16
-            + texture2DProj( tDiffuse, uv + vec4( -rp.x,  rp.y, 0.0, 0.0 ) ).rgb * 0.16
-            + texture2DProj( tDiffuse, uv + vec4(  rp.x, -rp.y, 0.0, 0.0 ) ).rgb * 0.16
-            + texture2DProj( tDiffuse, uv + vec4( -rp.x, -rp.y, 0.0, 0.0 ) ).rgb * 0.16
+            texture2DProj( tDiffuse, uv ).rgb * 0.25
+            + texture2DProj( tDiffuse, uv + vec4(  rp.x,  0.0,  0.0, 0.0 ) ).rgb * 0.125
+            + texture2DProj( tDiffuse, uv + vec4( -rp.x,  0.0,  0.0, 0.0 ) ).rgb * 0.125
+            + texture2DProj( tDiffuse, uv + vec4(  0.0,   rp.y, 0.0, 0.0 ) ).rgb * 0.125
+            + texture2DProj( tDiffuse, uv + vec4(  0.0,  -rp.y, 0.0, 0.0 ) ).rgb * 0.125
+            + texture2DProj( tDiffuse, uv + vec4(  rp.x,  rp.y, 0.0, 0.0 ) ).rgb * 0.0625
+            + texture2DProj( tDiffuse, uv + vec4( -rp.x,  rp.y, 0.0, 0.0 ) ).rgb * 0.0625
+            + texture2DProj( tDiffuse, uv + vec4(  rp.x, -rp.y, 0.0, 0.0 ) ).rgb * 0.0625
+            + texture2DProj( tDiffuse, uv + vec4( -rp.x, -rp.y, 0.0, 0.0 ) ).rgb * 0.0625
           );
           // bright reflections (lamps, LEDs) gather on the wavelet crests and fade softly with distance so night streaks stay silky
           float lum = dot( planar, vec3( 0.299, 0.587, 0.114 ) );

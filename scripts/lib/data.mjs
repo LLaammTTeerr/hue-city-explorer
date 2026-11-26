@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 import path from 'node:path';
-import { decodeHueBin, decodeTileBin } from '../../src/geo/codec.ts';
+import { hydrateHueData, decodeTileBin } from '../../src/geo/codec.ts';
 
 const root = new URL('../../', import.meta.url);
 const dataDir = new URL('public/data/', root);
@@ -19,10 +19,7 @@ export function readTile(f, dir = dataDir) {
 export function hydrateHue(data, dir = dataDir) {
   if (data.meta?.bin) {
     const fileUrl = dir instanceof URL ? new URL(data.meta.bin, dir) : path.join(dir, data.meta.bin);
-    const { h, trees, infill } = decodeHueBin(zlib.gunzipSync(fs.readFileSync(fileUrl)));
-    if (data.terrain) data.terrain.h = h;
-    data.trees = trees;
-    data.infill = infill;
+    hydrateHueData(data, zlib.gunzipSync(fs.readFileSync(fileUrl)));
   }
   return data;
 }

@@ -939,36 +939,91 @@ export function build({ data, S, group, place }) {
     return best;
   };
 
+  const ROAD_GRID = 20;
+  const roadBuckets = new Map<number, any[]>();
+  const rCell = (gx: number, gz: number) => gx * 65536 + gz;
   const allRoads = [];
   for (const road of data.roads || []) {
     if (road[1]) continue;
+    const raw = road[2];
+    let near = false;
+    for (let i = 0; i < raw.length; i += 2) {
+      const rx = raw[i] / 10 - cx, rz = raw[i + 1] / 10 - cz;
+      if (rx * rx + rz * rz < (QUARTER_RADIUS + 60) * (QUARTER_RADIUS + 60)) { near = true; break; }
+    }
+    if (!near) continue;
     const pts = [];
-    for (let i = 0; i < road[2].length; i += 2) pts.push([road[2][i] / 10, road[2][i + 1] / 10]);
-    if (pts.some((pt) => Math.hypot(pt[0] - cx, pt[1] - cz) < QUARTER_RADIUS + 60)) allRoads.push({ c: road[0], half: roadWidth(road) / 2, pts, box: boxOf(pts) });
+    for (let i = 0; i < raw.length; i += 2) pts.push([raw[i] / 10, raw[i + 1] / 10]);
+    const entry = { c: road[0], half: roadWidth(road) / 2, pts, box: boxOf(pts) };
+    allRoads.push(entry);
+    const pad = entry.half + 3;
+    for (let gx = Math.floor((entry.box[0] - pad) / ROAD_GRID); gx <= Math.floor((entry.box[2] + pad) / ROAD_GRID); gx++) {
+      for (let gz = Math.floor((entry.box[1] - pad) / ROAD_GRID); gz <= Math.floor((entry.box[3] + pad) / ROAD_GRID); gz++) {
+        const k = rCell(gx, gz);
+        let b = roadBuckets.get(k);
+        if (!b) { b = []; roadBuckets.set(k, b); }
+        b.push(entry);
+      }
+    }
   }
-  const onRoad = (x, z, pad = 0.3) => allRoads.some((road) => road.c <= 4 && inBox(road.box, x, z, road.half + pad) && nearestOnPolyline(road.pts, x, z).d < road.half + pad);
+  const onRoad = (x, z, pad = 0.3) => {
+    const bucket = roadBuckets.get(rCell(Math.floor(x / ROAD_GRID), Math.floor(z / ROAD_GRID)));
+    if (!bucket) return false;
+    for (let i = 0; i < bucket.length; i++) {
+      const road = bucket[i];
+      if (road.c <= 4 && inBox(road.box, x, z, road.half + pad) && nearestOnPolyline(road.pts, x, z).d < road.half + pad) return true;
+    }
+    return false;
+  };
 
   const rings = [], replaced: Record<string, any> = {};
+  const ringBuckets = new Map<number, any[]>();
+  const bldReachSq = (QUARTER_RADIUS + 30) * (QUARTER_RADIUS + 30);
   (data.bld || []).forEach((rec, bldIdx) => {
+    const raw = rec[0];
+    let near = false;
+    for (let k = 0; k < raw.length; k += 2) {
+      const bx = raw[k] / 10 - cx, bz = raw[k + 1] / 10 - cz;
+      if (bx * bx + bz * bz < bldReachSq) { near = true; break; }
+    }
+    if (!near) return;
     const ring = [];
-    for (let k = 0; k < rec[0].length; k += 2) ring.push([rec[0][k] / 10, rec[0][k + 1] / 10]);
+    for (let k = 0; k < raw.length; k += 2) ring.push([raw[k] / 10, raw[k + 1] / 10]);
     const role = Object.keys(REPLACE_MARKS).find((key) => !replaced[key] && inRing(REPLACE_MARKS[key][0], REPLACE_MARKS[key][1], ring));
     if (role) replaced[role] = ring;
-    else if (ring.some((pt) => Math.hypot(pt[0] - cx, pt[1] - cz) < QUARTER_RADIUS + 30)) rings.push({ ring, bi: bldIdx, box: boxOf(ring) });
+    else {
+      const entry = { ring, bi: bldIdx, box: boxOf(ring) };
+      rings.push(entry);
+      for (let gx = Math.floor(entry.box[0] / ROAD_GRID); gx <= Math.floor(entry.box[2] / ROAD_GRID); gx++) {
+        for (let gz = Math.floor(entry.box[1] / ROAD_GRID); gz <= Math.floor(entry.box[3] / ROAD_GRID); gz++) {
+          const k = rCell(gx, gz);
+          let b = ringBuckets.get(k);
+          if (!b) { b = []; ringBuckets.set(k, b); }
+          b.push(entry);
+        }
+      }
+    }
   });
 
-  const rects = [], polys = [];
+  const rects = [], polys: { ring: any; box: number[] }[] = [];
+  const rectBuckets = new Map<number, any[]>();
   const inRect = (rect, x, z) => {
     const dx = x - rect.c[0], dz = z - rect.c[1];
+    if (dx > rect.span || dx < -rect.span || dz > rect.span || dz < -rect.span) return false;
     return Math.abs(dx * rect.t[0] + dz * rect.t[1]) < rect.hw && Math.abs(-dx * rect.t[1] + dz * rect.t[0]) < rect.hd;
   };
-  const blocked = (x, z) => !inside(x, z)
-    || rects.some((rect) => inRect(rect, x, z))
-    || polys.some((poly) => inRing(x, z, poly))
-    || rings.some((entry) => inBox(entry.box, x, z, 0) && inRing(x, z, entry.ring))
-    || allRoads.some((road) => inBox(road.box, x, z, road.half + 0.4) && nearestOnPolyline(road.pts, x, z).d < road.half + 0.4)
-    || streetOf(x, z).d < STREET_SETBACK - 0.1
-    || nearestOnPolyline(LANE, x, z).d < LANE_HALF - 0.05;
+  const blocked = (x, z) => {
+    if (!inside(x, z)) return true;
+    const cellK = rCell(Math.floor(x / ROAD_GRID), Math.floor(z / ROAD_GRID));
+    const rb = rectBuckets.get(cellK);
+    if (rb) { for (let i = 0; i < rb.length; i++) if (inRect(rb[i], x, z)) return true; }
+    for (let i = 0; i < polys.length; i++) if (inBox(polys[i].box, x, z, 0) && inRing(x, z, polys[i].ring)) return true;
+    const mb = ringBuckets.get(cellK);
+    if (mb) { for (let i = 0; i < mb.length; i++) if (inBox(mb[i].box, x, z, 0) && inRing(x, z, mb[i].ring)) return true; }
+    const rds = roadBuckets.get(cellK);
+    if (rds) { for (let i = 0; i < rds.length; i++) if (inBox(rds[i].box, x, z, rds[i].half + 0.4) && nearestOnPolyline(rds[i].pts, x, z).d < rds[i].half + 0.4) return true; }
+    return streetOf(x, z).d < STREET_SETBACK - 0.1 || nearestOnPolyline(LANE, x, z).d < LANE_HALF - 0.05;
+  };
 
   const makeLot = (origin, tan, fwd, width, depth) => ({ o: origin, t: tan, f: fwd, w: width, d: depth, c: [origin[0] - (fwd[0] * depth) / 2, origin[1] - (fwd[1] * depth) / 2], ang: Math.atan2(tan[1], tan[0]) });
   const lotPt = (lotObj, along, into): [number, number] => [lotObj.o[0] + lotObj.t[0] * along - lotObj.f[0] * into, lotObj.o[1] + lotObj.t[1] * along - lotObj.f[1] * into];
@@ -1004,7 +1059,19 @@ export function build({ data, S, group, place }) {
     return { lo, hi, gy: LAND_Y + hi };
   };
   const lotCorners = (lotObj) => [lotPt(lotObj, -lotObj.w / 2, 0), lotPt(lotObj, lotObj.w / 2, 0), lotPt(lotObj, lotObj.w / 2, lotObj.d), lotPt(lotObj, -lotObj.w / 2, lotObj.d)];
-  const takeLot = (lotObj) => rects.push({ c: lotObj.c, t: lotObj.t, hw: lotObj.w / 2, hd: lotObj.d / 2 });
+  const takeLot = (lotObj) => {
+    const span = Math.hypot(lotObj.w / 2, lotObj.d / 2);
+    const rec = { c: lotObj.c, t: lotObj.t, hw: lotObj.w / 2, hd: lotObj.d / 2, span };
+    rects.push(rec);
+    for (let gx = Math.floor((lotObj.c[0] - span) / ROAD_GRID); gx <= Math.floor((lotObj.c[0] + span) / ROAD_GRID); gx++) {
+      for (let gz = Math.floor((lotObj.c[1] - span) / ROAD_GRID); gz <= Math.floor((lotObj.c[1] + span) / ROAD_GRID); gz++) {
+        const k = rCell(gx, gz);
+        let b = rectBuckets.get(k);
+        if (!b) { b = []; rectBuckets.set(k, b); }
+        b.push(rec);
+      }
+    }
+  };
 
   const buildBody = (lotObj, height, col, { kind = KIND.FACADE, roof = null, key = 0 }: Record<string, any> = {}) => {
     const { lo, gy } = levelSpan(lotCorners(lotObj));
@@ -1019,7 +1086,7 @@ export function build({ data, S, group, place }) {
     S.kind = kind; S.base = gy;
     S.prism(ring, LAND_Y + lo - 0.15, gy + height, col, roof, { topKind: KIND.FLAT, parapet });
     S.kind = KIND.PLAIN; S.base = 0;
-    polys.push(ring);
+    polys.push({ ring, box: boxOf(ring) });
     return gy;
   };
   const buildTube = (lotObj, key, walls, floors, isFront) => {

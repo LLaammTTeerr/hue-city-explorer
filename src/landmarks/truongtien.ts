@@ -49,24 +49,40 @@ function createBandMaterial(center: [number, number], dir: [number, number], bri
       uGlow: shared.uGlow, uTime: shared.uTime, uPal: { value: PALETTE },
       uC: { value: new THREE.Vector2(center[0], center[1]) }, uD: { value: new THREE.Vector2(dir[0], dir[1]) },
       uLen: { value: bridgeLen * BAND_LEN }, uSpeed: { value: BAND_SPEED },
-      uBoost: { value: 1.5 }, uWarm: { value: WARM_WHITE }, uWarmMix: { value: 0 },
+      uBoost: { value: 1.12 }, uWarm: { value: WARM_WHITE }, uWarmMix: { value: 0 },
     },
-    vertexShader: `uniform vec2 uC, uD; varying float vS;
-      void main() { vec4 w = modelMatrix * vec4( position, 1.0 ); vS = dot( w.xz - uC, uD );
-        gl_Position = projectionMatrix * viewMatrix * w; }`,
+    vertexShader: `uniform vec2 uC, uD; varying float vS; varying vec3 vViewDir, vWorldN;
+      void main() {
+        vec4 w = modelMatrix * vec4( position, 1.0 );
+        vS = dot( w.xz - uC, uD );
+        vViewDir = cameraPosition - w.xyz;
+        vWorldN = mat3( modelMatrix ) * normal;
+        gl_Position = projectionMatrix * viewMatrix * w;
+      }`,
     fragmentShader: `
       uniform vec3 uPal[ ${PALETTE.length} ]; uniform vec3 uWarm; uniform float uGlow, uBoost, uTime, uLen, uSpeed, uWarmMix;
-      varying float vS;
+      varying float vS; varying vec3 vViewDir, vWorldN;
       void main() {
         float x = fract( ( vS - uTime * uSpeed ) / uLen ) * ${PALETTE.length}.0;
         int a = int( floor( x ) ) % ${PALETTE.length};
         float f = fract( x ), m = f * f * ( 3.0 - 2.0 * f );
         vec3 c = mix( mix( uPal[ a ], uPal[ ( a + 1 ) % ${PALETTE.length} ], m ), uWarm, uWarmMix );
-        gl_FragColor = vec4( c * uBoost * uGlow, 1.0 );
+        // Calm near-white palette peaks and soften grazing luminaire silhouettes so close-up chords don't clip hard
+        float lum = dot( c, vec3( 0.299, 0.587, 0.114 ) );
+        float lumCalm = mix( 1.0, 0.72, smoothstep( 0.52, 0.90, lum ) );
+        float dist = length( vViewDir );
+        float nearCalm = mix( 0.76, 1.0, smoothstep( 10.0, 42.0, dist ) );
+        float ndv = abs( dot( normalize( vWorldN ), vViewDir / max( dist, 1e-4 ) ) );
+        float tubeProfile = 0.52 + 0.48 * smoothstep( 0.0, 0.75, ndv );
+        gl_FragColor = vec4( c * ( uBoost * uGlow * lumCalm * nearCalm * tubeProfile ), 1.0 );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
   });
@@ -224,10 +240,10 @@ function buildBowSpans(buf: Buf, group: THREE.Group, frame: BridgeFrame, bandMat
     const outerOf = (pt: number[], side: number, off = 0.5, up = 0) => [pt[0] + across[0] * side * off, pt[1] + up, pt[2] + across[1] * side * off];
     for (const side of [-1, 1]) {
       for (let k = 0; k < PANELS_PER_SPAN; k++) {
-        ledBuf.beam(outerOf(topNode(k, side), side, 0.46, 0.2), outerOf(topNode(k + 1, side), side, 0.46, 0.2), 0.2, 0.5, white);
-        ledBuf.beam(outerOf(topNode(k, side), side, 0.3), outerOf(botNode(k, side), side, 0.3), 0.12, 0.12, white);
+        ledBuf.beam(outerOf(topNode(k, side), side, 0.46, 0.2), outerOf(topNode(k + 1, side), side, 0.46, 0.2), 0.24, 0.5, white);
+        ledBuf.beam(outerOf(topNode(k, side), side, 0.3), outerOf(botNode(k, side), side, 0.3), 0.18, 0.18, white);
       }
-      ledBuf.beam(outerOf(botNode(0, side), side, 0.36), outerOf(botNode(PANELS_PER_SPAN, side), side, 0.36), 0.14, 0.28, white);
+      ledBuf.beam(outerOf(botNode(0, side), side, 0.36), outerOf(botNode(PANELS_PER_SPAN, side), side, 0.36), 0.2, 0.3, white);
     }
     const strip = new THREE.Mesh(ledBuf.geometry(), bandMat);
     strip.renderOrder = 19;
@@ -279,13 +295,13 @@ export function buildTruongTien(data: any, buf: Buf, group: THREE.Group) {
   const edgeBuf = new Buf(160);
   const white = [1, 1, 1];
   for (const side of [-1, 1]) {
-    edgeBuf.beam(frame.at(-length / 2, side * (width / 2 + 0.08), DECK_TOP_M - 0.12), frame.at(length / 2, side * (width / 2 + 0.08), DECK_TOP_M - 0.12), 0.1, 0.16, white);
+    edgeBuf.beam(frame.at(-length / 2, side * (width / 2 + 0.08), DECK_TOP_M - 0.12), frame.at(length / 2, side * (width / 2 + 0.08), DECK_TOP_M - 0.12), 0.18, 0.2, white);
     for (let i = 1; i < SPAN_COUNT; i++) {
       const alongS = -length / 2 + i * span;
-      edgeBuf.beam(frame.at(alongS, side * (width / 2 + 1.2), 0.5), frame.at(alongS, side * (width / 2 + 0.5), DECK_TOP_M - DECK_THICK_M - TRESTLE_H_M - 0.8), 0.5, 0.2, white);
+      edgeBuf.beam(frame.at(alongS, side * (width / 2 + 1.2), 0.5), frame.at(alongS, side * (width / 2 + 0.5), DECK_TOP_M - DECK_THICK_M - TRESTLE_H_M - 0.8), 0.5, 0.22, white);
     }
   }
-  const edgeMesh = new THREE.Mesh(edgeBuf.geometry(), lightMaterial(0xffd9a0, 0.75));
+  const edgeMesh = new THREE.Mesh(edgeBuf.geometry(), lightMaterial(0xffd9a0, 0.65));
   edgeMesh.renderOrder = 19;
   edgeMesh.userData.landmark = true;
   group.add(edgeMesh);
@@ -305,13 +321,13 @@ export function buildTruongTien(data: any, buf: Buf, group: THREE.Group) {
     update(time: number, _glow: number, rain: number) {
       const warmMix = Math.min(1, rain * 0.85);
       bandMat.uniforms.uWarmMix.value = warmMix;
-      bandMat.uniforms.uBoost.value = 1.5 + rain * 0.4;
+      bandMat.uniforms.uBoost.value = 1.12 + rain * 0.35;
       for (let i = 0; i < spanLights.length; i++) {
         const uniforms = spanLights[i].material.uniforms;
         const colorAttr = spanLights[i].geometry.attributes.color;
         const alongList = lampS[i];
         uniforms.uTint.value.setRGB(1, 1, 1);
-        uniforms.uBoost.value = 0.55 + rain * 0.25;
+        uniforms.uBoost.value = 0.42 + rain * 0.22;
         for (let j = 0; j < alongList.length; j++) {
           bandColor(alongList[j], time, length, colorTmp).lerp(WARM_WHITE, warmMix).multiplyScalar(0.6);
           colorAttr.setXYZ(j, colorTmp.r, colorTmp.g, colorTmp.b);

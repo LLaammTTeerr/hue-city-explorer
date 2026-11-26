@@ -89,6 +89,22 @@ export function clearingsOf(data: any): ClearingBox[] {
 
 // a path with the stretches inside the clearings taken out (tested every half metre), as the runs left outside
 function outsideRuns(pts: number[][], clearings: ClearingBox[]) {
+  if (!clearings.length || pts.length < 2) return pts.length >= 2 && pathLength(pts) > 0.5 ? [pts] : [];
+  let px0 = Infinity, px1 = -Infinity, pz0 = Infinity, pz1 = -Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const x = pts[i][0], z = pts[i][1];
+    if (x < px0) px0 = x;
+    if (x > px1) px1 = x;
+    if (z < pz0) pz0 = z;
+    if (z > pz1) pz1 = z;
+  }
+  const near: ClearingBox[] = [];
+  for (let i = 0; i < clearings.length; i++) {
+    const box = clearings[i];
+    if (px1 >= box.x0 && px0 <= box.x1 && pz1 >= box.z0 && pz0 <= box.z1) near.push(box);
+  }
+  if (!near.length) return pathLength(pts) > 0.5 ? [pts] : [];
+
   const runs: number[][][] = [];
   let current: number[][] = [];
   let prevOutside: number[] | null = null;
@@ -102,7 +118,7 @@ function outsideRuns(pts: number[][], clearings: ClearingBox[]) {
     const steps = Math.max(1, Math.ceil(Math.hypot(end[0] - start[0], end[1] - start[1]) / 0.5));
     for (let k = i === 0 ? 0 : 1; k <= steps; k++) {
       const pt = k === 0 ? start : k === steps ? end : [start[0] + ((end[0] - start[0]) * k) / steps, start[1] + ((end[1] - start[1]) * k) / steps];
-      const isOut = !inClearing(clearings, pt[0], pt[1]);
+      const isOut = !inClearing(near, pt[0], pt[1]);
       if (isOut && (k === 0 || k === steps || !prevOutside)) current.push(pt);
       else if (!isOut && prevOutside) {
         if (current[current.length - 1] !== prevOutside) current.push(prevOutside);
@@ -186,20 +202,22 @@ function widthAt(pts: number[][], widths: number[], pt: number[]) {
   return width;
 }
 
-function ribbon(buf: Buf, pts0: number[][], width: number | number[], baseY: number, color: number[], ends: any = null) {
-  const snapped = snapEnds(pts0, ends);
-  const pts = drape(snapped);
+function ribbon(buf: Buf, pts0: number[][], width: number | number[], baseY: number, color: number[], ends: any = null, cachedSnapped?: number[][], cachedDraped?: number[][]) {
+  const snapped = cachedSnapped || snapEnds(pts0, ends);
+  const pts = cachedDraped || drape(snapped);
   const resolvedWidth = Array.isArray(width) && pts.length !== pts0.length ? pts.map((pt) => widthAt(pts0, width, pt)) : width;
   const [leftEdge, rightEdge] = ribbonPoints(pts, resolvedWidth, ends);
   const lift = pts === snapped ? 0 : DRAPE_LIFT_M;
-  const leftY = leftEdge.map((pt) => baseY + rise(pt[0], pt[1]) + lift);
-  const rightY = rightEdge.map((pt) => baseY + rise(pt[0], pt[1]) + lift);
   for (let i = 0; i + 1 < pts.length; i++) {
+    const l0x = leftEdge[i][0], l0z = leftEdge[i][1];
+    const r0x = rightEdge[i][0], r0z = rightEdge[i][1];
+    const r1x = rightEdge[i + 1][0], r1z = rightEdge[i + 1][1];
+    const l1x = leftEdge[i + 1][0], l1z = leftEdge[i + 1][1];
     buf.quad(
-      [leftEdge[i][0], leftY[i], leftEdge[i][1]],
-      [rightEdge[i][0], rightY[i], rightEdge[i][1]],
-      [rightEdge[i + 1][0], rightY[i + 1], rightEdge[i + 1][1]],
-      [leftEdge[i + 1][0], leftY[i + 1], leftEdge[i + 1][1]],
+      [l0x, baseY + rise(l0x, l0z) + lift, l0z],
+      [r0x, baseY + rise(r0x, r0z) + lift, r0z],
+      [r1x, baseY + rise(r1x, r1z) + lift, r1z],
+      [l1x, baseY + rise(l1x, l1z) + lift, l1z],
       color,
       [0, 1, 0],
     );
@@ -369,8 +387,20 @@ function medianShrubs(structures: Buf, medians: { w: number; pts: number[][]; ws
   structures.kind = prevKind;
 }
 
-function buildLaneMarkings(buf: Buf, roads: any[], holeCells: any, baseY: number) {
+function buildLaneMarkings(buf: Buf, roads: any[], holeCells: any, baseY: number, preDashes?: [number, number][]) {
   const paint = hex('#f4eedd');
+  if (preDashes && preDashes.length) {
+    const dashes = new Array<any>(preDashes.length);
+    for (let i = 0; i < preDashes.length; i++) {
+      const [id, s0] = preDashes[i];
+      const pts = roads[id].pts;
+      const p0 = pointAlongPath(pts, s0).p;
+      const p1 = pointAlongPath(pts, s0 + DASH_LEN_M).p;
+      ribbon(buf, [p0, p1], DASH_WIDTH_M, baseY + 0.02, paint);
+      dashes[i] = { id, s0, p0, p1 };
+    }
+    return dashes;
+  }
   const guard = markingGuard(
     roads.map((road, id) => ({ id, c: road.c, w: road.w, ws: road.ws, pts: road.pts, bridge: road.bridge })).filter((road) => !road.bridge && road.c <= 2),
     holeCells,
@@ -378,11 +408,32 @@ function buildLaneMarkings(buf: Buf, roads: any[], holeCells: any, baseY: number
   const dashes: any[] = [];
   roads.forEach((road, id) => {
     if (road.bridge || road.c > 1 || road.unmarked) return;
-    const len = pathLength(road.pts);
-    const free: boolean[] = [];
-    for (let dist = 0; dist <= len; dist++) {
-      const { p, a } = pointAlongPath(road.pts, dist);
-      free.push(guard(id, p[0], p[1], a));
+    const pts = road.pts;
+    const nSegs = pts.length - 1;
+    if (nSegs < 1) return;
+    const segLen = new Float64Array(nSegs);
+    const segAng = new Float64Array(nSegs);
+    let len = 0;
+    for (let i = 0; i < nSegs; i++) {
+      const dx = pts[i + 1][0] - pts[i][0], dz = pts[i + 1][1] - pts[i][1];
+      const l = Math.hypot(dx, dz);
+      segLen[i] = l;
+      segAng[i] = Math.atan2(dz, dx);
+      len += l;
+    }
+    const maxDist = Math.floor(len);
+    const free = new Uint8Array(maxDist + 1);
+    let segIdx = 0, segStartS = 0;
+    for (let dist = 0; dist <= maxDist; dist++) {
+      while (segIdx < nSegs - 1 && segStartS + segLen[segIdx] < dist) {
+        segStartS += segLen[segIdx];
+        segIdx++;
+      }
+      const l = segLen[segIdx];
+      const frac = l > 0 ? Math.max(0, Math.min(1, (dist - segStartS) / l)) : 0;
+      const px = pts[segIdx][0] + (pts[segIdx + 1][0] - pts[segIdx][0]) * frac;
+      const pz = pts[segIdx][1] + (pts[segIdx + 1][1] - pts[segIdx][1]) * frac;
+      free[dist] = guard(id, px, pz, segAng[segIdx]) ? 1 : 0;
     }
     const isClear = (startS: number) => {
       for (let k = 0; k <= DASH_LEN_M; k++) if (!free[startS + k]) return false;
@@ -392,7 +443,6 @@ function buildLaneMarkings(buf: Buf, roads: any[], holeCells: any, baseY: number
     for (let startS = DASH_START_M; startS + DASH_LEN_M < len; startS += DASH_RHYTHM_M) {
       if (isClear(startS)) starts.push(startS);
     }
-    // a stretch the rhythm misses (between two carriageways inside a junction, a short way) gets one dash in its middle
     for (let runStart = 0; runStart < free.length;) {
       if (!free[runStart]) { runStart++; continue; }
       let runEnd = runStart;
@@ -403,8 +453,8 @@ function buildLaneMarkings(buf: Buf, roads: any[], holeCells: any, baseY: number
       runStart = runEnd + 1;
     }
     for (const startS of starts) {
-      const p0 = pointAlongPath(road.pts, startS).p;
-      const p1 = pointAlongPath(road.pts, startS + DASH_LEN_M).p;
+      const p0 = pointAlongPath(pts, startS).p;
+      const p1 = pointAlongPath(pts, startS + DASH_LEN_M).p;
       ribbon(buf, [p0, p1], DASH_WIDTH_M, baseY + 0.02, paint);
       dashes.push({ id, s0: startS, p0, p1 });
     }
@@ -573,27 +623,41 @@ export function buildRoads(data: any, group: THREE.Group, structures: Buf, clear
   }
   bridgeJoints(roads);
   handDeckJoints(roads, placeDeckEnds(data));
+  for (const road of roads) {
+    if (!road.bridge) {
+      road._snapped = snapEnds(road.pts, road.ends);
+      road._draped = drape(road._snapped);
+      if (road.ws && road._draped.length !== road.pts.length) {
+        road._drapedWs = road._draped.map((pt: number[]) => widthAt(road.pts, road.ws, pt));
+      }
+    }
+  }
 
   const casing = hex(PAL.casing);
   const roadCols = PAL.road.map(hex);
   const baseY = LAND_Y + ROAD_BASE_Y_OFFSET;
-  const widthPlus = (road: any, add = 0) => (road.ws ? road.ws.map((w: number) => w + add) : road.w + add);
+  const widthPlus = (road: any, add = 0) => {
+    const src = road._drapedWs || road.ws;
+    return src ? (add === 0 ? src : src.map((w: number) => w + add)) : road.w + add;
+  };
   const pavementWidth = (road: any) => widthPlus(road, road.c <= 2 ? PAVEMENT_ADD_MAJOR_M : PAVEMENT_ADD_MINOR_M);
   const kerbCol = shade(casing, 0.8);
   const vergeCol = shade(casing, 0.9);
+  const roadRibbon = (road: any, w: number | number[], y: number, col: number[]) =>
+    ribbon(buf, road._draped, w, y, col, road.ends, road._snapped, road._draped);
 
   buf.kind = KIND.LINE;
-  for (const road of roads) if (!road.bridge && road.c <= 3) ribbon(buf, road.pts, widthPlus(road, (road.c <= 2 ? PAVEMENT_ADD_MAJOR_M : PAVEMENT_ADD_MINOR_M) + VERGE_EXTRA_M), baseY - 0.005, vergeCol, road.ends);
+  for (const road of roads) if (!road.bridge && road.c <= 3) roadRibbon(road, widthPlus(road, (road.c <= 2 ? PAVEMENT_ADD_MAJOR_M : PAVEMENT_ADD_MINOR_M) + VERGE_EXTRA_M), baseY - 0.005, vergeCol);
   buf.kind = KIND.ROAD;
-  for (const road of roads) if (!road.bridge && road.c <= 3) ribbon(buf, road.pts, pavementWidth(road), baseY, casing, road.ends);
+  for (const road of roads) if (!road.bridge && road.c <= 3) roadRibbon(road, pavementWidth(road), baseY, casing);
   buf.kind = KIND.LINE;
-  for (const road of roads) if (!road.bridge && road.c <= 4) ribbon(buf, road.pts, widthPlus(road, road.c <= 2 ? KERB_ADD_MAJOR_M : KERB_ADD_MINOR_M), baseY + 0.005, road.c <= 3 ? kerbCol : shade(roadCols[4], 0.85), road.ends);
+  for (const road of roads) if (!road.bridge && road.c <= 4) roadRibbon(road, widthPlus(road, road.c <= 2 ? KERB_ADD_MAJOR_M : KERB_ADD_MINOR_M), baseY + 0.005, road.c <= 3 ? kerbCol : shade(roadCols[4], 0.85));
 
   const carriageways: any[] = [];
   roads.forEach((road, id) => {
     if (road.bridge || road.c > 4) return;
-    const pts = drape(snapEnds(road.pts, road.ends));
-    const [leftEdge, rightEdge] = ribbonPoints(pts, road.ws ? pts.map((pt: number[]) => widthAt(road.pts, road.ws, pt)) : road.w, road.ends);
+    const pts = road._draped;
+    const [leftEdge, rightEdge] = ribbonPoints(pts, road._drapedWs || road.ws || road.w, road.ends);
     carriageways.push({ id, c: road.c, pts: road.pts, L: leftEdge, R: rightEdge, u: road.unmarked });
   });
   const pre = data.precomputed;
@@ -655,10 +719,10 @@ export function buildRoads(data: any, group: THREE.Group, structures: Buf, clear
 
   buf.kind = KIND.ROAD;
   for (let cls = ROAD_MAX; cls >= 0; cls--) {
-    for (const road of roads) if (road.c === cls && !road.bridge) ribbon(buf, road.pts, widthPlus(road), baseY + 0.01, roadCols[cls], road.ends);
+    for (const road of roads) if (road.c === cls && !road.bridge) roadRibbon(road, widthPlus(road), baseY + 0.01, roadCols[cls]);
   }
 
-  const dashes = buildLaneMarkings(buf, roads, holeCells, baseY);
+  const dashes = buildLaneMarkings(buf, roads, holeCells, baseY, pre?.dashes);
   for (const [isMain, bridge, flat] of data.rails || []) {
     if (bridge) continue;
     const pts = unflat(flat);

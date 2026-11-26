@@ -2968,14 +2968,33 @@ const { encodeHueBin, encodeTileBin } = await import('../src/geo/codec.ts');
 const { loadData: loadPrevData } = await import('./lib/data.mjs');
 const previous = fs.existsSync(OUT) ? loadPrevData({ tiles: false, file: OUT }) : null;
 fs.mkdirSync('public/data', { recursive: true });
-const hueBinGz = zlib.gzipSync(encodeHueBin(terrain ? terrain.h : [], infillOut.length || treesOut.length ? treesOut : [], infillOut), { level: 9 });
+const hueBinGz = zlib.gzipSync(encodeHueBin({
+  h: terrain ? terrain.h : [],
+  cover: terrain ? terrain.cover : null,
+  trees: infillOut.length || treesOut.length ? treesOut : [],
+  infill: infillOut,
+  land: out.land,
+  ponds: out.ponds,
+  green: out.green,
+  roads: out.roads,
+  medians: out.medians,
+  bld: out.bld,
+  streetLabels: out.streetLabels,
+}), { level: 9 });
 fs.writeFileSync('public/data/hue.bin', hueBinGz);
 const outDisk = {
   ...out,
   meta: { ...out.meta, bin: 'hue.bin' },
-  terrain: terrain ? { ...terrain, h: [] } : terrain,
+  terrain: terrain ? { ...terrain, h: [], cover: '' } : terrain,
+  land: [],
+  ponds: [],
+  green: [],
+  roads: [],
+  medians: [],
+  bld: [],
   trees: [],
   infill: [],
+  streetLabels: [],
 };
 fs.writeFileSync(OUT, JSON.stringify(outDisk));
 console.log('wrote', OUT, (fs.statSync(OUT).size / 1e6).toFixed(2), 'MB + hue.bin', (hueBinGz.length / 1e6).toFixed(2), 'MB | extent m', Math.round(MAXX - MINX), 'x', Math.round(MAXZ - MINZ));

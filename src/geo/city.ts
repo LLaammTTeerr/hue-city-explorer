@@ -220,21 +220,38 @@ function coverOf(structures: any) {
   const COVER = 1, TALL = 2; // cell flags: covered by something standing at least 0.7 m clear of the ground; 2.2 m
   const grid = new CellGrid();
   const pos = structures.pos;
-  const skipRanges = [structures.wallRange || [0, 0], ...(structures.noCover || [])];
+  const skipRanges: [number, number][] = [structures.wallRange || [0, 0], ...(structures.noCover || [])];
+  const skipLen = skipRanges.length;
+  const pavedRanges: [number, number][] | null = structures.paved || null;
+  const pavedLen = pavedRanges ? pavedRanges.length : 0;
+  const minClearY = LAND_Y + 0.2;
 
   for (let i = 0; i < structures.n; i += 3) {
-    if (skipRanges.some(([from, to]: [number, number]) => i >= from && i < to)) continue;
     const base = i * 3;
-    const ax = pos[base], ay = pos[base + 1], az = pos[base + 2];
-    const bx = pos[base + 3], by = pos[base + 4], bz = pos[base + 5];
-    const cx = pos[base + 6], cy = pos[base + 7], cz = pos[base + 8];
+    const ay = pos[base + 1], by = pos[base + 4], cy = pos[base + 7];
+    const minY = ay < by ? (ay < cy ? ay : cy) : (by < cy ? by : cy);
+    if (minY <= minClearY) continue;
+    let skipped = false;
+    for (let s = 0; s < skipLen; s++) {
+      if (i >= skipRanges[s][0] && i < skipRanges[s][1]) { skipped = true; break; }
+    }
+    if (skipped) continue;
+
+    const ax = pos[base], az = pos[base + 2];
+    const bx = pos[base + 3], bz = pos[base + 5];
+    const cx = pos[base + 6], cz = pos[base + 8];
     const ny = (bz - az) * (cx - ax) - (bx - ax) * (cz - az);
+    if (ny < 0.2) continue;
     const nx = (by - ay) * (cz - az) - (bz - az) * (cy - ay);
     const nz = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-    if (ny < 0.35 * Math.hypot(nx, ny, nz) || ny < 0.2) continue;
+    if (ny * ny < 0.1225 * (nx * nx + ny * ny + nz * nz)) continue; // 0.35^2 = 0.1225
 
-    let clearance = Math.min(ay, by, cy) - LAND_Y - rise((ax + bx + cx) / 3, (az + bz + cz) / 3);
-    if (structures.paved && clearance > 0.2 && structures.paved.some(([from, to]: [number, number]) => i >= from && i < to)) clearance = 2.2;
+    let clearance = minY - LAND_Y - rise((ax + bx + cx) / 3, (az + bz + cz) / 3);
+    if (pavedLen && clearance > 0.2 && clearance < 2.2) {
+      for (let p = 0; p < pavedLen; p++) {
+        if (i >= pavedRanges![p][0] && i < pavedRanges![p][1]) { clearance = 2.2; break; }
+      }
+    }
     if (clearance < 0.7) continue;
 
     const x0 = Math.floor(Math.min(ax, bx, cx)), x1 = Math.floor(Math.max(ax, bx, cx));
@@ -311,17 +328,24 @@ function roofClash(roofs: any[]) {
 
 export function populate(world: any, data: any) {
   const cover = coverOf(world.structures);
-  const asphalt = world.marks ? asphaltTest([...world.marks.cw, ...(world.marks.paved || [])], world.marks.holeCells) : () => false;
+  const asphalt = world.marks ? asphaltTest([...world.marks.cw, ...(world.marks.paved || [])], world.marks.holeCells) : Object.assign(() => false, { near: () => false });
+  const asphaltNear = asphalt.near;
+  const maxHits = CROWN_ROAD * TREE_RING_16.length * CROWN_SAMPLE_RADII.length;
 
   const isOnRoad = (x: number, z: number, crownRadius: number) => {
+    if (!asphaltNear(x, z, crownRadius)) return false;
     if (asphalt(x, z)) return true;
     let hits = 0;
-    for (const [u, v] of TREE_RING_16) {
-      for (const frac of CROWN_SAMPLE_RADII) {
-        if (asphalt(x + u * crownRadius * frac, z + v * crownRadius * frac)) hits++;
+    for (let r = 0; r < TREE_RING_16.length; r++) {
+      const u = TREE_RING_16[r][0], v = TREE_RING_16[r][1];
+      for (let f = 0; f < CROWN_SAMPLE_RADII.length; f++) {
+        const step = crownRadius * CROWN_SAMPLE_RADII[f];
+        if (asphalt(x + u * step, z + v * step)) {
+          if (++hits > maxHits) return true;
+        }
       }
     }
-    return hits > CROWN_ROAD * TREE_RING_16.length * CROWN_SAMPLE_RADII.length;
+    return false;
   };
 
   const treeOff = (x: number, z: number, radius: number, crown = radius * 1.5) => {

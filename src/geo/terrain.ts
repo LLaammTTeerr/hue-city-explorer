@@ -25,6 +25,8 @@ interface TerrainGrid {
 let terrainGrid: TerrainGrid | null = null;
 let carvedNodes: Map<number, { h: number; lv: number; wet: boolean }> | null = null;
 let fineCells: Map<number, Float32Array> | null = null;
+let fineCellArr: (Float32Array | undefined)[] | null = null;
+let riseMinX = Infinity, riseMaxX = -Infinity, riseMinZ = Infinity, riseMaxZ = -Infinity;
 
 export function initTerrain(data: any) {
   const raw = data.terrain;
@@ -41,6 +43,24 @@ export function initTerrain(data: any) {
     cover: raw.cover,
   };
   carveLakes(data);
+  fineCellArr = new Array(terrainGrid.nx * terrainGrid.nz);
+  if (fineCells) {
+    for (const [k, v] of fineCells) fineCellArr[k] = v;
+  }
+  riseMinX = Infinity; riseMaxX = -Infinity; riseMinZ = Infinity; riseMaxZ = -Infinity;
+  const { x0, z0, step, nx, nz } = terrainGrid;
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const idx = j * nx + i;
+      if (heights[idx] !== 0 || fineCellArr[idx] !== undefined) {
+        const x = x0 + i * step, z = z0 + j * step;
+        if (x - step < riseMinX) riseMinX = x - step;
+        if (x + step > riseMaxX) riseMaxX = x + step;
+        if (z - step < riseMinZ) riseMinZ = z - step;
+        if (z + step > riseMaxZ) riseMaxZ = z + step;
+      }
+    }
+  }
 }
 
 // The bare 25 m lattice, interpolated on the same triangles the terrain mesh is built from.
@@ -141,16 +161,24 @@ function carveLakes(data: any) {
 
 // Rise in metres at (x, z). Interpolates on the same triangles the terrain mesh is built from.
 export function rise(x: number, z: number) {
-  if (!terrainGrid) return 0;
+  if (!terrainGrid || x < riseMinX || x > riseMaxX || z < riseMinZ || z > riseMaxZ) return 0;
   const gx = (x - terrainGrid.x0) / terrainGrid.step;
   const gz = (z - terrainGrid.z0) / terrainGrid.step;
   if (gx < 0 || gz < 0 || gx >= terrainGrid.nx - 1 || gz >= terrainGrid.nz - 1) return 0;
-  const sub = fineCells && fineCells.get(Math.floor(gz) * terrainGrid.nx + Math.floor(gx));
-  if (!sub) return coarseRise(x, z);
-  const sx = (gx - Math.floor(gx)) * LAKE_SUBDIV;
-  const sz = (gz - Math.floor(gz)) * LAKE_SUBDIV;
-  const si = Math.min(LAKE_SUBDIV - 1, Math.floor(sx));
-  const sj = Math.min(LAKE_SUBDIV - 1, Math.floor(sz));
+  const ci = gx | 0, cj = gz | 0;
+  const cellIdx = cj * terrainGrid.nx + ci;
+  const sub = fineCellArr ? fineCellArr[cellIdx] : undefined;
+  if (!sub) {
+    const fx = gx - ci, fz = gz - cj;
+    const h = terrainGrid.h;
+    const h00 = h[cellIdx], h10 = h[cellIdx + 1], h01 = h[cellIdx + terrainGrid.nx], h11 = h[cellIdx + terrainGrid.nx + 1];
+    if (h00 === 0 && h10 === 0 && h01 === 0 && h11 === 0) return 0;
+    return fx > fz ? h00 + (h10 - h00) * fx + (h11 - h10) * fz : h00 + (h11 - h01) * fx + (h01 - h00) * fz;
+  }
+  const sx = (gx - ci) * LAKE_SUBDIV;
+  const sz = (gz - cj) * LAKE_SUBDIV;
+  const si = Math.min(LAKE_SUBDIV - 1, sx | 0);
+  const sj = Math.min(LAKE_SUBDIV - 1, sz | 0);
   const fx = sx - si, fz = sz - sj;
   const idx = sj * (LAKE_SUBDIV + 1) + si;
   const h00 = sub[idx], h10 = sub[idx + 1], h01 = sub[idx + LAKE_SUBDIV + 1], h11 = sub[idx + LAKE_SUBDIV + 2];
@@ -191,7 +219,16 @@ export function baseUnder(ring: number[][]) {
 
 // Split a polyline finely where it crosses raised ground, so roads follow the slope.
 export function drape(pts: number[][], maxLen = DEFAULT_DRAPE_STEP_M) {
-  if (!terrainGrid) return pts;
+  if (!terrainGrid || pts.length < 2) return pts;
+  let px0 = Infinity, px1 = -Infinity, pz0 = Infinity, pz1 = -Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const x = pts[i][0], z = pts[i][1];
+    if (x < px0) px0 = x;
+    if (x > px1) px1 = x;
+    if (z < pz0) pz0 = z;
+    if (z > pz1) pz1 = z;
+  }
+  if (px1 < riseMinX || px0 > riseMaxX || pz1 < riseMinZ || pz0 > riseMaxZ) return pts;
   let isHilly = false;
   const checkStep = terrainGrid.step * 0.5;
   for (let i = 0; i < pts.length && !isHilly; i++) {

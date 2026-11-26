@@ -178,5 +178,25 @@
     </div>
 
     <script type="module" src="/src/main.ts"></script>
+    <script>
+      // Kick off data reads right after module preloads are queued: serve from versioned Cache Storage in <5 ms on
+      // repeat visits, or stream from network in parallel with JS download without starving the UI/search chunks.
+      (function () {
+        var nogl = /[?&]nogl(?:=|&|$)/.test(location.search);
+        var hasGL = !nogl && typeof WebGLRenderingContext !== 'undefined';
+        var cname = '__HUE_CACHE_NAME__';
+        var cp = typeof caches !== 'undefined' && caches.open ? caches.open(cname).catch(function () { return null; }) : Promise.resolve(null);
+        var get = function (p, low) {
+          return cp.then(function (c) { return c ? c.match(p) : null; }).then(function (hit) {
+            return hit && hit.ok ? hit : fetch(p, low ? { priority: 'low' } : undefined);
+          }).catch(function () { return null; });
+        };
+        window.__hueEarlyFetch = {
+          places: get('./data/places.json', false),
+          hueJson: hasGL ? get('./data/hue.json', false) : null,
+          hueBin: hasGL ? get('./data/hue.bin', true) : null,
+        };
+      })();
+    </script>
   </body>
 </html>
