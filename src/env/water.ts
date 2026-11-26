@@ -7,12 +7,15 @@ import { createWaterShader } from './water-shader.ts';
 
 const DECIMETRES_PER_METRE = 10;
 const REFLECT_CFG = {
-  scale: 0.35,
+  scale: 0.5,
   maxWidth: 960,
   maxHeight: 540,
-  clipBias: 0.02,
-  movePosSqThreshold: 0.04,
-  moveQuatDotThreshold: 0.999999,
+  clipBias: 0.0005,
+  multisample: 2,
+  movePosSqThreshold: 1e-6,
+  moveQuatDotThreshold: 0.999999995,
+  moveFovThreshold: 1e-4,
+  moveNearThreshold: 1e-3,
   nightGlowThreshold: 0.05,
   fadeStartAltM: 750,
   fadeEndAltM: 1250,
@@ -49,7 +52,7 @@ function createRiverMesh(geo: THREE.PlaneGeometry, shader: ReturnType<typeof cre
     textureWidth: targetWidth(innerWidth, quality.pixelRatio),
     textureHeight: targetHeight(innerHeight, quality.pixelRatio),
     clipBias: REFLECT_CFG.clipBias,
-    multisample: 0,
+    multisample: REFLECT_CFG.multisample,
   });
 
   // Update the planar water reflection every frame while moving (avoiding multi-frame stutter), skip when the camera
@@ -59,6 +62,9 @@ function createRiverMesh(geo: THREE.PlaneGeometry, shader: ReturnType<typeof cre
   let hasFrame = false;
   const lastPos = new THREE.Vector3(Infinity, Infinity, Infinity);
   const lastQuat = new THREE.Quaternion();
+  let lastFov = NaN;
+  let lastNear = NaN;
+  let lastAspect = NaN;
 
   reflector.userData.invalidate = () => { hasFrame = false; };
   reflector.userData.setReflection = (on: boolean) => {
@@ -81,11 +87,17 @@ function createRiverMesh(geo: THREE.PlaneGeometry, shader: ReturnType<typeof cre
     if (altFade <= 0.01) return;
     const hasMoved = !hasFrame
       || cam.position.distanceToSquared(lastPos) > REFLECT_CFG.movePosSqThreshold
-      || Math.abs(cam.quaternion.dot(lastQuat)) < REFLECT_CFG.moveQuatDotThreshold;
+      || Math.abs(cam.quaternion.dot(lastQuat)) < REFLECT_CFG.moveQuatDotThreshold
+      || Math.abs((cam.fov ?? 0) - lastFov) > REFLECT_CFG.moveFovThreshold
+      || Math.abs((cam.near ?? 0) - lastNear) > REFLECT_CFG.moveNearThreshold
+      || Math.abs((cam.aspect ?? 0) - lastAspect) > REFLECT_CFG.moveFovThreshold;
     const isNight = reflector.material.uniforms.uGlow.value > REFLECT_CFG.nightGlowThreshold;
     if (!hasMoved && !isNight) return;
     lastPos.copy(cam.position);
     lastQuat.copy(cam.quaternion);
+    lastFov = cam.fov ?? 0;
+    lastNear = cam.near ?? 0;
+    lastAspect = cam.aspect ?? 0;
     hasFrame = true;
     reflector.getReflectionCamera(cam).layers.set(0);
     renderMirror.apply(this, args);

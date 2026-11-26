@@ -120,10 +120,12 @@ svg .fill { fill: currentColor; stroke: none; }
 /* ---------- top-left: editorial identity plaque + search pill ---------- */
 #top-left {
   position: fixed; left: var(--edge); top: var(--top); width: var(--left-w);
+  max-height: calc(100vh - var(--top) - var(--bottom) - var(--actions-h, 164px) - 22px);
+  max-height: calc(100dvh - var(--top) - var(--bottom) - var(--actions-h, 164px) - 22px);
   display: flex; flex-direction: column; gap: 9px; z-index: 4;
   transition: width 0.25s ease, opacity 0.45s ease;
 }
-#plaque { border-radius: 16px; padding: 13px 15px 12px; }
+#plaque { flex: none; border-radius: 16px; padding: 13px 15px 12px; }
 .plaque-head { display: flex; align-items: center; gap: 11px; }
 .plaque-titles { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 #plaque h1 {
@@ -148,7 +150,7 @@ body.has-card #plaque { padding: 10px 14px; }
 body.has-card #plaque-stats { display: none; }
 
 /* ---------- search ---------- */
-#search { position: relative; width: 100%; }
+#search { position: relative; flex: none; width: 100%; }
 #search .bar {
   display: flex; align-items: center; gap: 6px;
   height: 40px; padding: 0 8px 0 8px; border-radius: 999px;
@@ -422,13 +424,13 @@ body.has-card #hint { opacity: 0; pointer-events: none; }
 /* ---------- place card ---------- */
 #card {
   position: relative; width: 100%;
-  max-height: calc(100vh - var(--top) - 122px - var(--bottom) - 126px);
+  flex: 0 1 auto; min-height: 0; overflow: hidden;
   display: flex; flex-direction: column; border-radius: 18px;
   background: var(--glass-strong);
   z-index: 5;
   animation: rise 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-#card-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 17px 18px 15px; scrollbar-width: thin; scrollbar-color: var(--glass-hairline) transparent; }
+#card-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 17px 18px 15px; scrollbar-width: thin; scrollbar-color: var(--glass-hairline) transparent; }
 #card-media { margin: -7px -8px 13px; }
 #card-shot { display: block; width: 100%; border-radius: 11px; cursor: default; overflow: hidden; }
 #card-img { display: block; width: 100%; max-height: 210px; object-fit: cover; border-radius: 11px; background: var(--wash); }
@@ -615,7 +617,7 @@ body.flat #scene, body.flat #labels, body.flat #nav, body.flat #actions, body.fl
 /* ---------- phones ---------- */
 @media (max-width: 720px) {
   :root { --edge-l: max(14px, env(safe-area-inset-left)); --edge-r: max(14px, env(safe-area-inset-right)); --top: max(12px, env(safe-area-inset-top)); --bottom: max(12px, env(safe-area-inset-bottom)); }
-  #top-left { left: var(--edge); right: var(--edge-r); width: auto; gap: 0; }
+  #top-left { left: var(--edge); right: var(--edge-r); width: auto; max-height: none; gap: 0; }
   #plaque { display: none; }
   #search .bar { height: 46px; padding: 0 8px; }
   #search .mob-seal { display: inline-grid; width: 28px; height: 28px; font-size: 10.5px; }
@@ -638,7 +640,7 @@ body.flat #scene, body.flat #labels, body.flat #nav, body.flat #actions, body.fl
   .compass svg { width: 32px; height: 32px; }
 
   #places {
-    display: flex; position: fixed; left: 0; right: 0; bottom: calc(var(--bottom) + 108px);
+    display: flex; position: fixed; left: 0; right: 0; bottom: calc(var(--bottom) + 18px + var(--actions-h, 156px) + 8px);
     gap: 6px; padding: 4px var(--edge); overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
     pointer-events: auto; z-index: 3;
   }
@@ -655,7 +657,7 @@ body.flat #scene, body.flat #labels, body.flat #nav, body.flat #actions, body.fl
     left: var(--edge-l); right: var(--edge-r); bottom: calc(var(--bottom) + 18px);
     width: auto; padding: 10px 14px 9px;
   }
-  #hint { bottom: calc(var(--bottom) + 150px); }
+  #hint { bottom: calc(var(--bottom) + 18px + var(--actions-h, 156px) + 48px); }
   #attrib { bottom: calc(var(--bottom) - 2px); font-size: 9.5px; }
 
   #card {
