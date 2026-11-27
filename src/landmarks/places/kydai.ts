@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import polygonClipping from 'polygon-clipping';
-import { KIND, Buf, hex, shade, signedArea, inRing, rand } from '../../geo/buf.ts';
+import { KIND, KIND_FLOOD, Buf, hex, shade, signedArea, inRing, rand } from '../../geo/buf.ts';
 import { LAND_Y, WALL_H } from '../../config.ts';
 import { glowPoints, lightMaterial } from '../../geo/materials.ts';
 import { flag } from '../anim.ts';
@@ -354,17 +354,21 @@ function buildFlagpoleAndGuardHuts(S, tier3Y, floodCoords, floodColors) {
   const topAngle = Math.atan2(TOP_RING[1][1] - TOP_RING[0][1], TOP_RING[1][0] - TOP_RING[0][0]);
   const dirX = Math.cos(topAngle);
   const dirZ = Math.sin(topAngle);
-  S.kind = KIND.MASONRY;
+  const keepBase = S.base;
+  S.base = tier3Y;
+  S.kind = KIND.MASONRY + KIND_FLOOD;
   S.box(topCenter[0], topCenter[1], tier3Y, tier3Y + 0.6, 4.2, 4.2, topAngle, COLORS.parapet, { top: COLORS.coping });
   S.box(topCenter[0], topCenter[1], tier3Y + 0.6, tier3Y + 1.5, 2.6, 2.6, topAngle, COLORS.parapet, { top: COLORS.coping, taper: 0.9 });
-  S.kind = KIND.PLAIN;
   // the pole: dark weathered concrete, two railed ring platforms, guy lines to the corners of tier 3
   const baseRad = 0.62;
   const topRad = 0.26;
   const poleY0 = tier3Y + 1.5;
   const poleY1 = tier3Y + POLE_HEIGHT - 0.6;
   const radiusAt = (y) => baseRad + (topRad - baseRad) * (y - poleY0) / (poleY1 - poleY0);
+  S.kind = KIND.PLAIN + KIND_FLOOD;
   S.cyl(topCenter[0], topCenter[1], poleY0, poleY1, baseRad, topRad, 10, COLORS.pole);
+  S.base = keepBase;
+  S.kind = KIND.PLAIN;
   S.cyl(topCenter[0], topCenter[1], tier3Y + POLE_HEIGHT - 0.6, tier3Y + POLE_HEIGHT - 0.3, 0.42, 0.42, 10, COLORS.pole);
   for (const frac of [0.3, 0.62]) {
     const y = tier3Y + POLE_HEIGHT * frac;
@@ -413,11 +417,11 @@ function buildFlagpoleAndGuardHuts(S, tier3Y, floodCoords, floodColors) {
     floodCoords.push(hutCenter[0] - dirX * side * 2.0, tier3Y + 2.5, hutCenter[1] - dirZ * side * 2.0);
     floodColors.push(1.0, 0.78, 0.48);
   }
-  // floodlights round the foot of the pole
-  for (let i = 0; i < 8; i++) {
-    const theta = topAngle + (i / 8) * Math.PI * 2;
-    floodCoords.push(topCenter[0] + Math.cos(theta) * 2.4, tier3Y + 0.75, topCenter[1] + Math.sin(theta) * 2.4);
-    floodColors.push(1.0, 0.82, 0.55);
+  // subtle uplights round the foot of the pole (4 modest fixtures instead of 8 stacked flood blobs)
+  for (let i = 0; i < 4; i++) {
+    const theta = topAngle + (i / 4) * Math.PI * 2;
+    floodCoords.push(topCenter[0] + Math.cos(theta) * 2.8, tier3Y + 0.75, topCenter[1] + Math.sin(theta) * 2.8);
+    floodColors.push(1.0, 0.80, 0.50);
   }
   return topCenter;
 }
@@ -501,12 +505,12 @@ export function build({ S, group }) {
   S.kind = keepKind;
 
   // ---- night: LED outline (colour-cycling) and floodlights ----
-  const ledMat = lightMaterial(0xffffff, 1.5);
+  const ledMat = lightMaterial(0xffffff, 1.05);
   const ledMesh = new THREE.Mesh(ledBuf.geometry(), ledMat);
   ledMesh.renderOrder = 19;
   ledMesh.userData.landmark = id;
   group.add(ledMesh);
-  const glowMesh = glowPoints(floodCoords, floodColors, 8);
+  const glowMesh = glowPoints(floodCoords, floodColors, 5.8);
   glowMesh.userData.glow = true;
   glowMesh.userData.landmark = id;
   group.add(glowMesh);

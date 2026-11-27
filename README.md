@@ -8,33 +8,38 @@ There is nothing to install. It works in any recent desktop or phone browser.
 
 ## What to explore
 
-- **Places:** search for a place, or pick one from the list. The list is grouped into the Citadel and heritage sites, the riverside, the tombs and outskirts, and the craft villages. Click a place to fly there and read its card with a short story, facts and photos.
-- **Time of day:** morning, late afternoon, or evening with the lights on. In the evening the riverside lamps, the lit facades and the colour band on cầu Trường Tiền come on.
-- **Passing shower (Mưa rào):** a short rain shower crosses the city, with rings on the river and haze over the far banks.
-- **Two looks:** the pencil button switches between the illustrated look (the default) and a more realistic one.
-- **Labels:** the label button hides or shows every place name.
+- **Places:** search for any of the 83 landmarks (`/`), filter by kind, or pick one from the grouped list (Citadel and heritage sites, along the river, tombs and outskirts, and craft villages). Click a place to fly there and read its card with a short story, facts and photos.
+- **Time of day:** drag the continuous time-of-day slider from morning through golden hour into evening, or jump straight to the three presets (`1` Morning, `2` Late afternoon, `3` Lights on, or `N` for next). In the evening the riverside lamps, the lit facades and the colour band on cầu Trường Tiền come on.
+- **Four Huế seasons:** switch between **Xuân** (Spring), **Hạ** (Summer), **Thu** (Autumn) and **Đông** (Winter, with mist rising off the Hương).
+- **Passing shower (Mưa rào):** a short rain shower (`R`) crosses the city, with rings on the river and haze over the far banks.
+- **Two looks:** switch between the illustrated ink-and-wash look (the default) and a realistic one with the **Ink / Nét mực** button or `I` (`V`).
+- **Labels:** show or hide place and street names (`L`).
+- **Capture & share:** export a clean PNG screenshot of your current frame at screen resolution (`1×`), `2×`, or `4K` from the camera menu (or press `P`), or share a direct link to your exact view and mood.
 - **Language:** switch between Vietnamese (VI) and English (EN) at the top right.
-- **Compass:** the compass returns you to the opening view from anywhere.
+- **Compass:** the compass returns you to the opening view from anywhere (`H`).
 
 ## Controls
 
 | | Mouse | Touch | Keyboard |
 | --- | --- | --- | --- |
-| Move around | drag | one finger | arrow keys |
+| Move around | drag (or `Shift` + middle-drag) | one finger | arrow keys |
 | Zoom | scroll wheel (zooms at the cursor) | pinch | `+` / `-` |
-| Turn and tilt | right-drag or Shift-drag | two-finger twist and tilt | |
+| Turn and tilt (orbit) | middle-drag or right-drag (or `Ctrl` / `Shift`-drag) | two-finger twist and tilt | `Q` / `E` |
 | Fly closer | double-click | | |
 | Back to the opening view | compass | compass | `H` |
-| Rain on or off | | | `R` |
-| Next time of day | | | `N` |
-| Labels on or off | | | `L` |
-| Switch look | | | `V` |
+| Search places | search bar | search bar | `/` |
+| Time of day | continuous slider or preset ticks | continuous slider or preset ticks | `1` / `2` / `3` (`N` next) |
+| Seasons (`Xuân` / `Hạ` / `Thu` / `Đông`) | season bar | season bar | |
+| Rain on or off | shower button | shower button | `R` |
+| Labels on or off | labels button | labels button | `L` |
+| Switch Ink / Real look | ink button | ink button | `I` (`V`) |
+| Save PNG screenshot (`1×` / `2×` / `4K`) | camera menu | camera menu | `P` |
 
 ## What is real and what is drawn
 
-The positions and shapes of the river, canals, moats, lakes, streets, railway, bridges, city walls and about 5,000 building footprints come from map data and are true to life. The ground height and most building heights are measured.
+The positions and shapes of the river, canals, moats, lakes, streets, railway, bridges, city walls and over 6,000 building footprints come from map data and are true to life. The ground height and most building heights are measured.
 
-The main landmarks are hand-built models that stand on their real footprints. These include cầu Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the market hall, the tombs and many more. Their forms are based on photos and published plans.
+All 83 listed landmarks stand on their real footprints — cầu Trường Tiền, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, Phu Văn Lâu, the Citadel gates, the market hall, the royal tombs, pagodas, churches and craft villages — combining hand-built architectural models with self-hosted hero `.glb` ornament meshes streamed lazily as you approach (`public/data/models/*-hero.glb`). Their forms are based on photos and published plans.
 
 Some things are illustration:
 - houses on streets that have no mapped buildings yet
@@ -67,7 +72,7 @@ Each release is listed in [CHANGELOG.md](CHANGELOG.md) and on the [releases page
 ## Licensing
 
 - **Code:** no licence has been chosen yet, so the code is all rights reserved for now. You are welcome to look at it and explore the model.
-- **Data:** each source keeps its own licence (see the table above). The bundled data file `public/data/hue.json` combines OpenStreetMap data (ODbL), terrain derived from FABDEM (CC BY-NC-SA 4.0) and heights from GISHue (no stated licence). Anyone reusing that file is bound by all three. In practice that means non-commercial use only and share-alike, and part of it is not openly licensed.
+- **Data:** each source keeps its own licence (see the table above). The bundled data files (`public/data/hue.json`, `public/data/hue.bin`, and `public/data/tiles/*.bin`) combine OpenStreetMap data (ODbL), terrain derived from FABDEM (CC BY-NC-SA 4.0) and heights from GISHue (no stated licence). Anyone reusing those files is bound by all three. In practice that means non-commercial use only and share-alike, and part of it is not openly licensed.
 
 ## Contributors
 

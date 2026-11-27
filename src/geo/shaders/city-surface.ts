@@ -29,6 +29,7 @@ uniform float uWet;
 uniform vec3 uSunDir;
 uniform float uSunI;
 uniform float uLook;
+uniform float uPost;
 uniform float uSpring;
 uniform float uAutumn;
 uniform float uWinter;
@@ -176,11 +177,10 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   float side = floor( hueN.x * 5.0 ) * 3.7 + floor( hueN.z * 5.0 ) * 1.9;
   float seed = hueHash( cell + side );
   float bay = hueHash( vec2( cell.x + side, 7.0 ) );
-  // after dark: whole neighbourhoods are awake or asleep, each facade has its own share of lit rooms,
-  // and every lit window its own strength — never a wall of identical bright panes
-  float hood = smoothstep( 0.25, 0.8, hueNoise( vWPos.xz * 0.013 ) );
-  float litP = mix( 0.05, 0.3, hood ) * ( 0.55 + 0.9 * hueHash( vec2( side, 3.0 ) ) );
-  float litK = 0.4 + 0.6 * hueHash( cell + 4.7 );
+  // after dark: lively avenues and softer residential wards, without dead blackout pockets
+  float hood = smoothstep( 0.20, 0.78, hueNoise( vWPos.xz * 0.013 ) );
+  float litP = mix( 0.20, 0.38, hood ) * ( 0.68 + 0.65 * hueHash( vec2( side, 3.0 ) ) );
+  float litK = 0.45 + 0.55 * hueHash( cell + 4.7 );
   vec3 base = diffuseColor.rgb;
   // plaster: soft blotches and rain streaks running down from the eaves
   float streak = hueNoise( vec2( uv.x * 9.0, uv.y * 0.7 ) );
@@ -285,7 +285,9 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   float damp = ( 1.0 - smoothstep( 0.0, 1.6, hueH ) ) * ( 0.45 + 0.55 * hueNoise( vec2( uv.x * 3.1, 2.0 ) ) );
   float mould = hueNoise( vec2( uv.x * 1.3 + 5.0, uv.y * 0.35 ) ) * hueNoise( vec2( uv.x * 5.7, uv.y * 1.1 + 3.0 ) );
   diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.7, 0.56 ), clamp( damp * 0.75 + smoothstep( 0.22, 0.5, mould ) * 0.4, 0.0, 0.8 ) * hueWall * ( modern ? 0.3 : 1.0 ) );
-  hueLit = mix( 0.02 + 0.045 * hood, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
+  vec2 farWinCell = floor( vec2( dot( vWPos.xz, t ) / 4.0, hueH / 3.5 ) );
+  float farWin = step( 0.56, hueHash( farWinCell + side * 1.7 ) ) * ( 0.38 + 0.32 * hood ) * ( 0.55 + 0.45 * hueHash( farWinCell + 9.3 ) );
+  hueLit = mix( farWin, hueLit, detail ) * step( 0.5, hueWall ) * step( 0.3, hueH );
   hueRough = modern ? 0.8 : 0.9;
   // plaster is never flat; openings sit back from the wall face
   hueHgt += ( 0.006 * hueNoise( uv * vec2( 31.0, 37.0 ) ) + 0.012 * hueNoise( uv * vec2( 5.0, 7.0 ) ) ) * detail - 0.07 * hueGlass;
@@ -379,7 +381,15 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   float pm = hueNoise( vWPos.xz * 0.08 ) * 0.5 + hueNoise( vWPos.xz * 0.7 ) * 0.35 + hueNoise( vWPos.xz * 6.5 ) * 0.15;
   diffuseColor.rgb *= 0.89 + 0.2 * pm;
   hueRough = 0.84;
-  #ifndef HUE_OVERLAY
+  #ifdef HUE_OVERLAY
+  {
+    // From high altitude, soften bright pale sidewalk casings so roofs, trees and major boulevards lead the aerial view
+    float roadPx = fwidth( vWPos.x ) + fwidth( vWPos.z );
+    float aerial = smoothstep( 0.55, 2.2, roadPx );
+    float isPaleCasing = smoothstep( 0.36, 0.62, max( diffuseColor.r, max( diffuseColor.g, diffuseColor.b ) ) );
+    diffuseColor.rgb = mix( diffuseColor.rgb, diffuseColor.rgb * vec3( 0.62, 0.63, 0.60 ), aerial * isPaleCasing * 0.78 );
+  }
+  #else
   if ( hueH > -0.05 && hueN.y > 0.7 ) {
     // terraces, courtyards and plazas laid in flagstones or concrete slabs: staggered joints, each tile its own tone
     float slab = hueH > 0.3 ? 1.5 : 2.6;
@@ -465,19 +475,29 @@ if ( ( vKind > 0.5 && vKind < 1.5 ) || ( vKind > 7.5 && vKind < 8.5 ) || ( vKind
   hueNp = normalize( abs( hdet ) * hueNp - hgrad + 1e-6 * hueN );
 }
 #endif
-// rain darkens what it soaks: ground and roofs most, walls a little
-diffuseColor.rgb *= 1.0 - uWet * mix( 0.26, 0.1, hueWall );
-// and leaves a film that mirrors the sky on hard surfaces (paving, stone, roofs); grass and parks stay damp, never mirror-bright
-float huePuddle = smoothstep( 0.35, 0.72, hueNoise( vWPos.xz * 0.18 ) * 0.65 + hueNoise( vWPos.xz * 0.85 ) * 0.35 );
-float hueWetSurf = smoothstep( 0.25, 0.85, hueN.y ) * mix( 0.35, 1.0, huePuddle );
+// rain darkens what it soaks: porous asphalt and paving most, ground and roofs next, walls a little
+float huePaved = 0.0;
+#ifndef HUE_FOLIAGE
+if ( ( vKind > 5.5 && vKind < 6.5 ) || vKind > 11.5 ) huePaved = 1.0;
+#endif
+#ifdef HUE_OVERLAY
+if ( vKind < 4.5 || vKind > 5.5 ) huePaved = 1.0;
+#endif
+diffuseColor.rgb *= 1.0 - uWet * mix( mix( 0.26, 0.35, huePaved ), 0.1, hueWall );
+// and leaves a damp sheen where water pools on hard surfaces; roads and plazas stay >= 0.36 rough even in
+// puddles so overcast IBL sky reflections never bleach avenues white, while grass and parks stay matte-damp
+float huePuddle = smoothstep( 0.42, 0.78, hueNoise( vWPos.xz * 0.18 ) * 0.65 + hueNoise( vWPos.xz * 0.85 ) * 0.35 );
+float hueWetSurf = smoothstep( 0.25, 0.85, hueN.y ) * mix( 0.18, 1.0, huePuddle );
 float hueHard = 1.0;
 #ifdef HUE_FOLIAGE
 hueHard = 0.0;
 #else
 if ( vKind > 4.5 && vKind < 5.5 ) hueHard = 0.0;
 #endif
-hueRough = mix( hueRough, mix( 0.42, 0.14, hueHard ), hueWetSurf * uWet * mix( 0.55, 0.8, hueHard ) );
-if ( hueHard < 0.5 ) hueRough = max( hueRough, 0.38 );
+float hueWetTarget = mix( 0.46, mix( 0.32, 0.36, huePaved ), hueHard );
+hueRough = mix( hueRough, min( hueRough, hueWetTarget ), hueWetSurf * uWet * mix( 0.5, 0.78, hueHard ) );
+if ( hueHard < 0.5 ) hueRough = max( hueRough, 0.42 );
+else if ( huePaved > 0.5 ) hueRough = max( hueRough, 0.36 );
 if ( uLook > 0.5 ) { hueRough = 1.0; hueMetal = 0.0; hueNp = hueN; }
 `;
 

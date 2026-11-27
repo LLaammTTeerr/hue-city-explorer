@@ -99,11 +99,18 @@ function petalLightMaterial() {
       void main() {
         float t = uTime / 7.5, s = floor( t ), f = fract( t );
         vec3 c = mix( scene( s, vC.r, vC.g ), scene( s + 1.0, vC.r, vC.g ), smoothstep( 0.85, 1.0, f ) );
-        gl_FragColor = vec4( c * uBoost * uGlow, 1.0 );
+        float g = clamp( uGlow * 0.90, 0.0, 0.90 );
+        vec3 lit = c * min( uBoost, 1.2 ) * 0.72;
+        lit = lit / ( 1.0 + max( lit.r, max( lit.g, lit.b ) ) * 0.4 );
+        gl_FragColor = vec4( lit * g, g );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
   });
@@ -114,11 +121,19 @@ function washMaterial(color: number, boost: number) {
     uniforms: { uGlow: shared.uGlow, uColor: { value: new THREE.Color(color) }, uBoost: { value: boost } },
     vertexShader: 'void main() { gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }',
     fragmentShader: `uniform vec3 uColor; uniform float uGlow, uBoost;
-      void main() { gl_FragColor = vec4( uColor * uBoost * uGlow, 1.0 );
+      void main() {
+        float g = clamp( uGlow * 0.88, 0.0, 0.88 );
+        vec3 lit = uColor * min( uBoost, 1.15 ) * 0.68;
+        lit = lit / ( 1.0 + max( lit.r, max( lit.g, lit.b ) ) * 0.45 );
+        gl_FragColor = vec4( lit * g, g );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
   });

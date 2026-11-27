@@ -15,7 +15,7 @@ export function lodAdd(mesh, reach, { lift = true, farGeo = null, farDist = 0 } 
   flip(mesh);
 }
 export function lodUpdate(camera, scale = 1) {
-  const lift = Math.max(0, camera.position.y - 120) * 2.2;
+  const lift = Math.max(0, camera.position.y - 120) * 3.5;
   for (const [m, reach, useLift, nearGeo, farGeo, farDist] of items) {
     const bs = m.boundingSphere;
     if (!bs) continue;

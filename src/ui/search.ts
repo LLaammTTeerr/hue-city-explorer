@@ -1,4 +1,5 @@
 import { NOTES, PLACE_GROUPS } from './content.ts';
+import { PLACE_NAMES_EN, localizedPlaceName } from './place-names-en.ts';
 import { fromForm } from '../camera/controls.ts';
 
 // The search box: a map-style bar whose panel lists the places of the model. Nothing is looked up online: the
@@ -73,7 +74,7 @@ function buildSearchIndex(places: any[], stories: Record<string, any>, Tof: (lan
   for (const place of places) {
     const story = stories[place.id];
     const note = NOTES[place.id] || (place.k === 'gate' ? NOTES.gate : null);
-    const names = [...new Set([place.n, story?.title?.vi, story?.title?.en].filter(Boolean))];
+    const names = [...new Set([place.n, PLACE_NAMES_EN[place.id], story?.title?.vi, story?.title?.en].filter(Boolean))];
     const kindWords = [Tof('vi').kinds[place.k], Tof('en').kinds[place.k], story?.kind?.vi, story?.kind?.en].filter(Boolean);
     const text = [note?.vi, note?.en, story?.summary?.vi, story?.summary?.en].filter(Boolean);
     index.set(place.id, {
@@ -237,10 +238,8 @@ export function createSearch(ctx: SearchContext) {
   const emptyMsgEl = byId('no-results');
 
   const localize = (obj: any) => (obj && (obj[ctx.lang()] || obj.vi || obj.en)) || '';
-  const displayNameOf = (place: any) => {
-    const story = (ctx.stories() || {})[place.id];
-    return ((ctx.lang() === 'en' && story && localize(story.title)) || place.n).normalize('NFC');
-  };
+  const displayNameOf = (place: any) => localizedPlaceName(place.id, place.n, ctx.lang()).normalize('NFC');
+  const comparePlaces = (a: any, b: any) => a.t - b.t || displayNameOf(a).localeCompare(displayNameOf(b), ctx.lang());
 
   let isOpen = false;
   let activeFilter = 0;
@@ -251,6 +250,14 @@ export function createSearch(ctx: SearchContext) {
   let indexedStories: Record<string, any> | null = null;
 
   const queryText = () => (shownName !== null && input.value === shownName ? '' : input.value.trim());
+
+  function appendGroupHeading(label: string) {
+    const heading = document.createElement('div');
+    heading.className = 'rgroup';
+    heading.textContent = label;
+    heading.setAttribute('role', 'presentation');
+    resultsEl.append(heading);
+  }
 
   function addRow(id: string | null, kind: string, nameEl: HTMLElement, subtitle: string) {
     const btn = document.createElement('button');
@@ -280,8 +287,9 @@ export function createSearch(ctx: SearchContext) {
     const story = (ctx.stories() || {})[place.id];
     const note = NOTES[place.id] || (place.k === 'gate' ? NOTES.gate : null);
     const name = displayNameOf(place);
+    const viName = place.n.normalize('NFC');
     const parts = [localize(story && story.kind) || strings.kinds[place.k] || strings.kinds.place];
-    if (name !== place.n.normalize('NFC')) parts.push(place.n);
+    if (!name.includes(viName)) parts.push(place.n);
     const blurb = localize(story && story.summary) || (note ? note[ctx.lang()] : '');
     if (blurb) parts.push(blurb);
     addRow(place.id, place.k, highlightMatches(name, tokens), parts.join(' · '));
@@ -301,7 +309,7 @@ export function createSearch(ctx: SearchContext) {
     }
   }
 
-  function render() {
+  function render(resetScroll = true) {
     const strings = ctx.T();
     if (!searchIndex || indexedStories !== ctx.stories()) {
       indexedStories = ctx.stories();
@@ -318,24 +326,52 @@ export function createSearch(ctx: SearchContext) {
       overviewLabel.textContent = strings.overview;
       addRow(null, 'overview', overviewLabel, '');
       rows[0].el.classList.add('ov');
+
       const byPlaceId = new Map(ctx.places.map((place) => [place.id, place]));
+      const shownIds = new Set<string>();
+
       PLACE_GROUPS.forEach((group, groupIdx) => {
-        const groupPlaces = group.ids.map((id) => byPlaceId.get(id)).filter(Boolean);
+        const groupPlaces = group.ids
+          .map((id) => byPlaceId.get(id))
+          .filter((place) => place && !shownIds.has(place.id));
         if (!groupPlaces.length) return;
-        const heading = document.createElement('div');
-        heading.className = 'rgroup';
-        heading.textContent = strings.groups[groupIdx];
-        heading.setAttribute('role', 'presentation');
-        resultsEl.append(heading);
-        groupPlaces.forEach((place) => addPlaceRow(place, tokens));
+        appendGroupHeading(strings.groups[groupIdx]);
+        groupPlaces.forEach((place) => {
+          shownIds.add(place.id);
+          addPlaceRow(place, tokens);
+        });
       });
+
+      for (let filterIdx = 1; filterIdx < FILTERS.length; filterIdx++) {
+        const allowedKinds = FILTERS[filterIdx]!;
+        const categoryPlaces = ctx.places
+          .filter((place) => !shownIds.has(place.id) && allowedKinds.includes(place.k))
+          .sort(comparePlaces);
+        if (!categoryPlaces.length) continue;
+        appendGroupHeading(strings.filters[filterIdx]);
+        categoryPlaces.forEach((place) => {
+          shownIds.add(place.id);
+          addPlaceRow(place, tokens);
+        });
+      }
+
+      const remainingPlaces = ctx.places
+        .filter((place) => !shownIds.has(place.id))
+        .sort(comparePlaces);
+      if (remainingPlaces.length) {
+        appendGroupHeading(strings.filters[strings.filters.length - 1]);
+        remainingPlaces.forEach((place) => {
+          shownIds.add(place.id);
+          addPlaceRow(place, tokens);
+        });
+      }
     } else {
       const allowedKinds = FILTERS[activeFilter];
       const matches = ctx.places
         .filter((place) => !allowedKinds || allowedKinds.includes(place.k))
         .map((place) => ({ place, score: tokens.length ? scorePlace(searchIndex!.get(place.id)!, tokens) : 1 }))
         .filter((item) => item.score > 0);
-      matches.sort((a, b) => b.score - a.score || a.place.t - b.place.t || a.place.n.localeCompare(b.place.n, 'vi'));
+      matches.sort((a, b) => b.score - a.score || comparePlaces(a.place, b.place));
       matches.forEach((item) => addPlaceRow(item.place, tokens));
       if (!matches.length) emptyMessage = !tokens.length ? strings.noneOfKind : strings.noResults.replace('{q}', query);
     }
@@ -343,10 +379,11 @@ export function createSearch(ctx: SearchContext) {
     emptyMsgEl.textContent = emptyMessage;
     emptyMsgEl.hidden = !emptyMessage;
     resultsEl.hidden = !rows.length;
-    resultsEl.scrollTop = 0;
-    setActiveRow(tokens.length && rows.length ? 0 : -1, false);
+    if (resetScroll) resultsEl.scrollTop = 0;
+    setActiveRow(isOpen && tokens.length && rows.length ? 0 : -1, false);
     [...kindsBar.children].forEach((btn, idx) => btn.setAttribute('aria-pressed', String(idx === activeFilter)));
     clearBtn.hidden = !input.value;
+    box.classList.toggle('has-q', input.value.trim().length > 0);
   }
 
   function setOpen(nextOpen: boolean) {
@@ -395,10 +432,11 @@ export function createSearch(ctx: SearchContext) {
       if (place) input.value = shownName!;
       else if (prevShown !== null && input.value === prevShown) input.value = '';
       clearBtn.hidden = !input.value;
-      if (isOpen) render();
+      box.classList.toggle('has-q', input.value.trim().length > 0);
+      render(false);
     },
     close() { setOpen(false); },
-    refresh(currentPlace: any) {
+    refresh(currentPlace?: any) {
       const strings = ctx.T();
       input.placeholder = innerWidth < SHORT_PLACEHOLDER_BREAKPOINT_PX ? strings.searchShort : strings.search;
       input.setAttribute('aria-label', strings.search);
@@ -409,12 +447,15 @@ export function createSearch(ctx: SearchContext) {
       resultsEl.setAttribute('aria-label', strings.places);
       kindsBar.setAttribute('aria-label', strings.filterBy);
       [...kindsBar.children].forEach((btn, idx) => { btn.textContent = strings.filters[idx]; });
-      if (currentPlace && shownName !== null) {
-        const keepValue = input.value === shownName;
-        shownName = displayNameOf(currentPlace);
-        if (keepValue) input.value = shownName;
+      const activePlace = currentPlace ?? (ctx.currentId() ? ctx.places.find((p) => p.id === ctx.currentId()) : null);
+      if (activePlace) {
+        const prevShown = shownName;
+        const nextShown = displayNameOf(activePlace);
+        const shouldSyncInput = (prevShown !== null && input.value === prevShown) || !input.value;
+        shownName = nextShown;
+        if (shouldSyncInput) input.value = nextShown;
       }
-      if (isOpen) render();
+      render(false);
     },
   };
 }

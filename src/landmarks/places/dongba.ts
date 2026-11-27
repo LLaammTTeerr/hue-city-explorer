@@ -303,11 +303,18 @@ function createGlowMaterial(THREE, maskTex, color, boost) {
     vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 ); }',
     fragmentShader: `uniform sampler2D map; uniform vec3 uColor; uniform float uGlow, uBoost; varying vec2 vUv;
       void main() { float a = texture2D( map, vUv ).a;
-        gl_FragColor = vec4( uColor * uBoost * uGlow * a, 1.0 );
+        float w = clamp( a * clamp( uGlow, 0.0, 1.0 ) * 0.92, 0.0, 0.92 );
+        vec3 lit = uColor * min( uBoost, 1.35 ) * 0.78;
+        lit = lit / ( 1.0 + max( lit.r, max( lit.g, lit.b ) ) * 0.35 );
+        gl_FragColor = vec4( lit * w, w );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
     side: THREE.DoubleSide,

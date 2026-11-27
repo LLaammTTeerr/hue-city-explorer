@@ -11,6 +11,7 @@ export const shared = {
   uSunDir: { value: new THREE.Vector3(0.7, 0.6, 0.3) },
   uSunI: { value: 2.5 },
   uLook: { value: 0 }, // 0 realistic (reflections, relief, rooms behind glass), 1 illustrated (flat washes; the ink is drawn in post.js)
+  uPost: { value: 0 }, // 1 while post.ts renders into its HalfFloat target (enables alpha-channel ink masks), 0 when drawing directly to the canvas
   uSpring: { value: 0 }, // 0..1 Spring / Tết (fresh green + golden hoàng mai & đào blossoms)
   uAutumn: { value: 0 }, // 0..1 Autumn (warm honey-gold, amber & russet foliage)
   uWinter: { value: 0 }, // 0..1 Winter (cool misty Huế cypress & silvery-sage foliage)
@@ -92,6 +93,7 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
     shader.uniforms.uTime = shared.uTime;
     shader.uniforms.uWind = shared.uWind;
     shader.uniforms.uLook = shared.uLook;
+    shader.uniforms.uPost = shared.uPost;
     shader.uniforms.uSpring = shared.uSpring;
     shader.uniforms.uAutumn = shared.uAutumn;
     shader.uniforms.uWinter = shared.uWinter;
@@ -135,8 +137,9 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
       .replace('#include <metalnessmap_fragment>', '#include <metalnessmap_fragment>\nmetalnessFactor = hueMetal;')
       .replace('#include <normal_fragment_maps>', '#include <normal_fragment_maps>\n#ifndef HUE_FOLIAGE\nnormal = normalize( normal + mat3( viewMatrix ) * ( hueNp - hueN ) );\n#endif')
       // drawn look: leaves mark themselves in the alpha channel, so post.js can outline a crown as one shape
-      // and ribbons laid on the ground (streets, greens, yards) mark themselves as ground, as the land does (GROUND_A)
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 ) gl_FragColor.a = 0.0;\n#endif\n#ifdef HUE_OVERLAY\nif ( uLook > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
+      // and ribbons laid on the ground (streets, greens, yards) mark themselves as ground, as the land does (GROUND_A);
+      // gated on uPost so direct-to-canvas mobile rendering keeps gl_FragColor.a = 1.0 and never punches through to body paper
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_FOLIAGE\nif ( uLook > 0.5 && uPost > 0.5 ) gl_FragColor.a = 0.0;\n#endif\n#ifdef HUE_OVERLAY\nif ( uLook > 0.5 && uPost > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
@@ -157,26 +160,51 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
             float ndv = clamp( dot( hueN, hueV ), 0.0, 1.0 );
             float fres = pow( 1.0 - ndv, 3.5 );
             float puddles = huePuddle, wetSurf = hueWetSurf * mix( 0.25, 1.0, hueHard );
+            float realSheen = 1.0 - uLook * 0.75;
             #ifndef USE_ENVMAP
             vec3 skyTint = mix( vec3( 0.52, 0.58, 0.66 ), vec3( 0.32, 0.28, 0.52 ), uGlow );
-            totalEmissiveRadiance += skyTint * fres * wetSurf * uWet * 0.24;
+            totalEmissiveRadiance += skyTint * fres * wetSurf * uWet * mix( 0.12, 0.07, huePaved ) * realSheen;
             #endif
-            totalEmissiveRadiance += vec3( 1.0, 0.72, 0.38 ) * fres * wetSurf * uWet * uGlow * puddles * 0.16;
+            totalEmissiveRadiance += vec3( 1.0, 0.72, 0.38 ) * fres * wetSurf * uWet * uGlow * puddles * 0.12 * realSheen;
           }
         }
-        // riverside facade lighting (issue #21): warm uplighters at the foot of the walls, one every 5 m, each throwing
-        // a cone that widens and fades as it climbs, over a soft general wash; the wall's own colour comes through
+        // riverside facade lighting (issue #21): gentle warm uplighters grazing the lower walls, never bleaching whole buildings white
         if ( uGlow > 0.01 && vFlood > 0.5 ) {
           float hueUp = max( hueH, 0.0 );
           float hueRun = dot( vWPos.xz, normalize( vec2( -hueN.z, hueN.x ) + 1e-4 ) ); // metres along the wall
           float hueDx = abs( fract( hueRun / 5.0 ) - 0.5 ) * 5.0; // to the nearest fixture
-          float hueW = 0.5 + hueUp * 0.28;
-          float hueCone = exp( -hueDx * hueDx / ( hueW * hueW ) ) * exp( -hueUp / 11.0 ) * 1.4;
-          float hueWash = 0.34 * exp( -hueUp / 24.0 );
+          float hueW = 0.55 + hueUp * 0.30;
+          float hueCone = exp( -hueDx * hueDx / ( hueW * hueW ) ) * exp( -hueUp / 7.5 ) * 0.85;
+          float hueWash = 0.22 * exp( -hueUp / 14.0 );
           float hueFace = hueWall * step( -0.2, hueH );
-          float fl = ( hueCone + hueWash ) * 0.62;
-          fl = fl / ( 1.0 + fl * 0.6 );
-          totalEmissiveRadiance += diffuseColor.rgb * vec3( 1.0, 0.64, 0.3 ) * fl * hueFace * uGlow;
+          float fl = ( hueCone + hueWash ) * 0.26;
+          fl = fl / ( 1.0 + fl * 1.4 );
+          totalEmissiveRadiance += min( diffuseColor.rgb, vec3( 0.70 ) ) * vec3( 1.0, 0.66, 0.34 ) * fl * hueFace * uGlow;
+        }
+        // citywide streetlamp pools on paved streets/bridges and soft warm bounce onto lower house walls
+        if ( uGlow > 0.01 ) {
+          #ifdef HUE_OVERLAY
+          if ( huePaved > 0.5 ) {
+            vec2 lampCell = floor( vWPos.xz / 26.0 );
+            vec2 lampJit = ( vec2( hueHash( lampCell + 1.3 ), hueHash( lampCell + 5.7 ) ) - 0.5 ) * 7.5;
+            vec2 lampDelta = ( fract( vWPos.xz / 26.0 ) - 0.5 ) * 26.0 - lampJit;
+            float lampPool = exp( -dot( lampDelta, lampDelta ) / 145.0 );
+            float ambientStreet = 0.24 + 0.76 * lampPool;
+            vec3 litPave = mix( diffuseColor.rgb, vec3( 0.42, 0.39, 0.35 ), 0.68 );
+            totalEmissiveRadiance += litPave * vec3( 1.0, 0.71, 0.36 ) * ambientStreet * uGlow * 0.44;
+          }
+          #else
+          if ( hueWall > 0.5 && hueH > -0.2 && hueH < 6.0 ) {
+            float streetBounce = exp( -max( hueH, 0.0 ) / 3.5 ) * ( 0.65 + 0.35 * hueNoise( vWPos.xz * 0.06 ) );
+            totalEmissiveRadiance += min( diffuseColor.rgb, vec3( 0.72 ) ) * vec3( 1.0, 0.70, 0.36 ) * streetBounce * uGlow * 0.14;
+          } else if ( huePaved > 0.5 && hueN.y > 0.7 ) {
+            vec2 deckCell = floor( vWPos.xz / 28.0 );
+            vec2 deckDelta = ( fract( vWPos.xz / 28.0 ) - 0.5 ) * 28.0;
+            float deckPool = 0.28 + 0.72 * exp( -dot( deckDelta, deckDelta ) / 155.0 );
+            vec3 litDeck = mix( diffuseColor.rgb, vec3( 0.40, 0.37, 0.34 ), 0.60 );
+            totalEmissiveRadiance += min( litDeck, vec3( 0.52 ) ) * vec3( 1.0, 0.71, 0.36 ) * deckPool * uGlow * 0.30;
+          }
+          #endif
         }
         #else
         {
@@ -190,10 +218,11 @@ export function cityMaterial({ windows = false, foliage = false, styled = false,
         #endif
         #ifdef HUE_WINDOWS
         if ( uGlow > 0.01 ) {
-          // mostly warm bulbs, some greenish tube light, the odd blue of a television
+          // mostly warm bulbs, some greenish tube light, the odd blue of a television — soft-compressed so panes never glare
           float tone = hueHash( hueCell + 9.1 );
-          vec3 lamp = tone < 0.72 ? mix( vec3( 1.0, 0.56, 0.24 ), vec3( 1.0, 0.8, 0.5 ), tone / 0.72 ) : tone < 0.93 ? vec3( 0.76, 0.95, 0.86 ) : vec3( 0.5, 0.66, 1.0 );
-          totalEmissiveRadiance += lamp * hueLit * uGlow * 1.05 * hueRoomC;
+          vec3 lamp = tone < 0.76 ? mix( vec3( 1.0, 0.58, 0.26 ), vec3( 1.0, 0.80, 0.50 ), tone / 0.76 ) : tone < 0.94 ? vec3( 0.76, 0.93, 0.84 ) : vec3( 0.54, 0.68, 0.98 );
+          vec3 winGlow = lamp * hueLit * uGlow * 0.80 * min( hueRoomC, vec3( 1.15 ) );
+          totalEmissiveRadiance += winGlow / ( 1.0 + max( winGlow.r, max( winGlow.g, winGlow.b ) ) * 0.35 );
         }
         #endif`,
       ).src;
@@ -213,6 +242,7 @@ export function landMaterial(color, turf = false, bank = false) {
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uWet = shared.uWet;
     sh.uniforms.uLook = shared.uLook;
+    sh.uniforms.uPost = shared.uPost;
     cascades(sh);
     sh.vertexShader = patch(sh.vertexShader)
       .replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
@@ -221,7 +251,7 @@ export function landMaterial(color, turf = false, bank = false) {
       .replace(
         '#include <common>',
         `#include <common>
-        varying vec3 vWPos; uniform float uWet; uniform float uLook;
+        varying vec3 vWPos; uniform float uWet; uniform float uLook; uniform float uPost;
         float lHash( vec2 p ) { p = fract( mod( p, 2048.0 ) * vec2( 123.34, 456.21 ) ); p += dot( p, p + 45.32 ); return fract( p.x * p.y ); }
         float lHashI( vec2 i ) {
           uvec2 q = uvec2( ivec2( i ) ) * uvec2( 1597334673u, 3812015801u );
@@ -241,14 +271,15 @@ export function landMaterial(color, turf = false, bank = false) {
       .replace(
         '#include <color_fragment>',
         `#include <color_fragment>
-        // gardens and bare earth: Huế's plots are more green than paved
-        float lg = lNoise( vWPos.xz * 0.012 ) * 0.5 + lNoise( vWPos.xz * 0.09 ) * 0.3 + lNoise( vWPos.xz * 0.9 ) * 0.2;
-        float grassN = lNoiseRaw( vWPos.xz * 0.035 + 4.0 ) * 0.6 + lNoiseRaw( vWPos.xz * 0.21 ) * 0.4;
-        // drawn: grass and bare earth are two washes with an edge between them, not a gradient
-        float grass = mix( smoothstep( 0.38, 0.62, grassN ), smoothstep( 0.485, 0.515, grassN ), uLook );
-        vec3 turf = vec3( 0.37, 0.5, 0.24 ) * ( 0.8 + 0.4 * lNoise( vWPos.xz * 1.3 ) );
+        // Huế's garden-city fabric: home gardens, orchard plots, and weathered courtyards rather than bare pale sand
+        float lg = lNoise( vWPos.xz * 0.012 ) * 0.45 + lNoise( vWPos.xz * 0.09 ) * 0.35 + lNoise( vWPos.xz * 0.9 ) * 0.2;
+        float parcel = lNoiseRaw( vWPos.xz * 0.078 + 11.3 );
+        float grassN = lNoiseRaw( vWPos.xz * 0.032 + 4.0 ) * 0.52 + lNoiseRaw( vWPos.xz * 0.19 ) * 0.28 + parcel * 0.20;
+        float grass = mix( smoothstep( 0.28, 0.56, grassN ), smoothstep( 0.40, 0.49, grassN ), uLook * 0.65 );
+        vec3 turf = mix( vec3( 0.33, 0.47, 0.22 ), vec3( 0.23, 0.37, 0.17 ), smoothstep( 0.42, 0.78, parcel ) ) * ( 0.84 + 0.32 * lNoise( vWPos.xz * 1.3 ) );
+        vec3 courtyard = diffuseColor.rgb * mix( vec3( 0.84, 0.83, 0.79 ), vec3( 0.94, 0.91, 0.85 ), parcel );
         #ifdef HUE_TURF
-          diffuseColor.rgb = mix( diffuseColor.rgb, turf, grass * 0.62 );
+          diffuseColor.rgb = mix( courtyard, turf, 0.24 + grass * 0.62 );
           if ( uLook > 0.5 ) {
             vec2 gc = vWPos.xz / 2.3, gi = floor( gc );
             vec2 gf = fract( gc ) - 0.5 + ( vec2( lHash( gi + 3.1 ), lHash( gi + 7.7 ) ) - 0.5 ) * 0.5;
@@ -279,8 +310,8 @@ export function landMaterial(color, turf = false, bank = false) {
         float lpud = smoothstep( 0.35, 0.72, lNoise( vWPos.xz * 0.18 ) * 0.65 + lNoise( vWPos.xz * 0.85 ) * 0.35 );`,
       )
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = uLook > 0.5 ? 1.0 : max( 0.38, mix( roughnessFactor, 0.42, lpud * uWet * 0.65 ) );')
-      // drawn look: the ground's top (the slab and the hills) marks itself in the alpha channel (GROUND_A)
-      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_TURF\nif ( uLook > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
+      // drawn look: the ground's top (the slab and the hills) marks itself in the alpha channel (GROUND_A) when post.ts is active
+      .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n#ifdef HUE_TURF\nif ( uLook > 0.5 && uPost > 0.5 ) gl_FragColor.a = ' + GROUND_A + ';\n#endif')
       .replace(
         '#include <emissivemap_fragment>',
         `#include <emissivemap_fragment>
@@ -288,7 +319,7 @@ export function landMaterial(color, turf = false, bank = false) {
         if ( uWet > 0.01 ) {
           #ifndef USE_ENVMAP
           float lndv = min( abs( dot( normal, normalize( vViewPosition ) ) ), 1.0 ); // pow() of a negative is NaN
-          totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.16;
+          totalEmissiveRadiance += vec3( 0.5, 0.56, 0.64 ) * pow( 1.0 - lndv, 3.5 ) * lpud * uWet * 0.12 * ( 1.0 - uLook * 0.75 );
           #endif
         }`,
       ).src;

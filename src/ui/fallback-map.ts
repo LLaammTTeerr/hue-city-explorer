@@ -1,3 +1,6 @@
+import { getLang } from './content.ts';
+import { localizedPlaceName, localizedWaterName } from './place-names-en.ts';
+
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const DECIMETRES_PER_METRE = 10;
 const INITIAL_METRES_PER_PX = 10;
@@ -30,8 +33,14 @@ interface MapMarker {
   group: SVGGElement;
   circle: SVGCircleElement;
   label: SVGTextElement;
+  title: SVGTitleElement;
   x: number;
   z: number;
+}
+
+interface WaterLabelItem {
+  rawName: string;
+  textEl: SVGTextElement;
 }
 
 interface MapViewState {
@@ -39,7 +48,17 @@ interface MapViewState {
   centerZ: number;
   metresPerPx: number;
   selectedId: string | null;
+  focusedId: string | null;
   hasMoved: boolean;
+}
+
+function formatWaterText(viName: string, lang: string): string {
+  const mapped = localizedWaterName(viName, lang);
+  if (lang === 'en' && mapped === viName && !viName.startsWith('Sông ')) {
+    const prefixed = localizedWaterName(`Sông ${viName}`, lang);
+    if (prefixed !== `Sông ${viName}`) return prefixed;
+  }
+  return mapped;
 }
 
 function ringToSvgPath(ring: number[]): string {
@@ -63,41 +82,68 @@ function buildMapLayers(
   index: any,
   state: MapViewState,
   onPick: ((id: string) => void) | null,
-): { waterLayer: SVGGElement; markers: MapMarker[] } {
+  onFocusChange: () => void,
+): { waterLayer: SVGGElement; waterItems: WaterLabelItem[]; markers: MapMarker[] } {
+  const lang = getLang();
   const mapData = index.map || {};
   appendPolysLayer(svg, mapData.land || [], 'land');
   appendPolysLayer(svg, mapData.wall || [], 'wall');
 
+  const waterItems: WaterLabelItem[] = [];
   const waterLayer = document.createElementNS(SVG_NS, 'g');
+  waterLayer.setAttribute('aria-hidden', 'true');
   for (const label of index.waterLabels || []) {
+    const rawName: string = label.n ?? label.name ?? '';
     const textEl = document.createElementNS(SVG_NS, 'text');
     textEl.setAttribute('class', `water t${label.t}`);
-    textEl.textContent = label.n;
+    textEl.textContent = formatWaterText(rawName, lang);
     textEl.dataset.x = String(label.x / DECIMETRES_PER_METRE);
     textEl.dataset.z = String(label.z / DECIMETRES_PER_METRE);
     waterLayer.append(textEl);
+    waterItems.push({ rawName, textEl });
   }
   svg.append(waterLayer);
 
   const markers: MapMarker[] = [];
   const markerLayer = document.createElementNS(SVG_NS, 'g');
   for (const place of [...index.places].sort((a, b) => b.t - a.t)) {
+    const name = localizedPlaceName(place.id, place.n, lang);
     const group = document.createElementNS(SVG_NS, 'g');
     group.setAttribute('class', `pt t${place.t} k-${place.k}`);
+    group.setAttribute('tabindex', '0');
+    group.setAttribute('role', 'button');
+    group.setAttribute('aria-label', name);
     const circle = document.createElementNS(SVG_NS, 'circle');
     const label = document.createElementNS(SVG_NS, 'text');
-    label.textContent = place.n;
+    label.textContent = name;
     const title = document.createElementNS(SVG_NS, 'title');
-    title.textContent = place.n;
+    title.textContent = name;
     group.append(title, circle, label);
     group.addEventListener('click', (event) => {
       if (!state.hasMoved) { event.stopPropagation(); onPick?.(place.id); }
     });
+    group.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        event.stopPropagation();
+        onPick?.(place.id);
+      }
+    });
+    group.addEventListener('focus', () => {
+      state.focusedId = place.id;
+      onFocusChange();
+    });
+    group.addEventListener('blur', () => {
+      if (state.focusedId === place.id) {
+        state.focusedId = null;
+        onFocusChange();
+      }
+    });
     markerLayer.append(group);
-    markers.push({ place, group, circle, label, x: place.x / DECIMETRES_PER_METRE, z: place.z / DECIMETRES_PER_METRE });
+    markers.push({ place, group, circle, label, title, x: place.x / DECIMETRES_PER_METRE, z: place.z / DECIMETRES_PER_METRE });
   }
   svg.append(markerLayer);
-  return { waterLayer, markers };
+  return { waterLayer, waterItems, markers };
 }
 
 function bindMapInteractions(
@@ -164,7 +210,7 @@ export function buildFallbackMap(opts: {
   const { index, ui, onPick, isFlatActive } = opts;
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.id = 'map2d';
-  svg.setAttribute('role', 'img');
+  svg.setAttribute('role', 'region');
   svg.setAttribute('hidden', '');
 
   const state: MapViewState = {
@@ -172,12 +218,37 @@ export function buildFallbackMap(opts: {
     centerZ: 0,
     metresPerPx: INITIAL_METRES_PER_PX,
     selectedId: null,
+    focusedId: null,
     hasMoved: false,
   };
 
-  const { waterLayer, markers } = buildMapLayers(svg, index, state, onPick);
+  const { waterLayer, waterItems, markers } = buildMapLayers(svg, index, state, onPick, () => applyView());
   svg.addEventListener('click', () => { if (!state.hasMoved && ui?.cardId) ui.hideCard(); });
   document.getElementById('labels')!.before(svg);
+
+  function relabel() {
+    const lang = getLang();
+    for (const marker of markers) {
+      const name = localizedPlaceName(marker.place.id, marker.place.n, lang);
+      if (marker.label.textContent !== name) {
+        marker.label.textContent = name;
+        marker.title.textContent = name;
+        marker.group.setAttribute('aria-label', name);
+      }
+    }
+    for (const water of waterItems) {
+      const name = formatWaterText(water.rawName, lang);
+      if (water.textEl.textContent !== name) {
+        water.textEl.textContent = name;
+      }
+    }
+  }
+
+  const langObserver = new MutationObserver(() => relabel());
+  langObserver.observe(svg, { attributes: true, attributeFilter: ['aria-label'] });
+  if (document.documentElement) {
+    langObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['lang'] });
+  }
 
   function applyView() {
     const width = svg.clientWidth || innerWidth;
@@ -187,16 +258,17 @@ export function buildFallbackMap(opts: {
     for (const marker of markers) {
       const isMajor = marker.place.t === 1;
       const isSelected = marker.place.id === state.selectedId;
-      const radius = isSelected ? MARKER_RADIUS_PX.selected : isMajor ? MARKER_RADIUS_PX.tier1 : marker.place.t === 2 ? MARKER_RADIUS_PX.tier2 : MARKER_RADIUS_PX.default;
+      const isFocused = marker.place.id === state.focusedId;
+      const radius = isSelected || isFocused ? MARKER_RADIUS_PX.selected : isMajor ? MARKER_RADIUS_PX.tier1 : marker.place.t === 2 ? MARKER_RADIUS_PX.tier2 : MARKER_RADIUS_PX.default;
       marker.circle.setAttribute('cx', String(marker.x));
       marker.circle.setAttribute('cy', String(marker.z));
       marker.circle.setAttribute('r', String(radius * mpp));
       marker.circle.setAttribute('stroke-width', String(MARKER_STROKE_PX * mpp));
-      const showLabel = isSelected || isMajor || (marker.place.t === 2 && mpp < TIER2_LABEL_MAX_MPP) || mpp < MINOR_LABEL_MAX_MPP;
+      const showLabel = isSelected || isFocused || isMajor || (marker.place.t === 2 && mpp < TIER2_LABEL_MAX_MPP) || mpp < MINOR_LABEL_MAX_MPP;
       marker.label.style.display = showLabel ? '' : 'none';
       marker.label.setAttribute('x', String(marker.x + LABEL_OFFSET_X_PX * mpp));
       marker.label.setAttribute('y', String(marker.z + LABEL_OFFSET_Y_PX * mpp));
-      marker.label.setAttribute('font-size', String((isMajor || isSelected ? LABEL_FONT_LARGE_PX : LABEL_FONT_SMALL_PX) * mpp));
+      marker.label.setAttribute('font-size', String((isMajor || isSelected || isFocused ? LABEL_FONT_LARGE_PX : LABEL_FONT_SMALL_PX) * mpp));
       marker.label.setAttribute('stroke-width', String(LABEL_STROKE_PX * mpp));
       marker.group.classList.toggle('on', isSelected);
     }
@@ -257,6 +329,7 @@ export function buildFallbackMap(opts: {
     svg,
     fit,
     focusOn,
+    relabel,
     select(id: string | null) { state.selectedId = id; applyView(); },
     zoom: (factor: number) => zoomAt(innerWidth / 2, innerHeight / 2, factor),
   };

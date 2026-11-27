@@ -67,20 +67,23 @@ function createBandMaterial(center: [number, number], dir: [number, number], bri
         int a = int( floor( x ) ) % ${PALETTE.length};
         float f = fract( x ), m = f * f * ( 3.0 - 2.0 * f );
         vec3 c = mix( mix( uPal[ a ], uPal[ ( a + 1 ) % ${PALETTE.length} ], m ), uWarm, uWarmMix );
-        // Calm near-white palette peaks and soften grazing luminaire silhouettes so close-up chords don't clip hard
+        // Calm near-white palette peaks, keep cylindrical grazing falloff up close, and bound HDR via premultiplied alpha-over
         float lum = dot( c, vec3( 0.299, 0.587, 0.114 ) );
-        float lumCalm = mix( 1.0, 0.72, smoothstep( 0.52, 0.90, lum ) );
+        float lumCalm = mix( 1.0, 0.76, smoothstep( 0.52, 0.90, lum ) );
         float dist = length( vViewDir );
         float nearCalm = mix( 0.76, 1.0, smoothstep( 10.0, 42.0, dist ) );
         float ndv = abs( dot( normalize( vWorldN ), vViewDir / max( dist, 1e-4 ) ) );
-        float tubeProfile = 0.52 + 0.48 * smoothstep( 0.0, 0.75, ndv );
-        gl_FragColor = vec4( c * ( uBoost * uGlow * lumCalm * nearCalm * tubeProfile ), 1.0 );
+        float tubeProfile = 0.54 + 0.46 * smoothstep( 0.0, 0.75, ndv );
+        float g = clamp( uGlow * 0.92 * tubeProfile, 0.0, 0.92 );
+        vec3 lit = c * min( uBoost, 1.25 ) * 0.88 * lumCalm * nearCalm;
+        lit = lit / ( 1.0 + max( lit.r, max( lit.g, lit.b ) ) * 0.32 );
+        gl_FragColor = vec4( lit * g, g );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
     blending: THREE.CustomBlending,
     blendSrc: THREE.OneFactor,
-    blendDst: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
     blendSrcAlpha: THREE.ZeroFactor,
     blendDstAlpha: THREE.OneFactor,
     depthWrite: false,

@@ -448,20 +448,6 @@
   },
   "images": [
    {
-    "file": "File:Huế (2024) - Meridian Gate - Ngọ Môn (Hoàng thành Huế) - img 07.jpg",
-    "page": "https://commons.wikimedia.org/wiki/File:Hu%E1%BA%BF_(2024)_-_Meridian_Gate_-_Ng%E1%BB%8D_M%C3%B4n_(Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF)_-_img_07.jpg",
-    "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/98/Hu%E1%BA%BF_%282024%29_-_Meridian_Gate_-_Ng%E1%BB%8D_M%C3%B4n_%28Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF%29_-_img_07.jpg/960px-Hu%E1%BA%BF_%282024%29_-_Meridian_Gate_-_Ng%E1%BB%8D_M%C3%B4n_%28Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF%29_-_img_07.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-    "width": 800,
-    "height": 600,
-    "author": "Chainwit.",
-    "license": "CC BY 4.0",
-    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
-    "caption": {
-     "vi": "Ngọ Môn và lầu Ngũ Phụng",
-     "en": "The Meridian Gate and its Five Phoenix Pavilion"
-    }
-   },
-   {
     "file": "File:Ngọ Môn during the French protectorate period - Hinhanhlichsu.org 02.png",
     "page": "https://commons.wikimedia.org/wiki/File:Ng%E1%BB%8D_M%C3%B4n_during_the_French_protectorate_period_-_Hinhanhlichsu.org_02.png",
     "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e5/Ng%E1%BB%8D_M%C3%B4n_during_the_French_protectorate_period_-_Hinhanhlichsu.org_02.png/960px-Ng%E1%BB%8D_M%C3%B4n_during_the_French_protectorate_period_-_Hinhanhlichsu.org_02.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
@@ -473,6 +459,20 @@
     "caption": {
      "vi": "Ngọ Môn thời Pháp thuộc, ảnh in trước năm 1926",
      "en": "The gate in the French colonial period, published before 1926"
+    }
+   },
+   {
+    "file": "File:Huế (2024) - Meridian Gate - Ngọ Môn (Hoàng thành Huế) - img 07.jpg",
+    "page": "https://commons.wikimedia.org/wiki/File:Hu%E1%BA%BF_(2024)_-_Meridian_Gate_-_Ng%E1%BB%8D_M%C3%B4n_(Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF)_-_img_07.jpg",
+    "thumb": "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/98/Hu%E1%BA%BF_%282024%29_-_Meridian_Gate_-_Ng%E1%BB%8D_M%C3%B4n_%28Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF%29_-_img_07.jpg/960px-Hu%E1%BA%BF_%282024%29_-_Meridian_Gate_-_Ng%E1%BB%8D_M%C3%B4n_%28Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF%29_-_img_07.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "width": 800,
+    "height": 600,
+    "author": "Chainwit.",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "caption": {
+     "vi": "Nhìn từ lầu Ngũ Phụng qua cầu Trung Đạo về phía điện Thái Hòa",
+     "en": "View north from the Five Phoenix Pavilion across Trung Đạo Bridge toward Thái Hòa Palace"
     }
    }
   ],
@@ -7242,6 +7242,1285 @@
    {
     "title": "AEON opens its first shopping mall in central Vietnam – VnExpress International",
     "url": "https://e.vnexpress.net/news/business/companies/aeon-opens-its-first-shopping-mall-in-central-vietnam-4796072.html"
+   }
+  ]
+ },
+ "hiennhon": {
+  "title": {
+   "vi": "Cửa Hiển Nhơn",
+   "en": "Hiển Nhơn Gate"
+  },
+  "kind": {
+   "vi": "Cổng Hoàng thành",
+   "en": "Imperial City gate"
+  },
+  "when": {
+   "vi": "Xây 1805; khảm sành sứ 1833; trùng tu thời Khải Định và sau 1975",
+   "en": "Built 1805; porcelain mosaic 1833; restored under Khải Định and after 1975"
+  },
+  "summary": {
+   "vi": "Cổng phía đông của Hoàng thành Huế, khảm sành sứ tinh xảo dưới mái ngói hoàng lưu ly, ngày nay là lối ra của du khách sau khi thăm Đại Nội.",
+   "en": "The eastern gate of the Imperial City, richly encrusted with porcelain mosaic beneath yellow glazed roofs, and today the visitors' exit from Đại Nội."
+  },
+  "story": {
+   "vi": "Bước ra khỏi Đại Nội về phía đường Đoàn Thị Điểm, du khách đi dưới ba vòm cuốn khảm sành sứ của cửa Hiển Nhơn. Thời Nguyễn, theo lệ \"tả nam hữu nữ\", cổng phía đông này dành cho nam giới và các quan ra vào Hoàng thành, còn tên gọi \"Hiển Nhơn\" gửi gắm ý đề cao lòng nhân ái.\n\nCổng được dựng lần đầu năm 1805 dưới triều Gia Long, đến năm 1833 đời Minh Mạng được trang trí sành sứ rực rỡ, rồi tiếp tục được tu bổ cầu kỳ vào thời Khải Định. Công trình xây gạch hai tầng lầu, tầng dưới trổ ba lối đi vòm cuốn với cánh cửa gỗ sơn đỏ, phía trên lợp ngói ống hoàng lưu ly, đỉnh bờ nóc đắp lưỡng long chầu nguyệt, còn các trụ biểu và ô hộc phủ kín mảnh sành, mảnh thủy tinh màu.\n\nBom đạn năm 1968 từng làm sập nặng tòa cổng cổ. Sau năm 1975, cửa Hiển Nhơn được phục hồi lại dáng vẻ uy nghi giữa dải tường vàng của Hoàng thành.",
+   "en": "Visitors leaving Đại Nội toward Đoàn Thị Điểm Street pass beneath the three mosaic-trimmed arches of Hiển Nhơn Gate. Under the Nguyễn court's rule of \"men to the left, women to the right\", this eastern gate was the entrance for men and mandarins attending the palace, its name celebrating benevolence and humanity.\n\nFirst raised in 1805 under Emperor Gia Long, the gate was embellished with porcelain mosaic in 1833 under Minh Mạng and richly reworked under Khải Định. Built of masonry in two upper tiers over three vaulted passages with red-lacquered timber leaves, it wears imperial yellow glazed tiles crowned by two dragons flanking a flaming pearl, its piers and panels dense with ceramic and coloured-glass reliefs.\n\nHeavy bombardment in 1968 wrecked much of the structure, which was carefully rebuilt after 1975 to restore the eastern face of the Imperial City."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Mặt đông Hoàng thành, nhìn ra đường Đoàn Thị Điểm",
+     "en": "East wall of the Imperial City, facing Đoàn Thị Điểm Street"
+    }
+   },
+   {
+    "label": {
+     "vi": "Khởi dựng",
+     "en": "First built"
+    },
+    "value": {
+     "vi": "1805, đời Gia Long",
+     "en": "1805, under Gia Long"
+    }
+   },
+   {
+    "label": {
+     "vi": "Kiến trúc",
+     "en": "Form"
+    },
+    "value": {
+     "vi": "3 lối đi vòm cuốn, 2 tầng lầu xây gạch khảm sành sứ",
+     "en": "3 arched passages, 2-storey mosaic-clad masonry tower"
+    }
+   },
+   {
+    "label": {
+     "vi": "Vai trò hiện nay",
+     "en": "Present role"
+    },
+    "value": {
+     "vi": "Cổng ra cho khách tham quan Đại Nội",
+     "en": "Main visitor exit from the Imperial City"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Hoàng thành Huế – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF"
+   },
+   {
+    "title": "A close look at the four gates into the Hue Imperial Citadel – VOV",
+    "url": "https://vov.gov.vn/a-close-look-at-the-four-gates-into-the-hue-imperial-citadel-dtnew-1022462"
+   }
+  ]
+ },
+ "chuongduc": {
+  "title": {
+   "vi": "Cửa Chương Đức",
+   "en": "Chương Đức Gate"
+  },
+  "kind": {
+   "vi": "Cổng Hoàng thành",
+   "en": "Imperial City gate"
+  },
+  "when": {
+   "vi": "Xây 1804; xây lại có lầu năm 1921; trùng tu 2003–2004",
+   "en": "Built 1804; rebuilt with tower 1921; restored 2003–2004"
+  },
+  "summary": {
+   "vi": "Cổng phía tây của Hoàng thành, gần cung Diên Thọ và Trường Sanh, xưa dành cho bậc mẫu hậu và cung tần ra vào nội cung.",
+   "en": "The western gate of the Imperial City, beside the queen mothers' residences, traditionally reserved for the women of the palace."
+  },
+  "story": {
+   "vi": "Đối xứng với cửa Hiển Nhơn qua trục chính của Đại Nội, cửa Chương Đức mở ra đường Lê Huân ở mặt tây Hoàng thành, ngay gần cung Diên Thọ và cung Trường Sanh. Xưa kia đây là lối đi dành riêng cho các bậc hoàng thái hậu, phi tần và cung nữ; hai chữ \"Chương Đức\" hàm ý ngợi ca công dung, đức hạnh của phụ nữ chốn cung đình.\n\nKhởi dựng năm 1804 thời Gia Long, cổng ban đầu chỉ là một tam quan giản dị chưa có lầu trên. Đến năm 1921, vua Khải Định cho xây lại thành tòa cổng ba tầng mang đậm dấu ấn mỹ thuật đầu thế kỷ XX: các trụ và ô hộc khảm sành sứ, thủy tinh nhiều đề tài khác nhau, mái lợp ngói ống hoàng lưu ly đắp chữ Thọ (壽) và hình dơi cách điệu.\n\nTrải qua chiến tranh sau năm 1945 khiến tầng lầu hư hại nặng, cửa Chương Đức đã được trùng tu trong hai năm 2003–2004, trả lại vẻ trang nhã theo đúng diện mạo thời Khải Định.",
+   "en": "Answering Hiển Nhơn Gate across the Imperial City's central axis, Chương Đức Gate opens westward toward Lê Huân Street beside the Diên Thọ and Trường Sanh residences. Under the Nguyễn dynasty it served the women of the court—queen mothers, consorts and ladies-in-waiting—and its name, \"Manifesting Virtue\", alludes to the virtues traditionally honoured in the inner palaces.\n\nFirst built in 1804 under Gia Long as a plain three-entrance gateway without an upper pavilion, it was rebuilt in 1921 under Emperor Khải Định into a three-storey masonry gatehouse. Every pier is divided into panels of porcelain and coloured-glass mosaic, while its imperial yellow tubular tiles carry longevity characters (壽) on the round eaves and stylized bats below.\n\nBadly damaged in fighting after 1945, the gate was restored in 2003–2004 to its 1921 Khải Định form."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Mặt tây Hoàng thành, nhìn ra đường Lê Huân",
+     "en": "West wall of the Imperial City, facing Lê Huân Street"
+    }
+   },
+   {
+    "label": {
+     "vi": "Khởi dựng & xây lại",
+     "en": "Built & rebuilt"
+    },
+    "value": {
+     "vi": "1804 (Gia Long); xây lại có lầu năm 1921 (Khải Định)",
+     "en": "1804 (Gia Long); rebuilt with tower 1921 (Khải Định)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Kiến trúc",
+     "en": "Form"
+    },
+    "value": {
+     "vi": "3 tầng, 3 vòm cửa, ngói hoàng lưu ly đắp chữ Thọ và hình dơi",
+     "en": "3 storeys, 3 arches, yellow glazed tiles with longevity and bat motifs"
+    }
+   },
+   {
+    "label": {
+     "vi": "Trùng tu",
+     "en": "Restored"
+    },
+    "value": {
+     "vi": "2003–2004",
+     "en": "2003–2004"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Hoàng thành Huế – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Ho%C3%A0ng_th%C3%A0nh_Hu%E1%BA%BF"
+   },
+   {
+    "title": "A close look at the four gates into the Hue Imperial Citadel – VOV",
+    "url": "https://vov.gov.vn/a-close-look-at-the-four-gates-into-the-hue-imperial-citadel-dtnew-1022462"
+   }
+  ]
+ },
+ "golim": {
+  "title": {
+   "vi": "Cầu gỗ lim",
+   "en": "Ironwood Walkway (Cầu gỗ lim)"
+  },
+  "kind": {
+   "vi": "Cầu đi bộ ven sông",
+   "en": "Riverside boardwalk"
+  },
+  "when": {
+   "vi": "Hoàn thành và mở cửa tháng 11/2018",
+   "en": "Completed and opened November 2018"
+  },
+  "summary": {
+   "vi": "Lối đi bộ lát gỗ lim Nam Phi uốn lượn ngay trên mặt nước bờ nam sông Hương, nối phố đi bộ Nguyễn Đình Chiểu với công viên Lý Tự Trọng.",
+   "en": "A boardwalk of South African ironwood curving out over the south bank of the Perfume River between Nguyễn Đình Chiểu promenade and Lý Tự Trọng Park."
+  },
+  "story": {
+   "vi": "Chiều xuống bên bờ nam sông Hương, cầu gỗ lim là nơi người Huế và du khách hay ra hóng gió nhất. Lối dạo rộng 4 m vươn hẳn ra ngoài bờ kè, chỉ cách mặt nước chừng một mét, đi từ đầu phố đi bộ Nguyễn Đình Chiểu gần cầu Trường Tiền, luồn qua gầm cầu Phú Xuân rồi nối tới công viên Lý Tự Trọng.\n\nCông trình nằm trong dự án quy hoạch chi tiết hai bờ sông Hương do Hàn Quốc tài trợ (KOICA), đưa vào sử dụng tháng 11 năm 2018. Toàn bộ mặt sàn rộng hơn 2.400 m² được ghép từ khoảng 16.000 thanh gỗ lim nhập từ Nam Phi đặt trên hệ cọc bê tông cốt thép dưới lòng sông; dọc hai bên là 4.100 thanh lan can bằng đồng đúc từ Hàn Quốc, nặng tổng cộng chừng 7 tấn.\n\nQua vài mùa mưa nắng xứ Huế, mặt gỗ lim ngả màu nâu xám trầm mặc, ăn nhập với dải đèn vàng dịu hắt dọc lan can mỗi tối và những buổi hát du ca bên dòng Hương.",
+   "en": "As evening cools the south bank of the Perfume River, the ironwood walkway is where locals and visitors alike drift out over the water. Four metres wide and poised roughly a metre above the river, it curves nearly 400 metres from the Nguyễn Đình Chiểu promenade near Trường Tiền Bridge past the foot of Phú Xuân Bridge to Lý Tự Trọng Park.\n\nBuilt on reinforced-concrete piles in the riverbed as a pilot riverfront project funded by South Korea's KOICA and opened in November 2018, its 2,443 m² deck is laid with some 16,000 planks of South African ironwood. Along both edges run 4,100 bronze railing slats cast in Korea, weighing about seven tonnes in all.\n\nWeathered by Huế's sun and monsoon rains to a soft grey-brown, the deck glows warmly at night under low railing lights, hosting buskers, strollers and unobstructed views across to the Citadel bank."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Chiều dài & rộng",
+     "en": "Length & width"
+    },
+    "value": {
+     "vi": "Gần 400 m, rộng 4 m (diện tích 2.443 m²)",
+     "en": "Nearly 400 m long, 4 m wide (2,443 m²)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Mặt sàn",
+     "en": "Decking"
+    },
+    "value": {
+     "vi": "Khoảng 16.000 thanh gỗ lim Nam Phi",
+     "en": "About 16,000 South African ironwood planks"
+    }
+   },
+   {
+    "label": {
+     "vi": "Lan can",
+     "en": "Railing"
+    },
+    "value": {
+     "vi": "4.100 thanh đồng, nặng khoảng 7 tấn",
+     "en": "4,100 bronze bars, about 7 tonnes"
+    }
+   },
+   {
+    "label": {
+     "vi": "Khánh thành",
+     "en": "Opened"
+    },
+    "value": {
+     "vi": "Tháng 11 năm 2018",
+     "en": "November 2018"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Cây cầu gỗ lim bạc tỷ dát 7 tấn đồng ở Huế – Người Quan Sát",
+    "url": "https://nguoiquansat.vn/cay-cau-go-lim-bac-ty-dat-7-tan-dong-doc-nhat-viet-nam-dien-tich-hon-2-400m2-ghep-tu-16-000-thanh-go-100872.html"
+   },
+   {
+    "title": "Vietnam's royal city adds to its charm with wooden promenade – VnExpress International",
+    "url": "https://e.vnexpress.net/news/travel/places/vietnam-s-royal-city-adds-to-its-charm-with-wooden-promenade-3824765.html"
+   }
+  ]
+ },
+ "daVien": {
+  "title": {
+   "vi": "Cồn Dã Viên",
+   "en": "Dã Viên Islet"
+  },
+  "kind": {
+   "vi": "Cồn giữa sông, công viên",
+   "en": "River islet and park"
+  },
+  "when": {
+   "vi": "Lập vườn ngự Dữ Dã Viên năm 1868; nhà máy nước thập niên 1950; chỉnh trang công viên 2021–2023",
+   "en": "Royal garden 1868; water plant 1950s; park renovated 2021–2023"
+  },
+  "summary": {
+   "vi": "Cồn đất phù sa xanh rợp bóng cây ở thượng lưu Kinh thành, giữ thế \"hữu Bạch Hổ\" đối xứng với \"tả Thanh Long\" Cồn Hến trên sông Hương.",
+   "en": "A tree-shaded alluvial islet upstream of the Citadel, forming the \"White Tiger on the right\" paired with Cồn Hến's \"Azure Dragon\" in Huế's royal geomancy."
+  },
+  "story": {
+   "vi": "Nằm giữa dòng sông Hương phía tây nam Kinh thành, nơi hai cây cầu đường sắt Bạch Hổ và đường bộ Dã Viên bắc ngang, cồn Dã Viên là dải phù sa hình thoi rộng hơn 10 ha. Trong địa lý phong thủy triều Nguyễn, nếu Cồn Hến ở hạ lưu là \"tả Thanh Long\" thì Cồn Dã Viên ở thượng lưu chính là \"hữu Bạch Hổ\" chầu giữ mặt tiền Kinh đô.\n\nNăm 1868, vua Tự Đức cho lập tại đây khu vườn ngự uyển mang tên Dữ Dã Viên, dựng nhà mát, trồng cây trái và khắc bia đá bài thơ ngự chế ca ngợi cảnh sông nước. Khác với Cồn Hến đông đúc xóm làng, Dã Viên không có khu dân cư sinh sống; từ thập niên 1950, giữa cồn đặt nhà máy nước Dã Viên với tháp nước bê tông cao khoảng 40 m vươn lên giữa tán rừng hàng nghìn cây xanh.\n\nTừ năm 2021 đến 2023, nửa phía đông của cồn được chỉnh trang thành công viên mở với đường dạo lát đá uốn lượn dưới chân cầu, thảm cỏ thoáng đãng và vườn hoàng mai xứ Huế nở vàng mỗi độ xuân về.",
+   "en": "Set in the Perfume River just south-west of the Citadel, under the spans of the Bạch Hổ railway bridge and Dã Viên road bridge, Dã Viên is a diamond-shaped silt islet of more than 10 hectares. In the geomancy of the Nguyễn capital, while Cồn Hến downstream forms the \"Azure Dragon on the left\", Dã Viên upstream stands as the \"White Tiger on the right\" guarding the front of the Citadel.\n\nIn 1868 Emperor Tự Đức laid out a royal pleasure garden here called Dữ Dã Viên, raising pavilions among orchards and setting up a stone stele inscribed with his own poem on the river view. Unlike densely settled Cồn Hến, the islet has no residential village; since the 1950s its wooded centre has held the Dã Viên waterworks and a 16-sided concrete water tower rising about 40 m above thousands of trees.\n\nBetween 2021 and 2023 the eastern tip was renovated into a quiet public park with winding stone footpaths, open lawns and a grove of Huế yellow apricot (hoàng mai) trees."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Diện tích",
+     "en": "Area"
+    },
+    "value": {
+     "vi": "Hơn 10 ha (dài khoảng 830 m)",
+     "en": "Over 10 ha (about 830 m long)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Thế phong thủy",
+     "en": "Geomantic role"
+    },
+    "value": {
+     "vi": "Hữu Bạch Hổ của Kinh thành Huế",
+     "en": "White Tiger on the right of the Citadel"
+    }
+   },
+   {
+    "label": {
+     "vi": "Vườn ngự thời Nguyễn",
+     "en": "Royal garden"
+    },
+    "value": {
+     "vi": "Dữ Dã Viên, lập năm 1868 đời Tự Đức",
+     "en": "Dữ Dã Viên, laid out in 1868 under Tự Đức"
+    }
+   },
+   {
+    "label": {
+     "vi": "Tháp nước Dã Viên",
+     "en": "Water tower"
+    },
+    "value": {
+     "vi": "Xây thập niên 1950, cao khoảng 40 m, bồn 1.500 m³",
+     "en": "Built in the 1950s, about 40 m tall, 1,500 m³ tank"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Cồn Dã Viên – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/C%E1%BB%93n_D%C3%A3_Vi%C3%AAn"
+   },
+   {
+    "title": "Da Vien islet in central Hue city – VOV World",
+    "url": "https://english.vov.vn/en/places/da-vien-islet-in-central-hue-city-262586.vov"
+   },
+   {
+    "title": "Tranquil Da Vien islet in Hue renovated – Viet Nam News",
+    "url": "https://vietnamnews.vn/sunday/1484298/tranquil-da-vien-islet-in-hue-renovated.html"
+   }
+  ]
+ },
+ "thuyxuan": {
+  "title": {
+   "vi": "Làng hương Thủy Xuân",
+   "en": "Thủy Xuân Incense Village"
+  },
+  "kind": {
+   "vi": "Làng nghề truyền thống",
+   "en": "Traditional craft village"
+  },
+  "when": {
+   "vi": "Nghề làm hương trầm lâu đời từ thời Nguyễn",
+   "en": "Centuries-old agarwood incense craft from the Nguyễn era"
+  },
+  "summary": {
+   "vi": "Làng nghề làm hương trầm dưới chân đồi Vọng Cảnh trên đường lên lăng Tự Đức, nổi tiếng với những bó chân hương nhuộm đủ sắc màu xòe tròn bên hiên nhà.",
+   "en": "An incense-making village on the road to Tự Đức's tomb and Vọng Cảnh Hill, celebrated for its roadside bundles of brightly dyed bamboo incense sticks fanned out like flowers."
+  },
+  "story": {
+   "vi": "Đi dọc đường Huyền Trân Công Chúa về phía lăng Tự Đức và đồi Vọng Cảnh, cách trung tâm Huế chừng 7 km về hướng tây nam, du khách dễ nhận ra làng hương Thủy Xuân từ xa nhờ những \"đóa hoa hương\" đủ sắc đỏ, vàng, tím, hồng, xanh lá phơi rực cả hai bên phố dưới giàn đèn lồng và nón lá.\n\nNghề làm hương ở Thủy Xuân gắn bó lâu đời với cố đô: thời Nguyễn, người làng chuyên vấn hương trầm cung tiến cho triều đình, phủ đệ và các chùa chiền khắp vùng Thuận Hóa – Phú Xuân. Hương được se thủ công từ bột trầm, quế chi, đại hồi, đinh hương, thảo quả trộn cùng keo vỏ cây bời lời nên khi đốt tỏa mùi thơm thanh dịu, không cay nồng hóa chất.\n\nXưa kia chân hương chỉ nhuộm đỏ hoặc để mộc màu tre; về sau người thợ nhuộm thêm nhiều gam màu tươi tắn rồi xòe tròn phơi nắng trước hiên, vừa giữ nghề truyền thống vừa biến con dốc nhỏ thành điểm dừng chân trải nghiệm se hương quen thuộc của khách phương xa.",
+   "en": "Seven kilometres south-west of central Huế along Huyền Trân Công Chúa Street, on the way up to Emperor Tự Đức's tomb and Vọng Cảnh Hill, Thủy Xuân announces itself with pavements full of colour: hundreds of bamboo incense bundles dyed crimson, saffron, violet, pink and emerald fanned out in the sun under strings of lanterns and conical hats.\n\nFor generations under the Nguyễn dynasty, villagers here rolled fragrant incense for the court, mandarins' mansions and pagodas across Phú Xuân. Artisans still mix natural powders of agarwood, cinnamon, star anise, clove and cardamom with sticky litsea bark, rolling the paste onto split bamboo sticks that burn with a gentle, clean scent.\n\nIncense feet were once dyed only red or left natural bamboo, until local workshops began tinting them in bright hues and arranging drying bouquets along their verandahs—reviving a quiet household trade as a hands-on stop where visitors can try rolling incense themselves."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Đường Huyền Trân Công Chúa, phường Thủy Xuân, gần lăng Tự Đức",
+     "en": "Huyền Trân Công Chúa Street, Thủy Xuân ward, near Tự Đức's tomb"
+    }
+   },
+   {
+    "label": {
+     "vi": "Truyền thống",
+     "en": "Heritage"
+    },
+    "value": {
+     "vi": "Cung cấp hương trầm cho cung đình triều Nguyễn và vùng Phú Xuân",
+     "en": "Supplied agarwood incense to the Nguyễn court and Phú Xuân"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nguyên liệu chính",
+     "en": "Ingredients"
+    },
+    "value": {
+     "vi": "Trầm hương, quế, hồi, đinh hương, thảo quả, keo vỏ bời lời",
+     "en": "Agarwood, cinnamon, star anise, clove, cardamom and litsea bark"
+    }
+   },
+   {
+    "label": {
+     "vi": "Hình ảnh đặc trưng",
+     "en": "Signature sight"
+    },
+    "value": {
+     "vi": "Các bó chân hương nhuộm đa sắc xòe tròn phơi nắng bên đường",
+     "en": "Multi-coloured incense bouquets fanned out to dry along the street"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Thủy Xuân (phường) – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Th%E1%BB%A7y_Xu%C3%A2n"
+   }
+  ]
+ },
+ "phuongduc": {
+  "title": {
+   "vi": "Làng đúc đồng Phường Đúc",
+   "en": "Phường Đúc Bronze Village"
+  },
+  "kind": {
+   "vi": "Làng nghề truyền thống",
+   "en": "Traditional craft village"
+  },
+  "when": {
+   "vi": "Hình thành đầu thế kỷ XVII, dưới thời các chúa Nguyễn",
+   "en": "Founded in the early 17th century under the Nguyễn lords"
+  },
+  "summary": {
+   "vi": "Làng đúc đồng hơn bốn thế kỷ bên bờ nam sông Hương, nơi những người thợ tài hoa từng đúc Đại hồng chung chùa Thiên Mụ, Cửu Vị Thần Công và Cửu Đỉnh.",
+   "en": "A 400-year-old bronze-casting quarter on the south bank of the Perfume River, whose master founders cast Thiên Mụ's Great Bell, the Nine Sacred Cannons and the Nine Dynastic Urns."
+  },
+  "story": {
+   "vi": "Chạy dọc đường Bùi Thị Xuân bên bờ nam sông Hương, từ chân cầu Dã Viên ngược về phía Long Thọ, Phường Đúc là cái nôi đúc đồng hơn 400 năm của xứ Huế. Theo gia phả họ Nguyễn ở xóm Kinh Nhơn, thủy tổ nghề là cụ Nguyễn Văn Lương từ vùng Kinh Bắc vào Thuận Hóa lập nghiệp đầu thế kỷ XVII; dưới thời các chúa Nguyễn và vua Nguyễn, thợ giỏi quy tụ về các xóm Trường Đồng, Kinh Nhơn, Bổn Bộ, Giang Dinh và Giang Tiền để làm việc trong các tượng cục của triều đình.\n\nTừ lửa lò và khuôn đất sét nơi đây đã ra đời hàng loạt bảo vật bằng đồng của cố đô: những chiếc vạc đồng thời chúa Nguyễn (1659–1684), quả Đại hồng chung nặng hơn hai tấn ở chùa Thiên Mụ (1710), bộ Cửu Vị Thần Công (1803–1804) và chín chiếc Cửu Đỉnh sừng sững trước sân Thế Miếu (1835–1837).\n\nNgày nay nhiều lò đúc ở Kinh Nhơn và Bổn Bộ vẫn đỏ lửa đúc đại hồng chung, đỉnh đồng, tượng thờ và đồ mỹ nghệ, còn nhà thờ cùng khu mộ tổ nghề họ Nguyễn Kinh Nhơn được gìn giữ như một di tích lịch sử cấp quốc gia.",
+   "en": "Along Bùi Thị Xuân Street on the south bank of the Perfume River, upstream from Dã Viên Bridge toward Long Thọ, Phường Đúc has been Huế's bronze-casting quarter for more than four centuries. Lineage records in Kinh Nhơn hamlet trace the craft to master founder Nguyễn Văn Lương, who settled here from northern Kinh Bắc in the early 17th century; under the Nguyễn lords and emperors, casters across five riverside hamlets—especially Kinh Nhơn and Bổn Bộ—were organised into royal foundries.\n\nOut of Phường Đúc's clay moulds and brick furnaces came the dynasty's greatest bronze treasures: the palace cauldrons of the Nguyễn lords (1659–1684), the two-tonne Great Bell of Thiên Mụ Pagoda (1710), Gia Long's Nine Sacred Cannons (1803–1804) and Minh Mạng's Nine Dynastic Urns before Thế Miếu (1835–1837).\n\nFamily foundries along the street still dry terracotta moulds in the sun and pour molten bronze for temple bells, statues and ancestral incense sets, beside the nationally listed ancestral hall of the Nguyễn Kinh Nhơn founders."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Đường Bùi Thị Xuân, bờ nam sông Hương",
+     "en": "Bùi Thị Xuân Street, south bank of the Perfume River"
+    }
+   },
+   {
+    "label": {
+     "vi": "Khởi nguồn",
+     "en": "Origins"
+    },
+    "value": {
+     "vi": "Đầu thế kỷ XVII; tổ nghề là cụ Nguyễn Văn Lương",
+     "en": "Early 17th century; founded by master Nguyễn Văn Lương"
+    }
+   },
+   {
+    "label": {
+     "vi": "Báu vật từng đúc",
+     "en": "Royal castings"
+    },
+    "value": {
+     "vi": "Vạc đồng (1659–1684), chuông Thiên Mụ (1710), Cửu Vị Thần Công (1803–1804), Cửu Đỉnh (1835–1837)",
+     "en": "Royal cauldrons (1659–1684), Thiên Mụ Bell (1710), Nine Cannons (1803–1804), Nine Urns (1835–1837)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Xóm nghề tiêu biểu",
+     "en": "Main hamlets"
+    },
+    "value": {
+     "vi": "Kinh Nhơn và Bổn Bộ",
+     "en": "Kinh Nhơn and Bổn Bộ"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Phường Đúc – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Ph%C6%B0%E1%BB%9Dng_%C4%90%C3%BAc"
+   },
+   {
+    "title": "Cửu Đỉnh (nhà Nguyễn) – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/C%E1%BB%ADu_%C4%90%E1%BB%89nh_(nh%C3%A0_Nguy%E1%BB%85n)"
+   }
+  ]
+ },
+ "sinh": {
+  "title": {
+   "vi": "Làng tranh Sình",
+   "en": "Sình Folk-Painting Village"
+  },
+  "kind": {
+   "vi": "Làng nghề truyền thống",
+   "en": "Traditional craft village"
+  },
+  "when": {
+   "vi": "Hơn 400 năm lịch sử, hình thành từ thời các chúa Nguyễn",
+   "en": "Over 400 years old, established under the Nguyễn lords"
+  },
+  "summary": {
+   "vi": "Làng Lại Ân bên hạ lưu sông Hương, cái nôi của dòng tranh mộc bản dân gian trên giấy điệp chuyên dùng cho lễ cúng cầu an của người Huế suốt hơn bốn thế kỷ.",
+   "en": "Lại Ân village on the lower Perfume River, home for over four centuries to woodblock folk prints on shell-coated paper made for Huế household rituals."
+  },
+  "story": {
+   "vi": "Xuôi dòng sông Hương chừng 9 km về phía đông bắc Kinh thành, gần ngã ba Sình nơi sông Bồ gặp sông Hương, làng Lại Ân — dân gian quen gọi là làng Sình — giữ nghề in tranh mộc bản đã hơn 400 năm, từ buổi cư dân theo chân các chúa Nguyễn vào mở cõi Thuận Hóa. Khác với tranh Đông Hồ hay Hàng Trống treo chơi Tết, tranh làng Sình sinh ra trước hết cho tín ngưỡng: người Huế mua tranh bà Mụ, con giáp, ông Đốc, ông Táo về cúng cầu an, giải hạn rồi đem hóa lửa ngay sau lễ.\n\nGiấy dó được quét lớp hồ điệp nghiền từ vỏ sò điệp óng ánh, in nét đen từ bản khắc gỗ mít hoặc gỗ mức, rồi người thợ mới cầm cọ điểm từng mảng màu tự nhiên nấu từ hạt hòe, hạt dành dành, lá chàm, vỏ tràm và tro rơm.\n\nSau năm 1975, khi tục đốt tranh cúng thưa dần, nghề in có lúc tưởng đã thất truyền. Nhờ nghệ nhân Kỳ Hữu Phước bền bỉ cất giữ, khắc lại hàng trăm bản gỗ cổ và mở xưởng ngay dưới mái nhà rường cho học trò cùng du khách tự tay in tranh, sắc màu mộc mạc của làng Sình đã hồi sinh bên bến sông xưa.",
+   "en": "Roughly nine kilometres downstream of the Citadel, near the Sình confluence where the Bồ River meets the Perfume River, Lại Ân village—universally known as Sình village—has printed woodblock folk art for more than 400 years, since settlers followed the Nguyễn lords south into Thuận Hóa. Unlike northern Đông Hồ or Hàng Trống prints hung to decorate the house at Tết, Sình paintings were made almost wholly for worship: families offered figures of guardian spirits, zodiac animals and protective deities in rites for peace and healing, then burnt the paper once the prayers ended.\n\nArtisans coat sheets of dó paper with shimmering crushed-seashell paste (điệp), press bold black outlines from carved jackfruit-wood blocks, and brush in lively colours boiled from sophora buds, gardenia seeds, indigo leaves and ash.\n\nWhen ritual demand faded after 1975 and the craft nearly vanished, master artisan Kỳ Hữu Phước preserved and re-carved hundreds of woodblocks, opening his traditional nhà rường courtyard so neighbours, schoolchildren and travellers could print Sình sheets again."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chữ & vị trí",
+     "en": "Formal name & site"
+    },
+    "value": {
+     "vi": "Làng Lại Ân (Phú Mậu), hạ lưu sông Hương",
+     "en": "Lại Ân village (Phú Mậu), lower Perfume River"
+    }
+   },
+   {
+    "label": {
+     "vi": "Tuổi đời",
+     "en": "Age of craft"
+    },
+    "value": {
+     "vi": "Hơn 400 năm",
+     "en": "More than 400 years"
+    }
+   },
+   {
+    "label": {
+     "vi": "Chất liệu",
+     "en": "Materials"
+    },
+    "value": {
+     "vi": "Giấy dó quét điệp sò, mộc bản gỗ mít và màu thảo mộc",
+     "en": "Seashell-coated dó paper, jackfruit woodblocks and plant pigments"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nghệ nhân gìn giữ tiêu biểu",
+     "en": "Key revivalist"
+    },
+    "value": {
+     "vi": "Nghệ nhân Kỳ Hữu Phước",
+     "en": "Master artisan Kỳ Hữu Phước"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Tranh làng Sình – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Tranh_l%C3%A0ng_S%C3%ACnh"
+   }
+  ]
+ },
+ "gate:Cửa Quảng Đức": {
+  "title": {
+   "vi": "Cửa Quảng Đức (Cửa Sập)",
+   "en": "Quảng Đức Gate (Cửa Sập)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809 (Gia Long); dựng vọng lâu 1829 (Minh Mạng)",
+   "en": "Arch built 1809 (Gia Long); watchtower added 1829 (Minh Mạng)"
+  },
+  "summary": {
+   "vi": "Cửa thành nằm phía tây Kỳ Đài ở mặt nam Kinh thành, nơi vua Hàm Nghi xuất thành năm 1885 và người Huế quen gọi là Cửa Sập.",
+   "en": "The southern Citadel gate just west of the Flag Tower, through which Emperor Hàm Nghi left the fallen capital in 1885, known locally as Cửa Sập."
+  },
+  "story": {
+   "vi": "Nằm trên mặt nam Kinh thành, chếch về bên phải (phía tây) Kỳ Đài và đối xứng với cửa Ngăn ở bên trái, cửa Quảng Đức nối đường 23 Tháng 8 và Ông Ích Khiêm bên trong thành qua cầu Quảng Đức ra đường Lê Duẩn. Ngay phía sau cổng, dưới chân Thượng Thành, là nơi đặt năm khẩu thần công thuộc bộ Cửu Vị Thần Công.\n\nVòm cửa gạch được xây năm 1809 dưới triều Gia Long; đến năm 1829, vua Minh Mạng cho dựng thêm vọng lâu hai tầng ở phía trên, nâng tổng chiều cao công trình lên khoảng 16–17 m, hai bên mặt trong có đường dốc dẫn lên mặt thành.\n\nĐêm 22 rạng 23 tháng 5 năm Ất Dậu (5/7/1885), khi Kinh đô thất thủ, vua Hàm Nghi cùng phụ chính Tôn Thất Thuyết đã theo cửa Quảng Đức rút khỏi Hoàng cung lên Tân Sở phát chiếu Cần Vương. Dân gian còn gọi đây là \"Cửa Sập\" vì vòm cổng từng bị sập trong một trận lụt lớn giữa thế kỷ XX trước khi được xây dựng lại.",
+   "en": "On the southern rampart of the Citadel, to the west of the Flag Tower and symmetrical with Cửa Ngăn to the east, Quảng Đức Gate carries traffic between 23 Tháng 8 and Ông Ích Khiêm streets inside the wall and Lê Duẩn Street across the moat bridge. Just inside its arch stand five of the Nguyễn dynasty's Nine Sacred Cannons.\n\nIts vaulted brick passage was built in 1809 under Emperor Gia Long, and in 1829 Emperor Minh Mạng crowned the platform with a two-storey masonry watchtower (vọng lâu), bringing the gate to roughly 16–17 m in height, flanked on the city side by parapeted ramps climbing to the wall walk.\n\nIn the predawn hours of 5 July 1885, as French troops stormed the capital, the boy emperor Hàm Nghi and regent Tôn Thất Thuyết slipped out through Quảng Đức Gate to launch the Cần Vương resistance movement. Townsfolk also call it Cửa Sập (\"Collapsed Gate\") after floodwaters brought the arch down in the mid-20th century before its reconstruction."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Mặt nam Kinh thành, phía hữu Kỳ Đài",
+     "en": "South wall of the Citadel, west of the Flag Tower"
+    }
+   },
+   {
+    "label": {
+     "vi": "Tên dân gian",
+     "en": "Folk name"
+    },
+    "value": {
+     "vi": "Cửa Sập",
+     "en": "Cửa Sập (\"Collapsed Gate\")"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1829 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1829 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Chiều cao",
+     "en": "Height"
+    },
+    "value": {
+     "vi": "Khoảng 16–17 m",
+     "en": "About 16–17 m"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Kinh thành Huế – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Kinh_th%C3%A0nh_Hu%E1%BA%BF"
+   },
+   {
+    "title": "Công cuộc xây dựng Kinh thành Huế – Nghiên cứu Lịch sử",
+    "url": "https://nghiencuulichsu.com/2015/09/26/cong-cuoc-xay-dung-kinh-thanh-hue/"
+   }
+  ]
+ },
+ "gate:Cửa Thượng Tứ": {
+  "title": {
+   "vi": "Cửa Thượng Tứ (Đông Nam Môn)",
+   "en": "Thượng Tứ Gate (Đông Nam Môn)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809 (Gia Long); dựng vọng lâu 1829 (Minh Mạng)",
+   "en": "Arch built 1809 (Gia Long); watchtower added 1829 (Minh Mạng)"
+  },
+  "summary": {
+   "vi": "Cửa đông nam nhộn nhịp nhất của Kinh thành trên trục đường Đinh Tiên Hoàng, mang tên Viện Thượng Tứ chuyên trông coi ngựa và xe ngự thời Nguyễn.",
+   "en": "The busy south-eastern gate of the Citadel at the foot of Đinh Tiên Hoàng Street, named after the royal stables and carriage institute that stood inside it."
+  },
+  "story": {
+   "vi": "Từ cầu Trường Tiền rẽ sang Trần Hưng Đạo rồi đi thẳng vào đường Đinh Tiên Hoàng, lối quen thuộc nhất để vào \"trong Thành\" chính là cửa Thượng Tứ. Dưới bóng phượng vĩ và những quán bánh khoái lâu năm quanh đầu cầu, nhịp xe cộ một chiều đi xuyên vòm gạch cổ suốt từ sáng sớm đến khuya.\n\nTrên tấm biển đá thanh gắn phía trên vòm cửa khắc tên chữ chính thức là Đông Nam Môn (東南門). Cũng như mười cửa bộ của Kinh thành, phần vòm cuốn rộng 3,82 m, cao 5,19 m với cánh gỗ lim đai sắt được xây năm 1809 thời Gia Long; đến năm 1829, vua Minh Mạng cho dựng thêm vọng lâu hai tầng lợp ngói ống ở phía trên, đưa chiều cao toàn cổng lên khoảng 16–17 m.\n\nTên gọi dân gian \"Thượng Tứ\" bắt nguồn từ Viện Thượng Tứ đặt ngay bên trong cửa thành thời Nguyễn — nơi nuôi ngựa quý, rèn luyện kỵ binh và quản lý đoàn xe \"tứ mã\" của nhà vua.",
+   "en": "Turn from Trường Tiền Bridge onto Trần Hưng Đạo and head up Đinh Tiên Hoàng Street, and you enter the walled city through Thượng Tứ Gate—the liveliest and best-known threshold of the Citadel, framed by flame trees and long-standing bánh khoái pancake shops.\n\nA Thanh-stone tablet above the outer arch carries its formal court title, Đông Nam Môn (東南門, South-East Gate). Like its nine sister land gates, its single vaulted passage—3.82 m wide and 5.19 m high, fitted with iron-banded ironwood doors—was built in 1809 under Gia Long, and in 1829 Emperor Minh Mạng added the two-storey watchtower above, raising the structure to roughly 16–17 m.\n\nEveryone in Huế knows it instead after the Viện Thượng Tứ just inside the rampart, the royal stables and carriage department where the dynasty kept its finest four-horse teams (tứ mã) and trained court horsemen."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Đông Nam Môn (東南門)",
+     "en": "Đông Nam Môn (South-East Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nguồn gốc tên gọi",
+     "en": "Named after"
+    },
+    "value": {
+     "vi": "Viện Thượng Tứ (cơ quan quản ngựa và xe ngự triều Nguyễn)",
+     "en": "Viện Thượng Tứ (the royal stables and carriage department)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Kích thước vòm cửa",
+     "en": "Passage size"
+    },
+    "value": {
+     "vi": "Rộng 3,82 m, cao 5,19 m",
+     "en": "3.82 m wide, 5.19 m high"
+    }
+   },
+   {
+    "label": {
+     "vi": "Chiều cao tổng thể",
+     "en": "Total height"
+    },
+    "value": {
+     "vi": "Khoảng 16–17 m (vòm 1809, vọng lâu 1829)",
+     "en": "About 16–17 m (arch 1809, watchtower 1829)"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Khám phá kiến trúc 13 cửa thành của Kinh đô Huế – VietnamPlus",
+    "url": "https://special.vietnamplus.vn/2021/12/08/13_cong_kinh_thanh_hue/"
+   },
+   {
+    "title": "Các loại hình cổng cửa trong kiến trúc cung đình Huế – Tạp chí Đông Nam Á",
+    "url": "https://tapchidongnama.vn/cac-loai-hinh-cong-cua-trong-kien-truc-cung-dinh-hue/"
+   }
+  ]
+ },
+ "gate:Cửa Hậu": {
+  "title": {
+   "vi": "Cửa Hậu (Chánh Bắc Môn)",
+   "en": "Chánh Bắc Gate (Cửa Hậu)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809; dựng vọng lâu 1831; mở lại ngày 21/5/2004",
+   "en": "Arch built 1809; watchtower 1831; reopened 21 May 2004"
+  },
+  "summary": {
+   "vi": "Cửa chính mặt bắc ở phía sau Kinh thành trên trục đường Đinh Tiên Hoàng, từng bị xây bít hơn một thế kỷ trước khi mở lại năm 2004.",
+   "en": "The main northern gate at the rear of the Citadel on Đinh Tiên Hoàng Street, bricked shut for over a century after 1885 and reopened in 2004."
+  },
+  "story": {
+   "vi": "Nằm ở cuối đường Đinh Tiên Hoàng về phía bắc, ngay mặt lưng của Kinh thành và Hoàng thành, cổng mang tên chính thức là Chánh Bắc Môn (正北門), nhưng người dân Huế xưa nay chỉ quen gọi giản dị là Cửa Hậu — tức cửa sau của Kinh thành.\n\nVòm gạch bên dưới được xây năm 1809 thời Gia Long; phần vọng lâu hai tầng phía trên hoàn thành năm 1831 dưới triều Minh Mạng, cao tổng cộng khoảng 17,4 m (4 trượng 1 thước). Tầng dưới vọng lâu có nét riêng dễ nhận: mặt ngoài trổ một cửa vòm ở giữa kẹp hai ô tròn hai bên, còn mặt nhìn vào thành đắp hai ô tròn kín.\n\nSau biến cố Kinh đô thất thủ năm 1885, thực dân Pháp chiếm đóng khu đồn Mang Cá lân cận và cho xây bít vòm cửa Chánh Bắc. Phải sau hơn một thế kỷ im lìm, ngày 21 tháng 5 năm 2004 cổng mới được khai thông trở lại, rồi đến năm 2012 tuyến đường Đinh Tiên Hoàng được nối thẳng qua cầu Cửa Hậu sang khu Cầu Kho, Phú Hiệp.",
+   "en": "Standing at the northern end of Đinh Tiên Hoàng Street directly behind the Imperial City, this gate is formally inscribed Chánh Bắc Môn (正北門, Main North Gate), though townspeople have always called it Cửa Hậu—the Back Gate of the Citadel.\n\nIts brick vault was built in 1809 under Gia Long, and its two-storey masonry watchtower was finished in 1831 under Emperor Minh Mạng, rising roughly 17.4 m (4 trượng 1 thước) above the road. On the moat face, the lower storey frames a central arch between two round oculi, while the inner face carries two blind circular medallions.\n\nAfter the fall of Huế in 1885, when French colonial forces established the adjacent Mang Cá garrison, the passage of Cửa Hậu was walled up. Closed for well over a hundred years, it was finally reopened on 21 May 2004, and in 2012 Đinh Tiên Hoàng Street was extended straight through it over Cửa Hậu Bridge to the northern neighbourhoods."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Chánh Bắc Môn (正北門)",
+     "en": "Chánh Bắc Môn (Main North Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1831 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1831 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Chiều cao",
+     "en": "Height"
+    },
+    "value": {
+     "vi": "Khoảng 17,4 m (4 trượng 1 thước)",
+     "en": "About 17.4 m"
+    }
+   },
+   {
+    "label": {
+     "vi": "Mở lại giao thông",
+     "en": "Reopened"
+    },
+    "value": {
+     "vi": "21/5/2004 (thông tuyến Đinh Tiên Hoàng năm 2012)",
+     "en": "21 May 2004 (Đinh Tiên Hoàng extended 2012)"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Điều ít biết về loạt 13 cửa ra vào di tích Kinh thành Huế – Sức khỏe & Đời sống",
+    "url": "https://suckhoedoisong.vn/dieu-it-biet-ve-loat-13-cua-ra-vao-di-tich-kinh-thanh-hue-169240310204253508.htm"
+   },
+   {
+    "title": "Kinh thành Huế – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Kinh_th%C3%A0nh_Hu%E1%BA%BF"
+   }
+  ]
+ },
+ "gate:Cửa An Hòa": {
+  "title": {
+   "vi": "Cửa An Hòa (Tây Bắc Môn)",
+   "en": "An Hòa Gate (Tây Bắc Môn)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809 (Gia Long); dựng vọng lâu 1831 (Minh Mạng)",
+   "en": "Arch built 1809 (Gia Long); watchtower added 1831 (Minh Mạng)"
+  },
+  "summary": {
+   "vi": "Cửa tây bắc của Kinh thành Huế ở cuối đường Nguyễn Trãi, mở ra cầu An Hòa và trục đường thiên lý đi về phía Bắc.",
+   "en": "The north-western gate of the Huế Citadel at the end of Nguyễn Trãi Street, opening onto An Hòa Bridge and the highway north."
+  },
+  "story": {
+   "vi": "Ở góc tây bắc Kinh thành, nơi đường Nguyễn Trãi băng qua cầu An Hòa vượt sông An Hòa để nối ra đường Tăng Bạt Hổ và quốc lộ phía Bắc, cửa An Hòa là cửa ngõ nhộn nhịp bậc nhất của khu Tây Thành nội. Trên trán cổng, tấm biển đá khắc ba chữ Hán Tây Bắc Môn (西北門), còn tên gọi quen thuộc lấy theo làng và chợ An Hòa nằm ngay bên ngoài hào thành.\n\nPhần vòm gạch dưới chân thành rộng 3,82 m, cao 5,19 m, lắp hai cánh cửa gỗ lim đai sắt, được xây dựng năm 1809 dưới triều Gia Long. Đến năm 1831, vua Minh Mạng cho dựng thêm tòa vọng lâu hai tầng kiểu \"tam quan – cổ lâu\" lợp ngói ống ở phía trên, cùng đợt cuối với cửa Chánh Bắc.\n\nVượt lên mặt thành hơn 9 m và cao tổng cộng trên 17 m, tòa vọng lâu xây gạch tô vôi với ba vòm cửa ở tầng dưới và mái ngói rêu phong vẫn sừng sững soi bóng xuống dòng hộ thành hà phía bắc.",
+   "en": "At the north-western corner of the Citadel, An Hòa Gate carries Nguyễn Trãi Street across An Hòa Bridge over the northern moat to Tăng Bạt Hổ Street and the highway heading north. A pale stone plaque above the arch bears its formal court title, Tây Bắc Môn (西北門, North-West Gate), while its everyday name comes from old An Hòa village and market outside the wall.\n\nIts vaulted passage—3.82 m wide and 5.19 m high, hung with iron-strapped ironwood doors—was built in 1809 under Emperor Gia Long. In 1831, alongside Chánh Bắc Gate, Emperor Minh Mạng completed the two-storey watchtower above, making them the last two outer gates of the Citadel to receive their upper pavilions.\n\nRising more than 9 m above the 6.6 m rampart to over 17 m in total height, its lime-rendered masonry tower with three arched bays below still watches over one of the main northern approaches to the walled city."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Tây Bắc Môn (西北門)",
+     "en": "Tây Bắc Môn (North-West Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1831 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1831 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Kích thước vòm cửa",
+     "en": "Passage size"
+    },
+    "value": {
+     "vi": "Rộng 3,82 m, cao 5,19 m; biển đá 2,31 × 1,10 m",
+     "en": "3.82 m wide, 5.19 m high; stone tablet 2.31 × 1.10 m"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nguồn gốc tên gọi",
+     "en": "Named after"
+    },
+    "value": {
+     "vi": "Làng và chợ An Hòa phía ngoài sông An Hòa",
+     "en": "An Hòa village and market beyond the northern moat"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Khám phá kiến trúc 13 cửa thành của Kinh đô Huế – VietnamPlus",
+    "url": "https://special.vietnamplus.vn/2021/12/08/13_cong_kinh_thanh_hue/"
+   },
+   {
+    "title": "Kinh thành Huế – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Kinh_th%C3%A0nh_Hu%E1%BA%BF"
+   }
+  ]
+ },
+ "gate:Cửa Chánh Tây": {
+  "title": {
+   "vi": "Cửa Chánh Tây",
+   "en": "Chánh Tây Gate (West Gate)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809; dựng vọng lâu 1829; tu sửa và mở lại năm 2004",
+   "en": "Arch built 1809; watchtower 1829; repaired and reopened 2004"
+  },
+  "summary": {
+   "vi": "Cửa chính mặt tây của Kinh thành Huế ở cuối đường Thái Phiên, một trong số ít cửa thành được người dân gọi thẳng bằng tên chữ cung đình.",
+   "en": "The main western gate of the Huế Citadel at the end of Thái Phiên Street, one of the few gates still known in daily speech by its formal court name."
+  },
+  "story": {
+   "vi": "Trong mười cửa bộ của Kinh thành Huế, phần lớn đều mang thêm tên nôm dân dã như Thượng Tứ, Đông Ba, Nhà Đồ hay Cửa Ngăn; riêng cửa chính ở mặt tây cuối đường Thái Phiên vẫn được người Huế gọi nguyên theo ba chữ khắc trên biển đá: Chánh Tây Môn (正西門). Trước mặt cổng là cầu Chánh Tây bắc qua dải hào thành rộng đầy sen của khu Tây Lộc.\n\nThân cổng bằng gạch trần nâu đỏ cùng vòm cuốn được xây năm 1809 thời Gia Long, đến năm 1829 đời Minh Mạng thì dựng thêm vọng lâu hai tầng ở phía trên, cao chừng 16 m tính từ mặt đường.\n\nTrải qua thiên tai giữa thế kỷ XX và chiến sự ác liệt năm 1968 làm sập hỏng phần lầu trên, cửa Chánh Tây đã được tu sửa lại với vọng lâu xây gạch trát vôi hai tầng — tầng dưới trổ ba cửa vòm viền gạch, tầng trên nhỏ gọn dưới mái ngói dốc — và mở cửa đón xe cộ qua lại từ năm 2004.",
+   "en": "While nearly every other gate of the Huế Citadel picked up a folk nickname over the centuries, the main gate in the middle of the western rampart at the end of Thái Phiên Street is still called by the three characters cut into its stone tablet: Chánh Tây Môn (正西門, Main West Gate). Outside its arch, Chánh Tây Bridge spans a wide, lotus-filled stretch of the western moat.\n\nIts bare red-brown brick block and round-arched passage date from 1809 under Emperor Gia Long, and its two-storey watchtower was raised in 1829 under Minh Mạng, reaching roughly 16 m above the street.\n\nHeavily damaged by mid-century floods and the fighting of 1968, which destroyed the upper pavilion, the gate was later repaired with a two-tier plastered masonry tower—three brick-rimmed arches below and a smaller hip-roofed storey above—and reopened to traffic in 2004."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chữ",
+     "en": "Inscription"
+    },
+    "value": {
+     "vi": "Chánh Tây Môn (正西門)",
+     "en": "Chánh Tây Môn (Main West Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Mặt tây Kinh thành, cuối đường Thái Phiên",
+     "en": "West wall of the Citadel, end of Thái Phiên Street"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1829 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1829 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Tu sửa & mở lại",
+     "en": "Repaired & reopened"
+    },
+    "value": {
+     "vi": "2004",
+     "en": "2004"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Khám phá kiến trúc 13 cửa thành của Kinh đô Huế – VietnamPlus",
+    "url": "https://special.vietnamplus.vn/2021/12/08/13_cong_kinh_thanh_hue/"
+   },
+   {
+    "title": "Dấu tích 13 cửa Kinh thành Huế xưa – VnExpress",
+    "url": "https://vnexpress.net/dau-tich-13-cua-kinh-thanh-hue-xua-4300476.html"
+   }
+  ]
+ },
+ "gate:Cửa Hữu": {
+  "title": {
+   "vi": "Cửa Hữu (Tây Nam Môn)",
+   "en": "Tây Nam Gate (Cửa Hữu)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809 (Gia Long); dựng vọng lâu 1829 (Minh Mạng)",
+   "en": "Arch built 1809 (Gia Long); watchtower added 1829 (Minh Mạng)"
+  },
+  "summary": {
+   "vi": "Cửa tây nam của Kinh thành Huế ở cuối đường Yết Kiêu, gọi là Cửa Hữu theo thế nhìn về phương Nam của cung điện nhà Nguyễn.",
+   "en": "The south-western gate of the Citadel at the end of Yết Kiêu Street, called Cửa Hữu (\"Right Gate\") from the southward-facing orientation of the imperial court."
+  },
+  "story": {
+   "vi": "Nằm gần góc tây nam Kinh thành trên trục đường Yết Kiêu, cổng có tên chính thức khắc trên biển đá là Tây Nam Môn (西南門). Người Huế quen gọi là Cửa Hữu (cửa bên phải), bởi theo phép định vị cổ truyền lấy ngôi vua quay mặt về hướng Nam làm chuẩn thì phía đông là bên tả, còn phía tây là bên hữu.\n\nKhối vòm cổng bằng gạch trần màu đỏ sẫm với một lối đi vòm cuốn được xây năm 1809 đời Gia Long; hai mươi năm sau, năm 1829, vua Minh Mạng cho dựng thêm vọng lâu hai tầng lợp ngói âm dương và ngói ống ở phía trên, cao chừng 16 m.\n\nSuốt nhiều thập niên chiến tranh, sát cạnh vọng lâu cửa Hữu trên mặt Thượng Thành từng có một lô cốt bê tông quân sự. Trong đợt chỉnh trang di sản gần đây, toàn bộ 31 lô cốt cũ trên Kinh thành đã được tháo dỡ, trả lại dáng vẻ thanh thoát cho tòa cổng cổ.",
+   "en": "Near the south-western corner of the Citadel on the axis of Yết Kiêu Street, this gate's stone tablet names it Tây Nam Môn (西南門, South-West Gate). In everyday Huế speech it is Cửa Hữu, the \"Right Gate\": because the emperor on his throne faced south, the eastern flank of the capital lay on his left (tả) and the western flank on his right (hữu).\n\nIts weathered red-brick base and single arched passage were built in 1809 under Emperor Gia Long, and in 1829 Emperor Minh Mạng raised the two-storey grey-rendered masonry watchtower with upturned terracotta eaves above, reaching roughly 16 m in height.\n\nFor decades a wartime concrete pillbox crouched on the rampart right beside its watchtower, until conservation crews removed all 31 old military bunkers from the Citadel walls to restore the historic skyline."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Tây Nam Môn (西南門)",
+     "en": "Tây Nam Môn (South-West Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Phía tây nam Kinh thành, cuối đường Yết Kiêu",
+     "en": "South-west wall of the Citadel, end of Yết Kiêu Street"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1829 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1829 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Chiều cao",
+     "en": "Height"
+    },
+    "value": {
+     "vi": "Khoảng 16 m",
+     "en": "About 16 m"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Công cuộc xây dựng Kinh thành Huế – Nghiên cứu Lịch sử",
+    "url": "https://nghiencuulichsu.com/2015/09/26/cong-cuoc-xay-dung-kinh-thanh-hue/"
+   },
+   {
+    "title": "Magnificent beauty of Hue Imperial City's gates – VietnamPlus",
+    "url": "https://en.vietnamplus.vn/magnificent-beauty-of-hue-imperial-citys-gates-post216550.vnp"
+   },
+   {
+    "title": "Tháo dỡ toàn bộ lô cốt quân sự tại Kinh thành Huế – Tiền Phong",
+    "url": "https://tienphong.vn/thao-do-toan-bo-lo-cot-quan-su-tai-kinh-thanh-hue-post1878866.tpo"
+   }
+  ]
+ },
+ "gate:Cửa Nhà Đồ": {
+  "title": {
+   "vi": "Cửa Nhà Đồ (Chánh Nam Môn)",
+   "en": "Chánh Nam Gate (Cửa Nhà Đồ)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809; dựng vọng lâu thời Minh Mạng; xây lại sau trận lụt năm 1953",
+   "en": "Arch built 1809; watchtower under Minh Mạng; rebuilt after the 1953 flood"
+  },
+  "summary": {
+   "vi": "Một trong bốn cửa ở mặt nam Kinh thành trên đầu đường Nguyễn Trãi, mang tên khu kho tàng Võ khố và Đồ gia của triều Nguyễn gần đó.",
+   "en": "One of the four gates on the Citadel's southern wall, at the foot of Nguyễn Trãi Street, named after the nearby royal arsenals and storehouses."
+  },
+  "story": {
+   "vi": "Mặt tiền phía nam của Kinh thành Huế mở bốn cửa bộ; nằm ngoài cùng về phía tây, nơi đầu đường Nguyễn Trãi đi một chiều qua cầu Nhà Đồ, là cổng mang tên chữ Chánh Nam Môn (正南門). Dân gian gọi quen thành Cửa Nhà Đồ vì ngay bên trong thành thời Gia Long từng đặt Võ khố và Đồ gia — nơi cất giữ binh khí, đồ dùng và các xưởng chế tác của triều đình.\n\nCũng như các cửa bộ khác, phần vòm gạch của Chánh Nam Môn được xây năm 1809 dưới triều Gia Long, còn tòa vọng lâu hai tầng trên mặt thành được dựng vào thời Minh Mạng (giai đoạn 1824–1831).\n\nTrong trận đại hồng thủy tháng 9 năm 1953, cửa Chánh Nam từng bị nước lũ làm sập đổ. Công trình sau đó được dựng lại với khối thân gạch trần tiệp màu tường thành, bên trên là vọng lâu hai tầng xây gạch tô vôi cao khoảng 16–17 m đứng canh đầu đường Nguyễn Trãi ngày nay.",
+   "en": "Four land gates pierce the southern front of the Huế Citadel; furthest west among them, where one-way traffic enters Nguyễn Trãi Street over Nhà Đồ Bridge, stands Chánh Nam Môn (正南門, Main South Gate). Locals call it Cửa Nhà Đồ (\"Storehouse Gate\") after the Võ khố arsenal and Đồ gia workshops established inside this quarter under Gia Long to store weapons and craft royal furnishings.\n\nLike its sister gates, its round-arched brick passage was built in 1809 under Gia Long, and its two-storey watchtower above the rampart was added under Emperor Minh Mạng between 1824 and 1831.\n\nDuring the catastrophic flood of September 1953 the gate collapsed, and it was later rebuilt in weathered red-brown brick matching the flanking rampart, topped by a plastered two-tier masonry watchtower rising roughly 16–17 m above the road."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Chánh Nam Môn (正南門)",
+     "en": "Chánh Nam Môn (Main South Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nguồn gốc tên gọi",
+     "en": "Named after"
+    },
+    "value": {
+     "vi": "Võ khố và Đồ gia (kho tàng, xưởng chế tác triều Nguyễn)",
+     "en": "Võ khố and Đồ gia (royal storehouses and workshops)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu thời Minh Mạng (1824–1831)",
+     "en": "Arch 1809 (Gia Long); watchtower under Minh Mạng (1824–1831)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Biến cố lịch sử",
+     "en": "History"
+    },
+    "value": {
+     "vi": "Sập trong trận lụt năm 1953, sau đó được xây dựng lại",
+     "en": "Collapsed in the 1953 flood and subsequently rebuilt"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Độc đáo kiến trúc, tên gọi các cửa ra vào Kinh thành Huế – Người Hà Nội",
+    "url": "https://nguoihanoi.vn/doc-dao-kien-truc-ten-goi-cac-cua-ra-vao-kinh-thanh-hue-83571.html"
+   },
+   {
+    "title": "Dấu tích 13 cửa Kinh thành Huế xưa – VnExpress",
+    "url": "https://vnexpress.net/dau-tich-13-cua-kinh-thanh-hue-xua-4300476.html"
+   }
+  ]
+ },
+ "gate:Cửa Ngăn": {
+  "title": {
+   "vi": "Cửa Ngăn (Thể Nhơn Môn)",
+   "en": "Thể Nhơn Gate (Cửa Ngăn)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809 (tên Thể Nguyên); dựng vọng lâu và đổi tên Thể Nhơn năm 1829",
+   "en": "Arch built 1809 (as Thể Nguyên); watchtower added and renamed Thể Nhơn in 1829"
+  },
+  "summary": {
+   "vi": "Cửa thành nằm sát bên trái Kỳ Đài ở mặt tiền Kinh thành, mang tên \"Cửa Ngăn\" từ lệ chăng màn ngăn dân mỗi khi đoàn ngự giá ra bến sông Hương.",
+   "en": "The southern Citadel gate just east of the Flag Tower, nicknamed Cửa Ngăn (\"Barrier Gate\") from the screens put up when the royal cortege walked down to the river."
+  },
+  "story": {
+   "vi": "Đứng ở mặt tiền phía nam Kinh thành, sát bên trái (phía đông) Kỳ Đài và ngay trước bốn khẩu thần công thuộc nhóm Tứ Thời, cổng mang ba chữ Hán Thể Nhơn Môn (體仁門) trên trán vòm. Cầu Cửa Ngăn với dãy lan can con tiện trắng nối từ cổng băng qua Hộ Thành hà thẳng ra đường Lê Duẩn và bến Nghênh Lương Đình.\n\nVòm cửa được xây năm 1809 dưới triều Gia Long với tên ban đầu là Thể Nguyên Môn. Năm 1829, vua Minh Mạng cho xây thêm vọng lâu hai tầng lợp ngói lưu ly vàng cam ở phía trên, đồng thời đổi tên thành Thể Nhơn Môn; toàn bộ cổng cao khoảng 16–17 m.\n\nCái tên dân gian \"Cửa Ngăn\" nhắc lại một tập tục chốn kinh kỳ: xưa kia mỗi lần vua hoặc các cung tần từ Đại Nội đi qua cửa này ra bến sông Hương hóng mát, lính túc vệ lại chăng vải, lập rào ngăn hai bên đường không cho dân thường qua lại. Ngày nay cổng là lối xe chạy một chiều từ đường 23 Tháng 8 ra Lê Duẩn.",
+   "en": "Set in the southern front of the Citadel just east of the Flag Tower, beside the four Seasons cannons of the Nine Sacred Cannons, this gate carries the inscription Thể Nhơn Môn (體仁門, \"Embodying Benevolence\"). Outside its arch, a white-balustraded masonry causeway crosses the moat toward Lê Duẩn Street and the royal river landing at Nghênh Lương Pavilion.\n\nBuilt in 1809 under Gia Long and first named Thể Nguyên, the gate received its two-storey glazed-tile watchtower in 1829 under Emperor Minh Mạng, who renamed it Thể Nhơn; from road to finial it stands roughly 16–17 m tall.\n\nIts everyday name, Cửa Ngăn (\"Barrier Gate\"), recalls court protocol: whenever the emperor or ladies of the palace passed through on their way down to the Perfume River, guards hung cloth screens along the walled avenue and barred commoners from crossing. Today one-way traffic flows out through it from 23 Tháng 8 Street."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Thể Nhơn Môn (體仁門; năm 1809 đặt là Thể Nguyên)",
+     "en": "Thể Nhơn Môn (first named Thể Nguyên in 1809)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Mặt nam Kinh thành, phía tả Kỳ Đài",
+     "en": "South wall of the Citadel, east of the Flag Tower"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1829 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1829 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nguồn gốc tên dân gian",
+     "en": "Folk name origin"
+    },
+    "value": {
+     "vi": "Lệ ngăn đường mỗi khi vua và cung quyến ra bến sông Hương",
+     "en": "Road barriers raised when the royal cortege went to the river"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Độc đáo kiến trúc, tên gọi các cửa ra vào Kinh thành Huế – Người Hà Nội",
+    "url": "https://nguoihanoi.vn/doc-dao-kien-truc-ten-goi-cac-cua-ra-vao-kinh-thanh-hue-83571.html"
+   },
+   {
+    "title": "Kinh thành Huế – Wikipedia tiếng Việt",
+    "url": "https://vi.wikipedia.org/wiki/Kinh_th%C3%A0nh_Hu%E1%BA%BF"
+   }
+  ]
+ },
+ "gate:Cửa Đông Ba": {
+  "title": {
+   "vi": "Cửa Đông Ba (Chánh Đông Môn)",
+   "en": "Chánh Đông Gate (Cửa Đông Ba)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809; dựng vọng lâu 1824; trùng tu hoàn chỉnh năm 2009",
+   "en": "Arch built 1809; watchtower 1824; fully restored 2009"
+  },
+  "summary": {
+   "vi": "Cửa chính mặt đông của Kinh thành Huế ở cuối đường Mai Thúc Loan, một trong hai cửa thành đầu tiên được vua Minh Mạng cho dựng vọng lâu năm 1824.",
+   "en": "The main eastern gate of the Citadel at the end of Mai Thúc Loan Street, and one of the first two outer gates crowned with a watchtower by Minh Mạng in 1824."
+  },
+  "story": {
+   "vi": "Cuối con phố buôn bán sầm uất Mai Thúc Loan, nơi dòng người từ trong Thành đổ ra sông Đông Ba và khu phố cổ Gia Hội, cửa Đông Ba đứng uy nghi với vòm gạch sẫm màu thời gian. Tên chữ trên biển đá là Chánh Đông Môn (正東門); tên gọi cũ Đông Hoa (theo pháo đài và chợ Đông Hoa gần đó) dưới triều Thiệu Trị được đọc trại thành \"Đông Ba\" vì kỵ húy bà Hồ Thị Hoa, thân mẫu nhà vua.\n\nVòm nguyệt môn rộng 3,82 m, cao 5,19 m được xây năm 1809 thời Gia Long. Năm 1824, vua Minh Mạng chọn Chánh Đông và Đông Bắc làm hai cửa đầu tiên của Kinh thành được dựng vọng lâu hai tầng trên mặt thành, cao hơn 16,5 m.\n\nCửa Đông Ba từng chứng kiến cuộc giao tranh ác liệt đêm Kinh đô thất thủ 5/7/1885, rồi phần vọng lâu bị bom đạn phá hủy năm 1968. Sau đợt trùng tu toàn diện hoàn thành năm 2009, tòa vọng lâu hai tầng đã hiện diện trở lại trên cửa ngõ phía đông Kinh thành.",
+   "en": "At the eastern end of bustling Mai Thúc Loan Street, looking across the Đông Ba canal toward the old Gia Hội merchant quarter, stands the Citadel's main eastern gate, formally inscribed Chánh Đông Môn (正東門). Originally linked to the nearby Đông Hoa bastion and market, \"Đông Hoa\" became \"Đông Ba\" under Emperor Thiệu Trị to observe the naming taboo of his mother, Empress Hồ Thị Hoa.\n\nIts 3.82 × 5.19 m arched passage was built in 1809 under Gia Long, and in 1824 Emperor Minh Mạng chose Chánh Đông and Đông Bắc as the very first two gates of the Citadel to receive two-storey watchtowers above the rampart, standing over 16.5 m tall.\n\nFierce fighting raged around the gate when the capital fell on 5 July 1885, and its upper watchtower was destroyed during the 1968 battle for Huế. Fully restored in 2009, the two-tier masonry pavilion once again presides over the eastern approach into the walled city."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Chánh Đông Môn (正東門)",
+     "en": "Chánh Đông Môn (Main East Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Vị trí",
+     "en": "Location"
+    },
+    "value": {
+     "vi": "Mặt đông Kinh thành, cuối đường Mai Thúc Loan",
+     "en": "East wall of the Citadel, end of Mai Thúc Loan Street"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1824 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1824 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Trùng tu vọng lâu",
+     "en": "Watchtower restored"
+    },
+    "value": {
+     "vi": "2009 (sau khi bị hủy năm 1968)",
+     "en": "2009 (after destruction in 1968)"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Khám phá kiến trúc 13 cửa thành của Kinh đô Huế – VietnamPlus",
+    "url": "https://special.vietnamplus.vn/2021/12/08/13_cong_kinh_thanh_hue/"
+   },
+   {
+    "title": "Điều ít biết về loạt 13 cửa ra vào di tích Kinh thành Huế – Sức khỏe & Đời sống",
+    "url": "https://suckhoedoisong.vn/dieu-it-biet-ve-loat-13-cua-ra-vao-di-tich-kinh-thanh-hue-169240310204253508.htm"
+   }
+  ]
+ },
+ "gate:Cửa Kẻ Trài": {
+  "title": {
+   "vi": "Cửa Kẻ Trài (Đông Bắc Môn)",
+   "en": "Đông Bắc Gate (Cửa Kẻ Trài)"
+  },
+  "kind": {
+   "vi": "Cửa bộ của Kinh thành",
+   "en": "Citadel gate"
+  },
+  "when": {
+   "vi": "Xây vòm 1809; dựng vọng lâu 1824; mở lại ngày 30/5/2026 sau hơn 100 năm đóng kín",
+   "en": "Arch built 1809; watchtower 1824; reopened 30 May 2026 after over a century closed"
+  },
+  "summary": {
+   "vi": "Cửa đông bắc của Kinh thành Huế bên bờ sông Đông Ba gần đồn Mang Cá, vừa chính thức thông tuyến trở lại năm 2026 sau hơn một thế kỷ khép kín.",
+   "en": "The north-eastern gate of the Citadel beside the Đông Ba canal and Mang Cá Fort, reopened to the public in May 2026 after more than a century closed."
+  },
+  "story": {
+   "vi": "Nằm ở mặt đông bắc Kinh thành, bên bờ tây sông Đông Ba sát khu Trấn Bình Đài (đồn Mang Cá), cổng mang tên chính thức là Đông Bắc Môn (東北門). Người Huế gọi quen là Cửa Kẻ Trài (hay Cửa Trài), theo tên xóm vạn chài và ngôi chợ nhỏ bên kia cầu Cửa Trài.\n\nVòm cửa gạch rộng 3,82 m, cao 5,19 m được xây năm 1809 dưới triều Gia Long; đến năm 1824, cùng với cửa Chánh Đông (Đông Ba), vua Minh Mạng chọn Đông Bắc Môn làm một trong hai cửa đầu tiên của Kinh thành được dựng vọng lâu hai tầng lợp ngói ống, cao hơn 17 m.\n\nSau năm 1885, khi triều đình nhượng khu Mang Cá cho quân Pháp đồn trú và xây tường ngăn thành khu quân sự biệt lập, cửa Kẻ Trài bị đóng kín đối với dân thường suốt hơn một thế kỷ. Ngày 30 tháng 5 năm 2026, cổng thành cuối cùng trong mười cửa bộ của Kinh thành Huế đã chính thức mở cửa thông tuyến trở lại.",
+   "en": "Near the north-eastern corner of the Citadel along the Đông Ba canal, just south of Mang Cá Fort (Trấn Bình Đài), this gate is formally inscribed Đông Bắc Môn (東北門, North-East Gate). Locals call it Cửa Kẻ Trài, or Cửa Trài, after the fishing hamlet and riverside market that stood outside Cửa Trài Bridge.\n\nIts 3.82 × 5.19 m vaulted brick passage was built in 1809 under Emperor Gia Long, and in 1824—together with Đông Ba Gate—Emperor Minh Mạng raised its two-storey tubular-tiled watchtower first among all ten outer gates of the Citadel, reaching over 17 m in height.\n\nAfter 1885, when the court ceded the Mang Cá corner to the French garrison and an internal wall sealed the area off as a military compound, Kẻ Trài Gate remained closed to public traffic for more than a hundred years. On 30 May 2026 it officially reopened, the last of the Citadel's ten land gates to reconnect with the city."
+  },
+  "facts": [
+   {
+    "label": {
+     "vi": "Tên chính thức",
+     "en": "Official name"
+    },
+    "value": {
+     "vi": "Đông Bắc Môn (東北門)",
+     "en": "Đông Bắc Môn (North-East Gate)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Năm xây",
+     "en": "Built"
+    },
+    "value": {
+     "vi": "Vòm cửa 1809 (Gia Long); vọng lâu 1824 (Minh Mạng)",
+     "en": "Arch 1809 (Gia Long); watchtower 1824 (Minh Mạng)"
+    }
+   },
+   {
+    "label": {
+     "vi": "Nguồn gốc tên dân gian",
+     "en": "Named after"
+    },
+    "value": {
+     "vi": "Xóm chài và chợ Kẻ Trài bên ngoài sông Đông Ba",
+     "en": "Kẻ Trài fishing hamlet and market on the Đông Ba canal"
+    }
+   },
+   {
+    "label": {
+     "vi": "Mở lại giao thông",
+     "en": "Reopened"
+    },
+    "value": {
+     "vi": "30/5/2026, sau hơn 100 năm đóng kín",
+     "en": "30 May 2026, after over a century closed"
+    }
+   }
+  ],
+  "images": [],
+  "sources": [
+   {
+    "title": "Huế chính thức mở lại cổng thành cổ sau hơn 100 năm đóng kín – Tiền Phong",
+    "url": "https://tienphong.vn/hue-chinh-thuc-mo-lai-cong-thanh-co-sau-hon-100-nam-dong-kin-post1847518.html"
+   },
+   {
+    "title": "Cửa cuối cùng vào Kinh thành Huế thông tuyến sau hơn 1 thế kỷ – Báo Văn hóa",
+    "url": "https://baovanhoa.vn/doi-song/cua-cuoi-cung-vao-kinh-thanh-hue-thong-tuyen-sau-hon-1-the-ky-232367.html"
+   },
+   {
+    "title": "Độc đáo kiến trúc, tên gọi các cửa ra vào Kinh thành Huế – Người Hà Nội",
+    "url": "https://nguoihanoi.vn/doc-dao-kien-truc-ten-goi-cac-cua-ra-vao-kinh-thanh-hue-83571.html"
    }
   ]
  }

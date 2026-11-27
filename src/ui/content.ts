@@ -1,4 +1,8 @@
 // Interface copy in Vietnamese and English, and the short notes shown for each place.
+export function getLang(): 'vi' | 'en' {
+  return typeof document !== 'undefined' && document.documentElement.lang === 'en' ? 'en' : 'vi';
+}
+
 export const STR = {
   vi: {
     tagline: 'bên dòng Hương',
@@ -18,14 +22,14 @@ export const STR = {
     scene: 'Mô hình 3D trung tâm Huế', filterBy: 'Lọc theo loại',
     sources: 'Nguồn', photoBy: 'Ảnh', nextPhoto: 'Ảnh kế tiếp',
     labels: 'Nhãn địa danh',
-    look: 'Nét mực · tả thực (V)',
+    look: 'Nét mực · tả thực (I)',
     about: 'Giới thiệu & nguồn dữ liệu',
     home: 'Về góc nhìn ban đầu',
     zoomIn: 'Lại gần', zoomOut: 'Ra xa',
     langGroup: 'Ngôn ngữ',
     places: 'Địa danh',
     overview: 'Toàn cảnh',
-    groups: ['Kinh thành & di sản', 'Dọc sông Hương', 'Lăng tẩm & ngoại ô', 'Làng nghề'],
+    groups: ['Kinh thành & di sản', 'Dọc sông Hương', 'Đồi thông & lăng tẩm', 'Làng nghề'],
     search: 'Tìm địa danh ở Huế', searchShort: 'Tìm địa danh', clear: 'Xóa', browse: 'Danh sách địa danh',
     filters: ['Tất cả', 'Di tích', 'Cầu', 'Chợ', 'Cửa thành', 'Sông nước', 'Làng nghề', 'Nơi khác'],
     noResults: 'Không tìm thấy địa danh nào khớp với «{q}».', noneOfKind: 'Không có địa danh loại này.',
@@ -53,7 +57,8 @@ export const STR = {
       <h3>Phần minh họa</h3>
       <p>Chiều cao nhà đo từ ảnh vệ tinh nên chỉ gần đúng (thường thấp hơn thực tế khoảng một phần mười); nơi không đo được thì ước lượng theo loại và diện tích. Ở những con phố OSM chưa có khối nhà, {infill} căn nhà nhỏ được vẽ thêm để giữ nhịp phố; cây xanh, sen trên hồ, thuyền, xe cộ, mái hiên, ban công và đèn cũng là minh họa. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, điện Thái Hòa, tháp Phước Duyên, cổng Quốc Học, các cửa thành và lầu chuông chợ Đông Ba được dựng bằng tay trên đúng nền móng trong OSM.</p>
       <h3>Điều khiển</h3>
-      <p>Kéo để di chuyển, cuộn hoặc chụm hai ngón để phóng, đè con lăn hoặc chuột phải (hoặc xoay hai ngón) để đổi hướng nhìn; giữ <kbd>Shift</kbd> + đè con lăn để kéo ngang. Nhấp đúp để lại gần. La bàn đưa bạn về góc nhìn ban đầu. Phím tắt: <kbd>H</kbd> về đầu, <kbd>R</kbd> mưa, <kbd>N</kbd> đổi buổi, <kbd>L</kbd> nhãn, <kbd>V</kbd> nét mực, <kbd>P</kbd> chụp ảnh, <kbd>/</kbd> tìm địa danh.</p>
+      <p>Kéo chuột trái (hoặc một ngón) để lướt ngang; kéo chuột phải, đè con lăn (hoặc giữ <kbd>Ctrl</kbd>/<kbd>Shift</kbd> khi kéo, phím <kbd>Q</kbd>/<kbd>E</kbd>, xoay hai ngón) để xoay hướng nhìn; cuộn chuột, chụm hai ngón hoặc nhấn <kbd>+</kbd>/<kbd>-</kbd> để phóng thu; nhấp đúp để lại gần. Nhấp vào công trình hoặc nhãn để xem thông tin. Bấm la bàn hoặc nhấn <kbd>Home</kbd> (<kbd>H</kbd>) để về góc nhìn ban đầu, <kbd>0</kbd> để xem toàn cảnh thành phố.</p>
+      <p>Kéo thanh trượt thời gian liên tục trong ngày hoặc chọn nhanh ba buổi bằng <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>, bật mưa Huế bằng <kbd>R</kbd>, và chuyển đổi bốn mùa Huế (<em>Xuân · Hạ · Thu · Đông</em>). Nhấn <kbd>I</kbd> để đổi nét mực · tả thực, <kbd>L</kbd> ẩn/hiện nhãn, <kbd>/</kbd> tìm địa danh, và <kbd>P</kbd> (hoặc trình đơn máy ảnh) để xuất ảnh PNG độ phân giải cao (Màn hình, 2×, 4K).</p>
       <h3>Đóng góp</h3>
       <p>Cảm ơn <a href="https://github.com/sleepyluno" target="_blank" rel="noopener">sleepyluno</a> đã <a href="https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno" target="_blank" rel="noopener">báo lỗi và đề xuất</a> giúp mô hình sát với Huế thật hơn.</p>`,
     osmOnly: 'Chỉ hiện nhà có trong OSM',
@@ -76,14 +81,14 @@ export const STR = {
     scene: '3D model of central Huế', filterBy: 'Filter by kind',
     sources: 'Sources', photoBy: 'Photo', nextPhoto: 'Next photo',
     labels: 'Place labels',
-    look: 'Ink drawing · realistic (V)',
+    look: 'Ink drawing · realistic (I)',
     about: 'About & data sources',
     home: 'Back to the opening view',
     zoomIn: 'Closer', zoomOut: 'Further',
     langGroup: 'Language',
     places: 'Places',
     overview: 'Whole model',
-    groups: ['Citadel & heritage', 'Along the river', 'Tombs & outskirts', 'Craft villages'],
+    groups: ['Citadel & heritage', 'Along the Perfume River', 'Pine hills & royal tombs', 'Craft villages'],
     search: 'Search places in Huế', searchShort: 'Search places', clear: 'Clear', browse: 'Browse places',
     filters: ['All', 'Monuments', 'Bridges', 'Markets', 'Gates', 'Water & islets', 'Craft villages', 'Other places'],
     noResults: 'No place matches “{q}”.', noneOfKind: 'No places of this kind.',
@@ -111,7 +116,8 @@ export const STR = {
       <h3>What is illustration</h3>
       <p>Building heights are measured from satellite imagery, so they are approximate (typically about a tenth low); where the measurement sees nothing they are estimated from type and footprint. Where OSM has streets but no footprints yet, {infill} small houses are drawn in to keep the grain of the streets; trees, lotus on the lakes, boats, traffic, awnings, balconies and lights are illustrative too. Cầu Trường Tiền, cầu Nguyễn Hoàng, Kỳ Đài, Ngọ Môn, Điện Thái Hòa, tháp Phước Duyên, the Quốc Học gate, the Citadel gates and the bell tower of chợ Đông Ba are modelled by hand on their OSM footprints.</p>
       <h3>Controls</h3>
-      <p>Drag to move, scroll or pinch to zoom, middle-drag or right-drag (or twist two fingers) to turn; hold <kbd>Shift</kbd> + middle-drag to pan. Double-click to come closer. The compass returns you to the opening view. Keys: <kbd>H</kbd> home, <kbd>R</kbd> rain, <kbd>N</kbd> time of day, <kbd>L</kbd> labels, <kbd>V</kbd> ink look, <kbd>P</kbd> capture, <kbd>/</kbd> search.</p>
+      <p>Left-drag (or one finger) to pan; right-drag or middle-drag (also <kbd>Ctrl</kbd>/<kbd>Shift</kbd>-drag, <kbd>Q</kbd>/<kbd>E</kbd>, or a two-finger twist) to orbit; scroll, pinch, or press <kbd>+</kbd>/<kbd>-</kbd> to zoom; double-click to come closer. Click a building or label to inspect it. Click the compass or press <kbd>Home</kbd> (<kbd>H</kbd>) to reset to the opening view, and <kbd>0</kbd> for the full-city overview.</p>
+      <p>Drag the continuous time-of-day slider or jump to presets with <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd>, toggle Huế monsoon rain with <kbd>R</kbd>, and switch across the four Huế seasons (<em>Spring · Summer · Autumn · Winter</em>). Press <kbd>I</kbd> for Ink vs. Real look, <kbd>L</kbd> for labels, <kbd>/</kbd> to search, and <kbd>P</kbd> (or the camera menu) for high-resolution PNG export (Screen, 2×, 4K).</p>
       <h3>Contributors</h3>
       <p>Thanks to <a href="https://github.com/sleepyluno" target="_blank" rel="noopener">sleepyluno</a> for the <a href="https://github.com/LLaammTTeerr/hue-city-explorer/issues?q=author%3Asleepyluno" target="_blank" rel="noopener">bug reports and suggestions</a> that bring the model closer to the real Huế.</p>`,
     osmOnly: 'Show only buildings mapped in OSM',
@@ -267,16 +273,13 @@ export const NOTES = {
   gate: { vi: 'Một trong các cửa của Kinh thành, phía trên là vọng lâu.', en: 'One of the Citadel’s gates, with a watch pavilion on top.' },
 };
 
-// Places offered in the quick list, in the order a visitor might walk them.
-// The place list, in four groups (titles in STR.groups, same order). `overview` puts the whole-model button at the
-// head of that group.
+// Featured places offered at the top of the browse panel, in walking order (titles in STR.groups, same order).
 export const PLACE_GROUPS = [
   { ids: ['kydai', 'ngomon', 'nghenhluong', 'kinhthanh', 'gate:Cửa Kẻ Trài', 'namgiao'] },
-  { overview: true, ids: ['truongtien', 'dongba', 'biaquochoc', 'ndchieu', 'golim', 'photay', 'nguyenhoang', 'conhen', 'thienmu'] },
+  { ids: ['truongtien', 'dongba', 'biaquochoc', 'ndchieu', 'golim', 'photay', 'nguyenhoang', 'conhen', 'thienmu'] },
   { ids: ['tuduc', 'thuytien', 'khaidinh', 'minhmang'] },
-  { ids: ['thuyxuan', 'phuongduc', 'sinh'] },
 ];
-export const QUICK = PLACE_GROUPS.flatMap((g) => g.ids);
+export const QUICK = [...PLACE_GROUPS.flatMap((g) => g.ids), 'thuyxuan', 'phuongduc', 'sinh'];
 
 // Camera framing per place: offset from the place [east, up, south] in metres, plus where to look relative to it.
 // Views sit to the south-east so the morning light falls on what you are looking at.

@@ -99,8 +99,15 @@ function createLanternMaterials(uTime: { value: number }) {
     fragmentShader: `
       varying vec3 vCol; uniform float uGlow, uBoost;
       void main() {
-        gl_FragColor = vec4( vCol * uBoost * uGlow, 1.0 );` + LANTERN_FRAG_END + '}',
-    blending: THREE.AdditiveBlending,
+        float g = clamp( uGlow * 0.92, 0.0, 0.92 );
+        vec3 lit = vCol * min( uBoost, 1.2 ) * 0.78;
+        lit = lit / ( 1.0 + max( lit.r, max( lit.g, lit.b ) ) * 0.35 );
+        gl_FragColor = vec4( lit * g, g );` + LANTERN_FRAG_END + '}',
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
     side: THREE.DoubleSide,
@@ -116,16 +123,22 @@ function createLanternMaterials(uTime: { value: number }) {
         gl_Position = projectionMatrix * mv;
         float sc = uScale > 0.0 ? uScale : projectionMatrix[1][1] * 450.0;
         float px = uSize * aOff.w * sc / max( 1.0, -mv.z );
-        vFade = clamp( px / 2.4, 0.12, 1.0 ) * step( 0.01, aOff.w );
-        gl_PointSize = clamp( px, 2.0, 64.0 );
+        vFade = clamp( px / 2.4, 0.12, 0.85 ) * step( 0.01, aOff.w );
+        gl_PointSize = clamp( px, 1.8, 24.0 );
       }`,
     fragmentShader: `
       varying vec3 vCol; varying float vFade; uniform float uGlow, uBoost;
       void main() {
         float d = length( gl_PointCoord - 0.5 ) * 2.0;
-        float a = pow( max( 0.0, 1.0 - d ), 2.4 );
-        gl_FragColor = vec4( vCol * a * uGlow * uBoost * vFade, 1.0 );` + LANTERN_FRAG_END + '}',
-    blending: THREE.AdditiveBlending,
+        if ( d >= 1.0 ) discard;
+        float a = pow( max( 0.0, 1.0 - d ), 3.0 );
+        float w = clamp( a * clamp( uGlow, 0.0, 1.0 ) * uBoost * vFade, 0.0, 0.82 );
+        gl_FragColor = vec4( vCol * w, w * 0.88 );` + LANTERN_FRAG_END + '}',
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
   });
