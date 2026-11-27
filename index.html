@@ -5,6 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#f5efe2" />
     <meta name="description" content="Huế, bên dòng Hương — khám phá trung tâm Huế trong không gian 3D dựng từ dữ liệu OpenStreetMap." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Huế · bên dòng Hương" />
+    <meta property="og:description" content="Khám phá trung tâm Huế trong không gian 3D dựng từ dữ liệu OpenStreetMap — Explore Huế in an interactive 3D architectural maquette." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Huế · bên dòng Hương" />
+    <meta name="twitter:description" content="Khám phá trung tâm Huế trong không gian 3D dựng từ dữ liệu OpenStreetMap — Explore Huế in an interactive 3D architectural maquette." />
     <title>Huế · bên dòng Hương</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231d1620'/%3E%3Cpath d='M3 21h26M5 21c2-9 6-9 8 0m0 0c2-9 6-9 8 0m0 0c2-9 4-9 6 0' fill='none' stroke='%23f0bd4a' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E" />
   </head>
@@ -50,7 +56,7 @@
         <div id="card-scroll">
           <figure id="card-media" hidden>
             <button id="card-shot" type="button" disabled><img id="card-img" alt="" decoding="async" /></button>
-            <figcaption><span id="card-caption"></span> <span id="card-credit"></span></figcaption>
+            <figcaption><span id="card-caption"></span><span id="card-credit"></span></figcaption>
           </figure>
           <p id="card-kind"></p>
           <h2 id="card-name" tabindex="-1"></h2>
@@ -73,10 +79,12 @@
       <div id="tools" class="glass">
         <button id="btn-labels" class="u-btn on" type="button" aria-pressed="true">
           <span class="dot" aria-hidden="true"></span>
+          <svg class="u-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z" /><circle cx="12" cy="10.5" r="2.2" /></svg>
           <span class="u-txt" data-t="labelsShort"></span>
         </button>
         <button id="btn-look" class="u-btn" type="button" aria-pressed="false">
           <span class="dot" aria-hidden="true"></span>
+          <svg class="u-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 4.5l11 4 1.5 5.3L13.8 17l-5.3-1.5z" /><path d="M13.8 17l3.2-3.2 2.5 2.5-3.2 3.2z" /><path d="M4.5 4.5l6.1 6.1" /><circle cx="11.8" cy="11.8" r="1.6" /></svg>
           <span class="u-txt" data-t="lookShort"></span>
         </button>
         <span class="u-div" aria-hidden="true"></span>
@@ -94,8 +102,8 @@
           <svg viewBox="0 0 24 24"><circle cx="17.5" cy="6" r="2.5" /><circle cx="6.5" cy="12" r="2.5" /><circle cx="17.5" cy="18" r="2.5" /><path d="M8.7 10.8l6.6-3.6M8.7 13.2l6.6 3.6" /></svg>
         </button>
         <div id="seg-lang" class="seg text" role="radiogroup">
-          <button type="button" role="radio" data-lang="vi" lang="vi" title="Tiếng Việt" aria-label="Tiếng Việt" aria-checked="true">VI</button>
-          <button type="button" role="radio" data-lang="en" lang="en" title="English" aria-label="English" aria-checked="false">EN</button>
+          <button type="button" role="radio" data-lang="vi" lang="vi" title="Tiếng Việt" aria-label="Tiếng Việt" aria-checked="true" tabindex="0">VI</button>
+          <button type="button" role="radio" data-lang="en" lang="en" title="English" aria-label="English" aria-checked="false" tabindex="-1">EN</button>
         </div>
         <button id="btn-about" class="u-btn icon-only" type="button">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" /><path d="M12 11v5.5" /><circle cx="12" cy="7.8" r="0.9" class="fill" /></svg>
@@ -110,7 +118,7 @@
           <g id="needle">
             <path d="M24 7l4.5 17h-9z" class="north" />
             <path d="M24 41l4.5-17h-9z" class="south" />
-            <text x="24" y="5.5" text-anchor="middle">B</text>
+            <text id="compass-north" x="24" y="5.5" text-anchor="middle">B</text>
           </g>
         </svg>
       </button>
@@ -135,15 +143,15 @@
         <input id="time-slider" type="range" min="0" max="2" step="0.01" value="1" />
       </div>
       <div id="seg-time" class="time-ticks" role="radiogroup">
-        <button type="button" role="radio" data-time="0" aria-checked="false"></button>
-        <button type="button" role="radio" data-time="1" aria-checked="true"></button>
-        <button type="button" role="radio" data-time="2" aria-checked="false"></button>
+        <button type="button" role="radio" data-time="0" aria-checked="false" tabindex="-1"></button>
+        <button type="button" role="radio" data-time="1" aria-checked="true" tabindex="0"></button>
+        <button type="button" role="radio" data-time="2" aria-checked="false" tabindex="-1"></button>
       </div>
       <div id="seg-season" class="season-row" role="radiogroup">
-        <button type="button" role="radio" data-season="0" aria-checked="false"></button>
-        <button type="button" role="radio" data-season="1" aria-checked="true"></button>
-        <button type="button" role="radio" data-season="2" aria-checked="false"></button>
-        <button type="button" role="radio" data-season="3" aria-checked="false"></button>
+        <button type="button" role="radio" data-season="0" aria-checked="false" tabindex="-1"></button>
+        <button type="button" role="radio" data-season="1" aria-checked="true" tabindex="0"></button>
+        <button type="button" role="radio" data-season="2" aria-checked="false" tabindex="-1"></button>
+        <button type="button" role="radio" data-season="3" aria-checked="false" tabindex="-1"></button>
       </div>
     </div>
 
@@ -161,8 +169,8 @@
       <div>
         <span class="seal big" lang="zh-Hant">順化</span>
         <h1>Huế</h1>
-        <p id="loader-text"></p>
-        <div class="bar"><i id="loader-bar"></i></div>
+        <p id="loader-text" aria-live="polite"></p>
+        <div id="loader-progress" class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Loading progress"><i id="loader-bar"></i></div>
         <!-- shown instead of the bar when the scene cannot start (no WebGL, or a load error): src/ui/fallback.js -->
         <div id="fail" hidden>
           <h2 id="fail-title"></h2>

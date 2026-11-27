@@ -1,11 +1,12 @@
 // "Chia sẻ góc nhìn" (share a view): a link that reopens the camera, the open place card and the atmosphere.
 //
 // Format, version 1, in the query string (the other app params, such as ?look=, are not carried over):
-//   ?v=1&c=<x>,<y>,<z>&t=<x>,<z>&a=<aspect>&f=<fov>&m=<time><rain><look>[&p=<place id>]
-//   c  camera position in metres, 1 decimal       t  camera target on the ground (its height is always LAND_Y)
+//   ?v=1&c=<x>,<y>,<z>&t=<x>,<z>&a=<aspect>&f=<fov>&m=<mood>[&p=<place id>]
+//   c  camera position in metres, 1 decimal       t  camera target on the ground (its height is LAND_Y + rise(x, z))
 //   a  width / height of the window it was made in, 2 decimals
 //   f  vertical field of view then, degrees, 1 decimal
-//   m  three characters: time of day 0|1|2 (morning, late afternoon, lights on), rain 0|1, look i|r (ink, realistic)
+//   m  mood: legacy <time 0|1|2><rain 0|1><look i|r>, 4-char <time 0|1|2><rain 0|1><look i|r><season 0..3>,
+//      or continuous time <time>_<rain 0|1><look i|r><season 0..3> (0..2 up to 2 decimals; 0|1 also accepted for look)
 //   p  the landmark whose card is open (data.places id); absent for a free view
 // A link that fails any check is ignored as a whole and the normal opening plays.
 import * as THREE from 'three';
@@ -14,6 +15,7 @@ import { rise } from '../geo/terrain.ts';
 
 const SHARE_VERSION = '1';
 const DECIMETRES_PER_METRE = 10;
+const DEFAULT_SEASON = 1;
 const MIN_ASPECT = 0.2;
 const MAX_ASPECT = 5;
 const MIN_FOV_DEG = 5;
@@ -31,10 +33,59 @@ const SHEET_LEFT_MAX_RATIO = 0.25;
 const SHEET_RIGHT_MIN_RATIO = 0.75;
 const SHEET_MIN_STRIP_PX = 60;
 const MIN_DOWNWARD_LOOK_Y = -0.05;
+const TERRAIN_RAY_STEPS = 32;
+const TERRAIN_BISECT_STEPS = 8;
+const TERRAIN_HIT_EPS_M = 0.01;
 
 const parseStrictNum = (str: string | null) => (typeof str === 'string' && /^-?\d{1,6}(\.\d{1,3})?$/.test(str) ? Number(str) : NaN);
 const round1 = (val: number) => Math.round(val * 10) / 10;
 const round2 = (val: number) => Math.round(val * 100) / 100;
+
+function parseMoodCode(moodCode: string): { time: number; rain: boolean; ink: boolean; season: number } | null {
+  if (/^[012][01][ir01]$/.test(moodCode)) {
+    return {
+      time: +moodCode[0],
+      rain: moodCode[1] === '1',
+      ink: moodCode[2] === 'i' || moodCode[2] === '1',
+      season: DEFAULT_SEASON,
+    };
+  }
+  if (/^[012][01][ir01][0123]$/.test(moodCode)) {
+    return {
+      time: +moodCode[0],
+      rain: moodCode[1] === '1',
+      ink: moodCode[2] === 'i' || moodCode[2] === '1',
+      season: +moodCode[3],
+    };
+  }
+  const fracMatch = /^(?:[01](?:\.\d{1,2})?|2(?:\.0{1,2})?)_([01])([ir01])([0123])$/.exec(moodCode);
+  if (fracMatch) {
+    const time = Number(moodCode.slice(0, moodCode.indexOf('_')));
+    if (!Number.isFinite(time) || time < 0 || time > 2) return null;
+    return {
+      time,
+      rain: fracMatch[1] === '1',
+      ink: fracMatch[2] === 'i' || fracMatch[2] === '1',
+      season: +fracMatch[3],
+    };
+  }
+  return null;
+}
+
+function formatMoodCode(moodState: { timeTarget?: number; rainTarget?: number | boolean; look?: number | boolean; season?: number }): string {
+  const rawTime = Number(moodState.timeTarget);
+  const clampedTime = Number.isFinite(rawTime) ? Math.max(0, Math.min(2, rawTime)) : 1;
+  const rawSeason = Number(moodState.season);
+  const season = Number.isFinite(rawSeason) ? Math.max(0, Math.min(3, Math.round(rawSeason))) : DEFAULT_SEASON;
+  const rainChar = moodState.rainTarget ? '1' : '0';
+  const lookChar = moodState.look ? 'i' : 'r';
+  const time2 = round2(clampedTime);
+  if (Number.isInteger(time2)) {
+    return `${time2}${rainChar}${lookChar}${season}`;
+  }
+  const timeStr = time2.toFixed(2).replace(/\.?0+$/, '');
+  return `${timeStr}_${rainChar}${lookChar}${season}`;
+}
 
 // Parse and check a query string. Returns null for anything missing, malformed or out of range.
 export function parseShare(search: string, { places, bounds, minDistance, maxDistance }: any) {
@@ -44,25 +95,29 @@ export function parseShare(search: string, { places, bounds, minDistance, maxDis
   const targetCoords = (params.get('t') || '').split(',').map(parseStrictNum);
   const aspect = parseStrictNum(params.get('a'));
   const fov = parseStrictNum(params.get('f'));
-  const moodCode = params.get('m') || '';
+  const mood = parseMoodCode(params.get('m') || '');
   const placeId = params.get('p');
 
   if (camCoords.length !== 3 || targetCoords.length !== 2 || ![...camCoords, ...targetCoords, aspect, fov].every(Number.isFinite)) return null;
-  if (!/^[012][01][ir]$/.test(moodCode)) return null;
+  if (!mood) return null;
   if (aspect < MIN_ASPECT || aspect > MAX_ASPECT || fov < MIN_FOV_DEG || fov > MAX_FOV_DEG) return null;
 
-  const pos = new THREE.Vector3(camCoords[0], camCoords[1], camCoords[2]);
-  const target = new THREE.Vector3(targetCoords[0], LAND_Y, targetCoords[1]);
+  const tx = targetCoords[0];
+  const tz = targetCoords[1];
   if (
-    target.x < bounds.minX - BOUNDS_TOLERANCE_M || target.x > bounds.maxX + BOUNDS_TOLERANCE_M
-    || target.z < bounds.minZ - BOUNDS_TOLERANCE_M || target.z > bounds.maxZ + BOUNDS_TOLERANCE_M
+    tx < bounds.minX - BOUNDS_TOLERANCE_M || tx > bounds.maxX + BOUNDS_TOLERANCE_M
+    || tz < bounds.minZ - BOUNDS_TOLERANCE_M || tz > bounds.maxZ + BOUNDS_TOLERANCE_M
   ) return null;
+
+  const pos = new THREE.Vector3(camCoords[0], camCoords[1], camCoords[2]);
+  const targetY = LAND_Y + rise(tx, tz);
+  const target = new THREE.Vector3(tx, targetY, tz);
 
   const dist = pos.distanceTo(target);
   if (pos.y <= LAND_Y || dist < minDistance * MIN_DIST_MARGIN || dist > maxDistance * MAX_DIST_MARGIN) return null;
   if (placeId !== null && !places.some((item: any) => item.id === placeId)) return null;
 
-  return { pos, target, aspect, fov, time: +moodCode[0], rain: moodCode[1] === '1', ink: moodCode[2] === 'i', place: placeId };
+  return { pos, target, aspect, fov, time: mood.time, rain: mood.rain, ink: mood.ink, season: mood.season, place: placeId };
 }
 
 async function copyToClipboard(url: string) {
@@ -92,6 +147,38 @@ function computeKeepWidthFraction(view: any, places: any[]) {
   return Math.min(1, Math.max(MIN_PLACE_KEEP_WIDTH, ndcX * PLACE_NDC_SCALE + PLACE_NDC_PAD));
 }
 
+function rayDistanceToTerrain(origin: THREE.Vector3, dir: THREE.Vector3, initialGroundY: number) {
+  const flatDist = (initialGroundY - origin.y) / dir.y;
+  if (flatDist > 0) {
+    const hitX = origin.x + dir.x * flatDist;
+    const hitZ = origin.z + dir.z * flatDist;
+    if (Math.abs(LAND_Y + rise(hitX, hitZ) - initialGroundY) <= TERRAIN_HIT_EPS_M) return flatDist;
+  }
+
+  const maxDist = Math.max(flatDist, (LAND_Y - 1 - origin.y) / dir.y);
+  if (maxDist <= 0) return flatDist;
+  const stepDist = maxDist / TERRAIN_RAY_STEPS;
+  let prevT = 0;
+  for (let i = 1; i <= TERRAIN_RAY_STEPS; i++) {
+    const sampleT = stepDist * i;
+    const px = origin.x + dir.x * sampleT;
+    const py = origin.y + dir.y * sampleT;
+    const pz = origin.z + dir.z * sampleT;
+    if (py <= LAND_Y + rise(px, pz)) {
+      let lo = prevT;
+      let hi = sampleT;
+      for (let j = 0; j < TERRAIN_BISECT_STEPS; j++) {
+        const mid = (lo + hi) * 0.5;
+        if (origin.y + dir.y * mid <= LAND_Y + rise(origin.x + dir.x * mid, origin.z + dir.z * mid)) hi = mid;
+        else lo = mid;
+      }
+      return hi;
+    }
+    prevT = sampleT;
+  }
+  return flatDist;
+}
+
 // On a phone the card is a sheet across the lower half: from the same spot, tip the camera down until the point it
 // centred on sits in the middle of the strip left above the card (its distance, so its size, stays the same).
 function shiftTargetAbovePhoneCard(view: any, camera: THREE.PerspectiveCamera, controls: any, bounds: any) {
@@ -110,11 +197,14 @@ function shiftTargetAbovePhoneCard(view: any, camera: THREE.PerspectiveCamera, c
   const tanHalfFov = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
   const lookDir = view.target.clone().sub(camera.position).normalize().applyAxisAngle(camRight, -Math.atan(goalNdcY * tanHalfFov));
-  const rayDist = (LAND_Y - camera.position.y) / lookDir.y;
-  if (lookDir.y < MIN_DOWNWARD_LOOK_Y && rayDist > controls.minDistance) {
+  if (lookDir.y >= MIN_DOWNWARD_LOOK_Y) return;
+  const groundH = LAND_Y + rise(view.target.x, view.target.z);
+  const rayDist = rayDistanceToTerrain(camera.position, lookDir, groundH);
+  if (rayDist > controls.minDistance && rayDist <= controls.maxDistance) {
     controls.target.copy(camera.position).addScaledVector(lookDir, rayDist);
     controls.target.x = Math.max(bounds.minX, Math.min(bounds.maxX, controls.target.x));
     controls.target.z = Math.max(bounds.minZ, Math.min(bounds.maxZ, controls.target.z));
+    controls.target.y = LAND_Y + rise(controls.target.x, controls.target.z);
   }
 }
 
@@ -132,7 +222,7 @@ export function createShare({ data, rig, mood, setLook, pick, ui, bounds }: any)
       `t=${round1(target.x)},${round1(target.z)}`,
       `a=${round2(camera.aspect)}`,
       `f=${round1(camera.fov)}`,
-      `m=${Math.round(moodState.timeTarget)}${moodState.rainTarget ? 1 : 0}${moodState.look ? 'i' : 'r'}`,
+      `m=${formatMoodCode(moodState)}`,
     ];
     if (placeId) parts.push(`p=${encodeURIComponent(placeId)}`);
     return `${location.origin}${location.pathname}?${parts.join('&')}`;
@@ -166,7 +256,14 @@ export function createShare({ data, rig, mood, setLook, pick, ui, bounds }: any)
     setLook(view.ink); // not remembered: a shared link does not change the visitor's own choice
     mood.setTime(view.time);
     mood.setRain(view.rain);
-    mood.state.time = mood.state.timeTarget; // settled from the first frame, not faded in
+    if (view.season !== undefined) {
+      if (typeof mood.setSeason === 'function') mood.setSeason(view.season);
+      else mood.state.season = view.season;
+      mood.state.spring = view.season === 0 ? 1 : 0;
+      mood.state.autumn = view.season === 2 ? 1 : 0;
+      mood.state.winter = view.season === 3 ? 1 : 0;
+    }
+    mood.state.time = view.time; // settled from the first frame, not faded in
     mood.state.rain = mood.state.rainTarget;
     rig.cancelFly();
     if (view.place) pick(view.place, false); // first, so the camera below can keep clear of the card

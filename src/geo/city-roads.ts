@@ -7,7 +7,7 @@ import { pavilion } from '../landmarks/citadel.ts';
 import { bridgeProfiles, bridgeLamps, resample, subPath, LAND_RAMP, ownLit } from './bridges.ts';
 import { bridgeJoints, handDeckJoints } from './joints.ts';
 import { citadelBridge } from './citadel-bridge.ts';
-import { thuyTienBridgeRoads } from '../landmarks/thuytien.ts';
+import { thuyTienBridgeRoads } from '../landmarks/thuytien-ways.ts';
 import { replaced, placeDeckEnds, placeOwnsWay, placeClearings } from '../landmarks/places/index.ts';
 import { ownRoads as giaHoiRoads } from '../landmarks/places/giahoi.ts';
 import { ownRoads as daVienRoads } from '../landmarks/places/bachho.ts';
@@ -41,9 +41,10 @@ const RAIL_TRACK_MAIN_W = 1.9;
 const RAIL_TRACK_SIDE_W = 1.4;
 const LAMP_STEP_PRIMARY_M = 30;
 const LAMP_STEP_SECONDARY_M = 36;
+const LAMP_STEP_TERTIARY_M = 52;
 const LAMP_HEIGHT_M = 7.5;
-const LAMP_GLOW_SIZE = 7;
-const LAMP_GLOW_BOOST = 0.6;
+const LAMP_GLOW_SIZE = 6.2;
+const LAMP_GLOW_BOOST = 0.68;
 const RAIL_BRIDGE_DECK_Y = LAND_Y + 0.5;
 const RAIL_TRUSS_MIN_LEN_M = 150;
 const PIER_MIN_BRIDGE_LEN_M = 42;
@@ -559,7 +560,7 @@ function buildStreetLamps(data: any, roads: any[], profiles: Map<any, any>, grou
   const lampPos: number[] = [];
   const lampCol: number[] = [];
   for (const road of roads) {
-    if (road.c > 2 || !road.flat || road.unmarked) continue;
+    if (road.c > 3 || !road.flat || road.unmarked) continue;
     if (road.bridge && replaced('bachho') && daVienRoads(data).has(road.flat)) continue;
     const profile = road.bridge ? profiles.get(road.flat) : null;
     if (road.bridge && !profile) continue;
@@ -567,14 +568,15 @@ function buildStreetLamps(data: any, roads: any[], profiles: Map<any, any>, grou
       for (const { y, sides } of bridgeLamps(profile, road.pts)) {
         for (const { head } of sides) {
           lampPos.push(head[0], y + profile.lamps.h, head[1]);
-          const warm = 0.85 + rand(lampPos.length, road.c) * 0.3;
+          const warm = 0.85 + rand(lampPos.length, road.c) * 0.25;
           lampCol.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
         }
       }
       continue;
     }
     const len = pathLength(road.pts);
-    const step = road.c === 0 ? LAMP_STEP_PRIMARY_M : LAMP_STEP_SECONDARY_M;
+    const step = road.c === 0 ? LAMP_STEP_PRIMARY_M : road.c <= 2 ? LAMP_STEP_SECONDARY_M : LAMP_STEP_TERTIARY_M;
+    const clsScale = road.c === 3 ? 0.70 : 1.0;
     for (let dist = step / 2, k = 0; dist < len; dist += step, k++) {
       const { p, a } = pointAlongPath(road.pts, dist);
       const halfW = (road.ws ? widthAt(road.pts, road.ws, p) : road.w) / 2 + 0.5;
@@ -582,8 +584,8 @@ function buildStreetLamps(data: any, roads: any[], profiles: Map<any, any>, grou
       const lx = p[0] - Math.sin(a) * lateral;
       const lz = p[1] + Math.cos(a) * lateral;
       if (ownLit(data, lx, lz)) continue;
-      lampPos.push(lx, profile ? profile.y(dist) + LAMP_HEIGHT_M : LAND_Y + rise(lx, lz) + LAMP_HEIGHT_M, lz);
-      const warm = 0.85 + rand(k, road.c) * 0.3;
+      lampPos.push(lx, profile ? profile.y(dist) + LAMP_HEIGHT_M : LAND_Y + rise(lx, lz) + (road.c === 3 ? 6.0 : LAMP_HEIGHT_M), lz);
+      const warm = (0.84 + rand(k, road.c) * 0.24) * clsScale;
       lampCol.push(1.0 * warm, 0.74 * warm, 0.42 * warm);
     }
   }

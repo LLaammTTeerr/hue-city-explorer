@@ -29,7 +29,7 @@ export const quality = (() => {
 
 // Colours are authored in sRGB and converted to linear once.
 export const PAL = {
-  land: '#d5cab0',
+  land: '#bdb59e',
   bank: '#968d7a',
   base: '#5e554c',
   green: { park: '#92ae68', wood: '#729454', grass: '#a3b874', farm: '#b8be7e', cemetery: '#b8b498', pitch: '#8eb068', sacred: '#cfc198', paved: '#c3bdb1' },
@@ -101,11 +101,11 @@ export const MOODS = {
     sunColor: '#ffd6a2', sunI: 3.15, hemiSky: '#ced0ee', hemiGround: '#8e7c6a', hemiI: 1.36, shadow: 0.86,
     waterDeep: '#184e57', waterShallow: '#3f968e', glow: 0, rain: 0, hemiEnv: 0.40, envI: 0.86, exposure: 1.06, sunDisk: 1,
   },
-  // Lights on (Lên đèn): imperial Tím Huế twilight — deep indigo-violet river and plum-rose horizon glow.
+  // Lights on (Lên đèn): imperial Tím Huế night — readable moonlit indigo roofs/courtyards, warm street & window glow, zero glare.
   night: {
-    skyTop: '#141536', skyHorizon: '#7c548c', skyBelow: '#282144', sunGlow: '#dc8094', fog: '#48386a', fogDensity: 0.00011,
-    sunColor: '#abaee8', sunI: 0.78, hemiSky: '#7d82c6', hemiGround: '#433554', hemiI: 1.32, shadow: 0.52,
-    waterDeep: '#131942', waterShallow: '#313672', glow: 1, rain: 0, hemiEnv: 0.92, envI: 0.58, exposure: 1.06, sunDisk: 0.25,
+    skyTop: '#131636', skyHorizon: '#5e4476', skyBelow: '#221e3c', sunGlow: '#b86882', fog: '#332d50', fogDensity: 0.000072,
+    sunColor: '#8d9ad8', sunI: 0.38, hemiSky: '#6e7ac0', hemiGround: '#3e3656', hemiI: 1.12, shadow: 0.24,
+    waterDeep: '#0f1638', waterShallow: '#232c5a', glow: 1, rain: 0, hemiEnv: 0.82, envI: 0.56, exposure: 1.10, sunDisk: 0,
   },
   // Mưa rào: the light goes slate-violet, the far bank sinks into the rain
   rain: {
@@ -114,9 +114,9 @@ export const MOODS = {
     waterDeep: '#3f5560', waterShallow: '#6f8590', glow: 0.8, rain: 1, hemiEnv: 0.55, envI: 0.75, exposure: 1.0, sunDisk: 0,
   },
   nightRain: {
-    skyTop: '#171836', skyHorizon: '#483f6c', skyBelow: '#282645', sunGlow: '#5c5080', fog: '#3a345e', fogDensity: 0.00038,
-    sunColor: '#8f9ad0', sunI: 0.5, hemiSky: '#747eb8', hemiGround: '#403654', hemiI: 1.34, shadow: 0.2,
-    waterDeep: '#161b41', waterShallow: '#2e3467', glow: 1, rain: 1, hemiEnv: 0.95, envI: 0.6, exposure: 1.05, sunDisk: 0,
+    skyTop: '#151733', skyHorizon: '#423b64', skyBelow: '#23213e', sunGlow: '#544878', fog: '#302c4e', fogDensity: 0.00032,
+    sunColor: '#8490c6', sunI: 0.32, hemiSky: '#6874b4', hemiGround: '#3a3350', hemiI: 1.10, shadow: 0.16,
+    waterDeep: '#12183a', waterShallow: '#242b56', glow: 1, rain: 1, hemiEnv: 0.80, envI: 0.54, exposure: 1.08, sunDisk: 0,
   },
 };
-export const SUN_DIRS = { day: [0.74, 0.6, 0.3], afternoon: [-0.667, 0.375, 0.64], night: [-0.667, 0.375, 0.64] };
+export const SUN_DIRS = { day: [0.74, 0.6, 0.3], afternoon: [-0.667, 0.375, 0.64], night: [-0.22, 0.86, 0.45] };

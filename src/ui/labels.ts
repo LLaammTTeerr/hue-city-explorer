@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { LAND_Y } from '../config.ts';
 import { rise } from '../geo/terrain.ts';
+import { getLang } from './content.ts';
+import { localizedPlaceName, localizedWaterName } from './place-names-en.ts';
 
 const DECIMETRES_PER_METRE = 10;
 const TIER_MAX_DIST_M: Record<number, number> = { 1: 9000, 2: 3000, 3: 1500, 4: 750 };
@@ -33,13 +35,21 @@ const STREET_TANGENT_SPAN_M = 10;
 const STREET_MIN_DIST_M = 18;
 const STREET_NEAR_FADE_M = 14;
 const STREET_FADE_FRACTION = 0.25;
-const STREET_MIN_PROJ_PX = 4; // skip roads nearly end-on to the camera
+const STREET_MIN_PROJ_PX = 8; // skip roads nearly end-on or foreshortened kinks (< 8 px)
+const STREET_FLIP_HYSTERESIS_RAD = (4 * Math.PI) / 180;
 const STREET_EDGE_MARGIN_PX = 24;
 const STREET_SAME_NAME_PX = 220; // minimum screen distance between repeats of the same street name
 const STREET_PAD_X_PX = 8;
 const STREET_PAD_Y_PX = 5;
 const STREET_EST_CHAR_W_PX = 6.8;
 const STREET_EST_H_PX = 16;
+const Z_STREET = 1;
+const Z_WATER = 2;
+const Z_FADE_BASE = 10;
+const Z_SHOWN_BASE = 2010;
+const Z_ACTIVE = 5000;
+const Z_DEPTH_BUCKET_M = 5;
+const Z_MAX_DEPTH_STEPS = 1900;
 // Per road class (0 primary/trunk, 1 secondary, 2 tertiary, 3 residential, 4 service):
 // Opening desktop view sits at ~247 m altitude, so all classes stay hidden there and fade in as you zoom down.
 const STREET_MAX_ALT_M = [235, 230, 215, 200, 130];
@@ -55,6 +65,7 @@ interface StreetAnchor {
   pos: THREE.Vector3;
   pos2: THREE.Vector3;
   estW: number;
+  lastAngle: number;
 }
 
 interface StreetSlot {
@@ -88,6 +99,7 @@ interface RectBox {
 interface LabelItem {
   place: any;
   el: HTMLElement;
+  span: HTMLSpanElement;
   isWater: boolean;
   groundY: number;
   pos: THREE.Vector3;
@@ -95,8 +107,20 @@ interface LabelItem {
   height: number;
   shown: boolean;
   priority: number;
+  lastZIndex: number;
   lastTransform?: string;
   lastFade?: string;
+}
+
+function formatLabelText(place: any, isWater: boolean, lang: string): string {
+  const rawName: string = place.n ?? place.name ?? '';
+  if (!isWater) return localizedPlaceName(place.id, rawName, lang);
+  const mapped = localizedWaterName(rawName, lang);
+  if (lang === 'en' && mapped === rawName && !rawName.startsWith('Sông ')) {
+    const prefixed = localizedWaterName(`Sông ${rawName}`, lang);
+    if (prefixed !== `Sông ${rawName}`) return prefixed;
+  }
+  return mapped;
 }
 
 // `a` is the highest point of the built model over the place (roof, spire, flagpole, bridge bow), in decimetres,
@@ -113,12 +137,16 @@ function createLabelItem(root: HTMLElement, place: any, isWater: boolean, onPick
   // built node by node: the names come from OSM, so none of them is ever parsed as markup
   if (!isWater) el.append(document.createElement('i'));
   const nameSpan = document.createElement('span');
-  nameSpan.textContent = place.n;
+  const labelText = formatLabelText(place, isWater, getLang());
+  nameSpan.textContent = labelText;
   el.append(nameSpan);
+  const initialZ = isWater ? Z_WATER : Z_FADE_BASE;
+  el.style.zIndex = String(initialZ);
   el.setAttribute('aria-hidden', 'true'); // hidden until shown (with visibility, style.css), so off-screen tags are not tabbed through
   if (!isWater) {
     (el as HTMLButtonElement).type = 'button';
     el.tabIndex = -1;
+    el.setAttribute('aria-label', labelText);
     el.addEventListener('click', (event) => { event.stopPropagation(); onPick(place.id); });
   }
   root.appendChild(el);
@@ -127,6 +155,7 @@ function createLabelItem(root: HTMLElement, place: any, isWater: boolean, onPick
   return {
     place,
     el,
+    span: nameSpan,
     isWater,
     groundY: isWater ? 0 : LAND_Y + rise(px, pz),
     pos: new THREE.Vector3(px, isWater ? WATER_ANCHOR_Y_M : computeAnchorY(place), pz),
@@ -134,6 +163,7 @@ function createLabelItem(root: HTMLElement, place: any, isWater: boolean, onPick
     height: 0,
     shown: false,
     priority: isWater ? WATER_PRIORITY : place.t,
+    lastZIndex: initialZ,
   };
 }
 
@@ -169,10 +199,12 @@ export function createLabels(
   onPick: (id: string) => void,
   rawStreets: RawStreetLabel[] = [],
 ) {
+  root.style.isolation = 'isolate';
   const streetPool: StreetSlot[] = [];
   for (let i = 0; i < STREET_POOL_SIZE; i++) {
     const el = document.createElement('div');
     el.className = 'label label-street';
+    el.style.zIndex = String(Z_STREET);
     el.setAttribute('aria-hidden', 'true');
     const span = document.createElement('span');
     el.append(span);
@@ -194,12 +226,14 @@ export function createLabels(
       pos: new THREE.Vector3(x, groundY + STREET_Y_OFFSET_M, z),
       pos2: new THREE.Vector3(x2, y2, z2),
       estW: name.length * STREET_EST_CHAR_W_PX + 10,
+      lastAngle: NaN,
     };
   });
 
   const items: LabelItem[] = [];
   data.places.forEach((place: any) => items.push(createLabelItem(root, place, false, onPick)));
   data.waterLabels.forEach((place: any) => items.push(createLabelItem(root, place, true, onPick)));
+  // Sort internal priority array once; DOM children in `root` stay in fixed creation order so keyboard Tab order never mutates.
   items.sort((a, b) => a.priority - b.priority);
 
   const projected = new THREE.Vector3();
@@ -224,14 +258,27 @@ export function createLabels(
     document.fonts.addEventListener('loadingdone', () => { isMeasured = false; dirty = true; });
   }
 
-  function measureLabels() {
+  function syncLabelTexts() {
+    const lang = getLang();
     for (const item of items) {
-      const span = item.el.querySelector('span')!;
-      item.width = span.offsetWidth;
-      item.height = span.offsetHeight + (item.isWater ? 0 : STEM_HEIGHT_PX - 2);
+      const nextText = formatLabelText(item.place, item.isWater, lang);
+      if (item.span.textContent !== nextText) {
+        item.span.textContent = nextText;
+        if (!item.isWater) item.el.setAttribute('aria-label', nextText);
+      }
+    }
+  }
+
+  function measureLabels() {
+    syncLabelTexts();
+    for (const item of items) {
+      item.width = item.span.offsetWidth;
+      item.height = item.span.offsetHeight + (item.isWater ? 0 : STEM_HEIGHT_PX - 2);
     }
     isMeasured = true;
   }
+
+  const activeStreetAnchors = new Set<number>();
 
   function updateStreetLabels(width: number, height: number, placed: RectBox[]) {
     const camX = camera.position.x;
@@ -277,9 +324,16 @@ export function createLabels(
         const segDy = sy2 - sy;
         if (segDx * segDx + segDy * segDy < STREET_MIN_PROJ_PX * STREET_MIN_PROJ_PX) continue;
 
+        // Fold cleanly into (-90deg, 90deg], with a small hysteresis band around +-90deg so vertical avenues don't flip 180deg mid-orbit.
         let angle = Math.atan2(segDy, segDx);
         if (angle > Math.PI * 0.5) angle -= Math.PI;
-        else if (angle < -Math.PI * 0.5) angle += Math.PI;
+        else if (angle <= -Math.PI * 0.5) angle += Math.PI;
+        if (!Number.isNaN(a.lastAngle)) {
+          const altAngle = angle > 0 ? angle - Math.PI : angle + Math.PI;
+          if (Math.abs(altAngle) <= Math.PI * 0.5 + STREET_FLIP_HYSTERESIS_RAD && Math.abs(altAngle - a.lastAngle) < Math.abs(angle - a.lastAngle)) {
+            angle = altAngle;
+          }
+        }
 
         // Avoid repeating the same street name too close together on screen
         const sameList = placedByName.get(a.name);
@@ -300,6 +354,7 @@ export function createLabels(
         const halfH = (a.estW * absSin + STREET_EST_H_PX * absCos) * 0.5 + STREET_PAD_Y_PX;
         if (overlapsAny(placed, sx - halfW, sx + halfW, sy - halfH, sy + halfH)) continue;
 
+        a.lastAngle = angle;
         placed.push({ left: sx - halfW, right: sx + halfW, top: sy - halfH, bottom: sy + halfH });
         if (sameList) sameList.push([sx, sy]);
         else placedByName.set(a.name, [[sx, sy]]);
@@ -310,6 +365,12 @@ export function createLabels(
     // Reuse existing pool slots for anchors that stayed visible so DOM text & transitions stay calm
     const assigned = new Map<number, StreetCandidate>();
     for (const cand of chosen) assigned.set(cand.idx, cand);
+    for (const prevIdx of activeStreetAnchors) {
+      if (!assigned.has(prevIdx)) streetAnchors[prevIdx].lastAngle = NaN;
+    }
+    activeStreetAnchors.clear();
+    for (const cand of chosen) activeStreetAnchors.add(cand.idx);
+
     const freeSlots: StreetSlot[] = [];
     for (const slot of streetPool) {
       const cand = slot.anchorIdx >= 0 ? assigned.get(slot.anchorIdx) : undefined;
@@ -369,7 +430,15 @@ export function createLabels(
       const item = items.find((entry) => entry.place.id === id);
       if (item) item.el.classList.add('seen');
     },
-    remeasure() { isMeasured = false; dirty = true; },
+    remeasure() {
+      syncLabelTexts();
+      for (const item of items) {
+        item.width = 0;
+        item.height = 0;
+      }
+      isMeasured = false;
+      dirty = true;
+    },
     get visited() { return visited; },
     get anchors() { return items.filter((item) => !item.isWater).map((item) => [item.place.id, item.pos.y]); },
     update(width: number, height: number) {
@@ -400,13 +469,22 @@ export function createLabels(
       for (const item of ordered) {
         let show = enabled;
         let fade = 1;
+        let dist = 0;
+        let isActive = false;
         let screenX = 0;
         let screenY = 0;
         let onScreen = false;
 
+        if (show || item.shown) {
+          dist = camera.position.distanceTo(item.pos);
+          isActive = !item.isWater && item.place.id === activeId;
+          projected.copy(item.pos).project(camera);
+          onScreen = projected.z < 1 && projected.z > -1;
+          screenX = (projected.x * 0.5 + 0.5) * width;
+          screenY = (-projected.y * 0.5 + 0.5) * height;
+        }
+
         if (show) {
-          const dist = camera.position.distanceTo(item.pos);
-          const isActive = !item.isWater && item.place.id === activeId;
           const farLimit = TIER_MAX_DIST_M[item.place.t];
           const altCeiling = isActive ? 0 : TIER_MAX_ALT_M[item.place.t];
           const altitude = camera.position.y - item.groundY;
@@ -419,10 +497,6 @@ export function createLabels(
             item.isWater || !altCeiling ? 1 : (altCeiling - altitude) / (altCeiling * FADE_FRACTION),
           );
           if (fade < MIN_FADE_ALPHA) show = false;
-          projected.copy(item.pos).project(camera);
-          onScreen = projected.z < 1 && projected.z > -1;
-          screenX = (projected.x * 0.5 + 0.5) * width;
-          screenY = (-projected.y * 0.5 + 0.5) * height;
           if (show) show = onScreen && Math.abs(projected.x) < NDC_MARGIN && Math.abs(projected.y) < NDC_MARGIN;
         }
 
@@ -439,6 +513,14 @@ export function createLabels(
         if (onScreen && (show || item.shown)) {
           const transform = `translate3d(${screenX.toFixed(1)}px, ${screenY.toFixed(1)}px, 0)`;
           if (item.lastTransform !== transform) { item.lastTransform = transform; item.el.style.transform = transform; }
+          if (!item.isWater) {
+            const depthRank = Math.max(0, Z_MAX_DEPTH_STEPS - Math.round(dist / Z_DEPTH_BUCKET_M));
+            const zIndex = isActive ? Z_ACTIVE : (show ? Z_SHOWN_BASE : Z_FADE_BASE) + depthRank;
+            if (item.lastZIndex !== zIndex) {
+              item.lastZIndex = zIndex;
+              item.el.style.zIndex = String(zIndex);
+            }
+          }
         }
         if (show) {
           const fadeStr = Math.max(0, fade).toFixed(2);

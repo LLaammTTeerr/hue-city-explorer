@@ -153,13 +153,13 @@ export function createWaterShader() {
           planar *= 1.0 + smoothstep( 0.48, 1.15, lum ) * clamp( crest, -0.7, 1.0 ) * 0.65 * distAtten;
           refl = mix( sky, planar, uReflect );
         }
-        float tone = vnoise( p * 0.004 + 3.0 );
-        // subtle jade shallows near the banks, blending organically into the deeper emerald-teal channel
-        float bankNoise = ( vnoise( p * 0.012 + 4.1 ) - 0.5 ) * 55.0 + ( vnoise( p * 0.031 - 1.7 ) - 0.5 ) * 22.0;
+        float flowCoords = wf > 0.1 ? vnoise( vec2( fl.x * 0.0022, fl.y * 0.009 ) + 3.0 ) : vnoise( p * 0.0035 + 3.0 );
+        // subtle jade shallows near the banks, blending smoothly into the deeper emerald-teal channel without blotches
+        float bankNoise = ( vnoise( p * 0.010 + 4.1 ) - 0.5 ) * 28.0;
         float bankDist = abs( fl.y ) + bankNoise;
-        float shallowBand = wf * smoothstep( 110.0, 230.0, bankDist );
-        float bodyMix = clamp( ndv * ndv * 0.54 + tone * 0.30 + shallowBand * 0.22, 0.0, 1.0 );
-        vec3 shallowCol = mix( uShallow, uShallow * vec3( 0.97, 1.05, 1.02 ), shallowBand * ( 1.0 - 0.7 * uGlow ) );
+        float shallowBand = wf * smoothstep( 105.0, 235.0, bankDist );
+        float bodyMix = clamp( ndv * ndv * 0.42 + flowCoords * 0.09 + shallowBand * 0.36, 0.0, 1.0 );
+        vec3 shallowCol = mix( uShallow, uShallow * vec3( 0.97, 1.04, 1.02 ), shallowBand * ( 1.0 - 0.7 * uGlow ) );
         vec3 body = mix( uDeep, shallowCol, bodyMix );
         vec3 col = mix( body, refl, fres * mix( 0.72, 0.68, uRain ) ); // the river keeps some of its own jade under the sky it mirrors
 
@@ -180,9 +180,12 @@ export function createWaterShader() {
         col = mix( col, uFog, uRain * 0.16 );
 
         if ( uLook > 0.5 ) {
-          // drawn water: calm watercolor jade wash with soft mirrored sky/bridges and fine elongated pen-and-wash strokes
-          float washTone = vnoise( p * 0.009 + 1.7 ) * 0.65 + vnoise( p * 0.032 - 2.3 ) * 0.35;
-          vec3 washW = mix( shallowCol, uDeep, 0.22 + 0.35 * washTone * ( 1.0 - 0.55 * shallowBand ) ) * mix( 1.08, 0.96, uGlow );
+          // drawn water: smooth channel-graded jade wash without blotchy aerial stains
+          float washTone = wf > 0.1
+            ? vnoise( vec2( fl.x * 0.0025, fl.y * 0.010 ) + 1.7 )
+            : vnoise( p * 0.004 + 1.7 );
+          float deepCenter = ( 1.0 - shallowBand * 0.68 ) * ( 0.28 + 0.08 * washTone );
+          vec3 washW = mix( shallowCol, uDeep, deepCenter ) * mix( 1.06, 0.98, uGlow );
           float reflW = mix( 0.45, 0.6, uGlow ) * fres;
           vec3 drawn = mix( washW, refl, reflW );
           drawn = mix( drawn, foamCol, shoreFoam * mix( 0.36, 0.16, uGlow ) );

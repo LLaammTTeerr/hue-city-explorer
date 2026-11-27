@@ -7,8 +7,8 @@ import { lodAdd } from './lod.ts';
 import { inCitadel, inHills } from './districts.ts';
 import { SOLID_UV } from './foliage-atlas.ts';
 
-// Trees are built from leaf-cluster cards gathered into clumps on forked limbs, lit with rounded "puffball" normals
-// so each crown shades as one soft mass, cut out by an alpha texture.
+// Trees are built from solid sculpted icosahedron-lobe maquette crowns (addMaquetteLobe) on forked limbs,
+// smooth-shaded with analytical crown+lobe puffball normals (SOLID_UV, opaque FrontSide, zero alpha shimmer).
 // Seven kinds, after the trees in Huế: spreading, upright, flamboyant, willow, pine, palm, banyan.
 // Local units: ground at y ≈ −1.7, crown radius ≈ 1.
 
@@ -20,8 +20,8 @@ const WATER_RASTER_STEP_M = 6;
 const WATER_SEARCH_RADII_M = [10, 18, 26] as const;
 const FORECOURT_DEFAULT_RADIUS_M = 46;
 const FORECOURT_IDS = ['ngomon', 'thaihoa', 'kydai', 'phuvanlau', 'nghenhluong'];
-const TREE_LOD_DIST_M = 3600;
-const TREE_FAR_LOD_DIST_M = 850;
+const TREE_LOD_DIST_M = 6500;
+const TREE_FAR_LOD_DIST_M = 1300;
 const TREE_TYPES = ['spreading', 'upright', 'flamboyant', 'willow', 'pine', 'palm', 'banyan'] as const;
 
 const PART = { WOOD: 0, CORE: 1, LEAF: 2 } as const;
@@ -134,18 +134,20 @@ function addMaquetteLobe(
   }
 }
 
-// Lightweight 20-triangle solid puffball crown for distant/zoomed-out trees (> 1.7 km).
+const LOBE_ICO_FAR = new THREE.IcosahedronGeometry(1, 1); // 80 tris — rounded aerial crown preserving full canopy spread
+
+// Rounded puffball crown for distant/aerial trees (> 1.3 km), sized to match the full outer envelope of near multi-lobe crowns.
 function farCrownGeometry(center: number[], radii: number[], tint = [1, 1, 1]) {
   const soup = new TreeSoup();
-  const arr = LOBE_ICO_LO.attributes.position.array;
+  const arr = LOBE_ICO_FAR.attributes.position.array;
   for (let i = 0; i < arr.length; i += 9) {
-    const verts = [0, 1, 2].map((k) => [
-      center[0] + arr[i + k * 3] * radii[0],
-      center[1] + arr[i + k * 3 + 1] * radii[1],
-      center[2] + arr[i + k * 3 + 2] * radii[2],
-    ]);
+    const verts = [0, 1, 2].map((k) => {
+      const x = arr[i + k * 3], y = arr[i + k * 3 + 1], z = arr[i + k * 3 + 2];
+      const yf = y < 0 ? y * 0.72 : y;
+      return [center[0] + x * radii[0], center[1] + yf * radii[1], center[2] + z * radii[2]];
+    });
     const norms = [0, 1, 2].map((k) => norm3([arr[i + k * 3], arr[i + k * 3 + 1] + 0.45, arr[i + k * 3 + 2]]));
-    const lums = [0, 1, 2].map((k) => 0.56 + 0.44 * smooth01((arr[i + k * 3 + 1] + 0.75) / 1.6));
+    const lums = [0, 1, 2].map((k) => 0.58 + 0.42 * smooth01((arr[i + k * 3 + 1] + 0.75) / 1.6));
     soup.tri(verts, norms, [SOLID_UV, SOLID_UV, SOLID_UV], lums, tint, PART.CORE);
   }
   return soup.geometry();
@@ -404,13 +406,13 @@ export function treePlanter(data: any, group: THREE.Group, off: any = null, lift
     banyan: banyanGeometry(low),
   };
   const farGeos: Record<string, THREE.BufferGeometry> = {
-    spreading: farCrownGeometry([0, 0.18, 0], [1.05, 0.72, 1.05]),
-    upright: farCrownGeometry([0, 0.35, 0], [0.78, 0.98, 0.78]),
-    flamboyant: farCrownGeometry([0, 0.05, 0], [1.12, 0.56, 1.12], [0.64, 0.24, 0.09]),
-    willow: farCrownGeometry([0.32, 0.05, 0], [0.88, 0.88, 0.88]),
-    pine: farCrownGeometry([0.06, 0.5, 0], [0.82, 0.62, 0.82]),
-    palm: farCrownGeometry([0.02, 0.58, 0], [0.85, 0.38, 0.85]),
-    banyan: farCrownGeometry([0, -0.02, 0], [1.1, 0.52, 1.1]),
+    spreading: farCrownGeometry([0, 0.16, 0], [1.42, 0.80, 1.42]),
+    upright: farCrownGeometry([0, 0.35, 0], [1.06, 1.06, 1.06]),
+    flamboyant: farCrownGeometry([0, 0.06, 0], [1.52, 0.62, 1.52], [0.64, 0.24, 0.09]),
+    willow: farCrownGeometry([0.32, 0.06, 0], [1.22, 0.94, 1.22]),
+    pine: farCrownGeometry([0.06, 0.52, 0], [1.14, 0.68, 1.14]),
+    palm: farCrownGeometry([0.02, 0.58, 0], [1.12, 0.44, 1.12]),
+    banyan: farCrownGeometry([0, -0.02, 0], [1.56, 0.60, 1.56]),
   };
   const nearWater = buildWaterProximityLookup(data);
   const courts = data.courts || {};

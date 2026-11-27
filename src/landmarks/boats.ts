@@ -226,11 +226,18 @@ function vertexLightMaterial(boost: number) {
     fragmentShader: `
       varying vec3 vCol; uniform float uGlow, uBoost;
       void main() {
-        gl_FragColor = vec4( vCol * uBoost * uGlow, 1.0 );
+        float g = clamp( uGlow * 0.90, 0.0, 0.90 );
+        vec3 lit = vCol * min( uBoost, 1.25 ) * 0.72;
+        lit = lit / ( 1.0 + max( lit.r, max( lit.g, lit.b ) ) * 0.4 );
+        gl_FragColor = vec4( lit * g, g );
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`,
-    blending: THREE.AdditiveBlending,
+    blending: THREE.CustomBlending,
+    blendSrc: THREE.OneFactor,
+    blendDst: THREE.OneMinusSrcAlphaFactor,
+    blendSrcAlpha: THREE.ZeroFactor,
+    blendDstAlpha: THREE.OneFactor,
     depthWrite: false,
     transparent: true,
   });

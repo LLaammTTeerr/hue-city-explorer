@@ -12,7 +12,7 @@ import { createHeroLoader } from './geo/hero-gltf.ts';
 import { releaseAfterUpload, releasedCount, KEEP_GEOMETRY } from './geo/release.ts';
 import { hydrateHueData, decodeTileBin } from './geo/codec.ts';
 import { buildLandmarks } from './landmarks/build.ts';
-import { buildDeferredPlaces } from './landmarks/places/index.ts';
+import { buildDeferredPlaces, EAGER_DROP_KEYS, DEFERRED_DROP_KEYS } from './landmarks/places/index.ts';
 import { shared } from './geo/materials.ts';
 import { buildSky } from './env/sky.ts';
 import { buildWater } from './env/water.ts';
@@ -87,7 +87,7 @@ const KEYBOARD_ZOOM = { inFactor: 0.65, outFactor: 1.5 } as const;
 
 const SHADOW_EXTENT = { minM: 260, maxM: 2600, distRatio: 0.8 } as const;
 
-const HIGH_ALT_FOG = { startM: 1000, endM: 3500, maxReduction: 0.78 } as const;
+const HIGH_ALT_FOG = { startM: 450, endM: 2500, maxReduction: 0.90 } as const;
 const DOF_ALTITUDE = { startM: 85, endM: 380, maxAperture: 0.56 } as const;
 
 const ADAPTIVE_QUALITY = {
@@ -677,6 +677,7 @@ async function main() {
   const { camera, controls } = rig;
   camera.layers.enable(1); // layer 1: things kept out of the water reflection
   const post = quality.low ? null : createPost(renderer, scene, camera);
+  document.body.classList.toggle('no-post', !post);
   let usePost = !!post;
   const draw = () => (usePost && post ? post.render() : renderer.render(scene, camera));
 
@@ -687,9 +688,10 @@ async function main() {
   // ---------- labels, look & interactions ----------
   // anchor heights come with the index (`a`, scripts/build-label-tops.mjs)
   labels = createLabels(document.getElementById('labels'), index, camera, (id: string) => pick(id, true), data.streetLabels);
-  // Drop raw city arrays from JS heap once all builders and labels have consumed them (sites/gates wait for deferred places).
+  // Drop raw city arrays from JS heap once eager builders and labels have consumed them; keys read by LAZY_PLACE_IDS
+  // (roads, ponds, pondLv, wall, sites, gates, special) wait until buildDeferredPlaces resolves.
   if (!KEEP_GEOMETRY) {
-    for (const k of ['terrain', 'roads', 'medians', 'rails', 'bld', 'infill', 'trees', 'green', 'land', 'ponds', 'pondLv', 'wall', 'iwalls', 'riverLamps', 'moorings', 'streetLabels', 'bridges', 'precomputed']) {
+    for (const k of EAGER_DROP_KEYS) {
       delete data[k];
     }
   }
@@ -830,7 +832,8 @@ async function main() {
     if (post) {
       const morningMist = (1 - THREE.MathUtils.smoothstep(mood.state.time, 0, 0.85)) * 0.52;
       const winterMist = mood.state.winter * 0.42;
-      const mist = 0.38 + morningMist + winterMist + 0.45 * mood.state.rain + 0.1 * mood.cur.glow;
+      const altMistKeep = 1 - 0.76 * THREE.MathUtils.smoothstep(cameraAltitude, 450, 2200);
+      const mist = (0.36 + morningMist + winterMist + 0.45 * mood.state.rain + 0.06 * mood.cur.glow) * altMistKeep;
       post.setMood(mood.cur.glow, mood.state.rain, mood.cur.fog, mist, elapsedTime);
       // focus on what the camera is looking at; near the ground everything is sharp, illustrated look is sharp throughout
       const focusDist = camera.position.distanceTo(controls.target);
@@ -882,8 +885,15 @@ async function main() {
   const tiles = Promise.all([
     streamRemainingTiles({ data, world, leafMats, shadows, sun, syncLeafLook: () => setLook(look) }),
     buildDeferredPlaces(data, dynamic, replicas).then((meshes) => {
-      if (!KEEP_GEOMETRY) { delete data.sites; delete data.gates; }
+      if (!KEEP_GEOMETRY) {
+        for (const k of DEFERRED_DROP_KEYS) delete data[k];
+      }
       if (meshes.length) {
+        for (const obj of meshes) {
+          obj.traverse((child: any) => {
+            if (child.userData?.glow && !lanternGlows.includes(child)) lanternGlows.push(child);
+          });
+        }
         if (shadows.invalidate) shadows.invalidate();
         dispatchEvent(new CustomEvent('hue:scene-changed', { detail: { meshes } }));
       }

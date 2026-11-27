@@ -1,4 +1,5 @@
 import { STR, NOTES, QUICK } from './content.ts';
+import { localizedPlaceName } from './place-names-en.ts';
 import { createSearch } from './search.ts';
 import { isCoarse } from '../config.ts';
 
@@ -13,10 +14,11 @@ const HINT_LABELS_OFF_MS = 4200;
 const ZOOM_IN_FACTOR = 0.6;
 const ZOOM_OUT_FACTOR = 1.6;
 const TIME_OF_DAY_COUNT = 3;
+const SEASON_COUNT = 4;
 const TIME_NIGHT_THRESHOLD = 1.55;
 const BREAKPOINT_NARROW_PX = 720;
 const BREAKPOINT_MID_PX = 900;
-const THEME_COLOR_NIGHT = '#1d1727';
+const THEME_COLOR_NIGHT = '#231c2e';
 const THEME_COLOR_DAY = '#f5efe2';
 const HEADING_TENTHS_FACTOR = 1800;
 
@@ -44,7 +46,22 @@ function formatPlaceCoords(place: { x: number; z: number }, origin: { lat: numbe
   return `${lat.toFixed(4)}° N · ${lon.toFixed(4)}° E`;
 }
 
-function buildQuickStrip(placeById: Map<string, any>, handlers: any) {
+function formatTimeValueText(value: number, lang: string): string {
+  if (lang === 'en') {
+    if (value < 0.35) return 'Morning';
+    if (value < 0.85) return 'Midday';
+    if (value < 1.35) return 'Afternoon';
+    if (value < 1.75) return 'Dusk';
+    return 'Lights on';
+  }
+  if (value < 0.35) return 'Buổi sáng';
+  if (value < 0.85) return 'Ban trưa';
+  if (value < 1.35) return 'Buổi chiều';
+  if (value < 1.75) return 'Hoàng hôn';
+  return 'Lên đèn';
+}
+
+function buildQuickStrip(placeById: Map<string, any>, handlers: any, lang: string) {
   const listEl = byId('places');
   const buttons = new Map<string, HTMLButtonElement>();
   const overviewBtn = document.createElement('button');
@@ -59,7 +76,7 @@ function buildQuickStrip(placeById: Map<string, any>, handlers: any) {
     if (!place) continue;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = place.n;
+    btn.textContent = localizedPlaceName(place.id, place.n, lang);
     btn.addEventListener('click', () => handlers.pick(id, true));
     listEl.appendChild(btn);
     buttons.set(id, btn);
@@ -152,10 +169,14 @@ function renderCardDetails(
 function bindToolbarEvents(opts: {
   handlers: any;
   timeButtons: HTMLButtonElement[];
+  seasonButtons: HTMLButtonElement[];
+  langButtons: HTMLButtonElement[];
   getLang: () => string;
   getTimeIdx: () => number;
+  getSeasonIdx: () => number;
   getCurrentPlace: () => any;
   pickLang: (nextLang: string) => void;
+  pickSeason: (nextSeason: number) => void;
   hideCard: () => void;
   nextShot: () => void;
   applyText: () => void;
@@ -164,12 +185,23 @@ function bindToolbarEvents(opts: {
   pickCapturePreset: (preset: string) => void;
 }): void {
   const {
-    handlers, timeButtons, getLang, getTimeIdx, getCurrentPlace, pickLang, hideCard, nextShot, applyText,
-    toggleCaptureMenu, closeCaptureMenu, pickCapturePreset,
+    handlers, timeButtons, seasonButtons, langButtons, getLang, getTimeIdx, getSeasonIdx, getCurrentPlace,
+    pickLang, pickSeason, hideCard, nextShot, applyText, toggleCaptureMenu, closeCaptureMenu, pickCapturePreset,
   } = opts;
 
-  document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((btn) => {
+  langButtons.forEach((btn) => {
     btn.addEventListener('click', () => { if (btn.dataset.lang && btn.dataset.lang !== getLang()) pickLang(btn.dataset.lang); });
+  });
+  byId('seg-lang').addEventListener('keydown', (event) => {
+    const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const curIdx = Math.max(0, langButtons.findIndex((btn) => btn.dataset.lang === getLang()));
+    const nextIdx = (curIdx + delta + langButtons.length) % langButtons.length;
+    const nextBtn = langButtons[nextIdx];
+    if (nextBtn.dataset.lang && nextBtn.dataset.lang !== getLang()) pickLang(nextBtn.dataset.lang);
+    nextBtn.focus();
   });
   new ResizeObserver(([entry]) => {
     const heightPx = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
@@ -182,6 +214,7 @@ function bindToolbarEvents(opts: {
 
   byId('btn-labels').addEventListener('click', () => handlers.labels());
   byId('btn-look').addEventListener('click', () => handlers.look());
+  const captureWrap = byId('capture-wrap');
   const captureBtn = byId('btn-capture');
   const captureMenu = byId('capture-menu');
   const captureItems = [...captureMenu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]')];
@@ -195,7 +228,17 @@ function bindToolbarEvents(opts: {
       if (btn.dataset.preset) pickCapturePreset(btn.dataset.preset);
     });
   });
-  captureMenu.addEventListener('keydown', (event) => {
+  captureWrap.addEventListener('keydown', (event) => {
+    if (captureMenu.hidden) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleCaptureMenu(false);
+        const target = event.key === 'ArrowUp' ? captureItems[captureItems.length - 1] : captureItems[0];
+        target?.focus();
+      }
+      return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault();
       event.stopPropagation();
@@ -203,14 +246,33 @@ function bindToolbarEvents(opts: {
       captureBtn.focus();
       return;
     }
+    if (event.key === 'Home') {
+      event.preventDefault();
+      event.stopPropagation();
+      captureItems[0]?.focus();
+      return;
+    }
+    if (event.key === 'End') {
+      event.preventDefault();
+      event.stopPropagation();
+      captureItems[captureItems.length - 1]?.focus();
+      return;
+    }
     const delta = ({ ArrowUp: -1, ArrowDown: 1 } as Record<string, number>)[event.key];
     if (!delta) return;
     event.preventDefault();
+    event.stopPropagation();
     const cur = captureItems.indexOf(document.activeElement as HTMLButtonElement);
-    captureItems[(cur + delta + captureItems.length) % captureItems.length].focus();
+    const nextIdx = cur < 0
+      ? (delta > 0 ? 0 : captureItems.length - 1)
+      : (cur + delta + captureItems.length) % captureItems.length;
+    captureItems[nextIdx]?.focus();
+  });
+  captureWrap.addEventListener('focusout', (event) => {
+    if (!captureMenu.hidden && event.relatedTarget && !captureWrap.contains(event.relatedTarget as Node)) closeCaptureMenu();
   });
   document.addEventListener('pointerdown', (event) => {
-    if (!captureMenu.hidden && !byId('capture-wrap').contains(event.target as Node)) closeCaptureMenu();
+    if (!captureMenu.hidden && !captureWrap.contains(event.target as Node)) closeCaptureMenu();
   });
   const searchInput = byId<HTMLInputElement>('q');
   const syncSearchHasQ = () => byId('search').classList.toggle('has-q', searchInput.value.trim().length > 0);
@@ -231,10 +293,14 @@ function bindToolbarEvents(opts: {
   byId('btn-rain').addEventListener('click', () => handlers.rain());
 
   const timeSlider = byId<HTMLInputElement>('time-slider');
-  timeSlider.addEventListener('input', () => handlers.time(parseFloat(timeSlider.value)));
+  timeSlider.addEventListener('input', () => {
+    const val = parseFloat(timeSlider.value);
+    timeSlider.setAttribute('aria-valuetext', formatTimeValueText(val, getLang()));
+    handlers.time(val);
+  });
   timeButtons.forEach((btn) => btn.addEventListener('click', () => handlers.time(+btn.dataset.time!)));
-  document.querySelectorAll<HTMLButtonElement>('#seg-season button').forEach((btn) => {
-    btn.addEventListener('click', () => handlers.season?.(+btn.dataset.season!));
+  seasonButtons.forEach((btn) => {
+    btn.addEventListener('click', () => pickSeason(+btn.dataset.season!));
   });
   byId('seg-time').addEventListener('keydown', (event) => {
     const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
@@ -244,6 +310,15 @@ function bindToolbarEvents(opts: {
     const nextIdx = (Math.round(getTimeIdx()) + delta + TIME_OF_DAY_COUNT) % TIME_OF_DAY_COUNT;
     handlers.time(nextIdx);
     timeButtons[nextIdx].focus();
+  });
+  byId('seg-season').addEventListener('keydown', (event) => {
+    const delta = ({ ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 } as Record<string, number>)[event.key];
+    if (!delta) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const nextIdx = (getSeasonIdx() + delta + SEASON_COUNT) % SEASON_COUNT;
+    pickSeason(nextIdx);
+    seasonButtons[nextIdx].focus();
   });
 
   let isNarrow = innerWidth <= BREAKPOINT_NARROW_PX;
@@ -276,7 +351,7 @@ export function createUI(data: any, handlers: any) {
   const seen = new Set<string>();
   const origin = data.meta.origin;
 
-  const { listEl, buttons: listButtons } = buildQuickStrip(placeById, handlers);
+  const { listEl, buttons: listButtons } = buildQuickStrip(placeById, handlers, lang);
   const { hint, hideHint } = createHintController();
 
   let stories: Record<string, any> | null = null;
@@ -285,6 +360,7 @@ export function createUI(data: any, handlers: any) {
   let mediaGen = 0;
   let openerEl: Element | null = null;
   let timeIdx = 1;
+  let seasonIdx = 1;
   let capturePreset = 'screen';
 
   function refreshCaptureSizes() {
@@ -338,9 +414,7 @@ export function createUI(data: any, handlers: any) {
   function refreshQuickStrip() {
     listButtons.forEach((btn, id) => {
       const place = placeById.get(id);
-      const story = stories && stories[id];
-      const title = lang === 'en' && story && pickLocalized(story.title);
-      btn.textContent = (title && title[0]) || place.n;
+      if (place) btn.textContent = localizedPlaceName(place.id, place.n, lang);
     });
   }
 
@@ -349,6 +423,7 @@ export function createUI(data: any, handlers: any) {
     document.documentElement.lang = lang;
     document.title = `Huế · ${strings.tagline}`;
     document.querySelectorAll<HTMLElement>('[data-t]').forEach((el) => { el.textContent = strings[el.dataset.t!]; });
+    byId('compass-north').textContent = lang === 'en' ? 'N' : 'B';
     listEl.setAttribute('aria-label', strings.places);
     refreshQuickStrip();
     search.refresh(currentPlace);
@@ -356,9 +431,11 @@ export function createUI(data: any, handlers: any) {
     const rainTip = byId('btn-rain').getAttribute('aria-pressed') === 'true' ? strings.rainOn : strings.rain;
     byId('btn-rain').querySelector('span')!.textContent = rainTip;
     byId('seg-lang').setAttribute('aria-label', strings.langGroup);
-    document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach(
-      (btn) => btn.setAttribute('aria-checked', String(btn.dataset.lang === lang)),
-    );
+    document.querySelectorAll<HTMLButtonElement>('#seg-lang button').forEach((btn) => {
+      const active = btn.dataset.lang === lang;
+      btn.setAttribute('aria-checked', String(active));
+      btn.tabIndex = active ? 0 : -1;
+    });
     const tooltips: Record<string, string> = {
       'btn-capture': strings.capture, 'btn-share': strings.share, 'btn-labels': strings.labels, 'btn-look': strings.look,
       'btn-about': strings.about, 'btn-home': strings.home, 'btn-zin': strings.zoomIn,
@@ -380,7 +457,9 @@ export function createUI(data: any, handlers: any) {
       btn.title = label;
       btn.setAttribute('aria-label', label);
     });
-    byId('time-slider').setAttribute('aria-label', strings.timeOfDay);
+    const timeSliderEl = byId<HTMLInputElement>('time-slider');
+    timeSliderEl.setAttribute('aria-label', strings.timeOfDay);
+    timeSliderEl.setAttribute('aria-valuetext', formatTimeValueText(parseFloat(timeSliderEl.value), lang));
     for (const [id, tip] of Object.entries(tooltips)) {
       byId(id).title = tip;
       byId(id).setAttribute('aria-label', tip);
@@ -444,7 +523,7 @@ export function createUI(data: any, handlers: any) {
     if (tip) nextBtn.setAttribute('aria-label', tip);
     else nextBtn.removeAttribute('aria-label');
     imgEl.classList.toggle('more', images.length > 1);
-    byId('card-caption').textContent = (image.caption && image.caption[lang]) || '';
+    byId('card-caption').textContent = ((image.caption && image.caption[lang]) || '').trim();
 
     const creditEl = byId('card-credit');
     creditEl.textContent = '';
@@ -513,17 +592,34 @@ export function createUI(data: any, handlers: any) {
   }
 
   const timeButtons = [...document.querySelectorAll<HTMLButtonElement>('#seg-time button')];
+  const seasonButtons = [...document.querySelectorAll<HTMLButtonElement>('#seg-season button')];
+  const langButtons = [...document.querySelectorAll<HTMLButtonElement>('#seg-lang button')];
+  const syncSeasonRadios = (nextSeason: number) => {
+    seasonIdx = nextSeason;
+    seasonButtons.forEach((btn) => {
+      const active = +btn.dataset.season! === nextSeason;
+      btn.setAttribute('aria-checked', String(active));
+      btn.tabIndex = active ? 0 : -1;
+    });
+  };
   bindToolbarEvents({
     handlers,
     timeButtons,
+    seasonButtons,
+    langButtons,
     getLang: () => lang,
     getTimeIdx: () => timeIdx,
+    getSeasonIdx: () => seasonIdx,
     getCurrentPlace: () => currentPlace,
     pickLang: (nextLang) => {
       lang = nextLang;
       store.set('hue-lang', lang);
       applyText();
       handlers.lang(lang);
+    },
+    pickSeason: (nextSeason) => {
+      syncSeasonRadios(nextSeason);
+      handlers.season?.(nextSeason);
     },
     hideCard,
     nextShot: () => { if (currentPlace) { shotIndex++; fillMedia(stories && stories[currentPlace.id]); } },
@@ -569,8 +665,7 @@ export function createUI(data: any, handlers: any) {
       const isNight = time >= TIME_NIGHT_THRESHOLD;
       const snappedIdx = Math.max(0, Math.min(2, Math.round(time)));
       document.body.dataset.time = isNight ? '2' : String(snappedIdx);
-      const themeMeta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
-      if (themeMeta) themeMeta.content = isNight ? THEME_COLOR_NIGHT : THEME_COLOR_DAY;
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', isNight ? THEME_COLOR_NIGHT : THEME_COLOR_DAY);
       const rainTip = rain ? strings.rainOn : strings.rain;
       const rainBtn = byId('btn-rain');
       rainBtn.setAttribute('aria-pressed', String(!!rain));
@@ -580,18 +675,13 @@ export function createUI(data: any, handlers: any) {
       timeIdx = time;
       const slider = byId<HTMLInputElement>('time-slider');
       if (Math.abs(parseFloat(slider.value) - time) > 0.005) slider.value = String(time);
+      slider.setAttribute('aria-valuetext', formatTimeValueText(time, lang));
       timeButtons.forEach((btn) => {
         const active = +btn.dataset.time! === snappedIdx;
         btn.setAttribute('aria-checked', String(active));
         btn.tabIndex = active ? 0 : -1;
       });
-      if (typeof season === 'number') {
-        document.querySelectorAll<HTMLButtonElement>('#seg-season button').forEach((btn) => {
-          const active = +btn.dataset.season! === season;
-          btn.setAttribute('aria-checked', String(active));
-          btn.tabIndex = active ? 0 : -1;
-        });
-      }
+      if (typeof season === 'number') syncSeasonRadios(season);
     },
     setHeading(rad: number) {
       const deg = Math.round((-rad * HEADING_TENTHS_FACTOR) / Math.PI) / 10;
@@ -600,7 +690,11 @@ export function createUI(data: any, handlers: any) {
         byId('needle').style.transform = `rotate(${deg}deg)`;
       }
     },
-    loaderProgress(progress: number) { byId('loader-bar').style.width = `${Math.round(progress * 100)}%`; },
+    loaderProgress(progress: number) {
+      const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
+      byId('loader-bar').style.width = `${pct}%`;
+      byId('loader-progress').setAttribute('aria-valuenow', String(pct));
+    },
     loaderDone() {
       byId('loader').classList.add('done');
       document.body.classList.remove('loading');

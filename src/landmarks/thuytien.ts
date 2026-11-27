@@ -5,6 +5,10 @@ import { glowPoints } from '../geo/materials.ts';
 import {
   add3, scl3, lin3, hash, catmull, fin, sweep, buildDragonAquarium,
 } from './thuytien-dragon.ts';
+import {
+  centroid, aquariumOf, aquariumDisc, aquariumBridges,
+} from './thuytien-ways.ts';
+export { thuyTienBridgeRoads, thuytienWays } from './thuytien-ways.ts';
 
 // Hồ Thủy Tiên — the water park that opened in 2004 and was left to the pines.
 //
@@ -24,18 +28,6 @@ const RIVER_WALL = 0.3;
 const LAKE_LAMP_STEP = 26;
 
 const groundY = (x, z) => LAND_Y + rise(x, z);
-
-const centroid = (ring) => {
-  let sx = 0, sz = 0, twiceArea = 0;
-  for (let i = 0, count = ring.length; i < count; i++) {
-    const ptA = ring[i], ptB = ring[(i + 1) % count];
-    const cross = ptA[0] * ptB[1] - ptB[0] * ptA[1];
-    twiceArea += cross;
-    sx += (ptA[0] + ptB[0]) * cross;
-    sz += (ptA[1] + ptB[1]) * cross;
-  }
-  return twiceArea ? [sx / (3 * twiceArea), sz / (3 * twiceArea)] : ring[0];
-};
 const scaled = (ring, center, factor) => ring.map((pt) => [center[0] + (pt[0] - center[0]) * factor, center[1] + (pt[1] - center[1]) * factor]);
 
 const chaikin = (ring, passes = 2) => {
@@ -565,34 +557,6 @@ function riverBridge(S, pts, idx) {
     }
   }
   for (const sideOff of [-0.9, 0.9]) S.beam(archPt(span, sideOff, 0), archPt(span, sideOff, 0.95), 0.1, 0.1, shade(timber, 0.8));
-}
-
-const aquariumOf = (items) => items.find((item) => item.k === 'b' && /dragon|aquarium/i.test(item.n || ''));
-const aquariumDisc = (aq) => {
-  const center = centroid(aq.pts);
-  const radius = Math.max(9, aq.pts.reduce((sum, pt) => sum + Math.hypot(pt[0] - center[0], pt[1] - center[1]), 0) / aq.pts.length);
-  return { center, radius };
-};
-
-function aquariumBridges(roads, center, radius) {
-  const out = [];
-  for (const road of roads || []) {
-    if (!Array.isArray(road) || !road[1]) continue;
-    const flat = road[2];
-    if (!Array.isArray(flat) || flat.length < 4) continue;
-    const ends = [[flat[0] / 10, flat[1] / 10], [flat[flat.length - 2] / 10, flat[flat.length - 1] / 10]];
-    const dists = ends.map((end) => Math.hypot(end[0] - center[0], end[1] - center[1]));
-    if (Math.min(dists[0], dists[1]) < radius + 14) out.push({ flat, ends, dists });
-  }
-  return out;
-}
-
-export function thuyTienBridgeRoads(data) {
-  const site = data && data.sites && data.sites.thuytien;
-  const aq = site && aquariumOf((site.items || []).map((item) => ({ ...item, pts: unflat(item.ring) })));
-  if (!aq) return new Set();
-  const { center, radius } = aquariumDisc(aq);
-  return new Set(aquariumBridges(data.roads, center, radius).map((bridge) => bridge.flat));
 }
 
 function walkRing(ring, step, fn) {

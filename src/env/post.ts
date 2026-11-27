@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
 import { Pass, FullScreenQuad } from 'three/addons/postprocessing/Pass.js';
+import { shared } from '../geo/materials.ts';
 
 const VERT = /* glsl */ `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4( position.xy, 0.0, 1.0 ); }`;
 
@@ -20,18 +21,18 @@ const POST_CFG = {
   dofSkipCocPx: 0.7,
   penMinWidthPx: 1.3,
   penHeightDivisor: 620,
-  bloomInitialStrength: 0.32,
-  bloomRadius: 0.55,
-  bloomThreshold: 1.0,
-  bloomMinEnabledStrength: 0.08,
-  vignetteBase: 0.15,
-  vignetteNightBoost: 0.15,
+  bloomInitialStrength: 0.16,
+  bloomRadius: 0.34,
+  bloomThreshold: 1.08,
+  bloomMinEnabledStrength: 0.06,
+  vignetteBase: 0.13,
+  vignetteNightBoost: 0.04,
   aoInkReduction: 0.3,
   aoWeatherReduction: 0.35,
-  aoGlowWeight: 0.6,
-  bloomBaseStrength: 0.3,
-  bloomNightBoost: 0.3,
-  bloomInkReduction: 0.55,
+  aoGlowWeight: 0.65,
+  bloomBaseStrength: 0.15,
+  bloomNightBoost: 0.07,
+  bloomInkReduction: 0.50,
 } as const;
 
 // Ambient occlusion from the depth buffer alone (normals are rebuilt from depth, which suits
@@ -178,21 +179,22 @@ class OcclusionPass extends Pass {
           // grade: sunlit architectural maquette contrast in realistic look, warm sunlit faces against cool slate-indigo shade
           float l = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
           col = mix( vec3( l ), col, mix( 1.16, 1.05, uInk ) );
-          // apply the gentle S-curve only inside [0, 1] so HDR glints (> 1) never invert channels
+          // apply the gentle S-curve only inside [0, 1] (eased back at night so dark wards are never crushed)
           vec3 base01 = clamp( col, 0.0, 1.0 );
           vec3 curved = base01 * base01 * ( 3.0 - 2.0 * base01 );
-          col = col + ( curved - base01 ) * mix( 0.32, 0.22, uInk );
-          col *= mix( vec3( 0.92, 0.96, 1.06 ), vec3( 1.08, 1.02, 0.91 ), smoothstep( 0.08, 0.72, l ) );
+          col = col + ( curved - base01 ) * mix( 0.30, 0.20, uInk ) * ( 1.0 - 0.58 * uNight );
+          col *= mix( vec3( 0.95, 0.97, 1.04 ), vec3( 1.06, 1.02, 0.93 ), smoothstep( 0.08, 0.72, l ) * ( 1.0 - 0.5 * uNight ) + 0.25 * uNight );
           vec2 q = vUv - 0.5;
           if ( uInk > 0.01 ) {
-            // The illustrated look (Pocket City watercolor & sepia-ink): soft pigment washes, warm cream paper tooth, gentle sepia outlines.
-            vec3 paper = mix( vec3( 0.94, 0.90, 0.80 ), vec3( 0.055, 0.052, 0.095 ), uNight );
+            // The illustrated look (Pocket City watercolor & sepia-ink): soft pigment washes up close, preserving crisp aerial contrast from high above.
+            float aerialKeep = 1.0 - smoothstep( 650.0, 2100.0, inkDist );
+            vec3 paper = mix( vec3( 0.94, 0.90, 0.80 ), vec3( 0.075, 0.072, 0.125 ), uNight );
             float wl = dot( col, vec3( 0.2126, 0.7152, 0.0722 ) );
-            // soft painterly tonal step (watercolor pooling) without harsh posterization
-            float qLum = floor( wl * 7.0 + 0.5 ) / 7.0;
-            vec3 wash = col * mix( 1.0, ( qLum + 0.06 ) / max( wl + 0.06, 0.06 ), 0.24 );
-            wash = mix( vec3( wl ), wash, 1.14 );
-            wash = mix( wash, paper, mix( 0.09, 0.05, uNight ) );
+            // soft painterly tonal step up close; disabled at aerial distances so rivers and roofs never band
+            float qLum = floor( wl * 9.0 + 0.5 ) / 9.0;
+            vec3 wash = col * mix( 1.0, ( qLum + 0.08 ) / max( wl + 0.08, 0.08 ), 0.14 * aerialKeep * ( 1.0 - 0.6 * uNight ) );
+            wash = mix( vec3( wl ), wash, 1.15 );
+            wash = mix( wash, paper, mix( 0.08, 0.03, uNight ) * aerialKeep );
             float tooth = mNoise( gl_FragCoord.xy * 0.38 ) * 0.58 + mNoise( gl_FragCoord.xy * 0.095 + 7.0 ) * 0.42;
             wash *= 0.955 + 0.085 * tooth;
             float d0 = texture2D( tDepth, vUv ).x;
@@ -416,7 +418,14 @@ export function createPost(renderer: THREE.WebGLRenderer, scene: THREE.Scene, ca
     ready,
     occlusion,
     bloom,
-    render: () => composer.render(),
+    render() {
+      shared.uPost.value = 1;
+      try {
+        composer.render();
+      } finally {
+        shared.uPost.value = 0;
+      }
+    },
     resize() {
       renderer.getDrawingBufferSize(size);
       const width = Math.max(POST_CFG.minBufferSize, size.x);
