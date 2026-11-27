@@ -8,6 +8,14 @@ Each release of the Huế explorer, newest first. Version numbers follow [Semant
 
 The version shown in the app's About dialog (ⓘ) is the one below, with the commit it was built from.
 
+## 1.3.0 (2026-11-27)
+
+### Added
+- **render,ui,content**: Balance night lighting, aerial accuracy, i18n, UX & bundle (#133)
+
+### Changed
+- **fetch,render**: HUB2 binary codec, parallel data fetch, and SMAA/MSAA anti-aliasing (#131)
+
 ## 1.2.0 (2026-11-26)
 
 ### Added
